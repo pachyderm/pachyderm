@@ -1,12 +1,13 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {PpsContext, SameMetadata} from '../../types';
+import {PpsContext, PpsMetadata, MountSettings} from '../../types';
 
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
+  settings: MountSettings;
   setShowPipeline: (shouldShow: boolean) => void;
-  saveNotebookMetadata: (metadata: SameMetadata) => void;
+  saveNotebookMetadata: (metadata: PpsMetadata) => void;
 };
 
 const placeholderInputSpec = `pfs:
@@ -18,13 +19,14 @@ const placeholderRequirements = './requirements.txt';
 
 const Pipeline: React.FC<PipelineProps> = ({
   ppsContext,
+  settings,
   setShowPipeline,
   saveNotebookMetadata,
 }) => {
   const {
     loading,
-    pipelineName,
-    setPipelineName,
+    pipeline,
+    setPipeline,
     imageName,
     setImageName,
     inputSpec,
@@ -33,9 +35,10 @@ const Pipeline: React.FC<PipelineProps> = ({
     setRequirements,
     callCreatePipeline,
     callSavePipeline,
+    currentNotebook,
     errorMessage,
     responseMessage,
-  } = usePipeline(ppsContext, saveNotebookMetadata);
+  } = usePipeline(ppsContext, settings, saveNotebookMetadata);
 
   return (
     <div className="pachyderm-mount-pipeline-base">
@@ -76,6 +79,21 @@ const Pipeline: React.FC<PipelineProps> = ({
         </button>
       </div>
 
+      <div className="pachyderm-pipeline-current-notebook-wrapper">
+        <label
+          className="pachyderm-pipeline-current-notebook-label"
+          htmlFor="currentNotebook"
+        >
+          Current Notebook:{'  '}
+        </label>
+        <span
+          className="pachyderm-pipeline-current-notebook-value"
+          data-testid="Pipeline__currentNotebookValue"
+        >
+          {currentNotebook}
+        </span>
+      </div>
+
       <span
         className="pachyderm-pipeline-error"
         data-testid="Pipeline__errorMessage"
@@ -101,9 +119,13 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input"
           data-testid="Pipeline__inputPipelineName"
           name="pipelineName"
-          value={pipelineName}
+          value={
+            pipeline.project?.name
+              ? `${pipeline.project.name}/${pipeline.name}`
+              : pipeline.name
+          }
           onChange={(e: any) => {
-            setPipelineName(e.target.value);
+            setPipeline(e.target.value);
           }}
           disabled={loading}
         ></input>
@@ -171,7 +193,9 @@ const Pipeline: React.FC<PipelineProps> = ({
           style={{backgroundColor: '#80808080'}}
           data-testid="Pipeline__specPreview"
           name="specPreview"
-          value={`name: ${pipelineName}
+          value={`pipeline:
+  name: ${pipeline.name}
+  project: ${pipeline.project?.name ?? 'default'}
 transform:
   image: ${imageName}
 input:

@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	workerStats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 )
@@ -335,6 +336,9 @@ func (d *Datum) uploadOutput() error {
 		start := time.Now()
 		d.meta.Stats.UploadBytes = 0
 		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), common.OutputPrefix), func(hdr *tar.Header) error {
+			if err := server.ValidateFilename(hdr.Name); err != nil {
+				return errors.Wrap(err, "cannot upload file produced by the user code because its name cannot be represented in PFS")
+			}
 			d.meta.Stats.UploadBytes += hdr.Size
 			return nil
 		}); err != nil {

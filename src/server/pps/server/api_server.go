@@ -212,6 +212,8 @@ func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) erro
 				return errors.Errorf("input cannot specify both 's3' and " +
 					"'empty_files', as 's3' requires input data to be accessed via " +
 					"Pachyderm's S3 gateway rather than the file system")
+			case input.Pfs.Commit != "":
+				return errors.Errorf("input cannot come from a commit; use a branch with head pointing to the commit")
 			}
 		}
 		if input.Cross != nil {
@@ -2641,7 +2643,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipeline.Name = pipelineName
 	commit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q", pipeline)
+		return nil, errors.Wrapf(err, "pipeline was not inspected: couldn't find up to date spec for pipeline %q", pipeline)
 	}
 
 	pipelineInfo := &pps.PipelineInfo{}

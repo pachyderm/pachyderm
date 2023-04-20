@@ -252,7 +252,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 			}
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repo)
 		}
-		repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+		repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	}
 	return repoInfo, nil
 }
@@ -312,7 +312,7 @@ func (d *driver) processListRepoInfo(
 			if err != nil {
 				return errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
 			}
-			repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
+			repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
 		}
 		size, err := repoSize(repoInfo.Repo)
 		if err != nil {
@@ -665,6 +665,14 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return pi, nil
+		}
+		return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
+	}
+	pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	return pi, nil
 }
 
@@ -766,10 +774,23 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
+	authIsActive := true
 	projectInfo := &pfs.ProjectInfo{}
-	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+	return errors.Wrap(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+		if authIsActive {
+			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
+			if err != nil {
+				if errors.Is(err, auth.ErrNotActivated) {
+					// Avoid unnecessary subsequent Auth API calls.
+					authIsActive = false
+					return cb(projectInfo)
+				}
+				return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
+			}
+			projectInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+		}
 		return cb(projectInfo)
-	}))
+	}), "could not list projects")
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
