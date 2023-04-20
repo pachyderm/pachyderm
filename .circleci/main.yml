@@ -962,8 +962,6 @@ jobs:
 
   jupyter-extension-docker-push-tag:
     executor: python
-    docker:
-      - image: circleci/buildpack-deps:stretch
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
