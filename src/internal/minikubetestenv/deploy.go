@@ -19,6 +19,7 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
@@ -27,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -374,7 +376,9 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 			return errors.Wrap(err, "error on pod list")
 		}
 		var unacceptablePachds []string
+		log.Info(ctx, "trying to find ready pachds from list", zap.Any("pachds", pachds.Items))
 		for _, p := range pachds.Items {
+			log.Info(ctx, "checking pachd pod", zap.Any("pachd pod", p))
 			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
 				return nil
 			}
@@ -382,6 +386,7 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		}
 		return errors.Errorf("deployment in progress: pachds: %v", strings.Join(unacceptablePachds, "; "))
 	})
+	log.Info(ctx, "we found our active pachd")
 }
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
