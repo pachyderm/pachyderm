@@ -95,7 +95,7 @@ const CommitsList: React.FC<CommitsListProps> = ({
               >
                 <Table.DataCell>{`@${commit.repoName}`}</Table.DataCell>
                 <Table.DataCell>
-                  {commit?.finished ? getStandardDate(commit?.finished) : '-'}
+                  {getStandardDate(commit?.finished)}
                 </Table.DataCell>
                 <Table.DataCell>{commit?.id.slice(0, 6)}...</Table.DataCell>
                 <Table.DataCell>{commit?.branch?.name || '-'}</Table.DataCell>

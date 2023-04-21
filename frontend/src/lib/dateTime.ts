@@ -53,5 +53,6 @@ export const formatDurationFromSecondsToNow = (pastTimeSeconds: number) => {
 
 // Mar 20, 2023; 13:49
 export const getStandardDate = (unixSeconds: number) => {
+  if (unixSeconds === -1) return '-';
   return format(fromUnixTime(unixSeconds), STANDARD_DATE_FORMAT);
 };

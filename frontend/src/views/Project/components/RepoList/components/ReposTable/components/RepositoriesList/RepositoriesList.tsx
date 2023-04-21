@@ -76,6 +76,23 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
       />
     );
   }
+  const getLastCommitTimestamp = (
+    repo: ReposWithCommitQuery['repos'][number],
+  ) => {
+    if (!repo || !repo.lastCommit) return 'N/A';
+
+    const lastCommitDate =
+      repo?.lastCommit?.finished && repo?.lastCommit?.finished > 0
+        ? getStandardDate(repo?.lastCommit?.finished)
+        : null;
+    const lastCommitId = `${repo.lastCommit.id.slice(0, 6)}...`;
+
+    let formatString = '';
+    if (lastCommitDate) formatString += `${lastCommitDate}; `;
+    formatString += lastCommitId;
+
+    return formatString;
+  };
 
   return (
     <TableViewWrapper>
@@ -109,16 +126,11 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
               <Table.DataCell>{repo?.name}</Table.DataCell>
               <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>
               <Table.DataCell>
-                {repo?.createdAt ? getStandardDate(repo?.createdAt) : '-'}
-              </Table.DataCell>
-              <Table.DataCell>
-                {repo?.lastCommit
-                  ? repo?.lastCommit?.finished &&
-                    `${getStandardDate(
-                      repo?.lastCommit?.finished,
-                    )}; ${repo.lastCommit.id.slice(0, 6)}...`
+                {repo?.createdAt && repo?.createdAt > 0
+                  ? getStandardDate(repo?.createdAt)
                   : '-'}
               </Table.DataCell>
+              <Table.DataCell>{getLastCommitTimestamp(repo)}</Table.DataCell>
               <Table.DataCell>{repo?.description}</Table.DataCell>
             </Table.Row>
           ))}
