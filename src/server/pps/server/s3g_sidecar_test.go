@@ -860,11 +860,12 @@ func TestDontDownloadData(t *testing.T) {
 		Transform: &pps.Transform{
 			Cmd: []string{"bash", "-x"},
 			Stdin: []string{
-				"if find /pfs/.scratch -type f | xargs grep --with-filename \"This is a test\"; then",
-				"  exit 1", // The data shouldn't be downloaded; this means it was
-				"else",
-				"  exit 0", // No data == success
-				"fi",
+				`if find -L /pfs -type f | xargs grep --with-filename "This is a test"; then`,
+				`  exit 1`, // The data shouldn't be downloaded; this means it was
+				`fi`,
+				`if ls /pfs/input_repo; then`,
+				`  exit 1`, // The input dir shouldn't be linked either; this means it was
+				`fi`,       // success
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
