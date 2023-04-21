@@ -840,9 +840,10 @@ func TestS3SkippedDatums(t *testing.T) {
 
 // TestDontDownloadData tests that when a pipeline sets `S3: true` on an input,
 // the worker binary doesn't download any datums from that input to the worker.
-// This test limits the size of the worker pod's disk to a smaller size than the
-// input data exposed via a `S3: true` input. When the worker binary attempts to
-// download all 2GB of input, the test times out.
+// Previously, we downloaded the data but didn't link it (a bug), so this test
+// both scans `/pfs` (`-L` to follow symlinks) and confirms no data appears
+// either in the usual `/pfs/input_repo` or in `/pfs/.scratch`. It also checks
+// explicitly that no dead symlink is created at `/pfs/input_repo`.
 func TestDontDownloadData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
