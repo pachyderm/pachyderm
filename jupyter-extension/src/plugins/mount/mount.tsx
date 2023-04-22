@@ -139,7 +139,9 @@ export class MountPlugin implements IMountPlugin {
         {(_, mounted) => (
           <div className="pachyderm-mount-base">
             <div className="pachyderm-mount-config-container">
-              <div className="pachyderm-mount-base-title pachyderm-mount-base-title-button-font">Explore</div>
+              <div className="pachyderm-mount-base-title pachyderm-mount-base-title-button-font">
+                Explore
+              </div>
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__mode"
@@ -155,9 +157,7 @@ export class MountPlugin implements IMountPlugin {
                 onClick={() => this.setShowPipeline(true)}
               >
                 Publish{' '}
-                <sup className="pachyderm-button-alpha-notice">
-                  Alpha
-                </sup>
+                <sup className="pachyderm-button-alpha-notice">Alpha</sup>
               </button>
               <button
                 className="pachyderm-button-link"
