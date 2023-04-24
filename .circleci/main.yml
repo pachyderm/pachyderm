@@ -82,13 +82,19 @@ jobs:
           command: |-
             GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
+            --raw-command
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
-            --packages="./..." \
+            --debug
             -- \
             -tags=unit_test \
             -count=1 \
-            -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+      - run-core-jobs:
+        name: format code coverage 
+        command: |-
+          find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+          go tool covdata textfmt -i="$TEST_RESULTS" -o coverage.txt
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
