@@ -116,8 +116,8 @@ message Commit {
   option (gogoproto.goproto_stringer) = false;
   Repo repo = 3;
   string id = 2 [(gogoproto.customname) = "ID"];
-  // only used by the client 
-  Branch branch = 1;  
+  // only used by the client
+  Branch branch = 1;
 }
 
 // CommitInfo is the main data structure representing a commit in etcd
@@ -176,7 +176,8 @@ message Project {
 message ProjectInfo {
   Project project = 1;
   string description = 2;
-  AuthInfo auth_info = 3; 
+  AuthInfo auth_info = 3;
+  google.protobuf.Timestamp created_at = 4;
 }
 
 // PFS API

@@ -30,9 +30,9 @@ const (
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// ProjectHeader is the header for the projects.
-	ProjectHeader = "ACTIVE\tPROJECT\tDESCRIPTION\n"
+	ProjectHeader = "ACTIVE\tPROJECT\tCREATED\tDESCRIPTION\n"
 	// ProjectAuthHeader is the header for the projects with auth info attached.
-	ProjectAuthHeader = "ACTIVE\tPROJECT\tACCESS_LEVEL\tDESCRIPTION\n"
+	ProjectAuthHeader = "ACTIVE\tPROJECT\tACCESS_LEVEL\tCREATED\tDESCRIPTION\n"
 	// FileHeader is the header for files.
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
@@ -149,6 +149,12 @@ func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo, currentProject 
 	if projectInfo.AuthInfo != nil {
 		line = append(line, fmt.Sprintf("%v", projectInfo.AuthInfo.Roles))
 	}
+	// CREATED
+	if c := projectInfo.CreatedAt; c == nil {
+		line = append(line, "-")
+	} else {
+		line = append(line, pretty.Ago(c))
+	}
 	// DESCRIPTION
 	if projectInfo.Description != "" {
 		line = append(line, projectInfo.Description)
@@ -175,10 +181,17 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 // PrintDetailedProjectInfo pretty-prints detailed project info.
 func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
 	template, err := template.New("ProjectInfo").Funcs(funcMap).Parse(
-		`Name: {{.Project.Name}}{{if .Description}}
-Description: {{ .Description}} {{end}}{{if .AuthInfo}}
+		`Name: {{ .Project.Name }}
+{{- if .Description }}
+Description: {{ .Description}}
+{{- end -}}
+{{- if .CreatedAt }}
+Created at: {{ .CreatedAt }}
+{{- end -}}
+{{- if .AuthInfo }}
 Roles: {{.AuthInfo.Roles | commafy}}
-Permissions: {{.AuthInfo.Permissions | commafy}}{{end}}
+Permissions: {{.AuthInfo.Permissions | commafy}}
+{{- end -}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)

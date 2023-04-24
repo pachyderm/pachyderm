@@ -240,6 +240,7 @@ func (x *ProjectInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("project", x.Project)
 	enc.AddString("description", x.Description)
 	enc.AddObject("auth_info", x.AuthInfo)
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	return nil
 }
 
