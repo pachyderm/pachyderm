@@ -59,6 +59,9 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 		}
 		cs = append(cs, ParseCommit(commit))
 	}
+	if err = rows.Err(); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
 	return cs, nil
 }
 
@@ -95,6 +98,9 @@ func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 		}
 		cs = append(cs, ParseCommit(commit))
 	}
+	if err = rows.Err(); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
 	return cs, nil
 }
 
@@ -121,6 +127,9 @@ func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (_ int, retErr error) 
 		if err := rows.Scan(&id); err != nil {
 			return 0, errors.EnsureStack(err)
 		}
+	}
+	if err = rows.Err(); err != nil {
+		return 0, errors.EnsureStack(err)
 	}
 	return id, nil
 }
