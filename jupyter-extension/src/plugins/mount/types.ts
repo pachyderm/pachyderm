@@ -114,6 +114,9 @@ export type PpsMetadata = {
   config: PpsConfig;
 };
 
+// If this is updated, make sure to also update the corresponding `useEffect`
+// call in ./components/Pipeline/hooks/usePipeline.tsx that writes this type to
+// the notebook metadata.
 export type PpsConfig = {
   pipeline: Pipeline;
   image: string;

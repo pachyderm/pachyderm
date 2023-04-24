@@ -182,7 +182,7 @@ ${inputSpec
           className="pachyderm-button"
           onClick={callCreatePipeline}
         >
-          Publish Pipeline
+          Run
         </button>
       </div>
       <span

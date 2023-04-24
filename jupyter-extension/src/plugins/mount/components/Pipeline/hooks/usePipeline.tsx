@@ -150,21 +150,3 @@ splitAtFirstSlash splits a string into two components if it contains a backslash
 export const splitAtFirstSlash = (text: string): string[] => {
   return text.split(/\/(.*)/s, 2);
 };
-
-/*
-parseInputSpec attempts to convert the entry within the InputSpec text area
-  into a JSON serializable format. Throws an error if not possible
- */
-const parseInputSpec = (spec: string): ReadonlyJSONObject => {
-  let input;
-  try {
-    input = YAML.parse(spec);
-  } catch (e) {
-    if (e instanceof YAML.YAMLParseError) {
-      input = JSON.parse(spec);
-    } else {
-      throw e;
-    }
-  }
-  return input as ReadonlyJSONObject;
-};
