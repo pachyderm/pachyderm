@@ -87,6 +87,7 @@ jobs:
             --rerun-fails \
             --debug
             -- \
+            go test ./... -json \
             -tags=unit_test \
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
