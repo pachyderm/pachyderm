@@ -16,7 +16,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
         class="header"
       >
         <div
-          class="base chevron black small"
+          class="base chevron black black-hover small"
         >
           <svg-mock />
         </div>
@@ -59,7 +59,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               class="header"
             >
               <div
-                class="base chevron black small"
+                class="base chevron black black-hover small"
               >
                 <svg-mock />
               </div>

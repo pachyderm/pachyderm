@@ -29,7 +29,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                 class="children"
               >
                 <div
-                  class="base plum"
+                  class="base plum plum-hover"
                 >
                   <svg-mock />
                 </div>
@@ -105,7 +105,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="base chevron black small"
+              class="base chevron black black-hover small"
             >
               <svg-mock />
             </div>
@@ -147,7 +147,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="base chevron black small"
+                    class="base chevron black black-hover small"
                   >
                     <svg-mock />
                   </div>
@@ -195,7 +195,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="base chevron black small"
+                    class="base chevron black black-hover small"
                   >
                     <svg-mock />
                   </div>
@@ -250,7 +250,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="base chevron black small"
+              class="base chevron black black-hover small"
             >
               <svg-mock />
             </div>
@@ -298,7 +298,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="base chevron black small"
+              class="base chevron black black-hover small"
             >
               <svg-mock />
             </div>
@@ -326,7 +326,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="base chevron black small"
+                    class="base chevron black black-hover small"
                   >
                     <svg-mock />
                   </div>
@@ -445,7 +445,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="base chevron black small"
+              class="base chevron black black-hover small"
             >
               <svg-mock />
             </div>
@@ -473,7 +473,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="base chevron black small"
+                    class="base chevron black black-hover small"
                   >
                     <svg-mock />
                   </div>

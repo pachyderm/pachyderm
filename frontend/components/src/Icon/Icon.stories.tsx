@@ -9,34 +9,34 @@ export default {title: 'Icon'};
 export const Default = () => {
   return (
     <>
-      <Icon color="black">
+      <Icon color="black" hoverColor="red">
         <InfoSVG />
       </Icon>
-      <Icon color="white">
+      <Icon color="white" hoverColor="black">
         <InfoSVG />
       </Icon>
-      <Icon color="plum">
+      <Icon color="plum" hoverColor="grey">
         <InfoSVG />
       </Icon>
-      <Icon color="grey">
+      <Icon color="grey" hoverColor="black">
         <InfoSVG />
       </Icon>
-      <Icon color="green">
+      <Icon color="green" hoverColor="black">
         <InfoSVG />
       </Icon>
-      <Icon color="blue">
+      <Icon color="blue" hoverColor="black">
         <InfoSVG />
       </Icon>
-      <Icon color="red">
+      <Icon color="red" hoverColor="black">
         <InfoSVG />
       </Icon>
-      <Icon color="yellow">
+      <Icon color="yellow" hoverColor="black">
         <InfoSVG />
       </Icon>
-      <Icon color="highlightGreen">
+      <Icon color="highlightGreen" hoverColor="black">
         <InfoSVG />
       </Icon>
-      <Icon color="highlightOrange">
+      <Icon color="highlightOrange" hoverColor="black">
         <InfoSVG />
       </Icon>
       <Icon disabled>
