@@ -10,7 +10,8 @@ type PipelineProps = {
   saveNotebookMetadata: (metadata: PpsMetadata) => void;
 };
 
-const placeholderInputSpec = `pfs:
+const placeholderInputSpec = `# example:
+pfs:
   repo: images
   branch: dev
   glob: /*
@@ -182,7 +183,7 @@ ${inputSpec
           className="pachyderm-button"
           onClick={callCreatePipeline}
         >
-          Run
+          Publish Pipeline
         </button>
         &nbsp;
         <button
