@@ -94,7 +94,7 @@ jobs:
       - run:
           name: Format code coverage
           command: |-
-            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
             go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
@@ -200,7 +200,7 @@ jobs:
               --raw-command \
               --rerun-fails \
               --format testname \
-              --debug
+              --debug \
               -- \
               go test "${package}" -json \
               -run ${test_regex} \
@@ -214,7 +214,7 @@ jobs:
       - run:
           name: Format code coverage
           command: |-
-            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
             go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
@@ -310,7 +310,7 @@ jobs:
       - run:
           name: Format code coverage
           command: |-
-            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
             go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - run:
           name: Dump debugging info in case of failure
@@ -510,7 +510,7 @@ jobs:
       - run:
           name: Format code coverage
           command: |-
-            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
             go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_artifacts:
           path: /tmp/test-results
@@ -600,7 +600,7 @@ jobs:
       - run:
           name: Format code coverage
           command: |-
-            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
             go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_test_results:
           path: /tmp/test-results
