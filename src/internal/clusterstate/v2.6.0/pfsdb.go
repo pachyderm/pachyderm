@@ -74,56 +74,55 @@ func convertCommitInfoToV2_6_0(ci *v2_5_0.CommitInfo) *pfs.CommitInfo {
 }
 
 func validateExistingDAGs(ctx context.Context, tx *pachsql.Tx) error {
-	bis, err := listCollectionProtos(ctx, tx, "branches", &pfs.BranchInfo{})
+	cis, err := listCollectionProtos(ctx, tx, "commits", &v2_5_0.CommitInfo{})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "list commits for DAG validation")
 	}
-	biMap := make(map[string]*pfs.BranchInfo) // for quick access
-	for _, bi := range bis {
-		biMap[branchKey(bi.Branch)] = bi
+	return validateExistingDAGsHelper(cis)
+}
+
+func validateExistingDAGsHelper(cis []*v2_5_0.CommitInfo) error {
+	// group duplicate commits by branchless key
+	duplicates := make(map[string]map[string]*v2_5_0.CommitInfo) // branchless commit key -> { old commit key ->  commit info }
+	seen := make(map[string]*v2_5_0.CommitInfo)
+	for _, ci := range cis {
+		key := commitBranchlessKey(ci.Commit)
+		if seenCI, ok := seen[key]; ok {
+			dups := duplicates[key]
+			if len(dups) == 0 {
+				dups = make(map[string]*v2_5_0.CommitInfo)
+				dups[oldCommitKey(seenCI.Commit)] = seenCI
+				duplicates[key] = dups
+			}
+			dups[oldCommitKey(ci.Commit)] = ci
+		} else {
+			seen[key] = ci
+		}
 	}
-	seenBranches := make(map[string]struct{})
-	for k, bi := range biMap {
-		// if a branch has been seen, it means we already evaluated all of the branches in its DAG
-		if _, ok := seenBranches[branchKey(bi.Branch)]; ok {
-			continue
+	// de-duplicate commits that have a parent/child relationship
+	var badDups [][]string
+	for _, dups := range duplicates {
+		dupsCopy := make(map[string]struct{}) // subtract from dups copy to determine whether there are bad duplicates
+		for oldKey := range dups {
+			dupsCopy[oldKey] = struct{}{}
 		}
-		expanded := make(map[string]*pfs.BranchInfo) // expanded branches
-		expanded[k] = bi
-		for {
-			hasExpanded := false
-			for _, bi := range expanded {
-				if _, ok := expanded[branchKey(bi.Branch)]; ok {
-					continue
-				}
-				hasExpanded = true
-				expanded[branchKey(bi.Branch)] = bi
-				for _, b := range bi.Provenance {
-					prov, ok := biMap[branchKey(b)]
-					if !ok {
-						continue // how to handle this?
-					}
-					expanded[branchKey(b)] = prov
-				}
-				for _, b := range bi.Subvenance {
-					subv, ok := biMap[branchKey(b)]
-					if !ok {
-						continue // how to handle this?
-					}
-					expanded[branchKey(b)] = subv
+		for _, d := range dups {
+			if d.ParentCommit != nil {
+				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
+					delete(dupsCopy, oldCommitKey(d.Commit))
 				}
 			}
-			if !hasExpanded {
-				break
-			}
 		}
-		foundRepos := make(map[string]struct{})
-		for _, bi := range expanded {
-			if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
-				return errors.Errorf("multiple branches from repo %q participate in a DAG", repoKey(bi.Branch.Repo))
+		if len(dupsCopy) > 1 {
+			var bad []string
+			for d := range dupsCopy {
+				bad = append(bad, d)
 			}
-			foundRepos[bi.Branch.Repo.String()] = struct{}{}
+			badDups = append(badDups, bad)
 		}
+	}
+	if badDups != nil {
+		return errors.Errorf("duplicate commits detected: %v", badDups)
 	}
 	return nil
 }
@@ -578,16 +577,16 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
-	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@([-a-zA-Z0-9_]+)=', '@');`); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrapf(err, "update pfs.commits to branchless commit ids")
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '@([-a-zA-Z0-9_]+)=', '@');`); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_totals to branchless commit ids")
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '@([-a-zA-Z0-9_]+)=', '@');`); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_diffs to branchless commits ids")
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '@([-a-zA-Z0-9_]+)=', '@') WHERE str_id ~ '^commit/';`); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '@(.+)=', '@') WHERE str_id LIKE 'commit/%';`); err != nil {
 		return errors.Wrap(err, "update storage.tracker_objects to branchless commit ids")
 	}
 	return nil
