@@ -61,24 +61,6 @@ const Pipeline: React.FC<PipelineProps> = ({
         Notebook-to-Pipeline
       </span>
 
-      <div className="pachyderm-pipeline-buttons">
-        <button
-          data-testid="Pipeline__save"
-          className="pachyderm-button-link"
-          onClick={callSavePipeline}
-        >
-          Save
-        </button>
-
-        <button
-          data-testid="Pipeline__create_pipeline"
-          className="pachyderm-button-link"
-          onClick={callCreatePipeline}
-        >
-          Create Pipeline
-        </button>
-      </div>
-
       <div className="pachyderm-pipeline-current-notebook-wrapper">
         <label
           className="pachyderm-pipeline-current-notebook-label"
@@ -93,20 +75,6 @@ const Pipeline: React.FC<PipelineProps> = ({
           {currentNotebook}
         </span>
       </div>
-
-      <span
-        className="pachyderm-pipeline-error"
-        data-testid="Pipeline__errorMessage"
-      >
-        {errorMessage}
-      </span>
-
-      <span
-        className="pachyderm-pipeline-response"
-        data-testid="Pipeline__responseMessage"
-      >
-        {responseMessage}
-      </span>
 
       <div className="pachyderm-pipeline-input-wrapper">
         <label
@@ -207,6 +175,36 @@ ${inputSpec
           readOnly={true}
         ></textarea>
       </div>
+
+      <div className="pachyderm-pipeline-buttons">
+        <button
+          data-testid="Pipeline__create_pipeline"
+          className="pachyderm-button"
+          onClick={callCreatePipeline}
+        >
+          Run
+        </button>
+        &nbsp;
+        <button
+          data-testid="Pipeline__save_pipeline"
+          className="pachyderm-button"
+          onClick={callSavePipeline}
+        >
+          Save
+        </button>
+      </div>
+      <span
+        className="pachyderm-pipeline-error"
+        data-testid="Pipeline__errorMessage"
+      >
+        {errorMessage}
+      </span>
+      <span
+        className="pachyderm-pipeline-response"
+        data-testid="Pipeline__responseMessage"
+      >
+        {responseMessage}
+      </span>
     </div>
   );
 };
