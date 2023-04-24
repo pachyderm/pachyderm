@@ -6,8 +6,7 @@
   "input": {
     "pfs": {
       "glob": "/*",
-      "repo": "images",
-      "branch": "any"
+      "repo": "images"
     }
   },
   "transform": {
