@@ -1,9 +1,14 @@
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
+import {
+  BrandedEmptyIcon,
+  BrandedErrorIcon,
+} from '@dash-frontend/components/BrandedIcon';
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
+import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {
@@ -30,7 +35,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
   if (!currentRepoLoading && repoError) {
     return (
       <div className={styles.emptyRepoMessage}>
-        <ElephantEmptyState className={styles.emptyElephant} />
+        <BrandedEmptyIcon className={styles.emptyIcon} disableDefaultStyling />
         <h5>Unable to load Repo and commit data</h5>
         <p>
           We weren&apos;t able to fetch any information about this repo,
@@ -98,7 +103,10 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
 
       {!currentRepoLoading && (!commit || repo?.branches.length === 0) && (
         <div className={styles.emptyRepoMessage}>
-          <ElephantEmptyState className={styles.emptyElephant} />
+          <BrandedEmptyIcon
+            className={styles.emptyIcon}
+            disableDefaultStyling
+          />
           <Title>This repo doesn&apos;t have any branches</Title>
           <p>
             This is normal for new repositories, but we still wanted to notify

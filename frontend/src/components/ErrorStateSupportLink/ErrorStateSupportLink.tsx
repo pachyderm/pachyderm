@@ -1,8 +1,7 @@
-import {EnterpriseState} from '@graphqlTypes';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
-import {useGetEnterpriseInfoQuery} from '@dash-frontend/generated/hooks';
+import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 
 type ErrorStateSupportLinkProps = {
   title: string;
@@ -13,8 +12,7 @@ const ErrorStateSupportLink: React.FC<ErrorStateSupportLinkProps> = ({
   title,
   message = null,
 }) => {
-  const {data} = useGetEnterpriseInfoQuery();
-  const active = data?.enterpriseInfo.state === EnterpriseState.ACTIVE;
+  const {enterpriseActive} = useEnterpriseActive();
 
   return (
     <EmptyState
@@ -23,7 +21,7 @@ const ErrorStateSupportLink: React.FC<ErrorStateSupportLinkProps> = ({
       message={message || undefined}
       linkToDocs={{
         text: 'If this issue keeps happening, contact our customer team.',
-        link: active
+        link: enterpriseActive
           ? 'mailto:support@pachyderm.com'
           : 'https://pachyderm-users.slack.com/archives/C01SMT73Z41',
       }}

@@ -1,9 +1,9 @@
-import {EnterpriseState, Project} from '@graphqlTypes';
+import {Project} from '@graphqlTypes';
 import React from 'react';
 
 import Header from '@dash-frontend/components/Header';
 import HeaderButtons from '@dash-frontend/components/HeaderButtons';
-import {useGetEnterpriseInfoQuery} from '@dash-frontend/generated/hooks';
+import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import {Group, LogoElephant, LogoHpe} from '@pachyderm/components';
 
 import styles from './LandingHeader.module.css';
@@ -13,9 +13,7 @@ type LandingHeaderProps = {
 };
 
 const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
-  const {data} = useGetEnterpriseInfoQuery();
-  const enterpriseActive =
-    data?.enterpriseInfo.state === EnterpriseState.ACTIVE;
+  const {enterpriseActive} = useEnterpriseActive();
 
   return (
     <Header>

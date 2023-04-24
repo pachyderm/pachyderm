@@ -1,6 +1,7 @@
 import {RepoQuery} from '@graphqlTypes';
 import React from 'react';
 
+import {BrandedErrorIcon} from '@dash-frontend/components/BrandedIcon';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   LoadingDots,
@@ -8,7 +9,6 @@ import {
   Group,
   DropdownItem,
   DefaultDropdown,
-  ElephantEmptyState,
 } from '@pachyderm/components';
 
 import styles from './CommitList.module.css';
@@ -47,7 +47,7 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
   if (!loading && error) {
     return (
       <div className={styles.errorMessage}>
-        <ElephantEmptyState className={styles.errorElephant} />
+        <BrandedErrorIcon className={styles.errorIcon} disableDefaultStyling />
         <h5>{errorMessage}</h5>
         <p>{errorMessageAction}</p>
       </div>

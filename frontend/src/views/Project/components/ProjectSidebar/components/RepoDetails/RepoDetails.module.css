@@ -14,7 +14,7 @@
   border-top: solid 1px var(--border-grey);
 }
 
-.emptyElephant {
+.emptyIcon {
   margin-left: 50%;
   transform: translateX(-50%);
   margin-bottom: 1rem;

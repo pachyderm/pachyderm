@@ -3,6 +3,7 @@ import React from 'react';
 import {Helmet} from 'react-helmet';
 import {Switch, useHistory} from 'react-router';
 
+import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
 import Breadcrumb from '@dash-frontend/components/Breadcrumb';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -133,7 +134,7 @@ const FileBrowser: React.FC = () => {
             {loading && <LoadingDots />}
             {!loading && filteredFiles?.length === 0 && !fileToPreview && (
               <div className={styles.emptyResults}>
-                <GenericErrorSVG />
+                <BrandedEmptyIcon communityEditionIcon={<GenericErrorSVG />} />
                 <h4 className={styles.emptyHeading}>
                   No Matching Results Found.
                 </h4>

@@ -1,12 +1,8 @@
 import React, {ReactNode} from 'react';
 
-import {
-  Link,
-  ElephantEmptyState,
-  ElephantErrorState,
-  ExternalLinkSVG,
-  Icon,
-} from '@pachyderm/components';
+import {Link, ExternalLinkSVG, Icon} from '@pachyderm/components';
+
+import {BrandedEmptyIcon, BrandedErrorIcon} from '../BrandedIcon';
 
 import styles from './EmptyState.module.css';
 
@@ -31,11 +27,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <div className={`${styles.base} ${className}`}>
-      {error ? (
-        <ElephantErrorState className={styles.elephantImage} />
-      ) : (
-        <ElephantEmptyState className={styles.elephantImage} />
-      )}
+      {error ? <BrandedErrorIcon /> : <BrandedEmptyIcon />}
       {title && (
         <span className={styles.title}>
           <h6>{title}</h6>

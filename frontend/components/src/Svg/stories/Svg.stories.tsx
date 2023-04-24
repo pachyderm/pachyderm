@@ -28,6 +28,12 @@ export const HPE = () => {
         <SVGWrapper title="LogoHpe">
           <HPESvg.LogoHpe />
         </SVGWrapper>
+        <SVGWrapper title="ErrorIcon">
+          <HPESvg.ErrorIconSVG />
+        </SVGWrapper>
+        <SVGWrapper title="EmptyIcon">
+          <HPESvg.EmptyIconSVG />
+        </SVGWrapper>
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import classnames from 'classnames';
 import React from 'react';
 
-import {Group, GenericErrorSVG} from '@pachyderm/components';
+import {BrandedErrorIcon} from '@dash-frontend/components/BrandedIcon';
+import {Group} from '@pachyderm/components';
 
 import styles from './GenericError.module.css';
 
@@ -21,7 +22,7 @@ export const GenericError: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
       {children}
     </span>
 
-    <GenericErrorSVG className={styles.svg} />
+    <BrandedErrorIcon className={styles.svg} disableDefaultStyling />
   </Group>
 );
 
