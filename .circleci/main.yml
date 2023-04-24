@@ -232,6 +232,7 @@ jobs:
     environment:
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       - run:
@@ -258,6 +259,7 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -479,6 +481,8 @@ jobs:
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       - go/install:
@@ -498,6 +502,7 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run: mkdir ${TEST_RESULTS}
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -528,6 +533,8 @@ jobs:
     parallelism: 4
     machine:
       image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       # go/install doesn't support arm64 yet
@@ -555,6 +562,7 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
