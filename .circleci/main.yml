@@ -92,10 +92,10 @@ jobs:
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
-          name: format code coverage
+          name: Format code coverage
           command: |-
             find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
-            go tool covdata textfmt -i="$TEST_RESULTS" -o coverage.txt
+            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
