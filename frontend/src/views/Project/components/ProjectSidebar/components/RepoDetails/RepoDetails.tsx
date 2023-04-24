@@ -105,7 +105,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
             you because Pachyderm didn&apos;t detect a branch on our end.{' '}
             <Link
               externalLink
-              to="https://docs.pachyderm.com/2.3.x/concepts/data-concepts/branch/"
+              to="https://docs.pachyderm.com/latest/concepts/data-concepts/branch/"
             >
               Try creating a branch and pushing a commit.
             </Link>
