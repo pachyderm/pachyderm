@@ -4,6 +4,7 @@ import platform
 import json
 import asyncio
 import os
+from pathlib import Path
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
 from tornado import locks
@@ -197,8 +198,8 @@ class MountServerClient(MountInterface):
         response = await self.client.fetch(
             f"{self.address}/auth/_login_token", method="PUT", body=f'{oidc}'
         )
-        user = os.getenv('NB_USER', default='jovyan')
-        pach_config_dir = f'/home/{user}/.pachyderm/config.json'
+        response.rethrow() 
+        pach_config_dir = Path.home().joinpath('.pachyderm', 'config.json')
         os.makedirs(os.path.dirname(pach_config_dir), exist_ok=True)
         with open(pach_config_dir, 'w') as f:
             f.write(response.body.decode())
