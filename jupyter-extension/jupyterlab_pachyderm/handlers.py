@@ -2,6 +2,7 @@ from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join, ensure_async
 import tornado
+import traceback
 
 from .env import PFS_MOUNT_DIR
 from .filemanager import PFSContentsManager
@@ -149,7 +150,7 @@ class ShowDatumHandler(BaseHandler):
             raise tornado.web.HTTPError(
                 status_code=getattr(e, "code", 500), reason=f"Error showing datum {slug}: {e}."
             )
-    
+
 
 class DatumsHandler(BaseHandler):
     @tornado.web.authenticated
@@ -163,7 +164,7 @@ class DatumsHandler(BaseHandler):
             raise tornado.web.HTTPError(
                 status_code=getattr(e, "code", 500), reason=f"Error getting datum info: {e}."
             )
-    
+
 
 class PFSHandler(ContentsHandler):
     @property
@@ -274,17 +275,32 @@ class PPSCreateHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self, path):
-        """Get the pipeline spec for the specified notebook."""
-        response = await self.pps_client.generate(path)
-        await self.finish(response)
+        try:
+            """Get the pipeline spec for the specified notebook."""
+            response = await self.pps_client.generate(path)
+            get_logger().debug(f"GetPipelineSpec: {response}")
+            await self.finish(response)
+        except Exception as e:
+            if isinstance(e, tornado.web.HTTPError):
+                # Common case: only way to print the "reason" field of HTTPError
+                get_logger().error(f"couldn't create pipeline: {e.reason}")
+            get_logger().error("\n".join(traceback.format_exception(e)))
+            raise e
 
     @tornado.web.authenticated
     async def put(self, path):
         """Create the pipeline for the specified notebook."""
-        body = self.get_json_body()
-        response = await self.pps_client.create(path, body)
-        await self.finish(response)
-
+        try:
+            body = self.get_json_body()
+            response = await self.pps_client.create(path, body)
+            get_logger().debug(f"CreatePipeline: {response}")
+            await self.finish(response)
+        except Exception as e:
+            if isinstance(e, tornado.web.HTTPError):
+                # Common case: only way to print the "reason" field of HTTPError
+                get_logger().error(f"couldn't create pipeline: {e.reason}")
+            get_logger().error("\n".join(traceback.format_exception(e)))
+            raise e
 
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")

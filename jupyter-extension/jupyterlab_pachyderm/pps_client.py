@@ -36,12 +36,15 @@ class PPSClient:
 
         path = Path(path.lstrip("/"))
         if not path.exists():
-            raise HTTPError(reason=f"notebook does not exist: {path}")
+            raise HTTPError(
+                status_code=400,
+                reason=f"notebook does not exist: {path}"
+            )
 
         try:
             config = PpsConfig.from_notebook(path)
         except ValueError as err:
-            raise HTTPError(reason=str(err))
+            raise HTTPError(status_code=400, reason=str(err))
 
         pipeline_spec = create_pipeline_spec(config, '...')
         return json.dumps(pipeline_spec)
@@ -57,26 +60,28 @@ class PPSClient:
 
         path = Path(path.lstrip("/"))
         if not path.exists():
-            raise HTTPError(reason=f"notebook does not exist: {path}")
+            raise HTTPError(status_code=400, reason=f"notebook does not exist: {path}")
 
         check = body.get('last_modified_time')
         if not check:
-            raise HTTPError(reason="Bad Request: last_modified_time not specified")
+            raise HTTPError(status_code=400,
+                reason="Bad Request: last_modified_time not specified")
         check = datetime.fromisoformat(check.rstrip('Z'))
 
         last_modified = datetime.utcfromtimestamp(os.path.getmtime(path))
         get_logger().error(f"{check}, {last_modified}")
         if check != last_modified:
             raise HTTPError(
-                reason=f"notebook verification failed: {check} != {last_modified}"
+                status_code=400,
+                reason=f"stale notebook: client time ({check}) != on-disk time ({last_modified})"
             )
         try:
             config = PpsConfig.from_notebook(path)
         except ValueError as err:
-            raise HTTPError(reason=str(err))
+            raise HTTPError(status_code=400, reason=str(err))
 
         if config.requirements and not os.path.exists(config.requirements):
-            raise HTTPError(reason="requirements file does not exist")
+            raise HTTPError(status_code=400, reason="requirements file does not exist")
 
         script, _resources = self.nbconvert.from_filename(str(path))
 
@@ -84,7 +89,11 @@ class PPSClient:
         try:  # Verify connection to cluster.
             client.inspect_cluster()
         except Exception as e:
-            raise HTTPError(reason=repr(e))
+            raise HTTPError(
+                status_code=500,
+                reason=f"could not verify connection to Pachyderm cluster: {repr(e)}"
+            )
+
         companion_repo = f"{config.pipeline.name}__context"
         if companion_repo not in (item.repo.name for item in client.list_repo()):
             client.create_repo(
