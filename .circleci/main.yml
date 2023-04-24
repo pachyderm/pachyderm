@@ -197,22 +197,31 @@ jobs:
 
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+              --raw-command \
               --rerun-fails \
               --format testname \
-              --packages="${package}" \
+              --debug
               -- \
+              go test "${package}" -json \
               -run ${test_regex} \
               -tags="${test_tags}" \
               -count=1 \
-              -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+              -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - run:
+          name: Format code coverage
+          command: |-
+            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   integration-tests:
     parameters:
       bucket:
@@ -297,6 +306,11 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
+          name: Format code coverage
+          command: |-
+            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
+      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
@@ -304,6 +318,8 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   helm-tests:
     executor: docker-go
     working_directory: ~/project/etc/helm
@@ -486,6 +502,11 @@ jobs:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
+      - run:
+          name: Format code coverage
+          command: |-
+            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_artifacts:
           path: /tmp/test-results
           destination: raw-test-output
@@ -493,6 +514,8 @@ jobs:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   deploy-tests:
     parameters:
       resource_class:
@@ -566,14 +589,17 @@ jobs:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - run:
+          name: Format code coverage
+          command: |-
+            find ./ -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///"  \; # extract all covdata to test-results folder
+            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
-      - run:
-          name: Upload Code Coverage
-          when: on_success
-          command: go run etc/testing/circle/workloads/codecoverage/collector/main.go
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build-docker-images:
