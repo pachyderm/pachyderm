@@ -125,13 +125,14 @@ func (e ErrCommitAncestryBroken) Error() string {
 		e.Parent, e.Child)
 }
 
-// ErrMissingBranchHead indicates that a branch has a 'nil' head, which should never happen.
-type ErrMissingBranchHead struct {
-	Branch *pfs.Branch
+// ErrBranchCommitProvenanceMismatch occurs when the head commit of one of the parents of the branch is not found in the direct provenance commits of the head of the branch
+type ErrBranchCommitProvenanceMismatch struct {
+	Branch       *pfs.Branch
+	ParentBranch *pfs.Branch
 }
 
-func (e ErrMissingBranchHead) Error() string {
-	return fmt.Sprintf("consistency error: branch %s does not have a head commit", e.Branch)
+func (e ErrBranchCommitProvenanceMismatch) Error() string {
+	return fmt.Sprintf("consistency error: parent branch %s commit is not in direct provenance of head of branch %s", e.ParentBranch, e.Branch)
 }
 
 func checkBranchProvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, onError func(error) error) error {
@@ -180,17 +181,22 @@ func checkBranchSubvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.Bran
 	return nil
 }
 
-func checkMissingHead(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
-	if bi.Head == nil {
-		return onError(ErrMissingBranchHead{
-			Branch: bi.Branch,
+func checkBranchCommitProvenance(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+	// build set of all commits in branch head direct provenance
+	headProvenance := make(map[string]bool)
+	headCI, ok := commitInfos[bi.Head.ID]
+	if !ok {
+		return onError(ErrCommitInfoNotFound{
+			Location: fmt.Sprintf("head commit of %s", bi.Branch),
+			Commit:   bi.Head,
 		})
 	}
-	// we expect the branch's provenance to equal the HEAD commit's provenance
-	// i.e branch.Provenance contains the branch provBranch and
-	// provBranch.Head != nil implies branch.Head.Provenance contains
-	// provBranch.Head
-	for _, provBranch := range bi.Provenance {
+	for _, provCommit := range headCI.DirectProvenance {
+		headProvenance[provCommit.ID] = true
+	}
+
+	// confirm head of each direct provenant branch is included in the commits of the branch head direct provenance
+	for _, provBranch := range bi.DirectProvenance {
 		provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
 		if !ok {
 			if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
@@ -198,19 +204,17 @@ func checkMissingHead(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo
 			}
 			continue
 		}
-		if provBranchInfo.Head != nil {
-			// in this case, the headCommit Provenance should contain provBranch.Head
-			if _, ok := commitInfos[pfsdb.CommitKey(bi.Head)]; !ok {
-				if err := onError(ErrCommitInfoNotFound{
-					Location: "head commit provenance (=>)",
-					Commit:   bi.Head,
-				}); err != nil {
-					return err
-				}
+		if _, ok := headProvenance[provBranchInfo.Head.ID]; !ok {
+			if err := onError(ErrBranchCommitProvenanceMismatch{
+				Branch:       bi.Branch,
+				ParentBranch: provBranch,
+			}); err != nil {
+				return err
 			}
+			continue
 		}
-	}
 
+	}
 	return nil
 }
 
@@ -227,7 +231,7 @@ func fsckBranches(branchInfos map[string]*pfs.BranchInfo, commitInfos map[string
 			return err
 		}
 
-		if err := checkMissingHead(bi, branchInfos, commitInfos, onError); err != nil {
+		if err := checkBranchCommitProvenance(bi, branchInfos, commitInfos, onError); err != nil {
 			return err
 		}
 
