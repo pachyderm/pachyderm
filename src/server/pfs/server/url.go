@@ -169,8 +169,11 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 	var size int64
 	for {
 		listObj, err := list.Next(ctx)
-		if errors.Is(err, io.EOF) {
-			break
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return errors.EnsureStack(err)
 		}
 		paths = append(paths, listObj.Key)
 		size += listObj.Size
