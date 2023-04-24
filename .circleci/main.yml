@@ -85,7 +85,7 @@ jobs:
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
-            --debug
+            --debug \
             -- \
             go test ./... -json \
             -tags=unit_test \
