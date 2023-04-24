@@ -363,7 +363,7 @@ func TestProject(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
                 pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
                 pachctl create project foo
-                pachctl list project | match "foo     -"
+                pachctl list project | match "foo     ([^-]+ ago) -"
 		`,
 	).Run())
 	require.YesError(t, tu.PachctlBashCmd(t, c, `
@@ -381,7 +381,7 @@ func TestProject(t *testing.T) {
                 `,
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
                 pachctl create project foo
                 `,
 	).Run())
