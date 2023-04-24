@@ -342,11 +342,17 @@ jobs:
           name: make cr release dirs
           command: |
             mkdir -p cr-release-packages/official
+            mkdir -p cr-release-packages/dd_template
             mkdir -p cr-release-packages/preview
       - run:
           name: package release helm chart
           command: |
             helm package -d cr-release-packages/official --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
+      - run:
+          name: generate dd template
+          command: |
+            tar -xvzf cr-release-packages/official/pachyderm-${CIRCLE_TAG:1}.tgz
+            { helm template pachyderm --set deployTarget=LOCAL --set proxy.enabled=true --set proxy.service.type=LoadBalancer --set pachd.clusterDeploymentID=local-pach --no-hooks --version=${CIRCLE_TAG:1} ; cat etc/deploy/dd/dd_notebook_base.yaml | sed "s/PACH_VERSION/${CIRCLE_TAG:1}/g" ; } > cr-release-packages/dd_template/pach_docker_desktop_${CIRCLE_TAG:1}.yaml
       - run:
           name: mark extra chart pre-release
           command: |
@@ -1150,10 +1156,10 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
             then
                 echo "git tag has - assuming prerelease."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes --prerelease
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/dd_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/dd_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes
             fi
   console-release-draft:
     docker:
@@ -1517,6 +1523,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - build-pachctl-bin
+            - helm-build
       - jupyter-extension-test:
           matrix:
             parameters:
@@ -1723,6 +1730,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - build-pachctl-bin
+            - helm-build
       - pulumi-aws-test-env:
           name: create-aws-test-env
           env: qa1
