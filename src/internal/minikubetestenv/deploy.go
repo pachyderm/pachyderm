@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 const (
@@ -556,6 +557,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
+
 	if !opts.DisableLoki {
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
@@ -565,16 +567,19 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
-	collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
+	t.Cleanup(func() {
+		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
+	})
 	return pClient
 }
 
 func collectMinikubeCodeCoverage(t testing.TB, pachClient *client.APIClient, valueOverrides map[string]string) {
 	// sha version is ok, since it generally means later version
-	//DNJ TODO - can we check vor 'cover' in version? why is 0.0.0 used?
+	//DNJ TODO - can we check for 'cover' in version? why is 0.0.0 used? - this doesn't work fix before merge
 	coverageFilePath := filepath.Join(coverageFolder,
-		fmt.Sprintf("%s-cover.tgz",
-			strings.ReplaceAll(filepath.ToSlash(t.Name()), "/", "-")), // ToSlash for hypothetical different os
+		fmt.Sprintf("%s-%s-cover.tgz",
+			strings.ReplaceAll(filepath.ToSlash(t.Name()), "/", "-"), // ToSlash for hypothetical different os
+			uuid.NewWithoutDashes()),
 	)
 
 	if _, err := os.Stat(coverageFilePath); errors.Is(err, os.ErrNotExist) {
@@ -582,8 +587,8 @@ func collectMinikubeCodeCoverage(t testing.TB, pachClient *client.APIClient, val
 			t.Logf("Error creating code coverage folder: %v", err)
 			return
 		}
-	} else if err := os.Remove(coverageFilePath); err != nil {
-		t.Logf("Error deleting old code coverage file: %v", err) // TODO just skip getting coverage for perf?
+	} else {
+		t.Logf("Error naming coverage file or creating folder: %v", err) // DNJ TODO just skip getting coverage for perf?
 		return
 	}
 
