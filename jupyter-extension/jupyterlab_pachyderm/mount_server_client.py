@@ -199,33 +199,38 @@ class MountServerClient(MountInterface):
             f"{self.address}/auth/_login_token", method="PUT", body=f'{oidc}'
         )
         response.rethrow()
-        pach_config_dir = Path.home().joinpath('.pachyderm', 'config.json')
-        if pach_config_dir.is_file():
+        pach_config_path = Path.home().joinpath('.pachyderm', 'config.json')
+        if pach_config_path.is_file():
             # if config already exists, need to add new context into it and
             # switch active context over
             try:
-                self.write_token_to_config(pach_config_dir,
+                self.write_token_to_config(pach_config_path,
                                            response.body.decode())
             except Exception as e:
                 get_logger().warn("Failed writing session token: ", e.args)
                 raise e
         else:
             # otherwise, write the entire config to file
-            os.makedirs(os.path.dirname(pach_config_dir), exist_ok=True)
-            with open(pach_config_dir, 'w') as f:
+            os.makedirs(os.path.dirname(pach_config_path), exist_ok=True)
+            with open(pach_config_path, 'w') as f:
                 f.write(response.body.decode())
 
         return response.body
+    
+    def write_token_to_config(self, pach_config_path, mount_server_config_str):
+        """
+        updates the pachyderm config with the session token of the mount server
+        config. this will try to insert the token into the mount_server context
+        if it already exists, or copies the mount server config if it doesn't.
+        then, it switches the active context over to the mount_server context.
 
-    # updates the pachyderm config with the session token of the mount server
-    # config. this will try to insert the token into the mount_server context
-    # if it already exists, or copies the mount server config if it doesn't.
-    # then, it switches the active context over to the mount_server context.
-    def write_token_to_config(self, pach_config_dir, mount_server_config_str):
-        get_logger().info("write_token_to_config")
-        config_file = open(pach_config_dir)
-        config = json.load(config_file)
-        config_file.close()
+        parameters:
+            pach_config_path: the path to the pachyderm config file
+            mount_server_config_str: json containing the mount server pachyderm
+                                     configuration
+        """
+        with open(pach_config_path) as config_file:
+            config = json.load(config_file)
         mount_server_config = json.loads(mount_server_config_str)
 
         active_context = mount_server_config['v2']['active_context']
@@ -237,8 +242,7 @@ class MountServerClient(MountInterface):
         else:
             # otherwise, write the entire context to it
             config['v2']['contexts'][active_context] = mount_server_config['v2']['contexts'][active_context]
-        get_logger().info("dumping config to file")
-        with open(pach_config_dir, 'w') as config_file:
+        with open(pach_config_path, 'w') as config_file:
             json.dump(config, config_file, indent=2)
 
     async def auth_logout(self):
