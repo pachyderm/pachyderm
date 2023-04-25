@@ -94,9 +94,7 @@ jobs:
       - run:
           name: Format code coverage
           when: always
-          command: |-
-            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///" -C "$TEST_RESULTS"  \; # extract all covdata to test-results folder
-            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
+          command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
@@ -215,9 +213,7 @@ jobs:
       - run:
           name: Format code coverage
           when: always
-          command: |-
-            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///" -C "$TEST_RESULTS" \; # extract all covdata to test-results folder
-            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
+          command: etc/testing/circle/format-coverage.sh
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
       - store_artifacts:
@@ -312,9 +308,7 @@ jobs:
       - run:
           name: Format code coverage
           when: always
-          command: |-
-            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///" -C "$TEST_RESULTS"  \; # extract all covdata to test-results folder
-            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
+          command: etc/testing/circle/format-coverage.sh
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
@@ -513,9 +507,7 @@ jobs:
       - run:
           name: Format code coverage
           when: always
-          command: |-
-            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///" -C "$TEST_RESULTS"  \; # extract all covdata to test-results folder
-            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
+          command: etc/testing/circle/format-coverage.sh
       - store_artifacts:
           path: /tmp/test-results
           destination: raw-test-output
@@ -604,9 +596,7 @@ jobs:
       - run:
           name: Format code coverage
           when: always
-          command: |-
-            find "$TEST_RESULTS" -name "*.tgz" -type f -exec tar xzf {} --transform="s/.*\///" -C "$TEST_RESULTS"  \; # extract all covdata to test-results folder
-            go tool covdata textfmt -i="$TEST_RESULTS" -o "$TEST_RESULTS/coverage.txt"
+          command: etc/testing/circle/format-coverage.sh
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:

@@ -40,7 +40,7 @@ const (
 	helmChartPublishedPath = "pachyderm/pachyderm"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
-	coverageFolder         = "/tmp/test-results" //DNJ TODO - parameterize? local testing?
+	coverageFolder         = "/tmp/test-results"
 )
 
 const (
@@ -574,8 +574,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 }
 
 func collectMinikubeCodeCoverage(t testing.TB, pachClient *client.APIClient, valueOverrides map[string]string) {
-	// sha version is ok, since it generally means later version
-	//DNJ TODO - can we check for 'cover' in version? why is 0.0.0 used? - this doesn't work fix before merge
 	coverageFilePath := filepath.Join(coverageFolder,
 		fmt.Sprintf("%s-%s-cover.tgz",
 			strings.ReplaceAll(filepath.ToSlash(t.Name()), "/", "-"), // ToSlash for hypothetical different os
@@ -588,7 +586,7 @@ func collectMinikubeCodeCoverage(t testing.TB, pachClient *client.APIClient, val
 			return
 		}
 	} else {
-		t.Logf("Error naming coverage file or creating folder: %v", err) // DNJ TODO just skip getting coverage for perf?
+		t.Logf("Error naming coverage file or creating folder: %v", err)
 		return
 	}
 
@@ -604,26 +602,27 @@ func collectMinikubeCodeCoverage(t testing.TB, pachClient *client.APIClient, val
 		}
 	}()
 
-	if err = pachClient.Profile(&debug.Profile{
-		Name:     "cover",
-		Duration: types.DurationProto(30 * time.Minute), // no test should be longer than 30 minutes
-	}, &debug.Filter{}, covFile); errors.Is(err, auth.ErrNotSignedIn) { // DNJ TODO  - clean up mess
+	err = saveCoverProfile(pachClient, covFile)
+	if errors.Is(err, auth.ErrNotSignedIn) {
 		token, ok := valueOverrides["pachd.rootToken"]
 		if !ok {
 			token = testutil.RootToken
 		}
-
 		pachClient.SetAuthToken(token)
-		err = pachClient.Profile(&debug.Profile{
-			Name:     "cover",
-			Duration: types.DurationProto(30 * time.Minute), // no test should be longer than 30 minutes
-		}, &debug.Filter{}, covFile)
+		err = saveCoverProfile(pachClient, covFile)
 	}
 	if err != nil {
 		t.Logf("Failed debug call attempting to retrieve code coverage: %v", err)
 	} else {
 		t.Logf("Successfully output minikube code coverage to file: %v", coverageFilePath)
 	}
+}
+
+func saveCoverProfile(pachClient *client.APIClient, covFile *os.File) error {
+	return pachClient.Profile(&debug.Profile{
+		Name:     "cover",
+		Duration: types.DurationProto(30 * time.Minute), // no test should be longer than 30 minutes
+	}, &debug.Filter{}, covFile)
 }
 
 func PutNamespace(t testing.TB, namespace string) {
