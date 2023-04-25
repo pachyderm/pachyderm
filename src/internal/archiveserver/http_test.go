@@ -63,7 +63,7 @@ func TestCSRFWrapper(t *testing.T) {
 
 	f := CSRFWrapper(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		w.Write([]byte("ok")) //nolint:errcheck
 	}))
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
