@@ -137,7 +137,7 @@ func TestDecodeV1Path(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "valid file",
+			name: "valid branch ref",
 			path: "project/repo@ref:/path",
 			want: &pfs.File{
 				Commit: &pfs.Commit{
@@ -158,6 +158,23 @@ func TestDecodeV1Path(t *testing.T) {
 						},
 						Name: "ref",
 					},
+				},
+				Path: "/path",
+			},
+		},
+		{
+			name: "valid commit ref",
+			path: "project/repo@44444444444444444444444444444444:/path",
+			want: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: "repo",
+						Project: &pfs.Project{
+							Name: "project",
+						},
+						Type: "user",
+					},
+					ID: "44444444444444444444444444444444",
 				},
 				Path: "/path",
 			},

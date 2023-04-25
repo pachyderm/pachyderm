@@ -10,6 +10,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -110,7 +111,7 @@ func (s decodeV1PathState) String() string {
 	panic("unknown DecodeV1 state")
 }
 
-// DecodeV1Path decodes a V1 path.
+// DecodeV1Path decodes a V1 path.  pachctl's convention of branch=commit is not supported.
 func DecodeV1Path(path string) (*pfs.File, error) {
 	repo := &pfs.Repo{
 		Project: &pfs.Project{},
@@ -149,7 +150,12 @@ func DecodeV1Path(path string) (*pfs.File, error) {
 			}
 		case refState:
 			if b == ':' {
-				result.Commit.Branch.Name = buf.String()
+				if x := buf.String(); uuid.IsUUIDWithoutDashes(x) {
+					result.Commit.ID = x
+					result.Commit.Branch = nil
+				} else {
+					result.Commit.Branch.Name = x
+				}
 				buf.Reset()
 				state = fileState
 				continue
