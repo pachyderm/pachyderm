@@ -198,12 +198,48 @@ class MountServerClient(MountInterface):
         response = await self.client.fetch(
             f"{self.address}/auth/_login_token", method="PUT", body=f'{oidc}'
         )
-        response.rethrow() 
+        response.rethrow()
         pach_config_dir = Path.home().joinpath('.pachyderm', 'config.json')
-        os.makedirs(os.path.dirname(pach_config_dir), exist_ok=True)
-        with open(pach_config_dir, 'w') as f:
-            f.write(response.body.decode())
+        if pach_config_dir.is_file():
+            # if config already exists, need to add new context into it and
+            # switch active context over
+            try:
+                self.write_token_to_config(pach_config_dir,
+                                           response.body.decode())
+            except Exception as e:
+                get_logger().warn("Failed writing session token: ", e.args)
+                raise e
+        else:
+            # otherwise, write the entire config to file
+            os.makedirs(os.path.dirname(pach_config_dir), exist_ok=True)
+            with open(pach_config_dir, 'w') as f:
+                f.write(response.body.decode())
+
         return response.body
+
+    # updates the pachyderm config with the session token of the mount server
+    # config. this will try to insert the token into the mount_server context
+    # if it already exists, or copies the mount server config if it doesn't.
+    # then, it switches the active context over to the mount_server context.
+    def write_token_to_config(self, pach_config_dir, mount_server_config_str):
+        get_logger().info("write_token_to_config")
+        config_file = open(pach_config_dir)
+        config = json.load(config_file)
+        config_file.close()
+        mount_server_config = json.loads(mount_server_config_str)
+
+        active_context = mount_server_config['v2']['active_context']
+        config['v2']['active_context'] = active_context
+        if active_context in config['v2']['contexts']:
+            # if config contains this context already, write token to it
+            token = mount_server_config['v2']['contexts'][active_context]['session_token']
+            config['v2']['contexts'][active_context]['session_token'] = token
+        else:
+            # otherwise, write the entire context to it
+            config['v2']['contexts'][active_context] = mount_server_config['v2']['contexts'][active_context]
+        get_logger().info("dumping config to file")
+        with open(pach_config_dir, 'w') as config_file:
+            json.dump(config, config_file, indent=2)
 
     async def auth_logout(self):
         await self._ensure_mount_server()
