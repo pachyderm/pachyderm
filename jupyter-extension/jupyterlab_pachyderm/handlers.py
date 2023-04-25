@@ -275,8 +275,8 @@ class PPSCreateHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self, path):
+        """Get the pipeline spec for the specified notebook."""
         try:
-            """Get the pipeline spec for the specified notebook."""
             response = await self.pps_client.generate(path)
             get_logger().debug(f"GetPipelineSpec: {response}")
             await self.finish(response)
