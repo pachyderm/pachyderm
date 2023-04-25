@@ -450,5 +450,5 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
 
 def test_pps_validation_errors(dev_server, notebook_path):
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
-    assert r.status_code == 500
+    assert r.status_code == 400
     assert r.json()['reason'] == f"Bad Request: last_modified_time not specified"
