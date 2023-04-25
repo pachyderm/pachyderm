@@ -748,7 +748,7 @@ jobs:
             python -m pip install -e '.[dev]'
 
             tail -F /tmp/mount-server.log &
-            
+
             mkdir -p test-results
 
             # Run Python unit tests
