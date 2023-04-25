@@ -426,7 +426,8 @@ def notebook_path(simple_pachyderm_env) -> Path:
     notebook_data = json.loads(TEST_NOTEBOOK.read_bytes())
     config = PpsConfig.from_notebook(TEST_NOTEBOOK)
     config.pipeline = dict(name=pipeline_name, project=dict(name=project_name))
-    config.input_spec['pfs']['repo'] = repo_name
+    # sub in repo_name
+    config.input_spec = f"pfs:\n  repo: {repo_name}\n  glob: \"/*\""
     notebook_data['metadata'][METADATA_KEY]['config'] = config.to_dict()
 
     notebook_path = TEST_NOTEBOOK.with_stem(f"{TEST_NOTEBOOK.stem}_generated")
