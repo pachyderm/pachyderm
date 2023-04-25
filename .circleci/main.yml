@@ -749,10 +749,16 @@ jobs:
 
             tail -F /tmp/mount-server.log &
 
+            mkdir -p test-results
+
             # Run Python unit tests
-            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
+            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py --junitxml=test-results/junit.xml jupyterlab_pachyderm
 
             check-manifest -v
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
 
   jupyter-extension-integration-test:
     resource_class: xlarge

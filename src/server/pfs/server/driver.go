@@ -649,6 +649,7 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 	if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 		Project:     req.Project,
 		Description: req.Description,
+		CreatedAt:   types.TimestampNow(),
 	}); err != nil {
 		if errors.As(err, &col.ErrExists{}) {
 			return pfsserver.ErrProjectExists{
