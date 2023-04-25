@@ -181,18 +181,6 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error)
 	}
 }
 
-// FlattenAll is like Flatten, but collects the primitives to return to the user.
-func (s *Storage) FlattenAll(ctx context.Context, ids []ID) ([]ID, error) {
-	flattened := make([]ID, 0, len(ids))
-	if err := s.Flatten(ctx, ids, func(id ID) error {
-		flattened = append(flattened, id)
-		return nil
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return flattened, nil
-}
-
 // Flatten iterates through IDs and replaces references to composite file sets
 // with all their layers in place and executes the user provided callback
 // against each primitive file set.
@@ -227,6 +215,18 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID, cb func(id ID) error) e
 		}
 	}
 	return nil
+}
+
+// FlattenAll is like Flatten, but collects the primitives to return to the user.
+func (s *Storage) FlattenAll(ctx context.Context, ids []ID) ([]ID, error) {
+	flattened := make([]ID, 0, len(ids))
+	if err := s.Flatten(ctx, ids, func(id ID) error {
+		flattened = append(flattened, id)
+		return nil
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return flattened, nil
 }
 
 func (s *Storage) flattenPrimitives(ctx context.Context, ids []ID) ([]*Primitive, error) {
