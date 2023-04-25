@@ -184,7 +184,7 @@ func checkBranchSubvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.Bran
 func checkBranchCommitProvenance(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
 	// build set of all commits in branch head direct provenance
 	headProvenance := make(map[string]bool)
-	headCI, ok := commitInfos[bi.Head.ID]
+	headCI, ok := commitInfos[pfsdb.CommitKey(bi.Head)]
 	if !ok {
 		return onError(ErrCommitInfoNotFound{
 			Location: fmt.Sprintf("head commit of %s", bi.Branch),
@@ -192,7 +192,7 @@ func checkBranchCommitProvenance(bi *pfs.BranchInfo, branchInfos map[string]*pfs
 		})
 	}
 	for _, provCommit := range headCI.DirectProvenance {
-		headProvenance[provCommit.ID] = true
+		headProvenance[pfsdb.CommitKey(provCommit)] = true
 	}
 
 	// confirm head of each direct provenant branch is included in the commits of the branch head direct provenance
@@ -204,7 +204,7 @@ func checkBranchCommitProvenance(bi *pfs.BranchInfo, branchInfos map[string]*pfs
 			}
 			continue
 		}
-		if _, ok := headProvenance[provBranchInfo.Head.ID]; !ok {
+		if _, ok := headProvenance[pfsdb.CommitKey(provBranchInfo.Head)]; !ok {
 			if err := onError(ErrBranchCommitProvenanceMismatch{
 				Branch:       bi.Branch,
 				ParentBranch: provBranch,
