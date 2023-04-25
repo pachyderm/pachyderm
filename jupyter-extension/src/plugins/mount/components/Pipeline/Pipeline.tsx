@@ -10,7 +10,8 @@ type PipelineProps = {
   saveNotebookMetadata: (metadata: PpsMetadata) => void;
 };
 
-const placeholderInputSpec = `pfs:
+const placeholderInputSpec = `# example:
+pfs:
   repo: images
   branch: dev
   glob: /*
@@ -58,7 +59,7 @@ const Pipeline: React.FC<PipelineProps> = ({
         </button>
       </div>
       <span className="pachyderm-mount-pipeline-subheading">
-        Notebook-to-Pipeline
+        Publish as Pipeline
       </span>
 
       <div className="pachyderm-pipeline-current-notebook-wrapper">
@@ -182,7 +183,7 @@ ${inputSpec
           className="pachyderm-button"
           onClick={callCreatePipeline}
         >
-          Run
+          Publish Pipeline
         </button>
         &nbsp;
         <button
