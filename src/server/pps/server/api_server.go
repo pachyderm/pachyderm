@@ -1339,6 +1339,9 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 }
 
 func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.API_QueryLokiServer) (retErr error) {
+	if err := a.env.AuthServer.CheckClusterIsAuthorized(apiQueryLokiServer.Context(), auth.Permission_CLUSTER_GET_LOKI_LOGS); err != nil {
+		return errors.EnsureStack(err)
+	}
 	loki, err := a.env.GetLokiClient()
 	if err != nil {
 		return errors.EnsureStack(err)

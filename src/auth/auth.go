@@ -81,6 +81,9 @@ const (
 	// DebuggerRole is a role which grants the ability to produce debug dumps.
 	DebuggerRole = "debugger"
 
+	// LokiLogReaderRole is a role which grants the ability to read logs from Loki.
+	LokiLogReaderRole = "lokiLogReader"
+
 	// RobotUserRole is a role which grants the ability to generate tokens for robot
 	// users.
 	RobotUserRole = "robotUser"
