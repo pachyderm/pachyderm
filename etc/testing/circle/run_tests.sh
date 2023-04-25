@@ -8,7 +8,8 @@ export VM_IP
 ENTERPRISE_PORT="31650"
 export ENTEPRRISE_PORT
 
-TESTFLAGS="-v -cover -test.gocoverdir='$TEST_RESULTS' -covermode=atomic -coverpkg=./... | stdbuf -i0 tee -a /tmp/results"
+testFlagsArr=(-v -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./... | stdbuf -i0 tee -a /tmp/results)
+TESTFLAGS="${testFlagsArr[@]}"
 export TESTFLAGS
 
 # make launch-kube connects with kubernetes, so it should just be available
