@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc"
@@ -61,21 +63,42 @@ func (c *getFileTARClient) Recv() (*types.BytesValue, error) {
 	return nil, io.EOF
 }
 
+const fakeCommit = "44444444444444444444444444444444"
+
 func (fakePFS) GetFileTAR(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error) {
+	log.Debug(ctx, "GetFileTAR", log.Proto("request", req))
 	files := map[string]string{}
-	if req.File.Commit.Branch.Name == "master" && req.File.Commit.Repo.Name == "images" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/" {
-		files["/hello.txt"] = "hello"
-		files["/a/"] = ""
-		files["/a/nested/"] = ""
-		files["/a/nested/file.txt"] = "i'm nested!"
-	}
-	if req.File.Commit.Branch.Name == "master" && req.File.Commit.Repo.Name == "montage" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/montage.png" {
-		files["/montage.png"] = "beautiful artwork is here"
-	}
-	if req.File.Path == "/error.txt" {
-		files["error"] = "error reading from the server"
+	if req.File.Commit.ID == fakeCommit {
+		if req.File.Commit.Repo.Name == "images" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/" {
+			files["/hello.txt"] = "hello"
+			files["/a/"] = ""
+			files["/a/nested/"] = ""
+			files["/a/nested/file.txt"] = "i'm nested!"
+		}
+		if req.File.Commit.Repo.Name == "images" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/hello.txt" {
+			files["/hello.txt"] = "hello"
+		}
+		if req.File.Commit.Repo.Name == "montage" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/montage.png" {
+			files["/montage.png"] = "beautiful artwork is here"
+		}
+		if req.File.Path == "/error.txt" {
+			files["error"] = "error reading from the server"
+		}
 	}
 	return &getFileTARClient{files: files}, nil
+}
+
+func (fakePFS) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfo, error) {
+	log.Debug(ctx, "InspectBranch", log.Proto("request", req))
+	if req.Branch.Name == "master" {
+		return &pfs.BranchInfo{
+			Head: &pfs.Commit{
+				Repo: req.Branch.Repo,
+				ID:   fakeCommit,
+			},
+		}, nil
+	}
+	return nil, errors.New("not found")
 }
 
 // so TestHTTP and FuzzHTTP can share the implementation
@@ -147,9 +170,19 @@ var testData = []struct {
 		url:      "https://pachyderm.example.com/download/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip",
 		wantCode: http.StatusOK,
 		wantFiles: map[string]string{
-			"default/images/master/hello.txt":         "hello",
-			"default/images/master/a/nested/file.txt": "i'm nested!",
-			"default/montage/master/montage.png":      "beautiful artwork is here",
+			"default/images/44444444444444444444444444444444/hello.txt":         "hello",
+			"default/images/44444444444444444444444444444444/a/nested/file.txt": "i'm nested!",
+			"default/montage/44444444444444444444444444444444/montage.png":      "beautiful artwork is here",
+		},
+	},
+	{
+		name:     "download with some content, commit references in URL",
+		method:   "GET",
+		url:      "https://pachyderm.example.com/download/ASi1L_0EaL0BAIQCZGVmYXVsdC9pbWFnZXNANDovaGVsbG8udHh0AG1vbnRhZ2UucG5nAAQATRHgK2e8IpIGLAGgJI8S.zip",
+		wantCode: http.StatusOK,
+		wantFiles: map[string]string{
+			"default/images/44444444444444444444444444444444/hello.txt":    "hello",
+			"default/montage/44444444444444444444444444444444/montage.png": "beautiful artwork is here",
 		},
 	},
 	{
@@ -158,7 +191,7 @@ var testData = []struct {
 		url:      "https://pachyderm.example.com/download/ASi1L_0EaPkAAGRlZmF1bHQvdGVzdEBtYXN0ZXI6L2Vycm9yLnR4dABwDhIY.zip",
 		wantCode: http.StatusOK,
 		wantFiles: map[string]string{
-			"@error.txt": "path callback: path default/test@master:/error.txt: read TAR header: error reading from the server\n",
+			"@error.txt": "path default/test@=44444444444444444444444444444444:/error.txt: read TAR header: error reading from the server\n",
 		},
 	},
 }
@@ -207,7 +240,31 @@ func FuzzHTTP(f *testing.F) {
 		if _, err := http.ReadRequest(bufio.NewReader(strings.NewReader("GET " + u + " HTTP/1.0\r\n\r\n"))); err != nil {
 			return
 		}
+
+		up, err := url.Parse(u)
+		isDownload := err == nil && strings.HasPrefix(up.Path, "/download/")
+
 		// Then use the normal testing machinery.
-		doTest(t, "GET", u)
+		code, body := doTest(t, "GET", u)
+		if code == http.StatusOK && isDownload && body.Len() > 0 {
+			// If the code is OK and the URL starts with /download/, then there should
+			// be either nothing, or a zip.  Assert that the ZIP is readable.
+			bs := body.Bytes()
+			t.Logf("potential zip bytes: %x %s", bs, bs)
+
+			r, err := zip.NewReader(bytes.NewReader(bs), int64(len(bs)))
+			if err != nil {
+				t.Fatalf("zip.NewReader: %v", err)
+			}
+			for _, fileinfo := range r.File {
+				file, err := r.Open(fileinfo.Name)
+				if err != nil {
+					t.Fatalf("open(%v): %v", fileinfo.Name, err)
+				}
+				if _, err := io.Copy(io.Discard, file); err != nil {
+					t.Fatalf("read error(%v): %v", fileinfo.Name, err)
+				}
+			}
+		}
 	})
 }
