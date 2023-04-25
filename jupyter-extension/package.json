@@ -65,7 +65,7 @@
     "react": "^17.0.2",
     "rudder-sdk-js": "^1.2.1",
     "svg-url-loader": "^7.1.1",
-    "yaml": "^2.1.1"
+    "yaml": "^2.2.2"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",
