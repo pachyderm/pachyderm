@@ -24,16 +24,16 @@ func NewHTTP(port uint16, pachClientFactory func(ctx context.Context) *client.AP
 	handler := &Server{
 		pachClientFactory: pachClientFactory,
 	}
-	mux.Handle("/download/", handler)
+	mux.Handle("/download/", CSRFWrapper(handler))
 	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("healthy\n")) //nolint:errcheck
 	}))
 	return &HTTP{
-		mux: CSRFWrapper(mux),
+		mux: mux,
 		server: &http.Server{
 			Addr:    fmt.Sprintf(":%d", port),
-			Handler: CSRFWrapper(mux),
+			Handler: mux,
 		},
 	}
 }
@@ -42,15 +42,28 @@ func NewHTTP(port uint16, pachClientFactory func(ctx context.Context) *client.AP
 func CSRFWrapper(h http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("origin")
-		if origin == "" {
+		if origin != "" {
+			u, err := url.Parse(origin)
+			if err != nil {
+				origin = "error(origin): " + err.Error()
+			} else if u.Host == "" {
+				origin = "error(origin): no host"
+			} else {
+				origin = u.Host
+			}
+		} else {
+			// No Origin header, try Referer.
 			if r := r.Header.Get("referer"); r != "" {
 				u, err := url.Parse(r)
 				if err != nil {
-					origin = "error: " + err.Error() // We must deny in this case.
+					origin = "error(referer): " + err.Error() // We must deny in this case.
+				} else if u.Host == "" {
+					origin = "error(referer): no host"
 				} else {
 					origin = u.Host
 				}
 			}
+			// Neither header exists.
 		}
 		if origin == "" {
 			log.Debug(r.Context(), "csrf: no origin or referer header; assuming cli; allow")
@@ -58,7 +71,7 @@ func CSRFWrapper(h http.Handler) http.HandlerFunc {
 			return
 		}
 		if origin != r.Host {
-			log.Debug(r.Context(), "csrf: origin/host mismatch; deny", zap.Strings("origin", r.Header.Values("origin")), zap.Strings("referer", r.Header.Values("referer")), zap.String("host", r.Host))
+			log.Info(r.Context(), "csrf: origin/host mismatch; deny", zap.String("resolved_origin", origin), zap.Strings("origin", r.Header.Values("origin")), zap.Strings("referer", r.Header.Values("referer")), zap.String("host", r.Host))
 			http.Error(w, "csrf: origin/host mismatch", http.StatusForbidden)
 			return
 		}
