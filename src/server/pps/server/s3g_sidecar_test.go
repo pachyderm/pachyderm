@@ -176,8 +176,8 @@ func testS3Input(t *testing.T, c *client.APIClient, userToken, ns, projectName s
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
-		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "input_repo"),
-		"expected \"out\" but not \"input_repo\" in %s: %q", "pfs_files", buf.String())
+		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "foo"),
+		"expected \"out\" but not \"foo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
@@ -504,8 +504,8 @@ func testFullS3(t *testing.T, c *client.APIClient, userToken, ns, projectName st
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
-		!strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
-		"expected neither \"out\" nor \"input_repo\" in %s: %q", "pfs_files", buf.String())
+		!strings.Contains(buf.String(), "foo") && !strings.Contains(buf.String(), "out"),
+		"expected neither \"out\" nor \"foo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
