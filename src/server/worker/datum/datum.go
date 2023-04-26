@@ -246,7 +246,8 @@ func (d *Datum) createEnvFile() error {
 	for _, e := range d.env {
 		envStr += e + "\n"
 	}
-	return os.WriteFile(path.Join(d.PFSStorageRoot(), common.EnvFileName), []byte(envStr), 0666)
+	err := os.WriteFile(path.Join(d.PFSStorageRoot(), common.EnvFileName), []byte(envStr), 0666)
+	return errors.EnsureStack(err)
 }
 
 func (d *Datum) downloadData(downloader pfssync.Downloader) error {
