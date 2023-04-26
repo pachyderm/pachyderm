@@ -2,18 +2,20 @@ import React, {ReactNode} from 'react';
 
 import {Link, ExternalLinkSVG, Icon} from '@pachyderm/components';
 
+import BrandedDocLink from '../BrandedDocLink';
 import {BrandedEmptyIcon, BrandedErrorIcon} from '../BrandedIcon';
 
 import styles from './EmptyState.module.css';
 
 type EmptyStateProps = {
-  title: string;
-  message?: string;
+  title: string | ReactNode;
+  message?: string | ReactNode;
   connect?: boolean;
   className?: string;
   error?: boolean;
   renderButton?: ReactNode;
-  linkToDocs?: {text: string; link: string};
+  linkToDocs?: {text: string; pathWithoutDomain: string};
+  linkExternal?: {text: string; link: string};
 };
 
 const EmptyState: React.FC<EmptyStateProps> = ({
@@ -21,6 +23,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   message = null,
   children = null,
   linkToDocs,
+  linkExternal,
   className,
   error,
   renderButton,
@@ -39,8 +42,17 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         {children}
       </span>
       {linkToDocs && (
-        <Link externalLink to={linkToDocs.link} className={styles.docsLink}>
+        <BrandedDocLink
+          externalLink
+          pathWithoutDomain={linkToDocs.pathWithoutDomain}
+          className={styles.docsLink}
+        >
           {linkToDocs.text}
+        </BrandedDocLink>
+      )}
+      {linkExternal && (
+        <Link externalLink to={linkExternal.link} className={styles.docsLink}>
+          {linkExternal.text}
           <Icon small>
             <ExternalLinkSVG aria-hidden />
           </Icon>

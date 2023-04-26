@@ -1,22 +1,14 @@
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
-import {
-  BrandedEmptyIcon,
-  BrandedErrorIcon,
-} from '@dash-frontend/components/BrandedIcon';
+import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
+import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
-import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
-import {
-  SkeletonDisplayText,
-  ElephantEmptyState,
-  Link,
-  CaptionTextSmall,
-} from '@pachyderm/components';
+import {SkeletonDisplayText, CaptionTextSmall} from '@pachyderm/components';
 
 import Title from '../Title';
 
@@ -102,23 +94,19 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
       </div>
 
       {!currentRepoLoading && (!commit || repo?.branches.length === 0) && (
-        <div className={styles.emptyRepoMessage}>
-          <BrandedEmptyIcon
-            className={styles.emptyIcon}
-            disableDefaultStyling
-          />
-          <Title>This repo doesn&apos;t have any branches</Title>
-          <p>
-            This is normal for new repositories, but we still wanted to notify
-            you because Pachyderm didn&apos;t detect a branch on our end.{' '}
-            <Link
-              externalLink
-              to="https://docs.pachyderm.com/latest/concepts/data-concepts/branch/"
-            >
-              Try creating a branch and pushing a commit.
-            </Link>
-          </p>
-        </div>
+        <EmptyState
+          title={<>This repo doesn&apos;t have any branches</>}
+          message={
+            <>
+              This is normal for new repositories, but we still wanted to notify
+              you because Pachyderm didn&apos;t detect a branch on our end.
+            </>
+          }
+          linkToDocs={{
+            text: 'Try creating a branch and pushing a commit.',
+            pathWithoutDomain: 'concepts/data-concepts/branch/',
+          }}
+        />
       )}
 
       {commit?.id && (

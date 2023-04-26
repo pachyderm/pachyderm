@@ -19,7 +19,7 @@ const ErrorStateSupportLink: React.FC<ErrorStateSupportLinkProps> = ({
       error
       title={title}
       message={message || undefined}
-      linkToDocs={{
+      linkExternal={{
         text: 'If this issue keeps happening, contact our customer team.',
         link: enterpriseActive
           ? 'mailto:support@pachyderm.com'

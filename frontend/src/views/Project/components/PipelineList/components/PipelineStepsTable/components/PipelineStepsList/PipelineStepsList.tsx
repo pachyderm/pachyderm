@@ -64,7 +64,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
         message="This is normal for new DAGs, but we still wanted to notify you because Pachyderm didn't detect any pipelines on our end."
         linkToDocs={{
           text: 'Try creating a pipeline',
-          link: 'https://docs.pachyderm.com/latest/how-tos/pipeline-operations/create-pipeline/',
+          pathWithoutDomain: 'how-tos/pipeline-operations/create-pipeline/',
         }}
       />
     );

@@ -4,8 +4,9 @@ import classnames from 'classnames';
 import React from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
+import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
 import EmptyState from '@dash-frontend/components/EmptyState';
-import {LoadingDots, Link} from '@pachyderm/components';
+import {LoadingDots} from '@pachyderm/components';
 
 import {HEADER_HEIGHT_OFFSET} from '../../constants/logsViewersConstants';
 import useLogsBody from '../../hooks/useLogsBody';
@@ -90,12 +91,9 @@ const LogsBody: React.FC<LogsBodyProps> = ({
       >
         If you haven&apos;t already, consider setting up a persistent log
         aggregator like{' '}
-        <Link
-          externalLink
-          to="https://docs.pachyderm.com/latest/deploy-manage/deploy/loki/"
-        >
+        <BrandedDocLink pathWithoutDomain="deploy-manage/deploy/loki/">
           Loki
-        </Link>
+        </BrandedDocLink>
       </EmptyState>
     );
   }

@@ -3,9 +3,7 @@ import React from 'react';
 
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-frontend/constants/pachCore';
 import {
-  ExternalLinkSVG,
   Icon,
-  Link,
   Input,
   Form,
   Label,
@@ -14,6 +12,8 @@ import {
   FilterSVG,
   ChevronDownSVG,
 } from '@pachyderm/components';
+
+import BrandedDocLink from '../BrandedDocLink';
 
 import styles from './GlobalFilter.module.css';
 import useGlobalFilter from './hooks/useGlobalFilter';
@@ -59,16 +59,12 @@ const GlobalFilter: React.FC = () => {
             <div className={styles.infoText}>
               Filtering by Global ID will show you all the commits and jobs with
               the same ID.{' '}
-              <Link
-                externalLink
-                to="https://docs.pachyderm.com/latest/concepts/advanced-concepts/globalid/"
+              <BrandedDocLink
+                pathWithoutDomain="concepts/advanced-concepts/globalid/"
                 className={styles.link}
               >
                 Read More
-                <Icon small>
-                  <ExternalLinkSVG aria-hidden />
-                </Icon>
-              </Link>
+              </BrandedDocLink>
             </div>
             <div className={styles.form}>
               <Label htmlFor="globalId" label="Global ID" />

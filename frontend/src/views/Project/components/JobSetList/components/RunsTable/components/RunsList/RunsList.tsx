@@ -95,7 +95,7 @@ const RunsList: React.FC<RunsListProps> = ({
         message="This is normal for new DAGs, but we still wanted to notify you because Pachyderm didn't detect a job on our end."
         linkToDocs={{
           text: 'Try creating a branch and pushing a commit, this automatically creates a job.',
-          link: 'https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_branch/',
+          pathWithoutDomain: 'reference/pachctl/pachctl_create_branch/',
         }}
       />
     );

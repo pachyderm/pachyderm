@@ -1,13 +1,7 @@
 import React from 'react';
 
-import {
-  BasicModal,
-  Icon,
-  EducationSVG,
-  InfoSVG,
-  ExternalLinkSVG,
-  Link,
-} from '@pachyderm/components';
+import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
+import {BasicModal, Icon, EducationSVG, InfoSVG} from '@pachyderm/components';
 
 import useIntroductionModal from './hooks/useIntroductionModal';
 import styles from './IntroductionModal.module.css';
@@ -72,17 +66,13 @@ const pages = [
           you&apos;re ready to delete everything, you can follow this guide on
           our documentation website.
         </p>
-        <Link
+        <BrandedDocLink
           className={styles.link}
           small
-          externalLink
-          to="https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_all/"
+          pathWithoutDomain="reference/pachctl/pachctl_delete_all/"
         >
           Pachctl delete all
-          <Icon className={styles.linkSVG} small color="plum">
-            <ExternalLinkSVG />
-          </Icon>
-        </Link>
+        </BrandedDocLink>
       </div>
     ),
     confirmText: 'Start Tutorial',

@@ -1,6 +1,7 @@
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
+import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
 import {
   FullPageModal,
   Group,
@@ -11,8 +12,6 @@ import {
   Select,
   UploadSVG,
   Icon,
-  ExternalLinkSVG,
-  Link,
   ErrorText,
   HelpText,
   ButtonGroup,
@@ -65,16 +64,12 @@ const FileUpload: React.FC = () => {
             <Group className={styles.base}>
               <Group spacing={32} vertical className={styles.fileForm}>
                 <Group vertical spacing={8} align="start">
-                  <Link
+                  <BrandedDocLink
                     className={styles.terminal}
-                    externalLink
-                    to="https://docs.pachyderm.com/latest/how-tos/basic-data-operations/load-data-into-pachyderm/#pachctl-put-file"
+                    pathWithoutDomain="how-tos/basic-data-operations/load-data-into-pachyderm/#pachctl-put-file"
                   >
                     For large file uploads via CTL
-                    <Icon className={styles.copySVG} color="plum" small>
-                      <ExternalLinkSVG />
-                    </Icon>
-                  </Link>
+                  </BrandedDocLink>
                   <h2>Upload Files</h2>
                 </Group>
                 <Group spacing={16} vertical>

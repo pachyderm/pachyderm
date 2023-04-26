@@ -19,9 +19,13 @@ export {default as mockServer} from '@dash-backend/mock';
 // is hydrated if render is performed between events
 export const SUBSCRIPTION_TIMEOUT = SUBSCRIPTION_INTERVAL * 2;
 
-export const withContextProviders = <T,>(
-  Component: React.ComponentType<T>,
-): ((props: T) => ReactElement<T>) => {
+export const withContextProviders = <
+  T extends React.JSXElementConstructor<any> | keyof JSX.IntrinsicElements,
+>(
+  Component: React.ComponentType<React.ComponentProps<T>>,
+): ((
+  props: React.ComponentProps<T>,
+) => ReactElement<React.ComponentProps<T>>) => {
   // eslint-disable-next-line react/display-name
   return (props: any): any => {
     return (
