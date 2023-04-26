@@ -1,6 +1,7 @@
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
+import {BrandedErrorIcon} from '@dash-frontend/components/BrandedIcon';
 import JSONDataPreview from '@dash-frontend/components/JSONDataPreview';
 import View from '@dash-frontend/components/View';
 import LandingHeader from '@dash-frontend/views/Landing/components/LandingHeader';
@@ -37,11 +38,7 @@ const ErrorView: React.FC<ErrorViewProps> = ({
       <LandingHeader />
       <View>
         <Group vertical spacing={16} align="center" className={styles.base}>
-          <img
-            src="elephant_error_state.svg"
-            className={styles.elephantImage}
-            alt="Error Encountered"
-          />
+          <BrandedErrorIcon className={styles.elephantImage} />
           <Group vertical spacing={32} className={styles.content}>
             <Group spacing={8} align="center">
               <Icon color="red">
