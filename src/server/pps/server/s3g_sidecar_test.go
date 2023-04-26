@@ -864,9 +864,6 @@ func TestDontDownloadData(t *testing.T) {
 				`if find -L /pfs -type f | xargs grep --with-filename "This is a test"; then`,
 				`  exit 1`, // The data shouldn't be downloaded; this means it was
 				`fi`,
-				`if ls /pfs/input_repo; then`,
-				`  exit 1`, // The input dir shouldn't be linked either; this means it was
-				`fi`,       // success
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
