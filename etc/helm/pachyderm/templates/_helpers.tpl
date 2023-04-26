@@ -85,6 +85,8 @@ In deployments where the issuerURI is user accessible (ie. Via ingress) this wou
 {{ .Values.console.config.reactAppRuntimeIssuerURI }}
 {{- else if (include "pachyderm.host" .) -}}
 {{- printf "%s://%s" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
+{{- else if .Values.proxy.enabled -}}
+http://localhost:80
 {{- else if not .Values.ingress.enabled -}}
 http://localhost:30658
 {{- end }}
@@ -95,6 +97,8 @@ http://localhost:30658
 {{ .Values.console.config.oauthRedirectURI }}
 {{- else if (include "pachyderm.host" .) -}}
 {{- printf "%s://%s/oauth/callback/?inline=true" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
+{{- else if .Values.proxy.enabled -}}
+http://localhost/oauth/callback/?inline=true
 {{- else if not .Values.ingress.enabled -}}
 http://localhost:4000/oauth/callback/?inline=true
 {{- else -}}
@@ -107,6 +111,8 @@ http://localhost:4000/oauth/callback/?inline=true
 {{ .Values.pachd.oauthRedirectURI -}}
 {{- else if (include "pachyderm.host" .) -}}
 {{- printf "%s://%s/authorization-code/callback" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
+{{- else if .Values.proxy.enabled -}}
+http://localhost/authorization-code/callback
 {{- else if not .Values.ingress.enabled -}}
 http://localhost:30657/authorization-code/callback
 {{- else -}}
@@ -144,7 +150,7 @@ true
 {{- else if (include "pachyderm.host" .) -}}
 {{- printf "%s://%s" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
 {{- else  -}}
-http://localhost:30658
+http://localhost
 {{- end -}}
 {{- end }}
 
