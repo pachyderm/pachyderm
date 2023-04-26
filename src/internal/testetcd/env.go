@@ -79,8 +79,8 @@ func NewEnv(rctx context.Context, t testing.TB) *Env {
 	clientURL, err := url.Parse(fmt.Sprintf("http://%s", listener.Addr().String()))
 	require.NoError(t, err)
 
-	etcdConfig.LPUrls = []url.URL{}
-	etcdConfig.LCUrls = []url.URL{*clientURL}
+	etcdConfig.ListenPeerUrls = []url.URL{}
+	etcdConfig.ListenClientUrls = []url.URL{*clientURL}
 
 	// Throw away noisy messages from etcd - comment these out if you need to debug
 	// a failed start
