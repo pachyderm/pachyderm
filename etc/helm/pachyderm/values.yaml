@@ -216,6 +216,8 @@ ingress:
 # loki-stack contains values that will be passed to the loki-stack subchart
 loki-stack:
   loki:
+    image:
+      tag: 2.8.1
     serviceAccount:
       automountServiceAccountToken: false
     persistence:
@@ -247,6 +249,8 @@ loki-stack:
   grafana:
     enabled: false
   promtail:
+    image:
+      tag: 2.8.1
     config:
       clients:
         - url: "http://{{ .Release.Name }}-loki:3100/loki/api/v1/push"
