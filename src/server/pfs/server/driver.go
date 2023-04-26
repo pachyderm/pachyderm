@@ -774,9 +774,7 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 }
 
 func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
-	var diff *fileset.ID
-	var err error
-	diff, err = d.commitStore.GetDiffFileSet(ctx, commit)
+	diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
