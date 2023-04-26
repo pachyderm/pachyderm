@@ -29,6 +29,9 @@ spec:
     port: 1656
     protocol: TCP
     targetPort: prom-metrics
+  - name: download-port
+    port: 1659
+    targetPort: download-port
   selector:
     {{- if .Values.enterpriseServer.enabled }}
     app: pach-enterprise

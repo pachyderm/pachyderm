@@ -264,6 +264,9 @@ func getCommitIntId(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (in
 			return 0, errors.Wrapf(err, "scan int_id for commit_id %q", oldCommitKey(commit))
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return 0, errors.EnsureStack(err)
+	}
 	return id, nil
 }
 
@@ -348,6 +351,9 @@ func commitProvenance(tx *pachsql.Tx, repo *pfs.Repo, branch *pfs.Branch, commit
 			ID: strings.Split(commitId, "=")[1],
 		}
 		commitProvenance = append(commitProvenance, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.EnsureStack(err)
 	}
 	return commitProvenance, nil
 }
@@ -570,6 +576,9 @@ func commitSubvenance(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) ([]*pf
 			ID:     id,
 		}
 		commitSubvenance = append(commitSubvenance, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.EnsureStack(err)
 	}
 	return commitSubvenance, nil
 }

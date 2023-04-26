@@ -35,6 +35,12 @@ func Error(ctx context.Context, msg string, fields ...Field) {
 	extractLogger(ctx).Error(msg, fields...)
 }
 
+// Exit logs a message, with fields, at level FATAL and then exits with status 0.  Level fatal is
+// only appropriate for use in interactive scripts.
+func Exit(ctx context.Context, msg string, fields ...Field) {
+	extractLogger(ctx).Fatal(msg, fields...)
+}
+
 // WriterAt creates a new io.Writer that logs each line as a log message at the provided levels.
 func WriterAt(ctx context.Context, lvl Level) io.WriteCloser {
 	l := extractLogger(ctx).WithOptions(zap.WithCaller(false))

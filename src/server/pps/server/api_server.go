@@ -1339,6 +1339,9 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 }
 
 func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.API_QueryLokiServer) (retErr error) {
+	if err := a.env.AuthServer.CheckClusterIsAuthorized(apiQueryLokiServer.Context(), auth.Permission_CLUSTER_GET_LOKI_LOGS); err != nil {
+		return errors.EnsureStack(err)
+	}
 	loki, err := a.env.GetLokiClient()
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -2805,28 +2808,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 		ensurePipelineProject(request.GetPipeline())
 	}
 	if request.All {
-		request.Pipeline = &pps.Pipeline{}
-		pipelineInfo := &pps.PipelineInfo{}
-		deleted := make(map[string]struct{})
-		if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
-			if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
-				// while the delete pipeline call will delete historical versions,
-				// they could still show up in the list. Ignore them
-				return nil
-			}
-			// skip pipelines outside the default project.
-			if pipelineInfo.GetPipeline().GetProject().GetName() != pfs.DefaultProjectName {
-				return nil
-			}
-			request.Pipeline = pipelineInfo.Pipeline
-			err := a.deletePipeline(ctx, request)
-			if err == nil {
-				deleted[pipelineInfo.Pipeline.String()] = struct{}{}
-			}
-			return err
-		}); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
+		_, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{
+			KeepRepo: request.KeepRepo,
+		})
+		return &types.Empty{}, errors.Wrap(err, "delete all pipelines")
 	} else if err := a.deletePipeline(ctx, request); err != nil {
 		return nil, err
 	}
@@ -2836,7 +2821,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) error {
 	pipelineName := request.Pipeline.Name
-
 	// stop the pipeline to avoid interference from new jobs
 	if _, err := a.StopPipeline(ctx,
 		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
@@ -2847,12 +2831,13 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	// perform the rest of the deletion in a transaction
 	var deleteErr error
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		deleteErr = a.deletePipelineInTransaction(txnCtx, request)
+		var deleteRepos []*pfs.Repo
+		deleteRepos, deleteErr = a.deletePipelineInTransaction(txnCtx, request)
 		// we still want deletion to succeed if it was merely incomplete, but warn the caller
-		if errors.Is(deleteErr, errIncompleteDeletion) {
-			return nil
+		if deleteErr != nil && !errors.Is(deleteErr, errIncompleteDeletion) {
+			return deleteErr
 		}
-		return deleteErr
+		return a.env.PFSServer.DeleteReposInTransaction(txnCtx, deleteRepos, request.Force)
 	}); err != nil {
 		return err
 	}
@@ -2862,11 +2847,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	return deleteErr
 }
 
-func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) error {
+func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) ([]*pfs.Repo, error) {
 	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
 	pipelinesNameKey := ppsdb.PipelinesNameKey(request.Pipeline)
-
+	var deleteRepos []*pfs.Repo
 	// make sure the pipeline exists
 	var foundPipeline bool
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetByIndex(
@@ -2878,38 +2863,36 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			foundPipeline = true
 			return nil
 		}); err != nil {
-		return errors.Wrapf(err, "error checking if pipeline %s/%s exists", projectName, pipelineName)
+		return nil, errors.Wrapf(err, "error checking if pipeline %s/%s exists", projectName, pipelineName)
 	}
 	if !foundPipeline {
 		// nothing to delete
-		return nil
+		return nil, nil
 	}
-
 	pipelineInfo := &pps.PipelineInfo{}
 	// Try to retrieve PipelineInfo for this pipeline. If we see a not found error,
 	// we will still try to delete what we can because we know there is a pipeline
 	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, request.Pipeline, ""); err == nil {
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
-			return errors.EnsureStack(err)
+			return nil, errors.EnsureStack(err)
 		}
 	} else if !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
-		return err
+		return nil, err
 	}
 	var missingRepo bool
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 		Repo: client.NewProjectRepo(projectName, pipelineName)}); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline
 		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), projectName, pipelineName); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		missingRepo = true
 	}
-
 	// If necessary, revoke the pipeline's auth token and remove it from its inputs' ACLs
 	// If auth is deactivated, don't bother doing either
 	if _, err := txnCtx.WhoAmI(); err == nil && pipelineInfo.AuthToken != "" {
@@ -2917,17 +2900,16 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if pipelineInfo.Details != nil {
 			// need details for acls
 			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, nil, pipelineInfo); err != nil {
-				return errors.Wrapf(err, "error fixing repo ACLs for pipeline %q", pipelineName)
+				return nil, errors.Wrapf(err, "error fixing repo ACLs for pipeline %q", pipelineName)
 			}
 		}
 		if _, err := a.env.AuthServer.RevokeAuthTokenInTransaction(txnCtx,
 			&auth.RevokeAuthTokenRequest{
 				Token: pipelineInfo.AuthToken,
 			}); err != nil {
-			return errors.EnsureStack(err)
+			return nil, errors.EnsureStack(err)
 		}
 	}
-
 	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
 	// new jobs since the pipeline has already been stopped.
 	jobInfo := &pps.JobInfo{}
@@ -2939,23 +2921,16 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		}
 		return err
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	}
-
 	// Delete all past PipelineInfos
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelinesNameKey); err != nil {
-		return errors.Wrapf(err, "collection.Delete")
+		return nil, errors.Wrapf(err, "collection.Delete")
 	}
-
 	if !missingRepo {
 		if !request.KeepRepo {
 			// delete the pipeline's output repo
-			if err := a.env.PFSServer.DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-				Repo:  client.NewProjectRepo(projectName, pipelineName),
-				Force: request.Force,
-			}); err != nil && !errutil.IsNotFoundError(err) {
-				return errors.Wrap(err, "error deleting pipeline repo")
-			}
+			deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, pipelineName))
 		} else {
 			// Remove branch provenance from output and then delete meta and spec repos
 			// this leaves the repo as a source repo, eliminating pipeline metadata
@@ -2964,21 +2939,11 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 					Branch: client.NewProjectBranch(projectName, pipelineName, pipelineInfo.Details.OutputBranch),
 				}); err != nil {
-					return errors.EnsureStack(err)
+					return nil, errors.EnsureStack(err)
 				}
 			}
-			if err := a.env.PFSServer.DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-				Repo:  client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType),
-				Force: request.Force,
-			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
-				return errors.EnsureStack(err)
-			}
-			if err := a.env.PFSServer.DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-				Repo:  client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType),
-				Force: request.Force,
-			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
-				return errors.EnsureStack(err)
-			}
+			deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType))
+			deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType))
 		}
 	}
 	// delete cron after main repo is deleted or has provenance removed
@@ -2986,24 +2951,18 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if pipelineInfo.Details != nil {
 		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
 			if input.Cron != nil {
-				err := a.env.PFSServer.DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-					Repo:  client.NewProjectRepo(projectName, input.Cron.Repo),
-					Force: request.Force,
-				})
-				return errors.EnsureStack(err)
+				deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, input.Cron.Repo))
 			}
 			return nil
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
-
 	if request.KeepRepo && !missingRepo && pipelineInfo.Details == nil {
 		// warn about being unable to delete provenance, caller can ignore
-		return errIncompleteDeletion
+		return deleteRepos, errIncompleteDeletion
 	}
-
-	return nil
+	return deleteRepos, nil
 }
 
 // DeletePipelines implements the protobuf pps.DeletePipelines RPC.  It deletes
@@ -3016,7 +2975,7 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 			Force:    request.Force,
 			KeepRepo: request.KeepRepo,
 		}
-		pp []*pps.Pipeline
+		ps []*pps.Pipeline
 	)
 	for _, p := range request.GetProjects() {
 		projects[p.String()] = true
@@ -3033,17 +2992,32 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 		if !request.GetAll() && !projects[pipelineInfo.GetPipeline().GetProject().GetName()] {
 			return nil
 		}
-		dr.Pipeline = pipelineInfo.Pipeline
-		err := a.deletePipeline(ctx, dr)
-		if err == nil {
-			deleted[pipelineInfo.Pipeline.String()] = struct{}{}
-			pp = append(pp, pipelineInfo.Pipeline)
-		}
-		return err
+		deleted[pipelineInfo.Pipeline.String()] = struct{}{}
+		ps = append(ps, pipelineInfo.Pipeline)
+		return nil
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &pps.DeletePipelinesResponse{Pipelines: pp}, nil
+	for _, p := range ps {
+		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: p}); err != nil {
+			return nil, errors.Wrapf(err, "stop pipeline %q", p.String())
+		}
+
+	}
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var rs []*pfs.Repo
+		for _, p := range ps {
+			deleteRepos, err := a.deletePipelineInTransaction(txnCtx, &pps.DeletePipelineRequest{Pipeline: p, KeepRepo: request.KeepRepo})
+			if err != nil {
+				return err
+			}
+			rs = append(rs, deleteRepos...)
+		}
+		return a.env.PFSServer.DeleteReposInTransaction(txnCtx, rs, request.Force)
+	}); err != nil {
+		return nil, err
+	}
+	return &pps.DeletePipelinesResponse{Pipelines: ps}, nil
 }
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC

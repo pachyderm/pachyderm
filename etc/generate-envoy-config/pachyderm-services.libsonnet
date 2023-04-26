@@ -123,6 +123,34 @@
       no_traffic_healthy_interval: '10s',
     },
   },
+  'pachd-download': {
+    internal_port: 1659,
+    service: 'pachd-proxy-backend',
+    routes: [
+      {
+        match: {
+          prefix: '/download',
+        },
+        route: {
+          cluster: 'pachd-download',
+          idle_timeout: '600s',
+          timeout: '604800s',
+        },
+      },
+    ],
+    health_check: {
+      healthy_threshold: 1,
+      http_health_check: {
+        host: 'localhost',  // This is just the value of the Host: header, not something to connect to.
+        path: '/healthz',
+      },
+      interval: '30s',
+      timeout: '10s',
+      unhealthy_threshold: 2,
+      no_traffic_interval: '10s',
+      no_traffic_healthy_interval: '10s',
+    },
+  },
   console: {
     internal_port: 4000,
     external_port: 4000,

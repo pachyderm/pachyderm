@@ -16,6 +16,15 @@
   font-weight: 800;
 }
 
+/* Adjust the font to match pachyderm-button-link, which we use for the
+ * top-area "view" selections. This class is applied to the top title in the
+ * Repo view, so that it doesn't clash with the buttons that are right next to
+ * it.
+ */
+.pachyderm-mount-base-title-button-font {
+  font-family: 'Montserrat', sans-serif;
+}
+
 .pachyderm-mount-icon-padding {
   padding-top: 3px;
 }
@@ -345,6 +354,7 @@
   flex-direction: column;
   margin: 0.25rem 16px;
   height: 100%;
+  overflow: auto;
 }
 
 .pachyderm-mount-pipeline-back {

@@ -11,7 +11,8 @@ type PipelineProps = {
   saveNotebookToDisk: () => Promise<void>;
 };
 
-const placeholderInputSpec = `pfs:
+const placeholderInputSpec = `# example:
+pfs:
   repo: images
   branch: dev
   glob: /*
@@ -36,7 +37,6 @@ const Pipeline: React.FC<PipelineProps> = ({
     requirements,
     setRequirements,
     callCreatePipeline,
-    callSavePipeline,
     currentNotebook,
     errorMessage,
     responseMessage,
@@ -65,26 +65,8 @@ const Pipeline: React.FC<PipelineProps> = ({
         </button>
       </div>
       <span className="pachyderm-mount-pipeline-subheading">
-        Notebook-to-Pipeline
+        Publish as Pipeline
       </span>
-
-      <div className="pachyderm-pipeline-buttons">
-        <button
-          data-testid="Pipeline__save"
-          className="pachyderm-button-link"
-          onClick={callSavePipeline}
-        >
-          Save
-        </button>
-
-        <button
-          data-testid="Pipeline__create_pipeline"
-          className="pachyderm-button-link"
-          onClick={callCreatePipeline}
-        >
-          Create Pipeline
-        </button>
-      </div>
 
       <div className="pachyderm-pipeline-current-notebook-wrapper">
         <label
@@ -100,20 +82,6 @@ const Pipeline: React.FC<PipelineProps> = ({
           {currentNotebook}
         </span>
       </div>
-
-      <span
-        className="pachyderm-pipeline-error"
-        data-testid="Pipeline__errorMessage"
-      >
-        {errorMessage}
-      </span>
-
-      <span
-        className="pachyderm-pipeline-response"
-        data-testid="Pipeline__responseMessage"
-      >
-        {responseMessage}
-      </span>
 
       <div className="pachyderm-pipeline-input-wrapper">
         <label
@@ -214,6 +182,28 @@ ${inputSpec
           readOnly={true}
         ></textarea>
       </div>
+
+      <div className="pachyderm-pipeline-buttons">
+        <button
+          data-testid="Pipeline__create_pipeline"
+          className="pachyderm-button"
+          onClick={callCreatePipeline}
+        >
+          Run
+        </button>
+      </div>
+      <span
+        className="pachyderm-pipeline-error"
+        data-testid="Pipeline__errorMessage"
+      >
+        {errorMessage}
+      </span>
+      <span
+        className="pachyderm-pipeline-response"
+        data-testid="Pipeline__responseMessage"
+      >
+        {responseMessage}
+      </span>
     </div>
   );
 };

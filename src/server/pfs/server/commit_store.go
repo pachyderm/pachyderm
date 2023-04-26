@@ -22,21 +22,21 @@ type commitStore interface {
 	AddFileSet(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
 	// AddFileSetTx is identical to AddFileSet except it runs in the provided transaction.
 	AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, filesetID fileset.ID) error
-	// SetTotalFileSet sets the total fileset for the commit, overwriting whatever is there.
+	// SetTotalFileSet sets the total file set for the commit, overwriting whatever is there.
 	SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
 	// SetTotalFileSetTx is like SetTotalFileSet, but in a transaction
 	SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error
-	// SetDiffFileSet sets the diff fileset for the commit, overwriting whatever is there.
+	// SetDiffFileSet sets the diff file set for the commit, overwriting whatever is there.
 	SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
 	// SetDiffFileSetTx is like SetDiffFileSet, but in a transaction
 	SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error
-	// GetTotalFileSet returns the total fileset for a commit.
+	// GetTotalFileSet returns the total file set for a commit.
 	GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// GetTotalFileSetTx is like GetTotalFileSet, but in a transaction
 	GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error)
-	// GetDiffFileSet returns the diff fileset for a commit
+	// GetDiffFileSet returns the diff file set for a commit
 	GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
-	// DropFileSets clears the diff and total filesets for the commit.
+	// DropFileSets clears the diff and total file sets for the commit.
 	DropFileSets(ctx context.Context, commit *pfs.Commit) error
 	// DropFileSetsTx is identical to DropFileSets except it runs in the provided transaction.
 	DropFileSetsTx(tx *pachsql.Tx, commit *pfs.Commit) error

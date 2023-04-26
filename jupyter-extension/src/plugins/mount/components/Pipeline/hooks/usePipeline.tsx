@@ -25,7 +25,6 @@ export type usePipelineResponse = {
   requirements: string;
   setRequirements: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
-  callSavePipeline: () => void;
   currentNotebook: string;
   errorMessage: string;
   responseMessage: string;
@@ -72,17 +71,25 @@ export const usePipeline = (
     setRequirements(ppsContext?.metadata?.config.requirements ?? '');
     setResponseMessage('');
     if (ppsContext?.metadata?.config.input_spec) {
-      try {
-        setInputSpec(YAML.stringify(ppsContext.metadata.config.input_spec));
-      } catch (_e) {
-        setInputSpec('');
-        setErrorMessage('error parsing input spec'); // This error might confuse user.
-      }
+      setInputSpec(ppsContext.metadata.config.input_spec);
     } else {
       setInputSpec('');
     }
     setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
   }, [ppsContext]);
+
+  useEffect(() => {
+    const ppsMetadata: PpsMetadata = {
+      version: PPS_VERSION,
+      config: {
+        pipeline: pipeline,
+        image: imageName,
+        requirements: requirements,
+        input_spec: inputSpec,
+      },
+    };
+    saveNotebookMetaData(ppsMetadata);
+  }, [pipeline, imageName, requirements, inputSpec]);
 
   let callCreatePipeline: () => Promise<void>;
   if (ppsContext?.notebookModel) {
@@ -115,7 +122,10 @@ export const usePipeline = (
         }
       } catch (e) {
         if (e instanceof ServerConnection.ResponseError) {
-          setErrorMessage('Error creating pipeline');
+          // statusText is the only place that the user will get yaml parsing
+          // errors (though it will also include Pachyderm errors, e.g.
+          // "missing input repo").
+          setErrorMessage('Error creating pipeline: ' + e.response.statusText);
         } else {
           throw e;
         }
@@ -142,21 +152,6 @@ export const usePipeline = (
     };
   };
 
-  const callSavePipeline = async () => {
-    setErrorMessage('');
-
-    let ppsMetadata;
-    try {
-      ppsMetadata = buildMetadata();
-    } catch (e) {
-      // TODO: More helpful error reporting.
-      setErrorMessage('error parsing input spec -- saving aborted');
-      return;
-    }
-
-    saveNotebookMetaData(ppsMetadata);
-  };
-
   return {
     loading,
     pipeline,
@@ -168,7 +163,6 @@ export const usePipeline = (
     requirements,
     setRequirements,
     callCreatePipeline,
-    callSavePipeline,
     currentNotebook,
     errorMessage,
     responseMessage,
@@ -182,22 +176,4 @@ splitAtFirstSlash splits a string into two components if it contains a backslash
  */
 export const splitAtFirstSlash = (text: string): string[] => {
   return text.split(/\/(.*)/s, 2);
-};
-
-/*
-parseInputSpec attempts to convert the entry within the InputSpec text area
-  into a JSON serializable format. Throws an error if not possible
- */
-const parseInputSpec = (spec: string): ReadonlyJSONObject => {
-  let input;
-  try {
-    input = YAML.parse(spec);
-  } catch (e) {
-    if (e instanceof YAML.YAMLParseError) {
-      input = JSON.parse(spec);
-    } else {
-      throw e;
-    }
-  }
-  return input as ReadonlyJSONObject;
 };

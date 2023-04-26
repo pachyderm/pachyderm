@@ -438,35 +438,44 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 }
 
 func (d *driver) deleteReposInTransaction(txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
-	var deleted []*pfs.Repo
-	var repoInfos []*pfs.RepoInfo
+	var ris []*pfs.RepoInfo
 	if err := d.listRepoInTransaction(txnCtx, false, "", projects, func(ri *pfs.RepoInfo) error {
-		ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
-		if err != nil {
-			return err
-		} else if ok {
-			repoInfos = append(repoInfos, ri)
-		}
+		ris = append(ris, ri)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
-	if len(repoInfos) == 0 {
+	return d.deleteReposHelper(txnCtx, ris, false)
+}
+
+func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
+	if len(ris) == 0 {
 		return nil, nil
 	}
 	// filter out repos that cannot be deleted
+	var filter []*pfs.RepoInfo
+	for _, ri := range ris {
+		ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
+		if err != nil {
+			return nil, err
+		} else if ok {
+			filter = append(filter, ri)
+		}
+	}
+	ris = filter
+	var deleted []*pfs.Repo
 	var bis []*pfs.BranchInfo
-	for _, ri := range repoInfos {
+	for _, ri := range ris {
 		bs, err := d.listRepoBranches(txnCtx, ri)
 		if err != nil {
 			return nil, err
 		}
 		bis = append(bis, bs...)
 	}
-	if err := d.deleteBranches(txnCtx, bis, false); err != nil {
+	if err := d.deleteBranches(txnCtx, bis, force); err != nil {
 		return nil, err
 	}
-	for _, ri := range repoInfos {
+	for _, ri := range ris {
 		if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
 			return nil, err
 		}
@@ -649,6 +658,7 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 	if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 		Project:     req.Project,
 		Description: req.Description,
+		CreatedAt:   types.TimestampNow(),
 	}); err != nil {
 		if errors.As(err, &col.ErrExists{}) {
 			return pfsserver.ErrProjectExists{
@@ -733,7 +743,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 }
 
 func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
-	diffID, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	diffID, err := d.getCompactedDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
 	}
@@ -770,6 +780,31 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 		return false, err
 	}
 	return found, nil
+}
+
+func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+	var diff *fileset.ID
+	var err error
+	diff, err = d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	isCompacted, err := d.storage.IsCompacted(ctx, *diff)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if isCompacted {
+		return diff, nil
+	}
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, nil)
+		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		return err
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return diff, nil
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired

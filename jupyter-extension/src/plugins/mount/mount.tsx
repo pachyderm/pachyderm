@@ -10,7 +10,7 @@ import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
 import {INotebookModel, NotebookPanel} from '@jupyterlab/notebook';
 import {Contents} from '@jupyterlab/services';
-import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
+import {settingsIcon} from '@jupyterlab/ui-components';
 import {JSONObject} from '@lumino/coreutils';
 import {Signal} from '@lumino/signaling';
 import {SplitPanel, Widget} from '@lumino/widgets';
@@ -139,43 +139,35 @@ export class MountPlugin implements IMountPlugin {
         {(_, mounted) => (
           <div className="pachyderm-mount-base">
             <div className="pachyderm-mount-config-container">
-              <div className="pachyderm-mount-base-title">
-                Mounted Repositories
+              <div className="pachyderm-mount-base-title pachyderm-mount-base-title-button-font">
+                Explore
               </div>
-              <div style={{display: 'flex'}}>
-                <button
-                  className="pachyderm-button-link"
-                  onClick={() => this.setShowPipeline(true)}
-                >
-                  Pipeline{' '}
-                  <spreadsheetIcon.react
-                    tag="span"
-                    className="pachyderm-mount-icon-padding"
-                  />
-                </button>
-                <button
-                  className="pachyderm-button-link"
-                  data-testid="Datum__mode"
-                  onClick={() => this.setShowDatum(true)}
-                  style={{marginRight: '0.25rem'}}
-                >
-                  Datum{' '}
-                  <spreadsheetIcon.react
-                    tag="span"
-                    className="pachyderm-mount-icon-padding"
-                  />
-                </button>
-                <button
-                  className="pachyderm-button-link"
-                  onClick={() => this.setShowConfig(true)}
-                >
-                  Config{' '}
-                  <settingsIcon.react
-                    tag="span"
-                    className="pachyderm-mount-icon-padding"
-                  />
-                </button>
-              </div>
+              <button
+                className="pachyderm-button-link"
+                data-testid="Datum__mode"
+                onClick={() => this.setShowDatum(true)}
+                style={{
+                  marginRight: '0.25rem',
+                }}
+              >
+                Test{' '}
+              </button>
+              <button
+                className="pachyderm-button-link"
+                onClick={() => this.setShowPipeline(true)}
+              >
+                Publish{' '}
+                <sup className="pachyderm-button-alpha-notice">Alpha</sup>
+              </button>
+              <button
+                className="pachyderm-button-link"
+                onClick={() => this.setShowConfig(true)}
+              >
+                <settingsIcon.react
+                  tag="span"
+                  className="pachyderm-mount-icon-padding"
+                />
+              </button>
             </div>
             <SortableList
               open={this.open}

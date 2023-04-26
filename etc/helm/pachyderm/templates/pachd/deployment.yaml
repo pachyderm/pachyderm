@@ -439,6 +439,9 @@ spec:
         - containerPort: 1656
           name: prom-metrics
           protocol: TCP
+        - containerPort: 1659
+          name: download-port
+          protocol: TCP
         readinessProbe:
           exec:
             command:

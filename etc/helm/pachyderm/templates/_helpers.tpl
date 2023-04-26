@@ -197,5 +197,7 @@ pachyderm-identity
 {{- if and .Values.oidc.mockIDP (not .Values.oidc.upstreamIDPsSecretName) (not .Values.oidc.upstreamIDPs) }}
 user:kilgore@kilgore.trout:
 - clusterAdmin
+allClusterUsers:
+- projectCreator
 {{- end }}
 {{- end }}
