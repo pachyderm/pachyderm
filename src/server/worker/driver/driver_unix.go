@@ -162,9 +162,6 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		if _, ok := seen[input.Name]; !ok {
 			seen[input.Name] = true
 			src := filepath.Join(dir, input.Name)
-			if _, err := os.Stat(src); err != nil {
-				continue // missing input may be an S3 input
-			}
 			dst := filepath.Join(d.InputDir(), input.Name)
 			if err := os.Symlink(src, dst); err != nil {
 				return errors.EnsureStack(err)
