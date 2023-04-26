@@ -610,6 +610,9 @@ jobs:
       appVersion:
         type: string
         default: "0.0.0"
+      enableCoverage:
+        type: boolean
+        default: false
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
@@ -633,45 +636,21 @@ jobs:
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
-            make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            if << parameters.enableCoverage >>
+            then
+              make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            else
+              make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            fi
       - run:
           name: Push docker
-          command: make docker-push VERSION=${CIRCLE_SHA1}
-  build-docker-images-with-coverage:
-    parameters:
-      appVersion:
-        type: string
-        default: "0.0.0"
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    resource_class: xlarge
-    steps:
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - checkout
-      - run:
-          name: Download utilities
-          command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
-            sudo apt update
-            sudo apt install qemu binfmt-support qemu-user-static
-      - run:
-          name: pachydermbuildbot docker login
-          command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run:
-          name: Build Docker
-          command: |
-            v=<< parameters.appVersion >>
-            additional=${v%%-*}
-            index=${#additional}
-            make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
-      - run:
-          name: Push docker
-          command: make docker-push VERSION=cover-${CIRCLE_SHA1}
+          command: |-
+            if << parameters.enableCoverage >>
+            then
+              make docker-push VERSION=cover-${CIRCLE_SHA1}
+            else
+              make docker-push VERSION=${CIRCLE_SHA1}
+            fi
   build-pachctl-bin:
     parameters:
       version:
@@ -1377,7 +1356,8 @@ workflows:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
-      - build-docker-images-with-coverage
+      - build-docker-images:
+          enableCoverage: true
       #- build-pachctl-bin:
       #    version: $CIRCLE_SHA1
       #    upload: true
