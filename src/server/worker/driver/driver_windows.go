@@ -55,9 +55,6 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 	// sometimes for group inputs, this part may get run multiple times for the same file
 	seen := make(map[string]bool)
 	for _, input := range inputs {
-		if input.S3 {
-			continue
-		}
 		if _, ok := seen[input.Name]; !ok {
 			seen[input.Name] = true
 			src := filepath.Join(dir, input.Name)

@@ -249,6 +249,13 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	d.meta.Stats.DownloadBytes = 0
 	var mu sync.Mutex
 	for _, input := range d.meta.Inputs {
+		inputPath := path.Join(d.PFSStorageRoot(), input.Name)
+		if input.S3 {
+			if err := os.MkdirAll(inputPath, 0700); err != nil {
+				return errors.EnsureStack(err)
+			}
+			continue
+		}
 		// TODO: Need some validation to catch lazy & empty since they are incompatible.
 		// Probably should catch this at the input validation during pipeline creation?
 		opts := []pfssync.DownloadOption{
@@ -265,7 +272,7 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 		if input.EmptyFiles {
 			opts = append(opts, pfssync.WithEmpty())
 		}
-		if err := downloader.Download(path.Join(d.PFSStorageRoot(), input.Name), input.FileInfo.File, opts...); err != nil {
+		if err := downloader.Download(inputPath, input.FileInfo.File, opts...); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}

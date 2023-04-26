@@ -176,8 +176,8 @@ func testS3Input(t *testing.T, c *client.APIClient, userToken, ns, projectName s
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
-		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "input_repo"),
-		"expected \"out\" but not \"input_repo\" in %s: %q", "pfs_files", buf.String())
+		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "foo"),
+		"expected \"out\" but not \"foo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
@@ -504,8 +504,8 @@ func testFullS3(t *testing.T, c *client.APIClient, userToken, ns, projectName st
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
-		!strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
-		"expected neither \"out\" nor \"input_repo\" in %s: %q", "pfs_files", buf.String())
+		!strings.Contains(buf.String(), "foo") && !strings.Contains(buf.String(), "out"),
+		"expected neither \"out\" nor \"foo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
@@ -836,4 +836,54 @@ func TestS3SkippedDatums(t *testing.T) {
 		require.NoError(t, c.CreateProject(projectName))
 		testS3SkippedDatums(t, c, userToken, ns, projectName, func(p, r string) string { return r + "." + p })
 	})
+}
+
+// TestDontDownloadData tests that when a pipeline sets `S3: true` on an input,
+// the worker binary doesn't download any datums from that input to the worker.
+// Previously, we downloaded the data but didn't link it (a bug), so this test
+// both scans `/pfs` (`-L` to follow symlinks) and confirms no data appears
+// either in the usual `/pfs/input_repo` or in `/pfs/.scratch`. It also checks
+// explicitly that no dead symlink is created at `/pfs/input_repo`.
+func TestDontDownloadData(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, _ := initPachClient(t)
+
+	repo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "test.txt", strings.NewReader("This is a test")))
+
+	pipeline := tu.UniqueString("Pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Transform: &pps.Transform{
+			Cmd: []string{"bash", "-x"},
+			Stdin: []string{
+				`if find -L /pfs -type f | xargs grep --with-filename "This is a test"; then`,
+				`  exit 1`, // The data shouldn't be downloaded; this means it was
+				`fi`,
+			},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+		Input: &pps.Input{
+			Pfs: &pps.PFSInput{
+				Project: pfs.DefaultProjectName,
+				Repo:    repo,
+				Name:    "input_repo",
+				Branch:  "master",
+				S3:      true,
+				Glob:    "/",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+
+	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 }
