@@ -1,4 +1,3 @@
-import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 
@@ -10,7 +9,6 @@ import {
   PpsMetadata,
 } from '../../../types';
 import {requestAPI} from '../../../../../handler';
-import {ReadonlyJSONObject} from '@lumino/coreutils';
 
 export const PPS_VERSION = 'v1.0.0';
 
@@ -34,6 +32,7 @@ export const usePipeline = (
   ppsContext: PpsContext | undefined,
   settings: MountSettings,
   saveNotebookMetaData: (metadata: PpsMetadata) => void,
+  saveNotebookToDisk: () => Promise<string | null>,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
   const [pipeline, setPipeline] = useState({name: ''} as Pipeline);
@@ -78,15 +77,7 @@ export const usePipeline = (
   }, [ppsContext]);
 
   useEffect(() => {
-    const ppsMetadata: PpsMetadata = {
-      version: PPS_VERSION,
-      config: {
-        pipeline: pipeline,
-        image: imageName,
-        requirements: requirements,
-        input_spec: inputSpec,
-      },
-    };
+    const ppsMetadata: PpsMetadata = buildMetadata();
     saveNotebookMetaData(ppsMetadata);
   }, [pipeline, imageName, requirements, inputSpec]);
 
@@ -97,11 +88,16 @@ export const usePipeline = (
       setLoading(true);
       setErrorMessage('');
       setResponseMessage('');
+
+      const ppsMetadata = buildMetadata();
+      saveNotebookMetaData(ppsMetadata);
+      const last_modified_time = await saveNotebookToDisk();
+
       try {
         const response = await requestAPI<CreatePipelineResponse>(
           `pps/_create/${encodeURI(notebook.path)}`,
           'PUT',
-          {last_modified_time: notebook.last_modified},
+          {last_modified_time: last_modified_time ?? notebook.last_modified},
         );
         if (response.message !== null) {
           setResponseMessage(response.message);
@@ -124,6 +120,18 @@ export const usePipeline = (
       setErrorMessage('Error: No notebook in focus');
     };
   }
+
+  const buildMetadata = (): PpsMetadata => {
+    return {
+      version: PPS_VERSION,
+      config: {
+        pipeline: pipeline,
+        image: imageName,
+        requirements: requirements,
+        input_spec: inputSpec,
+      },
+    };
+  };
 
   return {
     loading,

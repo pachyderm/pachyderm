@@ -8,6 +8,7 @@ type PipelineProps = {
   settings: MountSettings;
   setShowPipeline: (shouldShow: boolean) => void;
   saveNotebookMetadata: (metadata: PpsMetadata) => void;
+  saveNotebookToDisk: () => Promise<string | null>;
 };
 
 const placeholderInputSpec = `# example:
@@ -23,6 +24,7 @@ const Pipeline: React.FC<PipelineProps> = ({
   settings,
   setShowPipeline,
   saveNotebookMetadata,
+  saveNotebookToDisk,
 }) => {
   const {
     loading,
@@ -38,7 +40,12 @@ const Pipeline: React.FC<PipelineProps> = ({
     currentNotebook,
     errorMessage,
     responseMessage,
-  } = usePipeline(ppsContext, settings, saveNotebookMetadata);
+  } = usePipeline(
+    ppsContext,
+    settings,
+    saveNotebookMetadata,
+    saveNotebookToDisk,
+  );
 
   return (
     <div className="pachyderm-mount-pipeline-base">

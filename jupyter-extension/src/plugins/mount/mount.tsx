@@ -236,6 +236,7 @@ export class MountPlugin implements IMountPlugin {
             settings={settings}
             setShowPipeline={this.setShowPipeline}
             saveNotebookMetadata={this.saveNotebookMetadata}
+            saveNotebookToDisk={this.saveNotebookToDisk}
           />
         )}
       </UseSignal>,
@@ -379,6 +380,26 @@ export class MountPlugin implements IMountPlugin {
       console.log('notebook metadata saved');
     } else {
       console.log('No active notebook');
+    }
+  };
+
+  /**
+   * saveNotebookToDisk saves the active notebook to disk and then returns
+   *   the new modified time of the file.
+   */
+  saveNotebookToDisk = async (): Promise<string | null> => {
+    const currentNotebook = this.getActiveNotebook();
+    if (currentNotebook !== null) {
+      await currentNotebook.context.ready;
+      await currentNotebook.context.save();
+
+      // Calling ready ensures the contentsModel is non-null.
+      await currentNotebook.context.ready;
+      const currentNotebookModel: Contents.IModel = currentNotebook.context
+        .contentsModel as Contents.IModel;
+      return currentNotebookModel.last_modified;
+    } else {
+      return null;
     }
   };
 
