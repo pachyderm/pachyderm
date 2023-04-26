@@ -129,7 +129,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - run: go install gotest.tools/gotestsum@latest
       - restore_cache:
           keys:
@@ -245,7 +250,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -549,7 +559,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
