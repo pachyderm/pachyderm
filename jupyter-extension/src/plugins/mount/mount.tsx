@@ -383,11 +383,23 @@ export class MountPlugin implements IMountPlugin {
     }
   };
 
-  saveNotebookToDisk = async (): Promise<void> => {
+  /**
+   * saveNotebookToDisk saves the active notebook to disk and then returns
+   *   the new modified time of the file.
+   */
+  saveNotebookToDisk = async (): Promise<string | null> => {
     const currentNotebook = this.getActiveNotebook();
     if (currentNotebook !== null) {
       await currentNotebook.context.ready;
-      return currentNotebook.context.save();
+      await currentNotebook.context.save();
+
+      // Calling ready ensures the contentsModel is non-null.
+      await currentNotebook.context.ready;
+      const currentNotebookModel: Contents.IModel = currentNotebook.context
+        .contentsModel as Contents.IModel;
+      return currentNotebookModel.last_modified;
+    } else {
+      return null;
     }
   };
 

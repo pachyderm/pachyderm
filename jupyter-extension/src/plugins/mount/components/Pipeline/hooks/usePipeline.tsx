@@ -32,7 +32,7 @@ export const usePipeline = (
   ppsContext: PpsContext | undefined,
   settings: MountSettings,
   saveNotebookMetaData: (metadata: PpsMetadata) => void,
-  saveNotebookToDisk: () => Promise<void>,
+  saveNotebookToDisk: () => Promise<string | null>,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
   const [pipeline, setPipeline] = useState({name: ''} as Pipeline);
@@ -91,13 +91,13 @@ export const usePipeline = (
 
       const ppsMetadata = buildMetadata();
       saveNotebookMetaData(ppsMetadata);
-      await saveNotebookToDisk();
+      const last_modified_time = await saveNotebookToDisk();
 
       try {
         const response = await requestAPI<CreatePipelineResponse>(
           `pps/_create/${encodeURI(notebook.path)}`,
           'PUT',
-          {last_modified_time: notebook.last_modified},
+          {last_modified_time: last_modified_time ?? notebook.last_modified},
         );
         if (response.message !== null) {
           setResponseMessage(response.message);

@@ -8,7 +8,7 @@ type PipelineProps = {
   settings: MountSettings;
   setShowPipeline: (shouldShow: boolean) => void;
   saveNotebookMetadata: (metadata: PpsMetadata) => void;
-  saveNotebookToDisk: () => Promise<void>;
+  saveNotebookToDisk: () => Promise<string | null>;
 };
 
 const placeholderInputSpec = `# example:
