@@ -492,7 +492,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
       - install-go-releaser
       - run:
