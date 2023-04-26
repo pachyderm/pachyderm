@@ -117,11 +117,6 @@ release:
 
 dockers:
     - image_templates:
-          - pachyderm/pachd
-          - pachyderm/pachd:local
-          - pachyderm/pachd-amd64
-          - pachyderm/pachd-amd64:local
-          - "pachyderm/pachd-amd64:{{ .Version }}"
           - "pachyderm/pachd-amd64:cover-{{ .FullCommit }}"
       ids:
           - pachd
@@ -139,7 +134,6 @@ dockers:
           - "--label=release={{.Version}}"
           - "--platform=linux/amd64"
     - image_templates:
-          - pachyderm/pachctl-amd64
           - pachyderm/pachctl-amd64:cover-{{ .FullCommit }}
       ids:
           - pachctl
@@ -157,7 +151,6 @@ dockers:
           - LICENSE
           - licenses
     - image_templates:
-          - pachyderm/mount-server-amd64
           - "pachyderm/mount-server-amd64:cover-{{ .FullCommit }}"
       ids:
           - mount-server
@@ -175,10 +168,6 @@ dockers:
           - LICENSE
           - licenses
     - image_templates:
-          - pachyderm/worker
-          - pachyderm/worker:local
-          - pachyderm/worker-amd64
-          - pachyderm/worker-amd64:local
           - "pachyderm/worker-amd64:cover-{{ .FullCommit }}"
       ids:
           - pachctl
@@ -200,9 +189,6 @@ dockers:
 
     # arm64 builds follow
     - image_templates:
-          - pachyderm/pachd-arm64
-          - pachyderm/pachd-arm64:local
-          - "pachyderm/pachd-arm64:{{ .Version }}"
           - "pachyderm/pachd-arm64:cover-{{ .FullCommit }}"
       ids:
           - pachd
@@ -220,7 +206,6 @@ dockers:
           - "--label=release={{.Version}}"
           - "--platform=linux/arm64"
     - image_templates:
-          - pachyderm/pachctl-arm64
           - pachyderm/pachctl-arm64:cover-{{ .FullCommit }}
       ids:
           - pachctl
@@ -238,7 +223,6 @@ dockers:
           - LICENSE
           - licenses
     - image_templates:
-          - pachyderm/mount-server-arm64
           - "pachyderm/mount-server-arm64:cover-{{ .FullCommit }}"
       ids:
           - mount-server
@@ -256,8 +240,6 @@ dockers:
           - LICENSE
           - licenses
     - image_templates:
-          - pachyderm/worker-arm64
-          - pachyderm/worker-arm64:local
           - "pachyderm/worker-arm64:cover-{{ .FullCommit }}"
       ids:
           - pachctl
