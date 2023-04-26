@@ -73,56 +73,49 @@ func convertCommitInfoToV2_6_0(ci *v2_5_0.CommitInfo) *pfs.CommitInfo {
 	}
 }
 
-func validateExistingDAGs(ctx context.Context, tx *pachsql.Tx) error {
-	cis, err := listCollectionProtos(ctx, tx, "commits", &v2_5_0.CommitInfo{})
-	if err != nil {
-		return errors.Wrap(err, "list commits for DAG validation")
-	}
-	return validateExistingDAGsHelper(cis)
-}
-
-func validateExistingDAGsHelper(cis []*v2_5_0.CommitInfo) error {
+func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 	// group duplicate commits by branchless key
 	duplicates := make(map[string]map[string]*v2_5_0.CommitInfo) // branchless commit key -> { old commit key ->  commit info }
-	seen := make(map[string]*v2_5_0.CommitInfo)
 	for _, ci := range cis {
-		key := commitBranchlessKey(ci.Commit)
-		if seenCI, ok := seen[key]; ok {
-			dups := duplicates[key]
-			if len(dups) == 0 {
-				dups = make(map[string]*v2_5_0.CommitInfo)
-				dups[oldCommitKey(seenCI.Commit)] = seenCI
-				duplicates[key] = dups
-			}
-			dups[oldCommitKey(ci.Commit)] = ci
-		} else {
-			seen[key] = ci
+		if _, ok := duplicates[commitBranchlessKey(ci.Commit)]; !ok {
+			duplicates[commitBranchlessKey(ci.Commit)] = make(map[string]*v2_5_0.CommitInfo)
 		}
+		duplicates[commitBranchlessKey(ci.Commit)][oldCommitKey(ci.Commit)] = ci
 	}
-	// de-duplicate commits that have a parent/child relationship
-	var badDups [][]string
+	// the only duplicate commits we allow and handle in the migration are two commits with a parent/child relationship
+	// for any set of commits with the same ID on a repo, we expect the following:
+	// 1. all commits has a non-nil Parent.
+	// 2. exactly one commit is not an ALIAS commit
+	// 3. the commits are in an ancestry chain
+	//
+	// TODO(provenance): this is all quite complicated and potentially needs to be revisted
+	var badCommitSets []string
 	for _, dups := range duplicates {
-		dupsCopy := make(map[string]struct{}) // subtract from dups copy to determine whether there are bad duplicates
-		for oldKey := range dups {
-			dupsCopy[oldKey] = struct{}{}
+		if len(dups) <= 1 {
+			continue
 		}
+		seen := make(map[string]struct{})
+		aliasCount := 0
+		var commitSet string
 		for _, d := range dups {
-			if d.ParentCommit != nil {
-				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
-					delete(dupsCopy, oldCommitKey(d.Commit))
-				}
+			if d.Origin.Kind == pfs.OriginKind_ALIAS {
+				aliasCount++
+			}
+			commitSet = d.Commit.ID
+			if d.ParentCommit == nil {
+				badCommitSets = append(badCommitSets, commitSet)
+				break
+			}
+			if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
+				seen[oldCommitKey(d.Commit)] = struct{}{}
 			}
 		}
-		if len(dupsCopy) > 1 {
-			var bad []string
-			for d := range dupsCopy {
-				bad = append(bad, d)
-			}
-			badDups = append(badDups, bad)
+		if len(dups)-len(seen) > 1 || len(dups)-aliasCount != 1 {
+			badCommitSets = append(badCommitSets, commitSet)
 		}
 	}
-	if badDups != nil {
-		return errors.Errorf("duplicate commits detected: %v", badDups)
+	if badCommitSets != nil {
+		return errors.Errorf("invalid commit sets detected: %v", badCommitSets)
 	}
 	return nil
 }

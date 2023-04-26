@@ -16,10 +16,11 @@ func TestValidateOldDAGs(t *testing.T) {
 		cis       []*v2_5_0.CommitInfo
 		expectErr bool
 	}
-	makeCommit := func(c *pfs.Commit, parent *pfs.Commit) *v2_5_0.CommitInfo {
+	makeCommit := func(c *pfs.Commit, parent *pfs.Commit, kind pfs.OriginKind) *v2_5_0.CommitInfo {
 		return &v2_5_0.CommitInfo{
 			Commit:       c,
 			ParentCommit: parent,
+			Origin:       &pfs.CommitOrigin{Kind: kind},
 		}
 	}
 	p := pfs.DefaultProjectName
@@ -28,31 +29,40 @@ func TestValidateOldDAGs(t *testing.T) {
 	b1 := "branch1"
 	b2 := "branch2"
 	id1 := "abc"
+	r1Stub := makeCommit(client.NewProjectCommit(p, r1, b1, "xyz"), nil, pfs.OriginKind_AUTO)
+	r2Stub := makeCommit(client.NewProjectCommit(p, r2, b1, "xyz"), nil, pfs.OriginKind_AUTO)
 	cases := []testCase{
 		{
 			cis: []*v2_5_0.CommitInfo{
-				makeCommit(client.NewProjectCommit(p, r1, b1, id1), nil),
-				makeCommit(client.NewProjectCommit(p, r2, b1, id1), nil),
+				makeCommit(client.NewProjectCommit(p, r1, b1, id1), r1Stub.Commit, pfs.OriginKind_AUTO),
+				makeCommit(client.NewProjectCommit(p, r2, b1, id1), r2Stub.Commit, pfs.OriginKind_AUTO),
 			},
 			expectErr: false,
 		},
 		{
 			cis: []*v2_5_0.CommitInfo{
-				makeCommit(client.NewProjectCommit(p, r1, b1, id1), nil),
-				makeCommit(client.NewProjectCommit(p, r1, b2, id1), client.NewProjectCommit(p, r1, b1, id1)),
+				makeCommit(client.NewProjectCommit(p, r1, b1, id1), r1Stub.Commit, pfs.OriginKind_AUTO),
+				makeCommit(client.NewProjectCommit(p, r1, b2, id1), client.NewProjectCommit(p, r1, b1, id1), pfs.OriginKind_ALIAS),
 			},
 			expectErr: false,
 		},
 		{
 			cis: []*v2_5_0.CommitInfo{
-				makeCommit(client.NewProjectCommit(p, r1, b1, id1), nil),
-				makeCommit(client.NewProjectCommit(p, r1, b2, id1), nil),
+				makeCommit(client.NewProjectCommit(p, r1, b1, id1), r1Stub.Commit, pfs.OriginKind_AUTO),
+				makeCommit(client.NewProjectCommit(p, r1, b2, id1), r1Stub.Commit, pfs.OriginKind_ALIAS),
+			},
+			expectErr: true,
+		},
+		{
+			cis: []*v2_5_0.CommitInfo{
+				makeCommit(client.NewProjectCommit(p, r1, b1, id1), nil, pfs.OriginKind_AUTO),
+				makeCommit(client.NewProjectCommit(p, r1, b2, id1), client.NewProjectCommit(p, r1, b1, id1), pfs.OriginKind_ALIAS),
 			},
 			expectErr: true,
 		},
 	}
 	for _, c := range cases {
-		err := validateExistingDAGsHelper(c.cis)
+		err := validateExistingDAGs(c.cis)
 		if c.expectErr {
 			require.YesError(t, err)
 		} else {
