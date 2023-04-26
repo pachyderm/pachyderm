@@ -6,523 +6,977 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
   data-testid="ConfigFilePreview__codeElement"
 >
   <div
-    class="codeSection"
+    class="fileCodePreview codePreview hideLineNumbers fullHeight"
+    data-testid="CodePreview__wrapper"
   >
-    <div>
+    <div
+      class="codePreviewContent"
+    >
       <div
-        class="code language-yaml depth0 hljs"
-      />
-      <div
-        class="header"
+        class="cm-editor ͼ1 ͼ2 ͼ4 ͼo"
       >
         <div
-          class="base chevron black black-hover small"
-        >
-          <svg-mock />
-        </div>
+          aria-live="polite"
+          style="position: fixed; top: -10000px;"
+        />
         <div
-          class="code language-yaml depth0 hljs"
+          class="cm-scroller"
+          tabindex="-1"
         >
-          <span
-            class="hljs-attr"
+          <div
+            aria-hidden="true"
+            class="cm-gutters"
+            style="min-height: 714px; position: sticky;"
           >
-            input:
-          </span>
-        </div>
-      </div>
-      <div
-        class=""
-      >
-        <div
-          class="codeSection"
-        >
-          <div>
             <div
-              class="code language-yaml depth1 hljs"
-            >
-              <span
-                class="hljs-attr"
-              >
-                join:
-              </span>
-               []
-
-              <span
-                class="hljs-attr"
-              >
-                group:
-              </span>
-               []
-
-            </div>
-            <div
-              class="header"
+              class="cm-gutter cm-lineNumbers"
             >
               <div
-                class="base chevron black black-hover small"
+                class="cm-gutterElement"
+                style="height: 0px; visibility: hidden; pointer-events: none;"
               >
-                <svg-mock />
+                99
               </div>
               <div
-                class="code language-yaml depth1 hljs"
+                class="cm-gutterElement cm-activeLineGutter"
+                style="height: 14px;"
+              >
+                1
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                2
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                3
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                4
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                5
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                6
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                7
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                8
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                9
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                10
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                11
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                12
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                13
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                14
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                15
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                16
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                17
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                18
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                19
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                20
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                21
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                22
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                23
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                24
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                25
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                26
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                27
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                28
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                29
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                30
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                31
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                32
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                33
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                34
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                35
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                36
+              </div>
+            </div>
+            <div
+              class="cm-gutter cm-foldGutter"
+            >
+              <div
+                class="cm-gutterElement"
+                style="height: 0px; visibility: hidden; pointer-events: none;"
               >
                 <span
-                  class="hljs-attr"
+                  title="Unfold line"
                 >
-                  cross:
+                  ›
                 </span>
               </div>
-            </div>
-            <div
-              class=""
-            >
               <div
-                class="codeSection"
+                class="cm-gutterElement cm-activeLineGutter"
+                style="height: 14px;"
               >
-                <div
-                  class="code language-yaml depth2 hljs"
+                <span
+                  title="Fold line"
                 >
-                  <span
-                    class="hljs-bullet"
-                  >
-                    -
-                  </span>
-                   
-                  <span
-                    class="hljs-attr"
-                  >
-                    pfs:
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    project:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    Solar-Panel-Data-Sorting
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    name:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    edges
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    repo:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    edges
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    repoType:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    branch:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    master
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    commit:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    glob:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    joinOn:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    outerJoin:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    groupBy:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    lazy:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    emptyFiles:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    s3:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    join:
-                  </span>
-                   []
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    group:
-                  </span>
-                   []
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    cross:
-                  </span>
-                   []
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    union:
-                  </span>
-                   []
-
-                  <span
-                    class="hljs-bullet"
-                  >
-                    -
-                  </span>
-                   
-                  <span
-                    class="hljs-attr"
-                  >
-                    pfs:
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    project:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    Solar-Panel-Data-Sorting
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    name:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    images
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    repo:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    images
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    repoType:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    branch:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    master
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    commit:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    glob:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    joinOn:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    outerJoin:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    groupBy:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    ''
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    lazy:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    emptyFiles:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-    
-                  <span
-                    class="hljs-attr"
-                  >
-                    s3:
-                  </span>
-                   
-                  <span
-                    class="hljs-literal"
-                  >
-                    false
-                  </span>
-                  
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    join:
-                  </span>
-                   []
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    group:
-                  </span>
-                   []
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    cross:
-                  </span>
-                   []
-  
-                  <span
-                    class="hljs-attr"
-                  >
-                    union:
-                  </span>
-                   []
-
-                </div>
+                  ⌄
+                </span>
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                <span
+                  title="Fold line"
+                >
+                  ⌄
+                </span>
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px; margin-top: 28px;"
+              >
+                <span
+                  title="Fold line"
+                >
+                  ⌄
+                </span>
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                <span
+                  title="Fold line"
+                >
+                  ⌄
+                </span>
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                <span
+                  title="Fold line"
+                >
+                  ⌄
+                </span>
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px; margin-top: 266px;"
+              >
+                <span
+                  title="Fold line"
+                >
+                  ⌄
+                </span>
+              </div>
+              <div
+                class="cm-gutterElement"
+                style="height: 14px;"
+              >
+                <span
+                  title="Fold line"
+                >
+                  ⌄
+                </span>
               </div>
             </div>
           </div>
           <div
-            class="code language-yaml depth1 hljs"
+            aria-autocomplete="list"
+            aria-multiline="true"
+            aria-readonly="true"
+            autocapitalize="off"
+            autocorrect="off"
+            class="cm-content"
+            contenteditable="true"
+            data-language="json"
+            role="textbox"
+            spellcheck="false"
+            style="tab-size: 4"
+            translate="no"
           >
-            <span
-              class="hljs-attr"
+            <div
+              class="cm-activeLine cm-line"
             >
-              union:
-            </span>
-             []
-
+              <span
+                class="ͼq"
+              >
+                {
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                
+              <span
+                class="ͼr"
+              >
+                "input"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                {
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                  
+              <span
+                class="ͼr"
+              >
+                "join"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                [
+              </span>
+              <span
+                class="ͼq"
+              >
+                ]
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                  
+              <span
+                class="ͼr"
+              >
+                "group"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                [
+              </span>
+              <span
+                class="ͼq"
+              >
+                ]
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                  
+              <span
+                class="ͼr"
+              >
+                "cross"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                [
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                    
+              <span
+                class="ͼq"
+              >
+                {
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                      
+              <span
+                class="ͼr"
+              >
+                "pfs"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                {
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "project"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "Solar-Panel-Data-Sorting"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "name"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "edges"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "repo"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "edges"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "repoType"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "branch"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "master"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "commit"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "glob"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "joinOn"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "outerJoin"
+              </span>
+              : 
+              <span
+                class="ͼz"
+              >
+                false
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "groupBy"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "lazy"
+              </span>
+              : 
+              <span
+                class="ͼz"
+              >
+                false
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "emptyFiles"
+              </span>
+              : 
+              <span
+                class="ͼz"
+              >
+                false
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "s3"
+              </span>
+              : 
+              <span
+                class="ͼz"
+              >
+                false
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                      
+              <span
+                class="ͼq"
+              >
+                }
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                      
+              <span
+                class="ͼr"
+              >
+                "join"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                [
+              </span>
+              <span
+                class="ͼq"
+              >
+                ]
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                      
+              <span
+                class="ͼr"
+              >
+                "group"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                [
+              </span>
+              <span
+                class="ͼq"
+              >
+                ]
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                      
+              <span
+                class="ͼr"
+              >
+                "cross"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                [
+              </span>
+              <span
+                class="ͼq"
+              >
+                ]
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                      
+              <span
+                class="ͼr"
+              >
+                "union"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                [
+              </span>
+              <span
+                class="ͼq"
+              >
+                ]
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                    
+              <span
+                class="ͼq"
+              >
+                }
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                    
+              <span
+                class="ͼq"
+              >
+                {
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                      
+              <span
+                class="ͼr"
+              >
+                "pfs"
+              </span>
+              : 
+              <span
+                class="ͼq"
+              >
+                {
+              </span>
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "project"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "Solar-Panel-Data-Sorting"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "name"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "images"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "repo"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "images"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "repoType"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "branch"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                "master"
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "commit"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "glob"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              class="cm-line"
+            >
+                        
+              <span
+                class="ͼr"
+              >
+                "joinOn"
+              </span>
+              : 
+              <span
+                class="ͼu"
+              >
+                ""
+              </span>
+              ,
+            </div>
+            <div
+              style="height: 210px;"
+            />
           </div>
+          <div
+            aria-hidden="true"
+            class="cm-layer cm-layer-above cm-cursorLayer"
+            style="z-index: 150; animation-duration: 1200ms;"
+          >
+            <div
+              class="cm-cursor cm-cursor-primary"
+              style="left: 0px; top: 0px; height: 0px;"
+            />
+          </div>
+          <div
+            aria-hidden="true"
+            class="cm-layer cm-selectionLayer"
+            style="z-index: -2;"
+          />
         </div>
       </div>
     </div>
-    <div
-      class="code language-yaml depth0 hljs"
-    />
   </div>
 </div>
 `;

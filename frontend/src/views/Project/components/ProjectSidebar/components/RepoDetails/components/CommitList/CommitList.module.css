@@ -37,3 +37,8 @@
   transform: translateX(-50%);
   margin-bottom: 1rem;
 }
+
+.bottomContent {
+  display: inline-flex;
+  justify-content: space-between;
+}

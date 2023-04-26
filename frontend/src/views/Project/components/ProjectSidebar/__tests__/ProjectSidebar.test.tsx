@@ -3,6 +3,7 @@ import {
   waitFor,
   waitForElementToBeRemoved,
   screen,
+  within,
 } from '@testing-library/react';
 import React from 'react';
 
@@ -94,7 +95,7 @@ describe('ProjectSidebar', () => {
       });
       expect(fileBrowserLink).toHaveAttribute(
         'href',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a?prevPath=%2Flineage%2FData-Cleaning-Process%2Frepos%2Ftraining%2Fbranch%2Fdefault',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a/?prevPath=%2Flineage%2FData-Cleaning-Process%2Frepos%2Ftraining%2Fbranch%2Fdefault',
       );
     });
 
@@ -183,44 +184,26 @@ describe('ProjectSidebar', () => {
         ).not.toBeInTheDocument(),
       );
 
-      expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(5);
-      expect(screen.getByText('0918a...@master | user')).toBeInTheDocument();
-      expect(screen.getByText('0518a...@master | auto')).toBeInTheDocument();
-    });
-
-    it('should filter commits by originKind', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
-      );
-      render(<Project />);
-
-      await screen.findByText('9d5daa0918ac4c43a476b86e3bb5e88e');
-      await waitFor(() =>
-        expect(
-          screen.queryByTestId('CommitList__loadingdots'),
-        ).not.toBeInTheDocument(),
-      );
-
-      expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(5);
-      expect(screen.getByText('0918a...@master | user')).toBeInTheDocument();
-      expect(screen.getByText('0518a...@master | auto')).toBeInTheDocument();
-
-      await click(screen.getAllByText('All origins')[0]);
-      await click(screen.getByText('User commits only'));
-
-      await waitFor(() =>
-        expect(
-          screen.queryByTestId('CommitList__loadingdots'),
-        ).not.toBeInTheDocument(),
-      );
-
-      expect(screen.getByTestId('CommitList__commit')).toBeInTheDocument();
-      expect(screen.getByText('0918a...@master | user')).toBeInTheDocument();
+      const previousCommits = screen.queryAllByTestId('CommitList__commit');
+      expect(previousCommits).toHaveLength(5);
+      expect(previousCommits[0]).toHaveTextContent(/0918a...@master/);
+      expect(previousCommits[4]).toHaveTextContent(/0518a...@master/);
       expect(
-        screen.queryByText('0518a...@master | auto'),
-      ).not.toBeInTheDocument();
+        within(previousCommits[0]).getByRole('link', {
+          name: 'Inspect Commit',
+        }),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac4c43a476b86e3bb5e88e9d5daa/?prevPath=%2Flineage%2FSolar-Power-Data-Logger-Team-Collab%2Frepos%2Fcron%2Fbranch%2Fmaster',
+      );
+      expect(
+        within(previousCommits[1]).getByRole('link', {
+          name: 'Inspect Commit',
+        }),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/?prevPath=%2Flineage%2FSolar-Power-Data-Logger-Team-Collab%2Frepos%2Fcron%2Fbranch%2Fmaster',
+      );
     });
 
     it('should show no branches when the repo has no branches', async () => {

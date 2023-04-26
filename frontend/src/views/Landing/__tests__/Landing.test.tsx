@@ -43,7 +43,7 @@ describe('Landing', () => {
       }),
     ).toBeInTheDocument();
 
-    expect(await screen.findAllByRole('row', {})).toHaveLength(9);
+    expect(await screen.findAllByRole('row', {})).toHaveLength(10);
 
     expect(
       await screen.findByRole('tab', {
@@ -102,7 +102,7 @@ describe('Landing', () => {
     render(<Landing />);
 
     expect(await screen.findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(
-      5,
+      6,
     );
     expect(
       await screen.findAllByTestId('ProjectStatus__UNHEALTHY'),
@@ -141,7 +141,7 @@ describe('Landing', () => {
     ).toBeInTheDocument();
 
     const projectsPanel = screen.getByRole('tabpanel', {
-      name: /projects 9/i,
+      name: /projects 10/i,
     });
     const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
       level: 5,
@@ -154,6 +154,7 @@ describe('Landing', () => {
       'Data-Cleaning-Process',
       'Egress-Examples',
       'Empty-Project',
+      'Load-Project',
       'Multi-Project-Pipeline-A',
       'Multi-Project-Pipeline-B',
       'Solar-Panel-Data-Sorting',
@@ -181,6 +182,7 @@ describe('Landing', () => {
       'Solar-Panel-Data-Sorting',
       'Multi-Project-Pipeline-B',
       'Multi-Project-Pipeline-A',
+      'Load-Project',
       'Empty-Project',
       'Egress-Examples',
       'Data-Cleaning-Process',
@@ -192,7 +194,7 @@ describe('Landing', () => {
     const projects = await screen.findByTestId('Landing__view');
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
     expect(
       await within(projects).findAllByTestId('ProjectStatus__UNHEALTHY'),
     ).toHaveLength(4);
@@ -237,7 +239,7 @@ describe('Landing', () => {
 
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
     expect(
       within(projects).queryByTestId('ProjectStatus__UNHEALTHY'),
     ).not.toBeInTheDocument();

@@ -2,6 +2,7 @@ import {
   render,
   waitForElementToBeRemoved,
   screen,
+  within,
 } from '@testing-library/react';
 import React from 'react';
 
@@ -34,11 +35,10 @@ describe('Repo Commits List', () => {
       screen.queryByTestId('CommitsList__loadingDots'),
     );
 
-    const repos = screen.getAllByTestId('CommitsList__row')[0];
+    const repos = screen.getAllByTestId('CommitsList__row')[2];
     expect(repos).toHaveTextContent('@cron');
     expect(repos).toHaveTextContent('master');
     expect(repos).toHaveTextContent('44.28 kB');
-    expect(repos).toHaveTextContent('AUTO');
     expect(repos).toHaveTextContent('added mako');
   });
 
@@ -54,11 +54,11 @@ describe('Repo Commits List', () => {
       screen.queryByTestId('CommitsList__loadingDots'),
     );
 
-    await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
-    await click((await screen.findAllByText('Inspect commit'))[0]);
+    await click((await screen.findAllByTestId('DropdownButton__button'))[2]);
+    await click((await screen.findAllByText('Inspect commit'))[2]);
 
     expect(window.location.pathname).toBe(
-      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/',
     );
   });
 
@@ -74,11 +74,11 @@ describe('Repo Commits List', () => {
       screen.queryByTestId('CommitsList__loadingDots'),
     );
 
-    await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+    await click((await screen.findAllByTestId('DropdownButton__button'))[2]);
     await click(
       (
         await screen.findAllByText('Apply Global ID and view in DAG')
-      )[0],
+      )[2],
     );
 
     expect(window.location.search).toBe(
@@ -86,7 +86,7 @@ describe('Repo Commits List', () => {
     );
   });
 
-  it('should sort commits by start time', async () => {
+  it('should allow commit order to be reversed', async () => {
     render(<RepoList />);
 
     await waitForElementToBeRemoved(() =>
@@ -99,66 +99,88 @@ describe('Repo Commits List', () => {
     );
 
     let commits = screen.getAllByTestId('CommitsList__row');
-    expect(commits[0]).toHaveTextContent('0918ac...');
+    expect(commits[0]).toHaveTextContent('9d5daa...');
     expect(commits[1]).toHaveTextContent('0918ac...');
-    expect(commits[2]).toHaveTextContent('9d5daa...');
+    expect(commits[2]).toHaveTextContent('0918ac...');
 
     await click(screen.getByLabelText('expand filters'));
     await click(screen.getByText('Created: Oldest'));
 
+    await waitForElementToBeRemoved(() =>
+      screen.queryByTestId('CommitsList__loadingDots'),
+    );
+
     commits = screen.getAllByTestId('CommitsList__row');
-    expect(commits[0]).toHaveTextContent('0918ac...');
+    expect(commits[0]).toHaveTextContent('0518ac...');
     expect(commits[1]).toHaveTextContent('0218ac...');
-    expect(commits[2]).toHaveTextContent('0518ac...');
+    expect(commits[2]).toHaveTextContent('0918ac...');
   });
 
-  it('should filter commits by originKind', async () => {
+  it('should allow users to navigate through paged files', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      '/project/Load-Project/repos/commits?selectedRepos=load-repo-0',
+    );
     render(<RepoList />);
 
-    await waitForElementToBeRemoved(() =>
-      screen.queryByTestId('ReposTable__loadingDots'),
-    );
-    await click(screen.getAllByTestId('RepositoriesList__row')[1]);
-    await click(screen.getByText('Commits'));
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('CommitsList__loadingDots'),
     );
 
-    expect(await screen.findAllByTestId('CommitsList__row')).toHaveLength(6);
-
-    await click(screen.getByLabelText('expand filters'));
-    await click(screen.getByText('User'));
     let commits = screen.getAllByTestId('CommitsList__row');
-    expect(commits).toHaveLength(2);
-    expect(commits[0]).toHaveTextContent('0918ac...');
-    expect(commits[1]).toHaveTextContent('9d5daa...');
+    expect(commits).toHaveLength(15);
+    expect(commits[0]).toHaveTextContent('0-0...');
+    expect(commits[14]).toHaveTextContent('0-14...');
 
-    await click(screen.getByText('Auto'));
-    await click(screen.getByTestId('Filter__commitTypeUserChip'));
-    commits = screen.getAllByTestId('CommitsList__row');
-    expect(commits).toHaveLength(4);
-  });
+    let pager = screen.getByTestId('Pager__pager');
+    expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
+    await click(within(pager).getByTestId('Pager__forward'));
 
-  it('should filter commits by ID', async () => {
-    render(<RepoList />);
-
-    await waitForElementToBeRemoved(() =>
-      screen.queryByTestId('ReposTable__loadingDots'),
-    );
-    await click(screen.getAllByTestId('RepositoriesList__row')[1]);
-    await click(screen.getByText('Commits'));
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('CommitsList__loadingDots'),
     );
 
-    expect(await screen.findAllByTestId('CommitsList__row')).toHaveLength(6);
+    commits = screen.getAllByTestId('CommitsList__row');
+    expect(commits).toHaveLength(15);
+    expect(commits[0]).toHaveTextContent('0-15...');
+    expect(commits[14]).toHaveTextContent('0-29...');
 
-    await click(screen.getByLabelText('expand filters'));
-    await click(screen.getByText('Select commit IDs'));
-    await click(screen.getByLabelText('9d5daa...'));
+    pager = screen.getByTestId('Pager__pager');
+    expect(within(pager).getByTestId('Pager__forward')).toBeEnabled();
+    await click(within(pager).getByTestId('Pager__backward'));
 
-    const commits = await screen.findAllByTestId('CommitsList__row');
-    expect(commits).toHaveLength(1);
-    expect(commits[0]).toHaveTextContent('9d5daa...');
+    commits = screen.getAllByTestId('CommitsList__row');
+    expect(commits).toHaveLength(15);
+  });
+
+  it('should allow users to update page size', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      '/project/Load-Project/repos/commits?selectedRepos=load-repo-0',
+    );
+    render(<RepoList />);
+
+    await waitForElementToBeRemoved(() =>
+      screen.queryByTestId('CommitsList__loadingDots'),
+    );
+
+    let commits = screen.getAllByTestId('CommitsList__row');
+    expect(commits).toHaveLength(15);
+
+    const pager = screen.getByTestId('Pager__pager');
+    expect(within(pager).getByTestId('Pager__forward')).toBeEnabled();
+    expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
+
+    await click(within(pager).getByTestId('DropdownButton__button'));
+    await click(within(pager).getByText(50));
+
+    await waitForElementToBeRemoved(() =>
+      screen.queryByTestId('CommitsList__loadingDots'),
+    );
+
+    commits = screen.getAllByTestId('CommitsList__row');
+    expect(commits).toHaveLength(50);
   });
 });

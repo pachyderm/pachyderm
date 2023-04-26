@@ -1,9 +1,21 @@
+import classNames from 'classnames';
 import React from 'react';
 
 import styles from './TableViewWrapper.module.css';
 
-const TableViewWrapper: React.FC = ({children}) => {
-  return <div className={styles.base}>{children}</div>;
+type TableViewWrapperProps = {
+  hasPager?: boolean;
+};
+
+const TableViewWrapper: React.FC<TableViewWrapperProps> = ({
+  children,
+  hasPager,
+}) => {
+  return (
+    <div className={classNames(styles.base, {[styles.hasPager]: hasPager})}>
+      {children}
+    </div>
+  );
 };
 
 export default TableViewWrapper;

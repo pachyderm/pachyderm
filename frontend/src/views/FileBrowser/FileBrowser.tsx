@@ -1,46 +1,51 @@
-import classnames from 'classnames';
 import React from 'react';
 import {Helmet} from 'react-helmet';
-import {Switch, useHistory} from 'react-router';
+import {useHistory} from 'react-router';
 
-import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
-import Breadcrumb from '@dash-frontend/components/Breadcrumb';
+import EmptyState from '@dash-frontend/components/EmptyState';
+import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import RepoDetails from '@dash-frontend/views/Project/components/ProjectSidebar/components/RepoDetails';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
-  Tooltip,
-  GenericErrorSVG,
-  FullPageModal,
-  ViewIconSVG,
-  ViewListSVG,
+  CaptionText,
   LoadingDots,
+  FullPagePanelModal,
   Button,
+  ArrowLeftSVG,
+  Pager,
 } from '@pachyderm/components';
 
 import FileHeader from './components/FileHeader';
+import FileHistory from './components/FileHistory';
 import FilePreview from './components/FilePreview';
-import IconView from './components/IconView';
+import LeftPanel from './components/LeftPanel';
 import ListViewTable from './components/ListViewTable';
 import styles from './FileBrowser.module.css';
-import useFileBrowser from './hooks/useFileBrowser';
+import useFileBrowser, {FILE_DEFAULT_PAGE_SIZE} from './hooks/useFileBrowser';
 
 const FileBrowser: React.FC = () => {
   const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
   const browserHistory = useHistory();
 
   const {
-    fileFilter,
-    setFileFilter,
-    fileView,
-    setFileView,
     handleHide,
     isOpen,
-    filteredFiles,
+    files,
+    error,
     loading,
     fileToPreview,
     isDirectory,
-    diffOnly,
-    setDiffOnly,
+    isRoot,
+    selectedCommitId,
+    handleBackNav,
+    pageSize,
+    setPageSize,
+    page,
+    updatePage,
+    cursors,
+    hasNextPage,
+    isCommitOpen,
   } = useFileBrowser();
 
   if (filePath && !loading && !fileToPreview && !isDirectory) {
@@ -59,94 +64,95 @@ const FileBrowser: React.FC = () => {
       <Helmet>
         <title>Files - Pachyderm Console</title>
       </Helmet>
-      {isOpen && (
-        <FullPageModal
-          show={isOpen}
-          onHide={handleHide}
-          hideType="exit"
-          className={styles.fullModal}
-        >
+      <FullPagePanelModal
+        show={isOpen}
+        onHide={handleHide}
+        hideType="exit"
+        className={styles.fullModal}
+      >
+        <LeftPanel selectedCommitId={selectedCommitId} />
+        <FullPagePanelModal.Body>
           <div className={styles.base}>
-            <FileHeader
-              fileFilter={fileFilter}
-              setFileFilter={setFileFilter}
-              setDiffOnly={setDiffOnly}
-              diffOnly={diffOnly}
-            />
-            <div className={styles.subHeader}>
-              <Breadcrumb />
-              {isDirectory && (
-                <>
-                  <Tooltip
-                    tooltipText="List View"
-                    placement="left"
-                    tooltipKey="List View"
+            <FileHeader commitId={selectedCommitId} />
+            {!fileToPreview && !loading && (
+              <div className={styles.header}>
+                <div data-testid="FileBrowser__title">
+                  <h6>
+                    {isRoot
+                      ? 'Commit files for'
+                      : `Folder: ${filePath.slice(0, -1)}`}
+                  </h6>
+                  <CaptionText color="black">{selectedCommitId}</CaptionText>
+                </div>
+                {!isRoot && (
+                  <Button
+                    buttonType="secondary"
+                    IconSVG={ArrowLeftSVG}
+                    onClick={handleBackNav}
                   >
-                    <Button
-                      buttonType="ghost"
-                      onClick={() => setFileView('list')}
-                      className={classnames({
-                        [styles.inactiveIcon]: fileView === 'list',
-                      })}
-                      aria-label="switch to list view"
-                      IconSVG={ViewListSVG}
-                    />
-                  </Tooltip>
-                  <Tooltip
-                    tooltipText="Icon View"
-                    placement="left"
-                    tooltipKey="Icon View"
-                  >
-                    <Button
-                      buttonType="ghost"
-                      onClick={() => setFileView('icon')}
-                      className={classnames({
-                        [styles.inactiveIcon]: fileView === 'icon',
-                      })}
-                      aria-label="switch to icon view"
-                      IconSVG={ViewIconSVG}
-                    />
-                  </Tooltip>
-                </>
-              )}
-            </div>
-            <Switch>
-              {isDirectory ? (
-                <>
-                  {fileView === 'icon' && filteredFiles.length > 0 && (
-                    <div
-                      className={styles.fileIcons}
-                      data-testid="FileBrowser__iconView"
-                    >
-                      {filteredFiles.map((file) => (
-                        <IconView key={file.path} file={file} />
-                      ))}
-                    </div>
-                  )}
-                  {fileView === 'list' && filteredFiles.length > 0 && (
-                    <ListViewTable files={filteredFiles} />
-                  )}
-                </>
-              ) : (
-                <>{fileToPreview && <FilePreview file={fileToPreview} />}</>
-              )}
-            </Switch>
-            {loading && <LoadingDots />}
-            {!loading && filteredFiles?.length === 0 && !fileToPreview && (
-              <div className={styles.emptyResults}>
-                <BrandedEmptyIcon communityEditionIcon={<GenericErrorSVG />} />
-                <h4 className={styles.emptyHeading}>
-                  No Matching Results Found.
-                </h4>
-                <p className={styles.emptySubheading}>
-                  {`The folder or file might have been deleted or doesn't exist.
-                  Please try searching another keyword.`}
-                </p>
+                    Back
+                  </Button>
+                )}
               </div>
             )}
+
+            {loading && <LoadingDots data-testid="FileBrowser__loadingDots" />}
+
+            {!loading && (
+              <>
+                {error ? (
+                  <ErrorStateSupportLink
+                    title="We couldn't load the file list"
+                    message="Your files have been processed, but we couldn't fetch a list of them from our end. Please try refreshing this page."
+                  />
+                ) : (
+                  <>
+                    {isCommitOpen ? (
+                      <EmptyState
+                        title="This commit is currently open"
+                        message="Your data is being processed, and will be available to preview after the commit has been closed. Please finish the commit to browse these files."
+                      />
+                    ) : (
+                      <>
+                        {files?.length === 0 && !fileToPreview && !error && (
+                          <ErrorStateSupportLink
+                            title="This commit doesn't have any files"
+                            message="Some commits don't contain any files. We still wanted to notify you because Pachyderm didn't detect commits on our end."
+                          />
+                        )}
+
+                        {files?.length > 0 &&
+                          (filePath && fileToPreview ? (
+                            <FilePreview file={fileToPreview} />
+                          ) : (
+                            <ListViewTable files={files} />
+                          ))}
+                        {files?.length > 0 &&
+                          !(filePath && fileToPreview) &&
+                          (hasNextPage || cursors.length > 1) && (
+                            <Pager
+                              elementName="file"
+                              page={page}
+                              updatePage={updatePage}
+                              pageSizes={[FILE_DEFAULT_PAGE_SIZE, 25, 50]}
+                              nextPageDisabled={!hasNextPage}
+                              updatePageSize={setPageSize}
+                              pageSize={pageSize}
+                              hasTopBorder
+                            />
+                          )}
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </div>
-        </FullPageModal>
-      )}
+        </FullPagePanelModal.Body>
+        <FullPagePanelModal.RightPanel>
+          {!isDirectory ? <FileHistory /> : <RepoDetails />}
+        </FullPagePanelModal.RightPanel>
+      </FullPagePanelModal>
     </>
   );
 };

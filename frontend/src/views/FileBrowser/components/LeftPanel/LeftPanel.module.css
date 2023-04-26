@@ -1,0 +1,32 @@
+.base {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.branchSelect {
+  height: 100px;
+  border-bottom: 1px solid var(--border-grey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.breadCrumbs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  width: 100%;
+  min-height: 3.375rem;
+
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border-grey);
+}
+
+.data {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  overflow-y: hidden;
+}

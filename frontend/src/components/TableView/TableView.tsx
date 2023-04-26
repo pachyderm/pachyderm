@@ -38,7 +38,7 @@ const TableView: React.FC<TableViewProps> = ({
   const firstTabValue = Object.values(tabs)[0];
 
   return (
-    <div>
+    <div className={styles.wrapper}>
       <Helmet>
         <title>{title} - Pachyderm</title>
       </Helmet>

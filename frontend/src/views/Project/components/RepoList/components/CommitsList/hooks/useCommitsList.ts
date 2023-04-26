@@ -1,17 +1,55 @@
 import {Commit} from '@graphqlTypes';
+import {useCallback, useEffect} from 'react';
 import {useHistory} from 'react-router';
 
+import useCommits from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
+import useTimestampPagination from '@dash-frontend/hooks/useTimestampPagination';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {DropdownItem} from '@pachyderm/components';
 
-const useCommitsList = () => {
+export const COMMITS_DEFAULT_PAGE_SIZE = 15;
+
+const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
   const {projectId} = useUrlState();
   const {getNewSearchParamsAndGo} = useUrlQueryState();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
   const browserHistory = useHistory();
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    cursors,
+    updateCursor,
+    resetCursors,
+  } = useTimestampPagination(COMMITS_DEFAULT_PAGE_SIZE);
+
+  const {commits, loading, error, cursor} = useCommits({
+    args: {
+      projectId,
+      repoName: selectedRepo,
+      number: pageSize,
+      reverse: reverseOrder,
+      cursor: cursors[page - 1],
+    },
+  });
+  const hasNextPage = !!cursor;
+
+  const updatePage = useCallback(
+    (page: number) => {
+      updateCursor(cursor);
+      setPage(page);
+    },
+    [cursor, setPage, updateCursor],
+  );
+
+  useEffect(() => {
+    setPage(1);
+    resetCursors();
+  }, [resetCursors, reverseOrder, setPage]);
 
   const globalIdRedirect = (runId: string) => {
     getNewSearchParamsAndGo({
@@ -59,8 +97,17 @@ const useCommitsList = () => {
   ];
 
   return {
+    commits,
+    loading,
+    error,
     iconItems,
     onOverflowMenuSelect,
+    page,
+    cursors,
+    updatePage,
+    pageSize,
+    setPageSize,
+    hasNextPage,
   };
 };
 

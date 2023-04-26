@@ -1,0 +1,115 @@
+.markdownWrapper {
+  height: 100%;
+  text-align: left;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.markdownWrapper * {
+  line-height: 1.5;
+}
+
+.markdownWrapper h1 {
+  font-size: 2rem;
+}
+
+.markdownWrapper h2 {
+  font-size: 1.5rem;
+}
+
+.markdownWrapper h3 {
+  font-size: 1.25rem;
+}
+
+.markdownWrapper h4 {
+  font-size: 1rem;
+}
+
+.markdownWrapper h5 {
+  font-size: 0.875rem;
+}
+
+.markdownWrapper h6 {
+  color: var(--placeholder-grey);
+  font-size: 0.85rem;
+}
+
+.markdownWrapper h1,
+.markdownWrapper h2 {
+  border-bottom: 1px solid var(--border-grey);
+  padding-bottom: 0.25rem;
+}
+
+.markdownWrapper h1,
+.markdownWrapper h2,
+.markdownWrapper h3,
+.markdownWrapper h4,
+.markdownWrapper h5,
+.markdownWrapper h6 {
+  margin-bottom: 1rem;
+}
+
+.markdownWrapper code {
+  background-color: var(--line-grey);
+  border-radius: 6px;
+  color: inherit;
+  font-size: 85%;
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  white-space: break-spaces;
+}
+
+.markdownWrapper pre {
+  background-color: var(--line-grey);
+  border-radius: 6px;
+  line-height: 1.45;
+  font-size: 100%;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.markdownWrapper blockquote {
+  color: var(--placeholder-grey);
+  border-left: 0.25rem solid var(--border-grey);
+  padding: 0 1rem;
+}
+
+.markdownWrapper hr {
+  background-color: var(--border-grey);
+  border: 0;
+  height: 0.25rem;
+  margin: 1.5rem 0;
+  padding: 0;
+}
+
+.markdownWrapper ol {
+  list-style-type: decimal;
+}
+
+.markdownWrapper ol ol {
+  list-style-type: lower-roman;
+}
+
+.markdownWrapper ol ol ol {
+  list-style-type: lower-alpha;
+}
+
+.markdownWrapper table {
+  display: block;
+  overflow: auto;
+  margin-bottom: 1rem;
+}
+
+.markdownWrapper table th {
+  font-weight: 600;
+}
+
+.markdownWrapper table th,
+.markdownWrapper table td {
+  padding: 0.5rem;
+  border: 1px solid var(--border-grey);
+}
+
+.markdownWrapper table tr:nth-child(even) {
+  background-color: var(--line-grey);
+}

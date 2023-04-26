@@ -1,7 +1,6 @@
 import React from 'react';
 
-import CodeElement from '@dash-frontend/components/ConfigFilePreview/components/CodeElement';
-import {Format} from '@dash-frontend/components/ConfigFilePreview/utils/stringifyToFormat';
+import CodePreview from '@dash-frontend/components/CodePreview';
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
 import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
@@ -93,7 +92,7 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
     >
       {status.loading ? <LoadingDots /> : null}
       <ConfigurationUploadModule fileMeta={file}>
-        <CodeElement element={JSON.parse(PIPELINE_JSON)} format={Format.JSON} />
+        <CodePreview source={PIPELINE_JSON} language="json" />
       </ConfigurationUploadModule>
     </TaskCard>
   );

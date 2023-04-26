@@ -289,7 +289,7 @@ input JobsQueryArgs {
   pipelineIds: [String]
   jobSetIds: [String]
   nodeStateFilter: [NodeState]
-  cursor: TimestampInput 
+  cursor: TimestampInput
   reverse: Boolean
 }
 
@@ -451,6 +451,7 @@ input CommitsQueryArgs {
   number: Int
   cursor: TimestampInput
   commitIdCursor: String
+  reverse: Boolean
 }
 
 input SearchResultQueryArgs {
@@ -669,8 +670,14 @@ input FindCommitsQueryArgs {
   limit: Int
 }
 
+type FoundCommit {
+  id: ID!
+  started: Int!
+  commitAction: FileCommitState
+}
+
 type PageableFoundCommits {
-  commits: [Commit!]!
+  commits: [FoundCommit!]!
   cursor: String
   hasNextPage: Boolean
 }

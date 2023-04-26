@@ -1,51 +1,13 @@
 .base {
-  margin: -1rem;
-  height: 100vh;
+  height: calc(100vh - 2rem);
   background-color: var(--background-grey);
   display: flex;
   flex-direction: column;
 }
 
-.subHeader {
-  width: calc(100% - 4rem);
-  margin: 0.6125rem 2rem;
+.header {
+  margin: 1rem;
+  margin-bottom: 2.25rem;
   display: inline-flex;
-  align-items: center;
-}
-
-.fileIcons {
-  padding: 1rem;
-  overflow: auto;
-  max-height: calc(100vh - var(--header-height));
-  padding-top: 0;
-  margin-top: 0.6125rem;
-}
-
-.emptyResults {
-  text-align: center;
-  padding-top: 8rem;
-}
-
-.emptyHeading {
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-}
-
-.emptySubheading {
-  max-width: 22rem;
-  margin-left: 50%;
-  transform: translateX(-50%);
-}
-
-.inactiveIcon {
-  opacity: 0.5;
-}
-
-.inactiveIcon:hover {
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-
-.fullModal {
-  z-index: var(--z-index-modal-overlay);
+  justify-content: space-between;
 }

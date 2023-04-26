@@ -12,3 +12,5 @@ This folder contains a collection of dags that can be useful for console develop
 `setup-project-tutorial` - Creates the tutorial DAG in a project named tutorial
 
 `setup-cross-project` - Creates two cross-project DAGs across two projects each, for a total of four projects.
+
+`generate-commits` - generates lots of commits

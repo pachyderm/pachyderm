@@ -46,6 +46,9 @@ const projects: Record<string, ProjectInfo> = {
     .setDescription(
       'Contains two DAGs spanning across this and Multi-Project-Pipeline-A',
     ),
+  'Load-Project': new ProjectInfo()
+    .setProject(new Project().setName('Load-Project'))
+    .setDescription('Project for testing frontend load'),
 };
 
 const tutorialProjects: {[projectId: string]: ProjectInfo} = {

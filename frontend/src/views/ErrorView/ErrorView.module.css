@@ -11,11 +11,10 @@
 }
 
 .fullError {
-  background-color: var(--white);
-  border: solid 1px var(--border-grey);
-  border-radius: 0.4rem;
-  overflow-y: scroll;
   max-width: 60rem;
+  margin-bottom: 3rem;
+  padding: 0.5rem;
+  width: 100%;
 }
 
 .elephantImage {

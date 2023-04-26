@@ -2,7 +2,6 @@ import {File, FileType} from '@graphqlTypes';
 import {useMemo} from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import getFileMajorType from '@dash-frontend/lib/getFileMajorType';
 import {FileMajorType} from '@dash-frontend/lib/types';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -25,16 +24,27 @@ const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
   'htm',
   'txt',
   'yml',
-  'yaml',
+  'md',
+  'mkd',
+  'mdwn',
+  'mdown',
+  'markdown',
+];
+const SUPPORTED_VIEW_SOURCE_TYPES: string[] = [
+  'md',
+  'mkd',
+  'mdwn',
+  'mdown',
+  'markdown',
 ];
 
 const useFileDisplay = (file: File) => {
-  const {repoId, commitId, branchId, projectId} = useUrlState();
+  const {repoId, branchId, projectId} = useUrlState();
   const filePath = fileBrowserRoute({
     repoId,
     branchId,
     projectId,
-    commitId,
+    commitId: file.commitId,
     // remove forward slash from path for route
     filePath: file.path.slice(1),
   });
@@ -45,13 +55,8 @@ const useFileDisplay = (file: File) => {
       .filter((f) => f)
       .pop() || 'unknown';
 
-  const {copy, supported: copySupported} = useClipboardCopy(
+  const {copy} = useClipboardCopy(
     `${repoId}@${branchId}=${file.commitId}:${file.path}`,
-  );
-
-  const dateDisplay = useMemo(
-    () => (file.committed ? getStandardDate(file.committed.seconds) : 'N/A'),
-    [file.committed],
   );
 
   const fileType = useMemo(() => {
@@ -73,15 +78,18 @@ const useFileDisplay = (file: File) => {
     );
   }, [fileMajorType, fileType]);
 
+  const viewSourceSupported = useMemo(() => {
+    return SUPPORTED_VIEW_SOURCE_TYPES.includes(fileType);
+  }, [fileType]);
+
   return {
     copy,
-    copySupported,
     fileName,
-    dateDisplay,
     filePath,
     fileType,
     fileMajorType,
     previewSupported,
+    viewSourceSupported,
   };
 };
 

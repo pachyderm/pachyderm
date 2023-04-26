@@ -1,65 +1,26 @@
-.search {
-  border-left: solid 1px var(--line-grey);
-  flex: 1;
-  padding: 1rem;
-  padding-left: 3rem;
-  background-origin: content-box;
-  background-size: 1rem;
-  background-position: -1.5rem 0.2rem;
-}
-
-.header {
-  width: 100%;
-  padding-right: 3rem;
-  min-height: var(--header-height);
-}
-
-.subHeader {
+.base {
   display: flex;
   align-items: center;
-  border-top: solid 1px var(--line-grey);
-  padding: 1rem 0;
   justify-content: space-between;
+  height: 3rem;
+  border-bottom: 1px solid var(--border-grey);
+  padding: 0 1rem;
 }
 
-.dateField {
+.link {
+  color: var(--default-purple);
+}
+
+.link:hover {
+  color: var(--hover-purple);
+}
+
+.path {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  max-height: 1rem;
-  min-width: 8rem;
 }
 
-.datelabel {
-  display: inline-flex;
-  align-items: center;
-}
-
-.infoIcon {
-  margin-left: 0.25rem;
-  transform: scale(0.75);
-}
-
-.navigate {
-  color: var(--pachyderm-black);
-  width: auto;
-  display: inline-flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.directionRight {
-  margin-left: 1rem;
-}
-
-.directionLeft {
-  margin-right: 1rem;
-}
-
-.switchItem {
-  display: flex;
-  align-items: center;
-  color: var(--pachyderm-black);
-}
-
-.switch {
-  margin-right: 0.5rem;
+.path span {
+  padding-right: 0.5rem;
 }

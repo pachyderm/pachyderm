@@ -65,7 +65,7 @@ const fileResolver: FileResolver = {
 
       const files = await pachClient.pfs().listFile({
         projectId,
-        commitId: commitId || 'master',
+        commitId: commitId || '',
         path: path || '/',
         branch: {
           name: branchName,
@@ -83,7 +83,7 @@ const fileResolver: FileResolver = {
           commit: {
             id: commitId || '',
             branch: {
-              name: branchName || 'master',
+              name: branchName,
               repo: {name: repoName},
             },
           },
@@ -94,7 +94,7 @@ const fileResolver: FileResolver = {
         const diffResponse = await pachClient.pfs().diffFile({
           projectId,
           newFileObject: {
-            commitId: commitId || 'master',
+            commitId: commitId || '',
             path: path || '/',
             branch: {
               name: branchName,
@@ -109,8 +109,10 @@ const fileResolver: FileResolver = {
 
       //If files.length is not greater than limit there are no pages left
       if (files.length > limit) {
-        files.pop(); //remove the extra file from the response
+        // cursor file is included in next page
         nextCursor = files[files.length - 1].file?.path;
+        //remove the extra file from the response
+        files.pop();
       }
 
       return {

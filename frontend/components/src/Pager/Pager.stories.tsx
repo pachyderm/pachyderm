@@ -22,6 +22,7 @@ export const Default = () => {
         pageSizes={[5, 10, 20]}
         updatePageSize={setPageSize}
         pageSize={pageSize}
+        hasTopBorder
       />
     </div>
   );
@@ -46,6 +47,7 @@ export const NoPageCount = () => {
         nextPageDisabled={pageContent.length < pageSize}
         updatePageSize={setPageSize}
         pageSize={pageSize}
+        hasTopBorder
       />
     </div>
   );

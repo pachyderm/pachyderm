@@ -52,3 +52,7 @@ setup-multi-project-cron-egress:
 	-pachctl create pipeline -f ./multi-project/C1_cron.json --project Multi-Project-C1
 	-pachctl create pipeline -f ./multi-project/C2_edges.json --project Multi-Project-C2
 	-pachctl create pipeline -f ./multi-project/C3_egress.json --project Multi-Project-C3
+
+generate-commits:
+	-pachctl create repo lots-of-commits
+	-node scripts/lots-of-commits/index.js 100 lots-of-commits

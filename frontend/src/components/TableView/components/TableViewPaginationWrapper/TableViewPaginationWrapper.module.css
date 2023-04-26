@@ -1,0 +1,7 @@
+.base {
+  position: absolute;
+  bottom: 0px;
+  width: 100%;
+  background-color: var(--white);
+  border-top: solid 1px var(--border-grey);
+}

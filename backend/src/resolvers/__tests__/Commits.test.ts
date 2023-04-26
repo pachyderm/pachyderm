@@ -355,6 +355,35 @@ describe('resolvers/Commits', () => {
         expect(errors[0].extensions.code).toBe('INVALID_ARGUMENT');
         expect(data?.commits).toBeUndefined();
       });
+
+      it('should return the reverse order if reverse is true', async () => {
+        const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+        const repo = 'cron';
+        const {data, errors = []} = await executeQuery<GetCommitsQuery>(
+          GET_COMMITS_QUERY,
+          {
+            args: {projectId, repoName: repo, number: 3, reverse: true},
+          },
+        );
+
+        expect(errors).toHaveLength(0);
+        const commits = data?.commits.items;
+        expect(commits).toHaveLength(3);
+        expect(data?.commits.cursor).toEqual(
+          expect.objectContaining({
+            seconds: 1614133389,
+            nanos: 0,
+          }),
+        );
+        expect(data?.commits.items[0]).toEqual(
+          expect.objectContaining({
+            __typename: 'Commit',
+            description: 'in progress 3',
+            id: '0518ac9d5daa76b86e3bb5e88e4c43a5',
+            started: 1614133389,
+          }),
+        );
+      });
     });
   });
   describe('startCommit', () => {

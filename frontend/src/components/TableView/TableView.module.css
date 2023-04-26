@@ -1,6 +1,11 @@
-.base {
+.wrapper {
   display: flex;
-  height: 100%;
+  flex-direction: column;
+}
+
+.base {
+  flex: 1;
+  display: flex;
   flex-direction: column;
 }
 

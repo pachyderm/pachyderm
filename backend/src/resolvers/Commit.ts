@@ -134,6 +134,7 @@ const commitResolver: CommitResolver = {
           number,
           originKind,
           cursor,
+          reverse,
         },
       },
       {pachClient},
@@ -178,6 +179,7 @@ const commitResolver: CommitResolver = {
               }
             : undefined,
         started_time: cursor || undefined,
+        reverse: !!reverse,
       });
 
       let nextCursor = undefined;
@@ -263,17 +265,44 @@ const commitResolver: CommitResolver = {
         }
       });
 
-      const commitInfos = await Promise.all(
-        foundCommitIds.map((commit) =>
-          pachClient.pfs().inspectCommit({
-            projectId,
-            wait: CommitState.COMMIT_STATE_UNKNOWN,
-            commit: {
-              id: commit,
-              branch: {name: '', repo: {name: repoId}},
-            },
-          }),
-        ),
+      const foundCommits = await Promise.all(
+        foundCommitIds.map(async (commit) => {
+          const commitInfo = commitInfoToGQLCommit(
+            await pachClient.pfs().inspectCommit({
+              projectId,
+              wait: CommitState.COMMIT_STATE_UNKNOWN,
+              commit: {
+                id: commit,
+                branch: {name: '', repo: {name: repoId}},
+              },
+            }),
+          );
+
+          let diff;
+          if (
+            commitInfo.originKind !== OriginKind.ALIAS &&
+            commitInfo.finished !== -1
+          ) {
+            const diffResponse = await pachClient.pfs().diffFile({
+              projectId,
+              newFileObject: {
+                commitId: commitInfo.id || '',
+                path: filePath || '/',
+                branch: {
+                  name: branchId || '',
+                  repo: {name: repoId},
+                },
+              },
+            });
+            diff = formatDiff(diffResponse);
+          }
+
+          return {
+            id: commitInfo.id,
+            started: commitInfo.started,
+            commitAction: diff && Object.values(diff.diffTotals)[0],
+          };
+        }),
       );
 
       let cursor = '';
@@ -290,7 +319,7 @@ const commitResolver: CommitResolver = {
       }
 
       return {
-        commits: commitInfos.map((c) => commitInfoToGQLCommit(c)),
+        commits: foundCommits,
         cursor: cursor,
         hasNextPage: !!cursor,
       };

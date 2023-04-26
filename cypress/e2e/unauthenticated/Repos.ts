@@ -111,7 +111,8 @@ describe('Repos', () => {
     cy.findAllByTestId('CommitsList__row').first().within(() => cy.findByTestId('DropdownButton__button').click());
     cy.findByText('Inspect commit').click()
 
-    cy.findByText('1 File added');
-    cy.findByText('(+58.65 kB)');
+    cy.findByText('Commit files for');
+    cy.findByText('liberty.png');
+    cy.findByText('Added');
   })
 });

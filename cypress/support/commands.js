@@ -106,6 +106,26 @@ Cypress.Commands.add("setupProject", (projectTemplate) => {
             })}' | pachctl create pipeline`
           );
       });
+  } else if (projectTemplate === 'file-browser') {
+    return cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
+      cy.exec('pachctl create repo images')
+        .exec(
+          'pachctl put file images@master:image1.png -f http://imgur.com/46Q8nDz.png',
+        )
+        .exec(
+          'pachctl put file images@master:image1.png -f http://imgur.com/8MN9Kg0.png',
+        )
+        .exec(
+          'pachctl put file images@test:image1.png -f http://imgur.com/46Q8nDz.png',
+        )
+        .exec('pachctl delete file images@test:image1.png')
+        .exec(
+          'pachctl put file images@test:image1.png -f http://imgur.com/46Q8nDz.png',
+        )
+        .exec(
+          'pachctl put file images@test:image1.png -f http://imgur.com/8MN9Kg0.png',
+        );
+    });
   }
 
   return cy.exec('jq -r .pachReleaseCommit version.json').then(res => {

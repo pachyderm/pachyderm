@@ -1,5 +1,6 @@
 import React from 'react';
 import {Helmet} from 'react-helmet';
+import {Route, Switch} from 'react-router-dom';
 
 import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
@@ -8,6 +9,7 @@ import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
+import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {SkeletonDisplayText, CaptionTextSmall} from '@pachyderm/components';
 
 import Title from '../Title';
@@ -44,7 +46,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     [];
 
   return (
-    <div className={styles.base}>
+    <div className={styles.base} data-testid="RepoDetails__base">
       <Helmet>
         <title>Repo - Pachyderm Console</title>
       </Helmet>
@@ -71,26 +73,28 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         >
           {repo ? getStandardDate(repo.createdAt) : 'N/A'}
         </Description>
-        {(currentRepoLoading || commit) && (
-          <Description
-            loading={currentRepoLoading}
-            term="Most Recent Commit Start"
-          >
-            {commit ? getStandardDate(commit.started) : 'N/A'}
-          </Description>
-        )}
-        {(currentRepoLoading || commit) && (
-          <Description
-            loading={currentRepoLoading}
-            term="Most Recent Commit ID"
-          >
-            {commit ? (
-              <CommitIdCopy commit={commit.id} clickable small longId />
-            ) : (
-              'N/A'
-            )}
-          </Description>
-        )}
+        <Route path={LINEAGE_REPO_PATH} exact>
+          {(currentRepoLoading || commit) && (
+            <Description
+              loading={currentRepoLoading}
+              term="Most Recent Commit Start"
+            >
+              {commit ? getStandardDate(commit.started) : 'N/A'}
+            </Description>
+          )}
+          {(currentRepoLoading || commit) && (
+            <Description
+              loading={currentRepoLoading}
+              term="Most Recent Commit ID"
+            >
+              {commit ? (
+                <CommitIdCopy commit={commit.id} clickable small longId />
+              ) : (
+                'N/A'
+              )}
+            </Description>
+          )}
+        </Route>
       </div>
 
       {!currentRepoLoading && (!commit || repo?.branches.length === 0) && (
@@ -112,12 +116,20 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
       {commit?.id && (
         <>
           <CaptionTextSmall className={styles.commitDetailsLabel}>
-            Current Commit Stats
+            <Switch>
+              <Route path={LINEAGE_REPO_PATH} exact>
+                Current Commit Stats
+              </Route>
+              <Route>Selected Commit Stats</Route>
+            </Switch>
           </CaptionTextSmall>
           <CommitDetails commit={commit} repo={repo} />
         </>
       )}
-      {repo && commit && <CommitList repo={repo} />}
+
+      <Route path={LINEAGE_REPO_PATH} exact>
+        {repo && commit && <CommitList repo={repo} />}
+      </Route>
     </div>
   );
 };

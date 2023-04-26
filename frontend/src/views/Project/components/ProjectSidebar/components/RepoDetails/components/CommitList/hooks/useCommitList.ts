@@ -1,34 +1,20 @@
-import {RepoQuery, OriginKind} from '@graphqlTypes';
-import {useCallback} from 'react';
+import {RepoQuery} from '@graphqlTypes';
 
 import useCommits from '@dash-frontend/hooks/useCommits';
-import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 export const COMMIT_LIMIT = 6;
 
 const useCommitList = (repo?: RepoQuery['repo']) => {
   const {projectId, repoId} = useUrlState();
-  const [hideAutoCommits, handleHideAutoCommitChange] = useLocalProjectSettings(
-    {projectId, key: 'hide_auto_commits'},
-  );
-
-  const handleOriginFilter = useCallback(
-    (selection: string) => {
-      if (selection !== 'all-origin') {
-        handleHideAutoCommitChange(true);
-      } else {
-        handleHideAutoCommitChange(false);
-      }
-    },
-    [handleHideAutoCommitChange],
-  );
+  const {getPathToFileBrowser} = useFileBrowserNavigation();
 
   const {commits, loading, error} = useCommits({
     args: {
       projectId,
       repoName: repoId,
-      originKind: hideAutoCommits ? OriginKind.USER : undefined,
+      originKind: undefined,
       number: COMMIT_LIMIT,
     },
     skip: !repo || repo.branches.length === 0,
@@ -39,9 +25,10 @@ const useCommitList = (repo?: RepoQuery['repo']) => {
     loading,
     error,
     commits,
-    handleOriginFilter,
     previousCommits,
-    hideAutoCommits,
+    getPathToFileBrowser,
+    projectId,
+    repoId,
   };
 };
 

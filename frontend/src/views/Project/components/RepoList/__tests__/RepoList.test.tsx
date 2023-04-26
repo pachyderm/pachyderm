@@ -122,7 +122,7 @@ describe('Repo List', () => {
     await click((await screen.findAllByText('Inspect commits'))[0]);
 
     expect(window.location.pathname).toBe(
-      '/project/Solar-Power-Data-Logger-Team-Collab/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a/',
     );
   });
 });

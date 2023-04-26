@@ -2,7 +2,7 @@ import React from 'react';
 import {Helmet} from 'react-helmet';
 
 import {BrandedErrorIcon} from '@dash-frontend/components/BrandedIcon';
-import JSONDataPreview from '@dash-frontend/components/JSONDataPreview';
+import CodePreview from '@dash-frontend/components/CodePreview';
 import View from '@dash-frontend/components/View';
 import LandingHeader from '@dash-frontend/views/Landing/components/LandingHeader';
 import {
@@ -58,13 +58,12 @@ const ErrorView: React.FC<ErrorViewProps> = ({
           </Group>
 
           {stackTrace && (
-            <div className={styles.fullError}>
-              <JSONDataPreview
-                inputData={stackTrace}
-                formattingStyle="yaml"
-                width={Math.min(window.innerWidth - 128, 948)}
-              />
-            </div>
+            <CodePreview
+              className={styles.fullError}
+              source={String(stackTrace)}
+              language="text"
+              hideGutter
+            />
           )}
         </Group>
       </View>

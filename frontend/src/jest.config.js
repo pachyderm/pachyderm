@@ -13,14 +13,9 @@ const moduleNameMapper = pathsToModuleNameMapper(
 );
 
 baseConfig.testEnvironment = '../dash-jsdom-environment';
-
 baseConfig.moduleNameMapper = {
-  '\\.(css)$': 'identity-obj-proxy',
-  '\\.(gif|jpg|png)$': '<rootDir>/../jest.file.mock.js',
-  '\\.svg': '<rootDir>/../jest.svg.mock.js',
+  ...baseConfig.moduleNameMapper,
   ...moduleNameMapper,
-  d3: '<rootDir>/../node_modules/d3/dist/d3.min.js',
-  '^d3-(.*)$': `d3-$1/dist/d3-$1`,
 };
 
 module.exports = baseConfig;

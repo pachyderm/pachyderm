@@ -1,9 +1,3 @@
-/* stylelint-disable selector-class-pattern */
-.commitIcon.UPDATED {
-  color: var(--chart-dark-blue);
+.dirArrow {
+  padding-left: 0rem !important;
 }
-
-.disabledButton {
-    pointer-events: none;
-  }
-  

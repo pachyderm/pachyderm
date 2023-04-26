@@ -9,7 +9,7 @@ const tutorial = {
     fileInfoFromObject({
       committed: {seconds: 1614126189, nanos: 0},
       file: {
-        commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
+        commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
         path: '/AT-AT.png',
         branch: {name: 'master', repo: {name: 'images'}},
       },
@@ -20,7 +20,7 @@ const tutorial = {
     fileInfoFromObject({
       committed: {seconds: 1610126189, nanos: 0},
       file: {
-        commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
+        commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
         path: '/liberty.png',
         branch: {name: 'master', repo: {name: 'images'}},
       },
@@ -31,7 +31,7 @@ const tutorial = {
     fileInfoFromObject({
       committed: {seconds: 1616126189, nanos: 0},
       file: {
-        commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
+        commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
         path: '/cats/',
         branch: {name: 'master', repo: {name: 'images'}},
       },
@@ -73,7 +73,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/carriers_list.textpb',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -84,7 +84,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/csv_commas.csv',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -95,7 +95,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/csv_tabs.csv',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -106,7 +106,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/html_pachyderm.html',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -117,7 +117,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/json_mixed.json',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -128,7 +128,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/json_nested_arrays.json',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -139,7 +139,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/json_object_array.json',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -150,7 +150,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/json_single_field.json',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -161,7 +161,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/json_string_array.json',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -172,7 +172,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/jsonl_people.jsonl',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -183,7 +183,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/tsv_tabs.tsv',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -194,7 +194,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/txt_spec.txt',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -205,7 +205,7 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/xml_plants.xml',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
@@ -216,13 +216,46 @@ const allFiles = {
     fileInfoFromObject({
       committed: {seconds: 1633119338, nanos: 0},
       file: {
-        commitId: '531f844bd184e913b050d49856e8d438',
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
         path: '/yml_spec.yml',
         branch: {name: 'master', repo: {name: 'samples'}},
       },
       fileType: FileType.FILE,
       hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
       sizeBytes: 502,
+    }),
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
+        path: '/markdown_basic.md',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: 142,
+    }),
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
+        path: '/file.unknown',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: 1,
+    }),
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
+        path: '/yml_spec_too_large.yml',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: FILE_DOWNLOAD_LIMIT + 1,
     }),
   ],
 };

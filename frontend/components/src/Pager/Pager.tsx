@@ -1,3 +1,4 @@
+import classnames from 'classnames';
 import React from 'react';
 
 import {
@@ -15,11 +16,12 @@ type PagerProps = {
   page: number;
   pageCount?: number;
   nextPageDisabled?: boolean;
-  updatePage: React.Dispatch<React.SetStateAction<number>>;
+  updatePage: (page: number) => void;
   pageSizes: number[];
   updatePageSize: React.Dispatch<React.SetStateAction<number>>;
   pageSize: number;
   elementName?: string;
+  hasTopBorder?: boolean;
 };
 
 interface SimplePagerProps
@@ -36,9 +38,13 @@ export const Pager: React.FC<PagerProps> = ({
   updatePageSize,
   pageSize,
   elementName,
+  hasTopBorder,
 }) => {
   return (
-    <div className={styles.base}>
+    <div
+      className={classnames(styles.base, {[styles.hasTopBorder]: hasTopBorder})}
+      data-testid="Pager__pager"
+    >
       <Group className={styles.pages}>
         <DefaultDropdown
           items={pageSizes.map((i) => ({
@@ -99,9 +105,13 @@ export const SimplePager: React.FC<SimplePagerProps> = ({
   pageSize,
   elementName,
   contentLength,
+  hasTopBorder,
 }) => {
   return (
-    <div className={styles.base}>
+    <div
+      className={classnames(styles.base, {[styles.hasTopBorder]: hasTopBorder})}
+      data-testid="Pager__simplePager"
+    >
       <div className={styles.navigation}>
         {page && contentLength !== 0 && (
           <span>

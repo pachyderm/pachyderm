@@ -29,7 +29,6 @@ export * from './Icon';
 export * from './Info';
 export * from './Input';
 export * from './Label';
-export * from './LegacyTable';
 export * from './Link';
 export * from './LoadingDots';
 export * from './Modal';

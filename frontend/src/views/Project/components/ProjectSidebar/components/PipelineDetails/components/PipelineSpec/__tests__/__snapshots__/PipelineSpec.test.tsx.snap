@@ -95,466 +95,905 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
       data-testid="ConfigFilePreview__codeElement"
     >
       <div
-        class="codeSection"
+        class="fileCodePreview codePreview hideLineNumbers fullHeight"
+        data-testid="CodePreview__wrapper"
       >
-        <div>
-          <div
-            class="code language-yaml depth0 hljs"
-          />
-          <div
-            class="header"
-          >
-            <div
-              class="base chevron black black-hover small"
-            >
-              <svg-mock />
-            </div>
-            <div
-              class="code language-yaml depth0 hljs"
-            >
-              <span
-                class="hljs-attr"
-              >
-                transform:
-              </span>
-            </div>
-          </div>
-          <div
-            class=""
-          >
-            <div
-              class="codeSection"
-            >
-              <div>
-                <div
-                  class="code language-yaml depth1 hljs"
-                >
-                  <span
-                    class="hljs-attr"
-                  >
-                    image:
-                  </span>
-                   
-                  <span
-                    class="hljs-string"
-                  >
-                    v4tech/imagemagick
-                  </span>
-                  
-
-                </div>
-                <div
-                  class="header"
-                >
-                  <div
-                    class="base chevron black black-hover small"
-                  >
-                    <svg-mock />
-                  </div>
-                  <div
-                    class="code language-yaml depth1 hljs"
-                  >
-                    <span
-                      class="hljs-attr"
-                    >
-                      cmd:
-                    </span>
-                  </div>
-                </div>
-                <div
-                  class=""
-                >
-                  <div
-                    class="codeSection"
-                  >
-                    <div
-                      class="code language-yaml depth2 hljs"
-                    >
-                      <span
-                        class="hljs-bullet"
-                      >
-                        -
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        sh
-                      </span>
-                      
-
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div
-                  class="code language-yaml depth1 hljs"
-                />
-                <div
-                  class="header"
-                >
-                  <div
-                    class="base chevron black black-hover small"
-                  >
-                    <svg-mock />
-                  </div>
-                  <div
-                    class="code language-yaml depth1 hljs"
-                  >
-                    <span
-                      class="hljs-attr"
-                    >
-                      stdin:
-                    </span>
-                  </div>
-                </div>
-                <div
-                  class=""
-                >
-                  <div
-                    class="codeSection"
-                  >
-                    <div
-                      class="code language-yaml depth2 hljs"
-                    >
-                      <span
-                        class="hljs-bullet"
-                      >
-                        -
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        &gt;-
-  montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f
-  | sort) /pfs/out/montage.png
-
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div
-                class="code language-yaml depth1 hljs"
-              />
-            </div>
-          </div>
-        </div>
-        <div>
-          <div
-            class="code language-yaml depth0 hljs"
-          />
-          <div
-            class="header"
-          >
-            <div
-              class="base chevron black black-hover small"
-            >
-              <svg-mock />
-            </div>
-            <div
-              class="code language-yaml depth0 hljs"
-            >
-              <span
-                class="hljs-attr"
-              >
-                parallelismSpec:
-              </span>
-            </div>
-          </div>
-          <div
-            class=""
-          >
-            <div
-              class="codeSection"
-            >
-              <div
-                class="code language-yaml depth1 hljs"
-              >
-                <span
-                  class="hljs-attr"
-                >
-                  constant:
-                </span>
-                 
-                <span
-                  class="hljs-number"
-                >
-                  8
-                </span>
-                
-
-              </div>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div
-            class="code language-yaml depth0 hljs"
-          />
-          <div
-            class="header"
-          >
-            <div
-              class="base chevron black black-hover small"
-            >
-              <svg-mock />
-            </div>
-            <div
-              class="code language-yaml depth0 hljs"
-            >
-              <span
-                class="hljs-attr"
-              >
-                input:
-              </span>
-            </div>
-          </div>
-          <div
-            class=""
-          >
-            <div
-              class="codeSection"
-            >
-              <div>
-                <div
-                  class="code language-yaml depth1 hljs"
-                />
-                <div
-                  class="header"
-                >
-                  <div
-                    class="base chevron black black-hover small"
-                  >
-                    <svg-mock />
-                  </div>
-                  <div
-                    class="code language-yaml depth1 hljs"
-                  >
-                    <span
-                      class="hljs-attr"
-                    >
-                      cross:
-                    </span>
-                  </div>
-                </div>
-                <div
-                  class=""
-                >
-                  <div
-                    class="codeSection"
-                  >
-                    <div
-                      class="code language-yaml depth2 hljs"
-                    >
-                      <span
-                        class="hljs-bullet"
-                      >
-                        -
-                      </span>
-                       
-                      <span
-                        class="hljs-attr"
-                      >
-                        pfs:
-                      </span>
-                      
-    
-                      <span
-                        class="hljs-attr"
-                      >
-                        project:
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        Solar-Panel-Data-Sorting
-                      </span>
-                      
-    
-                      <span
-                        class="hljs-attr"
-                      >
-                        repo:
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        edges
-                      </span>
-                      
-
-                      <span
-                        class="hljs-bullet"
-                      >
-                        -
-                      </span>
-                       
-                      <span
-                        class="hljs-attr"
-                      >
-                        pfs:
-                      </span>
-                      
-    
-                      <span
-                        class="hljs-attr"
-                      >
-                        project:
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        Solar-Panel-Data-Sorting
-                      </span>
-                      
-    
-                      <span
-                        class="hljs-attr"
-                      >
-                        repo:
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        images
-                      </span>
-                      
-
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div
-                class="code language-yaml depth1 hljs"
-              />
-            </div>
-          </div>
-        </div>
-        <div>
-          <div
-            class="code language-yaml depth0 hljs"
-          />
-          <div
-            class="header"
-          >
-            <div
-              class="base chevron black black-hover small"
-            >
-              <svg-mock />
-            </div>
-            <div
-              class="code language-yaml depth0 hljs"
-            >
-              <span
-                class="hljs-attr"
-              >
-                schedulingSpec:
-              </span>
-            </div>
-          </div>
-          <div
-            class=""
-          >
-            <div
-              class="codeSection"
-            >
-              <div>
-                <div
-                  class="code language-yaml depth1 hljs"
-                />
-                <div
-                  class="header"
-                >
-                  <div
-                    class="base chevron black black-hover small"
-                  >
-                    <svg-mock />
-                  </div>
-                  <div
-                    class="code language-yaml depth1 hljs"
-                  >
-                    <span
-                      class="hljs-attr"
-                    >
-                      nodeSelector:
-                    </span>
-                  </div>
-                </div>
-                <div
-                  class=""
-                >
-                  <div
-                    class="codeSection"
-                  >
-                    <div
-                      class="code language-yaml depth2 hljs"
-                    >
-                      <span
-                        class="hljs-bullet"
-                      >
-                        -
-                      </span>
-                       
-                      <span
-                        class="hljs-bullet"
-                      >
-                        -
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        disktype
-                      </span>
-                      
-  
-                      <span
-                        class="hljs-bullet"
-                      >
-                        -
-                      </span>
-                       
-                      <span
-                        class="hljs-string"
-                      >
-                        ssd
-                      </span>
-                      
-
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div
-                class="code language-yaml depth1 hljs"
-              >
-                <span
-                  class="hljs-attr"
-                >
-                  priorityClassName:
-                </span>
-                 
-                <span
-                  class="hljs-string"
-                >
-                  high-priority
-                </span>
-                
-
-              </div>
-            </div>
-          </div>
-        </div>
         <div
-          class="code language-yaml depth0 hljs"
-        />
+          class="codePreviewContent"
+        >
+          <div
+            class="cm-editor ͼ1 ͼ2 ͼ4 ͼo"
+          >
+            <div
+              aria-live="polite"
+              style="position: fixed; top: -10000px;"
+            />
+            <div
+              class="cm-scroller"
+              tabindex="-1"
+            >
+              <div
+                aria-hidden="true"
+                class="cm-gutters"
+                style="min-height: 546px; position: sticky;"
+              >
+                <div
+                  class="cm-gutter cm-lineNumbers"
+                >
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 0px; visibility: hidden; pointer-events: none;"
+                  >
+                    99
+                  </div>
+                  <div
+                    class="cm-gutterElement cm-activeLineGutter"
+                    style="height: 14px;"
+                  >
+                    1
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    2
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    3
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    4
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    5
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    6
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    7
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    8
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    9
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    10
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    11
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    12
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    13
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    14
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    15
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    16
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    17
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    18
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    19
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    20
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    21
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    22
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    23
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    24
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    25
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    26
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    27
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    28
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    29
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    30
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    31
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    32
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    33
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    34
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    35
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    36
+                  </div>
+                </div>
+                <div
+                  class="cm-gutter cm-foldGutter"
+                >
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 0px; visibility: hidden; pointer-events: none;"
+                  >
+                    <span
+                      title="Unfold line"
+                    >
+                      ›
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement cm-activeLineGutter"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px; margin-top: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px; margin-top: 28px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px; margin-top: 42px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px; margin-top: 28px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px; margin-top: 56px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px; margin-top: 84px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                  <div
+                    class="cm-gutterElement"
+                    style="height: 14px;"
+                  >
+                    <span
+                      title="Fold line"
+                    >
+                      ⌄
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div
+                aria-autocomplete="list"
+                aria-multiline="true"
+                aria-readonly="true"
+                autocapitalize="off"
+                autocorrect="off"
+                class="cm-content"
+                contenteditable="true"
+                data-language="json"
+                role="textbox"
+                spellcheck="false"
+                style="tab-size: 4"
+                translate="no"
+              >
+                <div
+                  class="cm-activeLine cm-line"
+                >
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                    
+                  <span
+                    class="ͼr"
+                  >
+                    "transform"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼr"
+                  >
+                    "image"
+                  </span>
+                  : 
+                  <span
+                    class="ͼu"
+                  >
+                    "v4tech/imagemagick"
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼr"
+                  >
+                    "cmd"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    [
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼu"
+                  >
+                    "sh"
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼq"
+                  >
+                    ]
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼr"
+                  >
+                    "stdin"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    [
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼu"
+                  >
+                    "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼq"
+                  >
+                    ]
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                    
+                  <span
+                    class="ͼq"
+                  >
+                    }
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                    
+                  <span
+                    class="ͼr"
+                  >
+                    "parallelismSpec"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼr"
+                  >
+                    "constant"
+                  </span>
+                  : 
+                  <span
+                    class="ͼs"
+                  >
+                    8
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                    
+                  <span
+                    class="ͼq"
+                  >
+                    }
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                    
+                  <span
+                    class="ͼr"
+                  >
+                    "input"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼr"
+                  >
+                    "cross"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    [
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                          
+                  <span
+                    class="ͼr"
+                  >
+                    "pfs"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                            
+                  <span
+                    class="ͼr"
+                  >
+                    "project"
+                  </span>
+                  : 
+                  <span
+                    class="ͼu"
+                  >
+                    "Solar-Panel-Data-Sorting"
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                            
+                  <span
+                    class="ͼr"
+                  >
+                    "repo"
+                  </span>
+                  : 
+                  <span
+                    class="ͼu"
+                  >
+                    "edges"
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                          
+                  <span
+                    class="ͼq"
+                  >
+                    }
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼq"
+                  >
+                    }
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                          
+                  <span
+                    class="ͼr"
+                  >
+                    "pfs"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                            
+                  <span
+                    class="ͼr"
+                  >
+                    "project"
+                  </span>
+                  : 
+                  <span
+                    class="ͼu"
+                  >
+                    "Solar-Panel-Data-Sorting"
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                            
+                  <span
+                    class="ͼr"
+                  >
+                    "repo"
+                  </span>
+                  : 
+                  <span
+                    class="ͼu"
+                  >
+                    "images"
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                          
+                  <span
+                    class="ͼq"
+                  >
+                    }
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼq"
+                  >
+                    }
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼq"
+                  >
+                    ]
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                    
+                  <span
+                    class="ͼq"
+                  >
+                    }
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                    
+                  <span
+                    class="ͼr"
+                  >
+                    "schedulingSpec"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    {
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼr"
+                  >
+                    "nodeSelector"
+                  </span>
+                  : 
+                  <span
+                    class="ͼq"
+                  >
+                    [
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼq"
+                  >
+                    [
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                          
+                  <span
+                    class="ͼu"
+                  >
+                    "disktype"
+                  </span>
+                  ,
+                </div>
+                <div
+                  class="cm-line"
+                >
+                          
+                  <span
+                    class="ͼu"
+                  >
+                    "ssd"
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                        
+                  <span
+                    class="ͼq"
+                  >
+                    ]
+                  </span>
+                </div>
+                <div
+                  class="cm-line"
+                >
+                      
+                  <span
+                    class="ͼq"
+                  >
+                    ]
+                  </span>
+                  ,
+                </div>
+                <div
+                  style="height: 42px;"
+                />
+              </div>
+              <div
+                aria-hidden="true"
+                class="cm-layer cm-layer-above cm-cursorLayer"
+                style="z-index: 150; animation-duration: 1200ms;"
+              />
+              <div
+                aria-hidden="true"
+                class="cm-layer cm-selectionLayer"
+                style="z-index: -2;"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -3,6 +3,7 @@ import classNames from 'classnames';
 import React, {useCallback} from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
+import ListItem from '@dash-frontend/components/ListItem';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   getJobStateColor,
@@ -11,8 +12,6 @@ import {
 } from '@dash-frontend/lib/jobs';
 import useDatumPath from '@dash-frontend/views/DatumViewer/hooks/useDatumPath';
 import {CaretRightSVG, LoadingDots} from '@pachyderm/components';
-
-import ListItem from '../ListItem';
 
 import styles from './JobList.module.css';
 

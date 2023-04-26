@@ -115,6 +115,7 @@ export type CommitsQueryArgs = {
   pipelineName?: InputMaybe<Scalars['String']>;
   projectId: Scalars['String'];
   repoName: Scalars['String'];
+  reverse?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type CreateBranchArgs = {
@@ -315,6 +316,13 @@ export type FindCommitsQueryArgs = {
 export type FinishCommitArgs = {
   commit: OpenCommitInput;
   projectId: Scalars['String'];
+};
+
+export type FoundCommit = {
+  __typename?: 'FoundCommit';
+  commitAction?: Maybe<FileCommitState>;
+  id: Scalars['ID'];
+  started: Scalars['Int'];
 };
 
 export type GitInput = {
@@ -601,7 +609,7 @@ export type PageableFile = {
 
 export type PageableFoundCommits = {
   __typename?: 'PageableFoundCommits';
-  commits: Array<Commit>;
+  commits: Array<FoundCommit>;
   cursor?: Maybe<Scalars['String']>;
   hasNextPage?: Maybe<Scalars['Boolean']>;
 };
@@ -1131,6 +1139,7 @@ export type ResolversTypes = ResolversObject<{
   FindCommitsQueryArgs: FindCommitsQueryArgs;
   FinishCommitArgs: FinishCommitArgs;
   Float: ResolverTypeWrapper<Scalars['Float']>;
+  FoundCommit: ResolverTypeWrapper<FoundCommit>;
   GitInput: ResolverTypeWrapper<GitInput>;
   ID: ResolverTypeWrapper<Scalars['ID']>;
   Input: ResolverTypeWrapper<Input>;
@@ -1235,6 +1244,7 @@ export type ResolversParentTypes = ResolversObject<{
   FindCommitsQueryArgs: FindCommitsQueryArgs;
   FinishCommitArgs: FinishCommitArgs;
   Float: Scalars['Float'];
+  FoundCommit: FoundCommit;
   GitInput: GitInput;
   ID: Scalars['ID'];
   Input: Input;
@@ -1479,6 +1489,20 @@ export type FileQueryResponseResolvers<
 > = ResolversObject<{
   diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
   files?: Resolver<Array<ResolversTypes['File']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type FoundCommitResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['FoundCommit'] = ResolversParentTypes['FoundCommit'],
+> = ResolversObject<{
+  commitAction?: Resolver<
+    Maybe<ResolversTypes['FileCommitState']>,
+    ParentType,
+    ContextType
+  >;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1803,7 +1827,11 @@ export type PageableFoundCommitsResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['PageableFoundCommits'] = ResolversParentTypes['PageableFoundCommits'],
 > = ResolversObject<{
-  commits?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
+  commits?: Resolver<
+    Array<ResolversTypes['FoundCommit']>,
+    ParentType,
+    ContextType
+  >;
   cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   hasNextPage?: Resolver<
     Maybe<ResolversTypes['Boolean']>,
@@ -2268,6 +2296,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   EnterpriseInfo?: EnterpriseInfoResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
+  FoundCommit?: FoundCommitResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
@@ -2941,17 +2970,10 @@ export type FindCommitsQuery = {
     cursor?: string | null;
     hasNextPage?: boolean | null;
     commits: Array<{
-      __typename?: 'Commit';
-      repoName: string;
-      description?: string | null;
-      originKind?: OriginKind | null;
+      __typename?: 'FoundCommit';
       id: string;
       started: number;
-      finished: number;
-      sizeBytes: number;
-      sizeDisplay: string;
-      hasLinkedJob: boolean;
-      branch?: {__typename?: 'Branch'; name: string} | null;
+      commitAction?: FileCommitState | null;
     }>;
   };
 };

@@ -187,7 +187,7 @@ const customerTeam = [
   }),
   commitInfoFromObject({
     commit: {
-      id: '23b9af7d5d4343219bc8e02ff4acd33b',
+      id: 'd4280503cdb44fb984f07952eae8c1ac',
       branch: {
         name: 'test',
         repo: {name: 'training'},
@@ -198,15 +198,12 @@ const customerTeam = [
       seconds: 1614136389,
       nanos: 0,
     },
-    finished: {
-      seconds: 1614136391,
-      nanos: 0,
-    },
+
     originKind: OriginKind.USER,
   }),
   commitInfoFromObject({
     commit: {
-      id: '23b9af7d5d4343219bc8e02ff4acd33c',
+      id: 'd4a6b927990b4b53a746afb5f2156927',
       branch: {
         name: 'test',
         repo: {name: 'training'},
@@ -317,6 +314,10 @@ const nestedFolderCommits = [
     started: {
       seconds: 1614136389,
       nanos: 0,
+    },
+    finished: {
+      seconds: 1614136389,
+      nanos: 100,
     },
   }),
 ];

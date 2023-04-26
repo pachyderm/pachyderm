@@ -2,6 +2,7 @@ import React from 'react';
 
 import {Chip} from '@dash-frontend/components/Chip/Chip';
 import EmptyState from '@dash-frontend/components/EmptyState';
+import ListItem from '@dash-frontend/components/ListItem';
 import {getDatumStateColor, getDatumStateSVG} from '@dash-frontend/lib/datums';
 import {DATUM_LIST_PAGE_SIZE} from '@dash-frontend/views/DatumViewer/constants/DatumViewer';
 import {
@@ -14,8 +15,6 @@ import {
   StatusStopSVG,
   SimplePager,
 } from '@pachyderm/components';
-
-import ListItem from '../ListItem';
 
 import styles from './DatumList.module.css';
 import useDatumList from './hooks/useDatumList';
@@ -41,6 +40,7 @@ const DatumList: React.FC<DatumListProps> = ({setIsExpanded}) => {
     isProcessing,
     contentLength,
     refresh,
+    isSearchValid,
   } = useDatumList(setIsExpanded);
 
   return (
@@ -78,6 +78,7 @@ const DatumList: React.FC<DatumListProps> = ({setIsExpanded}) => {
             onSearch={setSearchValue}
             className={styles.searchInput}
           />
+
           {searchValue && (
             <Icon small color="black" className={styles.searchClose}>
               <CloseSVG
@@ -87,6 +88,13 @@ const DatumList: React.FC<DatumListProps> = ({setIsExpanded}) => {
             </Icon>
           )}
         </div>
+
+        {searchValue && !isSearchValid && (
+          <ListItem
+            LeftIconSVG={StatusStopSVG}
+            text="Enter the exact datum ID"
+          />
+        )}
 
         {showNoSearchResults && (
           <ListItem

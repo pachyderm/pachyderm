@@ -223,6 +223,11 @@ const pfs = () => {
             }
           });
 
+          const reverse = call.request.getReverse();
+          if (reverse) {
+            commits = commits.reverse();
+          }
+
           const cursor = call.request.getStartedTime();
           if (cursor) {
             const cursorIndex = commits.findIndex(
@@ -263,8 +268,9 @@ const pfs = () => {
             const cursorIndex = replyFiles.findIndex(
               (file) => file.getFile()?.getPath() === cursor.getPath(),
             );
+            // cursor is included in response
             replyFiles = replyFiles.slice(
-              cursorIndex !== -1 ? cursorIndex + 1 : -1,
+              cursorIndex !== -1 ? cursorIndex : -1,
             );
           }
 

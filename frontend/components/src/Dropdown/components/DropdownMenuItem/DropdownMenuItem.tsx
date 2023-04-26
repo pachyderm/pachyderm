@@ -31,7 +31,7 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   ...rest
 }) => {
   const ref = useRef<HTMLButtonElement>(null);
-  const {isSelected, handleClick, handleKeyDown, shown} = useDropdownMenuItem({
+  const {handleClick, handleKeyDown, shown} = useDropdownMenuItem({
     id,
     onClick,
     closeOnClick,
@@ -41,7 +41,6 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   const classes = classnames(styles.base, className, {
     [styles.tertiary]: buttonStyle === 'tertiary',
     [styles.important]: important,
-    [styles.selected]: isSelected,
   });
 
   if (!shown) {

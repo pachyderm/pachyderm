@@ -20,7 +20,7 @@ describe(
     // These tests ensure that scrollable content involving long lists of items don't cut off any items at the bottom when scrolling
 
     it('should display the last item properly when scrolling a list of projects', () => {
-      cy.findAllByRole('row').should('have.length', 9);
+      cy.findAllByRole('row').should('have.length', 10);
       cy.findByText('Data-Cleaning-Process').should('be.visible');
       cy.findByText('Trait-Discovery').should('not.be.visible');
       cy.findByTestId('Landing__view').scrollTo('bottom');
@@ -133,10 +133,9 @@ describe(
       cy.visit('/lineage/Solar-Panel-Data-Sorting/pipelines/montage');
 
       cy.findByText('Spec').click();
-      cy.findByText('priorityClassName:').should('not.be.visible');
       cy.findByTestId('PipelineDetails__scrollableContent').scrollTo('bottom');
-      cy.findByText('priorityClassName:').should('be.visible');
-      cy.isInViewport(() => cy.findByText('priorityClassName:'));
+      cy.findByText('"priorityClassName"').should('be.visible');
+      cy.isInViewport(() => cy.findByText('"priorityClassName"'));
     });
   },
 );

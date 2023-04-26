@@ -1,11 +1,10 @@
 import React from 'react';
 
+import CodePreview from '@dash-frontend/components/CodePreview';
 import {DefaultDropdown, Group, Icon, SettingsSVG} from '@pachyderm/components';
 
-import CodeElement from './components/CodeElement';
 import styles from './ConfigFilePreview.module.css';
 import useConfigFilePreview from './useConfigFilePreview';
-import {Format} from './utils/stringifyToFormat';
 
 const gearDropdownItems = [
   {
@@ -63,7 +62,13 @@ const ConfigPreview: React.FC<ConfigFilePreviewProps> = ({
         className={styles.codeBody}
         data-testid="ConfigFilePreview__codeElement"
       >
-        <CodeElement element={config} format={Format.YAML} />
+        <CodePreview
+          className={styles.fileCodePreview}
+          language="json"
+          source={JSON.stringify(config, null, 2)}
+          hideLineNumbers
+          fullHeight
+        />
       </div>
     </div>
   );

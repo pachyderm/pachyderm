@@ -1,247 +1,75 @@
-import findIndex from 'lodash/findIndex';
-import React, {useMemo} from 'react';
+import React from 'react';
 
-import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
-import Header from '@dash-frontend/components/Header';
-import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {
-  getStandardDate,
-  formatDurationFromSeconds,
-} from '@dash-frontend/lib/dateTime';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
-  Group,
-  ArrowRightSVG,
-  ArrowLeftSVG,
-  Link,
-  Search,
+  Button,
+  CaptionText,
+  CopySVG,
   Tooltip,
-  InfoSVG,
-  SkeletonDisplayText,
-  Icon,
-  Switch,
+  useClipboardCopy,
+  Link,
 } from '@pachyderm/components';
-
-import useFileBrowser from '../../hooks/useFileBrowser';
 
 import styles from './FileHeader.module.css';
 
 type FileHeaderProps = {
-  fileFilter: string;
-  setFileFilter: React.Dispatch<React.SetStateAction<string>>;
-  diffOnly: boolean;
-  setDiffOnly: (diff: boolean) => void;
+  commitId?: string;
 };
 
-const FileHeader: React.FC<FileHeaderProps> = ({
-  fileFilter,
-  setFileFilter,
-  setDiffOnly,
-  diffOnly,
-}) => {
-  const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
-  const {fileToPreview, loading, files} = useFileBrowser();
+const FileHeader: React.FC<FileHeaderProps> = ({commitId}) => {
+  const {branchId, filePath, projectId, repoId} = useUrlState();
 
-  const {commits, loading: commitsLoading} = useCommits({
-    args: {
-      projectId,
-      repoName: repoId,
-      branchName: branchId,
-      number: COMMIT_LIMIT,
-    },
-  });
+  const commitPath = commitId
+    ? fileBrowserRoute({
+        projectId,
+        repoId,
+        branchId,
+        commitId,
+      })
+    : '';
 
-  const {previousCommit, nextCommit} = useMemo(() => {
-    const reposInBranch = commits || [];
-    const index = findIndex(reposInBranch, (commit) => commit.id === commitId);
-
-    const previousCommit =
-      reposInBranch.length > index + 1 ? reposInBranch[index + 1].id : null;
-    const nextCommit = index > 0 ? reposInBranch[index - 1].id : null;
-
-    return {previousCommit, nextCommit};
-  }, [commitId, commits]);
-
-  const currentCommit = useMemo(() => {
-    return (commits || []).find((commit) => commit.id === commitId);
-  }, [commitId, commits]);
-
-  const diffString = useMemo(() => {
-    const updates = [];
-    let updatesString = '';
-
-    if (files?.diff?.filesAdded && files?.diff.filesAdded.count > 0)
-      updates.push({count: files.diff.filesAdded.count, status: 'added'});
-    if (files?.diff?.filesUpdated && files?.diff.filesUpdated.count > 0)
-      updates.push({count: files.diff.filesUpdated.count, status: 'updated'});
-    if (files?.diff?.filesDeleted && files?.diff.filesDeleted.count > 0)
-      updates.push({count: files.diff.filesDeleted.count, status: 'deleted'});
-
-    if (updates[0])
-      updatesString = `${updates[0].count} ${
-        updates[0].count > 1 ? 'Files' : 'File'
-      } ${updates[0].status}`;
-    if (updates[1])
-      updatesString.concat(`, ${updates[1].count}
-           ${updates[1].status}`);
-    if (updates[2])
-      updatesString.concat(`, ${updates[2].count}
-           ${updates[2].status}`);
-
-    return updatesString;
-  }, [files]);
-
-  const tooltipInfo = currentCommit ? (
-    <>
-      Size: {currentCommit.sizeDisplay}
-      <br />
-      {currentCommit.started !== -1 && currentCommit.finished !== -1 ? (
-        <>
-          Duration:{' '}
-          {formatDurationFromSeconds(
-            currentCommit.finished - currentCommit.started,
-          )}
-        </>
-      ) : null}
-      <br />
-      Origin: {currentCommit.originKind}
-      {currentCommit.description && <br />}
-      {currentCommit.description}
-    </>
-  ) : (
-    <span />
+  const {copy} = useClipboardCopy(
+    `${repoId}@${commitId}${filePath ? `:${filePath}` : ''}` || '',
   );
 
   return (
-    <Header appearance="light" hasSubheader>
-      <Group spacing={8} align="center" className={styles.header}>
-        <CommitIdCopy repo={repoId} branch={branchId} commit={commitId} />
-        {!loading && !fileToPreview && (
-          <Search
-            value={fileFilter}
-            className={styles.search}
-            placeholder="Filter current folder by name"
-            onSearch={setFileFilter}
-            aria-label="search files"
-          />
+    <div className={styles.base}>
+      <div className={styles.path} data-testid="FileHeader__path">
+        <CaptionText color="black">Repository...</CaptionText>
+        <CaptionText color="black">/</CaptionText>
+        <CaptionText color="black">Branch: {branchId}</CaptionText>
+        <CaptionText color="black">/</CaptionText>
+        {filePath ? (
+          <Link inline to={commitPath}>
+            <CaptionText className={styles.link}>
+              Commit: {commitId && commitId.slice(0, 6)}...
+            </CaptionText>
+          </Link>
+        ) : (
+          <CaptionText color="black">Commit: {commitId || '...'}</CaptionText>
         )}
-        <Group spacing={32}>
-          {previousCommit && (
-            <Tooltip
-              tooltipText="See Previous Commit"
-              placement="bottom"
-              tooltipKey="See Previous Commit"
-            >
-              <Link
-                className={styles.navigate}
-                to={fileBrowserRoute({
-                  repoId,
-                  branchId,
-                  projectId,
-                  commitId: previousCommit,
-                  filePath: filePath || undefined,
-                })}
-              >
-                <ArrowLeftSVG className={styles.directionLeft} />
-                Older
-              </Link>
-            </Tooltip>
-          )}
-          {nextCommit && (
-            <Tooltip
-              tooltipText="See Next Commit"
-              placement="bottom"
-              tooltipKey="See Next Commit"
-            >
-              <Link
-                className={styles.navigate}
-                to={fileBrowserRoute({
-                  repoId,
-                  branchId,
-                  projectId,
-                  commitId: nextCommit,
-                  filePath: filePath || undefined,
-                })}
-              >
-                Newer
-                <ArrowRightSVG className={styles.directionRight} />
-              </Link>
-            </Tooltip>
-          )}
-        </Group>
-      </Group>
-      <Group className={styles.subHeader}>
-        <Group spacing={32}>
-          {diffString && (
-            <span className={styles.dateField}>
-              {loading ? (
-                <SkeletonDisplayText />
-              ) : (
-                files &&
-                files.diff && (
-                  <>
-                    <b>{diffString}</b>
-                    {files.diff.size !== 0 &&
-                      ` (${files.diff.size > 0 ? '+' : ''}${
-                        files.diff.sizeDisplay
-                      })`}
-                  </>
-                )
-              )}
-            </span>
-          )}
-          <span className={styles.dateField}>
-            {commitsLoading ? (
-              <SkeletonDisplayText />
-            ) : (
-              currentCommit?.started && (
-                <>
-                  <b>Started:</b>
-                  {` `}
-                  {getStandardDate(currentCommit.started)}
-                </>
-              )
-            )}
-          </span>
-          <span className={styles.dateField}>
-            {commitsLoading ? (
-              <SkeletonDisplayText />
-            ) : (
-              currentCommit?.finished && (
-                <span>
-                  <b>Ended:</b>
-                  {` `}
-                  {getStandardDate(currentCommit.finished)}
-                </span>
-              )
-            )}
-          </span>
-          <Tooltip
-            tooltipText={tooltipInfo}
-            size="extraLarge"
-            placement="bottom"
-            tooltipKey="See Next Commit"
-          >
-            <span className={styles.datelabel}>
-              <b>More Info</b>
-              <Icon small className={styles.infoIcon}>
-                <InfoSVG />
-              </Icon>
-            </span>
-          </Tooltip>
-        </Group>
-        <div className={styles.switchItem}>
-          <Switch
-            className={styles.switch}
-            defaultChecked={diffOnly}
-            onChange={() => setDiffOnly(!diffOnly)}
-            aria-label="Show diff only"
-          />
-          <span>Show diff only</span>
-        </div>
-      </Group>
-    </Header>
+        {filePath && (
+          <>
+            <CaptionText color="black">/</CaptionText>
+            <CaptionText color="black">Path: {filePath}</CaptionText>
+          </>
+        )}
+      </div>
+      <Tooltip
+        tooltipText="Copy commit id"
+        placement="bottom"
+        tooltipKey="copy-commit-id"
+      >
+        <Button
+          IconSVG={CopySVG}
+          buttonType="ghost"
+          color="black"
+          onClick={copy}
+          aria-label="Copy commit id"
+        />
+      </Tooltip>
+    </div>
   );
 };
 

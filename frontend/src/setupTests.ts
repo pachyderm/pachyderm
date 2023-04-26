@@ -62,6 +62,25 @@ Object.defineProperty(window.document, 'execCommand', {
   writable: true,
 });
 
+// This method needs an implementation due to CodeMirror
+// https://github.com/jsdom/jsdom/pull/3533
+// https://github.com/jsdom/jsdom/issues/3002
+// https://github.com/jsdom/jsdom/issues/2751
+Object.defineProperty(window.Range.prototype, 'getClientRects', {
+  value: jest.fn(() => [
+    {
+      bottom: 0,
+      height: 0,
+      left: 0,
+      right: 0,
+      top: 0,
+      width: 0,
+    },
+  ]),
+  configurable: true,
+  writable: true,
+});
+
 window.HTMLElement.prototype.scrollIntoView = jest.fn();
 
 beforeAll(async () => {

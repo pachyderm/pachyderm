@@ -3,6 +3,7 @@ import {FixedSizeGrid} from 'react-window';
 
 import {FixedGridRowProps} from '@dash-frontend/lib/types';
 import {LoadingDots, DefaultDropdown} from '@pachyderm/components';
+import usePanelModal from '@pachyderm/components/Modal/FullPagePanelModal/hooks/usePanelModal';
 
 import styles from './CSVPreview.module.css';
 import useCSVPreview, {
@@ -13,12 +14,15 @@ import useCSVPreview, {
 const ITEM_HEIGHT = 34;
 const ITEM_WIDTH = 160;
 const HEADER_OVERHEAD = 170;
+const SIDEPANEL_OVERHEAD = 146;
+const SIDEPANEL_WIDTH = 252;
 
 const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
   const {headers, data, loading, delimiter, setDelimiter, delimiterLabel} =
     useCSVPreview({
       downloadLink,
     });
+  const {leftOpen, rightOpen} = usePanelModal();
 
   const Row: React.FC<FixedGridRowProps> = ({rowIndex, columnIndex, style}) => {
     const rowValue = data[rowIndex];
@@ -36,9 +40,15 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
     );
   };
 
+  const containerWidth =
+    window.innerWidth -
+    SIDEPANEL_OVERHEAD -
+    (leftOpen ? SIDEPANEL_WIDTH : 0) -
+    (rightOpen ? SIDEPANEL_WIDTH : 0);
+
   const elementWidth = Math.max(
     ITEM_WIDTH,
-    window.innerWidth / (headers.length || 1) - 5,
+    containerWidth / (headers.length || 1) - 6,
   );
 
   const InnerElement = useCallback(
@@ -94,7 +104,7 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
         rowCount={data.length}
         rowHeight={ITEM_HEIGHT}
         innerElementType={InnerElement}
-        width={window.innerWidth}
+        width={containerWidth}
         height={window.innerHeight - HEADER_OVERHEAD}
         className={styles.base}
       >

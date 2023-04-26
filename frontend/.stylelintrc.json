@@ -1,8 +1,14 @@
 {
   "rules": {
     "selector-class-pattern": [
-      "^[a-z][a-zA-Z0-9]+$",
+      "^(cm-)?[a-z][a-zA-Z0-9]+$",
       {"resolveNestedSelectors": true, "severity": "warning"}
+    ],
+    "selector-pseudo-class-no-unknown": [
+      true,
+      {
+        "ignorePseudoClasses": ["global"]
+      }
     ]
   },
   "extends": ["stylelint-config-recommended", "stylelint-config-prettier"]

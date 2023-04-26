@@ -1,132 +1,98 @@
-import {File, FileType, FileCommitState} from '@graphqlTypes';
-import classnames from 'classnames';
+import {File, FileType} from '@graphqlTypes';
+import capitalize from 'lodash/capitalize';
 import React from 'react';
 
 import {
-  LegacyTable as Table,
-  Group,
-  AddCircleSVG,
-  StatusUpdatedSVG,
+  Table,
   Icon,
-  Tooltip,
-  ButtonGroup,
+  ArrowRightSVG,
+  FolderSVG,
   Button,
+  Group,
+  BasicModal,
+  Link,
 } from '@pachyderm/components';
 
-import useFileDisplay from '../../../hooks/useFileDisplay';
-import DeleteFileButton from '../../DeleteFileButton';
+import useFileActions from '../../../hooks/useFileActions';
+import useFileDelete from '../../../hooks/useFileDelete';
 
 import styles from './FileTableRow.module.css';
 
 type FileTableRowProps = {
+  selectedFiles: string[];
+  addSelection: (filePath: string) => void;
   file: File;
 };
 
-const getIcon = (file: File) => {
-  switch (file.commitAction) {
-    case FileCommitState.UPDATED:
-      return <StatusUpdatedSVG />;
-    case FileCommitState.ADDED:
-      return <AddCircleSVG />;
-    default:
-      return undefined;
-  }
-};
-
-const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
-  const {copy, copySupported, fileName, filePath, fileType, previewSupported} =
-    useFileDisplay(file);
-
-  const download =
-    !file.downloadDisabled && file.download ? file.download : undefined;
+const FileTableRow: React.FC<FileTableRowProps> = ({
+  file,
+  selectedFiles,
+  addSelection,
+}) => {
+  const {
+    deleteModalOpen,
+    openDeleteModal,
+    closeModal,
+    deleteFile,
+    loading,
+    error,
+  } = useFileDelete(file);
+  const {fileName, filePath, onMenuSelect, iconItems} = useFileActions(
+    file,
+    openDeleteModal,
+    true,
+  );
 
   return (
-    <Table.Row>
+    <Table.Row
+      data-testid="FileTableRow__row"
+      overflowMenuItems={file.type === FileType.FILE ? iconItems : undefined}
+      dropdownOnSelect={onMenuSelect}
+      // onClick={() => addSelection(file.path)}
+      // isSelected={selectedFiles.includes(file.path)}
+      // hasCheckbox
+    >
       <Table.DataCell>
-        <Group spacing={8}>
-          {file.commitAction && (
-            <Tooltip
-              tooltipKey="File Diffs"
-              tooltipText={`This file was ${file.commitAction?.toLowerCase()} in this commit`}
-            >
-              <Icon
-                small
-                color="green"
-                className={classnames(styles.commitIcon, {
-                  [styles[file.commitAction]]: file.commitAction,
-                })}
-              >
-                {getIcon(file)}
+        <Link to={filePath}>
+          <Group spacing={8}>
+            {file.type === FileType.DIR && (
+              <Icon small>
+                <FolderSVG />
               </Icon>
-            </Tooltip>
-          )}
-          {fileName}
-        </Group>
+            )}
+            {fileName}
+          </Group>
+        </Link>
       </Table.DataCell>
+      <Table.DataCell>{capitalize(file.commitAction || '-')}</Table.DataCell>
       <Table.DataCell>{file.sizeDisplay}</Table.DataCell>
-      <Table.DataCell>{fileType}</Table.DataCell>
-      <Table.DataCell>
-        <ButtonGroup>
-          {file.type === FileType.FILE ? (
-            <>
-              {download ? (
-                <>
-                  {previewSupported && (
-                    <Button buttonType="ghost" to={filePath}>
-                      Preview
-                    </Button>
-                  )}
-                  <Button href={download} download buttonType="ghost">
-                    Download
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Tooltip
-                    tooltipKey={`${filePath}preview`}
-                    tooltipText="This file is too large to preview"
-                  >
-                    <span>
-                      <Button
-                        buttonType="ghost"
-                        disabled
-                        className={styles.disabledButton}
-                      >
-                        Preview
-                      </Button>
-                    </span>
-                  </Tooltip>
-                  <Tooltip
-                    tooltipKey={`${filePath}download`}
-                    tooltipText="This file is too large to download"
-                  >
-                    <span>
-                      <Button
-                        buttonType="ghost"
-                        disabled
-                        className={styles.disabledButton}
-                      >
-                        Download
-                      </Button>
-                    </span>
-                  </Tooltip>
-                </>
-              )}
-
-              <DeleteFileButton file={file}>Delete</DeleteFileButton>
-            </>
-          ) : (
-            <Button to={filePath} buttonType="ghost">
-              See Files
-            </Button>
-          )}
-          {copySupported && (
-            <Button buttonType="ghost" onClick={copy} aria-label="Copy">
-              Copy Path
-            </Button>
-          )}
-        </ButtonGroup>
-      </Table.DataCell>
+      {file.type === FileType.DIR && (
+        <Table.DataCell className={styles.dirArrow}>
+          <Button
+            to={filePath}
+            buttonType="ghost"
+            IconSVG={ArrowRightSVG}
+            aria-label={`navigate to ${file.path}`}
+          />
+        </Table.DataCell>
+      )}
+      {deleteModalOpen && (
+        <BasicModal
+          show={deleteModalOpen}
+          onHide={closeModal}
+          headerContent="Are you sure you want to delete this File?"
+          actionable
+          small
+          confirmText="Delete"
+          onConfirm={deleteFile}
+          loading={loading}
+          errorMessage={error?.message}
+        >
+          {file.path}
+          <br />
+          {`${file.repoName}@${file.commitId}`}
+        </BasicModal>
+      )}
     </Table.Row>
   );
 };

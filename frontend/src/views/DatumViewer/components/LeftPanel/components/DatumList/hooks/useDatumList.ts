@@ -190,6 +190,7 @@ const useDatumList = (
     pageCount: pageCount,
     contentLength: contentLength,
     refresh,
+    isSearchValid,
   };
 };
 

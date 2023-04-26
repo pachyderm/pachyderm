@@ -1,5 +1,5 @@
 .link {
-  color: var(--pachyderm-plum);
+  color: var(--default-purple);
 }
 
 .link:not([href]) {
@@ -10,7 +10,7 @@
 .link:active,
 .link:hover,
 .link:focus {
-  color: var(--hover-plum);
+  color: var(--hover-purple);
   text-decoration: none;
 }
 

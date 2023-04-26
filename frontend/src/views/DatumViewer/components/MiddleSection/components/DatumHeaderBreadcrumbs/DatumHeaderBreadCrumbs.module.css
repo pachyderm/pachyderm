@@ -8,11 +8,11 @@
 }
 
 .link {
-  color: var(--pachyderm-plum);
+  color: var(--default-purple);
 }
 
 .link:hover {
-  color: var(--hover-plum);
+  color: var(--hover-purple);
 }
 
 .path {

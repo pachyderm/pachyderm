@@ -1,4 +1,8 @@
-import {render, waitFor, screen} from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -17,11 +21,10 @@ describe('CSV Preview', () => {
     );
     render(<FileBrowser />);
 
-    await waitFor(() =>
-      expect(
-        screen.queryByTestId('JobDetails__loading'),
-      ).not.toBeInTheDocument(),
+    await waitForElementToBeRemoved(() =>
+      screen.queryAllByLabelText('loading'),
     );
+
     expect(await screen.findByText('Separator: comma')).toBeInTheDocument();
     expect(await screen.findByText('"a"')).toBeInTheDocument();
   });
@@ -34,11 +37,10 @@ describe('CSV Preview', () => {
     );
     render(<FileBrowser />);
 
-    await waitFor(() =>
-      expect(
-        screen.queryByTestId('JobDetails__loading'),
-      ).not.toBeInTheDocument(),
+    await waitForElementToBeRemoved(() =>
+      screen.queryAllByLabelText('loading'),
     );
+
     expect(await screen.findByText('Separator: tab')).toBeInTheDocument();
     expect(await screen.findByText('"a"')).toBeInTheDocument();
   });
@@ -51,11 +53,10 @@ describe('CSV Preview', () => {
     );
     render(<FileBrowser />);
 
-    await waitFor(() =>
-      expect(
-        screen.queryByTestId('JobDetails__loading'),
-      ).not.toBeInTheDocument(),
+    await waitForElementToBeRemoved(() =>
+      screen.queryAllByLabelText('loading'),
     );
+
     expect(await screen.findByText('Separator: tab')).toBeInTheDocument();
     expect(await screen.findByText('"a"')).toBeInTheDocument();
   });

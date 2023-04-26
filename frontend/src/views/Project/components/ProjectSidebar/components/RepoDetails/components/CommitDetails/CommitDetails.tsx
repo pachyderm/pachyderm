@@ -51,9 +51,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commit}) => {
         </CaptionTextSmall>
       </div>
       <div className={styles.commitCardHeader}>
-        <CaptionTextSmall>
-          @{commit.branch?.name} | {commit.originKind?.toLowerCase()}
-        </CaptionTextSmall>
+        <CaptionTextSmall>@{commit.branch?.name}</CaptionTextSmall>
       </div>
       <div className={styles.commitCardBody}>
         {diffFiles.map(({label, count, sizeDelta}) =>

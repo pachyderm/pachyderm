@@ -16,3 +16,7 @@
   align-items: center;
   cursor: default;
 }
+
+.fileCodePreview {
+  margin: 0 auto;
+}

@@ -5,7 +5,9 @@ export interface IModalContext
   extends Omit<BootstrapModalProps, 'show' | 'onHide' | 'onShow'> {
   show: boolean;
   leftOpen: boolean;
+  rightOpen: boolean;
   setLeftOpen: (val: boolean) => void;
+  setRightOpen: (val: boolean) => void;
   onHide?: () => void;
   onShow?: () => void;
 }
@@ -13,7 +15,9 @@ export interface IModalContext
 export default createContext<IModalContext>({
   show: false,
   leftOpen: false,
+  rightOpen: false,
   setLeftOpen: noop,
+  setRightOpen: noop,
   onHide: noop,
   onShow: noop,
 });

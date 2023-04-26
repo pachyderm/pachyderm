@@ -1637,13 +1637,14 @@ export const FindCommitsDocument = gql`
   query findCommits($args: FindCommitsQueryArgs!) {
     findCommits(args: $args) {
       commits {
-        ...CommitFragment
+        id
+        started
+        commitAction
       }
       cursor
       hasNextPage
     }
   }
-  ${CommitFragmentFragmentDoc}
 `;
 
 /**

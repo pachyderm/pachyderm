@@ -7,6 +7,10 @@
   padding-left: 0.5rem;
 }
 
+.hasTopBorder {
+  border-top: solid 1px var(--border-grey);
+}
+
 .pages {
   display: flex;
   align-items: center;

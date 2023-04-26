@@ -8,8 +8,10 @@ export const useFetch = <ResponseType>(
   const [exec, state] = useLazyFetch(fetchProps);
 
   useEffect(() => {
+    if (fetchProps.skip) return;
+
     exec();
-  }, [exec]);
+  }, [exec, fetchProps.skip]);
 
   return state;
 };

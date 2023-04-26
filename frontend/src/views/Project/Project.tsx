@@ -33,6 +33,8 @@ import {
   LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
   PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
   PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_FILE_BROWSER_PATH_LATEST,
+  PROJECT_FILE_BROWSER_PATH_LATEST,
 } from './constants/projectPaths';
 import styles from './Project.module.css';
 
@@ -72,7 +74,14 @@ const Project: React.FC = () => {
             <JobSetList />
           </div>
         </Route>
-        <Route path={[LINEAGE_FILE_BROWSER_PATH, PROJECT_FILE_BROWSER_PATH]}>
+        <Route
+          path={[
+            LINEAGE_FILE_BROWSER_PATH,
+            PROJECT_FILE_BROWSER_PATH,
+            LINEAGE_FILE_BROWSER_PATH_LATEST,
+            PROJECT_FILE_BROWSER_PATH_LATEST,
+          ]}
+        >
           <FileBrowser />
         </Route>
         <Route

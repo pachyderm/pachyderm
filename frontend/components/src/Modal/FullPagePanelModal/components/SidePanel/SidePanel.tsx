@@ -27,16 +27,20 @@ const SidePanel: React.FC<SidePanelProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(open);
-  const {onHide, setLeftOpen} = usePanelModal();
+  const {onHide, setLeftOpen, setRightOpen} = usePanelModal();
 
   const isLeft = type === 'left';
+  const isRight = type === 'right';
   const chevronDirection = isLeft ? isOpen : !isOpen;
 
   useEffect(() => {
     if (isLeft) {
       setLeftOpen(isOpen);
     }
-  }, [isLeft, isOpen, setLeftOpen]);
+    if (isRight) {
+      setRightOpen(isOpen);
+    }
+  }, [isLeft, isOpen, isRight, setLeftOpen, setRightOpen]);
 
   const handleClose = () => {
     if (isExpanded && setIsExpanded) {

@@ -11,4 +11,5 @@
   grid-auto-rows: minmax(0, 1fr);
   grid-auto-flow: column;
   width: 100%;
+  position: relative;
 }

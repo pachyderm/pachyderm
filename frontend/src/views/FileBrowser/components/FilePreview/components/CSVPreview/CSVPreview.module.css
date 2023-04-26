@@ -1,10 +1,10 @@
 .base {
   background-color: var(--white);
-  margin-top: 2rem;
+  margin-top: 1rem;
   border-top: solid 2px var(--line-grey);
   overflow: auto;
   white-space: nowrap;
-  margin-left: -2rem;
+  margin-left: -1rem;
 }
 
 .base * {
@@ -28,7 +28,7 @@
   border-bottom: solid 1px var(--line-grey);
   top: 0;
   z-index: 1;
-  max-height: 30px;
+  max-height: 2rem;
 }
 
 .header .cell {

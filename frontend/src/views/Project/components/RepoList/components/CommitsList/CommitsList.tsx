@@ -5,16 +5,16 @@ import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLi
 import {
   TableViewFilters,
   TableViewLoadingDots,
+  TableViewPaginationWrapper,
+  TableViewWrapper,
 } from '@dash-frontend/components/TableView';
-import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
-import {Table, Form} from '@pachyderm/components';
+import {Table, Form, Pager} from '@pachyderm/components';
 
-import useCommitsList from './hooks/useCommitsList';
-import useCommitsListFilters, {
-  commitsFilters,
-} from './hooks/useCommitsListFilters';
+import useCommitsList, {
+  COMMITS_DEFAULT_PAGE_SIZE,
+} from './hooks/useCommitsList';
+import useCommitsListFilters from './hooks/useCommitsListFilters';
 
 type CommitsListProps = {
   selectedRepo: string;
@@ -25,22 +25,21 @@ const CommitsList: React.FC<CommitsListProps> = ({
   selectedRepo,
   filtersExpanded,
 }) => {
-  const {projectId} = useUrlState();
-  const {commits, loading, error} = useCommits({
-    args: {
-      projectId,
-      repoName: selectedRepo,
-      number: COMMIT_LIMIT,
-    },
-  });
+  const {formCtx, commitsFilters, staticFilterKeys, reverseOrder} =
+    useCommitsListFilters();
   const {
-    sortedCommits,
-    formCtx,
-    staticFilterKeys,
-    clearableFiltersMap,
-    multiselectFilters,
-  } = useCommitsListFilters({commits});
-  const {iconItems, onOverflowMenuSelect} = useCommitsList();
+    iconItems,
+    onOverflowMenuSelect,
+    loading,
+    error,
+    commits,
+    cursors,
+    updatePage,
+    page,
+    pageSize,
+    setPageSize,
+    hasNextPage,
+  } = useCommitsList(selectedRepo, reverseOrder);
 
   if (loading) {
     return <TableViewLoadingDots data-testid="CommitsList__loadingDots" />;
@@ -56,58 +55,72 @@ const CommitsList: React.FC<CommitsListProps> = ({
   }
 
   return (
-    <Form formContext={formCtx}>
-      <TableViewFilters
-        formCtx={formCtx}
-        filtersExpanded={filtersExpanded}
-        filters={commitsFilters}
-        multiselectFilters={multiselectFilters}
-        clearableFiltersMap={clearableFiltersMap}
-        staticFilterKeys={staticFilterKeys}
-      />
-      {sortedCommits?.length === 0 ? (
-        <EmptyState
-          title="No matching results"
-          message="We couldn't find any results matching your filters. Try using a different set of filters."
+    <>
+      <Form formContext={formCtx}>
+        <TableViewFilters
+          formCtx={formCtx}
+          filtersExpanded={filtersExpanded}
+          filters={commitsFilters}
+          staticFilterKeys={staticFilterKeys}
         />
-      ) : (
-        <Table>
-          <Table.Head sticky>
-            <Table.Row>
-              <Table.HeaderCell>Repository</Table.HeaderCell>
-              <Table.HeaderCell>Finished</Table.HeaderCell>
-              <Table.HeaderCell>ID</Table.HeaderCell>
-              <Table.HeaderCell>Branch</Table.HeaderCell>
-              <Table.HeaderCell>Size</Table.HeaderCell>
-              <Table.HeaderCell>Origin</Table.HeaderCell>
-              <Table.HeaderCell>Description</Table.HeaderCell>
-              <Table.HeaderCell />
-            </Table.Row>
-          </Table.Head>
-
-          <Table.Body>
-            {sortedCommits.map((commit) => (
-              <Table.Row
-                key={`${commit.id}-${commit.repoName}`}
-                data-testid="CommitsList__row"
-                overflowMenuItems={iconItems}
-                dropdownOnSelect={onOverflowMenuSelect(commit)}
-              >
-                <Table.DataCell>{`@${commit.repoName}`}</Table.DataCell>
-                <Table.DataCell>
-                  {getStandardDate(commit?.finished)}
-                </Table.DataCell>
-                <Table.DataCell>{commit?.id.slice(0, 6)}...</Table.DataCell>
-                <Table.DataCell>{commit?.branch?.name || '-'}</Table.DataCell>
-                <Table.DataCell>{commit.sizeDisplay}</Table.DataCell>
-                <Table.DataCell>{commit.originKind}</Table.DataCell>
-                <Table.DataCell>{commit.description}</Table.DataCell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </Table>
+        {commits?.length === 0 ? (
+          <EmptyState
+            title="No matching results"
+            message="We couldn't find any results matching your filters. Try using a different set of filters."
+          />
+        ) : (
+          <TableViewWrapper hasPager>
+            <Table>
+              <Table.Head sticky>
+                <Table.Row>
+                  <Table.HeaderCell>Repository</Table.HeaderCell>
+                  <Table.HeaderCell>Finished</Table.HeaderCell>
+                  <Table.HeaderCell>ID</Table.HeaderCell>
+                  <Table.HeaderCell>Branch</Table.HeaderCell>
+                  <Table.HeaderCell>Size</Table.HeaderCell>
+                  <Table.HeaderCell>Description</Table.HeaderCell>
+                  <Table.HeaderCell />
+                </Table.Row>
+              </Table.Head>
+              <Table.Body>
+                {commits.map((commit) => (
+                  <Table.Row
+                    key={`${commit.id}-${commit.repoName}`}
+                    data-testid="CommitsList__row"
+                    overflowMenuItems={iconItems}
+                    dropdownOnSelect={onOverflowMenuSelect(commit)}
+                  >
+                    <Table.DataCell>{`@${commit.repoName}`}</Table.DataCell>
+                    <Table.DataCell>
+                      {getStandardDate(commit?.finished)}
+                    </Table.DataCell>
+                    <Table.DataCell>{commit?.id.slice(0, 6)}...</Table.DataCell>
+                    <Table.DataCell>
+                      {commit?.branch?.name || '-'}
+                    </Table.DataCell>
+                    <Table.DataCell>{commit.sizeDisplay}</Table.DataCell>
+                    <Table.DataCell>{commit.description}</Table.DataCell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </TableViewWrapper>
+        )}
+      </Form>
+      {!loading && commits?.length > 0 && (hasNextPage || cursors.length > 1) && (
+        <TableViewPaginationWrapper>
+          <Pager
+            elementName="file"
+            page={page}
+            updatePage={updatePage}
+            pageSizes={[COMMITS_DEFAULT_PAGE_SIZE, 25, 50]}
+            nextPageDisabled={!hasNextPage}
+            updatePageSize={setPageSize}
+            pageSize={pageSize}
+          />
+        </TableViewPaginationWrapper>
       )}
-    </Form>
+    </>
   );
 };
 

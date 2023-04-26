@@ -28,17 +28,20 @@ const FullPagePanelModal: React.FC<FullPageModalProps> = ({
   const {animation, showing} = usePopUp(show);
 
   const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
 
   const modalContext = useMemo(
     () => ({
       show,
       leftOpen,
+      rightOpen,
       setLeftOpen,
+      setRightOpen,
       hideType,
       onHide,
       onShow,
     }),
-    [hideType, leftOpen, onHide, onShow, show],
+    [hideType, leftOpen, onHide, onShow, rightOpen, show],
   );
   return (
     <ModalContext.Provider value={modalContext}>

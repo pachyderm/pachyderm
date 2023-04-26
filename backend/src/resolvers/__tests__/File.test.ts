@@ -28,7 +28,7 @@ describe('File Resolver', () => {
 
       const files = data?.files.files;
       expect(errors).toHaveLength(0);
-      expect(files).toHaveLength(17);
+      expect(files).toHaveLength(20);
       expect(data?.files.diff?.size).toBe(58644);
       expect(data?.files.diff?.sizeDisplay).toBe('58.65 kB');
       expect(data?.files.diff?.filesAdded.count).toBe(1);
@@ -39,14 +39,14 @@ describe('File Resolver', () => {
       expect(files?.[1]?.path).toBe('/liberty.png');
       expect(files?.[2]?.path).toBe('/cats/');
 
-      expect(files?.[0]?.commitId).toBe('d350c8d08a644ed5b2ee98c035ab6b33');
+      expect(files?.[0]?.commitId).toBe('0918ac9d5daa76b86e3bb5e88e4c43a4');
       expect(files?.[0]?.committed).toStrictEqual({
         __typename: 'Timestamp',
         nanos: 0,
         seconds: 1614126189,
       });
       expect(files?.[0]?.download).toContain(
-        '/download/undefined/images/master/d350c8d08a644ed5b2ee98c035ab6b33/AT-AT.png', // TODO; mock server not implementing project route?
+        '/download/undefined/images/master/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png', // TODO; mock server not implementing project route?
       );
       expect(files?.[0]?.downloadDisabled).toBe(false);
       expect(files?.[0]?.hash).toBe(
@@ -146,12 +146,12 @@ describe('File Resolver', () => {
 
       expect(errors).toHaveLength(0);
       expect(data?.files.files).toHaveLength(3);
-      expect(data?.files.cursor).toBe('/cats/');
+      expect(data?.files.cursor).toBe('/carriers_list.textpb');
       expect(data?.files.hasNextPage).toBe(true);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({
           __typename: 'File',
-          commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
+          commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
           path: '/AT-AT.png',
           repoName: 'images',
         }),
@@ -168,7 +168,7 @@ describe('File Resolver', () => {
             path: '/',
             branchName: 'master',
             repoName: 'images',
-            cursorPath: '/cats/',
+            cursorPath: '/carriers_list.textpb',
             limit: 3,
             reverse: false,
           },
@@ -177,12 +177,12 @@ describe('File Resolver', () => {
 
       expect(errors).toHaveLength(0);
       expect(data?.files.files).toHaveLength(3);
-      expect(data?.files.cursor).toBe('/csv_tabs.csv');
+      expect(data?.files.cursor).toBe('/html_pachyderm.html');
       expect(data?.files.hasNextPage).toBe(true);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({
           __typename: 'File',
-          commitId: '531f844bd184e913b050d49856e8d438',
+          commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
           path: '/carriers_list.textpb',
           repoName: 'samples',
         }),
@@ -199,7 +199,7 @@ describe('File Resolver', () => {
             path: '/',
             branchName: 'master',
             repoName: 'images',
-            cursorPath: '/json_object_array.json',
+            cursorPath: '/jsonl_people.jsonl',
             limit: 10,
             reverse: false,
           },
@@ -207,14 +207,14 @@ describe('File Resolver', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.files.files).toHaveLength(7);
+      expect(data?.files.files).toHaveLength(8);
       expect(data?.files.cursor).toBeNull();
       expect(data?.files.hasNextPage).toBe(false);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({
           __typename: 'File',
-          commitId: '531f844bd184e913b050d49856e8d438',
-          path: '/json_single_field.json',
+          commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
+          path: '/jsonl_people.jsonl',
           repoName: 'samples',
         }),
       );
@@ -238,13 +238,13 @@ describe('File Resolver', () => {
 
       expect(errors).toHaveLength(0);
       expect(data?.files.files).toHaveLength(1);
-      expect(data?.files.cursor).toBe('/yml_spec.yml');
+      expect(data?.files.cursor).toBe('/file.unknown');
       expect(data?.files.hasNextPage).toBe(true);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({
           __typename: 'File',
-          commitId: '531f844bd184e913b050d49856e8d438',
-          path: '/yml_spec.yml',
+          commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
+          path: '/yml_spec_too_large.yml',
           repoName: 'samples',
         }),
       );
@@ -265,7 +265,7 @@ describe('File Resolver', () => {
       });
 
       expect(errors).toHaveLength(0);
-      expect(data?.files.files).toHaveLength(17);
+      expect(data?.files.files).toHaveLength(20);
 
       const {errors: mutationErrors = []} =
         await executeMutation<PutFilesFromUrLsMutation>(
@@ -299,7 +299,7 @@ describe('File Resolver', () => {
           },
         });
       expect(updatedErrors).toHaveLength(0);
-      expect(updatedFiles?.files.files).toHaveLength(18);
+      expect(updatedFiles?.files.files).toHaveLength(21);
     });
   });
 });

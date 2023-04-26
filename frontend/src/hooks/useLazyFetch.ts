@@ -29,6 +29,7 @@ export interface useFetchParams<Type> extends fetchParams {
   credentials?: string;
   onComplete?: (data: Type) => void;
   onError?: (err: unknown) => void;
+  skip?: boolean;
 }
 
 export const useLazyFetch = <ResponseType>({

@@ -135,9 +135,11 @@ describe('Datum Viewer', () => {
 
       render(<JobDatumViewer />);
 
-      const yamlSpec = screen.getByTestId('ConfigFilePreview__codeElement');
-      expect(await within(yamlSpec).findAllByText('edges')).toHaveLength(2); // Allow code element to load
-      expect(yamlSpec).toMatchSnapshot();
+      const codeSpec = screen.getByTestId('ConfigFilePreview__codeElement');
+      expect(
+        await within(codeSpec).findAllByText((node) => node.includes('edges')),
+      ).toHaveLength(2); // Allow code element to load
+      expect(codeSpec).toMatchSnapshot();
     });
 
     it('should render N/A when the runtime data is not available', async () => {
@@ -379,6 +381,12 @@ describe('Datum Viewer', () => {
           '006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f333',
         );
         await screen.findByText('No matching datums found');
+        await click(await screen.findByTestId('DatumList__searchClear'));
+        expect(search).toHaveTextContent('');
+        await type(search, 'werweriuowiejrklwkejrwiepriojw');
+        expect(
+          screen.getByText('Enter the exact datum ID'),
+        ).toBeInTheDocument();
         await click(await screen.findByTestId('DatumList__searchClear'));
         expect(search).toHaveTextContent('');
         await type(

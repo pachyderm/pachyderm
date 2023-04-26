@@ -1,10 +1,9 @@
 import {File} from '@graphqlTypes';
-import React from 'react';
+import React, {useState} from 'react';
 
-import {LegacyTable as Table} from '@pachyderm/components';
+import {Table} from '@pachyderm/components';
 
 import FileTableRow from './FileTableRow';
-import useListViewTable from './hooks/useListViewTable';
 import styles from './ListViewTable.module.css';
 
 type ListViewTableProps = {
@@ -12,47 +11,37 @@ type ListViewTableProps = {
 };
 
 const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
-  const {comparatorName, nameClick, sizeClick, typeClick, reversed, tableData} =
-    useListViewTable(files);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+
+  const addSelection = (filePath: string) => {
+    if (selectedFiles.includes(filePath)) {
+      setSelectedFiles((selectedFiles) =>
+        selectedFiles.filter((file) => file !== filePath),
+      );
+    } else {
+      setSelectedFiles((selectedFiles) => [...selectedFiles, filePath]);
+    }
+  };
 
   return (
     <div className={styles.scrolling}>
       <Table className={styles.base} data-testid="ListViewTable__view">
-        <Table.Head sticky relativeShadow>
+        <Table.Head sticky>
           <Table.Row>
-            <Table.HeaderCell
-              onClick={nameClick}
-              sortable={true}
-              sortLabel="name"
-              sortSelected={comparatorName === 'Name'}
-              sortReversed={!reversed}
-            >
-              Name
-            </Table.HeaderCell>
-            <Table.HeaderCell
-              onClick={sizeClick}
-              sortable={true}
-              sortLabel="size"
-              sortSelected={comparatorName === 'Size'}
-              sortReversed={!reversed}
-            >
-              Size
-            </Table.HeaderCell>
-            <Table.HeaderCell
-              onClick={typeClick}
-              sortable={true}
-              sortLabel="type"
-              sortSelected={comparatorName === 'Type'}
-              sortReversed={!reversed}
-            >
-              Type
-            </Table.HeaderCell>
-            <Table.HeaderCell>Actions</Table.HeaderCell>
+            <Table.HeaderCell>File</Table.HeaderCell>
+            <Table.HeaderCell>Change</Table.HeaderCell>
+            <Table.HeaderCell>Size</Table.HeaderCell>
+            <Table.HeaderCell />
           </Table.Row>
         </Table.Head>
         <Table.Body>
-          {tableData.map((file) => (
-            <FileTableRow file={file} key={file.path} />
+          {files.map((file) => (
+            <FileTableRow
+              file={file}
+              key={file.path}
+              selectedFiles={selectedFiles}
+              addSelection={addSelection}
+            />
           ))}
         </Table.Body>
       </Table>
