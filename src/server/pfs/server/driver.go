@@ -21,7 +21,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -775,38 +774,28 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 }
 
 func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
-	var compactedDiff *fileset.ID
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = time.Minute
-	return compactedDiff, backoff.RetryUntilCancel(ctx, func() error {
-		diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		isCompacted, err := d.storage.IsCompacted(ctx, *diff)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if isCompacted {
-			compactedDiff = diff
-			return nil
-		}
-		// Remove finishing metadata will fire an event so that the PFS master picks up the commit.
-		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			if commitInfo.Finished != nil {
-				return errors.Errorf("commit is not finished", commit.ID)
-			}
-			commitInfo.Finished = nil
-			return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Put(commit, commitInfo))
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return errors.Errorf("diff file set for commit %s is not compacted yet", commit.ID)
-	}, b, backoff.NotifyCtx(ctx, "getCompactedDiffFileSet for "+commit.ID))
+	var diff *fileset.ID
+	var err error
+	diff, err = d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	isCompacted, err := d.storage.IsCompacted(ctx, *diff)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if isCompacted {
+		return diff, nil
+	}
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, nil)
+		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		return err
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return diff, nil
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
