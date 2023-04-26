@@ -352,7 +352,7 @@ jobs:
           name: generate dd template
           command: |
             tar -xvzf cr-release-packages/official/pachyderm-${CIRCLE_TAG:1}.tgz
-            { helm template pachyderm --set deployTarget=LOCAL --set proxy.enabled=true --set proxy.service.type=LoadBalancer --set pachd.clusterDeploymentID=local-pach --no-hooks --version=${CIRCLE_TAG:1} ; cat etc/deploy/local/local_notebook_base.yaml | sed "s/PACH_VERSION/${CIRCLE_TAG:1}/g" ; } > cr-release-packages/local_template/pach_local_${CIRCLE_TAG:1}.yaml
+            { helm template pachyderm --set deployTarget=LOCAL --set proxy.enabled=true --set proxy.service.type=LoadBalancer --set pachd.clusterDeploymentID=local-pach --no-hooks --version=${CIRCLE_TAG:1} ; } > cr-release-packages/local_template/pach_local_${CIRCLE_TAG:1}.yaml
       - run:
           name: mark extra chart pre-release
           command: |
