@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
@@ -24,23 +23,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 const (
 	helmChartPublishedPath = "pachyderm/pachyderm"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
-	coverageFolder         = "/tmp/test-results"
 )
 
 const (
@@ -571,58 +566,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
 	})
 	return pClient
-}
-
-func collectMinikubeCodeCoverage(t testing.TB, pachClient *client.APIClient, valueOverrides map[string]string) {
-	coverageFilePath := filepath.Join(coverageFolder,
-		fmt.Sprintf("%s-%s-cover.tgz",
-			strings.ReplaceAll(filepath.ToSlash(t.Name()), "/", "-"), // ToSlash for hypothetical different os
-			uuid.NewWithoutDashes()),
-	)
-
-	if _, err := os.Stat(coverageFilePath); errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(coverageFolder, os.ModePerm); err != nil {
-			t.Logf("Error creating code coverage folder: %v", err)
-			return
-		}
-	} else {
-		t.Logf("Error naming coverage file or creating folder: %v", err)
-		return
-	}
-
-	covFile, err := os.Create(coverageFilePath)
-	if err != nil {
-		t.Logf("Error creating code coverage file: %v", err)
-		return
-	}
-	defer func() {
-		if err := covFile.Close(); err != nil {
-			t.Logf("Error closing code coverage file: %v", err)
-			return
-		}
-	}()
-
-	err = saveCoverProfile(pachClient, covFile)
-	if errors.Is(err, auth.ErrNotSignedIn) {
-		token, ok := valueOverrides["pachd.rootToken"]
-		if !ok {
-			token = testutil.RootToken
-		}
-		pachClient.SetAuthToken(token)
-		err = saveCoverProfile(pachClient, covFile)
-	}
-	if err != nil {
-		t.Logf("Failed debug call attempting to retrieve code coverage: %v", err)
-	} else {
-		t.Logf("Successfully output minikube code coverage to file: %v", coverageFilePath)
-	}
-}
-
-func saveCoverProfile(pachClient *client.APIClient, covFile *os.File) error {
-	return pachClient.Profile(&debug.Profile{
-		Name:     "cover",
-		Duration: types.DurationProto(30 * time.Minute), // no test should be longer than 30 minutes
-	}, &debug.Filter{}, covFile)
 }
 
 func PutNamespace(t testing.TB, namespace string) {
