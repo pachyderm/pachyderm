@@ -7,8 +7,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"os"
+	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -123,6 +126,54 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(dial, "misc dial"))
+
+	// NOTE(jonathan): This can move out of misc when we add OAuth support to the download
+	// endpoint, and tell pachd what its externally-accessible URL is (so the link works when
+	// you click it).
+	generateURL := &cobra.Command{
+		Use:   "{{alias}} project/repo@branch_or_commit:/file_or_directory ...",
+		Short: "Generates the encoded part of a download URL.",
+		Long:  "Generates the encoded part of a download URL.",
+		Run: cmdutil.Run(func(args []string) error {
+			u, err := archiveserver.EncodeV1(args)
+			if err != nil {
+				return errors.Wrap(err, "encode")
+			}
+			fmt.Println(u)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(generateURL, "misc generate-download-url"))
+
+	decodeURL := &cobra.Command{
+		Use:   "{{alias}} <url>",
+		Short: "Decodes the encoded part of a download URL.",
+		Long:  "Decodes the encoded part of a download URL.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			u, err := url.Parse(args[0])
+			if err != nil {
+				return errors.Wrap(err, "url.Parse")
+			}
+			if !strings.HasPrefix(u.Path, "/download/") {
+				u.Path = "/download/" + u.Path
+			}
+			if !strings.HasSuffix(u.Path, ".zip") {
+				u.Path = u.Path + ".zip"
+			}
+			req, err := archiveserver.ArchiveFromURL(u)
+			if err != nil {
+				return errors.Wrap(err, "ArchiveFromURL")
+			}
+			if err := req.ForEachPath(func(path string) error {
+				fmt.Println(path)
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "ForEachPath")
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(decodeURL, "misc decode-download-url"))
 
 	misc := &cobra.Command{
 		Short:  "Miscellaneous utilities unrelated to Pachyderm itself.",
