@@ -1,3 +1,4 @@
+import {GraphQLError} from 'graphql';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
@@ -19,7 +20,7 @@ type ErrorViewProps = {
   errorMessage?: string;
   errorDetails?: string;
   source?: string;
-  stackTrace?: unknown;
+  stackTrace?: string | GraphQLError;
   showBackHomeButton?: boolean;
 };
 
@@ -30,6 +31,8 @@ const ErrorView: React.FC<ErrorViewProps> = ({
   source,
   stackTrace,
 }) => {
+  const stackTraceIsString = typeof stackTrace === 'string';
+
   return (
     <>
       <Helmet>
@@ -60,8 +63,12 @@ const ErrorView: React.FC<ErrorViewProps> = ({
           {stackTrace && (
             <CodePreview
               className={styles.fullError}
-              source={String(stackTrace)}
-              language="text"
+              source={
+                stackTraceIsString
+                  ? stackTrace
+                  : JSON.stringify(stackTrace, null, 2)
+              }
+              language={stackTraceIsString ? 'text' : 'json'}
               hideGutter
             />
           )}
