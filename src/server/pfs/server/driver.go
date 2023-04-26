@@ -734,7 +734,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 }
 
 func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
-	diffID, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	diffID, err := d.getCompactedDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
 	}
@@ -771,6 +771,31 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 		return false, err
 	}
 	return found, nil
+}
+
+func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+	var diff *fileset.ID
+	var err error
+	diff, err = d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	isCompacted, err := d.storage.IsCompacted(ctx, *diff)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if isCompacted {
+		return diff, nil
+	}
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, nil)
+		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		return err
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return diff, nil
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
