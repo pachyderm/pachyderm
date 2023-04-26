@@ -30,6 +30,7 @@ import (
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -94,6 +95,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 		testText = append(testText, (byte(i)%26)+'A')
 	}
 	testRepo := testutil.UniqueString("TestProxy")
+	t.Logf("testRepo=%s", testRepo)
 
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
@@ -141,6 +143,20 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 			}
 			return nil
 		}, "should be able to retrieve files over S3")
+	})
+
+	// Test archive downloads.
+	t.Run("TestArchiveDownload", func(t *testing.T) {
+		file, err := archiveserver.EncodeV1([]string{pfs.DefaultProjectName + "/" + testRepo + "@master:/test.txt"})
+		if err != nil {
+			t.Fatalf("create archive filename: %v", err)
+		}
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			// This test unfortunately depends on TestGRPC having run successfully.
+			// Refactor.
+			url := httpPrefix + addr + "/download/" + file + ".zip"
+			return get(t, httpClient, url)
+		})
 	})
 }
 
