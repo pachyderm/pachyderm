@@ -1880,7 +1880,6 @@ func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) erro
 	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
 }
 
-// TODO: Add a test that ensures this code runs.
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")

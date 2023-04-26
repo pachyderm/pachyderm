@@ -9877,7 +9877,7 @@ func TestMalformedPipeline(t *testing.T) {
 		Input:     client.NewProjectPFSInput(pfs.DefaultProjectName, "out", "/*"),
 	})
 	require.YesError(t, err)
-	require.Matches(t, "input cannot be named \"out\"", err.Error())
+	require.Matches(t, "input cannot be named out", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
@@ -9885,7 +9885,7 @@ func TestMalformedPipeline(t *testing.T) {
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "out", Repo: dataRepo, Glob: "/*"}},
 	})
 	require.YesError(t, err)
-	require.Matches(t, "input cannot be named \"out\"", err.Error())
+	require.Matches(t, "input cannot be named out", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
