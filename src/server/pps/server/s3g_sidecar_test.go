@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -518,11 +517,30 @@ func TestFullS3(t *testing.T) {
 	})
 }
 
-// repoBucket returns the bucket name for a repo.
-func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName string, repoBucket func(project, repo string) string) {
+// testS3SkippedDatums is a very complicated test that checks the skipping
+// behavior of various sidecar-S3-gateway-using pipelines. Two notes:
+//
+//   - In this test, we track the job in which each datum was processed by
+//     creating pipelines that read from a "background" repo that isn't a pipeline
+//     input, which we update between jobs. Each datum's output will include the
+//     value of the "background" repo. So if we set the background repo's contents
+//     to "1" and then process datum A, A's output will include "1". If we then
+//     update the background repo's contents to "2" and then run another job, A's
+//     output will remain "1" if it's skipped, or will now contain "2" if it's
+//     reprocessed.
+//
+//   - In "S3Inputs", we have a pipeline that reads from a cross of an S3 input
+//     and a globbed PFS input. This creates N datums, where each includes the S3
+//     input and one of the files in the PFS input. Adding files to the PFS input
+//     should trigger new jobs that skip old datums, but updating the S3 input
+//     should trigger a job that reprocesses everything (and skips nothing)
+//
+//   - In "S3Output", we have a pipeline that outputs to the sidecar S3 gateway.
+//     In pipelines that output to the sidecar S3 gateway, we cannot skip datums
+//     as we have no way to know what a single datum's output was. Part 2 confirms
+//     that no datums are ever skipped for S3-out-pipelines.
+func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName string) {
 	t.Run("S3Inputs", func(t *testing.T) {
-		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
-		t.Skip("Duplicate file paths from different datums no longer allowed.")
 		s3in := tu.UniqueString("s3_data")
 		require.NoError(t, c.CreateProjectRepo(projectName, s3in))
 		pfsin := tu.UniqueString("pfs_data")
@@ -547,13 +565,16 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 				Stdin: []string{
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
-						// can only access inputs)
-						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						ns, repoBucket(projectName, background),
+						// can only access inputs). Note: This is accessing pachd via its
+						// internal kubernetes service; kubedns automatically resolves
+						// 'pachd' as 'pachd.$namespace.svc.cluster.local' via a 'search'
+						// line in the pod's /etc/resolv.conf.
+						"aws --endpoint=http://pachd:30600 s3 cp s3://master.%s.%s/round /tmp/bg",
+						background, projectName,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
-					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin) $(cat /tmp/s3in)\" >/pfs/out/out",
+					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin) $(cat /tmp/s3in)\" >/pfs/out/$(cat /tmp/pfsin)",
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -608,29 +629,35 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 			// check output
 			var buf bytes.Buffer
-			require.NoError(t, c.GetFile(pipelineCommit, "out", &buf))
-			s := bufio.NewScanner(&buf)
-			for s.Scan() {
-				// [0] = bg, [1] = pfsin, [2] = s3in
-				p := strings.Split(s.Text(), " ")
-				// Check that bg is the same as the datum; this implies that bg is not
-				// being re-read during each job and the datum is being skipped (what we
-				// want)
-				require.Equal(t, p[0], p[1], "line: "+s.Text())
-				require.Equal(t, p[2], "foo", "line: "+s.Text()) // s3 input is being read but not changing
+			for j := 0; j <= i; j++ {
+				buf.Reset()
+				require.NoError(t, c.GetFile(pipelineCommit, strconv.Itoa(j), &buf))
+				s := bufio.NewScanner(&buf)
+				for s.Scan() {
+					// [0] = bg, [1] = pfsin, [2] = s3in
+					p := strings.Split(s.Text(), " ")
+					// Check that bg is the same as the datum; this implies that bg is not
+					// being re-read during each job and the datum is being skipped (what
+					// we want)
+					require.Equal(t, p[0], p[1], "line: "+s.Text())
+					require.Equal(t, p[2], "foo", "line: "+s.Text()) // s3 input is being read but not changing
+				}
 			}
 		}
 
 		// Part 2: change s3 input. All old datums should get reprocessed
 		// --------------------------------------------------------------
-		// Increment "/round" in 'background'
+		// Increment "/round" in 'background' (this will trigger one more job w/ the
+		// old S3-input commit)
 		bgc, err := c.StartProjectCommit(projectName, background, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
 		require.NoError(t, c.FinishProjectCommit(projectName, background, bgc.Branch.Name, bgc.ID))
 
-		//  Put new file in 's3in' to create a new datum and trigger a job
+		//  Put new file in 's3in', which will update every datum at once and
+		//  trigger a job that, correspondingly, updates the 'background' part of
+		//  every datum's output.
 		s3c, err := c.StartProjectCommit(projectName, s3in, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
@@ -662,23 +689,24 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 		// check output
 		var buf bytes.Buffer
-		rc, err := c.GetFileTAR(pipelineCommit, "out")
-		require.NoError(t, err)
-		defer rc.Close()
-		require.NoError(t, tarutil.ConcatFileContent(&buf, rc))
-		s := bufio.NewScanner(&buf)
-		var seen [10]bool // One per file in 'pfsin'
-		for s.Scan() {
-			// [0] = bg, [1] = pfsin, [2] = s3in
-			p := strings.Split(s.Text(), " ")
-			// Updating the S3 input should've altered all datums, forcing all files
-			// to be reprocessed and changing p[0] in every line of "out"
-			require.Equal(t, p[0], "10")
-			pfsinI, err := strconv.Atoi(p[1])
-			require.NoError(t, err)
-			require.False(t, seen[pfsinI])
-			seen[pfsinI] = true
-			require.Equal(t, p[2], "bar") // s3 input is now "bar" everywhere
+		var seen [11]bool // One per file in 'pfsin'
+		for j := 0; j < len(seen); j++ {
+			buf.Reset()
+			require.NoError(t, c.GetFile(pipelineCommit, strconv.Itoa(j), &buf))
+			s := bufio.NewScanner(&buf)
+			for s.Scan() {
+				// [0] = bg, [1] = pfsin, [2] = s3in
+				p := strings.Split(s.Text(), " ")
+				// Updating the S3 input should've altered all datums, forcing all files
+				// to be reprocessed and changing p[0] in every output file
+				require.Equal(t, p[0], "10")
+				require.Equal(t, p[1], strconv.Itoa(j))
+				pfsin, err := strconv.Atoi(p[1])
+				require.NoError(t, err)
+				require.False(t, seen[pfsin])
+				seen[pfsin] = true
+				require.Equal(t, p[2], "bar") // s3 input is now "bar" everywhere
+			}
 		}
 		for j := 0; j < len(seen); j++ {
 			require.True(t, seen[j], "%d", j) // all datums from pfsin were reprocessed
@@ -690,7 +718,8 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, c.CreateProjectRepo(projectName, repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
 		// tracking which output data should be associated with which input data.
-		// We'll check this by reading from a repo that isn't a pipeline input
+		// Therefore every output file should have the same "background" value after
+		// each job finishes.
 		background := tu.UniqueString("bg_data")
 		require.NoError(t, c.CreateProjectRepo(projectName, background))
 
@@ -703,21 +732,18 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 				Stdin: []string{
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
-						// can only access inputs)
-						// NOTE: in tests the S3G port is assigned dynamically in src/internal/minikubetestenv/deploy.go
-						"aws --endpoint=http://pachd.%s:%v s3 cp s3://master.%s/round /tmp/bg",
-						ns, c.GetAddress().Port+3, repoBucket(projectName, background),
+						// can only access inputs). Note: This is accessing pachd via its
+						// internal kubernetes service; kubedns automatically resolves
+						// 'pachd' as 'pachd.$namespace.svc.cluster.local' via a 'search'
+						// line in the pod's /etc/resolv.conf.
+						"aws --endpoint=http://pachd:30600 s3 cp s3://master.%s.%s/round /tmp/bg",
+						background, projectName,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
-					// Write the "background" value to a new file in every datum. As
-					// 'aws s3 cp' is destructive, datums will overwrite each others
-					// values unless each datum writes to a unique key. This way, we
-					// should see a file for every datum processed written in every job
+					// Write the "background" value to a new file in every datum. We
+					// should see a file for every datum processed, and this should be
+					// rewritten in every job
 					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/\"$(cat /tmp/pfsin)\"",
-					// Also write a file that is itself named for the background value.
-					// Because S3-out jobs don't merge their outputs with their parent's
-					// outputs, we should only see one such file in every job's output.
-					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/bg/\"$(cat /tmp/bg)\"",
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -766,20 +792,6 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 				// datum by every job, because this is an S3Out pipeline
 				require.Equal(t, iS, buf.String())
 			}
-
-			// Make sure that there's exactly one file in 'bg/'--this confirms that
-			// the output commit isn't merged with its parent, it only contains the
-			// result of processing all datums
-			// -------------------------------
-			// check no extra files
-			fis, err := c.ListFileAll(pipelineCommit, "/bg")
-			require.NoError(t, err)
-			require.Equal(t, 1, len(fis))
-			// check that expected file exists
-			fis, err = c.ListFileAll(pipelineCommit, fmt.Sprintf("/bg/%d", i))
-			require.NoError(t, err)
-			require.Equal(t, 1, len(fis))
-
 		}
 	})
 }
@@ -790,12 +802,12 @@ func TestS3SkippedDatums(t *testing.T) {
 	}
 	c, _, ns := initPachClient(t)
 	t.Run("DefaultProject", func(t *testing.T) {
-		testS3SkippedDatums(t, c, ns, pfs.DefaultProjectName, func(p, r string) string { return r })
+		testS3SkippedDatums(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
 		projectName := tu.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
-		testS3SkippedDatums(t, c, ns, projectName, func(p, r string) string { return r + "." + p })
+		testS3SkippedDatums(t, c, ns, projectName)
 	})
 }
 
