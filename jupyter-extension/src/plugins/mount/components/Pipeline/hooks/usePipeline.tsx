@@ -1,4 +1,3 @@
-import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 
@@ -10,7 +9,6 @@ import {
   PpsMetadata,
 } from '../../../types';
 import {requestAPI} from '../../../../../handler';
-import {ReadonlyJSONObject} from '@lumino/coreutils';
 
 export const PPS_VERSION = 'v1.0.0';
 
@@ -79,15 +77,7 @@ export const usePipeline = (
   }, [ppsContext]);
 
   useEffect(() => {
-    const ppsMetadata: PpsMetadata = {
-      version: PPS_VERSION,
-      config: {
-        pipeline: pipeline,
-        image: imageName,
-        requirements: requirements,
-        input_spec: inputSpec,
-      },
-    };
+    const ppsMetadata: PpsMetadata = buildMetadata();
     saveNotebookMetaData(ppsMetadata);
   }, [pipeline, imageName, requirements, inputSpec]);
 
@@ -99,15 +89,7 @@ export const usePipeline = (
       setErrorMessage('');
       setResponseMessage('');
 
-      let ppsMetadata;
-      try {
-        ppsMetadata = buildMetadata();
-      } catch (e) {
-        setErrorMessage(
-          'error parsing input spec -- pipeline creation aborted',
-        );
-        return;
-      }
+      const ppsMetadata = buildMetadata();
       saveNotebookMetaData(ppsMetadata);
       await saveNotebookToDisk();
 
@@ -140,14 +122,13 @@ export const usePipeline = (
   }
 
   const buildMetadata = (): PpsMetadata => {
-    const inputSpecJson = parseInputSpec(inputSpec);
     return {
       version: PPS_VERSION,
       config: {
         pipeline: pipeline,
         image: imageName,
         requirements: requirements,
-        input_spec: inputSpecJson,
+        input_spec: inputSpec,
       },
     };
   };
