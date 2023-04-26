@@ -16,6 +16,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -161,6 +162,7 @@ type Datum struct {
 	recoveryCallback func(context.Context) error
 	timeout          time.Duration
 	IDPrefix         string
+	env              []string
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
@@ -226,6 +228,9 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = errors.EnsureStack(err)
 		}
 	}()
+	if err := d.createEnvFile(); err != nil {
+		return err
+	}
 	return pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
 		if err := d.downloadData(downloader); err != nil {
@@ -233,6 +238,24 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 		}
 		return cb()
 	})
+}
+
+func (d *Datum) createEnvFile() (retErr error) {
+	var envStr string
+	for _, e := range d.env {
+		envStr += e + "\n"
+	}
+	f, err := os.Create(path.Join(d.PFSStorageRoot(), common.EnvFileName))
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			retErr = multierror.Append(retErr, err)
+		}
+	}()
+	_, err = f.Write([]byte(envStr))
+	return errors.EnsureStack(err)
 }
 
 func (d *Datum) downloadData(downloader pfssync.Downloader) error {

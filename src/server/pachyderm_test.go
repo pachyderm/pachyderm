@@ -11641,4 +11641,23 @@ func TestDatumBatching(t *testing.T) {
 		request := createPipelineRequest(pipeline, script)
 		checkState(request, pps.JobState_JOB_FAILURE)
 	})
+	t.Run("Env", func(t *testing.T) {
+		// This test will error if the datum id environment variable isn't set and distinct for each datum.
+		script := fmt.Sprintf(`
+			set -a
+			while true
+			do
+				pachctl next datum
+				source /pfs/.env
+				if [ -z $%s ]
+				then
+					exit 1
+				fi
+				touch /pfs/out/$%s
+			done
+			`, client.DatumIDEnv, client.DatumIDEnv)
+		pipeline := tu.UniqueString("DatumBatchingEnv")
+		request := createPipelineRequest(pipeline, script)
+		checkState(request, pps.JobState_JOB_SUCCESS)
+	})
 }

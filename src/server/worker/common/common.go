@@ -23,6 +23,8 @@ const (
 	OutputPrefix = "out"
 	// TmpFileName is the name of the tmp file.
 	TmpFileName = "tmp"
+	// EnvFileName is the name of the env file.
+	EnvFileName = ".env"
 	TTL         = 15 * time.Minute
 )
 
