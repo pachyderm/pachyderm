@@ -6584,6 +6584,7 @@ func TestMetaRepoContents(t *testing.T) {
 		}))
 		expectedFiles := map[string]struct{}{
 			fmt.Sprintf("/meta/%v/meta", datumID):                      {},
+			fmt.Sprintf("/pfs/%v/.env", datumID):                       {},
 			fmt.Sprintf("/pfs/%v/%v/%v", datumID, dataRepo, inputFile): {},
 			fmt.Sprintf("/pfs/%v/out/%v", datumID, inputFile):          {},
 		}
