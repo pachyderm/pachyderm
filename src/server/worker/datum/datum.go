@@ -16,7 +16,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -30,6 +29,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	workerStats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 )
+
+// TODO: Switch from path.Join to filepath.Join for all local filesystem paths.
 
 const (
 	defaultNumRetries = 3
@@ -240,22 +241,12 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 	})
 }
 
-func (d *Datum) createEnvFile() (retErr error) {
+func (d *Datum) createEnvFile() error {
 	var envStr string
 	for _, e := range d.env {
 		envStr += e + "\n"
 	}
-	f, err := os.Create(path.Join(d.PFSStorageRoot(), common.EnvFileName))
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			retErr = multierror.Append(retErr, err)
-		}
-	}()
-	_, err = f.Write([]byte(envStr))
-	return errors.EnsureStack(err)
+	return os.WriteFile(path.Join(d.PFSStorageRoot(), common.EnvFileName), []byte(envStr), 0666)
 }
 
 func (d *Datum) downloadData(downloader pfssync.Downloader) error {

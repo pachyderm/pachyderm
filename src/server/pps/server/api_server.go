@@ -184,9 +184,7 @@ func validateName(name string) error {
 		return errors.Errorf("input must specify a name")
 	}
 	switch name {
-	case common.OutputPrefix:
-		fallthrough
-	case common.EnvFileName:
+	case common.OutputPrefix, common.EnvFileName:
 		return errors.Errorf("input cannot be named %v", name)
 	}
 	return nil
@@ -1882,6 +1880,7 @@ func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) erro
 	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
 }
 
+// TODO: Add a test that ensures this code runs.
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
