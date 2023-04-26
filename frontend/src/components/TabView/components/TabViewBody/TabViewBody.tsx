@@ -6,15 +6,15 @@ import BodyContent from './components/BodyContent';
 import BodyHeader from './components/BodyHeader';
 import BodyHeaderDropdown from './components/BodyHeaderDropdown';
 import BodyHeaderTabs from './components/BodyHeaderTabs';
-import styles from './TableViewBody.module.css';
+import styles from './TabViewBody.module.css';
 
-export type TableViewBodyProps = {
+export type TabViewBodyProps = {
   initialActiveTabId: string;
   showSkeleton: boolean;
   onSwitch?: (activeTab: string) => void;
 };
 
-const TableViewBody: React.FC<TableViewBodyProps> = ({
+const TabViewBody: React.FC<TabViewBodyProps> = ({
   initialActiveTabId,
   showSkeleton,
   children,
@@ -25,7 +25,7 @@ const TableViewBody: React.FC<TableViewBodyProps> = ({
       {showSkeleton ? (
         <SkeletonBodyText
           lines={5}
-          data-testid="TableViewBody__loadingIndicator"
+          data-testid="TabViewBody__loadingIndicator"
         />
       ) : (
         <Tabs initialActiveTabId={initialActiveTabId} onSwitch={onSwitch}>
@@ -36,7 +36,7 @@ const TableViewBody: React.FC<TableViewBodyProps> = ({
   );
 };
 
-export default Object.assign(TableViewBody, {
+export default Object.assign(TabViewBody, {
   Header: BodyHeader,
   Dropdown: BodyHeaderDropdown,
   Tabs: BodyHeaderTabs,

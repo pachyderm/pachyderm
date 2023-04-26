@@ -2,13 +2,12 @@ import classnames from 'classnames';
 import noop from 'lodash/noop';
 import React from 'react';
 
-import {Group, Page} from '@pachyderm/components';
+import {Group} from '@pachyderm/components';
+import {Button, ButtonProps} from '@pachyderm/components/Button';
 
-import {Button, ButtonProps} from '../../../Button';
+import styles from './TabViewHeader.module.css';
 
-import styles from './TableViewHeader.module.css';
-
-type TableViewHeaderProps = {
+type TabViewHeaderProps = {
   heading?: string;
   headerButtonText?: string;
   headerButtonAction?: () => void;
@@ -16,21 +15,21 @@ type TableViewHeaderProps = {
   headerButtonHidden?: boolean;
 };
 
-export const TableViewHeaderButton: React.FC<ButtonProps> = ({
+export const TabViewHeaderButton: React.FC<ButtonProps> = ({
   children,
   className,
   ...rest
 }) => (
   <Button
     className={classnames(styles.button, className)}
-    data-testid="TableViewHeader__button"
+    data-testid="TabViewHeader__button"
     {...rest}
   >
     {children}
   </Button>
 );
 
-const TableViewHeader: React.FC<TableViewHeaderProps> = ({
+const TabViewHeader: React.FC<TabViewHeaderProps> = ({
   heading = '',
   headerButtonText = '',
   headerButtonAction = noop,
@@ -46,14 +45,14 @@ const TableViewHeader: React.FC<TableViewHeaderProps> = ({
         <>
           <h2 className={styles.heading}>{heading}</h2>
           {!headerButtonHidden && (
-            <TableViewHeaderButton
+            <TabViewHeaderButton
               onClick={headerButtonAction}
               className={styles.button}
               disabled={headerButtonDisabled}
-              data-testid="TableViewHeader__button"
+              data-testid="TabViewHeader__button"
             >
               {headerButtonText}
-            </TableViewHeaderButton>
+            </TabViewHeaderButton>
           )}
         </>
       )}
@@ -61,6 +60,6 @@ const TableViewHeader: React.FC<TableViewHeaderProps> = ({
   );
 };
 
-export default Object.assign(TableViewHeader, {
-  Button: TableViewHeaderButton,
+export default Object.assign(TabViewHeader, {
+  Button: TabViewHeaderButton,
 });

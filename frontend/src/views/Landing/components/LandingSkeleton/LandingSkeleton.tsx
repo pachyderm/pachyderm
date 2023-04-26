@@ -1,8 +1,8 @@
 import React from 'react';
 
 import Sidebar from '@dash-frontend/components/Sidebar';
+import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
-import {TableView} from '@pachyderm/components';
 
 import LandingHeader from '../LandingHeader';
 
@@ -14,17 +14,17 @@ const LandingSkeleton: React.FC = () => {
       <LandingHeader />
       <div className={styles.base}>
         <View>
-          <TableView title="Projects" errorMessage="Error loading projects">
-            <TableView.Header heading="Projects" headerButtonHidden />
-            <TableView.Body initialActiveTabId={'All'} showSkeleton={false}>
-              <TableView.Body.Header>
-                <TableView.Body.Tabs placeholder="">
-                  <TableView.Body.Tabs.Tab id="All" count={0}>
+          <TabView title="Projects" errorMessage="Error loading projects">
+            <TabView.Header heading="Projects" headerButtonHidden />
+            <TabView.Body initialActiveTabId={'All'} showSkeleton={false}>
+              <TabView.Body.Header>
+                <TabView.Body.Tabs placeholder="">
+                  <TabView.Body.Tabs.Tab id="All" count={0}>
                     All
-                  </TableView.Body.Tabs.Tab>
-                </TableView.Body.Tabs>
-              </TableView.Body.Header>
-              <TableView.Body.Content id={'All'}>
+                  </TabView.Body.Tabs.Tab>
+                </TabView.Body.Tabs>
+              </TabView.Body.Header>
+              <TabView.Body.Content id={'All'}>
                 <table className={styles.table}>
                   <tbody>
                     <tr className={styles.loadingProject}>
@@ -36,9 +36,9 @@ const LandingSkeleton: React.FC = () => {
                     </tr>
                   </tbody>
                 </table>
-              </TableView.Body.Content>
-            </TableView.Body>
-          </TableView>
+              </TabView.Body.Content>
+            </TabView.Body>
+          </TabView>
         </View>
         <Sidebar className={styles.sidebar} />
       </div>

@@ -2,13 +2,9 @@ import React from 'react';
 import {Helmet} from 'react-helmet';
 
 import Sidebar from '@dash-frontend/components/Sidebar';
+import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
-import {
-  Group,
-  TableView,
-  DefaultDropdown,
-  useModal,
-} from '@pachyderm/components';
+import {Group, DefaultDropdown, useModal} from '@pachyderm/components';
 
 import CreateProjectModal from './components/CreateProjectModal';
 import LandingHeader from './components/LandingHeader';
@@ -47,27 +43,24 @@ const Landing: React.FC = () => {
       {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       <div className={styles.base}>
         <View data-testid="Landing__view">
-          <TableView title="Projects" errorMessage="Error loading projects">
-            <TableView.Header
+          <TabView title="Projects" errorMessage="Error loading projects">
+            <TabView.Header
               heading="Projects"
               headerButtonText="Create Project"
               headerButtonAction={openModal}
             />
-            <TableView.Body
-              initialActiveTabId={'Projects'}
-              showSkeleton={false}
-            >
-              <TableView.Body.Header>
-                <TableView.Body.Tabs
+            <TabView.Body initialActiveTabId={'Projects'} showSkeleton={false}>
+              <TabView.Body.Header>
+                <TabView.Body.Tabs
                   placeholder=""
                   searchValue={searchValue}
                   onSearch={setSearchValue}
                   showSearch={multiProject}
                 >
-                  <TableView.Body.Tabs.Tab id="Projects" count={projectCount}>
+                  <TabView.Body.Tabs.Tab id="Projects" count={projectCount}>
                     Projects
-                  </TableView.Body.Tabs.Tab>
-                </TableView.Body.Tabs>
+                  </TabView.Body.Tabs.Tab>
+                </TabView.Body.Tabs>
 
                 <Group spacing={32}>
                   <DefaultDropdown
@@ -80,25 +73,25 @@ const Landing: React.FC = () => {
                     Sort by: {sortButtonText}
                   </DefaultDropdown>
 
-                  <TableView.Body.Dropdown
+                  <TabView.Body.Dropdown
                     formCtx={filterFormCtx}
                     buttonText={filterStatus}
                     disabled={!multiProject}
                   >
-                    <TableView.Body.Dropdown.Item
+                    <TabView.Body.Dropdown.Item
                       name="HEALTHY"
                       id="HEALTHY"
                       label="Healthy"
                     />
-                    <TableView.Body.Dropdown.Item
+                    <TabView.Body.Dropdown.Item
                       name="UNHEALTHY"
                       id="UNHEALTHY"
                       label="Unhealthy"
                     />
-                  </TableView.Body.Dropdown>
+                  </TabView.Body.Dropdown>
                 </Group>
-              </TableView.Body.Header>
-              <TableView.Body.Content id={'Projects'}>
+              </TabView.Body.Header>
+              <TabView.Body.Content id={'Projects'}>
                 <table className={styles.table}>
                   <tbody>
                     {projects.map((project) => (
@@ -112,11 +105,11 @@ const Landing: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
-              </TableView.Body.Content>
-              <TableView.Body.Content id="Personal" />
-              <TableView.Body.Content id="Playground" />
-            </TableView.Body>
-          </TableView>
+              </TabView.Body.Content>
+              <TabView.Body.Content id="Personal" />
+              <TabView.Body.Content id="Playground" />
+            </TabView.Body>
+          </TabView>
         </View>
         <Sidebar>
           {selectedProject && <ProjectPreview project={selectedProject} />}

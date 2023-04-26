@@ -1,7 +1,8 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import {ButtonLink, GenericError} from '@pachyderm/components';
+import {GenericError} from '@dash-frontend/components/GenericError';
+import {ButtonLink} from '@pachyderm/components';
 
 import styles from './ErrorRetry.module.css';
 

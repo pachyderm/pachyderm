@@ -1,12 +1,13 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import {Page, ErrorRetry} from '@pachyderm/components';
+import {ErrorRetry} from '@dash-frontend/components/ErrorRetry';
+import {Page} from '@pachyderm/components';
 
-import {TableViewBody} from './components/TableViewBody';
-import {TableViewHeader} from './components/TableViewHeader';
+import {TabViewBody} from './components/TabViewBody';
+import {TabViewHeader} from './components/TabViewHeader';
 
-export interface TableViewProps {
+export interface TabViewProps {
   title: string;
   error?: boolean;
   errorMessage: string;
@@ -14,7 +15,7 @@ export interface TableViewProps {
   hasDrawerPadding?: boolean;
 }
 
-const TableView: React.FC<TableViewProps> = ({
+const TabView: React.FC<TabViewProps> = ({
   error,
   errorMessage,
   retry = noop,
@@ -29,7 +30,7 @@ const TableView: React.FC<TableViewProps> = ({
   );
 };
 
-export default Object.assign(TableView, {
-  Body: TableViewBody,
-  Header: TableViewHeader,
+export default Object.assign(TabView, {
+  Body: TabViewBody,
+  Header: TabViewHeader,
 });

@@ -1,8 +1,7 @@
 import React from 'react';
 
 import {Tabs} from '@pachyderm/components';
-
-import {TabProps} from '../../../../../../../Tabs/components/Tab/Tab';
+import {TabProps} from '@pachyderm/components/Tabs/components/Tab/Tab';
 
 import styles from './BodyHeaderTab.module.css';
 
