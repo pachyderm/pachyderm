@@ -389,7 +389,7 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 			meta.ImageId = userImageID
 			inputs := meta.Inputs
 			logger := baseLogger.WithData(inputs)
-			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs)
+			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, driver.PipelineInfo().GetAuthToken())
 			opts := []datum.Option{datum.WithEnv(env)}
 			if driver.PipelineInfo().Details.DatumTimeout != nil {
 				timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
