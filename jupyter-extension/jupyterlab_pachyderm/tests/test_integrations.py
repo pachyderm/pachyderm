@@ -402,7 +402,7 @@ def simple_pachyderm_env(request):
         client.delete_pipeline(pipeline_name, project_name=project_name, force=True)
         client.delete_repo(f"{pipeline_name}__context", project_name=project_name, force=True)
         client.delete_repo(repo_name, project_name=project_name, force=True)
-        client.delete_project(project_name, force=True)
+        # client.delete_project(project_name, force=True)
     else:
         # Use default project
         client.create_repo(repo_name)
