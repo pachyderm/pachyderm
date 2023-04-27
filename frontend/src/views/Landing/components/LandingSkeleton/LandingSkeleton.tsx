@@ -1,5 +1,6 @@
 import React from 'react';
 
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
@@ -11,10 +12,11 @@ import styles from './LandingSkeleton.module.css';
 const LandingSkeleton: React.FC = () => {
   return (
     <>
+      <BrandedTitle title="Projects" />
       <LandingHeader />
       <div className={styles.base}>
         <View>
-          <TabView title="Projects" errorMessage="Error loading projects">
+          <TabView errorMessage="Error loading projects">
             <TabView.Header heading="Projects" headerButtonHidden />
             <TabView.Body initialActiveTabId={'All'} showSkeleton={false}>
               <TabView.Body.Header>

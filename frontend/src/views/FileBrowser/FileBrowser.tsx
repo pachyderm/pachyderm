@@ -1,7 +1,7 @@
 import React from 'react';
-import {Helmet} from 'react-helmet';
 import {useHistory} from 'react-router';
 
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -61,9 +61,7 @@ const FileBrowser: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Files - Pachyderm Console</title>
-      </Helmet>
+      <BrandedTitle title="Files" />
       <FullPagePanelModal
         show={isOpen}
         onHide={handleHide}

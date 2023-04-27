@@ -1,6 +1,6 @@
 import React from 'react';
-import {Helmet} from 'react-helmet';
 
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
@@ -36,14 +36,12 @@ const Landing: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Landing - Pachyderm Console</title>
-      </Helmet>
+      <BrandedTitle title="Projects" />
       <LandingHeader projects={projects} />
       {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       <div className={styles.base}>
         <View data-testid="Landing__view">
-          <TabView title="Projects" errorMessage="Error loading projects">
+          <TabView errorMessage="Error loading projects">
             <TabView.Header
               heading="Projects"
               headerButtonText="Create Project"

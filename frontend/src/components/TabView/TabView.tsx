@@ -8,7 +8,6 @@ import {TabViewBody} from './components/TabViewBody';
 import {TabViewHeader} from './components/TabViewHeader';
 
 export interface TabViewProps {
-  title: string;
   error?: boolean;
   errorMessage: string;
   retry?: () => void;
@@ -19,12 +18,11 @@ const TabView: React.FC<TabViewProps> = ({
   error,
   errorMessage,
   retry = noop,
-  title,
   children,
   hasDrawerPadding = false,
 }) => {
   return (
-    <Page fullHeight hasDrawerPadding={hasDrawerPadding} title={title}>
+    <Page fullHeight hasDrawerPadding={hasDrawerPadding}>
       {error ? <ErrorRetry retry={retry}>{errorMessage}</ErrorRetry> : children}
     </Page>
   );

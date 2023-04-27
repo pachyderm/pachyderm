@@ -1,7 +1,7 @@
 import React from 'react';
-import {Helmet} from 'react-helmet';
 
 import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import {
   FullPageModal,
   Group,
@@ -51,9 +51,7 @@ const FileUpload: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Upload Files - Pachyderm Console</title>
-      </Helmet>
+      <BrandedTitle title="Upload Files" />
       {isOpen && (
         <FullPageModal hideType="exit" show={isOpen} onHide={onClose}>
           <Form

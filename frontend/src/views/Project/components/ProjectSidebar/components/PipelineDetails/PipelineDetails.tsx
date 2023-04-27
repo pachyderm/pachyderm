@@ -1,6 +1,6 @@
 import React from 'react';
-import {Helmet} from 'react-helmet';
 
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Description from '@dash-frontend/components/Description';
 import InfoPanel from '@dash-frontend/components/InfoPanel';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
@@ -20,9 +20,7 @@ const PipelineDetails: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Pipeline - Pachyderm Console</title>
-      </Helmet>
+      <BrandedTitle title="Pipeline" />
       <div
         className={styles.sidebarContent}
         data-testid="PipelineDetails__scrollableContent"

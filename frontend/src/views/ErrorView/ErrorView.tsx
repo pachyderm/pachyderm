@@ -1,8 +1,8 @@
 import {GraphQLError} from 'graphql';
 import React from 'react';
-import {Helmet} from 'react-helmet';
 
 import {BrandedErrorIcon} from '@dash-frontend/components/BrandedIcon';
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import CodePreview from '@dash-frontend/components/CodePreview';
 import View from '@dash-frontend/components/View';
 import LandingHeader from '@dash-frontend/views/Landing/components/LandingHeader';
@@ -35,9 +35,7 @@ const ErrorView: React.FC<ErrorViewProps> = ({
 
   return (
     <>
-      <Helmet>
-        <title>Error - Pachyderm Console</title>
-      </Helmet>
+      <BrandedTitle title="Error" />
       <LandingHeader />
       <View>
         <Group vertical spacing={16} align="center" className={styles.base}>

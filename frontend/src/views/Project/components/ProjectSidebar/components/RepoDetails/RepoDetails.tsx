@@ -1,8 +1,8 @@
 import React from 'react';
-import {Helmet} from 'react-helmet';
 import {Route, Switch} from 'react-router-dom';
 
 import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
@@ -47,9 +47,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
 
   return (
     <div className={styles.base} data-testid="RepoDetails__base">
-      <Helmet>
-        <title>Repo - Pachyderm Console</title>
-      </Helmet>
+      <BrandedTitle title="Repo" />
       <div className={styles.titleSection}>
         {currentRepoLoading ? (
           <SkeletonDisplayText data-testid="RepoDetails__repoNameSkeleton" />

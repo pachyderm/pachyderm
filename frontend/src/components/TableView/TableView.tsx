@@ -1,7 +1,7 @@
 import capitalize from 'lodash/capitalize';
 import React from 'react';
-import {Helmet} from 'react-helmet';
 
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import {
   Tabs,
   Button,
@@ -39,9 +39,7 @@ const TableView: React.FC<TableViewProps> = ({
 
   return (
     <div className={styles.wrapper}>
-      <Helmet>
-        <title>{title} - Pachyderm</title>
-      </Helmet>
+      <BrandedTitle title={title} />
       <h4 className={styles.pageTitle}>{title}</h4>
       <div className={styles.base}>
         <Tabs.RouterTabs basePathTabId={firstTabKey} basePath={tabsBasePath}>

@@ -1,7 +1,7 @@
 import React from 'react';
-import {Helmet} from 'react-helmet';
 import {Route, Redirect} from 'react-router';
 
+import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {projectReposRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -43,9 +43,7 @@ const Project: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Project - Pachyderm Console</title>
-      </Helmet>
+      <BrandedTitle title="Project" />
       <ProjectHeader />
       <div className={styles.view}>
         <ProjectSideNav />
