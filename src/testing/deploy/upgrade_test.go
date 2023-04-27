@@ -183,7 +183,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 					montage,
 					"dpokidov/imagemagick:7.1.0-23",
 					[]string{"sh"}, /* cmd */
-					[]string{"montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"}, /* stdin */
+					[]string{fmt.Sprintf("montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L /pfs/%s /pfs/%s -type f | sort) /pfs/out/montage.png", imagesRepo, edgesRepo)}, /* stdin */
 					nil, /* parallelismSpec */
 					&pps.Input{Cross: []*pps.Input{
 						{Pfs: &pps.PFSInput{Repo: imagesRepo, Glob: "/"}},

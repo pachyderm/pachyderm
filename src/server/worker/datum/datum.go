@@ -30,6 +30,8 @@ import (
 	workerStats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 )
 
+// TODO: Switch from path.Join to filepath.Join for all local filesystem paths.
+
 const (
 	defaultNumRetries = 3
 )
@@ -161,6 +163,7 @@ type Datum struct {
 	recoveryCallback func(context.Context) error
 	timeout          time.Duration
 	IDPrefix         string
+	env              []string
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
@@ -226,6 +229,9 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = errors.EnsureStack(err)
 		}
 	}()
+	if err := d.createEnvFile(); err != nil {
+		return err
+	}
 	return pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
 		if err := d.downloadData(downloader); err != nil {
@@ -233,6 +239,15 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 		}
 		return cb()
 	})
+}
+
+func (d *Datum) createEnvFile() error {
+	var envStr string
+	for _, e := range d.env {
+		envStr += e + "\n"
+	}
+	err := os.WriteFile(path.Join(d.PFSStorageRoot(), common.EnvFileName), []byte(envStr), 0666)
+	return errors.EnsureStack(err)
 }
 
 func (d *Datum) downloadData(downloader pfssync.Downloader) error {

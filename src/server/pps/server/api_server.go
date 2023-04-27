@@ -129,11 +129,17 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	case input == nil:
 		return nil // spouts can have nil input
 	case input.Pfs != nil:
+		if err := validateName(input.Pfs.Name); err != nil {
+			return err
+		}
 		if names[input.Pfs.Name] {
 			return errors.Errorf(`name "%s" was used more than once`, input.Pfs.Name)
 		}
 		names[input.Pfs.Name] = true
 	case input.Cron != nil:
+		if err := validateName(input.Cron.Name); err != nil {
+			return err
+		}
 		if names[input.Cron.Name] {
 			return errors.Errorf(`name "%s" was used more than once`, input.Cron.Name)
 		}
@@ -173,6 +179,17 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	return nil
 }
 
+func validateName(name string) error {
+	if name == "" {
+		return errors.Errorf("input must specify a name")
+	}
+	switch name {
+	case common.OutputPrefix, common.EnvFileName:
+		return errors.Errorf("input cannot be named %v", name)
+	}
+	return nil
+}
+
 func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
@@ -185,11 +202,6 @@ func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) erro
 			}
 			set = true
 			switch {
-			case len(input.Pfs.Name) == 0:
-				return errors.Errorf("input must specify a name")
-			case input.Pfs.Name == "out":
-				return errors.Errorf("input cannot be named \"out\", as pachyderm " +
-					"already creates /pfs/out to collect job output")
 			case input.Pfs.Repo == "":
 				return errors.Errorf("input must specify a repo")
 			case input.Pfs.Repo == "out" && input.Pfs.Name == "":
@@ -264,9 +276,6 @@ func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) erro
 				return errors.Errorf("multiple input types set")
 			}
 			set = true
-			if len(input.Cron.Name) == 0 {
-				return errors.Errorf("input must specify a name")
-			}
 			if _, err := cronutil.ParseCronExpression(input.Cron.Spec); err != nil {
 				return errors.Wrapf(err, "error parsing cron-spec")
 			}
