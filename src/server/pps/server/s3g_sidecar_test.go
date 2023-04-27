@@ -540,6 +540,25 @@ func TestFullS3(t *testing.T) {
 //     as we have no way to know what a single datum's output was. Part 2 confirms
 //     that no datums are ever skipped for S3-out-pipelines.
 func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName string) {
+	// NOTE: in tests, the S3G port (not just the NodePort but the
+	// cluster-internal port) is assigned dynamically in
+	// src/internal/minikubetestenv/deploy.go
+	s3gPort := func() (result int32) {
+		k := tu.GetKubeClient(t)
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			svc, err := k.CoreV1().Services(ns).Get(context.Background(), "pachd", metav1.GetOptions{})
+			require.NoError(t, err)
+			for _, port := range svc.Spec.Ports {
+				if port.Name == "s3gateway-port" {
+					result = port.Port
+					return nil
+				}
+			}
+			return errors.New("could not find pachd port to make S3G connection")
+		})
+		return result
+	}()
+
 	t.Run("S3Inputs", func(t *testing.T) {
 		s3in := tu.UniqueString("s3_data")
 		require.NoError(t, c.CreateProjectRepo(projectName, s3in))
@@ -569,8 +588,8 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 						// internal kubernetes service; kubedns automatically resolves
 						// 'pachd' as 'pachd.$namespace.svc.cluster.local' via a 'search'
 						// line in the pod's /etc/resolv.conf.
-						"aws --endpoint=http://pachd:30600 s3 cp s3://master.%s.%s/round /tmp/bg",
-						background, projectName,
+						"aws --endpoint=http://pachd:%d s3 cp s3://master.%s.%s/round /tmp/bg",
+						s3gPort, background, projectName,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
@@ -687,9 +706,11 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			})
 		}
 
+		// One per file in 'pfsin' (the background repo was set to '10', but no
+		// corresponding file was added to pfsin, so there are only 9 files there)
+		var seen [10]bool
 		// check output
 		var buf bytes.Buffer
-		var seen [11]bool // One per file in 'pfsin'
 		for j := 0; j < len(seen); j++ {
 			buf.Reset()
 			require.NoError(t, c.GetFile(pipelineCommit, strconv.Itoa(j), &buf))
@@ -736,8 +757,8 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 						// internal kubernetes service; kubedns automatically resolves
 						// 'pachd' as 'pachd.$namespace.svc.cluster.local' via a 'search'
 						// line in the pod's /etc/resolv.conf.
-						"aws --endpoint=http://pachd:30600 s3 cp s3://master.%s.%s/round /tmp/bg",
-						background, projectName,
+						"aws --endpoint=http://pachd:%d s3 cp s3://master.%s.%s/round /tmp/bg",
+						s3gPort, background, projectName,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
 					// Write the "background" value to a new file in every datum. We
