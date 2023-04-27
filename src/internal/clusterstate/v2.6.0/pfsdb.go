@@ -73,6 +73,51 @@ func convertCommitInfoToV2_6_0(ci *v2_5_0.CommitInfo) *pfs.CommitInfo {
 	}
 }
 
+func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
+	// group duplicate commits by branchless key
+	duplicates := make(map[string]map[string]*v2_5_0.CommitInfo) // branchless commit key -> { old commit key ->  commit info }
+	for _, ci := range cis {
+		if _, ok := duplicates[commitBranchlessKey(ci.Commit)]; !ok {
+			duplicates[commitBranchlessKey(ci.Commit)] = make(map[string]*v2_5_0.CommitInfo)
+		}
+		duplicates[commitBranchlessKey(ci.Commit)][oldCommitKey(ci.Commit)] = ci
+	}
+	// the only duplicate commits we allow and handle in the migration are two commits with a parent/child relationship
+	// for any set of commits with the same ID on a repo, we expect the following:
+	// 1. all commits has a non-nil Parent.
+	// 2. exactly one commit is not an ALIAS commit
+	// 3. the commits are in an ancestry chain
+	//
+	// TODO(provenance): this is all quite complicated and potentially needs to be revisted
+	var badCommitSets []string
+	for _, dups := range duplicates {
+		if len(dups) <= 1 {
+			continue
+		}
+		seen := make(map[string]struct{})
+		aliasCount := 0
+		var commitSet string
+		for _, d := range dups {
+			if d.Origin.Kind == pfs.OriginKind_ALIAS {
+				aliasCount++
+			}
+			commitSet = d.Commit.ID
+			if d.ParentCommit != nil {
+				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
+					seen[oldCommitKey(d.Commit)] = struct{}{}
+				}
+			}
+		}
+		if len(dups)-len(seen) > 1 || len(dups)-aliasCount != 1 {
+			badCommitSets = append(badCommitSets, commitSet)
+		}
+	}
+	if badCommitSets != nil {
+		return errors.Errorf("invalid commit sets detected: %v", badCommitSets)
+	}
+	return nil
+}
+
 func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	var oldCIs []*v2_5_0.CommitInfo
 	var err error
@@ -247,6 +292,9 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit, ancestor *
 		return errors.Wrapf(err, "delete from pfs.commit_diffs for commit_id %q", key)
 	}
 	if _, err = tx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id=$1;`, key); err != nil {
+		return errors.Wrapf(err, "delete from pfs.commit_totals for commit_id %q", key)
+	}
+	if _, err = tx.ExecContext(ctx, `DELETE FROM storage.tracker_objects WHERE str_id LIKE $1;`, "commit/"+key+"%"); err != nil {
 		return errors.Wrapf(err, "delete from pfs.commit_totals for commit_id %q", key)
 	}
 	return nil
@@ -519,26 +567,18 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrapf(err, "could not migrate branch %q", branchKey(bi.Branch))
 		}
 	}
-	if cis, err = listCollectionProtos(ctx, tx, "commits", &pfs.CommitInfo{}); err != nil {
-		return err
+	// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
+		return errors.Wrapf(err, "update pfs.commits to branchless commit ids")
 	}
-	for _, ci := range cis {
-		oldKey := oldCommitKey(ci.Commit)
-		newKey := commitBranchlessKey(ci.Commit)
-		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
-			return errors.Wrapf(err, "update pfs.commits for old key %q and new key %q", oldKey, newKey)
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
-			return errors.Wrapf(err, "update pfs.commit_totals for old key %q and new key %q", oldKey, newKey)
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
-			return errors.Wrapf(err, "update pfs.commit_diffs for old key %q and new key %q", oldKey, newKey)
-		}
-		fromPattern := fmt.Sprintf("^commit/%v/(.*)", oldKey)
-		toPattern := fmt.Sprintf("commit/%v/\\1", newKey)
-		if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, $1, $2);`, fromPattern, toPattern); err != nil {
-			return errors.Wrapf(err, "update storage.tracker_objects for old key %q and new key %q", oldKey, newKey)
-		}
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
+		return errors.Wrap(err, "update pfs.commit_totals to branchless commit ids")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
+		return errors.Wrap(err, "update pfs.commit_diffs to branchless commits ids")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '@(.+)=', '@') WHERE str_id LIKE 'commit/%';`); err != nil {
+		return errors.Wrap(err, "update storage.tracker_objects to branchless commit ids")
 	}
 	return nil
 }

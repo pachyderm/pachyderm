@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
+	v2_5_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.5.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -37,6 +38,13 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "could not update default project role bindings for allClusterUsers")
 			}
 			return nil
+		}).
+		Apply("validate existing DAGs", func(ctx context.Context, env migrations.Env) error {
+			cis, err := listCollectionProtos(ctx, env.Tx, "commits", &v2_5_0.CommitInfo{})
+			if err != nil {
+				return errors.Wrap(err, "list commits for DAG validation")
+			}
+			return validateExistingDAGs(cis)
 		}).
 		Apply("Add commit_provenance table", func(ctx context.Context, env migrations.Env) error {
 			return pfsdb.SetupCommitProvenanceV0(ctx, env.Tx)
