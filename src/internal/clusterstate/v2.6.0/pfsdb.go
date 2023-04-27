@@ -102,12 +102,10 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 				aliasCount++
 			}
 			commitSet = d.Commit.ID
-			if d.ParentCommit == nil {
-				badCommitSets = append(badCommitSets, commitSet)
-				break
-			}
-			if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
-				seen[oldCommitKey(d.Commit)] = struct{}{}
+			if d.ParentCommit != nil {
+				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
+					seen[oldCommitKey(d.Commit)] = struct{}{}
+				}
 			}
 		}
 		if len(dups)-len(seen) > 1 || len(dups)-aliasCount != 1 {
