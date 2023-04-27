@@ -120,8 +120,8 @@ export class RepoInfo extends jspb.Message {
 
     hasAuthInfo(): boolean;
     clearAuthInfo(): void;
-    getAuthInfo(): RepoAuthInfo | undefined;
-    setAuthInfo(value?: RepoAuthInfo): RepoInfo;
+    getAuthInfo(): AuthInfo | undefined;
+    setAuthInfo(value?: AuthInfo): RepoInfo;
 
     hasDetails(): boolean;
     clearDetails(): void;
@@ -145,7 +145,7 @@ export namespace RepoInfo {
         sizeBytesUpperBound: number,
         description: string,
         branchesList: Array<Branch.AsObject>,
-        authInfo?: RepoAuthInfo.AsObject,
+        authInfo?: AuthInfo.AsObject,
         details?: RepoInfo.Details.AsObject,
     }
 
@@ -172,27 +172,27 @@ export namespace RepoInfo {
 
 }
 
-export class RepoAuthInfo extends jspb.Message { 
+export class AuthInfo extends jspb.Message { 
     clearPermissionsList(): void;
     getPermissionsList(): Array<auth_auth_pb.Permission>;
-    setPermissionsList(value: Array<auth_auth_pb.Permission>): RepoAuthInfo;
+    setPermissionsList(value: Array<auth_auth_pb.Permission>): AuthInfo;
     addPermissions(value: auth_auth_pb.Permission, index?: number): auth_auth_pb.Permission;
     clearRolesList(): void;
     getRolesList(): Array<string>;
-    setRolesList(value: Array<string>): RepoAuthInfo;
+    setRolesList(value: Array<string>): AuthInfo;
     addRoles(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): RepoAuthInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: RepoAuthInfo): RepoAuthInfo.AsObject;
+    toObject(includeInstance?: boolean): AuthInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: AuthInfo): AuthInfo.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: RepoAuthInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): RepoAuthInfo;
-    static deserializeBinaryFromReader(message: RepoAuthInfo, reader: jspb.BinaryReader): RepoAuthInfo;
+    static serializeBinaryToWriter(message: AuthInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AuthInfo;
+    static deserializeBinaryFromReader(message: AuthInfo, reader: jspb.BinaryReader): AuthInfo;
 }
 
-export namespace RepoAuthInfo {
+export namespace AuthInfo {
     export type AsObject = {
         permissionsList: Array<auth_auth_pb.Permission>,
         rolesList: Array<string>,
@@ -303,12 +303,17 @@ export namespace CommitOrigin {
 
 export class Commit extends jspb.Message { 
 
+    hasRepo(): boolean;
+    clearRepo(): void;
+    getRepo(): Repo | undefined;
+    setRepo(value?: Repo): Commit;
+    getId(): string;
+    setId(value: string): Commit;
+
     hasBranch(): boolean;
     clearBranch(): void;
     getBranch(): Branch | undefined;
     setBranch(value?: Branch): Commit;
-    getId(): string;
-    setId(value: string): Commit;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Commit.AsObject;
@@ -322,8 +327,9 @@ export class Commit extends jspb.Message {
 
 export namespace Commit {
     export type AsObject = {
-        branch?: Branch.AsObject,
+        repo?: Repo.AsObject,
         id: string,
+        branch?: Branch.AsObject,
     }
 }
 
@@ -365,9 +371,9 @@ export class CommitInfo extends jspb.Message {
     getFinished(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setFinished(value?: google_protobuf_timestamp_pb.Timestamp): CommitInfo;
     clearDirectProvenanceList(): void;
-    getDirectProvenanceList(): Array<Branch>;
-    setDirectProvenanceList(value: Array<Branch>): CommitInfo;
-    addDirectProvenance(value?: Branch, index?: number): Branch;
+    getDirectProvenanceList(): Array<Commit>;
+    setDirectProvenanceList(value: Array<Commit>): CommitInfo;
+    addDirectProvenance(value?: Commit, index?: number): Commit;
     getError(): string;
     setError(value: string): CommitInfo;
     getSizeBytesUpperBound(): number;
@@ -398,7 +404,7 @@ export namespace CommitInfo {
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finishing?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        directProvenanceList: Array<Branch.AsObject>,
+        directProvenanceList: Array<Commit.AsObject>,
         error: string,
         sizeBytesUpperBound: number,
         details?: CommitInfo.Details.AsObject,
@@ -556,6 +562,16 @@ export class ProjectInfo extends jspb.Message {
     getDescription(): string;
     setDescription(value: string): ProjectInfo;
 
+    hasAuthInfo(): boolean;
+    clearAuthInfo(): void;
+    getAuthInfo(): AuthInfo | undefined;
+    setAuthInfo(value?: AuthInfo): ProjectInfo;
+
+    hasCreatedAt(): boolean;
+    clearCreatedAt(): void;
+    getCreatedAt(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setCreatedAt(value?: google_protobuf_timestamp_pb.Timestamp): ProjectInfo;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ProjectInfo.AsObject;
     static toObject(includeInstance: boolean, msg: ProjectInfo): ProjectInfo.AsObject;
@@ -570,6 +586,8 @@ export namespace ProjectInfo {
     export type AsObject = {
         project?: Project.AsObject,
         description: string,
+        authInfo?: AuthInfo.AsObject,
+        createdAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     }
 }
 

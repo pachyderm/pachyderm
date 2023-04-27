@@ -11,7 +11,7 @@ import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
 import {
   Permission,
   PfsIAPIServer,
-  RepoAuthInfo,
+  AuthInfo,
   RepoInfo,
   Branch,
   Repo,
@@ -32,7 +32,7 @@ import {
 import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
 import {createServiceError} from '@dash-backend/testHelpers';
 
-import repoAuthInfos from '../fixtures/repoAuthInfos';
+import repoAuthInfos from '../fixtures/authInfos';
 
 import MockState from './MockState';
 
@@ -43,7 +43,7 @@ const setAuthInfoForRepo = (repo: RepoInfo, accountId = '') => {
   repo.setAuthInfo(
     repoName && authInfo[repoName]
       ? authInfo[repoName]
-      : new RepoAuthInfo().setPermissionsList(REPO_READER_PERMISSIONS),
+      : new AuthInfo().setPermissionsList(REPO_READER_PERMISSIONS),
   );
 
   return repo;

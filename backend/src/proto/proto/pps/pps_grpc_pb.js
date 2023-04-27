@@ -849,6 +849,18 @@ getKubeEvents: {
     responseSerialize: serialize_pps_v2_LokiLogMessage,
     responseDeserialize: deserialize_pps_v2_LokiLogMessage,
   },
+  // QueryLoki returns a stream of loki log messages given a query string
+queryLoki: {
+    path: '/pps_v2.API/QueryLoki',
+    requestStream: false,
+    responseStream: true,
+    requestType: pps_pps_pb.LokiRequest,
+    responseType: pps_pps_pb.LokiLogMessage,
+    requestSerialize: serialize_pps_v2_LokiRequest,
+    requestDeserialize: deserialize_pps_v2_LokiRequest,
+    responseSerialize: serialize_pps_v2_LokiLogMessage,
+    responseDeserialize: deserialize_pps_v2_LokiLogMessage,
+  },
 };
 
 exports.APIClient = grpc.makeGenericClientConstructor(APIService);

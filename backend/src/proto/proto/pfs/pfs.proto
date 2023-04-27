@@ -47,7 +47,7 @@ message RepoInfo {
   // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
   // not stored in etcd. To set a user's auth scope for a repo, use the
   // Pachyderm Auth API (in src/client/auth/auth.proto)
-  RepoAuthInfo auth_info = 6;
+  AuthInfo auth_info = 6;
 
   // Details are only provided when explicitly requested
   message Details {
@@ -56,18 +56,18 @@ message RepoInfo {
   Details details = 7;
 }
 
-// RepoAuthInfo includes the caller's access scope for a repo, and is returned
-// by ListRepo and InspectRepo but not persisted in etcd. It's used by the
-// Pachyderm dashboard to render repo access appropriately. To set a user's auth
-// scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)
-message RepoAuthInfo {
-  // The callers access level to the relevant repo. These are very granular
+// AuthInfo includes the caller's access scope for a resource, and is returned
+// by services like ListRepo, InspectRepo, and ListProject, but is not persisted in the database.
+// It's used by the Pachyderm dashboard to render repo access appropriately.
+// To set a user's auth scope for a resource, use the Pachyderm Auth API (in src/auth/auth.proto)
+message AuthInfo {
+  // The callers access level to the relevant resource. These are very granular
   // permissions - for the end user it makes sense to show them the roles
   // they have instead.
   repeated auth_v2.Permission permissions = 1;
 
-  // The caller's roles on the relevant repo. This includes inherited
-  // roles from the cluster, group membership, etc.
+  // The caller's roles on the relevant resource. This includes inherited
+  // roles from the cluster, project, group membership, etc.
   repeated string roles = 2;
 }
 
@@ -114,12 +114,15 @@ message CommitOrigin {
 // protos)
 message Commit {
   option (gogoproto.goproto_stringer) = false;
-  Branch branch = 1;
+  Repo repo = 3;
   string id = 2 [(gogoproto.customname) = "ID"];
+  // only used by the client
+  Branch branch = 1;
 }
 
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
+  reserved 9;
   Commit commit = 1;
   CommitOrigin origin = 2;
   // description is a user-provided script describing this commit
@@ -129,7 +132,7 @@ message CommitInfo {
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finishing = 7;
   google.protobuf.Timestamp finished = 8;
-  repeated Branch direct_provenance = 9;
+  repeated Commit direct_provenance = 13;
   string error = 10;
   int64 size_bytes_upper_bound = 11;
 
@@ -173,6 +176,8 @@ message Project {
 message ProjectInfo {
   Project project = 1;
   string description = 2;
+  AuthInfo auth_info = 3;
+  google.protobuf.Timestamp created_at = 4;
 }
 
 // PFS API

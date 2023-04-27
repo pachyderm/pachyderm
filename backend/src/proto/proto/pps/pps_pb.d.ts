@@ -1012,6 +1012,11 @@ export namespace JobInfo {
         getPodPatch(): string;
         setPodPatch(value: string): Details;
 
+        hasSidecarResourceRequests(): boolean;
+        clearSidecarResourceRequests(): void;
+        getSidecarResourceRequests(): ResourceSpec | undefined;
+        setSidecarResourceRequests(value?: ResourceSpec): Details;
+
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Details.AsObject;
         static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
@@ -1042,6 +1047,7 @@ export namespace JobInfo {
             schedulingSpec?: SchedulingSpec.AsObject,
             podSpec: string,
             podPatch: string,
+            sidecarResourceRequests?: ResourceSpec.AsObject,
         }
     }
 
@@ -1306,6 +1312,11 @@ export namespace PipelineInfo {
         setTolerationsList(value: Array<Toleration>): Details;
         addTolerations(value?: Toleration, index?: number): Toleration;
 
+        hasSidecarResourceRequests(): boolean;
+        clearSidecarResourceRequests(): void;
+        getSidecarResourceRequests(): ResourceSpec | undefined;
+        setSidecarResourceRequests(value?: ResourceSpec): Details;
+
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Details.AsObject;
         static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
@@ -1350,6 +1361,7 @@ export namespace PipelineInfo {
             workerRc: string,
             autoscaling: boolean,
             tolerationsList: Array<Toleration.AsObject>,
+            sidecarResourceRequests?: ResourceSpec.AsObject,
         }
     }
 
@@ -2075,6 +2087,11 @@ export class CreatePipelineRequest extends jspb.Message {
     setTolerationsList(value: Array<Toleration>): CreatePipelineRequest;
     addTolerations(value?: Toleration, index?: number): Toleration;
 
+    hasSidecarResourceRequests(): boolean;
+    clearSidecarResourceRequests(): void;
+    getSidecarResourceRequests(): ResourceSpec | undefined;
+    setSidecarResourceRequests(value?: ResourceSpec): CreatePipelineRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreatePipelineRequest.AsObject;
     static toObject(includeInstance: boolean, msg: CreatePipelineRequest): CreatePipelineRequest.AsObject;
@@ -2116,6 +2133,7 @@ export namespace CreatePipelineRequest {
         reprocessSpec: string,
         autoscaling: boolean,
         tolerationsList: Array<Toleration.AsObject>,
+        sidecarResourceRequests?: ResourceSpec.AsObject,
     }
 }
 
@@ -2663,6 +2681,8 @@ export class LokiRequest extends jspb.Message {
     clearSince(): void;
     getSince(): google_protobuf_duration_pb.Duration | undefined;
     setSince(value?: google_protobuf_duration_pb.Duration): LokiRequest;
+    getQuery(): string;
+    setQuery(value: string): LokiRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): LokiRequest.AsObject;
@@ -2677,6 +2697,7 @@ export class LokiRequest extends jspb.Message {
 export namespace LokiRequest {
     export type AsObject = {
         since?: google_protobuf_duration_pb.Duration.AsObject,
+        query: string,
     }
 }
 

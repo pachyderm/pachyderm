@@ -120,7 +120,7 @@ export {
   WalkFileRequest,
   RenewFileSetRequest,
   Repo,
-  RepoAuthInfo,
+  AuthInfo,
   RepoInfo,
   RunLoadTestRequest,
   RunLoadTestResponse,

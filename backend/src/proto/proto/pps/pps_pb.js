@@ -8391,7 +8391,8 @@ proto.pps_v2.JobInfo.Details.toObject = function(includeInstance, msg) {
     datumTries: jspb.Message.getFieldWithDefault(msg, 15, 0),
     schedulingSpec: (f = msg.getSchedulingSpec()) && proto.pps_v2.SchedulingSpec.toObject(includeInstance, f),
     podSpec: jspb.Message.getFieldWithDefault(msg, 17, ""),
-    podPatch: jspb.Message.getFieldWithDefault(msg, 18, "")
+    podPatch: jspb.Message.getFieldWithDefault(msg, 18, ""),
+    sidecarResourceRequests: (f = msg.getSidecarResourceRequests()) && proto.pps_v2.ResourceSpec.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -8513,6 +8514,11 @@ proto.pps_v2.JobInfo.Details.deserializeBinaryFromReader = function(msg, reader)
     case 18:
       var value = /** @type {string} */ (reader.readString());
       msg.setPodPatch(value);
+      break;
+    case 19:
+      var value = new proto.pps_v2.ResourceSpec;
+      reader.readMessage(value,proto.pps_v2.ResourceSpec.deserializeBinaryFromReader);
+      msg.setSidecarResourceRequests(value);
       break;
     default:
       reader.skipField();
@@ -8681,6 +8687,14 @@ proto.pps_v2.JobInfo.Details.serializeBinaryToWriter = function(message, writer)
     writer.writeString(
       18,
       f
+    );
+  }
+  f = message.getSidecarResourceRequests();
+  if (f != null) {
+    writer.writeMessage(
+      19,
+      f,
+      proto.pps_v2.ResourceSpec.serializeBinaryToWriter
     );
   }
 };
@@ -9274,6 +9288,43 @@ proto.pps_v2.JobInfo.Details.prototype.getPodPatch = function() {
  */
 proto.pps_v2.JobInfo.Details.prototype.setPodPatch = function(value) {
   return jspb.Message.setProto3StringField(this, 18, value);
+};
+
+
+/**
+ * optional ResourceSpec sidecar_resource_requests = 19;
+ * @return {?proto.pps_v2.ResourceSpec}
+ */
+proto.pps_v2.JobInfo.Details.prototype.getSidecarResourceRequests = function() {
+  return /** @type{?proto.pps_v2.ResourceSpec} */ (
+    jspb.Message.getWrapperField(this, proto.pps_v2.ResourceSpec, 19));
+};
+
+
+/**
+ * @param {?proto.pps_v2.ResourceSpec|undefined} value
+ * @return {!proto.pps_v2.JobInfo.Details} returns this
+*/
+proto.pps_v2.JobInfo.Details.prototype.setSidecarResourceRequests = function(value) {
+  return jspb.Message.setWrapperField(this, 19, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps_v2.JobInfo.Details} returns this
+ */
+proto.pps_v2.JobInfo.Details.prototype.clearSidecarResourceRequests = function() {
+  return this.setSidecarResourceRequests(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps_v2.JobInfo.Details.prototype.hasSidecarResourceRequests = function() {
+  return jspb.Message.getField(this, 19) != null;
 };
 
 
@@ -10629,7 +10680,8 @@ proto.pps_v2.PipelineInfo.Details.toObject = function(includeInstance, msg) {
     workerRc: jspb.Message.getFieldWithDefault(msg, 32, ""),
     autoscaling: jspb.Message.getBooleanFieldWithDefault(msg, 33, false),
     tolerationsList: jspb.Message.toObjectList(msg.getTolerationsList(),
-    proto.pps_v2.Toleration.toObject, includeInstance)
+    proto.pps_v2.Toleration.toObject, includeInstance),
+    sidecarResourceRequests: (f = msg.getSidecarResourceRequests()) && proto.pps_v2.ResourceSpec.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -10810,6 +10862,11 @@ proto.pps_v2.PipelineInfo.Details.deserializeBinaryFromReader = function(msg, re
       var value = new proto.pps_v2.Toleration;
       reader.readMessage(value,proto.pps_v2.Toleration.deserializeBinaryFromReader);
       msg.addTolerations(value);
+      break;
+    case 35:
+      var value = new proto.pps_v2.ResourceSpec;
+      reader.readMessage(value,proto.pps_v2.ResourceSpec.deserializeBinaryFromReader);
+      msg.setSidecarResourceRequests(value);
       break;
     default:
       reader.skipField();
@@ -11079,6 +11136,14 @@ proto.pps_v2.PipelineInfo.Details.serializeBinaryToWriter = function(message, wr
       34,
       f,
       proto.pps_v2.Toleration.serializeBinaryToWriter
+    );
+  }
+  f = message.getSidecarResourceRequests();
+  if (f != null) {
+    writer.writeMessage(
+      35,
+      f,
+      proto.pps_v2.ResourceSpec.serializeBinaryToWriter
     );
   }
 };
@@ -11981,6 +12046,43 @@ proto.pps_v2.PipelineInfo.Details.prototype.addTolerations = function(opt_value,
  */
 proto.pps_v2.PipelineInfo.Details.prototype.clearTolerationsList = function() {
   return this.setTolerationsList([]);
+};
+
+
+/**
+ * optional ResourceSpec sidecar_resource_requests = 35;
+ * @return {?proto.pps_v2.ResourceSpec}
+ */
+proto.pps_v2.PipelineInfo.Details.prototype.getSidecarResourceRequests = function() {
+  return /** @type{?proto.pps_v2.ResourceSpec} */ (
+    jspb.Message.getWrapperField(this, proto.pps_v2.ResourceSpec, 35));
+};
+
+
+/**
+ * @param {?proto.pps_v2.ResourceSpec|undefined} value
+ * @return {!proto.pps_v2.PipelineInfo.Details} returns this
+*/
+proto.pps_v2.PipelineInfo.Details.prototype.setSidecarResourceRequests = function(value) {
+  return jspb.Message.setWrapperField(this, 35, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps_v2.PipelineInfo.Details} returns this
+ */
+proto.pps_v2.PipelineInfo.Details.prototype.clearSidecarResourceRequests = function() {
+  return this.setSidecarResourceRequests(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps_v2.PipelineInfo.Details.prototype.hasSidecarResourceRequests = function() {
+  return jspb.Message.getField(this, 35) != null;
 };
 
 
@@ -16883,7 +16985,8 @@ proto.pps_v2.CreatePipelineRequest.toObject = function(includeInstance, msg) {
     reprocessSpec: jspb.Message.getFieldWithDefault(msg, 29, ""),
     autoscaling: jspb.Message.getBooleanFieldWithDefault(msg, 30, false),
     tolerationsList: jspb.Message.toObjectList(msg.getTolerationsList(),
-    proto.pps_v2.Toleration.toObject, includeInstance)
+    proto.pps_v2.Toleration.toObject, includeInstance),
+    sidecarResourceRequests: (f = msg.getSidecarResourceRequests()) && proto.pps_v2.ResourceSpec.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -17053,6 +17156,11 @@ proto.pps_v2.CreatePipelineRequest.deserializeBinaryFromReader = function(msg, r
       var value = new proto.pps_v2.Toleration;
       reader.readMessage(value,proto.pps_v2.Toleration.deserializeBinaryFromReader);
       msg.addTolerations(value);
+      break;
+    case 35:
+      var value = new proto.pps_v2.ResourceSpec;
+      reader.readMessage(value,proto.pps_v2.ResourceSpec.deserializeBinaryFromReader);
+      msg.setSidecarResourceRequests(value);
       break;
     default:
       reader.skipField();
@@ -17302,6 +17410,14 @@ proto.pps_v2.CreatePipelineRequest.serializeBinaryToWriter = function(message, w
       34,
       f,
       proto.pps_v2.Toleration.serializeBinaryToWriter
+    );
+  }
+  f = message.getSidecarResourceRequests();
+  if (f != null) {
+    writer.writeMessage(
+      35,
+      f,
+      proto.pps_v2.ResourceSpec.serializeBinaryToWriter
     );
   }
 };
@@ -18169,6 +18285,43 @@ proto.pps_v2.CreatePipelineRequest.prototype.addTolerations = function(opt_value
  */
 proto.pps_v2.CreatePipelineRequest.prototype.clearTolerationsList = function() {
   return this.setTolerationsList([]);
+};
+
+
+/**
+ * optional ResourceSpec sidecar_resource_requests = 35;
+ * @return {?proto.pps_v2.ResourceSpec}
+ */
+proto.pps_v2.CreatePipelineRequest.prototype.getSidecarResourceRequests = function() {
+  return /** @type{?proto.pps_v2.ResourceSpec} */ (
+    jspb.Message.getWrapperField(this, proto.pps_v2.ResourceSpec, 35));
+};
+
+
+/**
+ * @param {?proto.pps_v2.ResourceSpec|undefined} value
+ * @return {!proto.pps_v2.CreatePipelineRequest} returns this
+*/
+proto.pps_v2.CreatePipelineRequest.prototype.setSidecarResourceRequests = function(value) {
+  return jspb.Message.setWrapperField(this, 35, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps_v2.CreatePipelineRequest} returns this
+ */
+proto.pps_v2.CreatePipelineRequest.prototype.clearSidecarResourceRequests = function() {
+  return this.setSidecarResourceRequests(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps_v2.CreatePipelineRequest.prototype.hasSidecarResourceRequests = function() {
+  return jspb.Message.getField(this, 35) != null;
 };
 
 
@@ -22055,7 +22208,8 @@ proto.pps_v2.LokiRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pps_v2.LokiRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    since: (f = msg.getSince()) && google_protobuf_duration_pb.Duration.toObject(includeInstance, f)
+    since: (f = msg.getSince()) && google_protobuf_duration_pb.Duration.toObject(includeInstance, f),
+    query: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -22097,6 +22251,10 @@ proto.pps_v2.LokiRequest.deserializeBinaryFromReader = function(msg, reader) {
       reader.readMessage(value,google_protobuf_duration_pb.Duration.deserializeBinaryFromReader);
       msg.setSince(value);
       break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setQuery(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -22132,6 +22290,13 @@ proto.pps_v2.LokiRequest.serializeBinaryToWriter = function(message, writer) {
       1,
       f,
       google_protobuf_duration_pb.Duration.serializeBinaryToWriter
+    );
+  }
+  f = message.getQuery();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
     );
   }
 };
@@ -22171,6 +22336,24 @@ proto.pps_v2.LokiRequest.prototype.clearSince = function() {
  */
 proto.pps_v2.LokiRequest.prototype.hasSince = function() {
   return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional string query = 2;
+ * @return {string}
+ */
+proto.pps_v2.LokiRequest.prototype.getQuery = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pps_v2.LokiRequest} returns this
+ */
+proto.pps_v2.LokiRequest.prototype.setQuery = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
 };
 
 

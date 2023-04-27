@@ -47,6 +47,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     renderTemplate: IAPIService_IRenderTemplate;
     listTask: IAPIService_IListTask;
     getKubeEvents: IAPIService_IGetKubeEvents;
+    queryLoki: IAPIService_IQueryLoki;
 }
 
 interface IAPIService_IInspectJob extends grpc.MethodDefinition<pps_pps_pb.InspectJobRequest, pps_pps_pb.JobInfo> {
@@ -337,6 +338,15 @@ interface IAPIService_IGetKubeEvents extends grpc.MethodDefinition<pps_pps_pb.Lo
     responseSerialize: grpc.serialize<pps_pps_pb.LokiLogMessage>;
     responseDeserialize: grpc.deserialize<pps_pps_pb.LokiLogMessage>;
 }
+interface IAPIService_IQueryLoki extends grpc.MethodDefinition<pps_pps_pb.LokiRequest, pps_pps_pb.LokiLogMessage> {
+    path: "/pps_v2.API/QueryLoki";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pps_pps_pb.LokiRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.LokiRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.LokiLogMessage>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.LokiLogMessage>;
+}
 
 export const APIService: IAPIService;
 
@@ -373,6 +383,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     renderTemplate: grpc.handleUnaryCall<pps_pps_pb.RenderTemplateRequest, pps_pps_pb.RenderTemplateResponse>;
     listTask: grpc.handleServerStreamingCall<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo>;
     getKubeEvents: grpc.handleServerStreamingCall<pps_pps_pb.LokiRequest, pps_pps_pb.LokiLogMessage>;
+    queryLoki: grpc.handleServerStreamingCall<pps_pps_pb.LokiRequest, pps_pps_pb.LokiLogMessage>;
 }
 
 export interface IAPIClient {
@@ -463,6 +474,8 @@ export interface IAPIClient {
     listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     getKubeEvents(request: pps_pps_pb.LokiRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
     getKubeEvents(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
+    queryLoki(request: pps_pps_pb.LokiRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
+    queryLoki(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -554,4 +567,6 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     public getKubeEvents(request: pps_pps_pb.LokiRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
     public getKubeEvents(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
+    public queryLoki(request: pps_pps_pb.LokiRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
+    public queryLoki(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
 }
