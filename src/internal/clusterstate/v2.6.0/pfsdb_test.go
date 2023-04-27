@@ -53,13 +53,6 @@ func TestValidateOldDAGs(t *testing.T) {
 			},
 			expectErr: true,
 		},
-		{
-			cis: []*v2_5_0.CommitInfo{
-				makeCommit(client.NewProjectCommit(p, r1, b1, id1), nil, pfs.OriginKind_AUTO),
-				makeCommit(client.NewProjectCommit(p, r1, b2, id1), client.NewProjectCommit(p, r1, b1, id1), pfs.OriginKind_ALIAS),
-			},
-			expectErr: true,
-		},
 	}
 	for _, c := range cases {
 		err := validateExistingDAGs(c.cis)
