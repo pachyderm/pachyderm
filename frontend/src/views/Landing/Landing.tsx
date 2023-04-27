@@ -1,9 +1,11 @@
 import React from 'react';
+import Favicon from 'react-favicon';
 
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
+import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import {Group, DefaultDropdown, useModal} from '@pachyderm/components';
 
 import CreateProjectModal from './components/CreateProjectModal';
@@ -30,6 +32,7 @@ const Landing: React.FC = () => {
     setSelectedProject,
     sortDropdown,
   } = useLandingView();
+  const {loading: loadingEnterprise, enterpriseActive} = useEnterpriseActive();
   const {openModal, closeModal, isOpen} = useModal(false);
 
   if (loading) return <LandingSkeleton />;
@@ -37,6 +40,12 @@ const Landing: React.FC = () => {
   return (
     <>
       <BrandedTitle title="Projects" />
+      {/* Safari will not progamatically update its icon. So we serve HPE
+      favicon from index.html and set the pachyderm icon when we know we
+      are not in enterprise. */}
+      {!loadingEnterprise && !enterpriseActive && (
+        <Favicon url="/img/pachyderm.ico" />
+      )}
       <LandingHeader projects={projects} />
       {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       <div className={styles.base}>

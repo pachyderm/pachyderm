@@ -1,7 +1,9 @@
 import React from 'react';
+import Favicon from 'react-favicon';
 import {Route, Redirect} from 'react-router';
 
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
+import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {projectReposRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -39,11 +41,16 @@ import {
 import styles from './Project.module.css';
 
 const Project: React.FC = () => {
+  const {loading, enterpriseActive} = useEnterpriseActive();
   const {projectId} = useUrlState();
 
   return (
     <>
       <BrandedTitle title="Project" />
+      {/* Safari will not progamatically update its icon. So we serve HPE
+      favicon from index.html and set the pachyderm icon when we know we
+      are not in enterprise. */}
+      {!loading && !enterpriseActive && <Favicon url="/img/pachyderm.ico" />}
       <ProjectHeader />
       <div className={styles.view}>
         <ProjectSideNav />
