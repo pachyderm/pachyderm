@@ -2934,8 +2934,6 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if !request.KeepRepo {
 		// delete the pipeline's output repo
 		deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, pipelineName))
-		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType))
-		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType))
 	} else {
 		// Remove branch provenance from output and then delete meta and spec repos
 		// this leaves the repo as a source repo, eliminating pipeline metadata
@@ -2947,8 +2945,16 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 				return nil, errors.EnsureStack(err)
 			}
 		}
+	}
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType)}); err == nil {
 		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType))
+	} else if !errutil.IsNotFoundError(err) {
+		return nil, errors.Wrapf(err, "inspect spec repo for pipeline %q", pipelineName)
+	}
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType)}); err == nil {
 		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType))
+	} else if !errutil.IsNotFoundError(err) {
+		return nil, errors.Wrapf(err, "inspect meta repo for pipeline %q", pipelineName)
 	}
 	// delete cron after main repo is deleted or has provenance removed
 	// cron repos are only used to trigger jobs, so don't keep them even with KeepRepo
