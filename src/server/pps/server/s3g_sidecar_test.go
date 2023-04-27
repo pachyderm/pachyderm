@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -575,6 +576,10 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
 		pipeline := tu.UniqueString("Pipeline")
+		// 'pipeline' needs access to the background repo to run successfully
+		require.NoError(t, c.ModifyProjectRepoRoleBinding(projectName, background,
+			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
+
 		pipelineCommit := client.NewProjectCommit(projectName, pipeline, "master", "")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 			Pipeline: client.NewProjectPipeline(projectName, pipeline),
@@ -590,6 +595,11 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 						// line in the pod's /etc/resolv.conf.
 						"aws --endpoint=http://pachd:%d s3 cp s3://master.%s.%s/round /tmp/bg",
 						s3gPort, background, projectName,
+					),
+
+					fmt.Sprintf(
+						"echo \"AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} aws --endpoint=X s3 cp s3://master.%s.%s/round -\"",
+						background, projectName,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
@@ -745,6 +755,10 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, c.CreateProjectRepo(projectName, background))
 
 		pipeline := tu.UniqueString("Pipeline")
+		// 'pipeline' needs access to the background repo to run successfully
+		require.NoError(t, c.ModifyProjectRepoRoleBinding(projectName, background,
+			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
+
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 			Pipeline: client.NewProjectPipeline(projectName, pipeline),
 			Transform: &pps.Transform{
