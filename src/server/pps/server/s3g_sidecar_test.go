@@ -576,7 +576,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
 		pipeline := tu.UniqueString("Pipeline")
-		// 'pipeline' needs access to the background repo to run successfully
+		// 'pipeline' needs access to the 'background' repo to run successfully
 		require.NoError(t, c.ModifyProjectRepoRoleBinding(projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
 
@@ -590,16 +590,11 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs). Note: This is accessing pachd via its
-						// internal kubernetes service; kubedns automatically resolves
-						// 'pachd' as 'pachd.$namespace.svc.cluster.local' via a 'search'
-						// line in the pod's /etc/resolv.conf.
+						// internal kubernetes service (kubedns automatically resolves
+						// 'pachd' as 'pachd.$namespace.svc.cluster.local' via a generated
+						// 'search' line in the pod's /etc/resolv.conf).
 						"aws --endpoint=http://pachd:%d s3 cp s3://master.%s.%s/round /tmp/bg",
 						s3gPort, background, projectName,
-					),
-
-					fmt.Sprintf(
-						"echo \"AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} aws --endpoint=X s3 cp s3://master.%s.%s/round -\"",
-						background, projectName,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
@@ -717,7 +712,8 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		}
 
 		// One per file in 'pfsin' (the background repo was set to '10', but no
-		// corresponding file was added to pfsin, so there are only 9 files there)
+		// corresponding file was added to pfsin, so only files for 0-9 are in
+		// there)
 		var seen [10]bool
 		// check output
 		var buf bytes.Buffer
@@ -755,7 +751,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, c.CreateProjectRepo(projectName, background))
 
 		pipeline := tu.UniqueString("Pipeline")
-		// 'pipeline' needs access to the background repo to run successfully
+		// 'pipeline' needs access to the 'background' repo to run successfully
 		require.NoError(t, c.ModifyProjectRepoRoleBinding(projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
 
@@ -767,10 +763,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 				Stdin: []string{
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
-						// can only access inputs). Note: This is accessing pachd via its
-						// internal kubernetes service; kubedns automatically resolves
-						// 'pachd' as 'pachd.$namespace.svc.cluster.local' via a 'search'
-						// line in the pod's /etc/resolv.conf.
+						// can only access inputs), as above.
 						"aws --endpoint=http://pachd:%d s3 cp s3://master.%s.%s/round /tmp/bg",
 						s3gPort, background, projectName,
 					),
