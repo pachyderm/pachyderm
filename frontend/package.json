@@ -109,7 +109,7 @@
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
     "es6-promise": "4.2.8",
-    "eslint": "^8.24.0",
+    "eslint": "^8.39.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-react": "^1.1.7",
     "eslint-config-react-app": "^7.0.0",
