@@ -82,13 +82,19 @@ jobs:
           command: |-
             GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
+            --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
-            --packages="./..." \
+            --debug \
             -- \
+            go test ./... -json \
             -tags=unit_test \
             -count=1 \
-            -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
@@ -123,7 +129,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - run: go install gotest.tools/gotestsum@latest
       - restore_cache:
           keys:
@@ -190,22 +201,30 @@ jobs:
 
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+              --raw-command \
               --rerun-fails \
               --format testname \
-              --packages="${package}" \
+              --debug \
               -- \
+              go test "${package}" -json \
               -run ${test_regex} \
               -tags="${test_tags}" \
               -count=1 \
-              -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+              -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   integration-tests:
     parameters:
       bucket:
@@ -216,6 +235,7 @@ jobs:
     environment:
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       - run:
@@ -230,7 +250,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -242,6 +267,7 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -290,6 +316,10 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
+      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
@@ -297,6 +327,8 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   helm-tests:
     executor: docker-go
     working_directory: ~/project/etc/helm
@@ -456,6 +488,8 @@ jobs:
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       - go/install:
@@ -475,14 +509,24 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run: mkdir ${TEST_RESULTS}
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: raw-test-output
+      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   deploy-tests:
     parameters:
       resource_class:
@@ -495,6 +539,8 @@ jobs:
     parallelism: 4
     machine:
       image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       # go/install doesn't support arm64 yet
@@ -513,7 +559,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -522,6 +573,7 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -556,8 +608,16 @@ jobs:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
       - store_test_results:
           path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build-docker-images:
@@ -565,6 +625,9 @@ jobs:
       appVersion:
         type: string
         default: "0.0.0"
+      enableCoverage:
+        type: boolean
+        default: false
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
@@ -588,10 +651,21 @@ jobs:
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
-            make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            if << parameters.enableCoverage >>
+            then
+              make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            else
+              make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            fi
       - run:
           name: Push docker
-          command: make docker-push VERSION=${CIRCLE_SHA1}
+          command: |-
+            if << parameters.enableCoverage >>
+            then
+              make docker-push VERSION=cover-${CIRCLE_SHA1}
+            else
+              make docker-push VERSION=${CIRCLE_SHA1}
+            fi
   build-pachctl-bin:
     parameters:
       version:
@@ -1297,6 +1371,8 @@ workflows:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
+      - build-docker-images:
+          enableCoverage: true
       #- build-pachctl-bin:
       #    version: $CIRCLE_SHA1
       #    upload: true
