@@ -1732,8 +1732,8 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 
 // for a DAG to be valid, it may not have a multiple branches from the same repo
 // reachable by traveling edges bidirectionally. The reason is that this would complicate resolving
-func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi *pfs.BranchInfo) error {
-	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(bi.Branch): bi}
+func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bs []*pfs.Branch) error {
+	branchInfoCache := make(map[string]*pfs.BranchInfo)
 	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
 		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
 			return bi, nil
@@ -1745,15 +1745,20 @@ func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi 
 		branchInfoCache[pfsdb.BranchKey(b)] = bi
 		return bi, nil
 	}
+	for _, b := range bs {
+		if _, err := getBranchInfo(b); err != nil {
+			return errors.Wrapf(err, "loading branch info for %q during validation", b.String())
+		}
+	}
 	expanded := make(map[string]struct{}) // expanded branches
 	for {
 		hasExpanded := false
 		for _, bi := range branchInfoCache {
-			if _, ok := expanded[bi.Branch.String()]; ok {
+			if _, ok := expanded[pfsdb.BranchKey(bi.Branch)]; ok {
 				continue
 			}
 			hasExpanded = true
-			expanded[bi.Branch.String()] = struct{}{}
+			expanded[pfsdb.BranchKey(bi.Branch)] = struct{}{}
 			for _, b := range bi.Provenance {
 				if _, err := getBranchInfo(b); err != nil {
 					return err
@@ -1884,10 +1889,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// load all branches in the complete closure once and saves all of them.
 	if err := d.computeBranchProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
-	}
-	// validate the DAG now that it's updated
-	if err := d.validateDAGStructure(txnCtx, branchInfo); err != nil {
-		return errors.Wrapf(err, "validate DAG with branch %q", branchInfo.Branch.String())
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
