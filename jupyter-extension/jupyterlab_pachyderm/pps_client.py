@@ -237,7 +237,7 @@ def upload_environment(
         from pathlib import Path
         from subprocess import run
 
-        reqs = Path("requirements.txt")
+        reqs = Path(__file__).parent.joinpath("requirements.txt")
         if reqs.exists():
             run(["pip", "--disable-pip-version-check", "install", "-r", reqs.as_posix()])
 
