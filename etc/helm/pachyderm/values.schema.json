@@ -841,6 +841,15 @@
                 "defaultPipelineStorageRequest": {
                     "type": "string"
                 },
+                "defaultSidecarCPURequest": {
+                    "type": "string"
+                },
+                "defaultSidecarMemoryRequest": {
+                    "type": "string"
+                },
+                "defaultSidecarStorageRequest": {
+                    "type": "string"
+                },
                 "image": {
                     "type": "object",
                     "properties": {

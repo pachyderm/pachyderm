@@ -6,4 +6,4 @@
 
 | cloud | instance count |
 |-- | --|
-| `aws` | 3 |
+| `aws` | 4 |

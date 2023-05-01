@@ -33,7 +33,7 @@ then
     if [ "${#test_names}" -gt 0 ]
     then
         test_names="${test_names::-1}" # trim last |
-        go test -v  -run "$test_names" -failfast -timeout 3600s ./src/testing/deploy  -tags=k8s | stdbuf -i0 tee -a /tmp/results
+        go test -v  -run "$test_names" -failfast -timeout 3600s ./src/testing/deploy  -tags=k8s -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./... | stdbuf -i0 tee -a /tmp/results
     fi
 else
     go test -v -failfast -timeout 3600s ./src/testing/deploy -tags=k8s | stdbuf -i0 tee -a /tmp/results

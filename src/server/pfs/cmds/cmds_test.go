@@ -246,7 +246,7 @@ func TestDiffFile(t *testing.T) {
                 echo "foo" | pachctl put file {{.repo}}@master:/data --project {{.otherProject}}
 
                 pachctl diff file {{.repo}}@master:/data {{.repo}}@master:/data --project {{.project}} \
-			--old-project {{.otherProject}} | match -- '-foo'                
+			--old-project {{.otherProject}} | match -- '-foo'
                 `,
 		"repo", tu.UniqueString("TestDiffFile-repo"),
 		"project", tu.UniqueString("TestDiffFile-project"),
@@ -361,9 +361,9 @@ func TestProject(t *testing.T) {
 	// c := env.PachClient
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
-                pachctl create project foo 
-                pachctl list project | match "foo     -"
+                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
+                pachctl create project foo
+                pachctl list project | match "foo     ([^-]+ ago) -"
 		`,
 	).Run())
 	require.YesError(t, tu.PachctlBashCmd(t, c, `
@@ -381,7 +381,7 @@ func TestProject(t *testing.T) {
                 `,
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
                 pachctl create project foo
                 `,
 	).Run())
@@ -539,10 +539,10 @@ func TestCopyFile(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
 		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file2
 		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file3
-	
+
 		pachctl copy file --dest-project {{.project}} {{.srcRepo}}@master:/file2 {{.destRepo}}@master:/file2
 		pachctl get file --project {{.project}} {{.destRepo}}@master:/file2 | match "Lorem ipsum"
-	
+
 		pachctl copy file --src-project default --dest-project {{.project}} {{.srcRepo}}@master:/file3 {{.destRepo}}@master:/file3
 		pachctl get file --project {{.project}} {{.destRepo}}@master:/file3 | match "Lorem ipsum"
 	`,

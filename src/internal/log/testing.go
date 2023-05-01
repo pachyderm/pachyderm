@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -196,7 +197,7 @@ func (h *history) Logs() []*msg {
 }
 
 // HasALog asserts that the logger logged a log.
-func (h *history) HasALog(t *testing.T) {
+func (h *history) HasALog(t testing.TB) {
 	t.Helper()
 	if got := len(h.Logs()); got < 1 {
 		t.Errorf("number of logs:\n  got: %v\n want: %v", got, ">0")
@@ -264,4 +265,24 @@ func newTestLogger(t testing.TB, sample bool, opts ...zap.Option) (*zap.Logger, 
 	)
 	l := makeLogger(zapcore.NewJSONEncoder(pachdEncoder), h, zapcore.DebugLevel, sample, opts)
 	return l, h
+}
+
+type byteCounter struct {
+	c atomic.Int64
+}
+
+func (c *byteCounter) Write(p []byte) (int, error) {
+	c.c.Add(int64(len(p)))
+	return len(p), nil
+}
+
+func (c *byteCounter) Sync() error { return nil }
+
+// NewBenchLogger returns a logger suitable for benchmarks and an *atomic.Int64 containing the
+// number of bytes written to the logger.
+func NewBenchLogger(sample bool) (context.Context, *atomic.Int64) {
+	enc := zapcore.NewJSONEncoder(pachdEncoder)
+	w := new(byteCounter)
+	l := makeLogger(enc, zapcore.Lock(w), zapcore.DebugLevel, sample, []zap.Option{zap.AddCaller()})
+	return withLogger(context.Background(), l), &w.c
 }

@@ -1,4 +1,14 @@
 config:
   aws:region: us-west-2
-  postgresql:host: wp-postgresql
-  eksNodeInstanceType: m5.2xlarge
+  core:desiredClusterSize: 4
+  core:eksNodeInstanceType: m5.8xlarge
+  core:etcdStorageClass: gp3
+  core:maxClusterSize: 5
+  core:minClusterSize: 3
+  core:nodeRootVolumeSize: 2000
+  core:pgBouncerDefaultPoolSize: 100
+  core:pgBouncerMaxConnections: 1500
+  core:rdsAllocatedStorage: 1000
+  core:rdsDiskIOPs: 15000
+  core:rdsDiskType: io1
+  core:rdsInstanceClass: db.m6g.4xlarge

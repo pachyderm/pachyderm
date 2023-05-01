@@ -8,13 +8,61 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"golang.org/x/sync/errgroup"
 )
+
+func TestIsCompacted(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	s := newTestStorage(ctx, t, WithShardSizeThreshold(units.KB))
+	prim1 := &Primitive{
+		Additive: &index.Index{
+			NumFiles:  1,
+			SizeBytes: 1 * units.KB,
+		},
+	}
+	prim2 := &Primitive{
+		Additive: &index.Index{
+			NumFiles:  10,
+			SizeBytes: 10 * units.KB,
+		},
+	}
+	prim3 := &Primitive{
+		Additive: &index.Index{
+			NumFiles:  1000,
+			SizeBytes: 1000 * units.KB,
+		},
+	}
+	id1, err := s.newPrimitive(ctx, prim1, track.NoTTL)
+	require.NoError(t, err)
+	id2, err := s.newPrimitive(ctx, prim2, track.NoTTL)
+	require.NoError(t, err)
+	id3, err := s.newPrimitive(ctx, prim3, track.NoTTL)
+	require.NoError(t, err)
+	// Basic failure case
+	id, err := s.Compose(ctx, []ID{*id1, *id2}, track.NoTTL)
+	require.NoError(t, err)
+	isCompacted, err := s.IsCompacted(ctx, *id)
+	require.NoError(t, err)
+	require.False(t, isCompacted)
+	// Basic success case
+	id, err = s.Compose(ctx, []ID{*id2, *id1}, track.NoTTL)
+	require.NoError(t, err)
+	isCompacted, err = s.IsCompacted(ctx, *id)
+	require.NoError(t, err)
+	require.True(t, isCompacted)
+	// Success case with composites
+	complexId, err := s.Compose(ctx, []ID{*id3, *id}, track.NoTTL)
+	require.NoError(t, err)
+	isCompacted, err = s.IsCompacted(ctx, *complexId)
+	require.NoError(t, err)
+	require.True(t, isCompacted)
+}
 
 func TestCompactLevelBasedFuzz(t *testing.T) {
 	ctx := pctx.TestContext(t)

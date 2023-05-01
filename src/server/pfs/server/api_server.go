@@ -117,7 +117,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	request.Repo.EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreateRepo(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -134,16 +134,16 @@ func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionConte
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	request.Repo.EnsureProject()
 	var repoInfo *pfs.RepoInfo
-	err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	var size int64
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		repoInfo, err = a.InspectRepoInTransaction(txnCtx, request)
+		if err != nil {
+			return err
+		}
+		size, err = a.driver.repoSize(txnCtx, repoInfo.Repo)
 		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	size, err := a.driver.repoSize(ctx, repoInfo.Repo)
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	if repoInfo.Details == nil {
@@ -164,6 +164,23 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
 }
 
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) DeleteReposInTransaction(txnCtx *txncontext.TransactionContext, repos []*pfs.Repo, force bool) error {
+	var ris []*pfs.RepoInfo
+	for _, r := range repos {
+		ri, err := a.driver.inspectRepo(txnCtx, r, false) // evaluate auth in d.deleteReposHelper()
+		if err != nil {
+			return errors.Wrap(err, "list repos for delete")
+		}
+		ris = append(ris, ri)
+	}
+	if _, err := a.driver.deleteReposHelper(txnCtx, ris, force); err != nil {
+		return err
+	}
+	return nil
+}
+
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	request.GetRepo().EnsureProject()
@@ -172,7 +189,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -183,9 +200,9 @@ func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposReq
 	var repos []*pfs.Repo
 	switch {
 	case request.All:
-		repos, err = a.driver.deleteAllRepos(ctx)
+		repos, err = a.driver.deleteRepos(ctx, nil)
 	case len(request.Projects) > 0:
-		repos, err = a.driver.deleteProjectsRepos(ctx, request.Projects)
+		repos, err = a.driver.deleteRepos(ctx, request.Projects)
 	}
 	if err != nil {
 		return nil, err
@@ -204,13 +221,12 @@ func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionConte
 // StartCommit implements the protobuf pfs.StartCommit RPC
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	var err error
-	request.GetParent().GetBranch().GetRepo().EnsureProject()
 	request.GetBranch().GetRepo().EnsureProject()
 	commit := &pfs.Commit{}
 	if err = a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		commit, err = txn.StartCommit(request)
 		return errors.EnsureStack(err)
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return commit, nil
@@ -226,10 +242,9 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 
 // FinishCommit implements the protobuf pfs.FinishCommit RPC
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.FinishCommit(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -244,15 +259,12 @@ func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionCon
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
 	return a.driver.inspectCommit(ctx, request.Commit, request.Wait)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
 func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
 	request.GetRepo().EnsureProject()
-	request.GetFrom().GetBranch().GetRepo().EnsureProject()
-	request.GetTo().GetBranch().GetRepo().EnsureProject()
 	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.StartedTime, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		return errors.EnsureStack(respServer.Send(ci))
 	})
@@ -261,13 +273,23 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 // InspectCommitSetInTransaction performs the same job as InspectCommitSet
 // without the option of blocking for commits to finish so that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectCommitSetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
-	return a.driver.inspectCommitSetImmediate(txnCtx, commitset)
+func (a *apiServer) InspectCommitSetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
+	return a.driver.inspectCommitSetImmediateTx(txnCtx, commitset, includeAliases)
 }
 
 // InspectCommitSet implements the protobuf pfs.InspectCommitSet RPC
 func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, server pfs.API_InspectCommitSetServer) (retErr error) {
-	return a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, server.Send)
+	var count int
+	if err := a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, func(ci *pfs.CommitInfo) error {
+		count++
+		return server.Send(ci)
+	}); err != nil {
+		return err
+	}
+	if count == 0 {
+		return pfsserver.ErrCommitSetNotFound{CommitSet: request.CommitSet}
+	}
+	return nil
 }
 
 // ListCommitSet implements the protobuf pfs.ListCommitSet RPC
@@ -290,7 +312,7 @@ func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionC
 func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (response *types.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.SquashCommitSet(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -309,19 +331,25 @@ func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSe
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	request.GetRepo().EnsureProject()
-	request.GetFrom().GetBranch().GetRepo().EnsureProject()
 	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, request.All, request.OriginKind, stream.Send)
 }
 
 // ClearCommit deletes all data in the commit.
 func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitRequest) (_ *types.Empty, retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
 	return &types.Empty{}, a.driver.clearCommit(ctx, request.Commit)
 }
 
 // FindCommits searches for commits that reference a supplied file being modified in a branch.
 func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_FindCommitsServer) error {
-	return a.driver.findCommits(srv.Context(), request, srv.Send)
+	var cancel context.CancelFunc
+	ctx := srv.Context()
+	deadline, ok := srv.Context().Deadline()
+	if ok {
+		// new context's deadline is shorter to give time to return last searched commit.
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(float64(time.Until(deadline))*0.85))
+		defer cancel()
+	}
+	return a.driver.findCommits(ctx, request, srv.Send)
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
@@ -332,32 +360,12 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
-	request.GetHead().GetBranch().GetRepo().EnsureProject()
 	request.GetBranch().GetRepo().EnsureProject()
 	for _, b := range request.Provenance {
 		b.GetRepo().EnsureProject()
 	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreateBranch(request))
-	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
-		if request.Head == nil || request.NewCommitSet {
-			return "", nil
-		}
-		// CreateBranch in a transaction by itself has special handling with regards
-		// to its CommitSet ID.  In order to better support a 'deferred processing'
-		// workflow with global IDs, it is useful for moving a branch head to be
-		// done in the same CommitSet as the parent commit of the new branch head -
-		// this is similar to how we handle triggers when finishing a commit.
-		// Therefore we override the CommitSet ID being used by this operation, and
-		// propagateBranches will update the existing CommitSet structure.  As an
-		// escape hatch in case of an unexpected workload, this behavior can be
-		// overridden by setting NewCommitSet=true in the request.
-		// if request.Head != nil && !request.NewCommitSet {
-		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
-		if err != nil {
-			return "", err
-		}
-		return commitInfo.Commit.ID, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -405,7 +413,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	request.GetBranch().GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteBranch(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -432,7 +440,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.deleteProject(ctx, txnCtx, request.Project, request.Force)
+		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
 	}); err != nil {
 		return nil, err
 	}
@@ -526,7 +534,6 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().Repo.EnsureProject()
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		if request.URL != "" {
@@ -550,7 +557,6 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 
 // GetFile implements the protobuf pfs.GetFile RPC
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		if request.URL != "" {
@@ -613,12 +619,12 @@ func getFileTar(ctx context.Context, w io.Writer, src Source) error {
 // InspectFile implements the protobuf pfs.InspectFile RPC
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
+	request.GetFile().GetCommit().GetRepo().EnsureProject()
 	return a.driver.inspectFile(ctx, request.File)
 }
 
 // ListFile implements the protobuf pfs.ListFile RPC
 func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFileServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
 	return a.driver.listFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
@@ -626,7 +632,6 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 
 // WalkFile implements the protobuf pfs.WalkFile RPC
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
 	return a.driver.walkFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
@@ -634,7 +639,6 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileServer) (retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
 	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, request.PathRange, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(respServer.Send(fi))
 	})
@@ -642,8 +646,6 @@ func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_Gl
 
 // DiffFile implements the protobuf pfs.DiffFile RPC
 func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFileServer) (retErr error) {
-	request.GetNewFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetOldFile().GetCommit().GetBranch().GetRepo().EnsureProject()
 	return a.driver.diffFile(server.Context(), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(&pfs.DiffFileResponse{
 			OldFile: oldFi,
@@ -684,7 +686,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 					return err
 				}
 				// we will be reading the whole file system, so unfinished commits would be very slow
-				if info.Error == "" && info.Finished != nil && info.Origin.Kind != pfs.OriginKind_ALIAS {
+				if info.Error == "" && info.Finished != nil {
 					break
 				}
 				output = info.ParentCommit
@@ -713,7 +715,6 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	req.GetCommit().GetBranch().GetRepo().EnsureProject()
 	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
@@ -738,7 +739,6 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 }
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
-	req.GetCommit().GetBranch().GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {
@@ -969,8 +969,8 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	}
 	switch x := msg.Body.(type) {
 	case *pfs.ModifyFileRequest_SetCommit:
-		if projectName := x.SetCommit.Branch.Repo.Project.GetName(); projectName == "" {
-			x.SetCommit.Branch.Repo.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+		if err := checkCommit(x.SetCommit); err != nil {
+			return nil, err
 		}
 		return x.SetCommit, nil
 	default:

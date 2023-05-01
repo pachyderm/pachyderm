@@ -40,10 +40,11 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 			},
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
-					Name:   "inputRepo",
-					Repo:   "inputRepo",
-					Branch: "master",
-					Glob:   "/*",
+					Project: pfs.DefaultProjectName,
+					Name:    "inputRepo",
+					Repo:    "inputRepo",
+					Branch:  "master",
+					Glob:    "/*",
 				},
 			},
 		},
@@ -96,8 +97,8 @@ func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return errors.EnsureStack(td.inner.WithActiveData(inputs, dir, cb))
 }
-func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input) []string {
-	return td.inner.UserCodeEnv(jobID, commit, inputs)
+func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, authToken string) []string {
+	return td.inner.UserCodeEnv(jobID, commit, inputs, authToken)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserCode(ctx, logger, env))

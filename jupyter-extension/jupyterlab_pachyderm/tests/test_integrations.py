@@ -3,23 +3,24 @@ import sys
 import subprocess
 import time
 import json
+from datetime import datetime
 from pathlib import Path
+from random import randint
 
 import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
-from jupyterlab_pachyderm.pps_client import SAME_METADATA_FIELDS
+from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 
+from . import TEST_NOTEBOOK
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
 CONFIG_PATH = "~/.pachyderm/config.json"
 ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
-
-TEST_NOTEBOOK = Path(__file__).parent.joinpath('data/TestNotebook.ipynb')
 
 
 @pytest.fixture()
@@ -383,45 +384,71 @@ def test_config(dev_server):
     assert r.json()["cluster_status"] != "INVALID"
 
 
-@pytest.fixture
-def simple_pachyderm_env():
+@pytest.fixture(params=[True, False])
+def simple_pachyderm_env(request):
     from python_pachyderm import Client
     client = Client()
 
-    repo_name = f"images_194837"
-    pipeline_name = f"test_pipeline_194837"
-    client.delete_repo(repo_name, force=True)
-    client.create_repo(repo_name)
-    yield client, repo_name, pipeline_name
-    client.delete_pipeline(pipeline_name, force=True)
-    client.delete_repo(repo_name, force=True)
+    suffix = str(randint(100000, 999999))
+    project_name = f"test_{suffix}"
+    repo_name = f"images_{suffix}"
+    pipeline_name = f"test_pipeline_{suffix}"
+
+    if request.param:
+        # Use non-default project
+        client.create_project(project_name)
+        client.create_repo(repo_name, project_name=project_name)
+        yield client, project_name, repo_name, pipeline_name
+        client.delete_pipeline(pipeline_name, project_name=project_name, force=True)
+        client.delete_repo(f"{pipeline_name}__context", project_name=project_name, force=True)
+        client.delete_repo(repo_name, project_name=project_name, force=True)
+        # client.delete_project(project_name, force=True)
+    else:
+        # Use default project
+        client.create_repo(repo_name)
+        yield client, "default", repo_name, pipeline_name
+        client.delete_pipeline(pipeline_name, force=True)
+        client.delete_repo(f"{pipeline_name}__context", force=True)
+        client.delete_repo(repo_name, force=True)
 
 
-def test_pps(dev_server, simple_pachyderm_env):
-    client, repo_name, pipeline_name = simple_pachyderm_env
-    path = TEST_NOTEBOOK.relative_to(Path.cwd())
-    image = "combinatorml/jupyterlab-tensorflow-opencv:0.9"
-    input_spec = dict(pfs=dict(repo=repo_name, glob="/*"))
-    data = dict(
-        apiVersion='sameproject.ml/v1alpha1',
-        environments=dict(default=dict(image_tag=image)),
-        metadata=dict(name=pipeline_name, version='0.0.0'),
-        notebook=dict(requirements=''),
-        run=dict(name=pipeline_name, input=json.dumps(input_spec)),
-    )
-    r = requests.put(f"{BASE_URL}/pps/_create/{path}", data=json.dumps(data))
+@pytest.fixture
+def notebook_path(simple_pachyderm_env) -> Path:
+    """Yields a path to a notebook file suitable for testing.
+
+    This writes a temporary notebook file with its metadata populated
+      with the expected pipeline and repo names provided by the
+      simple_pachyderm_env fixture.
+    """
+    _client, project_name, repo_name, pipeline_name = simple_pachyderm_env
+
+    # Do a considerable amount of data munging.
+    notebook_data = json.loads(TEST_NOTEBOOK.read_bytes())
+    config = PpsConfig.from_notebook(TEST_NOTEBOOK)
+    config.pipeline = dict(name=pipeline_name, project=dict(name=project_name))
+    # sub in repo_name
+    config.input_spec = f"pfs:\n  repo: {repo_name}\n  glob: \"/*\""
+    notebook_data['metadata'][METADATA_KEY]['config'] = config.to_dict()
+
+    notebook_path = TEST_NOTEBOOK.with_stem(f"{TEST_NOTEBOOK.stem}_generated")
+    notebook_path.write_text(json.dumps(notebook_data))
+    yield notebook_path.relative_to(os.getcwd())
+    if notebook_path.exists():
+        notebook_path.unlink()
+
+
+def test_pps(dev_server, simple_pachyderm_env, notebook_path):
+    client, project_name, repo_name, pipeline_name = simple_pachyderm_env
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
     assert r.status_code == 200
-    assert next(client.inspect_pipeline(pipeline_name))
+    assert next(client.inspect_pipeline(pipeline_name, project_name=project_name))
+    assert r.json()["message"] == ("Create pipeline request sent. You may monitor its "
+    "status by running \"pachctl list pipelines\" in a terminal.")
 
 
-@pytest.mark.parametrize('excluded_field', SAME_METADATA_FIELDS)
-def test_pps_validation_errors(dev_server, excluded_field):
-    path = TEST_NOTEBOOK.relative_to(Path.cwd())
-    data = dict()
-    for field in SAME_METADATA_FIELDS:
-        if field != excluded_field:
-            data[field] = dict()
-
-    r = requests.put(f"{BASE_URL}/pps/_create/{path}", data=json.dumps(data))
-    assert r.status_code == 500
-    assert r.json()['reason'] == f"Bad Request: field {excluded_field} not set"
+def test_pps_validation_errors(dev_server, notebook_path):
+    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
+    assert r.status_code == 400
+    assert r.json()['reason'] == f"Bad Request: last_modified_time not specified"

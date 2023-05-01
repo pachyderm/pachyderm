@@ -22,6 +22,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
+// TODO(acohen4): signature should accept a branch seperate from the commit
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
@@ -95,7 +96,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 }
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
-	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(validate)}, opts...)
+	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(ValidateFilename)}, opts...)
 	uw, err := d.storage.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -114,7 +115,7 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 }
 
 func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
-	if commit.Branch.Repo.Name == fileSetsRepo {
+	if commit.AccessRepo().Name == fileSetsRepo {
 		fsid, err := fileset.ParseID(commit.ID)
 		if err != nil {
 			return nil, nil, err
@@ -125,7 +126,7 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commi
 		}
 		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
-	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
@@ -450,28 +451,14 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 }
 
 func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfo) error) error {
-	// TODO: move validation to the Validating API Server
-	// Validation
-	if newFile == nil {
-		return errors.New("file cannot be nil")
-	}
-	if newFile.Commit == nil {
-		return errors.New("file commit cannot be nil")
-	}
-	if newFile.Commit.Branch == nil {
-		return errors.New("file commit branch cannot be nil")
-	}
-	if newFile.Commit.Branch.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
-	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, oldFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
+		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, oldFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
-	if newFile != nil && newFile.Commit != nil {
-		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, newFile.Commit.Branch.Repo, auth.Permission_REPO_READ); err != nil {
+	if newFile.Commit != nil {
+		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, newFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -573,7 +560,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 			if baseCommitInfo.Finished == nil {
 				return nil, pfsserver.ErrBaseCommitNotFinished{
 					BaseCommit: baseCommit,
-					Commit:     commit,
+					Commit:     commitInfo.Commit,
 				}
 			}
 			// ¯\_(ツ)_/¯

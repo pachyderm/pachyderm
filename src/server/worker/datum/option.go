@@ -62,3 +62,10 @@ func WithPrefixIndex() Option {
 		d.IDPrefix = fmt.Sprintf("%032d", d.meta.Index) + "-"
 	}
 }
+
+// WithEnv sets the environment variables.
+func WithEnv(env []string) Option {
+	return func(d *Datum) {
+		d.env = env
+	}
+}

@@ -12,6 +12,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
@@ -151,12 +153,16 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		return err
 	}
 
+	// link env file
+	src := filepath.Join(dir, common.EnvFileName)
+	dst := filepath.Join(d.InputDir(), common.EnvFileName)
+	if err := os.Symlink(src, dst); err != nil {
+		return errors.EnsureStack(err)
+	}
+
 	// sometimes for group inputs, this part may get run multiple times for the same file
 	seen := make(map[string]bool)
 	for _, input := range inputs {
-		if input.S3 {
-			continue // S3 data is not downloaded
-		}
 		if input.Name == "" {
 			return errors.New("input does not have a name")
 		}
@@ -177,4 +183,19 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	}
 
 	return nil
+}
+
+func printRusage(ctx context.Context, state *os.ProcessState) {
+	if state == nil {
+		log.Info(ctx, "no process state information after user code exited")
+		return
+	}
+	meters.Set(ctx, "cpu_time_seconds", state.UserTime().Seconds()+state.SystemTime().Seconds())
+	rusage, ok := state.SysUsage().(*syscall.Rusage)
+	if !ok {
+		return
+	}
+	// Maxrss is reported in "kilobytes", which means KiB in the Linux kernel world.  (See
+	// getrusage(2).)
+	meters.Set(ctx, "resident_memory_bytes", rusage.Maxrss*1024)
 }

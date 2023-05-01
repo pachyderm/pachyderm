@@ -18,8 +18,13 @@ spec:
       {{- end }}
   template:
     metadata:
-      {{- if .Values.proxy.annotations }}
       annotations:
+        {{- if .Values.proxy.tls.enabled }}
+        checksum/envoy-config: {{ .Files.Get "envoy-tls.json"  | sha256sum }}
+        {{- else }}
+        checksum/envoy-config: {{ .Files.Get "envoy.json"  | sha256sum }}
+        {{- end }}
+      {{- if .Values.proxy.annotations }}
         {{- toYaml .Values.proxy.annotations | nindent 8 }}
       {{- end }}
       labels:
@@ -95,6 +100,8 @@ spec:
               containerPort: 1658
             - name: metrics-direct
               containerPort: 1656
+            - name: download-direct
+              containerPort: 1659
           readinessProbe:
             httpGet:
               path: /ready

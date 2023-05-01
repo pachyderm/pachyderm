@@ -31,8 +31,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		// TODO: Add cache?
 		taskDoer := driver.NewTaskDoer(jobInfo.Job.ID, nil)
-		jobInput := ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
-		di, err := datum.NewIterator(pachClient, taskDoer, jobInput)
+		di, err := datum.NewIterator(pachClient, taskDoer, ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit))
 		if err != nil {
 			return err
 		}
@@ -66,7 +65,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
 				inputs := meta.Inputs
 				logger = logger.WithData(inputs)
-				env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
+				env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs, pipelineInfo.GetAuthToken())
 				return s.WithDatum(meta, func(d *datum.Datum) error {
 					err := driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
 						return d.Run(ctx, func(runCtx context.Context) error {
