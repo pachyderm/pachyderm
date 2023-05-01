@@ -96,12 +96,14 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 		return nil, nil, errors.WithStack(fmt.Errorf("error creating EKS cluster: %w", err))
 	}
 
+	kubeConfig, _ := eksCluster.Kubeconfig.ApplyT(func(kc []byte) (string, error) {
+		kubeconfig := string(kc)
+		return kubeconfig, nil
+	}).(pulumi.StringOutput)
+
 	k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
-		Cluster: pulumi.String(eksClusterName),
-		Kubeconfig: eksCluster.Kubeconfig.ApplyT(func(kc []byte) (string, error) {
-			kubeconfig := string(kc)
-			return kubeconfig, nil
-		}).(pulumi.StringOutput),
+		Cluster:    pulumi.String(eksClusterName),
+		Kubeconfig: kubeConfig,
 	})
 
 	if err != nil {
