@@ -69,7 +69,6 @@ class PPSClient:
         check = datetime.fromisoformat(check.rstrip('Z'))
 
         last_modified = datetime.utcfromtimestamp(os.path.getmtime(path))
-        get_logger().error(f"{check}, {last_modified}")
         if check != last_modified:
             raise HTTPError(
                 status_code=400,
