@@ -13,8 +13,9 @@ import requests
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
+from python_pachyderm.proto.v2.pps.pps_pb2 import JobState
 
-from . import TEST_NOTEBOOK
+from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
@@ -423,14 +424,15 @@ def notebook_path(simple_pachyderm_env) -> Path:
     _client, project_name, repo_name, pipeline_name = simple_pachyderm_env
 
     # Do a considerable amount of data munging.
+    notebook_path = TEST_NOTEBOOK.with_stem(f"{TEST_NOTEBOOK.stem}_generated")
     notebook_data = json.loads(TEST_NOTEBOOK.read_bytes())
     config = PpsConfig.from_notebook(TEST_NOTEBOOK)
     config.pipeline = dict(name=pipeline_name, project=dict(name=project_name))
     # sub in repo_name
     config.input_spec = f"pfs:\n  repo: {repo_name}\n  glob: \"/*\""
+    config.requirements = str(notebook_path.with_name(config.requirements).relative_to(os.getcwd()))
     notebook_data['metadata'][METADATA_KEY]['config'] = config.to_dict()
 
-    notebook_path = TEST_NOTEBOOK.with_stem(f"{TEST_NOTEBOOK.stem}_generated")
     notebook_path.write_text(json.dumps(notebook_data))
     yield notebook_path.relative_to(os.getcwd())
     if notebook_path.exists():
@@ -439,11 +441,17 @@ def notebook_path(simple_pachyderm_env) -> Path:
 
 def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     client, project_name, repo_name, pipeline_name = simple_pachyderm_env
+    with client.commit(repo_name, "master", project_name=project_name) as commit:
+        client.put_file_bytes(commit, "/data", b"data")
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
     data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
     assert r.status_code == 200
-    assert next(client.inspect_pipeline(pipeline_name, project_name=project_name))
+
+    job_info = next(client.list_job(pipeline_name=pipeline_name, project_name=project_name))
+    job_info = next(client.inspect_job(job_info.job.id, pipeline_name=pipeline_name, project_name=project_name, wait=True))
+    assert job_info.state == JobState.JOB_SUCCESS
+
     assert r.json()["message"] == ("Create pipeline request sent. You may monitor its "
     "status by running \"pachctl list pipelines\" in a terminal.")
 
