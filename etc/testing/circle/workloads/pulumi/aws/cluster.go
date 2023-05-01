@@ -97,7 +97,11 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	}
 
 	k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
-		Kubeconfig: eksCluster.KubeconfigJson,
+		Cluster: pulumi.String(eksClusterName),
+		Kubeconfig: eksCluster.Kubeconfig.ApplyT(func(kc []byte) (string, error) {
+			kubeconfig := string(kc)
+			return kubeconfig, nil
+		}).(pulumi.StringOutput),
 	})
 
 	if err != nil {
