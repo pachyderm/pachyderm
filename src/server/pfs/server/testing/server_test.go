@@ -2234,6 +2234,32 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, "master", branchInfos[2].Branch.Name)
 	})
 
+	suite.Run("PinBranchCommitsDAG", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		input, pinInput, output := "input", "pinInput", "output"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, input))
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, pinInput))
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, output))
+		require.NoError(t, env.PachClient.CreateBranch(output, "master", "", "",
+			[]*pfs.Branch{
+				client.NewBranch(input, "master"),
+				client.NewBranch(pinInput, "pin1"),
+			}))
+		require.NoError(t, env.PachClient.CreateBranch(pinInput, "master", "pin1", "", nil))
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, pinInput, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
+		require.NoError(t, finishCommit(env.PachClient, pinInput, "master", commit1.ID))
+		require.NoError(t, env.PachClient.CreateBranch(pinInput, "pin2", "master", "", nil))
+		require.NoError(t, env.PachClient.CreateBranch(output, "master", "", "",
+			[]*pfs.Branch{
+				client.NewBranch(input, "master"),
+				client.NewBranch(pinInput, "pin2"),
+			}))
+	})
+
 	suite.Run("PutFileBig", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
