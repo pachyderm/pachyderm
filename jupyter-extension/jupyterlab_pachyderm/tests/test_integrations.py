@@ -427,7 +427,7 @@ def _update_metadata(notebook: Path, project_name: str, repo_name: str, pipeline
     return json.dumps(notebook_data)
 
 
-@pytest.fixture()
+@pytest.fixture
 def notebook_path(simple_pachyderm_env) -> Path:
     """Yields a path to a notebook file suitable for testing.
 
