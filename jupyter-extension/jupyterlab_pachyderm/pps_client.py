@@ -69,7 +69,6 @@ class PPSClient:
         check = datetime.fromisoformat(check.rstrip('Z'))
 
         last_modified = datetime.utcfromtimestamp(os.path.getmtime(path))
-        get_logger().error(f"{check}, {last_modified}")
         if check != last_modified:
             raise HTTPError(
                 status_code=400,
@@ -95,7 +94,11 @@ class PPSClient:
             )
 
         companion_repo = f"{config.pipeline.name}__context"
-        if companion_repo not in (item.repo.name for item in client.list_repo()):
+        for item in client.list_repo():
+            same_project = config.pipeline.project.name == item.repo.project.name
+            if (companion_repo == item.repo.name) and same_project:
+                break
+        else:
             client.create_repo(
                 repo_name=companion_repo,
                 project_name=config.pipeline.project.name,
