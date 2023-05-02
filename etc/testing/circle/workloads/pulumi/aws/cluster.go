@@ -97,10 +97,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	}
 
 	k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
-		Cluster:           pulumi.String("kubernetes"),
-		Kubeconfig:        eksCluster.KubeconfigJson,
-		Context:           pulumi.String("aws"),
-		DeleteUnreachable: pulumi.Bool(true),
+		Kubeconfig: eksCluster.KubeconfigJson,
 	})
 
 	if err != nil {

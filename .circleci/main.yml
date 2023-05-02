@@ -1067,7 +1067,7 @@ jobs:
       - aws-cli/setup
       - pulumi/login
       - run: |
-          pulumi plugin install resource eks v0.40.0
+          pulumi plugin install resource eks v1.0.1
       - when:
           condition:
             and:
