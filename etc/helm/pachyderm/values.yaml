@@ -414,6 +414,9 @@ pachd:
   logLevel: "info"
   disableLogSampling: false
   developmentLogger: false
+  # If true, log every SQL query at debug level.  This can potentially log sensitive information
+  # without redaction, so it's not recommended for production.
+  sqlQueryLogs: false
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.
   lokiDeploy: true

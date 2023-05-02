@@ -867,6 +867,9 @@
                 "developmentLogger": {
                     "type": "boolean"
                 },
+                "sqlQueryLogs": {
+                    "type": "boolean"
+                },
                 "lokiDeploy": {
                     "type": "boolean"
                 },
