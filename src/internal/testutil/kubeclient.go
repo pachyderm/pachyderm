@@ -23,9 +23,18 @@ var (
 // cluster or from a test binary running on a machine with kubectl (it will
 // connect to the same cluster as kubectl)
 func GetKubeClient(t testing.TB) *kube.Clientset {
-	var config *rest.Config
-	var err error
-	host := os.Getenv("KUBERNETES_SERVICE_HOST")
+	k, _, err := GetKubeClientAndConfig()
+	require.NoError(t, err, "could not get k8s REST config and client")
+	return k
+}
+
+// GetKubeClientAndConfig returns a Kubernetes client and its REST config.
+func GetKubeClientAndConfig() (*kube.Clientset, *rest.Config, error) {
+	var (
+		config *rest.Config
+		err    error
+		host   = os.Getenv("KUBERNETES_SERVICE_HOST")
+	)
 	if host != "" {
 		config, err = rest.InClusterConfig()
 	} else {
@@ -34,10 +43,14 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 			&clientcmd.ConfigOverrides{})
 		config, err = kubeConfig.ClientConfig()
 	}
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not get k8s REST config")
+	}
 	k, err := kube.NewForConfig(config)
-	require.NoError(t, err)
-	return k
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not get k8s client")
+	}
+	return k, config, nil
 }
 
 // DeletePipelineRC deletes the RC belonging to the pipeline 'pipeline'. This
