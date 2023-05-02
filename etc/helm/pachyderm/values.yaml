@@ -367,10 +367,11 @@ pachw:
   # When set to false, a nil value will be used by default instead. Some configuration variables will always use their
   # corresponding pachd value, regardless of whether 'inheritFromPachd' is true, such as 'serviceAccountName'
   inheritFromPachd: true
-  # inSidecars is enabled by default to also process storage related tasks in pipeline storage sidecars like version 2.4 or less.
+  # When set to true, inSidecars also processes storage related tasks in pipeline storage sidecars like version 2.4 or less.
   # when enabled, pachw instances can still run in their own dedicated kubernetes deployment if maxReplicas is greater than 0.
-  # For more control of where pachw instances run, 'inSidecars' can be disabled.
-  inSidecars: true
+  # For more control of where pachw instances run, 'inSidecars' should be disabled.
+  inSidecars: false
+  # maxReplicas should be tuned based on the number of pipelines on a user-per-user basis.
   maxReplicas: 1
   # minReplicas: 0
   # We recommend defining resources when running pachw with a high value of maxReplicas.
