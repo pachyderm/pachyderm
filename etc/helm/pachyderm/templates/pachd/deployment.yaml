@@ -140,7 +140,7 @@ spec:
           value: "{{ .Values.pachd.metrics.endpoint }}"
         {{- end }}
         {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
-        - name: GOMAXPROCS # Needs to be PR'd to 2.0
+        - name: GOMAXPROCS
           value: {{ .Values.pachd.goMaxProcs | quote }}
         {{- end }}
         - name: PACHYDERM_LOG_LEVEL
@@ -151,6 +151,10 @@ spec:
         {{- end }}
         {{- if .Values.pachd.disableLogSampling }}
         - name: PACHYDERM_DISABLE_LOG_SAMPLING
+          value: "1"
+        {{- end }}
+        {{- if .Values.pachd.sqlQueryLogs }}
+        - name: POSTGRES_QUERY_LOGGING
           value: "1"
         {{- end }}
         - name: PACH_NAMESPACE
