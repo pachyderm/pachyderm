@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"github.com/prometheus/common/model"
+	"gopkg.in/yaml.v3"
 )
 
 // ** Why this is here **
@@ -103,4 +106,47 @@ func buildURL(u, p, q string) (string, error) {
 	url.Path = path.Join(url.Path, p)
 	url.RawQuery = q
 	return url.String(), nil
+}
+
+type lokiConfig struct {
+	LimitsConfig struct {
+		MaxQueryLength string `yaml:"max_query_length"`
+	} `yaml:"limits_config"`
+}
+
+// MaxQueryLength returns the server’s configured max query length.  It returns
+// 0 if there is none.
+func (c *Client) MaxQueryLength(ctx context.Context) (time.Duration, error) {
+	u, err := buildURL(c.Address, "/config", "")
+	if err != nil {
+		return 0, errors.Wrap(err, "could not build config URL")
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not create HTTP request")
+	}
+	resp, err := lokiClient.Do(req)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not make HTTP request")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return 0, errors.Wrapf(err, "do not know how to handle HTTP status %d (%s)", resp.StatusCode, resp.Status)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not read response body")
+	}
+	var config lokiConfig
+	if err := yaml.Unmarshal(b, &config); err != nil {
+		return 0, errors.Wrap(err, "could not parse YAML response")
+	}
+	if config.LimitsConfig.MaxQueryLength == "" {
+		return 0, nil
+	}
+	mql, err := model.ParseDuration(config.LimitsConfig.MaxQueryLength)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not parse server’s returned max query length")
+	}
+	return time.Duration(mql), nil
 }
