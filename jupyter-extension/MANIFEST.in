@@ -2,7 +2,7 @@ include LICENSE
 include *.md
 include pyproject.toml
 recursive-include jupyter-config *.json
-recursive-include jupyterlab_pachyderm *.ipynb
+include jupyterlab_pachyderm/tests/data/*
 
 exclude ci-requirements.txt
 exclude .circleci/*
