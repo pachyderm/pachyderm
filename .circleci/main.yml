@@ -84,6 +84,7 @@ jobs:
             gotestsum \
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
             --debug \
             -- \
@@ -102,6 +103,7 @@ jobs:
           path: /tmp/test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
+      - collect-test-results
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
@@ -203,6 +205,8 @@ jobs:
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --raw-command \
               --rerun-fails \
+              --format standard-verbose \
+              --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \
               --debug \
               -- \
@@ -225,6 +229,7 @@ jobs:
           path: /tmp/test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
+      - collect-test-results
   integration-tests:
     parameters:
       bucket:
@@ -316,15 +321,20 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
+          name: Format test results for upload
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          when: always
+      - run:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
+      - collect-test-results
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
       - store_test_results:
-          path: /tmp/test-results
+          path: "/tmp/test-results"
       - store_artifacts:
           path: /tmp/test-results
       - codecov/upload:
@@ -515,6 +525,10 @@ jobs:
           command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
+          name: Format test results for upload
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          when: always
+      - run:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
@@ -525,6 +539,7 @@ jobs:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
   deploy-tests:
@@ -573,7 +588,7 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
-      - run: mkdir ${TEST_RESULTS}
+      - run: mkdir -p "${TEST_RESULTS}"
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -605,9 +620,15 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
+          name: Format test results for upload
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          when: always
+      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - store_artifacts:
+          path: /tmp/test-results
       - run:
           name: Format code coverage
           when: always
@@ -616,6 +637,7 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
   # build pachctl and push to GCS bucket, so that it can be bundled into the
@@ -1944,3 +1966,10 @@ commands:
           name: Start minikube
           command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12Gi --wait=all
           background: true
+  collect-test-results:
+    steps:
+      - run:
+          name: Store test results
+          when: always
+          shell: /bin/sh # ignore fails without pipefail
+          command: go run -v etc/testing/circle/workloads/go-test-results/collector/main.go || true

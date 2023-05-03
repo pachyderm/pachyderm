@@ -37,4 +37,4 @@ kubectl apply -f etc/testing/opa-constraints.yaml
 kubectl apply -f etc/testing/minio.yaml
 
 # Run TestSimplePipelineNonRoot TestSimplePipelinePodPatchNonRoot
-go test -v ./src/server -run NonRoot -tags=k8s -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+go test -v ./src/server -run NonRoot -v=test2json tags=k8s -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...| stdbuf -i0 tee -a /tmp/go-test-results.txt
