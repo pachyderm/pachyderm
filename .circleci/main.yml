@@ -1971,5 +1971,5 @@ commands:
       - run:
           name: Store test results
           when: always
-          shell: /bin/sh # ignore fails
-          command: go run -v etc/testing/circle/workloads/go-test-results/collector/main.go
+          shell: /bin/sh # ignore fails without pipefail
+          command: go run -v etc/testing/circle/workloads/go-test-results/collector/main.go || true
