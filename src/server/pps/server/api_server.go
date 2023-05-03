@@ -1383,7 +1383,17 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		rcName, containerName string
 		pods                  []v1.Pod
 		err                   error
+		sinceSeconds          *int64
 	)
+	// Convert request.Since to a usable timestamp.
+	if request.Since != nil {
+		since, err := types.DurationFromProto(request.Since)
+		if err != nil {
+			return errors.Wrapf(err, "invalid since duration")
+		}
+		sinceSeconds = new(int64)
+		*sinceSeconds = int64(since.Seconds())
+	}
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
@@ -1413,6 +1423,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
+			if created := jobInfo.GetCreated(); sinceSeconds == nil && created != nil {
+				t, err := types.TimestampFromProto(created)
+				if err != nil {
+					return errors.Wrapf(err, "could not convert %v to time", created)
+				}
+				sinceSeconds = new(int64)
+				*sinceSeconds = int64(time.Now().Sub(t) / time.Second)
+			}
 			pipeline = jobInfo.Job.Pipeline
 		} // not possible for request.{Pipeline,Job} to both be nil due to previous check above
 		pipelineInfo, err := a.inspectPipeline(apiGetLogsServer.Context(), pipeline, true)
@@ -1439,16 +1457,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if len(pods) == 0 {
 		return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
 	}
-	// Convert request.Since to a usable timestamp.
-	var sinceSeconds *int64
-	if request.Since != nil {
-		since, err := types.DurationFromProto(request.Since)
-		if err != nil {
-			return errors.Wrapf(err, "invalid since duration")
-		}
-		sinceSeconds = new(int64)
-		*sinceSeconds = int64(since.Seconds())
-	}
 
 	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
 	// and channels are read into the output server in a stable order.
@@ -1457,6 +1465,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	logCh := make(chan *pps.LogMessage)
 	var eg errgroup.Group
 	var mu sync.Mutex
+	if sinceSeconds == nil {
+		sinceSeconds = new(int64)
+		*sinceSeconds = int64(DefaultLogsFrom / time.Second)
+	}
 	eg.Go(func() error {
 		for _, pod := range pods {
 			pod := pod
