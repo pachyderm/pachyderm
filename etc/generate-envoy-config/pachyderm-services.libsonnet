@@ -123,13 +123,13 @@
       no_traffic_healthy_interval: '10s',
     },
   },
-  'pachd-download': {
+  'pachd-archive': {
     internal_port: 1659,
     service: 'pachd-proxy-backend',
     routes: [
       {
         match: {
-          prefix: '/download',
+          prefix: '/archive',
         },
         route: {
           cluster: 'pachd-download',

@@ -24,7 +24,7 @@ func NewHTTP(port uint16, pachClientFactory func(ctx context.Context) *client.AP
 	handler := &Server{
 		pachClientFactory: pachClientFactory,
 	}
-	mux.Handle("/download/", CSRFWrapper(handler))
+	mux.Handle("/archive/", CSRFWrapper(handler))
 	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("healthy\n")) //nolint:errcheck

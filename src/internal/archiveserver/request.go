@@ -36,13 +36,13 @@ func ArchiveFromURL(u *url.URL) (*ArchiveRequest, error) {
 	}
 	parts := strings.Split(u.Path, "/")
 	if len(parts) != 3 {
-		return nil, errors.Errorf("invalid download path; expected /download/<spec>, but got %v path parts", len(parts))
+		return nil, errors.Errorf("invalid download path; expected /archive/<spec>, but got %v path parts", len(parts))
 	}
 	if got, want := parts[0], ""; got != want {
 		return nil, errors.New("expected leading /")
 	}
-	if got, want := parts[1], "download"; got != want {
-		return nil, errors.New("expected download/ as the first part of the path")
+	if got, want := parts[1], "archive"; got != want {
+		return nil, errors.New("expected archive/ as the first part of the path")
 	}
 	rawFilename := parts[2]
 	fileParts := strings.SplitN(rawFilename, ".", 2)
