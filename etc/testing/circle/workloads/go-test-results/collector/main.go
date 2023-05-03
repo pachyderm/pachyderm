@@ -55,8 +55,13 @@ func main() {
 		logger.Fatal("TEST_RESULTS needs to be populated to find the test results folder.")
 	}
 	branch := sanitizeName(os.Getenv("CIRCLE_BRANCH"))
+	tag := sanitizeName(os.Getenv("CIRCLE_TAG"))
 	if len(branch) == 0 {
 		logger.Fatal("CIRCLE_BRANCH needs to be populated to upload test results.")
+	}
+
+	if len(tag) == 0 { // DNJ TODO undo debug fail
+		logger.Fatal("CIRCLE_TAG needs to be populated to upload test results.")
 	}
 	jobName := sanitizeName(os.Getenv("CIRCLE_JOB"))
 	if len(jobName) == 0 {
