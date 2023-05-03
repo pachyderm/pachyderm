@@ -89,8 +89,7 @@ const (
 )
 
 var (
-	suite                 = "pachyderm"
-	errIncompleteDeletion = errors.Errorf("pipeline may not be fully deleted, provenance may still be intact")
+	suite = "pachyderm"
 )
 
 // apiServer implements the public interface of the Pachyderm Pipeline System,
@@ -2842,8 +2841,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var deleteRepos []*pfs.Repo
 		deleteRepos, deleteErr = a.deletePipelineInTransaction(txnCtx, request)
-		// we still want deletion to succeed if it was merely incomplete, but warn the caller
-		if deleteErr != nil && !errors.Is(deleteErr, errIncompleteDeletion) {
+		if deleteErr != nil {
 			return deleteErr
 		}
 		return a.env.PFSServer.DeleteReposInTransaction(txnCtx, deleteRepos, request.Force)
@@ -2888,19 +2886,16 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	} else if !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
 		return nil, err
 	}
-	var missingRepo bool
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-		Repo: client.NewProjectRepo(projectName, pipelineName)}); err != nil && !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
+		Repo: client.NewProjectRepo(projectName, pipelineName)}); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return nil, errors.EnsureStack(err)
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline
 		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), projectName, pipelineName); err != nil {
 			return nil, err
 		}
-	} else {
-		missingRepo = true
 	}
 	// If necessary, revoke the pipeline's auth token and remove it from its inputs' ACLs
 	// If auth is deactivated, don't bother doing either
@@ -2936,24 +2931,30 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelinesNameKey); err != nil {
 		return nil, errors.Wrapf(err, "collection.Delete")
 	}
-	if !missingRepo {
-		if !request.KeepRepo {
-			// delete the pipeline's output repo
-			deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, pipelineName))
-		} else {
-			// Remove branch provenance from output and then delete meta and spec repos
-			// this leaves the repo as a source repo, eliminating pipeline metadata
-			// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
-			if pipelineInfo.Details != nil {
-				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-					Branch: client.NewProjectBranch(projectName, pipelineName, pipelineInfo.Details.OutputBranch),
-				}); err != nil {
-					return nil, errors.EnsureStack(err)
-				}
+	if !request.KeepRepo {
+		// delete the pipeline's output repo
+		deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, pipelineName))
+	} else {
+		// Remove branch provenance from output and then delete meta and spec repos
+		// this leaves the repo as a source repo, eliminating pipeline metadata
+		// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
+		if pipelineInfo.Details != nil {
+			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch: client.NewProjectBranch(projectName, pipelineName, pipelineInfo.Details.OutputBranch),
+			}); err != nil {
+				return nil, errors.EnsureStack(err)
 			}
-			deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType))
-			deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType))
 		}
+	}
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType)}); err == nil {
+		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType))
+	} else if !errutil.IsNotFoundError(err) {
+		return nil, errors.Wrapf(err, "inspect spec repo for pipeline %q", pipelineName)
+	}
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType)}); err == nil {
+		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType))
+	} else if !errutil.IsNotFoundError(err) {
+		return nil, errors.Wrapf(err, "inspect meta repo for pipeline %q", pipelineName)
 	}
 	// delete cron after main repo is deleted or has provenance removed
 	// cron repos are only used to trigger jobs, so don't keep them even with KeepRepo
@@ -2966,10 +2967,6 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		}); err != nil {
 			return nil, err
 		}
-	}
-	if request.KeepRepo && !missingRepo && pipelineInfo.Details == nil {
-		// warn about being unable to delete provenance, caller can ignore
-		return deleteRepos, errIncompleteDeletion
 	}
 	return deleteRepos, nil
 }

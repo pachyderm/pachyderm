@@ -563,11 +563,28 @@ func TestDeleteProject(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}} --project {{.project}}
+		pachctl put file --project {{.project}} {{.repo}}@master:/file <<<"This is a test"
+		pachctl create pipeline --project {{.project}} <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "{{.repo}}"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/{{.repo}}/file /pfs/out"]
+		    }
+		  }
+		EOF
 		(pachctl delete project {{.project}} </dev/null) && exit 1
 		(yes | pachctl delete project {{.project}}) || exit 1
 		if [ $(pachctl list project | tail -n +2 | wc -l) -ne 1 ]; then exit 1; fi
 		`,
 		"project", project,
 		"repo", tu.UniqueString("repo"),
+		"pipeline", tu.UniqueString("pipeline"),
 	).Run())
 }
