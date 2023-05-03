@@ -1429,7 +1429,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					return errors.Wrapf(err, "could not convert %v to time", created)
 				}
 				sinceSeconds = new(int64)
-				*sinceSeconds = int64(time.Now().Sub(t) / time.Second)
+				*sinceSeconds = int64(time.Since(t) / time.Second)
 			}
 			pipeline = jobInfo.Job.Pipeline
 		} // not possible for request.{Pipeline,Job} to both be nil due to previous check above
