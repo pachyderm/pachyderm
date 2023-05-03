@@ -1563,6 +1563,11 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		if err != nil {
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 		}
+		if created := jobInfo.GetCreated(); from.IsZero() && created != nil {
+			if from, err = types.TimestampFromProto(created); err != nil {
+				return errors.Wrapf(err, "could not convert %v to from time", created)
+			}
+		}
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline, true)
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s", jobInfo.Job.Pipeline)
@@ -1585,6 +1590,9 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	}
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
+	}
+	if from.IsZero() {
+		from = time.Now().Add(-DefaultLogsFrom)
 	}
 	return lokiutil.QueryRange(ctx, loki, query, from, time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
