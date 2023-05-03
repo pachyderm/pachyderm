@@ -54,14 +54,13 @@ func main() {
 	if len(resultsFolder) == 0 {
 		logger.Fatal("TEST_RESULTS needs to be populated to find the test results folder.")
 	}
-	branch := sanitizeName(os.Getenv("CIRCLE_BRANCH"))
-	tag := sanitizeName(os.Getenv("CIRCLE_TAG"))
-	if len(branch) == 0 {
-		logger.Fatal("CIRCLE_BRANCH needs to be populated to upload test results.")
-	}
-
-	if len(tag) == 0 { // DNJ TODO undo debug fail
-		logger.Fatal("CIRCLE_TAG needs to be populated to upload test results.")
+	var branchFolderName string
+	if branch := sanitizeName(os.Getenv("CIRCLE_BRANCH")); len(branch) != 0 {
+		branchFolderName = branch
+	} else if tag := sanitizeName(os.Getenv("CIRCLE_TAG")); len(tag) != 0 {
+		branchFolderName = tag
+	} else {
+		logger.Fatal("CIRCLE_BRANCH or CIRCLE_TAG needs to be populated to upload test results.")
 	}
 	jobName := sanitizeName(os.Getenv("CIRCLE_JOB"))
 	if len(jobName) == 0 {
@@ -84,7 +83,7 @@ func main() {
 				}
 				defer file.Close()
 
-				destPath := findDestinationPath(path, branch, jobName, resultsFolder)
+				destPath := findDestinationPath(path, branchFolderName, jobName, resultsFolder)
 				commit := client.NewProjectCommit(projectName, repoName, "master", "")
 				err = pachClient.PutFile(commit, destPath, file)
 				if err != nil {
