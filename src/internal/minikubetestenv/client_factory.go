@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"

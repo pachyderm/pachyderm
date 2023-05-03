@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"

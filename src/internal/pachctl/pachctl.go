@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	ci "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 )
 

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 

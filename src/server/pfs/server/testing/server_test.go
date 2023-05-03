@@ -30,10 +30,10 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"

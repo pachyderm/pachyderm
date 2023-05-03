@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"

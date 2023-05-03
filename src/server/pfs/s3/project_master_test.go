@@ -12,7 +12,7 @@ import (
 
 	minio "github.com/minio/minio-go/v6"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 

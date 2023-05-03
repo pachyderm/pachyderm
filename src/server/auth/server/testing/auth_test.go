@@ -17,10 +17,10 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"

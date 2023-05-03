@@ -9,8 +9,8 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"

@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
+	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"

@@ -25,8 +25,8 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"

@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"

@@ -13,7 +13,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
