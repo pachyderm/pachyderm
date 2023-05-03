@@ -132,7 +132,7 @@
           prefix: '/archive',
         },
         route: {
-          cluster: 'pachd-download',
+          cluster: 'pachd-archive',
           idle_timeout: '600s',
           timeout: '604800s',
         },
