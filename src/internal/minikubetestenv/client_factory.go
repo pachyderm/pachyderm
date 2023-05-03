@@ -14,8 +14,6 @@ import (
 	"testing"
 
 	"golang.org/x/sync/semaphore"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 
@@ -72,11 +70,8 @@ var EnterpriseMemberOption Option = func(as *acquireSettings) {
 }
 
 type managedCluster struct {
-	client     *client.APIClient
-	settings   *acquireSettings
-	restConfig *rest.Config
-	k8s        *kubernetes.Clientset
-	namespace  string
+	client   *client.APIClient
+	settings *acquireSettings
 }
 
 type ClusterFactory struct {
@@ -147,8 +142,7 @@ func (cf *ClusterFactory) assignCluster() (string, int) {
 
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
 	assigned, clusterIdx := cf.assignCluster()
-	kube, restConfig, err := testutil.GetKubeClientAndConfig()
-	require.NoError(t, err)
+	kube := testutil.GetKubeClient(t)
 	PutNamespace(t, assigned)
 	c := InstallRelease(t,
 		context.Background(),
@@ -157,11 +151,8 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 		deployOpts(clusterIdx, as),
 	)
 	mc := &managedCluster{
-		client:     c,
-		settings:   as,
-		restConfig: restConfig,
-		k8s:        kube,
-		namespace:  assigned,
+		client:   c,
+		settings: as,
 	}
 	cf.assignClient(assigned, mc)
 	return assigned, mc
@@ -191,9 +182,21 @@ func ClaimCluster(t testing.TB) (string, uint16) {
 
 var localLock sync.Mutex
 
-func acquireCluster(t testing.TB, opts ...Option) *managedCluster {
+// AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
+// clusters deployed in separate namespace, along with the associated namespace
+func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	t.Helper()
-	require.False(t, *forceLocal, "cannot force local when acquiring k8s cluster")
+	if *forceLocal {
+		c, err := client.NewOnUserMachineContext(pctx.TODO(), "")
+		if err != nil {
+			t.Fatalf("create local client: %v", err)
+		}
+		t.Log("waiting for local cluster lock")
+		localLock.Lock()
+		t.Log("got local cluster lock")
+		t.Cleanup(localLock.Unlock)
+		return c, ""
+	}
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*managedCluster{},
@@ -237,30 +240,5 @@ func acquireCluster(t testing.TB, opts ...Option) *managedCluster {
 		mc.settings = as
 	}
 	deleteAll(t, mc.client)
-	return mc
-}
-
-// AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
-// clusters deployed in separate namespace, along with the associated namespace
-func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
-	if *forceLocal {
-		c, err := client.NewOnUserMachineContext(pctx.TODO(), "")
-		if err != nil {
-			t.Fatalf("create local client: %v", err)
-		}
-		t.Log("waiting for local cluster lock")
-		localLock.Lock()
-		t.Log("got local cluster lock")
-		t.Cleanup(localLock.Unlock)
-		return c, ""
-	}
-	mc := acquireCluster(t, opts...)
-	return mc.client, mc.namespace
-}
-
-// AcquireKubernetesCluster returns Kubernetes config, client & namespace for a
-// Pachyderm cluster.
-func AcquireKubernetesCluster(t testing.TB, opts ...Option) (*rest.Config, *kubernetes.Clientset, string) {
-	mc := acquireCluster(t, opts...)
-	return mc.restConfig, mc.k8s, mc.namespace
+	return mc.client, assigned
 }
