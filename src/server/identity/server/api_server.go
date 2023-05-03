@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"go.uber.org/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
