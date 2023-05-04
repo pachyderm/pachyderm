@@ -22,7 +22,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, repo))
-		require.NoError(t, txnClient.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, txnClient.CreatePipeline(pfs.DefaultProjectName,
 			pipeline,
 			"",
 			[]string{"bash"},

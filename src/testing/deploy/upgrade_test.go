@@ -80,7 +80,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
 			pipeline2 := "TestTrigger2"
-			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				pipeline1,
 				"",
 				[]string{"bash"},
@@ -97,7 +97,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				"",
 				false,
 			))
-			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				pipeline2,
 				"",
 				[]string{"bash"},
@@ -168,7 +168,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))
-			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				edgesRepo,
 				"pachyderm/opencv:1.0",
 				[]string{"python3", "/edges.py"}, /* cmd */
@@ -179,7 +179,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				false,    /* update */
 			))
 			require.NoError(t,
-				c.CreateProjectPipeline(pfs.DefaultProjectName,
+				c.CreatePipeline(pfs.DefaultProjectName,
 					montage,
 					"dpokidov/imagemagick:7.1.0-23",
 					[]string{"sh"}, /* cmd */

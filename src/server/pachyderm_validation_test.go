@@ -36,7 +36,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
 	// Create pipeline with input named "out"
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -52,7 +52,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "out", err.Error())
 
 	// Create pipeline with no glob
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -68,7 +68,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "glob", err.Error())
 
 	// Create pipeline with input commit
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -99,7 +99,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 	pipelineName := tu.UniqueString("pipeline")
-	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.YesError(t, c.CreatePipeline(pfs.DefaultProjectName,
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -127,7 +127,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
 	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 
-	require.NoError(t, c.CreateProjectPipeline(projectName,
+	require.NoError(t, c.CreatePipeline(projectName,
 		tu.UniqueString("pipeline-hyphen"),
 		"",
 		[]string{"bash"},
@@ -140,7 +140,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		false,
 	))
 
-	require.NoError(t, c.CreateProjectPipeline(projectName,
+	require.NoError(t, c.CreatePipeline(projectName,
 		tu.UniqueString("pipeline_underscore"),
 		"",
 		[]string{"bash"},

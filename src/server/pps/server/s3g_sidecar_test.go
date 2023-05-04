@@ -57,7 +57,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo2))
 
 	pipeline := tu.UniqueString("Pipeline")
-	err := c.CreateProjectPipeline(pfs.DefaultProjectName,
+	err := c.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -87,7 +87,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "union", err.Error())
-	err = c.CreateProjectPipeline(pfs.DefaultProjectName,
+	err = c.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
 		[]string{"bash"},

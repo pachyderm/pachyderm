@@ -63,7 +63,7 @@ func TestListDatum(t *testing.T) {
 		client.NewPFSInput(pfs.DefaultProjectName, repoA, "/*"),
 		client.NewPFSInput(pfs.DefaultProjectName, repoB, "/*"),
 	)
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -207,7 +207,7 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 	expectedFiles, pipelines := tu.DebugFiles(t, projectName, repoName)
 
 	for _, p := range pipelines {
-		require.NoError(t, aliceClient.CreateProjectPipeline(projectName,
+		require.NoError(t, aliceClient.CreatePipeline(projectName,
 			p,
 			"",
 			[]string{"bash"},
@@ -304,7 +304,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 
 	// create pipeline
 	alicePipeline := tu.UniqueString("pipeline_for_logs")
-	err = aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	err = aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		alicePipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -528,7 +528,7 @@ func TestPipelineRevoke(t *testing.T) {
 
 	// bob creates a pipeline
 	pipeline := tu.UniqueString("bob-pipeline")
-	require.NoError(t, bobClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, bobClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -584,7 +584,7 @@ func TestPipelineRevoke(t *testing.T) {
 	}
 
 	// alice updates bob's pipline, but the pipeline still doesn't run
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -708,7 +708,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline1 := tu.UniqueString("cron1-")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline1,
 		"",
 		[]string{"/bin/bash"},
@@ -719,7 +719,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		false,
 	))
 	pipeline2 := tu.UniqueString("cron2-")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline2,
 		"",
 		[]string{"/bin/bash"},
@@ -789,7 +789,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -874,7 +874,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	repo := tu.UniqueString("TestDeleteAllAfterDeactivate")
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},

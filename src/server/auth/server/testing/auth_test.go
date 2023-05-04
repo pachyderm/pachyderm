@@ -393,7 +393,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update     bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreateProjectPipeline(pfs.DefaultProjectName,
+		return args.client.CreatePipeline(pfs.DefaultProjectName,
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
@@ -585,7 +585,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		update bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreateProjectPipeline(pfs.DefaultProjectName,
+		return args.client.CreatePipeline(pfs.DefaultProjectName,
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
@@ -765,7 +765,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -805,7 +805,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates another pipeline
 	pipeline = tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -897,7 +897,7 @@ func TestStopJob(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1197,8 +1197,8 @@ func TestProjectWriter(t *testing.T) {
 
 	// Pipeline creation depends on Repo creation. Bob cannot create repos in the project, but Alice can.
 	_, bob := tu.RandomRobot(t, c, "bob")
-	require.ErrorContains(t, bob.CreateProjectPipeline(project, "pipeline", "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: &pps.PFSInput{Project: project, Repo: repo, Glob: "/*", Name: "in"}}, "", false), "not authorized")
-	require.NoError(t, alice.CreateProjectPipeline(project, "pipeline", "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: &pps.PFSInput{Project: project, Repo: repo, Glob: "/*", Name: "in"}}, "", false))
+	require.ErrorContains(t, bob.CreatePipeline(project, "pipeline", "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: &pps.PFSInput{Project: project, Repo: repo, Glob: "/*", Name: "in"}}, "", false), "not authorized")
+	require.NoError(t, alice.CreatePipeline(project, "pipeline", "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: &pps.PFSInput{Project: project, Repo: repo, Glob: "/*", Name: "in"}}, "", false))
 }
 
 // Creating a pipeline when the output repo already exists gives is not allowed
@@ -1217,7 +1217,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, pipeline))
 
 	// bob creates a pipeline, and should get an "access denied" error
-	err := bobClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	err := bobClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1232,7 +1232,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 
 	// alice gives bob writer scope on pipeline output repo, but nothing changes
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoWriterRole}))
-	err = bobClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	err = bobClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1355,7 +1355,7 @@ func TestListJob(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1490,7 +1490,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1521,7 +1521,7 @@ func TestPipelineNewInput(t *testing.T) {
 	})
 
 	// alice updates the pipeline to replace repo[0] with repo[2]
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1809,7 +1809,7 @@ func TestGetJobsBugFix(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1859,7 +1859,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
@@ -1901,7 +1901,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
@@ -2392,7 +2392,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -2565,7 +2565,7 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 	require.NoError(t, err, "should create the default/test repo")
 
 	// Create a pipeline, to ensure that PPS auth activation works.
-	err = c.CreateProjectPipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewPFSInput("default", "test", "*"), "", false)
+	err = c.CreatePipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewPFSInput("default", "test", "*"), "", false)
 	require.NoError(t, err, "should create the default/pipeline pipeline")
 
 	// Ensure we can list repos, and that this one shows up.
@@ -2798,7 +2798,7 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 	createPipeline := func(client *client.APIClient, project string, name string, inputRepo *pps.PFSInput) {
 		inputRepo.Name = "in"
-		require.NoError(t, client.CreateProjectPipeline(project, name, "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: inputRepo}, "", false))
+		require.NoError(t, client.CreatePipeline(project, name, "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: inputRepo}, "", false))
 
 	}
 	t.Parallel()

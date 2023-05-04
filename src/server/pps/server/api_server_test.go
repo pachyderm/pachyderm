@@ -262,7 +262,7 @@ func TestListJobSetWithProjects(t *testing.T) {
 	project := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, env.PachClient.CreateProject(project))
-	require.NoError(t, env.PachClient.CreateProjectPipeline(
+	require.NoError(t, env.PachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline1,
 		"", /* default image*/
@@ -273,7 +273,7 @@ func TestListJobSetWithProjects(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	require.NoError(t, env.PachClient.CreateProjectPipeline(
+	require.NoError(t, env.PachClient.CreatePipeline(
 		project,
 		pipeline2,
 		"", /* default image*/
@@ -362,7 +362,7 @@ func TestDeletePipelines(t *testing.T) {
 	project := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, env.PachClient.CreateProject(project))
-	require.NoError(t, env.PachClient.CreateProjectPipeline(
+	require.NoError(t, env.PachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline1,
 		"", /* default image*/
@@ -373,7 +373,7 @@ func TestDeletePipelines(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	require.NoError(t, env.PachClient.CreateProjectPipeline(
+	require.NoError(t, env.PachClient.CreatePipeline(
 		project,
 		pipeline2,
 		"", /* default image*/
@@ -385,7 +385,7 @@ func TestDeletePipelines(t *testing.T) {
 		true, /* update */
 	))
 	// update pipeline 1; this helps verify that internally, we delete pipelines topologically
-	require.NoError(t, env.PachClient.CreateProjectPipeline(
+	require.NoError(t, env.PachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline1,
 		"", /* default image*/
