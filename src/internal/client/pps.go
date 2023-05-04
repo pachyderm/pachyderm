@@ -467,14 +467,7 @@ func (c APIClient) DeleteJob(projectName, pipelineName, jobID string) error {
 }
 
 // StopJob stops a job.
-//
-// Deprecated: use StopProjectJob instead.
-func (c APIClient) StopJob(pipelineName string, jobID string) error {
-	return c.StopProjectJob(pfs.DefaultProjectName, pipelineName, jobID)
-}
-
-// StopProjectJob stops a job.
-func (c APIClient) StopProjectJob(projectName, pipelineName, jobID string) error {
+func (c APIClient) StopJob(projectName, pipelineName, jobID string) error {
 	_, err := c.PpsAPIClient.StopJob(
 		c.Ctx(),
 		&pps.StopJobRequest{

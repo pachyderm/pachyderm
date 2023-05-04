@@ -572,7 +572,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 	pachClient.SetAuthToken(pi.AuthToken)
 	c := client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, "")
 	if err := pachClient.ListCommitF(c.Repo, c, nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
+		return pachClient.StopJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted
