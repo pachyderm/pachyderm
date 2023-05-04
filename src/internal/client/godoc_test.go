@@ -447,6 +447,7 @@ func ExampleAPIClient_CreatePipeline() {
 	}
 
 	if err := c.CreatePipeline(
+		"default",
 		"test-pipeline",
 		"",
 		[]string{"bash"},
