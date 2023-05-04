@@ -581,27 +581,6 @@ func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from strin
 	}
 }
 
-// ClearCommit clears the state of an open commit.
-//
-// Deprecated: use ClearProjectCommit instead.
-func (c APIClient) ClearCommit(repoName string, branchName string, commitID string) (retErr error) {
-	return c.ClearProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
-}
-
-// ClearProjectCommit clears the state of an open commit.
-func (c APIClient) ClearProjectCommit(projectName, repoName, branchName, commitID string) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	_, err := c.PfsAPIClient.ClearCommit(
-		c.Ctx(),
-		&pfs.ClearCommitRequest{
-			Commit: NewCommit(projectName, repoName, branchName, commitID),
-		},
-	)
-	return err
-}
-
 type FsckOption func(*pfs.FsckRequest)
 
 func WithZombieCheckAll() FsckOption {
