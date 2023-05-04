@@ -408,15 +408,8 @@ func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
 	return ret, nil
 }
 
-// GetFileSet gets a file set for a commit.
-//
-// Deprecated: use GetProjectFileSet instead.
-func (c APIClient) GetFileSet(repo, branch, commit string) (_ string, retErr error) {
-	return c.GetProjectFileSet(pfs.DefaultProjectName, repo, branch, commit)
-}
-
-// GetProjectFileSet gets a file set for a commit in a project.
-func (c APIClient) GetProjectFileSet(project, repo, branch, commit string) (_ string, retErr error) {
+// GetFileSet gets a file set for a commit in a project.
+func (c APIClient) GetFileSet(project, repo, branch, commit string) (_ string, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
