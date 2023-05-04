@@ -821,19 +821,10 @@ func (c APIClient) StopPipeline(projectName, pipelineName string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// RunPipeline runs a pipeline.  It can be passed a list of commit provenance.
-// This will trigger a new job provenant on those commits, effectively running
-// the pipeline on the data in those commits.
-//
-// Deprecated: use RunProjectPipeline instead.
-func (c APIClient) RunPipeline(pipelineName string, provenance []*pfs.Commit, jobID string) error {
-	return c.RunProjectPipeline(pfs.DefaultProjectName, pipelineName, provenance, jobID)
-}
-
-// RunProjectPipeline runs a pipeline.  It can be passed a list of commit
+// RunPipeline runs a pipeline.  It can be passed a list of commit
 // provenance.  This will trigger a new job provenant on those commits,
 // effectively running the pipeline on the data in those commits.
-func (c APIClient) RunProjectPipeline(projectName, pipelineName string, provenance []*pfs.Commit, jobID string) error {
+func (c APIClient) RunPipeline(projectName, pipelineName string, provenance []*pfs.Commit, jobID string) error {
 	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),
 		&pps.RunPipelineRequest{
