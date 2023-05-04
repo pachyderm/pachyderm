@@ -456,14 +456,7 @@ func (c APIClient) SubscribeJob(projectName, pipelineName string, details bool, 
 }
 
 // DeleteJob deletes a job.
-//
-// Deprecated: use DeleteProjectJob instead.
-func (c APIClient) DeleteJob(pipelineName, jobID string) error {
-	return c.DeleteProjectJob(pfs.DefaultProjectName, pipelineName, jobID)
-}
-
-// DeleteProjectJob deletes a job.
-func (c APIClient) DeleteProjectJob(projectName, pipelineName, jobID string) error {
+func (c APIClient) DeleteJob(projectName, pipelineName, jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
 		c.Ctx(),
 		&pps.DeleteJobRequest{

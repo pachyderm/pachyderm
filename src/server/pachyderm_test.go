@@ -4318,9 +4318,9 @@ func TestJobDeletion(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
-	err = c.DeleteProjectJob(pfs.DefaultProjectName, pipelineName, commit.ID)
+	err = c.DeleteJob(pfs.DefaultProjectName, pipelineName, commit.ID)
 	require.YesError(t, err) // Wrong project should error
-	err = c.DeleteProjectJob(project, pipelineName, commit.ID)
+	err = c.DeleteJob(project, pipelineName, commit.ID)
 	require.NoError(t, err)
 }
 
