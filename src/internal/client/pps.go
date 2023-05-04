@@ -624,17 +624,7 @@ func (l *LogsIter) Err() error {
 // 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
 // any filter, simply pass an empty value, though one of 'pipelineName' and
 // 'jobID' must be set.  Responses are written to 'messages'.
-//
-// Deprecated: use GetProjectLogs instead.
-func (c APIClient) GetLogs(pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
-	return c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jobID, data, datumID, master, follow, since)
-}
-
-// GetProjectLogs gets logs from a job (logs includes stdout and stderr).
-// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
-// any filter, simply pass an empty value, though one of 'pipelineName' and
-// 'jobID' must be set.  Responses are written to 'messages'.
-func (c APIClient) GetProjectLogs(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
+func (c APIClient) GetLogs(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
 	return c.getLogs(projectName, pipelineName, jobID, data, datumID, master, follow, since, false)
 }
 

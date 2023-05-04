@@ -742,7 +742,7 @@ each datum.`,
 			}
 
 			// Issue RPC
-			iter := client.GetProjectLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
+			iter := client.GetLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			m := &jsonpb.Marshaler{}
 			for iter.Next() {

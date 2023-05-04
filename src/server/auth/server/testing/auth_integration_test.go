@@ -320,14 +320,14 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	time.Sleep(time.Second * 10)
 
 	// must be authorized to access pachd logs
-	pachdLogsIter := aliceClient.GetProjectLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
+	pachdLogsIter := aliceClient.GetLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
 	pachdLogsIter.Next()
 	require.YesError(t, pachdLogsIter.Err())
 	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
 
 	// alice can view the pipeline logs
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		pipelineLogsIter := aliceClient.GetProjectLogs(pfs.DefaultProjectName, alicePipeline, "", nil, "", false, false, 0)
+		pipelineLogsIter := aliceClient.GetLogs(pfs.DefaultProjectName, alicePipeline, "", nil, "", false, false, 0)
 		pipelineLogsIter.Next()
 		return pipelineLogsIter.Err()
 	}, "alice can view the pipeline logs")
@@ -340,7 +340,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		})
 	require.NoError(t, err)
-	pachdLogsIter = aliceClient.GetProjectLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
+	pachdLogsIter = aliceClient.GetLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
 	pachdLogsIter.Next()
 	require.NoError(t, pachdLogsIter.Err())
 }

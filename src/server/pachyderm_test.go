@@ -4411,7 +4411,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		opts = append(opts, minikubetestenv.SkipLokiOption)
 	}
 	c, _ := minikubetestenv.AcquireCluster(t, opts...)
-	iter := c.GetProjectLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
+	iter := c.GetLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
 	require.NoError(t, iter.Err())
@@ -4449,14 +4449,14 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
-	iter = c.GetProjectLogs(pfs.DefaultProjectName, "__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
+	iter = c.GetLogs(pfs.DefaultProjectName, "__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
-	iter = c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, "__DOES_NOT_EXIST__", nil, "", false, false, 0)
+	iter = c.GetLogs(pfs.DefaultProjectName, pipelineName, "__DOES_NOT_EXIST__", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -4468,7 +4468,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	// Loki hasn't scraped the logs yet so they don't show up.
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
-		iter = c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 0)
+		iter = c.GetLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 0)
 		var numLogs, totalLogs int
 		for iter.Next() {
 			totalLogs++
@@ -4496,7 +4496,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		// (2) Get logs using extracted job ID
 		// wait for logs to be collected
 		time.Sleep(10 * time.Second)
-		iter = c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		iter = c.GetLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		numLogs = 0
 		for iter.Next() {
 			numLogs++
@@ -4509,7 +4509,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		require.True(t, numLogs > 0)
 
 		// Get logs for datums but don't specify pipeline or job. These should error
-		iter = c.GetProjectLogs(pfs.DefaultProjectName, "", "", []string{"/foo"}, "", false, false, 0)
+		iter = c.GetLogs(pfs.DefaultProjectName, "", "", []string{"/foo"}, "", false, false, 0)
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
@@ -4518,7 +4518,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			return err
 		}
 		require.True(t, len(dis) > 0)
-		iter = c.GetProjectLogs(pfs.DefaultProjectName, "", "", nil, dis[0].Datum.ID, false, false, 0)
+		iter = c.GetLogs(pfs.DefaultProjectName, "", "", nil, dis[0].Datum.ID, false, false, 0)
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
@@ -4529,11 +4529,11 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			return err
 		}
 
-		pathLog := c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
+		pathLog := c.GetLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		base64Hash := "kstrTGrFE58QWlxEpCRBt3aT8NJPNY0rso6XK7a4+wM="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-		base64Log := c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
+		base64Log := c.GetLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
@@ -4563,7 +4563,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 		// Filter logs based on input (using file that doesn't exist). There should
 		// be no logs
-		iter = c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
+		iter = c.GetLogs(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
 		require.False(t, iter.Next())
 		if err = iter.Err(); err != nil {
 			return err
@@ -4571,7 +4571,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		iter = c.WithCtx(ctx).GetProjectLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 0)
+		iter = c.WithCtx(ctx).GetLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 0)
 		numLogs = 0
 		for iter.Next() {
 			numLogs++
@@ -4600,7 +4600,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		time.Sleep(time.Second * 30)
 
 		numLogs = 0
-		iter = c.WithCtx(ctx).GetProjectLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 15*time.Second)
+		iter = c.WithCtx(ctx).GetLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 15*time.Second)
 		for iter.Next() {
 			numLogs++
 		}
@@ -4662,7 +4662,7 @@ func TestManyLogs(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
+		iter := c.GetLogs(pfs.DefaultProjectName, pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
 		var logsReceived, totalLines int
 		for iter.Next() {
 			totalLines++
@@ -8765,7 +8765,7 @@ func TestDatumTries(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
-		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		iter := c.GetLogs(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		var observedTries int64
 		for iter.Next() {
 			if strings.Contains(iter.Message().Message, "errored running user code") {
