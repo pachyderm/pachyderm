@@ -134,7 +134,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	require.NoError(t, c.RunProjectCron(pfs.DefaultProjectName, readPipeline))
 	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, readPipeline, "master", "")
 	require.NoError(t, err)
-	jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, readPipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.InspectJob(pfs.DefaultProjectName, readPipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
 
@@ -144,7 +144,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 
 	commitInfo, err = c.WaitCommit(pfs.DefaultProjectName, writePipeline, "master", "")
 	require.NoError(t, err)
-	jobInfo, err = c.InspectProjectJob(pfs.DefaultProjectName, writePipeline, commitInfo.Commit.ID, false)
+	jobInfo, err = c.InspectJob(pfs.DefaultProjectName, writePipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
 

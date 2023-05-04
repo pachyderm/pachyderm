@@ -119,7 +119,7 @@ func (pj *pendingJob) load() error {
 		pj.logger.Logf("base meta commit for job %q not selected", pj.ji.Job.String())
 	}
 	// Load the job info.
-	pj.ji, err = pachClient.InspectProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
+	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 }
 
 func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job) (string, error) {
-	jobInfo, err := pachClient.InspectProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+	jobInfo, err := pachClient.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 	if err != nil {
 		return "", err
 	}

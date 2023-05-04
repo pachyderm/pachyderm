@@ -929,7 +929,7 @@ func TestStopJob(t *testing.T) {
 
 	require.NoError(t, aliceClient.StopProjectJob(pfs.DefaultProjectName, pipeline, jobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		ji, err := aliceClient.InspectProjectJob(pfs.DefaultProjectName, pipeline, jobID, false)
+		ji, err := aliceClient.InspectJob(pfs.DefaultProjectName, pipeline, jobID, false)
 		if err != nil {
 			return errors.Wrapf(err, "could not inspect job %q", jobID)
 		}
