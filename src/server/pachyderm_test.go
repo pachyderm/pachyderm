@@ -6578,7 +6578,7 @@ func TestMetaRepoContents(t *testing.T) {
 	require.NoError(t, err)
 	assertMetaContents := func(commitID string, inputFile string) {
 		var datumID string
-		require.NoError(t, c.ListProjectDatum(pfs.DefaultProjectName, pipelineName, commitID, func(di *pps.DatumInfo) error {
+		require.NoError(t, c.ListDatum(pfs.DefaultProjectName, pipelineName, commitID, func(di *pps.DatumInfo) error {
 			datumID = di.Datum.ID
 			return nil
 		}))

@@ -493,14 +493,7 @@ func (c APIClient) RestartDatum(projectName, pipelineName, jobID string, datumFi
 }
 
 // ListDatum returns info about datums in a job.
-//
-// Deprecated: use ListProjectDatum instead.
-func (c APIClient) ListDatum(pipelineName, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
-	return c.ListProjectDatum(pfs.DefaultProjectName, pipelineName, jobID, cb)
-}
-
-// ListProjectDatum returns info about datums in a job.
-func (c APIClient) ListProjectDatum(projectName, pipelineName, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
+func (c APIClient) ListDatum(projectName, pipelineName, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -523,7 +516,7 @@ func (c APIClient) ListProjectDatumAll(projectName, pipelineName, jobID string) 
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	var dis []*pps.DatumInfo
-	if err := c.ListProjectDatum(projectName, pipelineName, jobID, func(di *pps.DatumInfo) error {
+	if err := c.ListDatum(projectName, pipelineName, jobID, func(di *pps.DatumInfo) error {
 		dis = append(dis, di)
 		return nil
 	}); err != nil {
