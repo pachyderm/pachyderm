@@ -67,7 +67,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch),
 		Provenance: []*pfs.Branch{
-			client.NewProjectBranch(projectName, input.Repo, input.Branch),
+			client.NewBranch(projectName, input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})
@@ -82,7 +82,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: branch,
 		Provenance: []*pfs.Branch{
-			client.NewProjectBranch(input.Project, input.Repo, input.Branch),
+			client.NewBranch(input.Project, input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})

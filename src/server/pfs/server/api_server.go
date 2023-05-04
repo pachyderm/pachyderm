@@ -856,7 +856,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 	}
 	resp := &pfs.RunLoadTestResponse{
 		Spec:   req.Spec,
-		Branch: client.NewProjectBranch(req.Branch.GetRepo().GetProject().GetName(), repo, branch),
+		Branch: client.NewBranch(req.Branch.GetRepo().GetProject().GetName(), repo, branch),
 		Seed:   seed,
 	}
 	start := time.Now()

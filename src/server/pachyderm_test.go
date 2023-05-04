@@ -8133,7 +8133,7 @@ func TestCommitDescription(t *testing.T) {
 
 	// Test putting a message in StartCommit
 	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewProjectBranch(pfs.DefaultProjectName, dataRepo, "master"),
+		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
@@ -8158,7 +8158,7 @@ func TestCommitDescription(t *testing.T) {
 
 	// Test overwriting a commit message
 	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewProjectBranch(pfs.DefaultProjectName, dataRepo, "master"),
+		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
@@ -11464,7 +11464,7 @@ func TestJobPropagationOnlyOutputBranch(t *testing.T) {
 	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	outputBranch := client.NewProjectBranch(project, pipeline, "output")
+	outputBranch := client.NewBranch(project, pipeline, "output")
 	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
 		tu.DefaultTransformImage,
