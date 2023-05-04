@@ -33,8 +33,8 @@ func projectMasterListBuckets(t *testing.T, pachClient *client.APIClient, minioC
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 
 	hasMaster := false
 	hasBranch := false
@@ -87,7 +87,7 @@ func projectMasterGetObject(t *testing.T, pachClient *client.APIClient, minioCli
 func projectMasterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "branch", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
@@ -121,7 +121,7 @@ func projectMasterStatObject(t *testing.T, pachClient *client.APIClient, minioCl
 func projectMasterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testputobject")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 
 	r := strings.NewReader("content1")
 	_, err := minioClient.PutObject(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
@@ -158,7 +158,7 @@ func projectMasterLargeObjects(t *testing.T, pachClient *client.APIClient, minio
 	repo1 := tu.UniqueString("testlargeobject1")
 	repo2 := tu.UniqueString("testlargeobject2")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo1))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo1, "master", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo1, "master", "", "", nil))
 
 	// create a temporary file to put ~65mb of contents into it
 	inputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-input-*")
@@ -207,7 +207,7 @@ func projectMasterLargeObjects(t *testing.T, pachClient *client.APIClient, minio
 func projectMasterGetObjectNoHead(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobjectnohead")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 
 	_, err := getObject(t, minioClient, fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), "file")
 	keyNotFoundError(t, err)
@@ -282,7 +282,7 @@ func projectMasterBucketExists(t *testing.T, pachClient *client.APIClient, minio
 	require.False(t, exists)
 
 	// repo and branch exists: should be true
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 	exists, err = minioClient.BucketExists(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName))
 	require.NoError(t, err)
 	require.True(t, exists)
@@ -293,7 +293,7 @@ func projectMasterBucketExists(t *testing.T, pachClient *client.APIClient, minio
 	require.False(t, exists)
 
 	// repo and branch exists: should be true
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 	exists, err = minioClient.BucketExists(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName))
 	require.NoError(t, err)
 	require.True(t, exists)
@@ -305,8 +305,8 @@ func projectMasterRemoveBucket(t *testing.T, pachClient *client.APIClient, minio
 	repo := tu.UniqueString("testremovebucket")
 
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 
 	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName)))
 	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName)))
@@ -395,7 +395,7 @@ func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClien
 func projectMasterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testlistobjectsheadlessbranch")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
 
 	// Request into branch that has no head
 	ch := minioClient.ListObjects(fmt.Sprintf("emptybranch.%s.%s", repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
@@ -409,8 +409,8 @@ func projectMasterListObjectsRecursive(t *testing.T, pachClient *client.APIClien
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
 	repo := tu.UniqueString("testlistobjectsrecursive")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
 
 	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 0)
@@ -462,7 +462,7 @@ func projectMasterDoesNotListSystemRepoBuckets(t *testing.T, pachClient *client.
 	require.NoError(t, err)
 
 	// create a master branch on each
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
 	require.NoError(t, err)
 	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: metaRepo.NewBranch("master")})

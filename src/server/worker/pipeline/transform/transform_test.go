@@ -46,7 +46,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	// Set up the input repo and branch
 	input := pipelineInfo.Details.Input.Pfs
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, input.Repo))
-	require.NoError(t, env.PachClient.CreateProjectBranch(input.Project, input.Repo, input.Branch, "", "", nil))
+	require.NoError(t, env.PachClient.CreateBranch(input.Project, input.Repo, input.Branch, "", "", nil))
 
 	// Create the output repo
 	projectName := pipelineInfo.Pipeline.Project.GetName()

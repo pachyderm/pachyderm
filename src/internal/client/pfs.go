@@ -306,15 +306,8 @@ func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsRespons
 	return resp, nil
 }
 
-// CreateBranch creates a new branch.
-//
-// Deprecated: use CreateProjectBranch instead.
-func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch string, commitID string, provenance []*pfs.Branch) error {
-	return c.CreateProjectBranch(pfs.DefaultProjectName, repoName, branchName, commitBranch, commitID, provenance)
-}
-
-// CreateProjectBranch creates a new branch
-func (c APIClient) CreateProjectBranch(projectName, repoName, branchName, commitBranch, commitID string, provenance []*pfs.Branch) error {
+// CreateBranch creates a new branch
+func (c APIClient) CreateBranch(projectName, repoName, branchName, commitBranch, commitID string, provenance []*pfs.Branch) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
 		head = NewCommit(projectName, repoName, commitBranch, commitID)

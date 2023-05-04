@@ -847,7 +847,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 	if req.Branch != nil {
 		branch = req.Branch.Name
 	}
-	if err := pachClient.CreateProjectBranch(project, repo, branch, "", "", nil); err != nil {
+	if err := pachClient.CreateBranch(project, repo, branch, "", "", nil); err != nil {
 		return nil, err
 	}
 	seed := time.Now().UTC().UnixNano()

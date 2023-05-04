@@ -2276,7 +2276,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(commit, "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 	}
-	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", commit.Branch.Name, commit.ID, nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", commit.Branch.Name, commit.ID, nil))
 
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -9015,7 +9015,7 @@ func TestDeferredProcessing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
-	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, dataRepo, "master", "staging", "", nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "staging", "", nil))
 
 	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, pipeline1, "staging", "")
 	require.NoError(t, err)
@@ -9023,7 +9023,7 @@ func TestDeferredProcessing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, pipeline1, "master", "staging", "", nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, pipeline1, "master", "staging", "", nil))
 
 	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
 	require.NoError(t, err)
@@ -10676,7 +10676,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	// now, move dataRepo back to the saved commit
-	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, dataRepo, "master", "master", oldCommit.Commit.ID, nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "master", oldCommit.Commit.ID, nil))
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 	info, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -10730,7 +10730,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the trigger source branch
-	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
@@ -11480,7 +11480,7 @@ func TestJobPropagationOnlyOutputBranch(t *testing.T) {
 		false,
 	))
 
-	require.NoError(t, c.CreateProjectBranch(project, pipeline, "test", "", "", nil))
+	require.NoError(t, c.CreateBranch(project, pipeline, "test", "", "", nil))
 
 	commit := client.NewCommit(project, dataRepo, "master", "")
 	for i := 0; i < 3; i++ {
