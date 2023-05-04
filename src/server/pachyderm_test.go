@@ -6152,7 +6152,7 @@ func TestPipelineWithStats(t *testing.T) {
 	}
 
 	// Make sure 'inspect datum' works
-	datum, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectDatum(pfs.DefaultProjectName, pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
@@ -6224,7 +6224,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	}
 
 	// Make sure 'inspect datum' works for failed state
-	datum, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, failedID)
+	datum, err := c.InspectDatum(pfs.DefaultProjectName, pipeline, id, failedID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 }
@@ -6370,7 +6370,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
-	datum, err := c.InspectProjectDatum(project, pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectDatum(project, pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
@@ -6408,9 +6408,9 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 		if info.State == pps.DatumState_SKIPPED {
 			skippedCount++
 		}
-		_, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, info.Datum.ID)
+		_, err := c.InspectDatum(pfs.DefaultProjectName, pipeline, id, info.Datum.ID)
 		require.YesError(t, err)
-		inspectedInfo, err := c.InspectProjectDatum(project, pipeline, id, info.Datum.ID)
+		inspectedInfo, err := c.InspectDatum(project, pipeline, id, info.Datum.ID)
 		require.NoError(t, err)
 		require.Equal(t, info.State, inspectedInfo.State)
 	}
@@ -6534,13 +6534,13 @@ func TestSkippedDatums(t *testing.T) {
 	datums, err := c.ListDatumAll(pfs.DefaultProjectName, pipelineName, job1.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(datums))
-	datum, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipelineName, job1.Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(pfs.DefaultProjectName, pipelineName, job1.Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
 	job2 := jobs[0]
 	// check the successful datum from job1 is now skipped
-	datum, err = c.InspectProjectDatum(pfs.DefaultProjectName, pipelineName, job2.Job.ID, datums[0].Datum.ID)
+	datum, err = c.InspectDatum(pfs.DefaultProjectName, pipelineName, job2.Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 	// load datums for job2
@@ -7898,7 +7898,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(dis))
 
-	datum, err := c.InspectProjectDatum(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, dis[0].Datum.ID)
+	datum, err := c.InspectDatum(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, dis[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 	// ProcessTime looks like "20 seconds"

@@ -635,7 +635,7 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			datumInfo, err := client.InspectProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, args[1])
+			datumInfo, err := client.InspectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, args[1])
 			if err != nil {
 				return err
 			}

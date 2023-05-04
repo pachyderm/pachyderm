@@ -1460,7 +1460,7 @@ func TestInspectDatum(t *testing.T) {
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
-			if _, err := aliceClient.InspectProjectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.ID); err != nil {
+			if _, err := aliceClient.InspectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.ID); err != nil {
 				continue
 			}
 		}

@@ -571,14 +571,7 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 }
 
 // InspectDatum returns info about a single datum.
-//
-// Deprecated: use InspectProjectDatum instead.
-func (c APIClient) InspectDatum(pipelineName string, jobID string, datumID string) (*pps.DatumInfo, error) {
-	return c.InspectProjectDatum(pfs.DefaultProjectName, pipelineName, jobID, datumID)
-}
-
-// InspectProjectDatum returns info about a single datum.
-func (c APIClient) InspectProjectDatum(projectName, pipelineName, jobID, datumID string) (*pps.DatumInfo, error) {
+func (c APIClient) InspectDatum(projectName, pipelineName, jobID, datumID string) (*pps.DatumInfo, error) {
 	datumInfo, err := c.PpsAPIClient.InspectDatum(
 		c.Ctx(),
 		&pps.InspectDatumRequest{
