@@ -39,7 +39,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
 
-	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -73,7 +73,7 @@ func TestCreateProjectlessPipelineTransaction(t *testing.T) {
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
 
-	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer

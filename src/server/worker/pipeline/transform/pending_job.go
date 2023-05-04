@@ -273,7 +273,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 		return datum.CreateEmptyFileSet(pachClient)
 	}
 	// Wait for the base job to finish.
-	ci, err := pachClient.WaitProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+	ci, err := pachClient.WaitCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 	if err != nil {
 		return "", err
 	}

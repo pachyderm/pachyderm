@@ -31,7 +31,7 @@ func TestListDatum(t *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))
 	}
 	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
-	_, err = env.PachClient.WaitProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID)
+	_, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, "master", commit1.ID)
 	require.NoError(t, err)
 
 	input := &pps.Input{Pfs: &pps.PFSInput{Repo: repo, Glob: "/*"}}
@@ -296,7 +296,7 @@ func TestListJobSetWithProjects(t *testing.T) {
 		strings.NewReader("test data"),
 	))
 	require.NoErrorWithinT(t, time.Minute, func() error {
-		_, err := env.PachClient.WaitProjectCommit(project, pipeline2, "master", "")
+		_, err := env.PachClient.WaitCommit(project, pipeline2, "master", "")
 		return err
 	})
 

@@ -389,7 +389,7 @@ func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id
 			return err
 		}
 	}
-	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	_, err := pachClient.WaitCommit(project, repo, branch, id)
 	if err != nil {
 		return err
 	}

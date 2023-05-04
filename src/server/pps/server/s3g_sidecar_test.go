@@ -623,7 +623,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		})
 		require.NoError(t, err)
 
-		_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
+		_, err = c.WaitCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
 
 		// Part 1: add files in pfs input w/o changing s3 input. Old files in
@@ -641,7 +641,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(projectName, pfsin, "master", ""), iS, strings.NewReader(iS)))
 
-			_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
+			_, err = c.WaitCommit(projectName, pipeline, "master", "")
 			require.NoError(t, err)
 
 			jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
@@ -688,7 +688,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
 		require.NoError(t, c.FinishCommit(projectName, s3in, s3c.Branch.Name, s3c.ID))
 
-		_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
+		_, err = c.WaitCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
 
 		jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
@@ -804,7 +804,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
 
-			_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
+			_, err = c.WaitCommit(projectName, pipeline, "master", "")
 			require.NoError(t, err)
 			jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
 			require.NoError(t, err)

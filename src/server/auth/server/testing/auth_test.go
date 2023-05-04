@@ -431,7 +431,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 
@@ -466,7 +466,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := bobClient.WaitProjectCommit(pfs.DefaultProjectName, goodPipeline, "master", "")
+		_, err := bobClient.WaitCommit(pfs.DefaultProjectName, goodPipeline, "master", "")
 		return err
 	})
 
@@ -569,7 +569,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := bobClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err := bobClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 }
@@ -1371,7 +1371,7 @@ func TestListJob(t *testing.T) {
 	err = aliceClient.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
@@ -1444,7 +1444,7 @@ func TestInspectDatum(t *testing.T) {
 	err = aliceClient.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
@@ -1516,7 +1516,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 
@@ -1547,7 +1547,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline still runs
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 }
@@ -1821,7 +1821,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	))
 
 	// Wait for pipeline to finish
-	_, err = aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+	_, err = aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 	require.NoError(t, err)
 
 	// alice calls 'list job'
@@ -2135,7 +2135,7 @@ func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id
 			return err
 		}
 	}
-	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	_, err := pachClient.WaitCommit(project, repo, branch, id)
 	return err
 }
 
@@ -2412,7 +2412,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 
