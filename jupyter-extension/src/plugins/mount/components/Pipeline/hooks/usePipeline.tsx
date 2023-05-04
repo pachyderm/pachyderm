@@ -50,7 +50,9 @@ export const usePipeline = (
       ppsContext?.metadata?.config.image ?? settings.defaultPipelineImage,
     );
     setPipelineName(ppsContext?.metadata?.config.pipeline.name ?? '');
-    setPipelineProject(ppsContext?.metadata?.config.pipeline.project?.name ?? '')
+    setPipelineProject(
+      ppsContext?.metadata?.config.pipeline.project?.name ?? '',
+    );
     setRequirements(ppsContext?.metadata?.config.requirements ?? '');
     setResponseMessage('');
     if (ppsContext?.metadata?.config.input_spec) {
