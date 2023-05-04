@@ -90,7 +90,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				&pps.ParallelismSpec{
 					Constant: 1,
 				},
-				client.NewProjectPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+				client.NewPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 					Branch:  "master",
 					Commits: 1,
 				}),
@@ -107,7 +107,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				&pps.ParallelismSpec{
 					Constant: 1,
 				},
-				client.NewProjectPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+				client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 					Commits: 2,
 				}),
 				"",
