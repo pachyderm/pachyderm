@@ -860,7 +860,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			err = client.RunProjectCron(project, args[0])
+			err = client.RunCron(project, args[0])
 			if err != nil {
 				return err
 			}
