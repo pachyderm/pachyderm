@@ -1,7 +1,6 @@
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
 
 export const STANDARD_DATE_FORMAT = 'MMM d, yyyy; k:mm';
-export const STANDARD_DATE_ONLY_FORMAT = 'MMM d; yyyy';
 
 export const SECONDS_IN_MINUTE = 60;
 export const SECONDS_IN_HOUR = 60 * SECONDS_IN_MINUTE;
@@ -56,9 +55,4 @@ export const formatDurationFromSecondsToNow = (pastTimeSeconds: number) => {
 export const getStandardDate = (unixSeconds: number) => {
   if (unixSeconds === -1) return '-';
   return format(fromUnixTime(unixSeconds), STANDARD_DATE_FORMAT);
-};
-
-// Mar 20; 2023
-export const getStandardDateOnly = (unixSeconds: number) => {
-  return format(fromUnixTime(unixSeconds), STANDARD_DATE_ONLY_FORMAT);
 };

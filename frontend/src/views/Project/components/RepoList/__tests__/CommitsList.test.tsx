@@ -99,9 +99,9 @@ describe('Repo Commits List', () => {
     );
 
     let commits = screen.getAllByTestId('CommitsList__row');
-    expect(commits[0]).toHaveTextContent('9d5daa...');
-    expect(commits[1]).toHaveTextContent('0918ac...');
-    expect(commits[2]).toHaveTextContent('0918ac...');
+    expect(commits[0]).toHaveTextContent('9d5daa0918ac4c43a476b86e3bb5e88e');
+    expect(commits[1]).toHaveTextContent('0918ac4c43a476b86e3bb5e88e9d5daa');
+    expect(commits[2]).toHaveTextContent('0918ac9d5daa76b86e3bb5e88e4c43a4');
 
     await click(screen.getByLabelText('expand filters'));
     await click(screen.getByText('Created: Oldest'));
@@ -111,9 +111,9 @@ describe('Repo Commits List', () => {
     );
 
     commits = screen.getAllByTestId('CommitsList__row');
-    expect(commits[0]).toHaveTextContent('0518ac...');
-    expect(commits[1]).toHaveTextContent('0218ac...');
-    expect(commits[2]).toHaveTextContent('0918ac...');
+    expect(commits[0]).toHaveTextContent('0518ac9d5daa76b86e3bb5e88e4c43a5');
+    expect(commits[1]).toHaveTextContent('0218ac9d5daa76b86e3bb5e88e4c43a5');
+    expect(commits[2]).toHaveTextContent('0918ac9d5daa76b86e3bb5e88e4c43a5');
   });
 
   it('should allow users to navigate through paged files', async () => {
@@ -130,8 +130,8 @@ describe('Repo Commits List', () => {
 
     let commits = screen.getAllByTestId('CommitsList__row');
     expect(commits).toHaveLength(15);
-    expect(commits[0]).toHaveTextContent('0-0...');
-    expect(commits[14]).toHaveTextContent('0-14...');
+    expect(commits[0]).toHaveTextContent('0-0');
+    expect(commits[14]).toHaveTextContent('0-14');
 
     let pager = screen.getByTestId('Pager__pager');
     expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
@@ -143,8 +143,8 @@ describe('Repo Commits List', () => {
 
     commits = screen.getAllByTestId('CommitsList__row');
     expect(commits).toHaveLength(15);
-    expect(commits[0]).toHaveTextContent('0-15...');
-    expect(commits[14]).toHaveTextContent('0-29...');
+    expect(commits[0]).toHaveTextContent('0-15');
+    expect(commits[14]).toHaveTextContent('0-29');
 
     pager = screen.getByTestId('Pager__pager');
     expect(within(pager).getByTestId('Pager__forward')).toBeEnabled();

@@ -6,7 +6,6 @@ import {
   formatDurationFromSeconds,
   formatDurationFromSecondsToNow,
   getStandardDate,
-  getStandardDateOnly,
 } from '@dash-frontend/lib/dateTime';
 
 describe('getDurationToNow', () => {
@@ -71,19 +70,5 @@ describe('getStandardDate', () => {
     // A colon character.
     // Two digits representing the minute (e.g. 00, 30).
     expect(result).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{4}; \d{1,2}:\d{2}/);
-  });
-});
-
-describe('getStandardDateOnly', () => {
-  it('returns the date in the correct format', () => {
-    const unixSeconds = Date.now() / 1000 - 2 * SECONDS_IN_HOUR; // two hours ago
-    const result = getStandardDateOnly(unixSeconds);
-    // This regular expression matches a string that has the following pattern:
-    // A capital letter followed by two lowercase letters, which represents an abbreviation of a month name (e.g. Jan, Feb, Mar, etc.).
-    // A space character.
-    // One or two digits, representing the day of the month (e.g. 1, 12, 31).
-    // A semicolon followed by a space character.
-    // Four digits representing the year (e.g. 2022, 2023).
-    expect(result).toMatch(/[A-Z][a-z]{2} \d{1,2}; \d{4}/);
   });
 });

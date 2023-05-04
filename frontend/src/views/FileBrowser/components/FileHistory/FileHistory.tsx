@@ -6,7 +6,7 @@ import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDateOnly} from '@dash-frontend/lib/dateTime';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   Button,
   CaptionTextSmall,
@@ -67,27 +67,37 @@ const FileHistory: React.FC = () => {
                 : undefined
             }
           >
-            <div className={styles.dateAndStatus}>
-              <span>{getStandardDateOnly(commit.started)}</span>
-              <CaptionTextSmall
-                className={classnames({
-                  [styles.deleted]:
-                    commit.commitAction === FileCommitState.DELETED,
-                })}
-              >
-                {capitalize(commit.commitAction || '-')}
-              </CaptionTextSmall>
+            <div className={styles.dateAndIdWrapper}>
+              <div className={styles.dateAndStatus}>
+                <span>{getStandardDate(commit.started)}</span>
+                <CaptionTextSmall
+                  className={classnames({
+                    [styles.deleted]:
+                      commit.commitAction === FileCommitState.DELETED,
+                  })}
+                >
+                  {capitalize(commit.commitAction || '-')}
+                </CaptionTextSmall>
+              </div>
+              <div className={styles.textWrapper}>
+                <CaptionText className={styles.commitId}>
+                  {commit.id}
+                </CaptionText>
+              </div>
             </div>
-            <div className={styles.textWrapper}>
-              <CaptionText>{`${commit.id.slice(0, 6)}...`}</CaptionText>
-            </div>
+            {commit.description && (
+              <div className={styles.description}>{commit.description}</div>
+            )}
           </Link>
         ))}
 
         {loading && (
           <>
             {range(5).map((i) => (
-              <div className={styles.listItem} key={i}>
+              <div
+                className={classnames(styles.listItem, styles.skeletonWrapper)}
+                key={i}
+              >
                 <div className={styles.leftSkeleton}>
                   <SkeletonDisplayText className={styles.skeletonDisplayText} />
                 </div>

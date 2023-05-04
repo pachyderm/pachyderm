@@ -4,7 +4,7 @@ import {useEffect, useMemo, useState} from 'react';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useFindCommits from '@dash-frontend/hooks/useFindCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDateOnly} from '@dash-frontend/lib/dateTime';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 
 const useFileHistory = () => {
   const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
@@ -37,9 +37,9 @@ const useFileHistory = () => {
 
   const dateRange = useMemo(() => {
     return commitList.length !== 0
-      ? `${getStandardDateOnly(commitList[0]?.started)} - ${
+      ? `${getStandardDate(commitList[0]?.started)} - ${
           commitList &&
-          getStandardDateOnly(commitList[commitList.length - 1]?.started)
+          getStandardDate(commitList[commitList.length - 1]?.started)
         }`
       : null;
   }, [commitList]);

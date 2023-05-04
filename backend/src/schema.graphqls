@@ -673,6 +673,7 @@ input FindCommitsQueryArgs {
 type FoundCommit {
   id: ID!
   started: Int!
+  description: String
   commitAction: FileCommitState
 }
 

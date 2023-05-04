@@ -132,7 +132,7 @@ const FileBrowser: React.FC = () => {
                               elementName="file"
                               page={page}
                               updatePage={updatePage}
-                              pageSizes={[FILE_DEFAULT_PAGE_SIZE, 25, 50]}
+                              pageSizes={[FILE_DEFAULT_PAGE_SIZE, 100]}
                               nextPageDisabled={!hasNextPage}
                               updatePageSize={setPageSize}
                               pageSize={pageSize}

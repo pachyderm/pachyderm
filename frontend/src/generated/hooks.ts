@@ -1639,6 +1639,7 @@ export const FindCommitsDocument = gql`
       commits {
         id
         started
+        description
         commitAction
       }
       cursor

@@ -300,6 +300,7 @@ const commitResolver: CommitResolver = {
           return {
             id: commitInfo.id,
             started: commitInfo.started,
+            description: commitInfo.description,
             commitAction: diff && Object.values(diff.diffTotals)[0],
           };
         }),

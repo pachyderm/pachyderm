@@ -400,7 +400,7 @@ describe('File Browser', () => {
       expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
 
       await click(within(pager).getByTestId('DropdownButton__button'));
-      await click(within(pager).getByText(50));
+      await click(within(pager).getByText(100));
 
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
@@ -557,10 +557,11 @@ describe('File Browser', () => {
       render(<FileBrowser />);
 
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
-
+      expect(await screen.findByText('added mako')).toBeInTheDocument();
       expect(await screen.findByText('cron')).toBeInTheDocument();
       expect(await screen.findByText('cron job')).toBeInTheDocument();
       await click(screen.getByText('cats'));
+      expect(await screen.findByText('added mako')).toBeInTheDocument();
       expect(await screen.findByText('cron')).toBeInTheDocument();
       expect(await screen.findByText('cron job')).toBeInTheDocument();
     });

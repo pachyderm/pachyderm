@@ -6,6 +6,7 @@ export const FIND_COMMITS_QUERY = gql`
       commits {
         id
         started
+        description
         commitAction
       }
       cursor

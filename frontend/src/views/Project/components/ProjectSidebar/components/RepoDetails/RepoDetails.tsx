@@ -71,28 +71,38 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         >
           {repo ? getStandardDate(repo.createdAt) : 'N/A'}
         </Description>
-        <Route path={LINEAGE_REPO_PATH} exact>
-          {(currentRepoLoading || commit) && (
-            <Description
-              loading={currentRepoLoading}
-              term="Most Recent Commit Start"
-            >
-              {commit ? getStandardDate(commit.started) : 'N/A'}
-            </Description>
-          )}
-          {(currentRepoLoading || commit) && (
-            <Description
-              loading={currentRepoLoading}
-              term="Most Recent Commit ID"
-            >
-              {commit ? (
-                <CommitIdCopy commit={commit.id} clickable small longId />
-              ) : (
-                'N/A'
-              )}
-            </Description>
-          )}
-        </Route>
+        <Switch>
+          <Route path={LINEAGE_REPO_PATH} exact>
+            {(currentRepoLoading || commit) && (
+              <Description
+                loading={currentRepoLoading}
+                term="Most Recent Commit Start"
+              >
+                {commit ? getStandardDate(commit.started) : 'N/A'}
+              </Description>
+            )}
+            {(currentRepoLoading || commit) && (
+              <Description
+                loading={currentRepoLoading}
+                term="Most Recent Commit ID"
+              >
+                {commit ? (
+                  <CommitIdCopy commit={commit.id} clickable small longId />
+                ) : (
+                  'N/A'
+                )}
+              </Description>
+            )}
+          </Route>
+
+          <Route>
+            {commit?.description && (
+              <Description term="Selected Commit Description">
+                {commit.description}
+              </Description>
+            )}
+          </Route>
+        </Switch>
       </div>
 
       {!currentRepoLoading && (!commit || repo?.branches.length === 0) && (

@@ -321,6 +321,7 @@ export type FinishCommitArgs = {
 export type FoundCommit = {
   __typename?: 'FoundCommit';
   commitAction?: Maybe<FileCommitState>;
+  description?: Maybe<Scalars['String']>;
   id: Scalars['ID'];
   started: Scalars['Int'];
 };
@@ -1498,6 +1499,11 @@ export type FoundCommitResolvers<
 > = ResolversObject<{
   commitAction?: Resolver<
     Maybe<ResolversTypes['FileCommitState']>,
+    ParentType,
+    ContextType
+  >;
+  description?: Resolver<
+    Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
@@ -2973,6 +2979,7 @@ export type FindCommitsQuery = {
       __typename?: 'FoundCommit';
       id: string;
       started: number;
+      description?: string | null;
       commitAction?: FileCommitState | null;
     }>;
   };
