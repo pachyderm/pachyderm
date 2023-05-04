@@ -58,13 +58,8 @@ func (c APIClient) GetProjectRoleBinding(project string) (*auth.RoleBinding, err
 	return resp.Binding, nil
 }
 
-// Deprecated: use GetProjectRepoRoleBinding instead.
-func (c APIClient) GetRepoRoleBinding(repoName string) (*auth.RoleBinding, error) {
-	return c.GetProjectRepoRoleBinding(pfs.DefaultProjectName, repoName)
-}
-
 // Return the roles bound to a repo within a project.
-func (c APIClient) GetProjectRepoRoleBinding(projectName, repoName string) (*auth.RoleBinding, error) {
+func (c APIClient) GetRepoRoleBinding(projectName, repoName string) (*auth.RoleBinding, error) {
 	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
 		Resource: NewRepo(projectName, repoName).AuthResource(),
 	})

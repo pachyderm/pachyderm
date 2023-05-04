@@ -636,7 +636,7 @@ func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetProjectRepoRoleBinding(project, repo)
+			resp, err := c.GetRepoRoleBinding(project, repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}

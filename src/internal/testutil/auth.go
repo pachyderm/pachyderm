@@ -123,7 +123,7 @@ func BuildBindings(s ...string) *auth.RoleBinding {
 
 func GetRepoRoleBinding(t *testing.T, c *client.APIClient, projectName, repoName string) *auth.RoleBinding {
 	t.Helper()
-	resp, err := c.GetProjectRepoRoleBinding(projectName, repoName)
+	resp, err := c.GetRepoRoleBinding(projectName, repoName)
 	require.NoError(t, err)
 	return resp
 }
