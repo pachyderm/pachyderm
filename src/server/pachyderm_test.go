@@ -7529,7 +7529,7 @@ func TestService(t *testing.T) {
 
 	pipeline := tu.UniqueString("pipelineservice")
 	// This pipeline sleeps for 10 secs per datum
-	require.NoError(t, c.CreateProjectPipelineService(pfs.DefaultProjectName,
+	require.NoError(t, c.CreatePipelineService(pfs.DefaultProjectName,
 		pipeline,
 		"trinitronx/python-simplehttpserver",
 		[]string{"sh"},
