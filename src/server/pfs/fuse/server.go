@@ -1220,7 +1220,7 @@ func createLocalOutDir(mm *MountManager) {
 	// info is necessary.
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
-		File:  client.NewProjectFile("", "out", "", "", ""),
+		File:  client.NewFile("", "out", "", "", ""),
 		Write: true,
 	}
 }
@@ -1477,7 +1477,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:     m.Name,
-			File:     client.NewProjectFile(m.Project, m.Repo, m.Branch, "", ""),
+			File:     client.NewFile(m.Project, m.Repo, m.Branch, "", ""),
 			Subpaths: m.Files,
 			Write:    m.Mode == "rw",
 		}

@@ -284,7 +284,7 @@ func TestRepoOpts(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo3"))
-	file := client.NewProjectFile(pfs.DefaultProjectName, "repo1", "master", "", "")
+	file := client.NewFile(pfs.DefaultProjectName, "repo1", "master", "", "")
 	err := env.PachClient.PutFile(file.Commit, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
@@ -335,7 +335,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Name: "repo1", File: client.NewProjectFile(pfs.DefaultProjectName, "repo1", "staging", "", ""), Write: true},
+			"repo1": {Name: "repo1", File: client.NewFile(pfs.DefaultProjectName, "repo1", "staging", "", ""), Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := os.ReadDir(mountPoint)
@@ -467,7 +467,7 @@ func TestMountFile(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "master^", "/foo"),
+				File: client.NewFile(pfs.DefaultProjectName, "repo", "master", "master^", "/foo"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -490,7 +490,7 @@ func TestMountFile(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/bar"),
+				File: client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/bar"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -528,7 +528,7 @@ func TestMountDir(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/foo"),
+				File: client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/foo"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -556,7 +556,7 @@ func TestMountDir(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/bar"),
+				File: client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/bar"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -584,7 +584,7 @@ func TestMountDir(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/dir"),
+				File: client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/dir"),
 			},
 		},
 	}, func(mountPoint string) {

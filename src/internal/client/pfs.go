@@ -49,14 +49,7 @@ func NewCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 }
 
 // NewFile creates a pfs.File.
-//
-// Deprecated: use NewProjectFile instead.
-func NewFile(repoName, branchName, commitID, path string) *pfs.File {
-	return NewProjectFile(pfs.DefaultProjectName, repoName, branchName, commitID, path)
-}
-
-// NewProjectFile creates a pfs.File.
-func NewProjectFile(projectName, repoName, branchName, commitID, path string) *pfs.File {
+func NewFile(projectName, repoName, branchName, commitID, path string) *pfs.File {
 	return &pfs.File{
 		Commit: NewCommit(projectName, repoName, branchName, commitID),
 		Path:   path,
