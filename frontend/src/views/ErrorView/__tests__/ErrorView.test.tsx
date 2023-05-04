@@ -1,5 +1,5 @@
 import {render, screen} from '@testing-library/react';
-import {GraphQLError, ASTNode} from 'graphql';
+import {GraphQLError} from 'graphql';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';

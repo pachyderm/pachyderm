@@ -17,15 +17,15 @@ executors:
   small-node:
     resource_class: small
     docker:
-      - image: cimg/node:16.14.2
+      - image: cimg/node:18.16.0
   medium-node:
     resource_class: medium
     docker:
-      - image: cimg/node:16.14.2
+      - image: cimg/node:18.16.0
   xlarge-node:
     resource_class: xlarge
     docker:
-      - image: cimg/node:16.14.2
+      - image: cimg/node:18.16.0
 
 commands:
   node-install-all:
@@ -72,9 +72,10 @@ commands:
 jobs:
   components-storybook-release:
     docker:
-      - image: cimg/node:16.11.0
+      - image: cimg/node:18.16.0
     steps:
       - checkout
+      - run: npm install -g netlify-cli@14.4.0
       - run: .circleci/scripts/upload-storybook.sh
 
   lint-frontend:
@@ -203,7 +204,7 @@ jobs:
   build:
     resource_class: small
     docker:
-      - image: cimg/node:16.14.2
+      - image: cimg/node:18.16.0
     steps:
       - checkout
       - node-install-all
@@ -240,7 +241,7 @@ jobs:
 
   preview:
     docker:
-      - image: node:16.14.2
+      - image: node:18.16.0
     steps:
       - checkout
       - jq/install
@@ -262,7 +263,7 @@ jobs:
             <details><summary>Proxy</summary>
 
             \`\`\`bash
-            helm repo add pachyderm https://pachyderm.github.io/helmchart 
+            helm repo add pachyderm https://pachyderm.github.io/helmchart
             helm repo update
             helm uninstall pachd
 
@@ -287,7 +288,7 @@ jobs:
             <details><summary>Port Forwarding</summary>
 
             \`\`\`bash
-            helm repo add pachyderm https://pachyderm.github.io/helmchart 
+            helm repo add pachyderm https://pachyderm.github.io/helmchart
             helm repo update
             helm uninstall pachd
 

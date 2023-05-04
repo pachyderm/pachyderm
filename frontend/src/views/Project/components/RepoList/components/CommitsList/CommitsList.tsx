@@ -107,19 +107,21 @@ const CommitsList: React.FC<CommitsListProps> = ({
           </TableViewWrapper>
         )}
       </Form>
-      {!loading && commits?.length > 0 && (hasNextPage || cursors.length > 1) && (
-        <TableViewPaginationWrapper>
-          <Pager
-            elementName="file"
-            page={page}
-            updatePage={updatePage}
-            pageSizes={[COMMITS_DEFAULT_PAGE_SIZE, 25, 50]}
-            nextPageDisabled={!hasNextPage}
-            updatePageSize={setPageSize}
-            pageSize={pageSize}
-          />
-        </TableViewPaginationWrapper>
-      )}
+      {!loading &&
+        commits?.length > 0 &&
+        (hasNextPage || cursors.length > 1) && (
+          <TableViewPaginationWrapper>
+            <Pager
+              elementName="file"
+              page={page}
+              updatePage={updatePage}
+              pageSizes={[COMMITS_DEFAULT_PAGE_SIZE, 25, 50]}
+              nextPageDisabled={!hasNextPage}
+              updatePageSize={setPageSize}
+              pageSize={pageSize}
+            />
+          </TableViewPaginationWrapper>
+        )}
     </>
   );
 };

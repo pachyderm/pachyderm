@@ -1,10 +1,10 @@
-FROM node:16-buster-slim
+FROM node:18.16.0-buster-slim
 
 WORKDIR /usr/src/app
 
 RUN apt-get update && apt-get install -y \
     # required for frontend dependency canvas
-    build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \ 
+    build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ADD . .
@@ -18,7 +18,7 @@ WORKDIR /usr/src/app/backend
 RUN npm i module-alias
 
 
-FROM node:16.15.0-buster-slim
+FROM node:18.16.0-buster-slim
 
 ARG DOCKER_TAG=${DOCKER_TAG:-local}
 ENV CONSOLE_VERSION=${DOCKER_TAG:-local}
