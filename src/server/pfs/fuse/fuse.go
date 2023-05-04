@@ -118,7 +118,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 		if mfc, ok := mfcs[repo]; ok {
 			return mfc, nil
 		}
-		mfc, err := c.NewModifyFileClient(client.NewProjectCommit(project, repo, root.branch(repo), ""))
+		mfc, err := c.NewModifyFileClient(client.NewCommit(project, repo, root.branch(repo), ""))
 		if err != nil {
 			return nil, err
 		}

@@ -158,7 +158,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
 	// Mock out the initial ListJob, and InspectJob calls
 	jobInfo := &pps.JobInfo{Job: client.NewProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commit.ID)}
-	jobInfo.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
+	jobInfo.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
 	jobInfo.Details = &pps.JobInfo_Details{
 		Transform:        pi.Details.Transform,
 		ParallelismSpec:  pi.Details.ParallelismSpec,
@@ -183,7 +183,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 			return result, nil
 		}
 		mockJI := &pps.JobInfo{Job: client.NewProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, request.Job.ID)}
-		mockJI.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.ID)
+		mockJI.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.ID)
 		mockJI.Details = &pps.JobInfo_Details{
 			Transform:        pi.Details.Transform,
 			ParallelismSpec:  pi.Details.ParallelismSpec,

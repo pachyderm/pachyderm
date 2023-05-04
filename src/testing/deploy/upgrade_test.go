@@ -74,7 +74,7 @@ func TestUpgradeTrigger(t *testing.T) {
 		"2.5.0",
 	}
 	dataRepo := "TestTrigger_data"
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
@@ -193,7 +193,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 					false,    /* update */
 				))
 
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", "" /* commitID */), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", "" /* commitID */), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "http://i.imgur.com/46Q8nDz.png", false))
 			}))
 
@@ -218,7 +218,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://i.imgur.com/g2QnNqa.png", false))
 			}))
 

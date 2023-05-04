@@ -142,7 +142,7 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, err)
 
 		_, err = txnClient.PfsAPIClient.FinishCommit(txnClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: client.NewProjectCommit(project, "foo", "master", ""),
+			Commit: client.NewCommit(project, "foo", "master", ""),
 		})
 		require.NoError(t, err)
 

@@ -47,7 +47,7 @@ func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadClose
 	if err := cc.renewer.Add(cc.APIClient.Ctx(), id); err != nil {
 		return nil, err
 	}
-	commit = client.NewProjectCommit(commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
+	commit = client.NewCommit(commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
 	cc.put(key, commit)
 	return cc.APIClient.GetFileTAR(commit, path)
 }
@@ -101,7 +101,7 @@ func (ccfsc *cacheCreateFileSetClient) CopyFile(dst string, src *pfs.File, opts 
 	if err := ccfsc.CacheClient.renewer.Add(ccfsc.APIClient.Ctx(), id); err != nil {
 		return err
 	}
-	newSrc.Commit = client.NewProjectCommit(src.Commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
+	newSrc.Commit = client.NewCommit(src.Commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
 	ccfsc.put(key, newSrc.Commit)
 	return errors.EnsureStack(ccfsc.ModifyFile.CopyFile(dst, newSrc, opts...))
 }

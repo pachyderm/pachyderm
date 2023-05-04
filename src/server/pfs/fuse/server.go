@@ -1713,7 +1713,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	}
 	projectName := opts.File.Commit.Branch.Repo.Project.GetName()
 	repoName := opts.File.Commit.Branch.Repo.Name
-	mfc, err := mm.Client.NewModifyFileClient(client.NewProjectCommit(projectName, repoName, mm.root.branch(name), ""))
+	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
 	}

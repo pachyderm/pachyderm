@@ -230,7 +230,7 @@ func NewJobInput(repoName, branchName, commitID, glob string) *pps.JobInput {
 // NewProjectJobInput creates a pps.JobInput.
 func NewProjectJobInput(projectName, repoName, branchName, commitID, glob string) *pps.JobInput {
 	return &pps.JobInput{
-		Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
+		Commit: NewCommit(projectName, repoName, branchName, commitID),
 		Glob:   glob,
 	}
 }

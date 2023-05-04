@@ -681,7 +681,7 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	filePath := pathpkg.Join(parts[1:]...)
 	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
-	if err := n.c().ListFile(client.NewProjectCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
+	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}

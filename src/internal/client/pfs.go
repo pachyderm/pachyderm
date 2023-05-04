@@ -39,15 +39,8 @@ func NewBranch(projectName, repoName, branchName string) *pfs.Branch {
 	}
 }
 
-// NewCommit creates a pfs.Commit.
-//
-// Deprecated: use NewProjectCommit instead.
-func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
-	return NewProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
-}
-
-// NewProjectCommit creates a pfs.Commit in the given project, repo & branch.
-func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
+// NewCommit creates a pfs.Commit in the given project, repo & branch.
+func NewCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 	return &pfs.Commit{
 		Repo:   NewRepo(projectName, repoName),
 		ID:     commitID,
@@ -65,7 +58,7 @@ func NewFile(repoName, branchName, commitID, path string) *pfs.File {
 // NewProjectFile creates a pfs.File.
 func NewProjectFile(projectName, repoName, branchName, commitID, path string) *pfs.File {
 	return &pfs.File{
-		Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
+		Commit: NewCommit(projectName, repoName, branchName, commitID),
 		Path:   path,
 	}
 }
@@ -273,7 +266,7 @@ func (c APIClient) StartProjectCommitParent(projectName, repoName, branchName, p
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Parent: NewProjectCommit(projectName, repoName, parentBranch, parentCommit),
+			Parent: NewCommit(projectName, repoName, parentBranch, parentCommit),
 			Branch: NewBranch(projectName, repoName, branchName),
 		},
 	)
@@ -300,7 +293,7 @@ func (c APIClient) FinishProjectCommit(projectName, repoName, branchName, commit
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
-			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
+			Commit: NewCommit(projectName, repoName, branchName, commitID),
 		},
 	)
 	return err
@@ -338,7 +331,7 @@ func (c APIClient) inspectCommit(projectName, repoName, branchName, commitID str
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
+			Commit: NewCommit(projectName, repoName, branchName, commitID),
 			Wait:   wait,
 		},
 	)
@@ -459,7 +452,7 @@ func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch
 func (c APIClient) CreateProjectBranch(projectName, repoName, branchName, commitBranch, commitID string, provenance []*pfs.Branch) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
-		head = NewProjectCommit(projectName, repoName, commitBranch, commitID)
+		head = NewCommit(projectName, repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
@@ -487,7 +480,7 @@ func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commi
 func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName, commitBranch, commitID string, trigger *pfs.Trigger) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
-		head = NewProjectCommit(projectName, repoName, commitBranch, commitID)
+		head = NewCommit(projectName, repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
@@ -777,7 +770,7 @@ func (c APIClient) ClearProjectCommit(projectName, repoName, branchName, commitI
 	_, err := c.PfsAPIClient.ClearCommit(
 		c.Ctx(),
 		&pfs.ClearCommitRequest{
-			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
+			Commit: NewCommit(projectName, repoName, branchName, commitID),
 		},
 	)
 	return err

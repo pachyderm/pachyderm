@@ -1116,7 +1116,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		for _, b := range bi.DirectProvenance {
 			var provCommit *pfs.Commit
 			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
-				provCommit = client.NewProjectCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
+				provCommit = client.NewCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
 			} else {
 				provBranchInfo := &pfs.BranchInfo{}
 				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {

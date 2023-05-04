@@ -11,7 +11,7 @@ import (
 )
 
 func TestErrorMatching(t *testing.T) {
-	c := client.NewProjectCommit(pfs.DefaultProjectName, "foo", "bar", "")
+	c := client.NewCommit(pfs.DefaultProjectName, "foo", "bar", "")
 	require.True(t, IsCommitNotFoundErr(ErrCommitNotFound{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitDeleted{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitFinished{c}))

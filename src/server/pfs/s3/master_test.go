@@ -76,7 +76,7 @@ func masterListBucketsBranchless(t *testing.T, pachClient *client.APIClient, min
 func masterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobject")
 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
@@ -88,7 +88,7 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", "")
+	commit := client.NewCommit(pfs.DefaultProjectName, repo, "branch", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
@@ -99,7 +99,7 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 func masterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("teststatobject")
 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	// `startTime` and `endTime` will be used to ensure that an object's
@@ -140,7 +140,7 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testremoveobject")
 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
@@ -347,7 +347,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 		return nil
 	}))
 
-	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 1001)
 		return nil
 	}))
@@ -412,14 +412,14 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
 
-	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 0)
 		putListFileTestObject(t, mf, "rootdir/", 1)
 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
 		return nil
 	}))
 
-	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 3)
 		return nil
 	}))

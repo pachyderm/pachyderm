@@ -369,7 +369,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 	var latestTime time.Time
 	pachClient := env.GetPachClient(ctx)
 	defer log.Span(ctx, "getLatestCronTime")(zap.Timep("latest", &retTime), log.Errorp(&retErr))
-	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
+	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
 	if err != nil {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

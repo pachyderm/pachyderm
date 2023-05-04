@@ -423,7 +423,7 @@ func (c APIClient) GetProjectFileSet(project, repo, branch, commit string) (_ st
 	resp, err := c.PfsAPIClient.GetFileSet(
 		c.Ctx(),
 		&pfs.GetFileSetRequest{
-			Commit: NewProjectCommit(project, repo, branch, commit),
+			Commit: NewCommit(project, repo, branch, commit),
 		},
 	)
 	if err != nil {
@@ -447,7 +447,7 @@ func (c APIClient) AddProjectFileSet(project, repo, branch, commit, ID string) (
 	_, err := c.PfsAPIClient.AddFileSet(
 		c.Ctx(),
 		&pfs.AddFileSetRequest{
-			Commit:    NewProjectCommit(project, repo, branch, commit),
+			Commit:    NewCommit(project, repo, branch, commit),
 			FileSetId: ID,
 		},
 	)

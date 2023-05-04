@@ -78,7 +78,7 @@ func TestListDatum(t *testing.T) {
 	for i, repo := range []string{repoA, repoB} {
 		var err error
 		file := fmt.Sprintf("/file%d", i+1)
-		err = aliceClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), file, strings.NewReader("test"))
+		err = aliceClient.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), file, strings.NewReader("test"))
 		require.NoError(t, err)
 	}
 	require.NoErrorWithinT(t, 90*time.Second, func() error {
@@ -524,7 +524,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 
 	// bob creates a pipeline
 	pipeline := tu.UniqueString("bob-pipeline")
@@ -636,7 +636,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	err := c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "/file.1", strings.NewReader("1"))
+	err := c.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
@@ -676,7 +676,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Create new input commit (to force pipeline out of standby) & make sure
 	// the pipeline either fails or restarts RC & finishes
-	err = c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "/file.2", strings.NewReader("1"))
+	err = c.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
