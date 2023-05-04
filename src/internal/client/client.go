@@ -174,19 +174,11 @@ func NewFromURI(ctx context.Context, uri string, options ...Option) (*APIClient,
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse the pachd address")
 	}
-	return NewFromPachdAddressContext(ctx, pachdAddress, options...)
+	return NewFromPachdAddress(ctx, pachdAddress, options...)
 }
 
 // NewFromPachdAddress creates a new client given a parsed GRPC address.
-//
-// Deprecated: Use NewFromPachdAddressContext.
-func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
-	return NewFromPachdAddressContext(pctx.TODO(), pachdAddress, options...)
-}
-
-// NewFromPachdAddressContext is like NewFromPachdAddress, but accepts a context to use for dialing
-// and future RPCs.
-func NewFromPachdAddressContext(ctx context.Context, pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
+func NewFromPachdAddress(ctx context.Context, pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
 	// By default, use the system CAs for secure connections
 	// if no others are specified.
 	if pachdAddress.Secured {
