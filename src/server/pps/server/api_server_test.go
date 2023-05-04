@@ -396,7 +396,7 @@ func TestDeletePipelines(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	inspectResp, err := env.PachClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline1, false)
+	inspectResp, err := env.PachClient.InspectPipeline(pfs.DefaultProjectName, pipeline1, false)
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), inspectResp.Version)
 	deleteResp, err := env.PachClient.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true})

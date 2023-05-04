@@ -661,7 +661,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+		pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 		if err != nil {
 			return err
 		}

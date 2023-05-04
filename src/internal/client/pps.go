@@ -725,17 +725,9 @@ func (c APIClient) CreatePipeline(projectName, pipelineName, image string, cmd [
 	return grpcutil.ScrubGRPC(err)
 }
 
-// InspectPipeline returns info about a specific pipeline.  The name may include
-// ancestry syntax or be a bare name.
-//
-// Deprecated: use InspecProjectPipeline instead.
-func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.PipelineInfo, error) {
-	return c.InspectProjectPipeline(pfs.DefaultProjectName, pipelineName, details)
-}
-
-// InspectProjectPipeline returns info about a specific pipeline.  The name may
+// InspectPipeline returns info about a specific pipeline.  The name may
 // include ancestry syntax or be a bare name.
-func (c APIClient) InspectProjectPipeline(projectName, pipelineName string, details bool) (*pps.PipelineInfo, error) {
+func (c APIClient) InspectPipeline(projectName, pipelineName string, details bool) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{

@@ -471,7 +471,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 
 	// bob can't update alice's pipeline
-	infoBefore, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
+	infoBefore, err := aliceClient.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -481,7 +481,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
+	infoAfter, err := aliceClient.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -498,7 +498,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
 
 	// bob still can't update alice's pipeline
-	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
+	infoBefore, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -508,7 +508,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
+	infoAfter, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -519,7 +519,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
 
 	// now bob can update alice's pipeline
-	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
+	infoBefore, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -528,13 +528,13 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update: true,
 	})
 	require.NoError(t, err)
-	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
+	infoAfter, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
 	// Make sure that we don't get an auth token returned by the inspect
 	require.Equal(t, "", infoAfter.AuthToken)
-	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+	infoAfter, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, "", infoAfter.AuthToken)
 
@@ -674,7 +674,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, aliceCrossPipeline, bob, []string{auth.RepoWriterRole}))
 
 	// bob can update alice's pipeline if he removes one of the inputs
-	infoBefore, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
+	infoBefore, err := aliceClient.InspectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
@@ -686,12 +686,12 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		),
 		update: true,
 	}))
-	infoAfter, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
+	infoAfter, err := aliceClient.InspectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
 	// bob cannot update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
+	infoBefore, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -704,7 +704,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
+	infoAfter, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -712,7 +712,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, dataRepo2, bob, []string{auth.RepoReaderRole}))
 
 	// bob can now update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
+	infoBefore, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
@@ -723,7 +723,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		),
 		update: true,
 	}))
-	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
+	infoAfter, err = aliceClient.InspectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
@@ -2417,7 +2417,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+	pi, err := rootClient.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }

@@ -880,7 +880,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			pipelineInfo, err := client.InspectProjectPipeline(project, args[0], true)
+			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}
@@ -914,7 +914,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer client.Close()
 
-			pipelineInfo, err := client.InspectProjectPipeline(project, args[0], true)
+			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}

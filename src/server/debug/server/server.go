@@ -119,7 +119,7 @@ func (s *debugServer) handleRedirect(
 					return errs
 				case *debug.Filter_Pipeline:
 					var errs error
-					pipelineInfo, err := pachClient.InspectProjectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
+					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
 					if err != nil {
 						multierr.AppendInto(&errs, errors.Wrapf(err, "inspectProjectPipeline(%s)", f.Pipeline))
 					}
@@ -614,7 +614,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 			multierr.AppendInto(&errs, errors.Wrapf(err, "invalid repo info %d (%s) from ListRepo", i, repoInfo.String()))
 			continue
 		}
-		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
+		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				if err := s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix); err != nil {
