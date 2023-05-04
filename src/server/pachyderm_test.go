@@ -9218,19 +9218,19 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListProjectPipelineHistory(pfs.DefaultProjectName, "", -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListProjectPipelineHistory(pfs.DefaultProjectName, "", 1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", 1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineName, -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineName2, -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName2, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineInfos))
 }
@@ -10785,19 +10785,19 @@ func TestPipelineAncestry(t *testing.T) {
 	}
 
 	// get all pipelines
-	infos, err = c.ListProjectPipelineHistory(pfs.DefaultProjectName, pipeline, -1, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get all pipelines by asking for too many
-	infos, err = c.ListProjectPipelineHistory(pfs.DefaultProjectName, pipeline, 3, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 3, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get only the later two pipelines
-	infos, err = c.ListProjectPipelineHistory(pfs.DefaultProjectName, pipeline, 1, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)

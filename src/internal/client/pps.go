@@ -752,24 +752,6 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 	return grpcutil.Collect[*pps.PipelineInfo](client, 1000)
 }
 
-// ListPipelineHistory returns historical information about pipelines.
-//
-// `pipelineName` specifies which pipeline to return history about, if it's equal
-// to "" then ListPipelineHistory returns historical information about all
-// pipelines.
-//
-// `history` specifies how many historical revisions to return:
-
-//   - 0: Return the current version of the pipeline or pipelines.
-//   - 1: Return the above and the next most recent version
-//   - 2: etc.
-//   - -1: Return all historical versions.
-//
-// Deprecated: use ListProjectPipelineHistory instead.
-func (c APIClient) ListPipelineHistory(pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
-	return c.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineName, history, details)
-}
-
 // ListProjectPipelineHistory returns historical information about pipelines.
 //
 // `pipelineName` specifies which pipeline to return history about, if it's equal
@@ -782,7 +764,7 @@ func (c APIClient) ListPipelineHistory(pipelineName string, history int64, detai
 // - 1: Return the above and the next most recent version
 // - 2: etc.
 // - -1: Return all historical versions.
-func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
+func (c APIClient) ListPipelineHistory(projectName, pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(projectName, pipelineName)
