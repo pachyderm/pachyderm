@@ -725,7 +725,7 @@ func (n *loopbackNode) commit(name string) (string, error) {
 	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
-	bi, err := n.root().c.InspectProjectBranch(projectName, repoName, branch)
+	bi, err := n.root().c.InspectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
 	}

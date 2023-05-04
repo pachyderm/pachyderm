@@ -1074,7 +1074,7 @@ func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch strin
 	if _, err := mm.verifyProjectRepoExist(project, repo); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectProjectBranch(project, repo, branch); err != nil {
+	if _, err := mm.Client.InspectBranch(project, repo, branch); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1266,7 +1266,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
-	branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
+	branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 	if err != nil {
 		return err
 	}
@@ -1484,7 +1484,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.manager.root.branches[m.Name] = m.Branch
 
 		// Get the latest non-alias commit on branch
-		branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
+		branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 		if errutil.IsNotFoundError(err) {
 			m.manager.root.commits[m.Name] = ""
 			return nil

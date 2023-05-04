@@ -207,14 +207,14 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[0], commit)
 		requireEmptyResponse(t, info.Responses[1])
 		// Exercise branch reading after transaction
-		_, err = env.PachClient.InspectProjectBranch(project, repo, branchA)
+		_, err = env.PachClient.InspectBranch(project, repo, branchA)
 		require.NoError(t, err)
 
 		branches, err := env.PachClient.ListProjectBranch(project, repo)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(branches))
 
-		_, err = env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, repo, branchA)
+		_, err = env.PachClient.InspectBranch(pfs.DefaultProjectName, repo, branchA)
 		require.YesError(t, err, "Inspecting a branch in the wrong project should fail.")
 
 		_, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)

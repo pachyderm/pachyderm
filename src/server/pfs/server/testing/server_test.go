@@ -914,7 +914,7 @@ func TestPFS(suite *testing.T) {
 		// rewind A to before the provenance change
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "A", "master", "master", oldHead.ParentCommit.ID, nil))
 		// this must create a new commit set, since the old one isn't consistent with current provenance
-		aHead, err := c.InspectProjectBranch(pfs.DefaultProjectName, "A", "master")
+		aHead, err := c.InspectBranch(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
 		require.Equal(t, aHead.Head.ID, oldHead.ParentCommit.ID)
 		cHeadOld := cHead
@@ -1893,13 +1893,13 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "B", "master"), client.NewBranch(pfs.DefaultProjectName, "E", "master")}))
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "D", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "C", "master")}))
 
-		branchInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, "B", "master")
+		branchInfo, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, "B", "master")
 		require.NoError(t, err)
 		require.Equal(t, 1, len(branchInfo.Provenance))
-		branchInfo, err = env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, "C", "master")
+		branchInfo, err = env.PachClient.InspectBranch(pfs.DefaultProjectName, "C", "master")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(branchInfo.Provenance))
-		branchInfo, err = env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, "D", "master")
+		branchInfo, err = env.PachClient.InspectBranch(pfs.DefaultProjectName, "D", "master")
 		require.NoError(t, err)
 		require.Equal(t, 4, len(branchInfo.Provenance))
 
@@ -2100,7 +2100,7 @@ func TestPFS(suite *testing.T) {
 			for _, commit := range cs {
 				require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 				require.NoError(t, finishCommit(c, commit.Repo.Name, "master", ""))
-				bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, commit.Repo.Name, "master")
+				bi, err := c.InspectBranch(pfs.DefaultProjectName, commit.Repo.Name, "master")
 				require.NoError(t, err)
 				for _, subv := range bi.Subvenance {
 					totalSubvenance[subv.String()] = subv
@@ -4791,7 +4791,7 @@ func TestPFS(suite *testing.T) {
 					}
 					require.NoError(t, env.PachClient.FsckFastExit())
 					for repo, expectedProv := range step.expectProv {
-						bi, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, repo, "master")
+						bi, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, repo, "master")
 						require.NoError(t, err)
 						sort.Strings(expectedProv)
 						require.Equal(t, len(expectedProv), len(bi.Provenance))
@@ -4803,7 +4803,7 @@ func TestPFS(suite *testing.T) {
 						}
 					}
 					for repo, expectedSubv := range step.expectSubv {
-						bi, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, repo, "master")
+						bi, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, repo, "master")
 						require.NoError(t, err)
 						sort.Strings(expectedSubv)
 						require.Equal(t, len(expectedSubv), len(bi.Subvenance))
@@ -5246,7 +5246,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, dInfo.ChildCommits)
 		require.Nil(t, eInfo.ChildCommits)
 		require.Nil(t, fInfo.ChildCommits)
-		masterInfo, err := env.PachClient.InspectProjectBranch(project, "repo", "master")
+		masterInfo, err := env.PachClient.InspectBranch(project, "repo", "master")
 		require.NoError(t, err)
 		require.Equal(t, c.ID, masterInfo.Head.ID)
 	})
@@ -5414,7 +5414,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, eInfo.ChildCommits)
 		require.Nil(t, fInfo.ChildCommits)
 		require.Nil(t, gInfo.ChildCommits)
-		masterInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, "repo", "master")
+		masterInfo, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, "repo", "master")
 		require.NoError(t, err)
 		require.Equal(t, gInfo.Commit.ID, masterInfo.Head.ID)
 	})
@@ -5543,7 +5543,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, fmt.Sprintf("%d", i), b.String())
 		}
 
-		bi, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, repo, "master")
+		bi, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 
 		eg = errgroup.Group{}
@@ -6562,32 +6562,32 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader("small")))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "master", "")
 			require.NoError(t, err)
-			bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, "in", "master")
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 			require.NoError(t, err)
 			head := bi.Head.ID
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "in", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "out", "master")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "out", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader(strings.Repeat("a", units.KB))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "in", "master")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 			require.NoError(t, err)
 			head = bi.Head.ID
 
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "in", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
 			// Output branch should have a commit now
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "out", "master")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 
@@ -6600,12 +6600,12 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "out", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "out", "master")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
 			head = bi.Head.ID
 
 			// Output trigger should have triggered
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "out", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 		})
@@ -6621,7 +6621,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(cronCommit, "file1", strings.NewReader("foo")))
 			_, err := c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
 			require.NoError(t, err)
-			bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, "cron", "trigger")
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			head := bi.Head.ID
@@ -6631,7 +6631,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(cronCommit, "file2", strings.NewReader("bar")))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "cron", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
@@ -6640,7 +6640,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(cronCommit, "file3", strings.NewReader("fizz")))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "cron", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
@@ -6652,7 +6652,7 @@ func TestPFS(suite *testing.T) {
 				Commits: 2, // trigger every 2 commits
 			}))
 
-			bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, "count", "trigger")
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "count", "trigger")
 			require.NoError(t, err)
 			head := bi.Head
 
@@ -6661,7 +6661,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(masterHead, "file1", strings.NewReader("foo")))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "count", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "count", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head)
 
@@ -6669,13 +6669,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(masterHead, "file2", strings.NewReader("bar")))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "count", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "count", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
 			head = bi.Head
 
 			// The trigger commit should have the same ID as the master commit
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "count", "master")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "master")
 			require.NoError(t, err)
 			require.Equal(t, head.ID, bi.Head.ID)
 
@@ -6683,7 +6683,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(masterHead, "file3", strings.NewReader("fizz")))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "count", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "count", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head)
 
@@ -6691,13 +6691,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(masterHead, "file4", strings.NewReader("buzz")))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "count", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "count", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
 			head = bi.Head
 
 			// The trigger commit should have the same ID as the master commit
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "count", "master")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "master")
 			require.NoError(t, err)
 			require.Equal(t, head.ID, bi.Head.ID)
 		})
@@ -6715,7 +6715,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(orCommit, "file1", strings.NewReader(strings.Repeat("a", 1))))
 			_, err := c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			head := bi.Head.ID
@@ -6723,14 +6723,14 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(orCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 			// This one triggers because we hit 100 bytes
 			require.NoError(t, c.PutFile(orCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 			head = bi.Head.ID
@@ -6739,21 +6739,21 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(orCommit, "file4", strings.NewReader(strings.Repeat("a", 1))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 			// This one neither
 			require.NoError(t, c.PutFile(orCommit, "file5", strings.NewReader(strings.Repeat("a", 1))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 			// This one does, because it's 3 commits
 			require.NoError(t, c.PutFile(orCommit, "file6", strings.NewReader(strings.Repeat("a", 1))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 			head = bi.Head.ID
@@ -6762,7 +6762,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(orCommit, "file7", strings.NewReader(strings.Repeat("a", 1))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
@@ -6771,7 +6771,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(orCommit, "file8", strings.NewReader(strings.Repeat("a", 1))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "or", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
@@ -6790,10 +6790,10 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(andCommit, "file1", strings.NewReader(strings.Repeat("a", 100))))
 			_, err := c.WaitCommit(pfs.DefaultProjectName, "and", "master", "")
 			require.NoError(t, err)
-			bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, "and", "master")
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "and", "master")
 			require.NoError(t, err)
 			head := bi.Head.ID
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "and", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
 
@@ -6801,7 +6801,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(andCommit, "file2", strings.NewReader(strings.Repeat("a", 100))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "and", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "and", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
 
@@ -6810,7 +6810,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(andCommit, "file3", strings.NewReader(strings.Repeat("a", 100))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "and", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "and", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			head = bi.Head.ID
@@ -6819,7 +6819,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(andCommit, "file4", strings.NewReader(strings.Repeat("a", 100))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "and", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "and", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
@@ -6827,7 +6827,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(andCommit, "file5", strings.NewReader(strings.Repeat("a", 100))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "and", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "and", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
@@ -6835,7 +6835,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(andCommit, "file6", strings.NewReader(strings.Repeat("a", 100))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "and", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "and", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
@@ -6845,7 +6845,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(andCommit, "file7", strings.NewReader(strings.Repeat("a", 100))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "and", "master", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "and", "trigger")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
@@ -6866,13 +6866,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(aCommit, "file1", strings.NewReader(strings.Repeat("a", 50))))
 			_, err := c.WaitCommit(pfs.DefaultProjectName, "chain", "a", "")
 			require.NoError(t, err)
-			bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "a")
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
 			head := bi.Head.ID
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "b")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
 
@@ -6880,13 +6880,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(aCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "chain", "a", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "a")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
 			head = bi.Head.ID
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "b")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 
@@ -6894,13 +6894,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(aCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "chain", "a", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "a")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
 			head = bi.Head.ID
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "b")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 
@@ -6908,13 +6908,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(aCommit, "file4", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "chain", "a", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "a")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
 			head = bi.Head.ID
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "b")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
 
@@ -6922,13 +6922,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(aCommit, "file5", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "chain", "a", "")
 			require.NoError(t, err)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "a")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
 			head = bi.Head.ID
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "b")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "chain", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
@@ -6944,11 +6944,11 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.PutFile(moveCommit, "file1", strings.NewReader(strings.Repeat("a", 50))))
 			_, err := c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
 			require.NoError(t, err)
-			bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, "branch-movement", "a")
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "a")
 			require.NoError(t, err)
 			head := bi.Head.ID
 			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "a", "", nil))
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "branch-movement", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 
@@ -6956,7 +6956,7 @@ func TestPFS(suite *testing.T) {
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
 			require.NoError(t, err)
 			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "a", "", nil))
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "branch-movement", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			cHead := bi.Head.ID
@@ -6965,7 +6965,7 @@ func TestPFS(suite *testing.T) {
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
 			require.NoError(t, err)
 			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "a", "", nil))
-			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "branch-movement", "c")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			require.Equal(t, cHead, bi.Head.ID)
@@ -7332,7 +7332,7 @@ func TestPFS(suite *testing.T) {
 		require.True(t, errutil.IsAlreadyExistError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
 
-		_, err = env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, "test", "branch")
+		_, err = env.PachClient.InspectBranch(pfs.DefaultProjectName, "test", "branch")
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
