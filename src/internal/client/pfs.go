@@ -72,14 +72,7 @@ func (c APIClient) CreateRepo(projectName, repoName string) error {
 }
 
 // UpdateRepo upserts a repo with the given name.
-//
-// Deprecated: use UpdateProjectRepo instead.
-func (c APIClient) UpdateRepo(repoName string) error {
-	return c.UpdateProjectRepo(pfs.DefaultProjectName, repoName)
-}
-
-// UpdateProjectRepo upserts a repo with the given name.
-func (c APIClient) UpdateProjectRepo(projectName, repoName string) error {
+func (c APIClient) UpdateRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{

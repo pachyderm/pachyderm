@@ -84,7 +84,7 @@ func keepPath(bucket *Bucket, key string, uploadID string) string {
 func (c *controller) ensureRepo(pc *client.APIClient) error {
 	_, err := pc.InspectProjectBranch(c.project, c.repo, "master")
 	if err != nil {
-		err = pc.UpdateProjectRepo(c.project, c.repo)
+		err = pc.UpdateRepo(c.project, c.repo)
 		if err != nil {
 			return err
 		}
