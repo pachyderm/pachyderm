@@ -2332,7 +2332,7 @@ func TestRecreatePipeline(t *testing.T) {
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
 	time.Sleep(5 * time.Second)
-	require.NoError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
+	require.NoError(t, c.DeletePipeline(pfs.DefaultProjectName, pipeline, false))
 	time.Sleep(5 * time.Second)
 	createPipeline()
 }
@@ -2408,7 +2408,7 @@ func TestDeletePipeline(t *testing.T) {
 	createPipelines()
 
 	deletePipeline := func(project, pipeline string) {
-		require.NoError(t, c.DeleteProjectPipeline(project, pipeline, false))
+		require.NoError(t, c.DeletePipeline(project, pipeline, false))
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := c.InspectPipeline(project, pipeline, false)
@@ -2420,7 +2420,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	}
 	// Can't delete a pipeline from the middle of the dag
-	require.YesError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName, pipelines[0], false))
+	require.YesError(t, c.DeletePipeline(pfs.DefaultProjectName, pipelines[0], false))
 
 	deletePipeline(project, pipelines[1])
 	deletePipeline(pfs.DefaultProjectName, pipelines[0])
@@ -2442,7 +2442,7 @@ func TestDeletePipeline(t *testing.T) {
 	createPipelines()
 
 	// Can force delete pipelines from the middle of the dag.
-	require.NoError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName, pipelines[0], true))
+	require.NoError(t, c.DeletePipeline(pfs.DefaultProjectName, pipelines[0], true))
 }
 
 func TestPipelineState(t *testing.T) {
