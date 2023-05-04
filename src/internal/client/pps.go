@@ -310,7 +310,7 @@ func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) err
 // performance.
 func (c APIClient) ListJob(projectName, pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListProjectJobF(projectName, pipelineName, inputCommit, history, details,
+	if err := c.ListJobF(projectName, pipelineName, inputCommit, history, details,
 		func(ji *pps.JobInfo) error {
 			result = append(result, ji)
 			return nil
@@ -321,18 +321,8 @@ func (c APIClient) ListJob(projectName, pipelineName string, inputCommit []*pfs.
 }
 
 // ListJobF is a previous version of ListJobFilterF, returning info about all jobs
-// and calling f on each JobInfo
-//
-// Deprecated: Use ListProjectJobF instead.
-func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
-	history int64, details bool,
-	f func(*pps.JobInfo) error) error {
-	return c.ListProjectJobF(pfs.DefaultProjectName, pipelineName, inputCommit, history, details, f)
-}
-
-// ListProjectJobF is a previous version of ListJobFilterF, returning info about all jobs
-// and calling f on each JobInfo
-func (c APIClient) ListProjectJobF(projectName, pipelineName string, inputCommit []*pfs.Commit,
+// and calling f on each JobInfo.
+func (c APIClient) ListJobF(projectName, pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool,
 	f func(*pps.JobInfo) error) error {
 	return c.ListProjectJobFilterF(projectName, pipelineName, inputCommit, history, details, "", f)
