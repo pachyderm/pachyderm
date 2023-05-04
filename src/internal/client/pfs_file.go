@@ -425,15 +425,8 @@ func (c APIClient) GetFileSet(project, repo, branch, commit string) (_ string, r
 	return resp.FileSetId, nil
 }
 
-// AddFileSet adds a fileset to a commit.
-//
-// Deprecated: use AddProjectFileSet instead.
-func (c APIClient) AddFileSet(repo, branch, commit, ID string) (retErr error) {
-	return c.AddProjectFileSet(pfs.DefaultProjectName, repo, branch, commit, ID)
-}
-
-// AddProjectFileSet adds a fileset to a commit in a project.
-func (c APIClient) AddProjectFileSet(project, repo, branch, commit, ID string) (retErr error) {
+// AddFileSet adds a fileset to a commit in a project.
+func (c APIClient) AddFileSet(project, repo, branch, commit, ID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
