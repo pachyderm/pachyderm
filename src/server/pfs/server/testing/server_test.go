@@ -534,7 +534,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "bar"))
 			errCh := make(chan error)
 			go func() {
-				errCh <- env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "foo", false)
+				errCh <- env.PachClient.DeleteRepo(pfs.DefaultProjectName, "foo", false)
 			}()
 			go func() {
 				errCh <- env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "bar", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "foo", "master")})
@@ -545,8 +545,8 @@ func TestPFS(suite *testing.T) {
 			// both succeed, leaving us with a repo bar that has a nonexistent
 			// provenance foo
 			require.True(t, err1 != nil || err2 != nil)
-			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "bar", true))
-			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "foo", true))
+			require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "bar", true))
+			require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "foo", true))
 		}
 	})
 
@@ -592,8 +592,8 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, project2, repoInfo2.Repo.Project.Name)
 
 		// delete both repos
-		require.NoError(t, client.DeleteProjectRepo(project1, repo, true))
-		require.NoError(t, client.DeleteProjectRepo(project2, repo, true))
+		require.NoError(t, client.DeleteRepo(project1, repo, true))
+		require.NoError(t, client.DeleteRepo(project2, repo, true))
 	})
 
 	suite.Run("Branch", func(t *testing.T) {
@@ -1039,7 +1039,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, false))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, repo, false))
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 		commitInfos, err = env.PachClient.ListCommit(repoProto, nil, nil, 0)
@@ -1123,11 +1123,11 @@ func TestPFS(suite *testing.T) {
 
 		// We should be able to delete prov1 since it's no longer the provenance
 		// of other repos.
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, prov1, false))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, prov1, false))
 
 		// We shouldn't be able to delete prov3 since it's now a provenance
 		// of other repos.
-		require.YesError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, prov3, false))
+		require.YesError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, prov3, false))
 	})
 
 	suite.Run("PutFileIntoOpenCommit", func(t *testing.T) {
@@ -1321,7 +1321,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < reposToRemove; i++ {
 			// Pick one random element from repoNames
 			for repoName := range repoNames {
-				require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, repoName, false))
+				require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, repoName, false))
 				delete(repoNames, repoName)
 				break
 			}
@@ -1352,15 +1352,15 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID))
 
 		// Delete the provenance repo; that should fail.
-		require.YesError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "A", false))
+		require.YesError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "A", false))
 
 		// Delete the leaf repo, then the provenance repo; that should succeed
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "B", false))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "B", false))
 
 		// Should be in a consistent state after B is deleted
 		require.NoError(t, env.PachClient.FsckFastExit())
 
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "A", false))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "A", false))
 
 		repoInfos, err := env.PachClient.ListRepo()
 		require.NoError(t, err)
@@ -1372,7 +1372,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "B", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "A", "master")}))
 
 		// Force delete should succeed
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "A", true))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "A", true))
 
 		repoInfos, err = env.PachClient.ListRepo()
 		require.NoError(t, err)
@@ -6157,7 +6157,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < numCommits; i++ {
 			require.NoError(t, env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, input, "master", ""), "file", strings.NewReader("1")))
 		}
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, input, true))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, input, true))
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, input))
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, input, "master", "", "", nil))
 
@@ -6165,11 +6165,11 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, env.PachClient.FsckFastExit())
 
 		// Deleting output1 should fail because output2 is provenant on it
-		require.YesError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, output1, false))
+		require.YesError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, output1, false))
 
 		// Deleting should now work due to fixing, must delete 2 before 1 though.
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, output2, false))
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, output1, false))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, output2, false))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, output1, false))
 	})
 
 	suite.Run("PutFileAtomic", func(t *testing.T) {
@@ -7307,7 +7307,7 @@ func TestPFS(suite *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "test", false))
+		require.NoError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "test", false))
 
 		// meta repo should be gone, too
 		_, err = env.PachClient.PfsAPIClient.InspectRepo(env.Context, &pfs.InspectRepoRequest{

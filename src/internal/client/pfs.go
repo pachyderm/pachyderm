@@ -123,21 +123,7 @@ func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, err
 	return grpcutil.Collect[*pfs.RepoInfo](client, 1000)
 }
 
-// DeleteRepo deletes a repo and reclaims the storage space it was using.  Note
-// that as of 1.0 we do not reclaim the blocks that the Repo was referencing,
-// this is because they may also be referenced by other Repos and deleting them
-// would make those Repos inaccessible.  This will be resolved in later
-// versions.
-//
-// If "force" is set to true, the repo will be removed regardless of errors.
-// This argument should be used with care.
-//
-// Deprecated: use DeleteProjectRepo instead.
-func (c APIClient) DeleteRepo(repoName string, force bool) error {
-	return c.DeleteProjectRepo(pfs.DefaultProjectName, repoName, force)
-}
-
-// DeleteProjectRepo deletes a repo and reclaims the storage space it was using.
+// DeleteRepo deletes a repo and reclaims the storage space it was using.
 // Note that as of 1.0 we do not reclaim the blocks that the Repo was
 // referencing, this is because they may also be referenced by other Repos and
 // deleting them would make those Repos inaccessible.  This will be resolved in
@@ -145,7 +131,7 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 //
 // If "force" is set to true, the repo will be removed regardless of errors.
 // This argument should be used with care.
-func (c APIClient) DeleteProjectRepo(projectName, repoName string, force bool) error {
+func (c APIClient) DeleteRepo(projectName, repoName string, force bool) error {
 	request := &pfs.DeleteRepoRequest{
 		Repo:  NewRepo(projectName, repoName),
 		Force: force,

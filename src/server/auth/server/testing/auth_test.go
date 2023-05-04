@@ -795,7 +795,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline).Entries)
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
-	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, false))
+	require.NoError(t, aliceClient.DeleteRepo(pfs.DefaultProjectName, repo, false))
 	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo).Entries)
 
 	// alice creates another repo
@@ -1912,7 +1912,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	))
 
 	// force-delete input and output repos
-	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, true))
+	require.NoError(t, aliceClient.DeleteRepo(pfs.DefaultProjectName, repo, true))
 
 	// Attempt to delete the pipeline--must succeed
 	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
