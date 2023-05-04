@@ -53,7 +53,7 @@ func TestInterceptors(t *testing.T) {
 	defer c.Close()
 
 	// Unary call.
-	if err := c.CreateRepo("foo"); err == nil {
+	if err := c.CreateRepo("bar", "foo"); err == nil {
 		t.Fatal("create repo: expected error")
 	}
 	if got, want := interceptor.u, 1; got != want {

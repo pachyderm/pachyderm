@@ -59,7 +59,7 @@ func ExampleAPIClient_DeleteRepo() {
 		panic(err)
 	}
 
-	if err := c.DeleteRepo("test", false); err != nil {
+	if err := c.DeleteRepo("default", "test", false); err != nil {
 		panic(err)
 	}
 }
@@ -234,11 +234,11 @@ func ExampleAPIClient_CreateBranch() {
 		panic(err)
 	}
 
-	if err := c.CreateBranch("test", "newbranch", "master", "", nil); err != nil {
+	if err := c.CreateBranch("default", "test", "newbranch", "master", "", nil); err != nil {
 		panic(err)
 	}
 
-	bis, err := c.ListBranch("test")
+	bis, err := c.ListBranch("default", "test")
 	if err != nil {
 		panic(err)
 	}
@@ -345,7 +345,7 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	if err := c.CreateBranch("test", "new-branch", "", cis[1].Commit.ID, nil); err != nil {
+	if err := c.CreateBranch("default", "test", "new-branch", "", cis[1].Commit.ID, nil); err != nil {
 		panic(err)
 	}
 
