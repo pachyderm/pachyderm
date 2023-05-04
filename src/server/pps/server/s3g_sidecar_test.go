@@ -156,7 +156,7 @@ func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -325,7 +325,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -371,7 +371,7 @@ func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -463,7 +463,7 @@ func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -884,7 +884,7 @@ func TestDontDownloadData(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 }

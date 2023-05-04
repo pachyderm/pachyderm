@@ -215,15 +215,7 @@ func (c APIClient) InspectJob(projectName, pipelineName, jobID string, details b
 
 // WaitJob is a blocking version of InspectJob that will wait
 // until the job has reached a terminal state.
-//
-// Deprecate: use WaitProjectJob instead.
-func (c APIClient) WaitJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
-	return c.WaitProjectJob(pfs.DefaultProjectName, pipelineName, jobID, details)
-}
-
-// WaitProjectJob is a blocking version of InspectJob that will wait
-// until the job has reached a terminal state.
-func (c APIClient) WaitProjectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
+func (c APIClient) WaitJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
 		Job:     NewJob(projectName, pipelineName, jobID),

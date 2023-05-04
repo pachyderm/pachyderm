@@ -1370,7 +1370,7 @@ func TestPipelineFailure(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
@@ -1496,7 +1496,7 @@ func TestInputFailure(t *testing.T) {
 		}
 		return nil
 	})
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline1, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline1, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
@@ -1521,7 +1521,7 @@ func TestInputFailure(t *testing.T) {
 		}
 		return nil
 	})
-	jobInfo, err = c.WaitProjectJob(pfs.DefaultProjectName, pipeline2, jobInfos[0].Job.ID, false)
+	jobInfo, err = c.WaitJob(pfs.DefaultProjectName, pipeline2, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "unrunnable because"))
@@ -1547,7 +1547,7 @@ func TestInputFailure(t *testing.T) {
 		}
 		return nil
 	})
-	jobInfo, err = c.WaitProjectJob(pfs.DefaultProjectName, pipeline3, jobInfos[0].Job.ID, false)
+	jobInfo, err = c.WaitJob(pfs.DefaultProjectName, pipeline3, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
 	// the fact that pipeline 2 failed should be noted in the message
@@ -2553,7 +2553,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
@@ -2610,7 +2610,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.Equal(t, 2, len(jobInfos))
 	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
 
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipelineName, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -4390,12 +4390,12 @@ func TestStopJob(t *testing.T) {
 	// Now stop the second job
 	err = c.StopProjectJob(project, pipelineName, commit2.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.WaitProjectJob(project, pipelineName, commit2.ID, false)
+	jobInfo, err := c.WaitJob(project, pipelineName, commit2.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
 	// Check that the third job completes
-	jobInfo, err = c.WaitProjectJob(project, pipelineName, commit3.ID, false)
+	jobInfo, err = c.WaitJob(project, pipelineName, commit3.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -6290,7 +6290,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Block on the job being complete before we call ListDatum
-	_, err = c.WaitProjectJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
+	_, err = c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 
 	// resp, err := c.ListProjectDatumAll(pfs.DefaultProjectName,jobs[0].Job.ID, pageSize, 0)
@@ -7066,7 +7066,7 @@ func TestFixPipeline(t *testing.T) {
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
-		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
+		jobInfo, err := c.WaitJob(pfs.DefaultProjectName, jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		return nil
@@ -7093,7 +7093,7 @@ func TestFixPipeline(t *testing.T) {
 		if len(jobInfos) != 2 {
 			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
 		}
-		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
+		jobInfo, err := c.WaitJob(pfs.DefaultProjectName, jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 		return nil
@@ -7444,7 +7444,7 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 
@@ -7501,7 +7501,7 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 
@@ -7889,7 +7889,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
@@ -8048,7 +8048,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	require.Equal(t, 1, len(jobs))
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -8108,7 +8108,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	}, "pipeline should appear in list jobs")
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, job.Job.Pipeline.Name, job.Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, job.Job.Pipeline.Name, job.Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
 	started, err := types.TimestampFromProto(jobInfo.Started)
@@ -10507,7 +10507,7 @@ func TestListDeletedDatums(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 		id := jobs[0].Job.ID
-		info, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, id, false)
+		info, err := c.WaitJob(pfs.DefaultProjectName, pipeline, id, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, info.State)
 		datums, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
@@ -11533,7 +11533,7 @@ func TestDatumBatching(t *testing.T) {
 		require.NoError(t, err)
 		commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
+		jobInfo, err := c.WaitJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 		fileInfos, err := c.ListFileAll(jobInfo.OutputCommit, "")
@@ -11613,7 +11613,7 @@ func TestDatumBatching(t *testing.T) {
 		require.NoError(t, err)
 		commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
+		jobInfo, err := c.WaitJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, state, jobInfo.State)
 	}
