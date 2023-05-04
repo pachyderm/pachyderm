@@ -132,8 +132,8 @@ func Cmds(ctx context.Context) []*cobra.Command {
 	// you click it).
 	generateURL := &cobra.Command{
 		Use:   "{{alias}} project/repo@branch_or_commit:/file_or_directory ...",
-		Short: "Generates the encoded part of a download URL.",
-		Long:  "Generates the encoded part of a download URL.",
+		Short: "Generates the encoded part of an archive download URL.",
+		Long:  "Generates the encoded part of an archive download URL.",
 		Run: cmdutil.Run(func(args []string) error {
 			u, err := archiveserver.EncodeV1(args)
 			if err != nil {
@@ -147,15 +147,15 @@ func Cmds(ctx context.Context) []*cobra.Command {
 
 	decodeURL := &cobra.Command{
 		Use:   "{{alias}} <url>",
-		Short: "Decodes the encoded part of a download URL.",
-		Long:  "Decodes the encoded part of a download URL.",
+		Short: "Decodes the encoded part of an archive download URL.",
+		Long:  "Decodes the encoded part of an archive download URL.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			u, err := url.Parse(args[0])
 			if err != nil {
 				return errors.Wrap(err, "url.Parse")
 			}
-			if !strings.HasPrefix(u.Path, "/download/") {
-				u.Path = "/download/" + u.Path
+			if !strings.HasPrefix(u.Path, "/archive/") {
+				u.Path = "/archive/" + u.Path
 			}
 			if !strings.HasSuffix(u.Path, ".zip") {
 				u.Path = u.Path + ".zip"
