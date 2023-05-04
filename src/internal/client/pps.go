@@ -286,36 +286,6 @@ func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) err
 
 // ListJob returns info about all jobs.
 //
-// If pipelineName is non empty then only jobs that were started by the named
-// pipeline will be returned.
-//
-// If inputCommit is non-nil then only jobs which took the specific commits as
-// inputs will be returned.
-//
-// The order of the inputCommits doesn't matter.
-//
-// If outputCommit is non-nil then only the job which created that commit as
-// output will be returned.
-//
-// 'history' controls whether jobs from historical versions of pipelines are
-// returned, it has the following semantics:
-//
-//   - 0: Return jobs from the current version of the pipeline or pipelines.
-//   - 1: Return the above and jobs from the next most recent version
-//   - 2: etc.
-//   - -1: Return jobs from all historical versions.
-//
-// 'details' controls whether the JobInfo passed to 'f' includes details from
-// the pipeline spec (e.g. the transform). Leaving this 'false' can improve
-// performance.
-//
-// Deprecated: use ListProjectJob instead.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
-	return c.ListProjectJob(pfs.DefaultProjectName, pipelineName, inputCommit, history, details)
-}
-
-// ListProjectJob returns info about all jobs.
-//
 // If projectName & pipelineName are non empty then only jobs that were started
 // by the named pipeline will be returned.
 //
@@ -338,7 +308,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, histo
 // 'details' controls whether the JobInfo passed to 'f' includes details from
 // the pipeline spec (e.g. the transform). Leaving this 'false' can improve
 // performance.
-func (c APIClient) ListProjectJob(projectName, pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
+func (c APIClient) ListJob(projectName, pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
 	if err := c.ListProjectJobF(projectName, pipelineName, inputCommit, history, details,
 		func(ji *pps.JobInfo) error {

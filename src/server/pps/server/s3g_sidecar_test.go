@@ -644,7 +644,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			_, err = c.WaitCommit(projectName, pipeline, "master", "")
 			require.NoError(t, err)
 
-			jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
+			jis, err := c.ListJob(projectName, pipeline, nil, 0, false)
 			require.NoError(t, err)
 			require.Equal(t, i+2, len(jis)) // one empty job w/ initial s3in commit
 			for j := 0; j < len(jis); j++ {
@@ -691,7 +691,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		_, err = c.WaitCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
 
-		jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
+		jis, err := c.ListJob(projectName, pipeline, nil, 0, false)
 		require.NoError(t, err)
 		require.Equal(t, 12, len(jis))
 		for j := 0; j < len(jis); j++ {
@@ -806,7 +806,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 			_, err = c.WaitCommit(projectName, pipeline, "master", "")
 			require.NoError(t, err)
-			jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
+			jis, err := c.ListJob(projectName, pipeline, nil, 0, false)
 			require.NoError(t, err)
 			require.Equal(t, i+1, len(jis))
 			for j := 0; j < len(jis); j++ {

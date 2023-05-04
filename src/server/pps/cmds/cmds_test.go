@@ -674,7 +674,7 @@ func TestInspectWaitJob(t *testing.T) {
 		"pipeline1", pipeline1,
 		"project", project,
 	).Run())
-	jobs, err := c.ListProjectJob(project, pipeline1, nil, -1, false)
+	jobs, err := c.ListJob(project, pipeline1, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 

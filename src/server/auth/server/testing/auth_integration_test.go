@@ -85,7 +85,7 @@ func TestListDatum(t *testing.T) {
 		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
-	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
+	jobs, err := aliceClient.ListJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobs))
 	jobID := jobs[0].Job.ID
