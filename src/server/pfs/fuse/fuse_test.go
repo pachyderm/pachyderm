@@ -359,7 +359,7 @@ func TestOpenCommit(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
 	require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
-	require.NoError(t, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, "out", "master", ""))
+	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
 	_, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "in", "master")
 	require.NoError(t, err)
 
@@ -384,7 +384,7 @@ func TestOpenCommit(t *testing.T) {
 }
 
 func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
-	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
+	if err := pachClient.FinishCommit(project, repo, branch, id); err != nil {
 		if !pfsserver.IsCommitFinishedErr(err) {
 			return err
 		}

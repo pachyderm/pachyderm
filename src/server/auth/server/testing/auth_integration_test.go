@@ -228,7 +228,7 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(projectName, repoName, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, aliceClient.FinishCommit(projectName, repoName, commit1.Branch.Name, commit1.ID))
 
 	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
 	require.NoError(t, err)
@@ -809,7 +809,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
@@ -849,7 +849,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := rootClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
@@ -890,7 +890,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {

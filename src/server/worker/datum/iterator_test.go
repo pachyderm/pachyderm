@@ -39,7 +39,7 @@ func TestIterators(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 	// Zero datums.
 	in0 := client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.ID
@@ -348,7 +348,7 @@ func TestJoinTrailingSlash(t *testing.T) {
 		for j := 0; j < 10; j++ {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("foo-%v", j), strings.NewReader("bar")))
 		}
-		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, repo[i], "master", commit.ID))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo[i], "master", commit.ID))
 		input[i].Pfs.Commit = commit.ID
 	}
 

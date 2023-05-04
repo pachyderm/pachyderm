@@ -636,7 +636,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishProjectCommit(projectName, background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.ID))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(projectName, pfsin, "master", ""), iS, strings.NewReader(iS)))
@@ -677,7 +677,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		require.NoError(t, c.FinishProjectCommit(projectName, background, bgc.Branch.Name, bgc.ID))
+		require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.ID))
 
 		//  Put new file in 's3in', which will update every datum at once and
 		//  trigger a job that, correspondingly, updates the 'background' part of
@@ -686,7 +686,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		require.NoError(t, c.FinishProjectCommit(projectName, s3in, s3c.Branch.Name, s3c.ID))
+		require.NoError(t, c.FinishCommit(projectName, s3in, s3c.Branch.Name, s3c.ID))
 
 		_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
@@ -799,7 +799,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishProjectCommit(projectName, background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.ID))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))

@@ -71,7 +71,7 @@ func TestPrometheusStats(t *testing.T) {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
 		}
 		require.NoError(t, err)
-		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 		// Prometheus scrapes every 10s
 		// We run a new job outside this window so that we see a more organic
 		// time series
@@ -81,7 +81,7 @@ func TestPrometheusStats(t *testing.T) {
 	commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "test", strings.NewReader("fail")))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 
 	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
@@ -256,7 +256,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout

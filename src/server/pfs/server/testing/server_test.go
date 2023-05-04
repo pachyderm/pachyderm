@@ -77,7 +77,7 @@ func finishCommit(pachClient *client.APIClient, repo, branch, id string) error {
 }
 
 func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
-	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
+	if err := pachClient.FinishCommit(project, repo, branch, id); err != nil {
 		if !pfsserver.IsCommitFinishedErr(err) {
 			return err
 		}
@@ -295,7 +295,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < 3; i++ {
 			newCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "foo", "master")
 			require.NoError(t, err)
-			err = env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, "foo", "master", newCommit.ID)
+			err = env.PachClient.FinishCommit(pfs.DefaultProjectName, "foo", "master", newCommit.ID)
 			require.NoError(t, err)
 			commits[i] = newCommit
 		}
@@ -2041,7 +2041,7 @@ func TestPFS(suite *testing.T) {
 		commit1, err := c.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo")))
-		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, "A", commit1.Branch.Name, commit1.ID))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "A", commit1.Branch.Name, commit1.ID))
 		// Assert that referencing "B" at the latest commit ID gives us the latest "B" commit
 		cis, err := c.InspectCommitSet(commit1.ID)
 		require.NoError(t, err)
@@ -5499,7 +5499,7 @@ func TestPFS(suite *testing.T) {
 		}()
 		_, err := pachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, pachClient.FinishProjectCommit(pfs.DefaultProjectName, "A", "master", ""))
+		require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, "A", "master", ""))
 
 		require.NoErrorWithinTRetry(t, time.Second*10, func() error {
 			if atomic.LoadInt64(&readyCommitsB) != 2 {
@@ -5508,7 +5508,7 @@ func TestPFS(suite *testing.T) {
 			return nil
 		})
 
-		require.NoError(t, pachClient.FinishProjectCommit(pfs.DefaultProjectName, "B", "master", ""))
+		require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, "B", "master", ""))
 
 		require.NoErrorWithinTRetry(t, time.Second*10, func() error {
 			if atomic.LoadInt64(&readyCommitsC) != 2 {
@@ -6553,7 +6553,7 @@ func TestPFS(suite *testing.T) {
 			// Create a downstream branch
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "out"))
 			require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "trigger")}))
-			require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, "out", "master", ""))
+			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
 			require.NoError(t, c.CreateProjectBranchTrigger(pfs.DefaultProjectName, "out", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
 				Size_:  "1K",
@@ -6597,7 +6597,7 @@ func TestPFS(suite *testing.T) {
 
 			// Put a file that will cause the trigger to go off
 			require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "out", "master", ""), "file", strings.NewReader(strings.Repeat("a", units.KB))))
-			require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, "out", "master", ""))
+			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
 			_, err = c.WaitProjectCommit(pfs.DefaultProjectName, "out", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectProjectBranch(pfs.DefaultProjectName, "out", "master")

@@ -30,7 +30,7 @@ func TestListDatum(t *testing.T) {
 	for i := 0; i < 9; i++ {
 		require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))
 	}
-	require.NoError(t, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
+	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
 	_, err = env.PachClient.WaitProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID)
 	require.NoError(t, err)
 

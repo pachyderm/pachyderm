@@ -196,7 +196,7 @@ func TestTransactions(suite *testing.T) {
 		txnClient := env.PachClient.WithTransaction(txn)
 		commit, err := txnClient.StartCommit(project, repo, branchB)
 		require.NoError(t, err)
-		err = txnClient.FinishProjectCommit(project, repo, branchB, "")
+		err = txnClient.FinishCommit(project, repo, branchB, "")
 		require.NoError(t, err)
 		require.NoError(t, txnClient.CreateProjectBranch(project, repo, branchA, branchB, "", nil))
 
@@ -274,7 +274,7 @@ func TestTransactions(suite *testing.T) {
 
 		_, err = txnClient.StartCommit(project, "foo", "master")
 		require.NoError(t, err)
-		err = txnClient.FinishProjectCommit(project, "foo", "master", "")
+		err = txnClient.FinishCommit(project, "foo", "master", "")
 		require.NoError(t, err)
 
 		_, err = txnClient.StartCommit(project, "foo", "master")
@@ -342,11 +342,11 @@ func TestTransactions(suite *testing.T) {
 
 		commitA, err := txnClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishProjectCommit(pfs.DefaultProjectName, "A", "master", ""))
+		require.NoError(t, txnClient.FinishCommit(pfs.DefaultProjectName, "A", "master", ""))
 		require.Equal(t, txn.ID, commitA.ID)
 		commitE, err := txnClient.StartCommit(pfs.DefaultProjectName, "E", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishProjectCommit(pfs.DefaultProjectName, "E", "master", ""))
+		require.NoError(t, txnClient.FinishCommit(pfs.DefaultProjectName, "E", "master", ""))
 		require.Equal(t, txn.ID, commitE.ID)
 
 		info, err := txnClient.FinishTransaction(txn)
@@ -492,7 +492,7 @@ func TestTransactions(suite *testing.T) {
 			require.NoError(t, builder.CreateRepo(pfs.DefaultProjectName, "repoB"))
 			_, err := builder.StartCommit(pfs.DefaultProjectName, "repoB", "master")
 			require.NoError(t, err)
-			err = builder.FinishProjectCommit(pfs.DefaultProjectName, "repoB", "master", "")
+			err = builder.FinishCommit(pfs.DefaultProjectName, "repoB", "master", "")
 			require.NoError(t, err)
 			require.NoError(t, builder.CreateProjectBranch(pfs.DefaultProjectName, "repoB", "branchA", "master", "", []*pfs.Branch{}))
 			require.NoError(t, builder.CreateProjectBranch(pfs.DefaultProjectName, "repoB", "branchB", "branchA", "", []*pfs.Branch{}))

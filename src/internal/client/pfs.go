@@ -165,19 +165,10 @@ func (c APIClient) StartCommit(projectName, repoName string, branchName string) 
 	)
 }
 
-// FinishCommit ends the process of committing data to a Repo and persists the
-// Commit. Once a Commit is finished the data becomes immutable and future
-// attempts to write to it with PutFile will error.
-//
-// Deprecated: use FinishProjectCommit instead.
-func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
-	return c.FinishProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
-}
-
-// FinishProjectCommit ends the process of committing data to a Repo and
+// FinishCommit ends the process of committing data to a Repo and
 // persists the Commit.  Once a Commit is finished the data becomes immutable and
 // future attempts to write to it with PutFile will error.
-func (c APIClient) FinishProjectCommit(projectName, repoName, branchName, commitID string) (retErr error) {
+func (c APIClient) FinishCommit(projectName, repoName, branchName, commitID string) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),

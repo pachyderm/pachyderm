@@ -247,7 +247,7 @@ func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 		return nil
 	}))
 	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
-	require.NoError(t, env.PachClient.FinishProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
 	return commit
 }
 
@@ -257,7 +257,7 @@ func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []strin
 	for _, file := range files {
 		require.NoError(t, env.PachClient.DeleteFile(commit, file))
 	}
-	require.NoError(t, env.PachClient.FinishProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
 	return commit
 }
 

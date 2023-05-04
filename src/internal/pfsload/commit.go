@@ -37,7 +37,7 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 				return "", err
 			}
 		}
-		if err := pachClient.FinishProjectCommit(project, repo, branch.Name, commit.ID); err != nil {
+		if err := pachClient.FinishCommit(project, repo, branch.Name, commit.ID); err != nil {
 			return "", err
 		}
 		validator := env.Validator()
