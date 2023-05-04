@@ -55,7 +55,7 @@ var (
 
 func getPachClient() *client.APIClient {
 	pachClientOnce.Do(func() {
-		c, err := client.NewOnUserMachineContext(pctx.TODO(), "user-completion")
+		c, err := client.NewOnUserMachine(pctx.TODO(), "user-completion")
 		if err != nil {
 			Fatal(err)
 		}

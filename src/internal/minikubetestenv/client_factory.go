@@ -187,7 +187,7 @@ var localLock sync.Mutex
 func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	t.Helper()
 	if *forceLocal {
-		c, err := client.NewOnUserMachineContext(pctx.TODO(), "")
+		c, err := client.NewOnUserMachine(pctx.TODO(), "")
 		if err != nil {
 			t.Fatalf("create local client: %v", err)
 		}

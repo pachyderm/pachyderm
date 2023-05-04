@@ -24,7 +24,7 @@ func (cfg *Config) NewOnUserMachine(ctx context.Context, enterprise bool, opts .
 	if enterprise {
 		c, err = client.NewEnterpriseClientOnUserMachineContext(ctx, "user", opts...)
 	} else {
-		c, err = client.NewOnUserMachineContext(ctx, "user", opts...)
+		c, err = client.NewOnUserMachine(ctx, "user", opts...)
 	}
 	if err != nil {
 		return nil, err

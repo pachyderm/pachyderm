@@ -23,7 +23,7 @@ func MountServerCmd() *cobra.Command {
 				MountDir: mountDir,
 			}
 			pfscmds.PrintWarning()
-			c, err := client.NewOnUserMachineContext(pctx.TODO(), "user", client.WithDialTimeout(5*time.Second))
+			c, err := client.NewOnUserMachine(pctx.TODO(), "user", client.WithDialTimeout(5*time.Second))
 			if err != nil {
 				return fuse.Server(serverOpts, nil)
 			}

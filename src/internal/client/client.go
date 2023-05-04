@@ -540,15 +540,7 @@ func NewEnterpriseClientForTest() (*APIClient, error) {
 
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
-//
-// Deprecated: Use NewOnUserMachineContext().
-func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	return NewOnUserMachineContext(pctx.TODO(), prefix, options...)
-}
-
-// NewOnUserMachineContext is like NewOnUserMachine, but accepts a context for dialing and future
-// RPCs.
-func NewOnUserMachineContext(ctx context.Context, prefix string, options ...Option) (*APIClient, error) {
+func NewOnUserMachine(ctx context.Context, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -564,7 +556,7 @@ func NewOnUserMachineContext(ctx context.Context, prefix string, options ...Opti
 // if it exists. This is intended to be used in the pachctl binary to communicate with the
 // enterprise server.
 func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	return NewOnUserMachineContext(pctx.TODO(), prefix, options...)
+	return NewOnUserMachine(pctx.TODO(), prefix, options...)
 }
 
 // NewEnterpriseClientOnUserMachineContext is like NewEnterpriseClientOnUserMachine, but accepts a
