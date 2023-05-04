@@ -1215,7 +1215,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			if err := client.StopProjectPipeline(project, args[0]); err != nil {
+			if err := client.StopPipeline(project, args[0]); err != nil {
 				return errors.Wrap(err, "error from StopProjectPipeline")
 			}
 			return nil

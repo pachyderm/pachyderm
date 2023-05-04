@@ -2127,7 +2127,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, bPipeline))
+	require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, bPipeline))
 	commitInfos, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, cPipeline), client.NewCommit(pfs.DefaultProjectName, cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
@@ -2482,7 +2482,7 @@ func TestPipelineState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Stop pipeline and wait for the pipeline to pause
-	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+	require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, pipeline))
 	time.Sleep(5 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
@@ -3199,7 +3199,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 	// Stop the pipeline (and confirm that it's stopped)
-	require.NoError(t, c.StopProjectPipeline(project, pipelineName))
+	require.NoError(t, c.StopPipeline(project, pipelineName))
 	pipelineInfo, err := c.InspectPipeline(project, pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
@@ -3465,7 +3465,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 
 	// Stop the pipeline, so it doesn't process incoming commits
-	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, pipelineName))
+	require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, pipelineName))
 
 	// Do first commit to repo
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
@@ -3692,7 +3692,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	})
 
 	// Stop the pipeline...
-	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+	require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 		require.NoError(t, err)
@@ -4268,7 +4268,7 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 6, len(commitInfos))
 	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
-	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, bPipeline))
+	require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, bPipeline))
 	require.NoError(t, c.StartPipeline(pfs.DefaultProjectName, bPipeline))
 	// C's commit should be the same as b's meta commit
 	cCommits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, cPipeline), nil, nil, 0)
@@ -11419,7 +11419,7 @@ func TestZombieCheck(t *testing.T) {
 	}, client.WithZombieCheckAll()))
 
 	// stop pipeline so we can modify
-	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+	require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, pipeline))
 	// create new commits on output and meta
 	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
 		if _, err := c.StartCommit(pfs.DefaultProjectName, pipeline, "master"); err != nil {

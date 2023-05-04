@@ -584,7 +584,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		}, backoff.NewTestingBackOff()))
 
 		// stop and start spout pipeline
-		require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+		require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, pipeline))
 		require.NoError(t, backoff.Retry(func() error {
 			pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 			require.NoError(t, err)
