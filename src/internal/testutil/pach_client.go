@@ -18,7 +18,7 @@ func NewPachClient(t testing.TB) *client.APIClient {
 	var pachErr error
 	if _, ok := os.LookupEnv("PACHD_PORT_1650_TCP_ADDR"); ok {
 		t.Log("creating pach client using cluster config")
-		c, pachErr = client.NewInClusterContext(pctx.TODO())
+		c, pachErr = client.NewInCluster(pctx.TODO())
 	} else {
 		t.Log("creating pach client using NewForTest")
 		c, pachErr = client.NewForTest()

@@ -396,7 +396,7 @@ func (env *NonblockingServiceEnv) newProxyClient() (proxy.APIClient, error) {
 	var servicePachClient *client.APIClient
 	if err := backoff.Retry(func() error {
 		var err error
-		servicePachClient, err = client.NewInClusterContext(pctx.TODO())
+		servicePachClient, err = client.NewInCluster(pctx.TODO())
 		return err
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
 		return nil, errors.Wrapf(err, "failed to initialize service pach client")

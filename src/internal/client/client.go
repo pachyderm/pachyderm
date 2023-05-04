@@ -671,18 +671,9 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	return client, nil
 }
 
-// NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
-// This should be used to access Pachyderm from within a Kubernetes cluster
-// with Pachyderm running on it.
-//
-// Deprecated: Use NewInClusterContext.
-func NewInCluster(options ...Option) (*APIClient, error) {
-	return NewInClusterContext(pctx.TODO(), options...)
-}
-
-// NewInClusterContext constructs a new APIClient using env vars that Kubernetes creates.  This
+// NewInCluster constructs a new APIClient using env vars that Kubernetes creates.  This
 // should be used to access Pachyderm from within a Kubernetes cluster with Pachyderm running on it.
-func NewInClusterContext(ctx context.Context, options ...Option) (*APIClient, error) {
+func NewInCluster(ctx context.Context, options ...Option) (*APIClient, error) {
 	// first try the pachd peer service (only supported on pachyderm >= 1.10),
 	// which will work when TLS is enabled
 	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
