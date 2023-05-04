@@ -192,21 +192,6 @@ func NewCronInputOpts(name string, repo string, spec string, overwrite bool, sta
 	}
 }
 
-// NewJobInput creates a pps.JobInput.
-//
-// Deprecated: use NewProjectJobInput instead.
-func NewJobInput(repoName, branchName, commitID, glob string) *pps.JobInput {
-	return NewProjectJobInput(pfs.DefaultProjectName, repoName, branchName, commitID, glob)
-}
-
-// NewProjectJobInput creates a pps.JobInput.
-func NewProjectJobInput(projectName, repoName, branchName, commitID, glob string) *pps.JobInput {
-	return &pps.JobInput{
-		Commit: NewCommit(projectName, repoName, branchName, commitID),
-		Glob:   glob,
-	}
-}
-
 // NewPipeline creates a pps.Pipeline.
 //
 // Deprecated: use NewProjectPipeline instead.
