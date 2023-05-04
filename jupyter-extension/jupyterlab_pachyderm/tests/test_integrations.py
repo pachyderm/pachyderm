@@ -13,8 +13,9 @@ import requests
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
+from python_pachyderm.proto.v2.pps.pps_pb2 import JobState
 
-from . import TEST_NOTEBOOK
+from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
@@ -412,6 +413,22 @@ def simple_pachyderm_env(request):
         client.delete_repo(repo_name, force=True)
 
 
+def _update_metadata(notebook: Path, project_name: str, repo_name: str, pipeline_name: str) -> str:
+    """Updates the metadata of the specified notebook file with the specified
+    project/repo/pipeline information.
+
+    Returns a serialized JSON object that can be written to a file.
+    """
+    notebook_data = json.loads(notebook.read_bytes())
+    config = PpsConfig.from_notebook(notebook)
+    config.pipeline = dict(name=pipeline_name, project=dict(name=project_name))
+    # sub in repo_name
+    config.input_spec = f"pfs:\n  repo: {repo_name}\n  glob: \"/*\""
+    config.requirements = str(notebook.with_name(config.requirements).relative_to(os.getcwd()))
+    notebook_data['metadata'][METADATA_KEY]['config'] = config.to_dict()
+    return json.dumps(notebook_data)
+
+
 @pytest.fixture
 def notebook_path(simple_pachyderm_env) -> Path:
     """Yields a path to a notebook file suitable for testing.
@@ -423,15 +440,10 @@ def notebook_path(simple_pachyderm_env) -> Path:
     _client, project_name, repo_name, pipeline_name = simple_pachyderm_env
 
     # Do a considerable amount of data munging.
-    notebook_data = json.loads(TEST_NOTEBOOK.read_bytes())
-    config = PpsConfig.from_notebook(TEST_NOTEBOOK)
-    config.pipeline = dict(name=pipeline_name, project=dict(name=project_name))
-    # sub in repo_name
-    config.input_spec = f"pfs:\n  repo: {repo_name}\n  glob: \"/*\""
-    notebook_data['metadata'][METADATA_KEY]['config'] = config.to_dict()
-
+    notebook_data = _update_metadata(TEST_NOTEBOOK, project_name, repo_name, pipeline_name)
     notebook_path = TEST_NOTEBOOK.with_stem(f"{TEST_NOTEBOOK.stem}_generated")
-    notebook_path.write_text(json.dumps(notebook_data))
+    notebook_path.write_text(notebook_data)
+
     yield notebook_path.relative_to(os.getcwd())
     if notebook_path.exists():
         notebook_path.unlink()
@@ -439,11 +451,17 @@ def notebook_path(simple_pachyderm_env) -> Path:
 
 def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     client, project_name, repo_name, pipeline_name = simple_pachyderm_env
+    with client.commit(repo_name, "master", project_name=project_name) as commit:
+        client.put_file_bytes(commit, "/data", b"data")
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
     data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
     assert r.status_code == 200
-    assert next(client.inspect_pipeline(pipeline_name, project_name=project_name))
+
+    job_info = next(client.list_job(pipeline_name=pipeline_name, project_name=project_name))
+    job_info = next(client.inspect_job(job_info.job.id, pipeline_name=pipeline_name, project_name=project_name, wait=True))
+    assert job_info.state == JobState.JOB_SUCCESS
+
     assert r.json()["message"] == ("Create pipeline request sent. You may monitor its "
     "status by running \"pachctl list pipelines\" in a terminal.")
 
@@ -452,3 +470,30 @@ def test_pps_validation_errors(dev_server, notebook_path):
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
     assert r.status_code == 400
     assert r.json()['reason'] == f"Bad Request: last_modified_time not specified"
+
+
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_reuse_pipeline_name_different_project(dev_server, simple_pachyderm_env, notebook_path):
+    """This tests creating a pipeline from a notebook within a project, and then creating a new
+    pipeline with the same name inside the default project. A bug existed where reusing the pipeline
+    name caused an error. """
+    client, project_name, repo_name, pipeline_name = simple_pachyderm_env
+    test_pps(dev_server, simple_pachyderm_env, notebook_path)
+
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, "default", repo_name, pipeline_name)
+    new_notebook = TEST_NOTEBOOK.with_stem(f"{TEST_NOTEBOOK.stem}_generated_2")
+    try:
+        client.create_repo(repo_name, project_name="default")
+        new_notebook.write_text(new_notebook_data)
+        new_notebook = new_notebook.relative_to(os.getcwd())
+        last_modified = datetime.utcfromtimestamp(os.path.getmtime(new_notebook))
+        data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+        r = requests.put(f"{BASE_URL}/pps/_create/{new_notebook}", data=json.dumps(data))
+        assert r.status_code == 200
+        assert next(client.inspect_pipeline(pipeline_name, project_name="default"))
+    finally:
+        client.delete_pipeline(pipeline_name, project_name="default", force=True)
+        client.delete_repo(f"{pipeline_name}__context", project_name="default", force=True)
+        client.delete_repo(repo_name, project_name="default")
+        if new_notebook.exists():
+            new_notebook.unlink()

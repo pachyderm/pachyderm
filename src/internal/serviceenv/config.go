@@ -48,6 +48,7 @@ type GlobalConfiguration struct {
 	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=10"`
 	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
 	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
+	PostgresQueryLogging           bool   `env:"POSTGRES_QUERY_LOGGING,default=false"`
 	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
 	PachdServicePort               string `env:"PACHD_SERVICE_PORT"`
 

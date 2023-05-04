@@ -1213,6 +1213,34 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			}
 			defer c.Close()
 			project := args[0]
+			pipelineResp, err := c.PpsAPIClient.ListPipeline(
+				c.Ctx(),
+				&pps.ListPipelineRequest{
+					Projects: []*pfs.Project{{Name: project}},
+				},
+			)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pp, err := grpcutil.Collect[*pps.PipelineInfo](pipelineResp, 1000)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if len(pp) > 0 {
+				for _, p := range pp {
+					fmt.Printf("This will delete pipeline %s\n?", p.Pipeline)
+				}
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("cannot delete project with %d pipelines", len(pp))
+				}
+				for _, p := range pp {
+					if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: p.Pipeline}); err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
+				}
+			}
 			repoResp, err := c.PfsAPIClient.ListRepo(
 				c.Ctx(),
 				&pfs.ListRepoRequest{
@@ -1242,36 +1270,6 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 					}
 				}
 			}
-
-			pipelineResp, err := c.PpsAPIClient.ListPipeline(
-				c.Ctx(),
-				&pps.ListPipelineRequest{
-					Projects: []*pfs.Project{{Name: project}},
-				},
-			)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			pp, err := grpcutil.Collect[*pps.PipelineInfo](pipelineResp, 1000)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			if len(pp) > 0 {
-				for _, p := range pp {
-					fmt.Printf("This will delete pipeline %s\n?", p.Pipeline)
-				}
-				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
-					return err
-				} else if !ok {
-					return errors.Errorf("cannot delete project with %d pipelines", len(pp))
-				}
-				for _, p := range pp {
-					if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: p.Pipeline}); err != nil {
-						return grpcutil.ScrubGRPC(err)
-					}
-				}
-			}
-
 			_, err = c.PfsAPIClient.DeleteProject(
 				c.Ctx(),
 				&pfs.DeleteProjectRequest{
