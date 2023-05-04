@@ -30,7 +30,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
-	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 
 	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
@@ -125,7 +125,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	require.NoError(t, err)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
-	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 
 	require.NoError(t, c.CreateProjectPipeline(projectName,
 		tu.UniqueString("pipeline-hyphen"),

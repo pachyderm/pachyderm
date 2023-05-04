@@ -32,7 +32,7 @@ func TestIterators(t *testing.T) {
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	// Put files in structured in a way so that there are many ways to glob it.
 	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
@@ -338,8 +338,8 @@ func TestJoinTrailingSlash(t *testing.T) {
 		client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, repo[1],
 			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
 	}
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo[0]))
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo[1]))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo[0]))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo[1]))
 
 	// put files in structured in a way so that there are many ways to glob it
 	for i := 0; i < 2; i++ {

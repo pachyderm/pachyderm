@@ -102,7 +102,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdminRWO")
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
@@ -202,7 +202,7 @@ func TestFSAdminRWO(t *testing.T) {
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdminRWO")
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
@@ -297,7 +297,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdmin")
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// 'admin' makes bob an FS admin
@@ -394,7 +394,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	// alice creates a pipeline
 	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -470,8 +470,8 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	project := tu.UniqueString("project")
 	require.NoError(t, aliceClient.CreateProject(project))
 	repo := tu.UniqueString("repo")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, aliceClient.CreateProjectRepo(project, repo))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.CreateRepo(project, repo))
 
 	// bob should only be able to list repos from default project
 	infos, err := bobClient.ListRepo()
@@ -574,7 +574,7 @@ func TestRobotUserACL(t *testing.T) {
 
 	// robotUser creates a repo and adds alice as a writer
 	repo := tu.UniqueString("TestRobotUserACL")
-	require.NoError(t, robotClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, robotClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
 
 	require.NoError(t, robotClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
@@ -587,7 +587,7 @@ func TestRobotUserACL(t *testing.T) {
 
 	// Now alice creates a repo, and adds robotUser as a writer
 	repo2 := tu.UniqueString("TestRobotUserACL")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo2))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo2))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo2))
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo2, tu.Robot(robotUser), []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot(robotUser), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo2))
@@ -609,7 +609,7 @@ func TestGroupRoleBinding(t *testing.T) {
 
 	// root creates a repo and adds a group writer access
 	repo := tu.UniqueString("TestGroupRoleBinding")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, rootClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, group, []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(group, auth.RepoWriterRole, auth.RootUser, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, rootClient, pfs.DefaultProjectName, repo))
 
@@ -666,7 +666,7 @@ func TestRobotUserAdmin(t *testing.T) {
 
 	// robotUser2 creates a repo, and robotUser commits to it
 	repo := tu.UniqueString("TestRobotUserAdmin")
-	require.NoError(t, robotClient2.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, robotClient2.CreateRepo(pfs.DefaultProjectName, repo))
 	commit, err := robotClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err) // admin privs means robotUser can commit
 	require.NoError(t, robotClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
@@ -691,7 +691,7 @@ func TestTokenRevoke(t *testing.T) {
 
 	// Create repo (so alice has something to list)
 	repo := tu.UniqueString("TestTokenRevoke")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	alice := tu.UniqueString("alice")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
@@ -735,7 +735,7 @@ func TestRevokeTokensForUser(t *testing.T) {
 
 	// Create repo (so alice has something to list)
 	repo := tu.UniqueString("TestTokenRevoke")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	alice := tu.UniqueString("robot:alice")
 	bob := tu.UniqueString("robot:bob")
@@ -816,7 +816,7 @@ func TestRotateRootToken(t *testing.T) {
 
 	// create a repo for the purpose of testing access
 	repo := tu.UniqueString("TestRotateRootToken")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// rotate token after creating the repo
 	rotateReq := &auth.RotateRootTokenRequest{}

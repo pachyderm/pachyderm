@@ -100,7 +100,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			if err := c.CreateProjectRepo(pfs.DefaultProjectName, testRepo); err != nil {
+			if err := c.CreateRepo(pfs.DefaultProjectName, testRepo); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
 			if err := c.PutFile(client.NewRepo(pfs.DefaultProjectName, testRepo).NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {

@@ -21,7 +21,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, txnClient.CreateProjectPipeline(pfs.DefaultProjectName,
 			pipeline,
 			"",
@@ -52,7 +52,7 @@ func TestCreateProjectlessPipelineTransaction(t *testing.T) {
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, repo))
 		_, err := txnClient.PpsAPIClient.CreatePipeline(txnClient.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: &pps.Pipeline{Name: pipeline},

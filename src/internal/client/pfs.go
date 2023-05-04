@@ -56,22 +56,12 @@ func NewFile(projectName, repoName, branchName, commitID, path string) *pfs.File
 	}
 }
 
-// CreateRepo creates a new Repo object in pfs with the given name. Repos are
-// the top level data object in pfs and should be used to store data of a
-// similar type. For example rather than having a single Repo for an entire
-// project you might have separate Repos for logs, metrics, database dumps etc.
-//
-// Deprecated: use CreateProjectRepo instead.
-func (c APIClient) CreateRepo(repoName string) error {
-	return c.CreateProjectRepo(pfs.DefaultProjectName, repoName)
-}
-
-// CreateProjectRepo creates a new Repo object in pfs with the given name.
+// CreateRepo creates a new Repo object in pfs with the given name.
 // Repos are the top level data object in pfs and should be used to store data
 // of a similar type.  For example rather than having a single Repo for an
 // entire project you might have separate Repos for logs, metrics, database
 // dumps etc.
-func (c APIClient) CreateProjectRepo(projectName, repoName string) error {
+func (c APIClient) CreateRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{

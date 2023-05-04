@@ -35,7 +35,7 @@ func workerListBuckets(t *testing.T, s *workerTestState) {
 	// create a repo - this should not show up list buckets with the worker
 	// driver
 	repo := tu.UniqueString("testlistbuckets1")
-	require.NoError(t, s.pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, s.pachClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, s.pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 
 	buckets, err := s.minioClient.ListBuckets()
@@ -238,9 +238,9 @@ func TestWorkerDriver(t *testing.T) {
 	pachClient := env.PachClient
 
 	inputRepo := tu.UniqueString("testworkerdriverinput")
-	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, inputRepo))
 	outputRepo := tu.UniqueString("testworkerdriveroutput")
-	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, outputRepo))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, outputRepo))
 
 	// create a master branch on the input repo
 	inputMasterCommit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, inputRepo, "master")

@@ -530,7 +530,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 	t.Run("SpoutInputValidation", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestSpoutInputValidation_data")
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 		pipeline := tu.UniqueString("pipelinespoutinputvalidation")
 		_, err := c.PpsAPIClient.CreatePipeline(

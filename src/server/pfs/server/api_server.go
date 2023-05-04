@@ -840,7 +840,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		project = req.Branch.Repo.Project.GetName()
 		repo = req.Branch.Repo.Name
 	}
-	if err := pachClient.CreateProjectRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
+	if err := pachClient.CreateRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
 		return nil, err
 	}
 	branch := uuid.New()

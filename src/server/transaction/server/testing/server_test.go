@@ -189,7 +189,7 @@ func TestTransactions(suite *testing.T) {
 		project := testutil.UniqueString("prj-")
 
 		require.NoError(t, env.PachClient.CreateProject(project))
-		require.NoError(t, env.PachClient.CreateProjectRepo(project, repo))
+		require.NoError(t, env.PachClient.CreateRepo(project, repo))
 		require.NoError(t, env.PachClient.CreateProjectBranch(project, repo, branchA, "", "", nil))
 		require.NoError(t, env.PachClient.CreateProjectBranch(project, repo, branchB, "", "", nil))
 
@@ -269,7 +269,7 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
-		err = txnClient.CreateProjectRepo(project, "foo")
+		err = txnClient.CreateRepo(project, "foo")
 		require.NoError(t, err)
 
 		_, err = txnClient.StartProjectCommit(project, "foo", "master")
@@ -305,11 +305,11 @@ func TestTransactions(suite *testing.T) {
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "C"))
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "D"))
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "E"))
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "B"))
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "C"))
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "D"))
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "E"))
 
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "B", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "A", "master")}))
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "B", "master"), client.NewBranch(pfs.DefaultProjectName, "E", "master")}))
@@ -396,11 +396,11 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, "C"))
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, "D"))
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, "E"))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, "A"))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, "B"))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, "C"))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, "D"))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, "E"))
 
 		require.NoError(t, txnClient.CreateProjectBranch(pfs.DefaultProjectName, "B", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "A", "master")}))
 		require.NoError(t, txnClient.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "B", "master"), client.NewBranch(pfs.DefaultProjectName, "E", "master")}))
@@ -463,7 +463,7 @@ func TestTransactions(suite *testing.T) {
 
 		// One operation
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-			require.NoError(t, builder.CreateProjectRepo(pfs.DefaultProjectName, "repoA"))
+			require.NoError(t, builder.CreateRepo(pfs.DefaultProjectName, "repoA"))
 			return nil
 		})
 		require.NoError(t, err)
@@ -489,7 +489,7 @@ func TestTransactions(suite *testing.T) {
 
 		// Some dependent operations
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-			require.NoError(t, builder.CreateProjectRepo(pfs.DefaultProjectName, "repoB"))
+			require.NoError(t, builder.CreateRepo(pfs.DefaultProjectName, "repoB"))
 			_, err := builder.StartProjectCommit(pfs.DefaultProjectName, "repoB", "master")
 			require.NoError(t, err)
 			err = builder.FinishProjectCommit(pfs.DefaultProjectName, "repoB", "master", "")

@@ -53,8 +53,8 @@ func TestS3PipelineErrors(t *testing.T) {
 	c, _, _ := initPachClient(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo1))
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo2))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo1))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo2))
 
 	pipeline := tu.UniqueString("Pipeline")
 	err := c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -121,7 +121,7 @@ func TestS3PipelineErrors(t *testing.T) {
 
 func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 	repo := tu.UniqueString("data")
-	require.NoError(t, c.CreateProjectRepo(projectName, repo))
+	require.NoError(t, c.CreateRepo(projectName, repo))
 	masterCommit := client.NewCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -218,7 +218,7 @@ func TestS3Input(t *testing.T) {
 
 func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 	dataRepo := tu.UniqueString("data")
-	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 	dataCommit := client.NewCommit(projectName, dataRepo, "master", "")
 
 	numPipelines := 5
@@ -293,7 +293,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	c, _, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -337,7 +337,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 
 func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 	repo := tu.UniqueString("data")
-	require.NoError(t, c.CreateProjectRepo(projectName, repo))
+	require.NoError(t, c.CreateRepo(projectName, repo))
 	masterCommit := client.NewCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -428,7 +428,7 @@ func TestS3Output(t *testing.T) {
 
 func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 	repo := tu.UniqueString("data")
-	require.NoError(t, c.CreateProjectRepo(projectName, repo))
+	require.NoError(t, c.CreateRepo(projectName, repo))
 	masterCommit := client.NewCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -562,16 +562,16 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		s3in := tu.UniqueString("s3_data")
-		require.NoError(t, c.CreateProjectRepo(projectName, s3in))
+		require.NoError(t, c.CreateRepo(projectName, s3in))
 		pfsin := tu.UniqueString("pfs_data")
-		require.NoError(t, c.CreateProjectRepo(projectName, pfsin))
+		require.NoError(t, c.CreateRepo(projectName, pfsin))
 
 		s3Commit := client.NewCommit(projectName, s3in, "master", "")
 		// Pipelines with S3 inputs should still skip datums, as long as the S3 input
 		// hasn't changed. We'll check this by reading from a repo that isn't a
 		// pipeline input
 		background := tu.UniqueString("bg_data")
-		require.NoError(t, c.CreateProjectRepo(projectName, background))
+		require.NoError(t, c.CreateRepo(projectName, background))
 
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
@@ -742,13 +742,13 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 	t.Run("S3Output", func(t *testing.T) {
 		repo := tu.UniqueString("pfs_data")
-		require.NoError(t, c.CreateProjectRepo(projectName, repo))
+		require.NoError(t, c.CreateRepo(projectName, repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
 		// tracking which output data should be associated with which input data.
 		// Therefore every output file should have the same "background" value after
 		// each job finishes.
 		background := tu.UniqueString("bg_data")
-		require.NoError(t, c.CreateProjectRepo(projectName, background))
+		require.NoError(t, c.CreateRepo(projectName, background))
 
 		pipeline := tu.UniqueString("Pipeline")
 		// 'pipeline' needs access to the 'background' repo to run successfully
@@ -852,7 +852,7 @@ func TestDontDownloadData(t *testing.T) {
 	c, _, _ := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, c.PutFile(masterCommit, "test.txt", strings.NewReader("This is a test")))
 

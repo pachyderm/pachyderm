@@ -77,7 +77,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
-			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
 			pipeline2 := "TestTrigger2"
 			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -167,7 +167,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
-			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
+			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))
 			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 				edgesRepo,
 				"pachyderm/opencv:1.0",
