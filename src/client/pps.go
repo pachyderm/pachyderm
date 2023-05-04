@@ -827,7 +827,9 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 		Master:         master,
 		Follow:         follow,
 		UseLokiBackend: useLoki,
-		Since:          types.DurationProto(since),
+	}
+	if since != 0 {
+		request.Since = types.DurationProto(since)
 	}
 	if pipelineName != "" {
 		request.Pipeline = NewProjectPipeline(projectName, pipelineName)
