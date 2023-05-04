@@ -342,7 +342,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 		Update:      true,
 	})
 	require.NoError(t, err)
-	repoInfo, err := aliceClient.InspectProjectRepo(pfs.DefaultProjectName, dataRepo)
+	repoInfo, err := aliceClient.InspectRepo(pfs.DefaultProjectName, dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, description, repoInfo.Description)
 	// buildBindings haven't changed

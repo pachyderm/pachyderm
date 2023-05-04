@@ -1064,7 +1064,7 @@ func (mm *MountManager) verifyProjectRepoExist(project, repo string) (bool, erro
 	if _, err := mm.verifyProjectExists(project); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectProjectRepo(project, repo); err != nil {
+	if _, err := mm.Client.InspectRepo(project, repo); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1392,7 +1392,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 		switch req.Action {
 		case "mount":
 			// check user permissions on repo
-			repoInfo, err := m.manager.Client.InspectProjectRepo(req.Project, req.Repo)
+			repoInfo, err := m.manager.Client.InspectRepo(req.Project, req.Repo)
 			if err != nil {
 				m.responses <- Response{
 					Project:    req.Project,

@@ -584,10 +584,10 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, client.CreateRepo(project2, repo))
 
 		// inspect whether the repos are actually from different projects
-		repoInfo1, err := client.InspectProjectRepo(project1, repo)
+		repoInfo1, err := client.InspectRepo(project1, repo)
 		require.NoError(t, err)
 		require.Equal(t, project1, repoInfo1.Repo.Project.Name)
-		repoInfo2, err := client.InspectProjectRepo(project2, repo)
+		repoInfo2, err := client.InspectRepo(project2, repo)
 		require.NoError(t, err)
 		require.Equal(t, project2, repoInfo2.Repo.Project.Name)
 
@@ -935,14 +935,14 @@ func TestPFS(suite *testing.T) {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 
-		repoInfo, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		repoInfo, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, repo, repoInfo.Repo.Name)
 		require.NotNil(t, repoInfo.Created)
 		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 
 		require.YesError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-		_, err = env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, "nonexistent")
+		_, err = env.PachClient.InspectRepo(pfs.DefaultProjectName, "nonexistent")
 		require.YesError(t, err)
 
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -962,7 +962,7 @@ func TestPFS(suite *testing.T) {
 		})
 		require.NoError(t, err)
 
-		repoInfo, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		repoInfo, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, repo, repoInfo.Repo.Name)
 		require.NotNil(t, repoInfo.Created)
@@ -980,7 +980,7 @@ func TestPFS(suite *testing.T) {
 		})
 		require.NoError(t, err)
 
-		repoInfo, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		repoInfo, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, repo, repoInfo.Repo.Name)
 		require.NotNil(t, repoInfo.Created)
@@ -1626,7 +1626,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, int64(0), commitInfo.Details.SizeBytes)
 
 		// Check that repo size is back to 0
-		repoInfo, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		repoInfo, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), repoInfo.Details.SizeBytes)
 	})
@@ -1664,7 +1664,7 @@ func TestPFS(suite *testing.T) {
 		require.NotEqual(t, commit, commitInfos[0].Commit)
 
 		// Check that repo size is back to 0
-		repoInfo, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		repoInfo, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 	})
@@ -3295,7 +3295,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
 
-		info, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		info, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 
 		// Size should be 0 because the files were not added to master
@@ -3330,7 +3330,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
 
-		info, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		info, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 
 		require.Equal(t, totalSize, int(info.Details.SizeBytes))
@@ -5936,7 +5936,7 @@ func TestPFS(suite *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		ri, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		ri, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		created, err := types.TimestampFromProto(ri.Created)
 		require.NoError(t, err)
@@ -5950,7 +5950,7 @@ func TestPFS(suite *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		ri, err = env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		ri, err = env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		newCreated, err := types.TimestampFromProto(ri.Created)
 		require.NoError(t, err)
@@ -7320,7 +7320,7 @@ func TestPFS(suite *testing.T) {
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		// don't show user .user suffix
-		_, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, "test")
+		_, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, "test")
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))

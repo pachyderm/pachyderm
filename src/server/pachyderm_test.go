@@ -421,21 +421,21 @@ func TestRepoSize(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	// check data repo size
-	repoInfo, err := c.InspectProjectRepo(pfs.DefaultProjectName, dataRepo)
+	repoInfo, err := c.InspectRepo(pfs.DefaultProjectName, dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// check pipeline repo size
-	repoInfo, err = c.InspectProjectRepo(pfs.DefaultProjectName, pipeline)
+	repoInfo, err = c.InspectRepo(pfs.DefaultProjectName, pipeline)
 	require.NoError(t, err)
 	require.Equal(t, int64(6), repoInfo.Details.SizeBytes)
 
 	// ensure size is updated when we delete a commit
 	require.NoError(t, c.DropCommitSet(commit1.ID))
-	repoInfo, err = c.InspectProjectRepo(pfs.DefaultProjectName, dataRepo)
+	repoInfo, err = c.InspectRepo(pfs.DefaultProjectName, dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
-	repoInfo, err = c.InspectProjectRepo(pfs.DefaultProjectName, pipeline)
+	repoInfo, err = c.InspectRepo(pfs.DefaultProjectName, pipeline)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), repoInfo.Details.SizeBytes)
 }
@@ -2653,7 +2653,7 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	repoInfo, err := c.InspectProjectRepo(pfs.DefaultProjectName, dataRepo)
+	repoInfo, err := c.InspectRepo(pfs.DefaultProjectName, dataRepo)
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedRepoInfo(pfspretty.NewPrintableRepoInfo(repoInfo)))
 	for _, c := range commitInfos {
@@ -2712,7 +2712,7 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	repoInfo, err := c.InspectProjectRepo(pfs.DefaultProjectName, dataRepo)
+	repoInfo, err := c.InspectRepo(pfs.DefaultProjectName, dataRepo)
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedRepoInfo(pfspretty.NewPrintableRepoInfo(repoInfo)))
 	for _, c := range commitInfos {
@@ -9756,7 +9756,7 @@ func TestKeepRepo(t *testing.T) {
 		KeepRepo: true,
 	})
 	require.NoError(t, err)
-	_, err = c.InspectProjectRepo(pfs.DefaultProjectName, pipeline)
+	_, err = c.InspectRepo(pfs.DefaultProjectName, pipeline)
 	require.NoError(t, err)
 
 	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
