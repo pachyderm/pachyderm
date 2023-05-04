@@ -39,7 +39,7 @@ func (cfg *Config) NewInWorker(ctx context.Context, opts ...client.Option) (*cli
 	if cfg.Verbose {
 		opts = append(opts, client.WithAdditionalStreamClientInterceptors(ci.LogStream), client.WithAdditionalUnaryClientInterceptors(ci.LogUnary))
 	}
-	c, err := client.NewInWorkerContext(ctx, opts...)
+	c, err := client.NewInWorker(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}

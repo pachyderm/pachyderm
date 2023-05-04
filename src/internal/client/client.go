@@ -695,16 +695,8 @@ func NewInCluster(ctx context.Context, options ...Option) (*APIClient, error) {
 }
 
 // NewInWorker constructs a new APIClient intended to be used from a worker
-// to talk to the sidecar pachd container
-//
-// Deprecated: Use NewInWorkerContext.
-func NewInWorker(options ...Option) (*APIClient, error) {
-	return NewInWorkerContext(pctx.TODO(), options...)
-}
-
-// NewInWorker constructs a new APIClient intended to be used from a worker
-// to talk to the sidecar pachd container
-func NewInWorkerContext(ctx context.Context, options ...Option) (*APIClient, error) {
+// to talk to the sidecar pachd container.
+func NewInWorker(ctx context.Context, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
