@@ -2,7 +2,6 @@ package client
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
@@ -69,13 +68,8 @@ func (c APIClient) GetRepoRoleBinding(projectName, repoName string) (*auth.RoleB
 	return resp.Binding, nil
 }
 
-// Deprecated: use ModifyProjectRepoRoleBinding instead.
-func (c APIClient) ModifyRepoRoleBinding(repoName, principal string, roles []string) error {
-	return c.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, principal, roles)
-}
-
 // Update the roles bound to a repo within a project.
-func (c APIClient) ModifyProjectRepoRoleBinding(projectName, repoName, principal string, roles []string) error {
+func (c APIClient) ModifyRepoRoleBinding(projectName, repoName, principal string, roles []string) error {
 	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
 		Resource:  NewRepo(projectName, repoName).AuthResource(),
 		Principal: principal,
