@@ -76,9 +76,9 @@ func (gc *GarbageCollector) RunUntilEmpty(ctx context.Context) error {
 }
 
 // RunOnce run's one cycle of garbage collection.
-func (gc *GarbageCollector) RunOnce(ctx context.Context) (_ int, retErr error) {
-	defer log.Span(ctx, "RunOnce")(log.Errorp(&retErr))
-	var n int
+func (gc *GarbageCollector) RunOnce(ctx context.Context) (n int, retErr error) {
+	ctx, done := log.SpanContext(ctx, "RunOnce")
+	defer done(log.Errorp(&retErr), zap.Int("n", n))
 	err := gc.tracker.IterateDeletable(ctx, func(id string) error {
 		if err := gc.deleteObject(ctx, id); err != nil {
 			log.Error(ctx, "error deleting object", zap.String("id", id), zap.Error(err))
