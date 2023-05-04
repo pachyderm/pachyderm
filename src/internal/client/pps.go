@@ -77,7 +77,7 @@ const (
 
 // NewJob creates a pps.Job.
 func NewJob(projectName, pipelineName, jobID string) *pps.Job {
-	return &pps.Job{Pipeline: NewProjectPipeline(projectName, pipelineName), ID: jobID}
+	return &pps.Job{Pipeline: NewPipeline(projectName, pipelineName), ID: jobID}
 }
 
 // NewJobSet creates a pps.JobSet.
@@ -193,14 +193,7 @@ func NewCronInputOpts(name string, repo string, spec string, overwrite bool, sta
 }
 
 // NewPipeline creates a pps.Pipeline.
-//
-// Deprecated: use NewProjectPipeline instead.
-func NewPipeline(pipelineName string) *pps.Pipeline {
-	return NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
-}
-
-// NewProjectPipeline creates a pps.Pipeline.
-func NewProjectPipeline(projectName, pipelineName string) *pps.Pipeline {
+func NewPipeline(projectName, pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{
 		Project: NewProject(projectName),
 		Name:    pipelineName,
@@ -448,7 +441,7 @@ func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, input
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if projectName != "" && pipelineName != "" {
-		pipeline = NewProjectPipeline(projectName, pipelineName)
+		pipeline = NewPipeline(projectName, pipelineName)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
@@ -496,7 +489,7 @@ func (c APIClient) SubscribeProjectJob(projectName, pipelineName string, details
 	client, err := c.PpsAPIClient.SubscribeJob(
 		ctx,
 		&pps.SubscribeJobRequest{
-			Pipeline: NewProjectPipeline(projectName, pipelineName),
+			Pipeline: NewPipeline(projectName, pipelineName),
 			Details:  details,
 		})
 	if err != nil {
@@ -778,7 +771,7 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 		Since:          types.DurationProto(since),
 	}
 	if pipelineName != "" {
-		request.Pipeline = NewProjectPipeline(projectName, pipelineName)
+		request.Pipeline = NewPipeline(projectName, pipelineName)
 	}
 	if jobID != "" {
 		request.Job = NewJob(projectName, pipelineName, jobID)
@@ -859,7 +852,7 @@ func (c APIClient) CreateProjectPipeline(projectName, pipelineName, image string
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: NewProjectPipeline(projectName, pipelineName),
+			Pipeline: NewPipeline(projectName, pipelineName),
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
@@ -888,7 +881,7 @@ func (c APIClient) InspectProjectPipeline(projectName, pipelineName string, deta
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{
-			Pipeline: NewProjectPipeline(projectName, pipelineName),
+			Pipeline: NewPipeline(projectName, pipelineName),
 			Details:  details,
 		},
 	)
@@ -942,7 +935,7 @@ func (c APIClient) ListPipelineHistory(pipelineName string, history int64, detai
 func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
-		pipeline = NewProjectPipeline(projectName, pipelineName)
+		pipeline = NewPipeline(projectName, pipelineName)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
@@ -970,7 +963,7 @@ func (c APIClient) DeletePipeline(pipelineName string, force bool) error {
 // DeleteProjectPipeline deletes a pipeline along with its output Repo.
 func (c APIClient) DeleteProjectPipeline(projectName, pipelineName string, force bool) error {
 	req := &pps.DeletePipelineRequest{
-		Pipeline: NewProjectPipeline(projectName, pipelineName),
+		Pipeline: NewPipeline(projectName, pipelineName),
 		Force:    force,
 	}
 	_, err := c.PpsAPIClient.DeletePipeline(
@@ -992,7 +985,7 @@ func (c APIClient) StartProjectPipeline(projectName, pipelineName string) error 
 	_, err := c.PpsAPIClient.StartPipeline(
 		c.Ctx(),
 		&pps.StartPipelineRequest{
-			Pipeline: NewProjectPipeline(projectName, pipelineName),
+			Pipeline: NewPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -1012,7 +1005,7 @@ func (c APIClient) StopProjectPipeline(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.StopPipeline(
 		c.Ctx(),
 		&pps.StopPipelineRequest{
-			Pipeline: NewProjectPipeline(projectName, pipelineName),
+			Pipeline: NewPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -1034,7 +1027,7 @@ func (c APIClient) RunProjectPipeline(projectName, pipelineName string, provenan
 	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),
 		&pps.RunPipelineRequest{
-			Pipeline:   NewProjectPipeline(projectName, pipelineName),
+			Pipeline:   NewPipeline(projectName, pipelineName),
 			Provenance: provenance,
 			JobID:      jobID,
 		},
@@ -1058,7 +1051,7 @@ func (c APIClient) RunProjectCron(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.RunCron(
 		c.Ctx(),
 		&pps.RunCronRequest{
-			Pipeline: NewProjectPipeline(projectName, pipelineName),
+			Pipeline: NewPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -1124,7 +1117,7 @@ func (c APIClient) CreateProjectPipelineService(projectName, pipelineName, image
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: NewProjectPipeline(projectName, pipelineName),
+			Pipeline: NewPipeline(projectName, pipelineName),
 			Metadata: &pps.Metadata{
 				Annotations: annotations,
 			},

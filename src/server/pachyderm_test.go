@@ -76,7 +76,7 @@ func newCountBreakFunc(maxCount int) func(func() error) error {
 
 func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
 	return &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, name),
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, name),
 		Transform: &pps.Transform{
 			Cmd: []string{"bash"},
 			Stdin: []string{
@@ -274,7 +274,7 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(projectName, pipeline),
+			Pipeline: client.NewPipeline(projectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"/bin/bash"},
 				Stdin: []string{
@@ -1425,7 +1425,7 @@ func TestEgressFailure(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Image: tu.DefaultTransformImage,
 				Cmd:   []string{"bash"},
@@ -1576,7 +1576,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:      []string{"bash"},
 					Stdin:    []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
@@ -1602,7 +1602,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:    []string{"bash"},
 					Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
@@ -1637,7 +1637,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:      []string{"bash"},
 					Stdin:    []string{"false"},
@@ -1663,7 +1663,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"true"},
@@ -1760,7 +1760,7 @@ func TestLazyPipeline(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -1814,7 +1814,7 @@ func TestEmptyFiles(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -2585,7 +2585,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd:              []string{"sh"},
 				Stdin:            []string{"exit 1"},
@@ -2632,7 +2632,7 @@ func TestPrettyPrinting(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -2691,7 +2691,7 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	_, err := rc.PpsAPIClient.CreatePipeline(
 		rc.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -2970,7 +2970,7 @@ func TestUpdatePipeline(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{"echo buzz >/pfs/out/file"},
@@ -3044,7 +3044,7 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"sleep 1"},
@@ -3404,7 +3404,7 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	pipelineName := tu.UniqueString("TestManyFilesSingleOutputCommit")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd:   []string{"sh"},
 				Stdin: []string{"while read line; do echo $line > /pfs/out/$line; done < " + path.Join("/pfs", dataRepo, file)},
@@ -3518,7 +3518,7 @@ func TestAutoscalingStandby(t *testing.T) {
 			}
 			_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 				&pps.CreatePipelineRequest{
-					Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelines[i]),
+					Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelines[i]),
 					Transform: &pps.Transform{
 						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
@@ -3588,7 +3588,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
@@ -3651,7 +3651,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	pipeline := tu.UniqueString(t.Name())
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"/bin/bash"},
 				Stdin: []string{
@@ -3773,7 +3773,7 @@ func TestPipelineEnv(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"sh"},
 				Stdin: []string{
@@ -4423,7 +4423,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"sh"},
 				Stdin: []string{
@@ -4638,7 +4638,7 @@ func TestManyLogs(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"sh"},
 				Stdin: []string{
@@ -4700,7 +4700,7 @@ func TestLokiLogs(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"echo", "foo"},
 			},
@@ -4963,7 +4963,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -5039,7 +5039,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -5112,7 +5112,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -5175,7 +5175,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s-%d", pipelineName, 0)),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s-%d", pipelineName, 0)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -5195,7 +5195,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s-%d", pipelineName, 1)),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s-%d", pipelineName, 1)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -5214,7 +5214,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s-%d", pipelineName, 2)),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s-%d", pipelineName, 2)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -5254,7 +5254,7 @@ func TestPipelineCrashing(t *testing.T) {
 
 	create := func(gpu bool) error {
 		req := pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -5322,7 +5322,7 @@ func TestPodOpts(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5339,7 +5339,7 @@ func TestPodOpts(t *testing.T) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5359,7 +5359,7 @@ func TestPodOpts(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5424,7 +5424,7 @@ func TestPodOpts(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5880,7 +5880,7 @@ func TestGroupInput(t *testing.T) {
 		pipeline := "group-pipeline-symlink"
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"bash"},
 					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
@@ -6113,7 +6113,7 @@ func TestPipelineWithStats(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6179,7 +6179,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6255,7 +6255,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6339,7 +6339,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	pipeline := tu.UniqueString("StatsAcrossJobs")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(project, pipeline),
+			Pipeline: client.NewPipeline(project, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6436,7 +6436,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 	pipeline1, pipeline2 := tu.UniqueString("TestPipelineOnStatsBranch1"), tu.UniqueString("TestPipelineOnStatsBranch2")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline1),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline1),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
@@ -6445,7 +6445,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline2),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline2),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
@@ -6487,7 +6487,7 @@ func TestSkippedDatums(t *testing.T) {
 	//	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6563,7 +6563,7 @@ func TestMetaRepoContents(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6806,11 +6806,11 @@ func TestCronPipeline(t *testing.T) {
 			false,
 		))
 
-		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline5)})
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline5)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline5)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline5)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline5)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline5)})
 		require.NoError(t, err)
 
 		// subscribe to the pipeline6 cron repo and wait for inputs
@@ -6861,7 +6861,7 @@ func TestCronPipeline(t *testing.T) {
 
 		nCronticks := 3
 		for i := 0; i < nCronticks; i++ {
-			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline7)})
+			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline7)})
 			require.NoError(t, err)
 			_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "master", "")
 			require.NoError(t, err)
@@ -6913,11 +6913,11 @@ func TestCronPipeline(t *testing.T) {
 			false,
 		))
 
-		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline9)})
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline9)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline9)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline9)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline9)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline9)})
 		require.NoError(t, err)
 
 		// We should see an initial empty commit, exactly six from our RunCron calls (two each), and nothing else
@@ -7294,7 +7294,7 @@ func TestListJobPaged(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 9, len(jobInfos))
 
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	listJobRequest := &pps.ListJobRequest{Pipeline: pipeline}
 	client, err := c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
 	require.NoError(t, err)
@@ -7426,7 +7426,7 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7484,7 +7484,7 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7645,7 +7645,7 @@ func TestServiceEnvVars(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "trinitronx/python-simplehttpserver",
 				Cmd:   []string{"sh"},
@@ -7752,7 +7752,7 @@ func TestDatumSetSpec(t *testing.T) {
 		pipeline := tu.UniqueString("TestDatumSetSpec")
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"bash"},
 					Stdin: []string{
@@ -7777,7 +7777,7 @@ func TestDatumSetSpec(t *testing.T) {
 		pipeline := tu.UniqueString("TestDatumSetSpec")
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"bash"},
 					Stdin: []string{
@@ -7871,7 +7871,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7937,7 +7937,7 @@ func TestListDatumDuringJob(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -8023,7 +8023,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -8078,7 +8078,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -8189,7 +8189,7 @@ func TestPipelineDescription(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline:    client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline:    client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform:   &pps.Transform{Cmd: []string{"true"}},
 			Description: description,
 			Input:       client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
@@ -8623,7 +8623,7 @@ func TestStatsDeleteAll(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
@@ -8646,7 +8646,7 @@ func TestStatsDeleteAll(t *testing.T) {
 
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
@@ -8693,7 +8693,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"/bin/bash"},
 					Stdin: []string{"cp /pfs/time/* /pfs/out/"},
@@ -8748,7 +8748,7 @@ func TestDatumTries(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"unknown"}, // Cmd fails because "unknown" isn't a known command.
 			},
@@ -8978,7 +8978,7 @@ func TestDeferredProcessing(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline1),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline1),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
@@ -9344,7 +9344,7 @@ func TestCreatePipelineError(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: nil,
 			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 		})
@@ -9372,7 +9372,7 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd:   nil,
 				Stdin: []string{`cat foo >/pfs/out/file`},
@@ -9492,7 +9492,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/in/* /pfs/out"},
@@ -9752,7 +9752,7 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 		KeepRepo: true,
 	})
 	require.NoError(t, err)
@@ -9803,13 +9803,13 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "request.Pipeline cannot be nil", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)},
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName)},
 	)
 	require.YesError(t, err)
 	require.Matches(t, "must specify a transform", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{},
 	})
@@ -9817,7 +9817,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:        client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:        client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform:       &pps.Transform{},
 		Service:         &pps.Service{},
 		ParallelismSpec: &pps.ParallelismSpec{},
@@ -9826,7 +9826,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:   client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:   client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform:  &pps.Transform{},
 		SpecCommit: &pfs.Commit{},
 	})
@@ -9834,7 +9834,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "cannot resolve commit with no repo", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:   client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:   client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform:  &pps.Transform{},
 		SpecCommit: &pfs.Commit{Branch: &pfs.Branch{}},
 	})
@@ -9848,7 +9848,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{}},
 	})
@@ -9856,7 +9856,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a name", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data"}},
 	})
@@ -9864,7 +9864,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a repo", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Repo: dataRepo}},
 	})
@@ -9872,7 +9872,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a glob", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     client.NewPFSInput(pfs.DefaultProjectName, "out", "/*"),
 	})
@@ -9880,7 +9880,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input cannot be named out", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "out", Repo: dataRepo, Glob: "/*"}},
 	})
@@ -9888,7 +9888,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input cannot be named out", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data", Repo: "dne", Glob: "/*"}},
 	})
@@ -9896,7 +9896,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "dne[^ ]* not found", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input: client.NewCrossInput(
 			client.NewPFSInput(pfs.DefaultProjectName, "foo", "/*"),
@@ -9907,7 +9907,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "name \"foo\" was used more than once", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Cron: &pps.CronInput{}},
 	})
@@ -9915,7 +9915,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a name", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Cron: &pps.CronInput{Name: "cron"}},
 	})
@@ -9923,7 +9923,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "Empty spec string", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Cross: []*pps.Input{}},
 	})
@@ -9931,7 +9931,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Union: []*pps.Input{}},
 	})
@@ -9939,7 +9939,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Join: []*pps.Input{}},
 	})
@@ -10409,7 +10409,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -10492,7 +10492,7 @@ func TestListDeletedDatums(t *testing.T) {
 		input.Join[1].Pfs.OuterJoin = threeOuter
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"touch pfs/out/ignore"},
@@ -10568,7 +10568,7 @@ func TestNonrootPipeline(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
@@ -10644,7 +10644,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 		}
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: stdin,
@@ -10713,7 +10713,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/trigger/* /pfs/out/"},
@@ -10822,7 +10822,7 @@ func TestDatumSetCache(t *testing.T) {
 	pipeline := tu.UniqueString("TestDatumSetCache")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -11114,7 +11114,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	if _, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Image: tu.DefaultTransformImage,
 				Cmd:   []string{"bash"},
@@ -11517,7 +11517,7 @@ func TestDatumBatching(t *testing.T) {
 
 	createPipelineRequest := func(pipeline, script string) *pps.CreatePipelineRequest {
 		return &pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd:           []string{"bash"},
 				Stdin:         []string{script},

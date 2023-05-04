@@ -129,7 +129,7 @@ func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(projectName, pipeline),
+		Pipeline: client.NewPipeline(projectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -231,7 +231,7 @@ func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 		}
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(projectName, pipelines[i]),
+				Pipeline: client.NewPipeline(projectName, pipelines[i]),
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 					Cmd:   []string{"bash", "-x"},
@@ -301,7 +301,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{
 			Cmd: []string{"bash", "-x"},
 			Stdin: []string{
@@ -345,7 +345,7 @@ func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(projectName, pipeline),
+		Pipeline: client.NewPipeline(projectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -436,7 +436,7 @@ func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(projectName, pipeline),
+		Pipeline: client.NewPipeline(projectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -582,7 +582,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 		pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(projectName, pipeline),
+			Pipeline: client.NewPipeline(projectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
@@ -756,7 +756,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
 
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(projectName, pipeline),
+			Pipeline: client.NewPipeline(projectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
@@ -858,7 +858,7 @@ func TestDontDownloadData(t *testing.T) {
 
 	pipeline := tu.UniqueString("Pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{
 			Cmd: []string{"bash", "-x"},
 			Stdin: []string{

@@ -23,7 +23,7 @@ import (
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, name),
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, name),
 		Details: &pps.PipelineInfo_Details{
 			OutputBranch: "master",
 			Transform: &pps.Transform{

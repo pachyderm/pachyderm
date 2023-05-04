@@ -1041,7 +1041,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				Projects:  projectsFilter,
 			}
 			if pipeline != "" {
-				request.Pipeline = pachdclient.NewProjectPipeline(project, pipeline)
+				request.Pipeline = pachdclient.NewPipeline(project, pipeline)
 			}
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
 			if err != nil {
@@ -1171,7 +1171,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				KeepRepo: keepRepo,
 			}
 			if len(args) > 0 {
-				req.Pipeline = pachdclient.NewProjectPipeline(project, args[0])
+				req.Pipeline = pachdclient.NewPipeline(project, args[0])
 			}
 			if _, err = client.PpsAPIClient.DeletePipeline(client.Ctx(), req); err != nil {
 				return grpcutil.ScrubGRPC(err)
