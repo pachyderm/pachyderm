@@ -373,19 +373,10 @@ func (c APIClient) ListBranch(projectName, repoName string) ([]*pfs.BranchInfo, 
 	return grpcutil.Collect[*pfs.BranchInfo](client, 1000)
 }
 
-// DeleteBranch deletes a branch, but leaves the commits themselves intact.
-// In other words, those commits can still be accessed via commit IDs and
-// other branches they happen to be on.
-//
-// Deprecated: use DeleteProjectBranch instead.
-func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) error {
-	return c.DeleteProjectBranch(pfs.DefaultProjectName, repoName, branchName, force)
-}
-
-// DeleteProjectBranch deletes a branch, but leaves the commits themselves
+// DeleteBranch deletes a branch, but leaves the commits themselves
 // intact.  In other words, those commits can still be accessed via commit IDs
 // and other branches they happen to be on.
-func (c APIClient) DeleteProjectBranch(projectName, repoName, branchName string, force bool) error {
+func (c APIClient) DeleteBranch(projectName, repoName, branchName string, force bool) error {
 	_, err := c.PfsAPIClient.DeleteBranch(
 		c.Ctx(),
 		&pfs.DeleteBranchRequest{

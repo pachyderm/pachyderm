@@ -832,7 +832,7 @@ func TestDeletingMountedRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
-		require.NoError(t, env.PachClient.DeleteProjectBranch(pfs.DefaultProjectName, "repo", "b1", false))
+		require.NoError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, "repo", "b1", false))
 		resp, err = get("mounts")
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
