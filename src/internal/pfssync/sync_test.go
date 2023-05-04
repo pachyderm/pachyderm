@@ -24,7 +24,7 @@ func BenchmarkDownload(b *testing.B) {
 	env := realenv.NewRealEnv(ctx, b, dockertestenv.NewTestDBConfig(b))
 	repo := "repo"
 	require.NoError(b, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(b, err)
 	require.NoError(b, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
 		for i := 0; i < 100; i++ {

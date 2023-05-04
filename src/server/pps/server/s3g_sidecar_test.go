@@ -632,7 +632,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		for i := 0; i < 10; i++ {
 			// Increment "/round" in 'background'
 			iS := fmt.Sprintf("%d", i)
-			bgc, err := c.StartProjectCommit(projectName, background, "master")
+			bgc, err := c.StartCommit(projectName, background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
@@ -673,7 +673,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		// --------------------------------------------------------------
 		// Increment "/round" in 'background' (this will trigger one more job w/ the
 		// old S3-input commit)
-		bgc, err := c.StartProjectCommit(projectName, background, "master")
+		bgc, err := c.StartCommit(projectName, background, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
@@ -682,7 +682,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		//  Put new file in 's3in', which will update every datum at once and
 		//  trigger a job that, correspondingly, updates the 'background' part of
 		//  every datum's output.
-		s3c, err := c.StartProjectCommit(projectName, s3in, "master")
+		s3c, err := c.StartCommit(projectName, s3in, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
@@ -795,7 +795,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		for i := 1; i <= 5; i++ {
 			// Increment "/round" in 'background'
 			iS := strconv.Itoa(i)
-			bgc, err := c.StartProjectCommit(projectName, background, "master")
+			bgc, err := c.StartCommit(projectName, background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))

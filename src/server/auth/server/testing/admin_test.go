@@ -104,7 +104,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// Note: we must pass aliceClient to tu.CommitCnt, because it calls
@@ -145,7 +145,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
@@ -171,7 +171,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -204,7 +204,7 @@ func TestFSAdminRWO(t *testing.T) {
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// Note: we must pass aliceClient to tu.CommitCnt, because it calls
@@ -245,7 +245,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
@@ -271,7 +271,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -315,7 +315,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Nil(t, tu.GetRepoRoleBinding(t, rootClient, pfs.DefaultProjectName, repoName).Entries)
 
 	// alice cannot write to the repo
-	_, err = aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 0, tu.CommitCnt(t, rootClient, repo)) // check that no commits were created
@@ -326,7 +326,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// now alice can write to the repo
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
@@ -407,7 +407,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	))
 
 	// alice makes an input commit
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
@@ -443,7 +443,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// Admin creates an input commit
-	commit, err = rootClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err = rootClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
@@ -581,7 +581,7 @@ func TestRobotUserACL(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoWriterRole, tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
 
 	// test that alice can commit to the robot user's repo
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, "", commit.ID))
 
@@ -593,7 +593,7 @@ func TestRobotUserACL(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot(robotUser), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo2))
 
 	// test that the robot can commit to alice's repo
-	commit, err = robotClient.StartProjectCommit(pfs.DefaultProjectName, repo2, "master")
+	commit, err = robotClient.StartCommit(pfs.DefaultProjectName, repo2, "master")
 	require.NoError(t, err)
 	require.NoError(t, robotClient.FinishProjectCommit(pfs.DefaultProjectName, repo2, commit.Branch.Name, commit.ID))
 }
@@ -621,7 +621,7 @@ func TestGroupRoleBinding(t *testing.T) {
 	require.NoError(t, err)
 
 	// test that alice can commit to the repo
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 }
@@ -667,7 +667,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	// robotUser2 creates a repo, and robotUser commits to it
 	repo := tu.UniqueString("TestRobotUserAdmin")
 	require.NoError(t, robotClient2.CreateRepo(pfs.DefaultProjectName, repo))
-	commit, err := robotClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := robotClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err) // admin privs means robotUser can commit
 	require.NoError(t, robotClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 
@@ -675,7 +675,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
 	require.NoError(t, robotClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
-	commit, err = aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err = aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 

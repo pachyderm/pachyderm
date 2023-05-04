@@ -333,7 +333,7 @@ func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClien
 	// so we need to be conservative with the length of the repo name here
 	repo := tu.UniqueString("LOP")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	commit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := pachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {

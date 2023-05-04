@@ -194,7 +194,7 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectBranch(project, repo, branchB, "", "", nil))
 
 		txnClient := env.PachClient.WithTransaction(txn)
-		commit, err := txnClient.StartProjectCommit(project, repo, branchB)
+		commit, err := txnClient.StartCommit(project, repo, branchB)
 		require.NoError(t, err)
 		err = txnClient.FinishProjectCommit(project, repo, branchB, "")
 		require.NoError(t, err)
@@ -272,12 +272,12 @@ func TestTransactions(suite *testing.T) {
 		err = txnClient.CreateRepo(project, "foo")
 		require.NoError(t, err)
 
-		_, err = txnClient.StartProjectCommit(project, "foo", "master")
+		_, err = txnClient.StartCommit(project, "foo", "master")
 		require.NoError(t, err)
 		err = txnClient.FinishProjectCommit(project, "foo", "master", "")
 		require.NoError(t, err)
 
-		_, err = txnClient.StartProjectCommit(project, "foo", "master")
+		_, err = txnClient.StartCommit(project, "foo", "master")
 		require.YesError(t, err)
 		require.Matches(t, "already has a commit in this transaction", err.Error())
 		// Delete and verify deletion occurs as well
@@ -340,11 +340,11 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
-		commitA, err := txnClient.StartProjectCommit(pfs.DefaultProjectName, "A", "master")
+		commitA, err := txnClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
 		require.NoError(t, txnClient.FinishProjectCommit(pfs.DefaultProjectName, "A", "master", ""))
 		require.Equal(t, txn.ID, commitA.ID)
-		commitE, err := txnClient.StartProjectCommit(pfs.DefaultProjectName, "E", "master")
+		commitE, err := txnClient.StartCommit(pfs.DefaultProjectName, "E", "master")
 		require.NoError(t, err)
 		require.NoError(t, txnClient.FinishProjectCommit(pfs.DefaultProjectName, "E", "master", ""))
 		require.Equal(t, txn.ID, commitE.ID)
@@ -490,7 +490,7 @@ func TestTransactions(suite *testing.T) {
 		// Some dependent operations
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 			require.NoError(t, builder.CreateRepo(pfs.DefaultProjectName, "repoB"))
-			_, err := builder.StartProjectCommit(pfs.DefaultProjectName, "repoB", "master")
+			_, err := builder.StartCommit(pfs.DefaultProjectName, "repoB", "master")
 			require.NoError(t, err)
 			err = builder.FinishProjectCommit(pfs.DefaultProjectName, "repoB", "master", "")
 			require.NoError(t, err)

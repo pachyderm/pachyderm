@@ -224,7 +224,7 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 		))
 	}
 
-	commit1, err := aliceClient.StartProjectCommit(projectName, repoName, "master")
+	commit1, err := aliceClient.StartCommit(projectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
@@ -804,7 +804,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// Make sure alice's pipeline runs successfully
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
@@ -844,7 +844,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Make sure alice's pipeline still runs successfully
-	commit, err = rootClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err = rootClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
@@ -886,7 +886,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	))
 
 	// alice makes an input commit
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)

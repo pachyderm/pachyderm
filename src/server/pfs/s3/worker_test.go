@@ -243,7 +243,7 @@ func TestWorkerDriver(t *testing.T) {
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, outputRepo))
 
 	// create a master branch on the input repo
-	inputMasterCommit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, inputRepo, "master")
+	inputMasterCommit, err := pachClient.StartCommit(pfs.DefaultProjectName, inputRepo, "master")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(inputMasterCommit, func(mf client.ModifyFile) error {
@@ -255,7 +255,7 @@ func TestWorkerDriver(t *testing.T) {
 	require.NoError(t, pachClient.FinishProjectCommit(pfs.DefaultProjectName, inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
 
 	// create a develop branch on the input repo
-	inputDevelopCommit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, inputRepo, "develop")
+	inputDevelopCommit, err := pachClient.StartCommit(pfs.DefaultProjectName, inputRepo, "develop")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(inputDevelopCommit, func(mf client.ModifyFile) error {

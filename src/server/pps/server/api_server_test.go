@@ -25,7 +25,7 @@ func TestListDatum(t *testing.T) {
 	ctx = env.Context
 	repo := "TestListDatum"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	for i := 0; i < 9; i++ {
 		require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))

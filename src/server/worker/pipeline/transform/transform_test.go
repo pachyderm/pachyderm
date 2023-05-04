@@ -235,7 +235,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 }
 
 func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) *pfs.Commit {
-	commit, err := env.PachClient.StartProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
+	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, tarutil.WithWriter(buf, func(tw *tar.Writer) error {
@@ -252,7 +252,7 @@ func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 }
 
 func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) *pfs.Commit {
-	commit, err := env.PachClient.StartProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
+	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	for _, file := range files {
 		require.NoError(t, env.PachClient.DeleteFile(commit, file))

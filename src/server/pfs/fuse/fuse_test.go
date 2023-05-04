@@ -360,7 +360,7 @@ func TestOpenCommit(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
 	require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
 	require.NoError(t, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, "out", "master", ""))
-	_, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "in", "master")
+	_, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "in", "master")
 	require.NoError(t, err)
 
 	withMount(t, env.PachClient, &Options{
@@ -400,12 +400,12 @@ func TestMountCommit(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-	c1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
+	c1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
 	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
 	require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "repo", "dev", "master", "", nil))
-	c2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "dev")
+	c2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "dev")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
 	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))

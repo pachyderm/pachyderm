@@ -98,7 +98,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -122,7 +122,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -145,7 +145,7 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
-	commit, err := bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err := bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
@@ -168,7 +168,7 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
@@ -197,7 +197,7 @@ func TestGetSetReverse(t *testing.T) {
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, repoName, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
@@ -244,7 +244,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
@@ -267,7 +267,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -290,7 +290,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -2093,7 +2093,7 @@ func TestPutFileURL(t *testing.T) {
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	repo := "repo"
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	objC := dockertestenv.NewTestObjClient(env.Context, t)
 	paths := []string{"files/foo", "files/bar", "files/fizz"}
@@ -2148,7 +2148,7 @@ func TestGetFileURL(t *testing.T) {
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	repo := "repo"
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	paths := []string{"files/foo", "files/bar", "files/fizz"}
 	for _, path := range paths {

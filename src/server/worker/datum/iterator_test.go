@@ -34,7 +34,7 @@ func TestIterators(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	// Put files in structured in a way so that there are many ways to glob it.
-	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < 50; i++ {
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
@@ -343,7 +343,7 @@ func TestJoinTrailingSlash(t *testing.T) {
 
 	// put files in structured in a way so that there are many ways to glob it
 	for i := 0; i < 2; i++ {
-		commit, err := c.StartProjectCommit(pfs.DefaultProjectName, repo[i], "master")
+		commit, err := c.StartCommit(pfs.DefaultProjectName, repo[i], "master")
 		require.NoError(t, err)
 		for j := 0; j < 10; j++ {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("foo-%v", j), strings.NewReader("bar")))

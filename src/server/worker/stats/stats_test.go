@@ -63,7 +63,7 @@ func TestPrometheusStats(t *testing.T) {
 	var commit *pfs.Commit
 	// Do numCommits-1 commits w good data
 	for i := 0; i < numCommits-1; i++ {
-		commit, err = c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+		commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		// We want several datums per job so that we have multiple data points
 		// per job time series
@@ -78,7 +78,7 @@ func TestPrometheusStats(t *testing.T) {
 		time.Sleep(15 * time.Second)
 	}
 	// Now write data that'll make the job fail
-	commit, err = c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "test", strings.NewReader("fail")))
 	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
@@ -254,7 +254,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 

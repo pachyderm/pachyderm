@@ -28,7 +28,7 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 	project := branch.Repo.Project.GetName()
 	repo := branch.Repo.Name
 	for i := 0; i < int(spec.Count); i++ {
-		commit, err := pachClient.StartProjectCommit(project, repo, branch.Name)
+		commit, err := pachClient.StartCommit(project, repo, branch.Name)
 		if err != nil {
 			return "", err
 		}
