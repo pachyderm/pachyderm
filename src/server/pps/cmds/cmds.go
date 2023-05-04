@@ -467,7 +467,7 @@ each datum.`,
 					i++
 				}
 			}
-			return client.RestartProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, datumFilter)
+			return client.RestartDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, datumFilter)
 		}),
 	}
 	restartDatum.Flags().StringVar(&project, "project", project, "Project containing the datum job")

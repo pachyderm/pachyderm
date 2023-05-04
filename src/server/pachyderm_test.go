@@ -4875,7 +4875,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		}, 500*time.Millisecond) // We need to check quickly. If we wait too long the datum might finish before we can restart it.
 	}
 	checkStatus()
-	require.NoError(t, c.RestartProjectDatum(project, pipeline, commit1.ID, []string{"/file"}))
+	require.NoError(t, c.RestartDatum(project, pipeline, commit1.ID, []string{"/file"}))
 	checkStatus()
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
