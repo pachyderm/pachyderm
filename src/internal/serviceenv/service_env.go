@@ -239,7 +239,7 @@ func (env *NonblockingServiceEnv) initPachClient(ctx context.Context) error {
 	// Initialize pach client
 	return backoff.Retry(func() (retErr error) {
 		defer log.Span(ctx, "initPachClient")(log.Errorp(&retErr))
-		pachClient, err := client.NewFromURIContext(
+		pachClient, err := client.NewFromURI(
 			ctx,
 			env.pachAddress,
 			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor, mlc.LogUnary),

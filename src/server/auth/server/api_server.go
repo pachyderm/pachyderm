@@ -257,7 +257,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 						}
 					}
 				} else {
-					ec, err := client.NewFromURIContext(ctx, a.env.Config.EnterpriseServerAddress)
+					ec, err := client.NewFromURI(ctx, a.env.Config.EnterpriseServerAddress)
 					if err != nil {
 						return errors.Wrapf(err, "connect to enterprise server")
 					}

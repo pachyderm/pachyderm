@@ -96,7 +96,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}
 	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
 	cluster.Secret = a.env.Config.EnterpriseSecret
-	es, err := client.NewFromURIContext(ctx, a.env.Config.EnterpriseServerAddress, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
+	es, err := client.NewFromURI(ctx, a.env.Config.EnterpriseServerAddress, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
 	if err != nil {
 		return errors.Wrap(err, "connect to enterprise server")
 	}
@@ -216,7 +216,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		clientID = config.Configuration.ClientID
 	}
 
-	pachClient, err := client.NewFromURIContext(ctx, licenseServer, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
+	pachClient, err := client.NewFromURI(ctx, licenseServer, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
 	if err != nil {
 		return nil, err
 	}

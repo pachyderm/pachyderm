@@ -167,16 +167,9 @@ type clientSettings struct {
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
-// NewFromURI creates a new client given a GRPC URI.
-//
-// Deprecated:  Use NewFromURIContext.
-func NewFromURI(uri string, options ...Option) (*APIClient, error) {
-	return NewFromURIContext(pctx.TODO(), uri, options...)
-}
-
-// NewFromURIContext creates a new client given a GRPC URI ex. grpc://test.example.com.
+// NewFromURI creates a new client given a GRPC URI ex. grpc://test.example.com.
 // If no scheme is specified `grpc://` is assumed. A scheme of `grpcs://` enables TLS.
-func NewFromURIContext(ctx context.Context, uri string, options ...Option) (*APIClient, error) {
+func NewFromURI(ctx context.Context, uri string, options ...Option) (*APIClient, error) {
 	pachdAddress, err := grpcutil.ParsePachdAddress(uri)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse the pachd address")
@@ -715,7 +708,7 @@ func NewInClusterContext(ctx context.Context, options ...Option) (*APIClient, er
 		return nil, errors.Errorf("PACHD_SERVICE_PORT not set")
 	}
 	// create new pachctl client
-	return NewFromURIContext(ctx, fmt.Sprintf("%s:%s", host, port), options...)
+	return NewFromURI(ctx, fmt.Sprintf("%s:%s", host, port), options...)
 }
 
 // NewInWorker constructs a new APIClient intended to be used from a worker
@@ -739,7 +732,7 @@ func NewInWorkerContext(ctx context.Context, options ...Option) (*APIClient, err
 	}
 
 	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		client, err := NewFromURIContext(ctx, fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		client, err := NewFromURI(ctx, fmt.Sprintf("127.0.0.1:%s", localPort), options...)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create client")
 		}
