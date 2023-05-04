@@ -206,7 +206,7 @@ func ParseJob(project, arg string) (*pps.Job, error) {
 	if len(parts) != 2 {
 		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
 	}
-	return client.NewProjectJob(project, parts[0], parts[1]), nil
+	return client.NewJob(project, parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the

@@ -76,14 +76,7 @@ const (
 )
 
 // NewJob creates a pps.Job.
-//
-// Deprecated: use NewProjectJob instead.
-func NewJob(pipelineName, jobID string) *pps.Job {
-	return NewProjectJob(pfs.DefaultProjectName, pipelineName, jobID)
-}
-
-// NewProjectJob creates a pps.Job.
-func NewProjectJob(projectName, pipelineName, jobID string) *pps.Job {
+func NewJob(projectName, pipelineName, jobID string) *pps.Job {
 	return &pps.Job{Pipeline: NewProjectPipeline(projectName, pipelineName), ID: jobID}
 }
 
@@ -265,7 +258,7 @@ func (c APIClient) InspectJob(pipelineName string, jobID string, details bool) (
 func (c APIClient) InspectProjectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:     NewProjectJob(projectName, pipelineName, jobID),
+		Job:     NewJob(projectName, pipelineName, jobID),
 		Details: details,
 	}
 	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
@@ -285,7 +278,7 @@ func (c APIClient) WaitJob(pipelineName string, jobID string, details bool) (_ *
 func (c APIClient) WaitProjectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:     NewProjectJob(projectName, pipelineName, jobID),
+		Job:     NewJob(projectName, pipelineName, jobID),
 		Wait:    true,
 		Details: details,
 	}
@@ -582,7 +575,7 @@ func (c APIClient) DeleteProjectJob(projectName, pipelineName, jobID string) err
 	_, err := c.PpsAPIClient.DeleteJob(
 		c.Ctx(),
 		&pps.DeleteJobRequest{
-			Job: NewProjectJob(projectName, pipelineName, jobID),
+			Job: NewJob(projectName, pipelineName, jobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -600,7 +593,7 @@ func (c APIClient) StopProjectJob(projectName, pipelineName, jobID string) error
 	_, err := c.PpsAPIClient.StopJob(
 		c.Ctx(),
 		&pps.StopJobRequest{
-			Job: NewProjectJob(projectName, pipelineName, jobID),
+			Job: NewJob(projectName, pipelineName, jobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -624,7 +617,7 @@ func (c APIClient) RestartProjectDatum(projectName, pipelineName, jobID string, 
 	_, err := c.PpsAPIClient.RestartDatum(
 		c.Ctx(),
 		&pps.RestartDatumRequest{
-			Job:         NewProjectJob(projectName, pipelineName, jobID),
+			Job:         NewJob(projectName, pipelineName, jobID),
 			DataFilters: datumFilter,
 		},
 	)
@@ -644,7 +637,7 @@ func (c APIClient) ListProjectDatum(projectName, pipelineName, jobID string, cb 
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pps.ListDatumRequest{
-		Job: NewProjectJob(projectName, pipelineName, jobID),
+		Job: NewJob(projectName, pipelineName, jobID),
 	}
 	return c.listDatum(req, cb)
 }
@@ -737,7 +730,7 @@ func (c APIClient) InspectProjectDatum(projectName, pipelineName, jobID, datumID
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
 				ID:  datumID,
-				Job: NewProjectJob(projectName, pipelineName, jobID),
+				Job: NewJob(projectName, pipelineName, jobID),
 			},
 		},
 	)
@@ -833,12 +826,12 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 		request.Pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
 	if jobID != "" {
-		request.Job = NewProjectJob(projectName, pipelineName, jobID)
+		request.Job = NewJob(projectName, pipelineName, jobID)
 	}
 	request.DataFilters = data
 	if datumID != "" {
 		request.Datum = &pps.Datum{
-			Job: NewProjectJob(projectName, pipelineName, jobID),
+			Job: NewJob(projectName, pipelineName, jobID),
 			ID:  datumID,
 		}
 	}
