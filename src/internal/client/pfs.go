@@ -20,20 +20,14 @@ func NewProject(name string) *pfs.Project {
 	return &pfs.Project{Name: name}
 }
 
+// NewRepo creates a new PFS repo.
 func NewRepo(projectName, repoName string) *pfs.Repo {
 	return &pfs.Repo{Project: NewProject(projectName), Name: repoName, Type: pfs.UserRepoType}
 }
 
-// NewSystemRepo creates a pfs.Repo of the given type.
-//
-// Deprecated: use NewSystemProjectRepo instead.
-func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
-	return NewSystemProjectRepo(pfs.DefaultProjectName, repoName, repoType)
-}
-
-// NewSystemProjectRepo creates a pfs.Repo of the given type in the given
+// NewSystemRepo creates a pfs.Repo of the given type in the given
 // project.
-func NewSystemProjectRepo(projectName, repoName, repoType string) *pfs.Repo {
+func NewSystemRepo(projectName, repoName, repoType string) *pfs.Repo {
 	return &pfs.Repo{Project: NewProject(projectName), Name: repoName, Type: repoType}
 }
 

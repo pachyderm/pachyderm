@@ -454,10 +454,10 @@ func projectMasterListObjectsRecursive(t *testing.T, pachClient *client.APIClien
 func projectMasterDoesNotListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("listsystemrepo")
 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	specRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, repo, pfs.SpecRepoType)
+	specRepo := client.NewSystemRepo(pfs.DefaultProjectName, repo, pfs.SpecRepoType)
 	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
-	metaRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, repo, pfs.MetaRepoType)
+	metaRepo := client.NewSystemRepo(pfs.DefaultProjectName, repo, pfs.MetaRepoType)
 	_, err = pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
 

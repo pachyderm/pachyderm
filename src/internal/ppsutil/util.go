@@ -369,7 +369,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemProjectRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+	return client.NewSystemRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
@@ -421,7 +421,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.P
 	// because the value in postgres might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	specCommit := client.NewSystemProjectRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
+	specCommit := client.NewSystemRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
 		NewCommit("master", specCommitID)
 	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
 		return nil, errors.EnsureStack(err)

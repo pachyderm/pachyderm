@@ -55,7 +55,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	require.NoError(t, err)
 
 	// Create the spec system repo and create the initial spec commit
-	specRepo := client.NewSystemProjectRepo(projectName, pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
+	specRepo := client.NewSystemRepo(projectName, pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
 	specCommit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
@@ -75,7 +75,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	err = closeHeadCommit(ctx, env, pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch))
 	require.NoError(t, err)
 	// Create the meta system repo and set up the branch provenance
-	metaRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
+	metaRepo := client.NewSystemRepo(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
 	branch := metaRepo.NewBranch("master")

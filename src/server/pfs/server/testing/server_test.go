@@ -1015,7 +1015,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		repoProto := client.NewRepo(pfs.DefaultProjectName, repo)
 
-		systemRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, repo, pfs.MetaRepoType)
+		systemRepo := client.NewSystemRepo(pfs.DefaultProjectName, repo, pfs.MetaRepoType)
 		_, err := env.PachClient.PfsAPIClient.CreateRepo(env.PachClient.Ctx(), &pfs.CreateRepoRequest{
 			Repo: systemRepo,
 		})
@@ -7292,7 +7292,7 @@ func TestPFS(suite *testing.T) {
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
-		sysRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, "test", pfs.MetaRepoType)
+		sysRepo := client.NewSystemRepo(pfs.DefaultProjectName, "test", pfs.MetaRepoType)
 
 		// can't create system repo by itself
 		_, err := env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{

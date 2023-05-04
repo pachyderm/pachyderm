@@ -368,7 +368,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			})
 		require.NoError(t, err)
 		// and we want to make sure that these commits all have provenance on the spec repo
-		specRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType)
+		specRepo := client.NewSystemRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType)
 		specCi, err := c.PfsAPIClient.InspectCommit(c.Ctx(), &pfs.InspectCommitRequest{Commit: &pfs.Commit{
 			Repo:   specRepo,
 			Branch: specRepo.NewBranch("master"),
