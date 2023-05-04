@@ -2,8 +2,11 @@ import {EnterpriseState} from '@graphqlTypes';
 
 import {useGetEnterpriseInfoQuery} from '@dash-frontend/generated/hooks';
 
+import useLoggedIn from './useLoggedIn';
+
 export const useEnterpriseActive = () => {
-  const {data, loading} = useGetEnterpriseInfoQuery();
+  const {loggedIn} = useLoggedIn();
+  const {data, loading} = useGetEnterpriseInfoQuery({skip: !loggedIn});
   const enterpriseActive =
     data?.enterpriseInfo.state === EnterpriseState.ACTIVE;
 
