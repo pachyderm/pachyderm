@@ -700,7 +700,7 @@ each datum.`,
 
 	# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
 	$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
@@ -721,7 +721,7 @@ each datum.`,
 			}
 			since, err := time.ParseDuration(since)
 			if err != nil {
-				return errors.Wrapf(err, "error parsing since(%q)", since)
+				return errors.Wrapf(err, "error parsing since (%q)", since)
 			}
 			if tail != 0 {
 				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
@@ -742,6 +742,9 @@ each datum.`,
 			}
 
 			// Issue RPC
+			if !cmd.Flags().Changed("since") {
+				since = 0
+			}
 			iter := client.GetProjectLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			m := &jsonpb.Marshaler{}
