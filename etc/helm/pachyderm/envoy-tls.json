@@ -219,7 +219,7 @@
             ],
             "lb_policy": "random",
             "load_assignment": {
-               "cluster_name": "pachd-download",
+               "cluster_name": "pachd-archive",
                "endpoints": [
                   {
                      "lb_endpoints": [
@@ -237,7 +237,7 @@
                   }
                ]
             },
-            "name": "pachd-download",
+            "name": "pachd-archive",
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -809,10 +809,10 @@
                                        },
                                        {
                                           "match": {
-                                             "prefix": "/download"
+                                             "prefix": "/archive"
                                           },
                                           "route": {
-                                             "cluster": "pachd-download",
+                                             "cluster": "pachd-archive",
                                              "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
