@@ -116,7 +116,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
-			ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			ci, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
 			_, err = c.WaitCommitSetAll(ci.Commit.ID)
 			require.NoError(t, err)
@@ -125,12 +125,12 @@ func TestUpgradeTrigger(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
-			latestDataCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-				ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
+				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
-				aliasCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.ID)
+				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.ID)
 				require.NoError(t, err)
 				if aliasCI.Commit.ID != latestDataCI.Commit.ID {
 					return errors.New("not ready")
@@ -197,7 +197,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "http://i.imgur.com/46Q8nDz.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
@@ -222,7 +222,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://i.imgur.com/g2QnNqa.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()

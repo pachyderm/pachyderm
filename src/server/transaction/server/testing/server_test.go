@@ -220,14 +220,14 @@ func TestTransactions(suite *testing.T) {
 		_, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
 		require.YesError(t, err)
 		// Exercise commit reading after transaction
-		_, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, repo, branchA, "")
+		_, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, branchA, "")
 		require.YesError(t, err, "Inspecting a commit in the wrong project should fail.")
 
-		commitInfo, err := env.PachClient.InspectProjectCommit(project, repo, branchA, "")
+		commitInfo, err := env.PachClient.InspectCommit(project, repo, branchA, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 
-		commitInfo, err = env.PachClient.InspectProjectCommit(project, repo, branchB, "")
+		commitInfo, err = env.PachClient.InspectCommit(project, repo, branchB, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 	})

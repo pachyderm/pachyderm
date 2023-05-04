@@ -153,7 +153,7 @@ func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
+	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
@@ -259,7 +259,7 @@ func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 	}
 
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("")))
-	commitInfo, err := c.InspectProjectCommit(projectName, dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
+	commitInfo, err := c.InspectCommit(projectName, dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
 	require.NoError(t, err)
 
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -322,7 +322,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
@@ -368,7 +368,7 @@ func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
+	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
@@ -460,7 +460,7 @@ func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
+	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
@@ -881,7 +881,7 @@ func TestDontDownloadData(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)

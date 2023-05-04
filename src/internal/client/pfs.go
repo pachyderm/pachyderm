@@ -180,14 +180,7 @@ func (c APIClient) FinishCommit(projectName, repoName, branchName, commitID stri
 }
 
 // InspectCommit returns info about a specific Commit.
-//
-// Deprecated: use InspectProjectCommit instead.
-func (c APIClient) InspectCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
-	return c.InspectProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
-}
-
-// InspectProjectCommit returns info about a specific Commit.
-func (c APIClient) InspectProjectCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
+func (c APIClient) InspectCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	return c.inspectCommit(projectName, repoName, branchName, commitID, pfs.CommitState_STARTED)
 }
