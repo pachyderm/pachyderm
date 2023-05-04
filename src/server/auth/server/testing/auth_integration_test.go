@@ -731,7 +731,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 	))
 
 	// subscribe to the pipeline2 cron repo and wait for inputs
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, pipeline2)
+	repo := client.NewRepo(pfs.DefaultProjectName, pipeline2)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel() //cleanup resources
 

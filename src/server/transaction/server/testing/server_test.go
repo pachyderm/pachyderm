@@ -61,7 +61,7 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 		createRepo := &pfs.CreateRepoRequest{
-			Repo: client.NewProjectRepo(pfs.DefaultProjectName, "foo"),
+			Repo: client.NewRepo(pfs.DefaultProjectName, "foo"),
 		}
 
 		// Tell the transaction to create a repo
@@ -78,7 +78,7 @@ func TestTransactions(suite *testing.T) {
 		require.Nil(t, info)
 
 		// Appending to the transaction should fail
-		_, err = txnClient.PfsAPIClient.CreateRepo(txnClient.Ctx(), &pfs.CreateRepoRequest{Repo: client.NewProjectRepo(pfs.DefaultProjectName, "bar")})
+		_, err = txnClient.PfsAPIClient.CreateRepo(txnClient.Ctx(), &pfs.CreateRepoRequest{Repo: client.NewRepo(pfs.DefaultProjectName, "bar")})
 		require.YesError(t, err)
 	})
 
@@ -92,7 +92,7 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 		createRepo := &pfs.CreateRepoRequest{
-			Repo: client.NewProjectRepo(pfs.DefaultProjectName, "foo"),
+			Repo: client.NewRepo(pfs.DefaultProjectName, "foo"),
 		}
 
 		// Create a repo outside of a transaction
@@ -132,7 +132,7 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, err)
 		// Create repo, start commit, finish commit
 		_, err = txnClient.PfsAPIClient.CreateRepo(txnClient.Ctx(), &pfs.CreateRepoRequest{
-			Repo: client.NewProjectRepo(project, "foo"),
+			Repo: client.NewRepo(project, "foo"),
 		})
 		require.NoError(t, err)
 
@@ -315,23 +315,23 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "B", "master"), client.NewProjectBranch(pfs.DefaultProjectName, "E", "master")}))
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "D", "master", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "C", "master")}))
 
-		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "A"))
+		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, err)
 		aCommits := len(commitInfos)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "B"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "B"))
 		require.NoError(t, err)
 		bCommits := len(commitInfos)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "C"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "C"))
 		require.NoError(t, err)
 		cCommits := len(commitInfos)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "D"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "D"))
 		require.NoError(t, err)
 		dCommits := len(commitInfos)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "E"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "E"))
 		require.NoError(t, err)
 		eCommits := len(commitInfos)
 
@@ -358,24 +358,24 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[2], commitE)
 		requireEmptyResponse(t, info.Responses[3])
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "A"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, err)
 		require.Equal(t, aCommits+1, len(commitInfos))
 		commitInfoA := commitInfos[0]
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "B"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "B"))
 		require.NoError(t, err)
 		require.Equal(t, bCommits+1, len(commitInfos))
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "C"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "C"))
 		require.NoError(t, err)
 		require.Equal(t, cCommits+1, len(commitInfos))
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "D"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "D"))
 		require.NoError(t, err)
 		require.Equal(t, dCommits+1, len(commitInfos))
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "E"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "E"))
 		require.NoError(t, err)
 		require.Equal(t, eCommits+1, len(commitInfos))
 		commitInfoE := commitInfos[0]
@@ -410,27 +410,27 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 8, len(info.Responses))
 
-		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "A"))
+		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "B"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "B"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "C"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "C"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "D"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "D"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
 
-		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, "E"))
+		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "E"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)

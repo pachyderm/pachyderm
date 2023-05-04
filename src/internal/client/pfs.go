@@ -20,14 +20,7 @@ func NewProject(name string) *pfs.Project {
 	return &pfs.Project{Name: name}
 }
 
-// NewRepo creates a pfs.Repo.
-//
-// Deprecated: use NewProjectRepo instead.
-func NewRepo(repoName string) *pfs.Repo {
-	return NewProjectRepo(pfs.DefaultProjectName, repoName)
-}
-
-func NewProjectRepo(projectName, repoName string) *pfs.Repo {
+func NewRepo(projectName, repoName string) *pfs.Repo {
 	return &pfs.Repo{Project: NewProject(projectName), Name: repoName, Type: pfs.UserRepoType}
 }
 
@@ -54,7 +47,7 @@ func NewBranch(repoName string, branchName string) *pfs.Branch {
 // NewProjectBranch creates a pfs.Branch in the given project & repo.
 func NewProjectBranch(projectName, repoName, branchName string) *pfs.Branch {
 	return &pfs.Branch{
-		Repo: NewProjectRepo(projectName, repoName),
+		Repo: NewRepo(projectName, repoName),
 		Name: branchName,
 	}
 }
@@ -69,7 +62,7 @@ func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
 // NewProjectCommit creates a pfs.Commit in the given project, repo & branch.
 func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 	return &pfs.Commit{
-		Repo:   NewProjectRepo(projectName, repoName),
+		Repo:   NewRepo(projectName, repoName),
 		ID:     commitID,
 		Branch: NewProjectBranch(projectName, repoName, branchName),
 	}
@@ -109,7 +102,7 @@ func (c APIClient) CreateProjectRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo: NewProjectRepo(projectName, repoName),
+			Repo: NewRepo(projectName, repoName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -127,7 +120,7 @@ func (c APIClient) UpdateProjectRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:   NewProjectRepo(projectName, repoName),
+			Repo:   NewRepo(projectName, repoName),
 			Update: true,
 		},
 	)
@@ -149,7 +142,7 @@ func (c APIClient) InspectProjectRepo(projectName, repoName string) (_ *pfs.Repo
 	return c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
-			Repo: NewProjectRepo(projectName, repoName),
+			Repo: NewRepo(projectName, repoName),
 		},
 	)
 }
@@ -205,7 +198,7 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // This argument should be used with care.
 func (c APIClient) DeleteProjectRepo(projectName, repoName string, force bool) error {
 	request := &pfs.DeleteRepoRequest{
-		Repo:  NewProjectRepo(projectName, repoName),
+		Repo:  NewRepo(projectName, repoName),
 		Force: force,
 	}
 	_, err := c.PfsAPIClient.DeleteRepo(
@@ -551,7 +544,7 @@ func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.Branc
 	defer cf()
 	var repo *pfs.Repo
 	if repoName != "" {
-		repo = NewProjectRepo(projectName, repoName)
+		repo = NewRepo(projectName, repoName)
 	}
 	client, err := c.PfsAPIClient.ListBranch(
 		ctx,

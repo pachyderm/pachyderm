@@ -460,7 +460,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: client.NewProjectRepo(projectName, outputName),
+				Repo: client.NewRepo(projectName, outputName),
 			}); errutil.IsNotFoundError(err) {
 				// special case: the pipeline output repo has been deleted (so the
 				// pipeline is now invalid). It should be possible to delete the pipeline.
@@ -2278,7 +2278,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Cron != nil {
 			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
-					Repo:        client.NewProjectRepo(projectName, input.Cron.Repo),
+					Repo:        client.NewRepo(projectName, input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline),
 				},
 			); err != nil && !errutil.IsAlreadyExistError(err) {
@@ -2322,7 +2322,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		// Create output and spec repos
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
-				Repo:        client.NewProjectRepo(projectName, pipelineName),
+				Repo:        client.NewRepo(projectName, pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline),
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
@@ -2889,7 +2889,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-		Repo: client.NewProjectRepo(projectName, pipelineName)}); err != nil && !auth.IsErrNoRoleBinding(err) {
+		Repo: client.NewRepo(projectName, pipelineName)}); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return nil, errors.EnsureStack(err)
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline
@@ -2933,7 +2933,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 	if !request.KeepRepo {
 		// delete the pipeline's output repo
-		deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, pipelineName))
+		deleteRepos = append(deleteRepos, client.NewRepo(projectName, pipelineName))
 	} else {
 		// Remove branch provenance from output and then delete meta and spec repos
 		// this leaves the repo as a source repo, eliminating pipeline metadata
@@ -2961,7 +2961,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if pipelineInfo.Details != nil {
 		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
 			if input.Cron != nil {
-				deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, input.Cron.Repo))
+				deleteRepos = append(deleteRepos, client.NewRepo(projectName, input.Cron.Repo))
 			}
 			return nil
 		}); err != nil {

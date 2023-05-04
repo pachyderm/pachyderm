@@ -208,7 +208,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
@@ -233,7 +233,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}

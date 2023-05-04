@@ -134,7 +134,7 @@ func serializeState(pachClient *client.APIClient, state *State) (string, error) 
 }
 
 func deserializeState(pachClient *client.APIClient, stateID string) (*State, error) {
-	commit := client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", stateID)
+	commit := client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", stateID)
 	buf := &bytes.Buffer{}
 	if err := pachClient.GetFile(commit, stateFileName, buf); err != nil {
 		return nil, err

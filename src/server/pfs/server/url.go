@@ -214,7 +214,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 				return err
 			}
 			file := proto.Clone(file).(*pfs.File)
-			file.Commit = client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
+			file.Commit = client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
 			src, err := d.getFile(ctx, file, basePathRange)
 			if err != nil {
 				return err

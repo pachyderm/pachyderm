@@ -113,7 +113,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			defer close(ciChan)
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+				return pachClient.SubscribeCommit(client.NewRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
 					return nil
 				})
@@ -307,7 +307,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 
 func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
 	if err := pachClient.WithModifyFileClient(
-		client.NewProjectRepo(cron.Project, cron.Repo).NewCommit("master", ""),
+		client.NewRepo(cron.Project, cron.Repo).NewCommit("master", ""),
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {

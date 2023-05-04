@@ -101,7 +101,7 @@ or type (e.g. csv, binary, images, etc).`,
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
-						Repo:        client.NewProjectRepo(project, args[0]),
+						Repo:        client.NewRepo(project, args[0]),
 						Description: description,
 					},
 				)

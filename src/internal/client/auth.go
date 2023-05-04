@@ -66,7 +66,7 @@ func (c APIClient) GetRepoRoleBinding(repoName string) (*auth.RoleBinding, error
 // Return the roles bound to a repo within a project.
 func (c APIClient) GetProjectRepoRoleBinding(projectName, repoName string) (*auth.RoleBinding, error) {
 	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
-		Resource: NewProjectRepo(projectName, repoName).AuthResource(),
+		Resource: NewRepo(projectName, repoName).AuthResource(),
 	})
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (c APIClient) ModifyRepoRoleBinding(repoName, principal string, roles []str
 // Update the roles bound to a repo within a project.
 func (c APIClient) ModifyProjectRepoRoleBinding(projectName, repoName, principal string, roles []string) error {
 	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
-		Resource:  NewProjectRepo(projectName, repoName).AuthResource(),
+		Resource:  NewRepo(projectName, repoName).AuthResource(),
 		Principal: principal,
 		Roles:     roles,
 	})

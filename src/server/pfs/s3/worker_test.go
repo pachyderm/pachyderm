@@ -285,7 +285,7 @@ func TestWorkerDriver(t *testing.T) {
 			},
 		},
 		&s3.Bucket{
-			Commit: client.NewProjectRepo(pfs.DefaultProjectName, outputRepo).NewCommit(outputBranch, ""),
+			Commit: client.NewRepo(pfs.DefaultProjectName, outputRepo).NewCommit(outputBranch, ""),
 			Name:   "out",
 		},
 	)

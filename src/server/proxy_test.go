@@ -103,7 +103,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 			if err := c.CreateProjectRepo(pfs.DefaultProjectName, testRepo); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
-			if err := c.PutFile(client.NewProjectRepo(pfs.DefaultProjectName, testRepo).NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
+			if err := c.PutFile(client.NewRepo(pfs.DefaultProjectName, testRepo).NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
 				return errors.Errorf("put file: %w", err)
 			}
 			return nil

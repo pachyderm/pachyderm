@@ -101,7 +101,7 @@ func TestSuperAdminRWO(t *testing.T) {
 
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdminRWO")
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
@@ -201,7 +201,7 @@ func TestFSAdminRWO(t *testing.T) {
 
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdminRWO")
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
@@ -296,7 +296,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdmin")
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 

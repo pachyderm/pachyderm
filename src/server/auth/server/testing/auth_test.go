@@ -74,7 +74,7 @@ func TestGetSetBasic(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	repoName := tu.UniqueString(t.Name())
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
@@ -191,7 +191,7 @@ func TestGetSetReverse(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	repoName := tu.UniqueString(t.Name())
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, repoName, "master", "")
@@ -337,7 +337,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	/// alice updates the repo
 	description := "This request updates the description to force a write"
 	_, err = aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
-		Repo:        client.NewProjectRepo(pfs.DefaultProjectName, dataRepo),
+		Repo:        client.NewRepo(pfs.DefaultProjectName, dataRepo),
 		Description: description,
 		Update:      true,
 	})
@@ -368,7 +368,7 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name())
 	/// alice creates the repo with Update set
 	_, err := aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
-		Repo:   client.NewProjectRepo(pfs.DefaultProjectName, dataRepo),
+		Repo:   client.NewRepo(pfs.DefaultProjectName, dataRepo),
 		Update: true,
 	})
 	require.NoError(t, err)
@@ -1042,7 +1042,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
 		inspectResp, err := bobClient.PfsAPIClient.InspectRepo(bobClient.Ctx(),
 			&pfs.InspectRepoRequest{
-				Repo: client.NewProjectRepo(pfs.DefaultProjectName, name),
+				Repo: client.NewRepo(pfs.DefaultProjectName, name),
 			})
 		require.NoError(t, err)
 		require.ElementsEqual(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
@@ -2108,7 +2108,7 @@ func TestPutFileURL(t *testing.T) {
 	srcURL := bucketURL + "/files"
 	require.NoError(t, aliceClient.PutFileURL(commit, "recursive", srcURL, true))
 	check := func() {
-		cis, err := aliceClient.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), nil, nil, 0)
+		cis, err := aliceClient.ListCommit(client.NewRepo(pfs.DefaultProjectName, repo), nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(cis))
 		for _, path := range paths {

@@ -50,7 +50,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 
 	// Create the output repo
 	projectName := pipelineInfo.Pipeline.Project.GetName()
-	pipelineRepo := client.NewProjectRepo(projectName, pipelineInfo.Pipeline.Name)
+	pipelineRepo := client.NewRepo(projectName, pipelineInfo.Pipeline.Name)
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: pipelineRepo})
 	require.NoError(t, err)
 

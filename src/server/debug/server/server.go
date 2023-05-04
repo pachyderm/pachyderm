@@ -932,7 +932,7 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}, prefix...); err != nil {
 			multierr.AppendInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
 		}
-		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
+		if err := s.collectCommits(ctx, tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			multierr.AppendInto(&errs, errors.Wrap(err, "collectCommits"))
 		}
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline, limit, prefix...); err != nil {

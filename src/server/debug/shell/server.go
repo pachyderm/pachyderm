@@ -273,7 +273,7 @@ func pathnameToRepo(pathname string) *pfs.Repo {
 	for i := 0; i < len(reversedProjects); i++ {
 		projects[len(projects)-1-i] = reversedProjects[i]
 	}
-	return client.NewProjectRepo(path.Join(projects...), repoName)
+	return client.NewRepo(path.Join(projects...), repoName)
 }
 
 func (d *debugDump) listRepo(req *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) error {
