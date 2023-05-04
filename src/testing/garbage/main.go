@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"runtime/pprof"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -28,9 +30,11 @@ func schema(ctx context.Context, conn *pgxpool.Pool) {
 	CREATE TABLE IF NOT EXISTS tracker_refs (
 		from_id INT8 NOT NULL,
 		to_id INT8 NOT NULL,
-		PRIMARY KEY (from_id, to_id)
-	);
-`
+		PRIMARY KEY (from_id, to_id)) `
+	// 		FOREIGN KEY(from_id) REFERENCES tracker_objects(int_id) DEFERRABLE INITIALLY DEFERRED,
+	// 		FOREIGN KEY(to_id) REFERENCES tracker_objects(int_id) DEFERRABLE INITIALLY DEFERRED
+	// 	);
+	// `
 	if _, err := conn.Exec(ctx, schema); err != nil {
 		log.Exit(ctx, "exec schema", zap.Error(err))
 	}
@@ -38,48 +42,63 @@ func schema(ctx context.Context, conn *pgxpool.Pool) {
 
 func addSomeObjects(ctx context.Context, conn *pgxpool.Pool) {
 	ch := make(chan int)
-	do := func(i int) {
+	do := func(liveObjects map[int]struct{}) {
+		r := rand.New(rand.NewSource(rand.Int63()))
+		var txOK bool
 		tx, err := conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 		if err != nil {
 			log.Exit(ctx, "begin", zap.Error(err))
 		}
+		defer func() {
+			if !txOK {
+				tx.Rollback(ctx)
+			}
+		}()
 
-		name := fmt.Sprintf("%v/%v", rand.Int63(), rand.Int63())
+		name := fmt.Sprintf("%v/%v", r.Int63(), r.Int63())
 		var expires sql.NullTime
-		if rand.Intn(10) != 0 {
+		if r.Intn(10) != 0 {
 			expires.Valid = true
-			expires.Time = time.Now().Add(time.Minute + time.Duration(i)*20*time.Microsecond)
+			expires.Time = time.Now().Add(time.Minute + time.Duration(r.Intn(3600000))*time.Millisecond)
 		}
 		row := tx.QueryRow(ctx, "insert into tracker_objects (str_id, expires_at) values ($1, $2) returning int_id", name, expires)
-		var x int
-		if err := row.Scan(&x); err != nil {
+		var id int
+		if err := row.Scan(&id); err != nil {
 			log.Error(ctx, "exec insert into tracker_objects; scan result", zap.Error(err))
-			tx.Rollback(ctx)
 			return
 		}
-		referenced := map[int]struct{}{}
-		for j := 0; j < rand.Intn(50); j++ {
-			k := rand.Intn(x)
-			if _, ok := referenced[k]; ok {
-				continue
+
+		var toReference []int
+		target := r.Intn(50)
+		for id := range liveObjects {
+			if r.Float64() < float64(target)/float64(len(liveObjects)) {
+				toReference = append(toReference, id)
 			}
-			referenced[k] = struct{}{}
-			if _, err := tx.Exec(ctx, "insert into tracker_refs (from_id, to_id) VALUES ($1, $2)", k, x); err != nil {
+			if len(toReference) >= target {
+				break
+			}
+		}
+		for _, other := range toReference {
+			if _, err := tx.Exec(ctx, "insert into tracker_refs (from_id, to_id) VALUES ($1, $2)", other, id); err != nil {
 				log.Error(ctx, "exec insert into tracker_refs", zap.Error(err))
-				tx.Rollback(ctx)
 				return
 			}
 		}
 
 		if err := tx.Commit(ctx); err != nil {
+			//if !strings.Contains(err.Error(), "SQLSTATE 40001") {
 			log.Error(ctx, "commit", zap.Error(err))
+			//}
 			return
 		}
+		liveObjects[id] = struct{}{}
+		txOK = true
 	}
 	for i := 0; i < 64; i++ {
 		go func() {
-			for n := range ch {
-				do(n)
+			liveObjects := map[int]struct{}{}
+			for range ch {
+				do(liveObjects)
 			}
 		}()
 	}
@@ -169,10 +188,31 @@ func gc(ctx context.Context, conn *pgxpool.Pool) {
 func main() {
 	log.InitPachctlLogger()
 	log.SetLevel(log.InfoLevel)
-	ctx, c := signal.NotifyContext(pctx.Background(""), os.Interrupt)
+	ctx, c := signal.NotifyContext(pctx.Child(pctx.Background(""), "", pctx.WithFields(zap.Int("pid", os.Getpid()))), os.Interrupt)
 	defer c()
 
-	cfg, err := pgxpool.ParseConfig("user=postgres host=localhost port=5432 database=foo")
+	profCh := make(chan os.Signal, 1)
+	signal.Notify(profCh, syscall.SIGUSR1)
+	go func() {
+		for range profCh {
+			log.Info(ctx, "profiling")
+			f, err := os.OpenFile("/tmp/garbage.profile", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+			if err != nil {
+				log.Error(ctx, "problem opening profile", zap.Error(err))
+				continue
+			}
+			if err := pprof.StartCPUProfile(f); err != nil {
+				log.Error(ctx, "could not start CPU profile", zap.Error(err))
+				continue
+			}
+			time.Sleep(30 * time.Second)
+			pprof.StopCPUProfile()
+			f.Close()
+			log.Info(ctx, "done profiling")
+		}
+	}()
+
+	cfg, err := pgxpool.ParseConfig("user=postgres host=localhost port=5435 database=foo")
 	if err != nil {
 		log.Exit(ctx, "parse config", zap.Error(err))
 	}
@@ -190,11 +230,11 @@ func main() {
 			time.Sleep(30 * time.Second)
 		}
 	}()
-	go func() {
-		for {
-			gc(ctx, conn)
-			time.Sleep(10 * time.Second)
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		gc(ctx, conn)
+	// 		time.Sleep(10 * time.Second)
+	// 	}
+	// }()
 	<-ctx.Done()
 }
