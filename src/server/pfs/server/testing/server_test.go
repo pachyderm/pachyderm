@@ -1046,7 +1046,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 
-		branchInfos, err := env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(branchInfos))
 
@@ -1587,7 +1587,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit1.ID, commitInfo.Commit.ID)
 
 		// Check that the branch still exists
-		branchInfos, err := env.PachClient.ListProjectBranch(project, repo)
+		branchInfos, err := env.PachClient.ListBranch(project, repo)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(branchInfos))
 	})
@@ -1613,7 +1613,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.DropCommitSet(commit.ID))
 
 		// The branch has not been deleted, though its head has been replaced with an empty commit
-		branchInfos, err := env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(branchInfos))
 		commitInfos, err = env.PachClient.ListCommit(repoProto, repoProto.NewCommit("master", ""), nil, 0)
@@ -1654,7 +1654,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.DropCommitSet(commit.ID))
 
 		// The branch has not been deleted, though it only has an empty commit
-		branchInfos, err := env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(branchInfos))
 		commitInfos, err = env.PachClient.ListCommit(repoProto, repoProto.NewCommit("master", ""), nil, 0)
@@ -2192,7 +2192,7 @@ func TestPFS(suite *testing.T) {
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(masterCommit, "foo", &buffer))
 		require.Equal(t, "foo\n", buffer.String())
-		branchInfos, err := env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(branchInfos))
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
@@ -2204,7 +2204,7 @@ func TestPFS(suite *testing.T) {
 		buffer = bytes.Buffer{}
 		require.NoError(t, env.PachClient.GetFile(masterCommit, "foo", &buffer))
 		require.Equal(t, "foo\nfoo\n", buffer.String())
-		branchInfos, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		branchInfos, err = env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(branchInfos))
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
@@ -2226,7 +2226,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
-		branchInfos, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		branchInfos, err = env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(branchInfos))
 		require.Equal(t, "master3", branchInfos[0].Branch.Name)
@@ -3176,7 +3176,7 @@ func TestPFS(suite *testing.T) {
 			expectedCommits = append(expectedCommits, commitInfo.Commit)
 		}
 
-		branchInfos, err := env.PachClient.ListProjectBranch(project, repo)
+		branchInfos, err := env.PachClient.ListBranch(project, repo)
 		require.NoError(t, err)
 		require.Equal(t, len(expectedBranches), len(branchInfos))
 		for i, branchInfo := range branchInfos {
@@ -3206,7 +3206,7 @@ func TestPFS(suite *testing.T) {
 		lastBranch := expectedBranches[len(expectedBranches)-1]
 		require.YesError(t, env.PachClient.DeleteProjectBranch(pfs.DefaultProjectName, repo, lastBranch, false))
 		require.NoError(t, env.PachClient.DeleteProjectBranch(project, repo, lastBranch, false))
-		branchInfos, err = env.PachClient.ListProjectBranch(project, repo)
+		branchInfos, err = env.PachClient.ListBranch(project, repo)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(branchInfos))
 		require.Equal(t, "branch2", branchInfos[0].Branch.Name)
@@ -3586,7 +3586,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit2.ID, nil))
 
-		branchInfos, err := env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
 
 		// branches should be returned newest-first
@@ -6059,7 +6059,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 4, len(cis))
 
-		bis, err := env.PachClient.ListProjectBranch(pfs.DefaultProjectName, "")
+		bis, err := env.PachClient.ListBranch(pfs.DefaultProjectName, "")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(bis))
 	})
@@ -6406,7 +6406,7 @@ func TestPFS(suite *testing.T) {
 				ris, err := env.PachClient.ListRepo()
 				require.NoError(t, err)
 				for _, ri := range ris {
-					bis, err := env.PachClient.ListProjectBranch(pfs.DefaultProjectName, ri.Repo.Name)
+					bis, err := env.PachClient.ListBranch(pfs.DefaultProjectName, ri.Repo.Name)
 					require.NoError(t, err)
 					for _, bi := range bis {
 						branch := bi.Branch
@@ -6547,7 +6547,7 @@ func TestPFS(suite *testing.T) {
 				Size_:  "1K",
 			}))
 			inCommit := client.NewCommit(pfs.DefaultProjectName, "in", "master", "")
-			bis, err := c.ListProjectBranch(pfs.DefaultProjectName, "in")
+			bis, err := c.ListBranch(pfs.DefaultProjectName, "in")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(bis))
 			// Create a downstream branch

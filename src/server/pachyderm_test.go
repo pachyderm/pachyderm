@@ -10058,7 +10058,7 @@ func TestTrigger(t *testing.T) {
 	))
 	// Make sure that updating the pipeline reuses the previous branch name
 	// rather than creating a new one.
-	bis, err := c.ListProjectBranch(pfs.DefaultProjectName, pipeline1)
+	bis, err := c.ListBranch(pfs.DefaultProjectName, pipeline1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(bis))
 	commitInfos, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline2), client.NewCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)

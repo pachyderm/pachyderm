@@ -149,7 +149,7 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bis, err := mm.Client.ListProjectBranch(projectName, repoName)
+			bis, err := mm.Client.ListBranch(projectName, repoName)
 			if err != nil {
 				// Repo was deleted between ListRepo and ListBranch RPCs
 				if auth.IsErrNoRoleBinding(err) {

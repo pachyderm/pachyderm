@@ -210,14 +210,14 @@ func TestTransactions(suite *testing.T) {
 		_, err = env.PachClient.InspectBranch(project, repo, branchA)
 		require.NoError(t, err)
 
-		branches, err := env.PachClient.ListProjectBranch(project, repo)
+		branches, err := env.PachClient.ListBranch(project, repo)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(branches))
 
 		_, err = env.PachClient.InspectBranch(pfs.DefaultProjectName, repo, branchA)
 		require.YesError(t, err, "Inspecting a branch in the wrong project should fail.")
 
-		_, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		_, err = env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.YesError(t, err)
 		// Exercise commit reading after transaction
 		_, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, branchA, "")
@@ -482,7 +482,7 @@ func TestTransactions(suite *testing.T) {
 		require.Equal(t, 2, len(info.Requests))
 		require.Equal(t, 2, len(info.Responses))
 
-		branchInfos, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, "repoA")
+		branchInfos, err = env.PachClient.ListBranch(pfs.DefaultProjectName, "repoA")
 		require.NoError(t, err)
 
 		require.ElementsEqual(t, []string{"master", "branchA"}, getBranchNames(branchInfos))
@@ -503,7 +503,7 @@ func TestTransactions(suite *testing.T) {
 		require.Equal(t, 5, len(info.Requests))
 		require.Equal(t, 5, len(info.Responses))
 
-		branchInfos, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, "repoB")
+		branchInfos, err = env.PachClient.ListBranch(pfs.DefaultProjectName, "repoB")
 		require.NoError(t, err)
 
 		require.ElementsEqual(t, []string{"master", "branchA", "branchB"}, getBranchNames(branchInfos))
