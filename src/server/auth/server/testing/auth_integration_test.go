@@ -91,13 +91,13 @@ func TestListDatum(t *testing.T) {
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListDatum
-	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
+	_, err = bobClient.ListDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
+	_, err = bobClient.ListDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
@@ -105,19 +105,19 @@ func TestListDatum(t *testing.T) {
 	// call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoA, bob, []string{}))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoB, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
+	_, err = bobClient.ListDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
+	_, err = bobClient.ListDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoReaderRole}))
-	dis, err := bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
+	dis, err := bobClient.ListDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.NoError(t, err)
 	files := make(map[string]struct{})
 	for _, di := range dis {

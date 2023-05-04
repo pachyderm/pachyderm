@@ -504,14 +504,7 @@ func (c APIClient) ListDatum(projectName, pipelineName, jobID string, cb func(*p
 }
 
 // ListDatumAll returns info about datums in a job.
-//
-// Deprecated: use ListProjectDatumAll instead.
-func (c APIClient) ListDatumAll(pipelineName, jobID string) (_ []*pps.DatumInfo, retErr error) {
-	return c.ListProjectDatumAll(pfs.DefaultProjectName, pipelineName, jobID)
-}
-
-// ListProjectDatumAll returns info about datums in a job.
-func (c APIClient) ListProjectDatumAll(projectName, pipelineName, jobID string) (_ []*pps.DatumInfo, retErr error) {
+func (c APIClient) ListDatumAll(projectName, pipelineName, jobID string) (_ []*pps.DatumInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()

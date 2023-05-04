@@ -1456,7 +1456,7 @@ func TestInspectDatum(t *testing.T) {
 	// the /stats branch is written
 	// TODO(msteffen): verify if this is true, and if so, why
 	time.Sleep(5 * time.Second)
-	dis, err := aliceClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
+	dis, err := aliceClient.ListDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {

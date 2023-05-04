@@ -4513,7 +4513,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
-		dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID)
+		dis, err := c.ListDatumAll(pfs.DefaultProjectName, jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID)
 		if err != nil {
 			return err
 		}
@@ -5683,7 +5683,7 @@ func TestGroupInput(t *testing.T) {
 				"/file.1100",
 				"/file.1101"}}
 		actual := make([][]string, 0, 3)
-		dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
@@ -5778,7 +5778,7 @@ func TestGroupInput(t *testing.T) {
 				"/file-1.1010",
 				"/file-1.1011"}}
 		actual := make([][]string, 0, 3)
-		dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
@@ -5848,7 +5848,7 @@ func TestGroupInput(t *testing.T) {
 				"/file-1.1101",
 				"/file-1.1111"}}
 		actual := make([][]string, 0, 2)
-		dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
@@ -5917,7 +5917,7 @@ func TestGroupInput(t *testing.T) {
 			{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"},
 		}
 		actual := make([][]string, 0, 3)
-		dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
 		for _, di := range dis {
@@ -6085,7 +6085,7 @@ func TestUnionInput(t *testing.T) {
 		fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
 		require.NoError(t, err)
 		require.Equal(t, 8, len(fileInfos))
-		dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID)
+		dis, err := c.ListDatumAll(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 8, len(dis))
 	})
@@ -6141,7 +6141,7 @@ func TestPipelineWithStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	resp, err := c.ListDatumAll(pfs.DefaultProjectName, pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 	require.Equal(t, 1, len(resp[0].Data))
@@ -6207,7 +6207,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	resp, err := c.ListDatumAll(pfs.DefaultProjectName, pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
@@ -6366,7 +6366,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListProjectDatumAll(project, pipeline, id)
+	resp, err := c.ListDatumAll(project, pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
@@ -6394,9 +6394,9 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	_, err = c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	_, err = c.ListDatumAll(pfs.DefaultProjectName, pipeline, id)
 	require.YesError(t, err)
-	resp, err = c.ListProjectDatumAll(project, pipeline, id)
+	resp, err = c.ListDatumAll(project, pipeline, id)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
 	// in addition to all the new datums processed in this job
@@ -6531,7 +6531,7 @@ func TestSkippedDatums(t *testing.T) {
 	require.Equal(t, 3, len(jobs))
 
 	job1 := jobs[1]
-	datums, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipelineName, job1.Job.ID)
+	datums, err := c.ListDatumAll(pfs.DefaultProjectName, pipelineName, job1.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(datums))
 	datum, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipelineName, job1.Job.ID, datums[0].Datum.ID)
@@ -6544,7 +6544,7 @@ func TestSkippedDatums(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 	// load datums for job2
-	datums, err = c.ListProjectDatumAll(pfs.DefaultProjectName, pipelineName, job2.Job.ID)
+	datums, err = c.ListDatumAll(pfs.DefaultProjectName, pipelineName, job2.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(datums))
 	require.NoError(t, err)
@@ -7894,7 +7894,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
 	// Now validate the datum timed out properly
-	dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+	dis, err := c.ListDatumAll(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(dis))
 
@@ -7970,14 +7970,14 @@ func TestListDatumDuringJob(t *testing.T) {
 	})
 
 	// initially since no datum chunks have been processed, we receive 0 datums
-	dis, err := c.ListProjectDatumAll(pfs.DefaultProjectName, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+	dis, err := c.ListDatumAll(pfs.DefaultProjectName, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(dis))
 
 	// test job progress by waiting until some datums are returned, and verify that it's not all of them
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		return backoff.Retry(func() error {
-			dis, err = c.ListProjectDatumAll(pfs.DefaultProjectName, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+			dis, err = c.ListDatumAll(pfs.DefaultProjectName, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 			if err != nil {
 				return err
 			}
@@ -7995,7 +7995,7 @@ func TestListDatumDuringJob(t *testing.T) {
 	_, err = c.WaitCommitSetAll(jobInfo.Job.ID)
 	require.NoError(t, err)
 
-	dis, err = c.ListProjectDatumAll(pfs.DefaultProjectName, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+	dis, err = c.ListDatumAll(pfs.DefaultProjectName, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, fileCount, len(dis))
 }
@@ -10510,7 +10510,7 @@ func TestListDeletedDatums(t *testing.T) {
 		info, err := c.WaitJob(pfs.DefaultProjectName, pipeline, id, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, info.State)
-		datums, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+		datums, err := c.ListDatumAll(pfs.DefaultProjectName, pipeline, id)
 		require.NoError(t, err)
 
 		// find which file numbers are present in the datums
