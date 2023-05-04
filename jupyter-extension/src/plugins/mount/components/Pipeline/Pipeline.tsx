@@ -188,7 +188,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           name="specPreview"
           value={`pipeline:
   name: ${pipelineName}
-  project: ${pipelineProject ?? 'default'}
+  project: ${pipelineProject || placeholderProject}
 transform:
   image: ${imageName}
 input:
