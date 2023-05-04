@@ -399,7 +399,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 			[]string{"bash"},
 			[]string{"cp /pfs/*/* /pfs/out/"},
 			&pps.ParallelismSpec{Constant: 1},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, args.repo, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, args.repo, "/*"),
 			"", // default output branch: master
 			args.update,
 		)
@@ -615,8 +615,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceCrossPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
@@ -630,8 +630,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceUnionPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
@@ -648,8 +648,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -662,8 +662,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -682,7 +682,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		input: client.NewCrossInput(
 			// This cross input deliberately only has one element, to make sure it's
 			// not simply rejected for having a cross input
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
 		),
 		update: true,
 	}))
@@ -697,8 +697,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 		update: true,
 	})
@@ -718,8 +718,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 		update: true,
 	}))
@@ -732,8 +732,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
@@ -743,8 +743,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
@@ -771,7 +771,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -811,7 +811,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -903,7 +903,7 @@ func TestStopJob(t *testing.T) {
 		[]string{"bash"},
 		[]string{"sleep 600"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1223,7 +1223,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1238,7 +1238,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1361,7 +1361,7 @@ func TestListJob(t *testing.T) {
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1436,7 +1436,7 @@ func TestInspectDatum(t *testing.T) {
 				Stdin: []string{"cp /pfs/*/* /pfs/out/"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+			Input:           client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -1497,8 +1497,8 @@ func TestPipelineNewInput(t *testing.T) {
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[0], "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo[0], "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
 		),
 		"", // default output branch: master
 		false,
@@ -1528,8 +1528,8 @@ func TestPipelineNewInput(t *testing.T) {
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[2], "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo[2], "/*"),
 		),
 		"", // default output branch: master
 		true,
@@ -1815,7 +1815,7 @@ func TestGetJobsBugFix(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1864,7 +1864,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1906,7 +1906,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -2401,7 +2401,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 			"cp /pfs/*/* /pfs/out/",
 		},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -2565,7 +2565,7 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 	require.NoError(t, err, "should create the default/test repo")
 
 	// Create a pipeline, to ensure that PPS auth activation works.
-	err = c.CreateProjectPipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewProjectPFSInput("default", "test", "*"), "", false)
+	err = c.CreateProjectPipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewPFSInput("default", "test", "*"), "", false)
 	require.NoError(t, err, "should create the default/pipeline pipeline")
 
 	// Ensure we can list repos, and that this one shows up.

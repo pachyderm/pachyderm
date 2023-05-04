@@ -258,7 +258,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
 			nil,
-			client.NewProjectPFSInput(pfs.DefaultProjectName, pipeline, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, pipeline, "/*"),
 			"",
 			false,
 		))
@@ -547,7 +547,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						basicPutFile("./date*"),
 						"done"},
 				},
-				Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+				Input: client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 				Spout: &pps.Spout{},
 			})
 		require.YesError(t, err)

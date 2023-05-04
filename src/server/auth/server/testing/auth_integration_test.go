@@ -60,8 +60,8 @@ func TestListDatum(t *testing.T) {
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
 	input := client.NewCrossInput(
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repoA, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repoB, "/*"),
 	)
 	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
@@ -218,7 +218,7 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewProjectPFSInput(projectName, repoName, "/*"),
+			client.NewPFSInput(projectName, repoName, "/*"),
 			"",
 			false,
 		))
@@ -310,7 +310,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, aliceRepo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, aliceRepo, "/*"),
 		"", // default output branch: master
 		false,
 	)
@@ -534,7 +534,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -590,7 +590,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		true,
 	))
@@ -650,7 +650,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 				Stdin: []string{"cp /pfs/*/* /pfs/out"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+			Input:           client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 			Autoscaling:     true,
 		})
 	require.NoError(t, err)
@@ -725,7 +725,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		[]string{"/bin/bash"},
 		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
 		nil,
-		client.NewProjectPFSInput(pfs.DefaultProjectName, pipeline1, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, pipeline1, "/*"),
 		"",
 		false,
 	))
@@ -795,7 +795,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"",    // default output branch: master
 		false, // no update
 	))
@@ -880,7 +880,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))

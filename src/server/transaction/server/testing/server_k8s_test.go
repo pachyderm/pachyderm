@@ -28,7 +28,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 			[]string{"bash"},
 			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
 			&pps.ParallelismSpec{Constant: 1},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
 			"master",
 			false,
 		))
@@ -62,7 +62,7 @@ func TestCreateProjectlessPipelineTransaction(t *testing.T) {
 					Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
 				},
 				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-				Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/"),
+				Input:           client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
 				OutputBranch:    "master",
 			})
 		require.NoError(t, err)

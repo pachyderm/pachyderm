@@ -53,7 +53,7 @@ func TestPrometheusStats(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: uint64(numDatums),
 			},
-			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
 		},
@@ -247,7 +247,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 				Cmd:   []string{"bash"},
 				Stdin: []string{"sleep 1"},
 			},
-			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
 		},

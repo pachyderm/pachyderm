@@ -85,15 +85,8 @@ func NewJobSet(id string) *pps.JobSet {
 	return &pps.JobSet{ID: id}
 }
 
-// NewPFSInput returns a new PFS input. It only includes required options.
-//
-// Deprecated: use NewProjectPFSInput instead.
-func NewPFSInput(repo, glob string) *pps.Input {
-	return NewProjectPFSInput(pfs.DefaultProjectName, repo, glob)
-}
-
-// NewProjectPFSInput returns a new PFS input.  It only includes required options.
-func NewProjectPFSInput(project, repo, glob string) *pps.Input {
+// NewPFSInput returns a new PFS input.  It only includes required options.
+func NewPFSInput(project, repo, glob string) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
 			Project: project,

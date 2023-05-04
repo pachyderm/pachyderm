@@ -456,7 +456,7 @@ func ExampleAPIClient_CreatePipeline() {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		NewProjectPFSInput(pfs.DefaultProjectName, "test", "/*"),
+		NewPFSInput(pfs.DefaultProjectName, "test", "/*"),
 		"",
 		false,
 	); err != nil {

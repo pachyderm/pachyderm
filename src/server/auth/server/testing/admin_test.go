@@ -401,7 +401,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
