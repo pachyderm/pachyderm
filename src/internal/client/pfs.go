@@ -323,19 +323,10 @@ func (c APIClient) CreateBranch(projectName, repoName, branchName, commitBranch,
 	return grpcutil.ScrubGRPC(err)
 }
 
-// CreateBranchTrigger Creates a branch with a trigger. Note: triggers and
-// provenance are mutually exclusive. See the docs on triggers to learn more
-// about why this is.
-//
-// Deprecated: use CreateProjectBranchTrigger instead.
-func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commitBranch string, commitID string, trigger *pfs.Trigger) error {
-	return c.CreateProjectBranchTrigger(pfs.DefaultProjectName, repoName, branchName, commitBranch, commitID, trigger)
-}
-
-// CreateProjectBranchTrigger creates a branch with a trigger. Note: triggers
+// CreateBranchTrigger creates a branch with a trigger. Note: triggers
 // and provenance are mutually exclusive.  See the docs on triggers to learn more
 // about why this is.
-func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName, commitBranch, commitID string, trigger *pfs.Trigger) error {
+func (c APIClient) CreateBranchTrigger(projectName, repoName, branchName, commitBranch, commitID string, trigger *pfs.Trigger) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
 		head = NewCommit(projectName, repoName, commitBranch, commitID)
