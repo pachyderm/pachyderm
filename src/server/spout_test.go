@@ -593,6 +593,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))
-		require.NoError(t, c.StartProjectPipeline(pfs.DefaultProjectName, pipeline))
+		require.NoError(t, c.StartPipeline(pfs.DefaultProjectName, pipeline))
 	})
 }

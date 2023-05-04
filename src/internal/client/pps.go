@@ -799,14 +799,7 @@ func (c APIClient) DeletePipeline(projectName, pipelineName string, force bool) 
 }
 
 // StartPipeline restarts a stopped pipeline.
-//
-// Deprecated: use StartProjectPipeline instead.
-func (c APIClient) StartPipeline(pipelineName string) error {
-	return c.StartProjectPipeline(pfs.DefaultProjectName, pipelineName)
-}
-
-// StartProjectPipeline restarts a stopped pipeline.
-func (c APIClient) StartProjectPipeline(projectName, pipelineName string) error {
+func (c APIClient) StartPipeline(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.StartPipeline(
 		c.Ctx(),
 		&pps.StartPipelineRequest{
