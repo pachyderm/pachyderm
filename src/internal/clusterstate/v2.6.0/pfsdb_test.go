@@ -42,14 +42,16 @@ func TestValidateOldDAGs(t *testing.T) {
 		{
 			cis: []*v2_5_0.CommitInfo{
 				makeCommit(client.NewProjectCommit(p, r1, b1, id1), r1Stub.Commit, pfs.OriginKind_AUTO),
-				makeCommit(client.NewProjectCommit(p, r1, b2, id1), client.NewProjectCommit(p, r1, b1, id1), pfs.OriginKind_ALIAS),
+				// before 2.6, pfs.OriginKind_ALIAS = 4
+				makeCommit(client.NewProjectCommit(p, r1, b2, id1), client.NewProjectCommit(p, r1, b1, id1), 4),
 			},
 			expectErr: false,
 		},
 		{
 			cis: []*v2_5_0.CommitInfo{
 				makeCommit(client.NewProjectCommit(p, r1, b1, id1), r1Stub.Commit, pfs.OriginKind_AUTO),
-				makeCommit(client.NewProjectCommit(p, r1, b2, id1), r1Stub.Commit, pfs.OriginKind_ALIAS),
+				// before 2.6, pfs.OriginKind_ALIAS = 4
+				makeCommit(client.NewProjectCommit(p, r1, b2, id1), r1Stub.Commit, 4),
 			},
 			expectErr: true,
 		},
