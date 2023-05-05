@@ -179,28 +179,41 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 				}
 				compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
 				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, cache)
-				var totalId *fileset.ID
-				start := time.Now()
-				totalId, err := d.compactCommit(ctx, compactor, taskDoer, commit)
-				if err != nil {
-					return err
-				}
-				details := &pfs.CommitInfo_Details{
-					CompactingTime: types.DurationProto(time.Since(start)),
-				}
-				// Validate the commit.
-				start = time.Now()
-				var validationError string
-				if err := log.LogStep(ctx, "validateCommit", func(ctx context.Context) error {
+				return errors.EnsureStack(d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+					start := time.Now()
+					// Compacting the diff before getting the total allows us to compose the
+					// total file set so that it includes the compacted diff.
+					if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
+						_, err := d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+						return err
+					}); err != nil {
+						return err
+					}
+					var totalId *fileset.ID
 					var err error
-					validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, *totalId)
-					return err
-				}); err != nil {
-					return err
-				}
-				details.ValidatingTime = types.DurationProto(time.Since(start))
-				// Finish the commit.
-				return d.finalizeCommit(ctx, commit, validationError, details, totalId)
+					if err := log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
+						totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
+						return err
+					}); err != nil {
+						return err
+					}
+					details := &pfs.CommitInfo_Details{
+						CompactingTime: types.DurationProto(time.Since(start)),
+					}
+					// Validate the commit.
+					start = time.Now()
+					var validationError string
+					if err := log.LogStep(ctx, "validateCommit", func(ctx context.Context) error {
+						var err error
+						validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, *totalId)
+						return err
+					}); err != nil {
+						return err
+					}
+					details.ValidatingTime = types.DurationProto(time.Since(start))
+					// Finish the commit.
+					return d.finalizeCommit(ctx, commit, validationError, details, totalId)
+				}))
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Error(ctx, "error finishing commit", zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
@@ -209,43 +222,19 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete))
 }
 
-func (d *driver) compactCommit(ctx context.Context, compactor *compactor, doer task.Doer, commit *pfs.Commit) (*fileset.ID, error) {
-	var totalId *fileset.ID
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-		// Compacting the diff before getting the total allows us to compose the
-		// total file set so that it includes the compacted diff.
-		if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-			return d.compactDiffFileSet(ctx, compactor, doer, renewer, commit)
-		}); err != nil {
-			return err
-		}
-		return log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-			var err error
-			totalId, err = d.compactTotalFileSet(ctx, compactor, doer, renewer, commit)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-	}); err != nil {
-		return nil, err
-	}
-	return totalId, nil
-}
-
-func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) error {
+func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
 	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	}
 	if err := renewer.Add(ctx, *id); err != nil {
-		return err
+		return nil, err
 	}
 	diffId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
+	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
 }
 
 func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {

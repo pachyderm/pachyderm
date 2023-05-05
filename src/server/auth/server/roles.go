@@ -125,6 +125,16 @@ func init() {
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_DEBUG_DUMP,
 			auth.Permission_CLUSTER_GET_PACHD_LOGS,
+			auth.Permission_CLUSTER_GET_LOKI_LOGS,
+		},
+	})
+
+	// lokiLogReader has the ability to read logs from Loki
+	lokiLogReaderRole := registerRole(&auth.Role{
+		Name:          auth.LokiLogReaderRole,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_CLUSTER_GET_LOKI_LOGS,
 		},
 	})
 
@@ -215,6 +225,7 @@ func init() {
 			idpAdminRole.Permissions,
 			identityAdminRole.Permissions,
 			debuggerRole.Permissions,
+			lokiLogReaderRole.Permissions,
 			robotUserRole.Permissions,
 			licenseAdminRole.Permissions,
 			secretAdminRole.Permissions,

@@ -62,6 +62,9 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 					return nil, errors.EnsureStack(err)
 				}
 			}
+			if err = rows.Err(); err != nil {
+				return nil, errors.EnsureStack(err)
+			}
 		}
 	}
 	q := fmt.Sprintf(`

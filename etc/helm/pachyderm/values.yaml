@@ -414,6 +414,9 @@ pachd:
   logLevel: "info"
   disableLogSampling: false
   developmentLogger: false
+  # If true, log every SQL query at debug level.  This can potentially log sensitive information
+  # without redaction, so it's not recommended for production.
+  sqlQueryLogs: false
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.
   lokiDeploy: true
@@ -917,7 +920,7 @@ proxy:
   # The envoy image to pull.
   image:
     repository: "envoyproxy/envoy-distroless"
-    tag: "v1.24.1"
+    tag: "v1.25.5"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.

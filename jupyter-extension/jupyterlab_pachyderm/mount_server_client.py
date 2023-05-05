@@ -2,6 +2,9 @@ import subprocess
 import time
 import platform
 import json
+import asyncio
+import os
+from pathlib import Path
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
 from tornado import locks
@@ -179,6 +182,38 @@ class MountServerClient(MountInterface):
         response = await self.client.fetch(
             f"{self.address}/auth/_login", method="PUT", body="{}"
         )
+
+        resp_json = json.loads(response.body.decode())
+        # may bubble exception up to handler if oidc_state not in response
+        oidc = resp_json['oidc_state']
+
+        # we explicitly send the login_token request and do not await here.
+        # the reason for this is that we want the user to be redirected to
+        # the login page without awaiting the result of the login before
+        # doing so.
+        asyncio.create_task(self.auth_login_token(oidc))
+        return response.body
+
+    async def auth_login_token(self, oidc):
+        response = await self.client.fetch(
+            f"{self.address}/auth/_login_token", method="PUT", body=f'{oidc}'
+        )
+        response.rethrow()
+        pach_config_path = Path.home().joinpath('.pachyderm', 'config.json')
+        if pach_config_path.is_file():
+            # if config already exists, need to add new context into it and
+            # switch active context over
+            try:
+                write_token_to_config(pach_config_path, response.body.decode())
+            except Exception as e:
+                get_logger().warn("Failed writing session token: ", e.args)
+                raise e
+        else:
+            # otherwise, write the entire config to file
+            os.makedirs(os.path.dirname(pach_config_path), exist_ok=True)
+            with open(pach_config_path, 'w') as f:
+                f.write(response.body.decode())
+
         return response.body
 
     async def auth_logout(self):
@@ -190,3 +225,32 @@ class MountServerClient(MountInterface):
     async def health(self):
         response = await self.client.fetch(f"{self.address}/health")
         return response.body
+
+
+def write_token_to_config(pach_config_path, mount_server_config_str):
+    """
+    updates the pachyderm config with the session token of the mount server
+    config. this will try to insert the token into the mount_server context
+    if it already exists, or copies the mount server config if it doesn't.
+    then, it switches the active context over to the mount_server context.
+
+    parameters:
+        pach_config_path: the path to the pachyderm config file
+        mount_server_config_str: json containing the mount server pachyderm
+                                    configuration
+    """
+    with open(pach_config_path) as config_file:
+        config = json.load(config_file)
+    mount_server_config = json.loads(mount_server_config_str)
+
+    active_context = mount_server_config['v2']['active_context']
+    config['v2']['active_context'] = active_context
+    if active_context in config['v2']['contexts']:
+        # if config contains this context already, write token to it
+        token = mount_server_config['v2']['contexts'][active_context]['session_token']
+        config['v2']['contexts'][active_context]['session_token'] = token
+    else:
+        # otherwise, write the entire context to it
+        config['v2']['contexts'][active_context] = mount_server_config['v2']['contexts'][active_context]
+    with open(pach_config_path, 'w') as config_file:
+        json.dump(config, config_file, indent=2)

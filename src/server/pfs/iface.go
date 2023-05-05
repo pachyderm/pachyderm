@@ -16,6 +16,7 @@ type APIServer interface {
 	CreateRepoInTransaction(*txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
 	InspectRepoInTransaction(*txncontext.TransactionContext, *pfs_client.InspectRepoRequest) (*pfs_client.RepoInfo, error)
 	DeleteRepoInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteRepoRequest) error
+	DeleteReposInTransaction(*txncontext.TransactionContext, []*pfs_client.Repo, bool) error
 
 	StartCommitInTransaction(*txncontext.TransactionContext, *pfs_client.StartCommitRequest) (*pfs_client.Commit, error)
 	FinishCommitInTransaction(*txncontext.TransactionContext, *pfs_client.FinishCommitRequest) error

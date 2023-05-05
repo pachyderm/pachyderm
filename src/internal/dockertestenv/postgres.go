@@ -135,7 +135,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 
 	dclient := newDockerClient()
 	defer dclient.Close()
-	err := ensureContainer(ctx, dclient, "pach_test_postgres", containerSpec{
+	if err := ensureContainer(ctx, dclient, "pach_test_postgres", containerSpec{
 		Env: map[string]string{
 			"POSTGRES_DB":               "pachyderm",
 			"POSTGRES_USER":             "pachyderm",
@@ -145,8 +145,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			30228: 5432,
 		},
 		Image: "postgres:13.0-alpine",
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.EnsureStack(err)
 	}
 
@@ -157,22 +156,22 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 
 	postgresIP := containerJSON.NetworkSettings.IPAddress
 
-	err = ensureContainer(ctx, dclient, "pach_test_pgbouncer", containerSpec{
+	if err := ensureContainer(ctx, dclient, "pach_test_pgbouncer", containerSpec{
 		Env: map[string]string{
-			"AUTH_TYPE":       "any",
-			"DB_USER":         "pachyderm",
-			"DB_PASS":         "password",
-			"DB_HOST":         postgresIP,
-			"DB_PORT":         "5432",
-			"MAX_CLIENT_CONN": "1000",
-			"POOL_MODE":       "transaction",
+			"PGBOUNCER_AUTH_TYPE":                 "any",
+			"POSTGRESQL_USERNAME":                 "pachyderm",
+			"POSTGRESQL_PASSWORD":                 "password",
+			"POSTGRESQL_HOST":                     postgresIP,
+			"POSTGRESQL_PORT":                     "5432",
+			"PGBOUNCER_MAX_CLIENT_CONN":           "1000",
+			"PGBOUNCER_POOL_MODE":                 "transaction",
+			"PGBOUNCER_IGNORE_STARTUP_PARAMETERS": "extra_float_digits",
 		},
 		PortMap: map[uint16]uint16{
 			30229: 5432,
 		},
-		Image: "edoburu/pgbouncer:1.15.0",
-	})
-	if err != nil {
+		Image: "pachyderm/pgbouncer:1.16.2",
+	}); err != nil {
 		return errors.EnsureStack(err)
 	}
 

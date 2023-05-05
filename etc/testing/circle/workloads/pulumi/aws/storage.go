@@ -13,7 +13,6 @@ func DeployBucket(ctx *pulumi.Context) (*s3.Bucket, error) {
 	bucketName := strings.ToLower(fmt.Sprintf("s3-%s-bucket", ctx.Stack()))
 	bucket, err := s3.NewBucket(ctx, bucketName, &s3.BucketArgs{
 		Bucket:       pulumi.String(bucketName),
-		Acl:          pulumi.String("public-read-write"),
 		ForceDestroy: pulumi.Bool(true),
 		Tags: pulumi.StringMap{
 			"Project":     pulumi.String("Feature Testing"),

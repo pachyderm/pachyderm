@@ -147,3 +147,28 @@ func (logger *taggedLogger) Errf(formatString string, args ...any) {
 func (logger *taggedLogger) Writer(stream string) io.WriteCloser {
 	return log.WriterAt(pctx.Child(logger.ctx, "", pctx.WithFields(zap.String("stream", stream)), pctx.WithoutRatelimit()), log.InfoLevel)
 }
+
+// TestTaggedLogger is a taggedLogger that captures (some) logs for testing.  It is not safe for
+// concurrent use.
+type TestTaggedLogger struct {
+	*taggedLogger
+	Logs, Errors []string
+}
+
+// NewTest creates a new TestTaggedLogger.  The context probably wants to be pctx.TestContext, so
+// you can both see (with go test -v) and capture logs.
+func NewTest(ctx context.Context) *TestTaggedLogger {
+	return &TestTaggedLogger{
+		taggedLogger: New(ctx),
+	}
+}
+
+func (l *TestTaggedLogger) Logf(format string, args ...any) {
+	l.Logs = append(l.Logs, fmt.Sprintf(format, args...))
+	l.taggedLogger.Logf(format, args...)
+}
+
+func (l *TestTaggedLogger) Errf(format string, args ...any) {
+	l.Errors = append(l.Logs, fmt.Sprintf(format, args...))
+	l.taggedLogger.Errf(format, args...)
+}

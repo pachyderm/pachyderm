@@ -351,3 +351,90 @@ func TestListJobSetWithProjects(t *testing.T) {
 	}))
 	require.Len(t, gotPipelines, 0)
 }
+
+func TestDeletePipelines(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	inputRepo := tu.UniqueString("repo")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
+	// pipeline1 is in default project and takes inputRepo as input
+	// pipeline2 is in a non-default project, and takes pipeline1 as input
+	project := tu.UniqueString("project-")
+	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
+	require.NoError(t, env.PachClient.CreateProject(project))
+	require.NoError(t, env.PachClient.CreateProjectPipeline(
+		pfs.DefaultProjectName,
+		pipeline1,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	require.NoError(t, env.PachClient.CreateProjectPipeline(
+		project,
+		pipeline2,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: pipeline1, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	// update pipeline 1; this helps verify that internally, we delete pipelines topologically
+	require.NoError(t, env.PachClient.CreateProjectPipeline(
+		pfs.DefaultProjectName,
+		pipeline1,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	inspectResp, err := env.PachClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline1, false)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), inspectResp.Version)
+	deleteResp, err := env.PachClient.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true})
+	require.NoError(t, err)
+	require.Equal(t, 2, len(deleteResp.Pipelines))
+}
+
+func TestUpdatePipelineInputBranch(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	repo := "input"
+	pipeline := "pipeline"
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, env.PachClient.CreateProjectPipeline(
+		pfs.DefaultProjectName,
+		pipeline,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, env.PachClient.PutFile(commit1, "/foo", strings.NewReader("foo")))
+	require.NoError(t, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
+	require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "pin", "master", "", nil))
+	require.NoError(t, env.PachClient.CreateProjectPipeline(
+		pfs.DefaultProjectName,
+		pipeline,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Branch: "pin", Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+}

@@ -2234,6 +2234,32 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, "master", branchInfos[2].Branch.Name)
 	})
 
+	suite.Run("PinBranchCommitsDAG", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		input, pinInput, output := "input", "pinInput", "output"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, input))
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, pinInput))
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, output))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, output, "master", "", "",
+			[]*pfs.Branch{
+				client.NewProjectBranch(pfs.DefaultProjectName, input, "master"),
+				client.NewProjectBranch(pfs.DefaultProjectName, pinInput, "pin1"),
+			}))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, pinInput, "master", "pin1", "", nil))
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, pinInput, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
+		require.NoError(t, finishCommit(env.PachClient, pinInput, "master", commit1.ID))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, pinInput, "pin2", "master", "", nil))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, output, "master", "", "",
+			[]*pfs.Branch{
+				client.NewProjectBranch(pfs.DefaultProjectName, input, "master"),
+				client.NewProjectBranch(pfs.DefaultProjectName, pinInput, "pin2"),
+			}))
+	})
+
 	suite.Run("PutFileBig", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -6904,7 +6930,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 
-			// Triggers a and c
+			// Triggers b and c
 			require.NoError(t, c.PutFile(aCommit, "file4", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitProjectCommit(pfs.DefaultProjectName, "chain", "a", "")
 			require.NoError(t, err)

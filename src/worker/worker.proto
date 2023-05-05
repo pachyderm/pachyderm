@@ -16,10 +16,16 @@ message CancelResponse {
   bool success = 1;
 }
 
+// Error indicates that the processing of the current datum errored.
+// Datum error semantics with datum batching enabled are similar to datum error
+// semantics without datum batching enabled in that the datum may be retried,
+// recovered, or result with a job failure.
 message NextDatumRequest {
   string error = 1;
 }
 
+// Env is a list of environment variables that should be set for the processing
+// of the next datum.
 message NextDatumResponse {
   repeated string env = 1;
 }
@@ -27,5 +33,15 @@ message NextDatumResponse {
 service Worker {
   rpc Status(google.protobuf.Empty) returns (pps_v2.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
+  // NextDatum should only be called by user code running in a pipeline with
+  // datum batching enabled.
+  // NextDatum will signal to the worker code that the user code is ready to
+  // proceed to the next datum. This generally means setting up the next
+  // datum's filesystem state and updating internal metadata similarly to datum
+  // processing in a normal pipeline.
+  // NextDatum is a synchronous operation, so user code should expect to block
+  // on this until the next datum is set up for processing.
+  // User code should generally be migratable to datum batching by wrapping it
+  // in a loop that calls next datum.
   rpc NextDatum(NextDatumRequest) returns (NextDatumResponse) {}
 }

@@ -1,5 +1,5 @@
 // Package meters implements lightweight metrics for internal use.
-
+//
 // A meter is a name, a set of key/value pairs (set by the underlying logger), and a value.  A value
 // can be an absolute value ("gauge"), an incremental value ("counter"), or a set of samples (like
 // "histogram", though lossless in this implementation).  Meters are most useful when additional

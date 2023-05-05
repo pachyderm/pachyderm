@@ -153,12 +153,16 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		return err
 	}
 
+	// link env file
+	src := filepath.Join(dir, common.EnvFileName)
+	dst := filepath.Join(d.InputDir(), common.EnvFileName)
+	if err := os.Symlink(src, dst); err != nil {
+		return errors.EnsureStack(err)
+	}
+
 	// sometimes for group inputs, this part may get run multiple times for the same file
 	seen := make(map[string]bool)
 	for _, input := range inputs {
-		if input.S3 {
-			continue // S3 data is not downloaded
-		}
 		if input.Name == "" {
 			return errors.New("input does not have a name")
 		}

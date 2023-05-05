@@ -209,8 +209,9 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	var assigned string
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
-		if *cleanupDataAfter {
-			if mc := clusterFactory.managedClusters[assigned]; mc != nil {
+		if mc := clusterFactory.managedClusters[assigned]; mc != nil {
+			collectMinikubeCodeCoverage(t, mc.client, mc.settings.ValueOverrides)
+			if *cleanupDataAfter {
 				deleteAll(t, mc.client)
 			}
 		}

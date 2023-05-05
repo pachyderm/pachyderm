@@ -6584,6 +6584,7 @@ func TestMetaRepoContents(t *testing.T) {
 		}))
 		expectedFiles := map[string]struct{}{
 			fmt.Sprintf("/meta/%v/meta", datumID):                      {},
+			fmt.Sprintf("/pfs/%v/.env", datumID):                       {},
 			fmt.Sprintf("/pfs/%v/%v/%v", datumID, dataRepo, inputFile): {},
 			fmt.Sprintf("/pfs/%v/out/%v", datumID, inputFile):          {},
 		}
@@ -9876,7 +9877,7 @@ func TestMalformedPipeline(t *testing.T) {
 		Input:     client.NewProjectPFSInput(pfs.DefaultProjectName, "out", "/*"),
 	})
 	require.YesError(t, err)
-	require.Matches(t, "input cannot be named \"out\"", err.Error())
+	require.Matches(t, "input cannot be named out", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
@@ -9884,7 +9885,7 @@ func TestMalformedPipeline(t *testing.T) {
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "out", Repo: dataRepo, Glob: "/*"}},
 	})
 	require.YesError(t, err)
-	require.Matches(t, "input cannot be named \"out\"", err.Error())
+	require.Matches(t, "input cannot be named out", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
@@ -11640,5 +11641,24 @@ func TestDatumBatching(t *testing.T) {
 		pipeline := tu.UniqueString("DatumBatchingPrematureExit")
 		request := createPipelineRequest(pipeline, script)
 		checkState(request, pps.JobState_JOB_FAILURE)
+	})
+	t.Run("Env", func(t *testing.T) {
+		// This test will error if the datum id environment variable isn't set and distinct for each datum.
+		script := fmt.Sprintf(`
+			set -a
+			while true
+			do
+				pachctl next datum
+				source /pfs/.env
+				if [ -z $%s ]
+				then
+					exit 1
+				fi
+				touch /pfs/out/$%s
+			done
+			`, client.DatumIDEnv, client.DatumIDEnv)
+		pipeline := tu.UniqueString("DatumBatchingEnv")
+		request := createPipelineRequest(pipeline, script)
+		checkState(request, pps.JobState_JOB_SUCCESS)
 	})
 }

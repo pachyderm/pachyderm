@@ -1,14 +1,21 @@
-import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 
-import {CreatePipelineResponse, PpsContext, SameMetadata} from '../../../types';
+import {
+  CreatePipelineResponse,
+  MountSettings,
+  Pipeline,
+  PpsContext,
+  PpsMetadata,
+} from '../../../types';
 import {requestAPI} from '../../../../../handler';
+
+export const PPS_VERSION = 'v1.0.0';
 
 export type usePipelineResponse = {
   loading: boolean;
-  pipelineName: string;
-  setPipelineName: (input: string) => void;
+  pipeline: Pipeline;
+  setPipeline: (input: string) => void;
   imageName: string;
   setImageName: (input: string) => void;
   inputSpec: string;
@@ -16,35 +23,63 @@ export type usePipelineResponse = {
   requirements: string;
   setRequirements: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
-  callSavePipeline: () => void;
+  currentNotebook: string;
   errorMessage: string;
   responseMessage: string;
 };
 
 export const usePipeline = (
   ppsContext: PpsContext | undefined,
-  saveNotebookMetaData: (metadata: SameMetadata) => void,
+  settings: MountSettings,
+  saveNotebookMetaData: (metadata: PpsMetadata) => void,
+  saveNotebookToDisk: () => Promise<string | null>,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
-  const [pipelineName, setPipelineName] = useState('');
+  const [pipeline, setPipeline] = useState({name: ''} as Pipeline);
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
+  const [currentNotebook, setCurrentNotebook] = useState('None');
+
+  const setPipelineFromString = (input: string) => {
+    if (input === '') {
+      setPipeline({name: ''} as Pipeline);
+      return;
+    }
+    const parts = splitAtFirstSlash(input);
+    if (parts.length === 1) {
+      setPipeline({name: input} as Pipeline);
+    } else {
+      setPipeline({
+        name: parts[1],
+        project: {name: parts[0]},
+      } as Pipeline);
+    }
+  };
 
   useEffect(() => {
-    setImageName(ppsContext?.config?.environments.default.image_tag ?? '');
-    setPipelineName(ppsContext?.config?.metadata.name ?? '');
-    setRequirements(ppsContext?.config?.notebook.requirements ?? '');
+    setImageName(
+      ppsContext?.metadata?.config.image ?? settings.defaultPipelineImage,
+    );
+    setPipeline(
+      ppsContext?.metadata?.config.pipeline ?? ({name: ''} as Pipeline),
+    );
+    setRequirements(ppsContext?.metadata?.config.requirements ?? '');
     setResponseMessage('');
-    if (ppsContext?.config?.run.input) {
-      const input = JSON.parse(ppsContext.config.run.input); //TODO: Catch errors
-      setInputSpec(YAML.stringify(input));
+    if (ppsContext?.metadata?.config.input_spec) {
+      setInputSpec(ppsContext.metadata.config.input_spec);
     } else {
       setInputSpec('');
     }
+    setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
   }, [ppsContext]);
+
+  useEffect(() => {
+    const ppsMetadata: PpsMetadata = buildMetadata();
+    saveNotebookMetaData(ppsMetadata);
+  }, [pipeline, imageName, requirements, inputSpec]);
 
   let callCreatePipeline: () => Promise<void>;
   if (ppsContext?.notebookModel) {
@@ -53,18 +88,26 @@ export const usePipeline = (
       setLoading(true);
       setErrorMessage('');
       setResponseMessage('');
+
+      const ppsMetadata = buildMetadata();
+      saveNotebookMetaData(ppsMetadata);
+      const last_modified_time = await saveNotebookToDisk();
+
       try {
         const response = await requestAPI<CreatePipelineResponse>(
           `pps/_create/${encodeURI(notebook.path)}`,
           'PUT',
-          {last_modified_time: notebook.last_modified},
+          {last_modified_time: last_modified_time ?? notebook.last_modified},
         );
         if (response.message !== null) {
           setResponseMessage(response.message);
         }
       } catch (e) {
         if (e instanceof ServerConnection.ResponseError) {
-          setErrorMessage(e.message);
+          // statusText is the only place that the user will get yaml parsing
+          // errors (though it will also include Pachyderm errors, e.g.
+          // "missing input repo").
+          setErrorMessage('Error creating pipeline: ' + e.response.statusText);
         } else {
           throw e;
         }
@@ -78,44 +121,22 @@ export const usePipeline = (
     };
   }
 
-  const callSavePipeline = async () => {
-    let input: string;
-    try {
-      input = YAML.parse(inputSpec);
-    } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        input = JSON.parse(inputSpec);
-      } else {
-        throw e;
-      }
-    }
-
-    const sameMetadata = {
-      apiVersion: 'sameproject.ml/v1alpha1',
-      environments: {
-        default: {
-          image_tag: imageName,
-        },
-      },
-      metadata: {
-        name: pipelineName,
-        version: '0.0.0',
-      },
-      notebook: {
+  const buildMetadata = (): PpsMetadata => {
+    return {
+      version: PPS_VERSION,
+      config: {
+        pipeline: pipeline,
+        image: imageName,
         requirements: requirements,
-      },
-      run: {
-        name: pipelineName,
-        input: JSON.stringify(input),
+        input_spec: inputSpec,
       },
     };
-    saveNotebookMetaData(sameMetadata);
   };
 
   return {
     loading,
-    pipelineName,
-    setPipelineName,
+    pipeline,
+    setPipeline: setPipelineFromString,
     imageName,
     setImageName,
     inputSpec,
@@ -123,8 +144,17 @@ export const usePipeline = (
     requirements,
     setRequirements,
     callCreatePipeline,
-    callSavePipeline,
+    currentNotebook,
     errorMessage,
     responseMessage,
   };
+};
+
+/*
+splitAtFirstSlash splits a string into two components if it contains a backslash.
+  For example test/name => [test, name]. If the text does not contain a backslash
+  then text is returned as a one element array, name => [name].
+ */
+export const splitAtFirstSlash = (text: string): string[] => {
+  return text.split(/\/(.*)/s, 2);
 };

@@ -24,7 +24,8 @@
       downstream_remote_address: '%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%',
       user_agent: '%REQ(USER-AGENT)%',
       connection_id: '%CONNECTION_ID%',
-      'x-request-id': '%REQ(X-REQUEST-ID)%',  // TODO(1.25.0): use STREAM_ID.
+      'x-request-id': '%REQ(X-REQUEST-ID)%',
+      stream_id: '%STREAM_ID%',
       authority: '%REQ(authority)%',
       upstream_host: '%UPSTREAM_HOST%',
       route: '%ROUTE_NAME%',

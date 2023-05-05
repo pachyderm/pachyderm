@@ -93,7 +93,7 @@ message TokenInfo {
   // Subject (i.e. Pachyderm account) that a given token authorizes.
   // See the note at the top of the doc for an explanation of subject structure.
   string subject = 1;
-  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true]; ;
+  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
   string hashed_token = 3 [(gogoproto.moretags) = "db:\"token_hash\""];
 }
 
@@ -152,6 +152,7 @@ enum Permission {
   CLUSTER_MODIFY_BINDINGS                          = 100;
   CLUSTER_GET_BINDINGS                             = 101;
   CLUSTER_GET_PACHD_LOGS                           = 148;
+  CLUSTER_GET_LOKI_LOGS                            = 150;
 
   CLUSTER_AUTH_ACTIVATE                            = 102;
   CLUSTER_AUTH_DEACTIVATE                          = 103;

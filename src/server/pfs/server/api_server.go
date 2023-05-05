@@ -164,6 +164,23 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
 }
 
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) DeleteReposInTransaction(txnCtx *txncontext.TransactionContext, repos []*pfs.Repo, force bool) error {
+	var ris []*pfs.RepoInfo
+	for _, r := range repos {
+		ri, err := a.driver.inspectRepo(txnCtx, r, false) // evaluate auth in d.deleteReposHelper()
+		if err != nil {
+			return errors.Wrap(err, "list repos for delete")
+		}
+		ris = append(ris, ri)
+	}
+	if _, err := a.driver.deleteReposHelper(txnCtx, ris, force); err != nil {
+		return err
+	}
+	return nil
+}
+
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	request.GetRepo().EnsureProject()
@@ -324,7 +341,15 @@ func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitReq
 
 // FindCommits searches for commits that reference a supplied file being modified in a branch.
 func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_FindCommitsServer) error {
-	return a.driver.findCommits(srv.Context(), request, srv.Send)
+	var cancel context.CancelFunc
+	ctx := srv.Context()
+	deadline, ok := srv.Context().Deadline()
+	if ok {
+		// new context's deadline is shorter to give time to return last searched commit.
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(float64(time.Until(deadline))*0.85))
+		defer cancel()
+	}
+	return a.driver.findCommits(ctx, request, srv.Send)
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run

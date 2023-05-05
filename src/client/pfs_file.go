@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -122,6 +123,28 @@ type modifyFileCore struct {
 		Send(*pfs.ModifyFileRequest) error
 	}
 	err error
+}
+
+type noOpModifyFileClient struct {
+	grpc.ClientStream
+}
+
+var _ pfs.API_ModifyFileClient = new(noOpModifyFileClient)
+
+func (*noOpModifyFileClient) Send(*pfs.ModifyFileRequest) error { return nil }
+
+func (*noOpModifyFileClient) CloseAndRecv() (*types.Empty, error) { return &types.Empty{}, nil }
+
+// NewNoOpModifyFileClient returns a ModifyFileClient that does nothing; it accepts any operation and does
+// not error.
+func NewNoOpModifyFileClient() *ModifyFileClient {
+	c := new(noOpModifyFileClient)
+	return &ModifyFileClient{
+		client: c,
+		modifyFileCore: modifyFileCore{
+			client: c,
+		},
+	}
 }
 
 func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOption) error {

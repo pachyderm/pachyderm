@@ -552,6 +552,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
+
 	if !opts.DisableLoki {
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
@@ -560,7 +561,11 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
-	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+	t.Cleanup(func() {
+		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
+	})
+	return pClient
 }
 
 func PutNamespace(t testing.TB, namespace string) {

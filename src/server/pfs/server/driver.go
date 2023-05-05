@@ -252,7 +252,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 			}
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repo)
 		}
-		repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+		repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	}
 	return repoInfo, nil
 }
@@ -312,7 +312,7 @@ func (d *driver) processListRepoInfo(
 			if err != nil {
 				return errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
 			}
-			repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
+			repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
 		}
 		size, err := repoSize(repoInfo.Repo)
 		if err != nil {
@@ -438,35 +438,44 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 }
 
 func (d *driver) deleteReposInTransaction(txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
-	var deleted []*pfs.Repo
-	var repoInfos []*pfs.RepoInfo
+	var ris []*pfs.RepoInfo
 	if err := d.listRepoInTransaction(txnCtx, false, "", projects, func(ri *pfs.RepoInfo) error {
-		ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
-		if err != nil {
-			return err
-		} else if ok {
-			repoInfos = append(repoInfos, ri)
-		}
+		ris = append(ris, ri)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
-	if len(repoInfos) == 0 {
+	return d.deleteReposHelper(txnCtx, ris, false)
+}
+
+func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
+	if len(ris) == 0 {
 		return nil, nil
 	}
 	// filter out repos that cannot be deleted
+	var filter []*pfs.RepoInfo
+	for _, ri := range ris {
+		ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
+		if err != nil {
+			return nil, err
+		} else if ok {
+			filter = append(filter, ri)
+		}
+	}
+	ris = filter
+	var deleted []*pfs.Repo
 	var bis []*pfs.BranchInfo
-	for _, ri := range repoInfos {
+	for _, ri := range ris {
 		bs, err := d.listRepoBranches(txnCtx, ri)
 		if err != nil {
 			return nil, err
 		}
 		bis = append(bis, bs...)
 	}
-	if err := d.deleteBranches(txnCtx, bis, false); err != nil {
+	if err := d.deleteBranches(txnCtx, bis, force); err != nil {
 		return nil, err
 	}
-	for _, ri := range repoInfos {
+	for _, ri := range ris {
 		if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
 			return nil, err
 		}
@@ -649,6 +658,7 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 	if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 		Project:     req.Project,
 		Description: req.Description,
+		CreatedAt:   types.TimestampNow(),
 	}); err != nil {
 		if errors.As(err, &col.ErrExists{}) {
 			return pfsserver.ErrProjectExists{
@@ -665,6 +675,14 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return pi, nil
+		}
+		return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
+	}
+	pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	return pi, nil
 }
 
@@ -725,7 +743,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 }
 
 func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
-	diffID, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	diffID, err := d.getCompactedDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
 	}
@@ -764,12 +782,48 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 	return found, nil
 }
 
+func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+	diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	isCompacted, err := d.storage.IsCompacted(ctx, *diff)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if isCompacted {
+		return diff, nil
+	}
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, nil)
+		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		return err
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return diff, nil
+}
+
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
+	authIsActive := true
 	projectInfo := &pfs.ProjectInfo{}
-	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+	return errors.Wrap(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+		if authIsActive {
+			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
+			if err != nil {
+				if errors.Is(err, auth.ErrNotActivated) {
+					// Avoid unnecessary subsequent Auth API calls.
+					authIsActive = false
+					return cb(projectInfo)
+				}
+				return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
+			}
+			projectInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+		}
 		return cb(projectInfo)
-	}))
+	}), "could not list projects")
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
@@ -1676,49 +1730,61 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 
 // for a DAG to be valid, it may not have a multiple branches from the same repo
 // reachable by traveling edges bidirectionally. The reason is that this would complicate resolving
-func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi *pfs.BranchInfo) error {
-	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(bi.Branch): bi}
+func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bs []*pfs.Branch) error {
+	cache := make(map[string]*pfs.BranchInfo)
 	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
-		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
+		if bi, ok := cache[pfsdb.BranchKey(b)]; ok {
 			return bi, nil
 		}
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
 			return nil, errors.Wrapf(err, "get branch info")
 		}
-		branchInfoCache[pfsdb.BranchKey(b)] = bi
+		cache[pfsdb.BranchKey(b)] = bi
 		return bi, nil
 	}
-	expanded := make(map[string]struct{}) // expanded branches
-	for {
-		hasExpanded := false
-		for _, bi := range branchInfoCache {
-			if _, ok := expanded[bi.Branch.String()]; ok {
-				continue
-			}
-			hasExpanded = true
-			expanded[bi.Branch.String()] = struct{}{}
-			for _, b := range bi.Provenance {
-				if _, err := getBranchInfo(b); err != nil {
-					return err
+	for _, b := range bs {
+		dagBranches := make(map[string]*pfs.BranchInfo)
+		bi, err := getBranchInfo(b)
+		if err != nil {
+			return errors.Wrapf(err, "loading branch info for %q during validation", b.String())
+		}
+		dagBranches[pfsdb.BranchKey(b)] = bi
+		expanded := make(map[string]struct{}) // expanded branches
+		for {
+			hasExpanded := false
+			for _, bi := range dagBranches {
+				if _, ok := expanded[pfsdb.BranchKey(bi.Branch)]; ok {
+					continue
+				}
+				hasExpanded = true
+				expanded[pfsdb.BranchKey(bi.Branch)] = struct{}{}
+				for _, b := range bi.Provenance {
+					bi, err := getBranchInfo(b)
+					if err != nil {
+						return err
+					}
+					dagBranches[pfsdb.BranchKey(b)] = bi
+				}
+				for _, b := range bi.Subvenance {
+					bi, err := getBranchInfo(b)
+					if err != nil {
+						return err
+					}
+					dagBranches[pfsdb.BranchKey(b)] = bi
 				}
 			}
-			for _, b := range bi.Subvenance {
-				if _, err := getBranchInfo(b); err != nil {
-					return err
-				}
+			if !hasExpanded {
+				break
 			}
 		}
-		if !hasExpanded {
-			break
+		foundRepos := make(map[string]struct{})
+		for _, bi := range dagBranches {
+			if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
+				return &pfsserver.ErrInvalidProvenanceStructure{Branch: bi.Branch}
+			}
+			foundRepos[bi.Branch.Repo.String()] = struct{}{}
 		}
-	}
-	foundRepos := make(map[string]struct{})
-	for _, bi := range branchInfoCache {
-		if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
-			return &pfsserver.ErrInvalidProvenanceStructure{Branch: bi.Branch}
-		}
-		foundRepos[bi.Branch.Repo.String()] = struct{}{}
 	}
 	return nil
 }
@@ -1828,10 +1894,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// load all branches in the complete closure once and saves all of them.
 	if err := d.computeBranchProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
-	}
-	// validate the DAG now that it's updated
-	if err := d.validateDAGStructure(txnCtx, branchInfo); err != nil {
-		return errors.Wrapf(err, "validate DAG with branch %q", branchInfo.Branch.String())
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its

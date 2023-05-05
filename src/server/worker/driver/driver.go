@@ -85,7 +85,7 @@ type Driver interface {
 
 	// UserCodeEnv returns the set of environment variables to construct when
 	// launching the configured user process.
-	UserCodeEnv(string, *pfs.Commit, []*common.Input) []string
+	UserCodeEnv(string, *pfs.Commit, []*common.Input, string) []string
 
 	RunUserCode(context.Context, logs.TaggedLogger, []string) error
 
@@ -524,6 +524,7 @@ func (d *driver) UserCodeEnv(
 	jobID string,
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
+	authToken string,
 ) []string {
 	result := os.Environ()
 
@@ -562,6 +563,21 @@ func (d *driver) UserCodeEnv(
 					os.Getenv("S3GATEWAY_PORT"),
 				),
 			)
+
+			// Set AWS_... creds vars in addition to PACH_PIPELINE_TOKEN so that any
+			// S3 clients running in the user code use these and successfully connect
+			// by default
+			if authToken != "" {
+				result = append(result, "AWS_ACCESS_KEY_ID="+authToken)
+				result = append(result, "AWS_SECRET_ACCESS_KEY="+authToken)
+			} else {
+				// If auth is off, clients can use any creds with Pachyderm's S3
+				// gateway, as long as the ID and secret match. However, many clients
+				// (e.g. the AWS cli) require _some_ nonempty creds; this default value
+				// allows those clients to work in pipelines if Pachyderm auth is off.
+				result = append(result, "AWS_ACCESS_KEY_ID=default")
+				result = append(result, "AWS_SECRET_ACCESS_KEY=default")
+			}
 		}
 	}
 
