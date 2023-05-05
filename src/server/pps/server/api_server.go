@@ -1394,6 +1394,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err != nil {
 			return errors.Wrapf(err, "invalid since duration")
 		}
+		if *since == 0 {
+			since = nil
+		}
 	}
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
@@ -1543,7 +1546,9 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		if err != nil {
 			return errors.Wrapf(err, "invalid from time")
 		}
-		from = time.Now().Add(-since)
+		if since != 0 {
+			from = time.Now().Add(-since)
+		}
 	}
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
