@@ -1612,9 +1612,11 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	}
 	return lokiutil.QueryRange(ctx, loki, query, from, time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
+		raw := false
 		if err := ParseLokiLine(line, msg); err != nil {
+			msg.Message = line
+			raw = true
 			log.Debug(ctx, "get logs (loki): unparseable log line", zap.String("line", line), zap.Error(err))
-			return nil
 		}
 
 		// These filters are almost always unnecessary because we apply
@@ -1623,20 +1625,22 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		// positive matches (although it's pretty unlikely), checking here
 		// just makes sure we don't accidentally intersperse unrelated log
 		// messages.
-		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-			return nil
-		}
-		if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
-			return nil
-		}
-		if request.Datum != nil && request.Datum.ID != msg.DatumID {
-			return nil
-		}
-		if request.Master != msg.Master {
-			return nil
-		}
-		if !common.MatchDatum(request.DataFilters, msg.Data) {
-			return nil
+		if !raw {
+			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+				return nil
+			}
+			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+				return nil
+			}
+			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+				return nil
+			}
+			if request.Master != msg.Master {
+				return nil
+			}
+			if !common.MatchDatum(request.DataFilters, msg.Data) {
+				return nil
+			}
 		}
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
 		return errors.EnsureStack(apiGetLogsServer.Send(msg))
