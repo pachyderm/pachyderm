@@ -1,5 +1,5 @@
 import React, {useCallback, useState} from 'react';
-import {Repo, Mount, ListMountsResponse} from '../../types';
+import {Repo, Mount, ListMountsResponse, Project, ProjectInfo} from '../../types';
 import {caretUpIcon, caretDownIcon} from '@jupyterlab/ui-components';
 import {useSort, stringComparator} from '../../../../utils/hooks/useSort';
 import ListMount from './ListMount';
@@ -11,6 +11,7 @@ type SortableListProps = {
   updateData: (data: ListMountsResponse) => void;
   mountedItems: Mount[];
   type: string;
+  projects: ProjectInfo[];
 };
 
 const nameComparator = {
@@ -26,11 +27,12 @@ const SortableList: React.FC<SortableListProps> = ({
   updateData,
   mountedItems,
   type,
+  projects,
 }) => {
   const allProjectsLabel = 'All projects';
-  const projectsList = [
-    ...new Set(items.map((item: Mount | Repo): string => item.project)),
-  ];
+  const projectsList: string[] = projects.map(
+    (project: ProjectInfo): string => project.project.name
+  );
   const [selectedProject, setSelectedProject] =
     useState<string>(allProjectsLabel);
 
@@ -47,6 +49,9 @@ const SortableList: React.FC<SortableListProps> = ({
   const nameClick = useCallback(() => {
     setComparator(nameComparator);
   }, [setComparator]);
+
+  console.log("creating sortable list with projects: ");
+  console.log(projectsList);
 
   return (
     <div className="pachyderm-mount-sortableList">

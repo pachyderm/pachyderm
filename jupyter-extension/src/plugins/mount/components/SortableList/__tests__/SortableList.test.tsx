@@ -35,6 +35,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'unmounted'}
+        projects={[]}
       />,
     );
     const listItem = getByTestId('ListItem__noBranches');
@@ -60,6 +61,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'unmounted'}
+        projects={[]}
       />,
     );
     const listItem = getByTestId('ListItem__unauthorized');
@@ -94,6 +96,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'unmounted'}
+        projects={[]}
       />,
     );
     let listItems = getAllByTestId('ListItem__noBranches');
@@ -126,6 +129,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'unmounted'}
+        projects={[]}
       />,
     );
     const listItem = getByTestId('ListItem__repo');
@@ -178,6 +182,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'mounted'}
+        projects={[]}
       />,
     );
     const listItem = getByTestId('ListItem__repo');
@@ -227,6 +232,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'mounted'}
+        projects={[]}
       />,
     );
     getByText('images').click();
@@ -250,6 +256,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'unmounted'}
+        projects={[]}
       />,
     );
     const select = getByTestId('ListItem__select') as HTMLSelectElement;
@@ -297,6 +304,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'mounted'}
+        projects={[]}
       />,
     );
 
@@ -361,6 +369,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'mounted'}
+        projects={[]}
       />,
     );
     const unmountButtons = getAllByTestId('ListItem__unmount');
@@ -395,6 +404,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'mounted'}
+        projects={[]}
       />,
     );
 
@@ -428,6 +438,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'mounted'}
+        projects={[]}
       />,
     );
 
@@ -461,6 +472,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'mounted'}
+        projects={[]}
       />,
     );
 
@@ -503,6 +515,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={mountedItems}
         type={'unmounted'}
+        projects={[]}
       />,
     );
 
@@ -544,6 +557,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'unmounted'}
+        projects={[]}
       />,
     );
 

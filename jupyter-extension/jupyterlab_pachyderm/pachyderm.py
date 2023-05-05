@@ -5,6 +5,9 @@ class MountInterface:
     async def list_mounts(self):
         pass
 
+    async def list_projects(self):
+        pass
+
     async def mount(self, body):
         pass
 
