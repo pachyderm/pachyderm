@@ -49,8 +49,8 @@ func TestValidateOldDAGs(t *testing.T) {
 		},
 		{
 			cis: []*v2_5_0.CommitInfo{
+				makeCommit(client.NewProjectCommit(p, r1, b1, id1), r1Stub.Commit, pfs.OriginKind_AUTO),
 				// before 2.6, pfs.OriginKind_ALIAS = 4
-				makeCommit(client.NewProjectCommit(p, r1, b1, id1), r1Stub.Commit, 4),
 				makeCommit(client.NewProjectCommit(p, r1, b2, id1), r1Stub.Commit, 4),
 			},
 			expectErr: true,
