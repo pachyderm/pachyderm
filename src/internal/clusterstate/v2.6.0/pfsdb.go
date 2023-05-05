@@ -98,7 +98,8 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 		aliasCount := 0
 		var commitSet string
 		for _, d := range dups {
-			if d.Origin.Kind == pfs.OriginKind_ALIAS {
+			// before 2.6, pfs.OriginKind_ALIAS = 4
+			if d.Origin.Kind == 4 {
 				aliasCount++
 			}
 			commitSet = d.Commit.ID
@@ -155,7 +156,8 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			}
 		}
 		// collect all the ALIAS commits to be deleted
-		if ci.Origin.Kind == pfs.OriginKind_ALIAS {
+		// before 2.6, pfs.OriginKind_ALIAS = 4
+		if ci.Origin.Kind == 4 {
 			deleteCommits[oldCommitKey(ci.Commit)] = proto.Clone(ci).(*v2_5_0.CommitInfo)
 		}
 	}
