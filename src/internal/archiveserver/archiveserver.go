@@ -30,7 +30,7 @@ type Server struct {
 	pachClientFactory func(context.Context) *client.APIClient
 }
 
-// ServeHTTP implements http.Handler for the /download/ route.
+// ServeHTTP implements http.Handler for the /archive/ route.
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if got, want := req.Method, http.MethodGet; got != want {

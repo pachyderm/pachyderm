@@ -154,7 +154,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 			// This test unfortunately depends on TestGRPC having run successfully.
 			// Refactor.
-			url := httpPrefix + addr + "/download/" + file + ".zip"
+			url := httpPrefix + addr + "/archive/" + file + ".zip"
 			return get(t, httpClient, url)
 		})
 	})

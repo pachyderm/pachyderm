@@ -219,7 +219,7 @@
             ],
             "lb_policy": "random",
             "load_assignment": {
-               "cluster_name": "pachd-download",
+               "cluster_name": "pachd-archive",
                "endpoints": [
                   {
                      "lb_endpoints": [
@@ -237,7 +237,7 @@
                   }
                ]
             },
-            "name": "pachd-download",
+            "name": "pachd-archive",
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -680,10 +680,10 @@
                                        },
                                        {
                                           "match": {
-                                             "prefix": "/download"
+                                             "prefix": "/archive"
                                           },
                                           "route": {
-                                             "cluster": "pachd-download",
+                                             "cluster": "pachd-archive",
                                              "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
@@ -1766,7 +1766,7 @@
                            "duration_ms": "%DURATION%",
                            "grpc_message": "%RESP(GRPC-MESSAGE):64%",
                            "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
-                           "listener": "direct-pachd-download",
+                           "listener": "direct-pachd-archive",
                            "message": "listener log",
                            "method": "%REQ(:method)%",
                            "pachctl_command": "%REQ(COMMAND):64%",
@@ -1893,10 +1893,10 @@
                                     "routes": [
                                        {
                                           "match": {
-                                             "prefix": "/download"
+                                             "prefix": "/archive"
                                           },
                                           "route": {
-                                             "cluster": "pachd-download",
+                                             "cluster": "pachd-archive",
                                              "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
@@ -1905,7 +1905,7 @@
                                  }
                               ]
                            },
-                           "stat_prefix": "direct-pachd-download",
+                           "stat_prefix": "direct-pachd-archive",
                            "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
@@ -1913,7 +1913,7 @@
                   ]
                }
             ],
-            "name": "direct-pachd-download",
+            "name": "direct-pachd-archive",
             "per_connection_buffer_limit_bytes": 32768,
             "traffic_direction": "INBOUND"
          },

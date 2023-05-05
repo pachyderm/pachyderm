@@ -78,7 +78,10 @@ const (
 
 	// DefaultLogsFrom is the default duration to return logs from, i.e. by
 	// default we return logs from up to 24 hours ago.
-	DefaultLogsFrom  = time.Hour * 24
+	DefaultLogsFrom = time.Hour * 24
+	// jobClockSkew is how much earlier than the job start time to look for
+	// logs.  It is an attempt to account for clock skew.
+	jobClockSkew     = time.Hour
 	ppsTaskNamespace = "/pps"
 
 	maxPipelineNameLength = 51
@@ -1368,10 +1371,6 @@ func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.A
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	ctx := apiGetLogsServer.Context()
 
-	// Set the default for the `Since` field.
-	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
-		request.Since = types.DurationProto(DefaultLogsFrom)
-	}
 	ensurePipelineProject(request.GetPipeline())
 	ensurePipelineProject(request.GetJob().GetPipeline())
 	ensurePipelineProject(request.GetDatum().GetJob().GetPipeline())
@@ -1386,7 +1385,16 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		rcName, containerName string
 		pods                  []v1.Pod
 		err                   error
+		since                 *time.Duration
 	)
+	// Convert request.Since to a usable timestamp.
+	if request.Since != nil {
+		since = new(time.Duration)
+		*since, err = types.DurationFromProto(request.Since)
+		if err != nil {
+			return errors.Wrapf(err, "invalid since duration")
+		}
+	}
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
@@ -1416,6 +1424,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
+			if created := jobInfo.GetCreated(); since == nil && created != nil {
+				t, err := types.TimestampFromProto(created)
+				if err != nil {
+					return errors.Wrapf(err, "could not convert %v to time", created)
+				}
+				since = new(time.Duration)
+				*since = time.Since(t) + jobClockSkew
+			}
 			pipeline = jobInfo.Job.Pipeline
 		} // not possible for request.{Pipeline,Job} to both be nil due to previous check above
 		pipelineInfo, err := a.inspectPipeline(apiGetLogsServer.Context(), pipeline, true)
@@ -1442,12 +1458,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if len(pods) == 0 {
 		return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
 	}
-	// Convert request.From to a usable timestamp.
-	since, err := types.DurationFromProto(request.Since)
-	if err != nil {
-		return errors.Wrapf(err, "invalid from time")
-	}
-	sinceSeconds := int64(since.Seconds())
 
 	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
 	// and channels are read into the output server in a stable order.
@@ -1456,6 +1466,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	logCh := make(chan *pps.LogMessage)
 	var eg errgroup.Group
 	var mu sync.Mutex
+	if since == nil {
+		since = new(time.Duration)
+		*since = DefaultLogsFrom
+	}
 	eg.Go(func() error {
 		for _, pod := range pods {
 			pod := pod
@@ -1471,12 +1485,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					tailLines = nil
 				}
 				// Get full set of logs from pod i
+				sinceSeconds := new(int64)
+				*sinceSeconds = int64(*since / time.Second)
 				stream, err := a.env.KubeClient.CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
 						Container:    containerName,
 						Follow:       request.Follow,
 						TailLines:    tailLines,
-						SinceSeconds: &sinceSeconds,
+						SinceSeconds: sinceSeconds,
 					}).Timeout(10 * time.Second).Stream(apiGetLogsServer.Context())
 				if err != nil {
 					return errors.EnsureStack(err)
@@ -1521,9 +1537,13 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	if err != nil {
 		return err
 	}
-	since, err := types.DurationFromProto(request.Since)
-	if err != nil {
-		return errors.Wrapf(err, "invalid from time")
+	var from time.Time
+	if request.Since != nil {
+		since, err := types.DurationFromProto(request.Since)
+		if err != nil {
+			return errors.Wrapf(err, "invalid from time")
+		}
+		from = time.Now().Add(-since)
 	}
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
@@ -1532,7 +1552,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		if err := a.env.AuthServer.CheckClusterIsAuthorized(apiGetLogsServer.Context(), auth.Permission_CLUSTER_GET_PACHD_LOGS); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, `{app="pachd"}`, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
+		return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, `{app="pachd"}`, from, time.Time{}, request.Follow, func(t time.Time, line string) error {
 			return errors.EnsureStack(apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			}))
@@ -1558,6 +1578,12 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		if err != nil {
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 		}
+		if created := jobInfo.GetCreated(); from.IsZero() && created != nil {
+			if from, err = types.TimestampFromProto(created); err != nil {
+				return errors.Wrapf(err, "could not convert %v to from time", created)
+			}
+			from = from.Add(-jobClockSkew)
+		}
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline, true)
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s", jobInfo.Job.Pipeline)
@@ -1581,7 +1607,10 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(ctx, loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
+	if from.IsZero() {
+		from = time.Now().Add(-DefaultLogsFrom)
+	}
+	return lokiutil.QueryRange(ctx, loki, query, from, time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
 		if err := ParseLokiLine(line, msg); err != nil {
 			log.Debug(ctx, "get logs (loki): unparseable log line", zap.String("line", line), zap.Error(err))
