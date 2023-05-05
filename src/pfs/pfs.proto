@@ -103,7 +103,6 @@ enum OriginKind {
   USER = 1;
   AUTO = 2;
   FSCK = 3;
-  ALIAS = 4;
 }
 
 message CommitOrigin {
