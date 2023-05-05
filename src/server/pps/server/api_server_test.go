@@ -409,8 +409,8 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	repo := "input"
 	pipeline := "pipeline"
-	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, env.PachClient.CreateProjectPipeline(
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, env.PachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline,
 		"", /* default image*/
@@ -421,12 +421,12 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit1, "/foo", strings.NewReader("foo")))
-	require.NoError(t, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
-	require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "pin", "master", "", nil))
-	require.NoError(t, env.PachClient.CreateProjectPipeline(
+	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "pin", "master", "", nil))
+	require.NoError(t, env.PachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline,
 		"", /* default image*/
