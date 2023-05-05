@@ -472,38 +472,9 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 	return fw, port, nil
 }
 
-// NewForTest constructs a new APIClient for tests.
-// TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewForTest() (*APIClient, error) {
-	cfg, err := config.Read(false, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not read config")
-	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get active context")
-	}
-
-	// create new pachctl client
-	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
-	if err != nil {
-		return nil, err
-	}
-
-	if pachdAddress == nil {
-		pachdAddress = &grpcutil.DefaultPachdAddress
-	}
-
-	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
-	}
-	return client, nil
-}
-
 // NewEnterpriseClientForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
-func NewEnterpriseClientForTest() (*APIClient, error) {
+func NewEnterpriseClientForTest(ctx context.Context) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -523,7 +494,7 @@ func NewEnterpriseClientForTest() (*APIClient, error) {
 		return nil, errors.New("no enterprise server configured")
 	}
 
-	client, err := NewFromPachdAddress(pachdAddress, cfgOptions...)
+	client, err := NewFromPachdAddress(ctx, pachdAddress, cfgOptions...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
 	}
@@ -601,7 +572,7 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		}
 	}
 
-	client, err := NewFromPachdAddress(pachdAddress, append(options, cfgOptions...)...)
+	client, err := NewFromPachdAddress(ctx, pachdAddress, append(options, cfgOptions...)...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
@@ -671,7 +642,7 @@ func NewInCluster(ctx context.Context, options ...Option) (*APIClient, error) {
 	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
 	internalPort := os.Getenv("PACHD_PEER_SERVICE_PORT")
 	if internalHost != "" && internalPort != "" {
-		return NewFromURI(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
+		return NewFromURI(ctx, fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
 	}
 
 	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
