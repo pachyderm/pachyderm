@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	etcd "go.etcd.io/etcd/client/v3"
 
@@ -71,6 +72,11 @@ func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *m
 }
 
 func listRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix, prefix, "prefix")
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	etcdOpts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(opts.Target, opts.Order)}
 	var fromKey *mvccpb.KeyValue
 	from, compare := listFuncs(opts)

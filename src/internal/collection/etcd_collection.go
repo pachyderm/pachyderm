@@ -458,9 +458,12 @@ func (c *etcdReadOnlyCollection) Get(maybeKey interface{}, val proto.Message) er
 	return errors.EnsureStack(proto.Unmarshal(resp.Kvs[0].Value, val))
 }
 
-func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
-	defer tracing.FinishAnySpan(span)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}
 	if atomic.LoadInt64(&index.limit) == 0 {
 		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
@@ -479,7 +482,7 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val p
 	})
 }
 
-func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
+func (c *etcdReadOnlyCollection) TTL(key string) (_ int64, retErr error) {
 	resp, err := c.get(c.path(key))
 	if err != nil {
 		return 0, err
@@ -490,7 +493,10 @@ func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
 	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
 
 	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/TimeToLive")
-	defer tracing.FinishAnySpan(span)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}
 	leaseTTLResp, err := c.etcdClient.TimeToLive(ctx, leaseID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "could not fetch lease TTL")
@@ -503,9 +509,7 @@ func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
 // argument to f because that would require f to perform a cast before it could
 // be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
-	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
-	defer tracing.FinishAnySpan(span)
+func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) (retErr error) {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}

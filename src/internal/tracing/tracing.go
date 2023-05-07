@@ -47,6 +47,32 @@ var jaegerOnce sync.Once
 // future calls to InstallJaegerTracerFromEnv
 var jaegerEndpoint string
 
+// LogAnySpan adds an event to any span associated with 'spanBox' (which must be
+// either a span itself or a context.Context) with 'kvs'
+func LogAnySpan(spanBox interface{}, kvs ...interface{}) opentracing.Span {
+	if spanBox == nil {
+		return nil
+	}
+
+	// extract span from 'spanBox'
+	var span opentracing.Span
+	switch v := spanBox.(type) {
+	case opentracing.Span:
+		span = v
+	case context.Context:
+		span = opentracing.SpanFromContext(v) // may return nil
+	default:
+		log.Error(pctx.TODO(), "invalid type passed to TagAnySpan", zap.Any("value", spanBox))
+	}
+	if span == nil {
+		return nil
+	}
+
+	// tag 'span'
+	span.LogKV(kvs...)
+	return span
+}
+
 // TagAnySpan tags any span associated with 'spanBox' (which must be either a
 // span itself or a context.Context) with 'kvs'
 func TagAnySpan(spanBox interface{}, kvs ...interface{}) opentracing.Span {

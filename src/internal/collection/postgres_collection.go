@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
@@ -185,7 +186,13 @@ type postgresReadOnlyCollection struct {
 	ctx context.Context
 }
 
-func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (*model, error) {
+func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (_ *model, retErr error) {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres/get",
+		"table", c.table, "key", key)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	result := &model{}
 	queryString := fmt.Sprintf("select proto, updatedat from collections.%s where key = $1;", c.table)
 	if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
@@ -233,6 +240,11 @@ func (c *postgresCollection) withKey(key interface{}, query func(string) error) 
 }
 
 func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(ctx, "/postgres.RO/getByIndex", "table", c.table, "index", index, "indexVal", indexVal)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
@@ -401,6 +413,12 @@ func (c *postgresCollection) list(
 	q sqlx.ExtContext,
 	f func(*model) error,
 ) (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(ctx, "/postgres.RO/list", "table", c.table, "withFields", withFields)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
+
 	// To avoid holding a transaction open (which holds a DB connection) for an unknown duration
 	// dictated by the client's callback, we:
 	// (1) query a limited count of SQL rows into a buffer
@@ -749,7 +767,13 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 	return params, nil
 }
 
-func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) error {
+func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) (retErr error) {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/update",
+		"table", c.table, "key", key)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	if err := c.Get(key, val); err != nil {
 		return err
 	}
@@ -758,6 +782,7 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 	}
 
 	return c.withKey(key, func(rawKey string) error {
+		tracing.LogAnySpan("starting_update_query", true)
 		params, err := c.getWriteParams(rawKey, val)
 		if err != nil {
 			return err
@@ -776,6 +801,12 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/insert",
+		"table", c.table, "key", key, "upsert", upsert)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	if c.keyCheck != nil {
 		if err := c.keyCheck(key); err != nil {
 			return errors.Wrap(err, "bad key")
@@ -851,7 +882,13 @@ func (c *postgresReadWriteCollection) Delete(key interface{}) error {
 	})
 }
 
-func (c *postgresReadWriteCollection) delete(key string) error {
+func (c *postgresReadWriteCollection) delete(key string) (retErr error) {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/delete",
+		"table", c.table, "key", key)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	query := fmt.Sprintf("delete from collections.%s where key = $1", c.table)
 	res, err := c.tx.Exec(query, key)
 	if err != nil {
@@ -867,12 +904,24 @@ func (c *postgresReadWriteCollection) delete(key string) error {
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/deleteAll",
+		"table", c.table, "key", key)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	query := fmt.Sprintf("delete from collections.%s", c.table)
 	_, err := c.tx.Exec(query)
 	return c.mapSQLError(err, "")
 }
 
 func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal string) error {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/deleteByIndex",
+		"table", c.table, "key", indexVal, "index", index.Name)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
