@@ -373,7 +373,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 
 	// bail if cron repo is not accessible
 	if err != nil {
-		return latestTime, err
+		return latestTime, err //nolint:wrapcheck
 	}
 
 	// otherwise get timestamp from latest filename
@@ -386,7 +386,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 
 		// bail if filename format is bad
 		if err != nil {
-			return latestTime, err
+			return latestTime, err //nolint:wrapcheck
 		}
 		// get cron start time to compare if previous start time was updated
 		startTime, err := types.TimestampFromProto(in.Cron.Start)
@@ -406,7 +406,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 	// otherwise return cron start time since there are no files in cron repo
 	startTime, err := types.TimestampFromProto(in.Cron.Start)
 	if err != nil {
-		return startTime, err
+		return startTime, err //nolint:wrapcheck
 	}
 	return startTime, errors.EnsureStack(nil)
 }
