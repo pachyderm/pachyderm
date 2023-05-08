@@ -7025,9 +7025,12 @@ func TestCronPipeline(t *testing.T) {
 		lastCommit := commits[0].Commit
 
 		files, err := c.ListFileAll(lastCommit, "")
+		require.NoError(t, err)
 		// check intervals between cron timestamp files
 		// all timestamps should be one tick apart except one that should be at least numTicksToSkip apart when the start time was updated
 		prevFileTime, err := time.Parse(time.RFC3339, path.Base(files[0].File.Path))
+		require.NoError(t, err)
+
 		numSkips := 0
 		numTicks := 0
 		var timeAfterSkip time.Time
