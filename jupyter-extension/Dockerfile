@@ -31,4 +31,5 @@ RUN chmod +x config.sh
 USER $NB_UID
 COPY dist dist
 WORKDIR /home/jovyan
+RUN pip install determined
 RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller
