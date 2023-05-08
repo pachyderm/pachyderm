@@ -75,7 +75,7 @@ jobs:
       - image: cimg/node:18.16.0
     steps:
       - checkout
-      - run: npm install -g netlify-cli@14.4.0
+      - run: sudo npm install -g netlify-cli@14.4.0
       - run: .circleci/scripts/upload-storybook.sh
 
   lint-frontend:
