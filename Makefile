@@ -34,10 +34,10 @@ launch-mock:
 	LOG_LEVEL=debug npm run mock-and-start --prefix ./backend & npm run start:env-test  --prefix ./frontend
 
 setup-auth:
-	npm run setup:local
+	npm run setupAuth:local
 
 setup-ci-auth: 
-	npm run setup
+	npm run setupAuth
 
 install:
 	npm install & npm install --prefix ./backend & npm install --prefix ./frontend
