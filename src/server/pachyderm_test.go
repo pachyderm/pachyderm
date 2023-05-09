@@ -6966,6 +6966,97 @@ func TestCronPipeline(t *testing.T) {
 				})
 			}))
 	})
+
+	// test updating start time works for cron pipeline
+	// create a cron pipeline without a start time so it starts immediately
+	// let it run for couple ticks
+	// update pipeline with a start time some ticks in future
+	// let it run couple ticks past new start time
+	// confirm pipeline did not run till the start time after pipeline was updated
+	t.Run("CronUpdateStart", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
+		pipeline := tu.UniqueString("cron-upd1-")
+
+		tick := time.Duration(10 * time.Second)
+		cronExpr := fmt.Sprintf("@every %s", tick)
+
+		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			pipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp -v /pfs/sched/* /pfs/out/"},
+			nil,
+			client.NewCronInput("sched", cronExpr),
+			"",
+			false,
+		))
+
+		outputRepo := client.NewProjectRepo(pfs.DefaultProjectName, pipeline)
+
+		// sleep while pipeline runs couple ticks
+		time.Sleep(2 * tick)
+
+		numTicksToSkip := 3
+
+		startTime := time.Now().Add(time.Duration(numTicksToSkip) * tick)
+		startTimeStr, err := types.TimestampProto(startTime)
+		require.NoError(t, err)
+
+		// update pipeline with start time few ticks into future
+		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			pipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp -v /pfs/sched/* /pfs/out/"},
+			nil,
+			client.NewCronInputOpts("sched", "", cronExpr, false, startTimeStr),
+			"",
+			true,
+		))
+
+		// sleep till couple ticks past new start time
+		time.Sleep(time.Duration(numTicksToSkip+2) * tick)
+
+		// get most recent commit
+		commits, err := c.ListCommit(outputRepo, nil, nil, 1)
+		require.NoError(t, err)
+		lastCommit := commits[0].Commit
+
+		files, err := c.ListFileAll(lastCommit, "")
+		require.NoError(t, err)
+		// check intervals between cron timestamp files
+		// all timestamps should be one tick apart except one that should be at least numTicksToSkip apart when the start time was updated
+		prevFileTime, err := time.Parse(time.RFC3339, path.Base(files[0].File.Path))
+		require.NoError(t, err)
+
+		numSkips := 0
+		numTicks := 0
+		var timeAfterSkip time.Time
+		for i, file := range files {
+			if i == 0 {
+				continue
+			}
+			fileTime, err := time.Parse(time.RFC3339, path.Base(file.File.Path))
+			require.NoError(t, err)
+			gap := fileTime.Sub(prevFileTime)
+			prevFileTime = fileTime
+			if gap >= time.Duration(numTicksToSkip)*tick {
+				numSkips++
+				timeAfterSkip = fileTime
+				continue
+
+			}
+			if gap == tick {
+				numTicks++
+			}
+		}
+		require.Equal(t, numSkips, 1)
+		require.False(t, timeAfterSkip.Before(startTime))
+		require.Equal(t, numTicks, len(files)-2)
+	})
+
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {

@@ -370,22 +370,36 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 	pachClient := env.GetPachClient(ctx)
 	defer log.Span(ctx, "getLatestCronTime")(zap.Timep("latest", &retTime), log.Errorp(&retErr))
 	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
+	// bail if cron repo is not accessible
 	if err != nil {
 		return latestTime, err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(in.Cron.Start)
-		if err != nil {
-			return latestTime, errors.EnsureStack(err)
-		}
-	} else {
+	}
+	// otherwise get timestamp from latest filename
+	if len(files) > 0 {
 		// Take the name of the most recent file as the latest timestamp
 		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
 		// from largest unit of time to smallest, so the most recent file will be the last one
 		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		// bail if filename format is bad
 		if err != nil {
-			return latestTime, errors.EnsureStack(err)
+			return latestTime, err //nolint:wrapcheck
+		}
+		// get cron start time to compare if previous start time was updated
+		startTime, err := types.TimestampFromProto(in.Cron.Start)
+		// return latest time from filename if start time cannot be determined
+		if err != nil {
+			return latestTime, err //nolint:wrapcheck
+		}
+		if latestTime.After(startTime) {
+			return latestTime, nil
+		} else {
+			return startTime, nil
 		}
 	}
-	return latestTime, nil
+	// otherwise return cron start time since there are no files in cron repo
+	startTime, err := types.TimestampFromProto(in.Cron.Start)
+	if err != nil {
+		return startTime, err //nolint:wrapcheck
+	}
+	return startTime, nil
 }
