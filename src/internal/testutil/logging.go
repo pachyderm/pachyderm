@@ -40,7 +40,7 @@ func (tr *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	resp, err := tr.underlying.RoundTrip(req)
 	if err != nil {
 		tr.t.Logf("http: error: %v", err)
-		return resp, err
+		return resp, err //nolint:wrapcheck
 	}
 	inBuf := new(bytes.Buffer)
 	resp.Body = io.NopCloser(io.TeeReader(resp.Body, inBuf))
@@ -50,7 +50,7 @@ func (tr *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		tr.t.Logf("http: response: %s", b)
 	}
 	resp.Body = io.NopCloser(inBuf)
-	return resp, err
+	return resp, err //nolint:wrapcheck
 }
 
 func NewLoggingHTTPClient(t testing.TB) *http.Client {
