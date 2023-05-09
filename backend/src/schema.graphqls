@@ -188,7 +188,7 @@ type RepoInfo {
 }
 type DiffCount {
   count: Int!
-  sizeDelta: Int!
+  sizeDelta: Float!
 }
 
 type Diff {

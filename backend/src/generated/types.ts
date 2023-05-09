@@ -239,7 +239,7 @@ export type Diff = {
 export type DiffCount = {
   __typename?: 'DiffCount';
   count: Scalars['Int'];
-  sizeDelta: Scalars['Int'];
+  sizeDelta: Scalars['Float'];
 };
 
 export type EnterpriseInfo = {
@@ -1441,7 +1441,7 @@ export type DiffCountResolvers<
   ParentType extends ResolversParentTypes['DiffCount'] = ResolversParentTypes['DiffCount'],
 > = ResolversObject<{
   count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  sizeDelta?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeDelta?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
