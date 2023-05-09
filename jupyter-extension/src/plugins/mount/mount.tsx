@@ -422,6 +422,9 @@ export class MountPlugin implements IMountPlugin {
     const currentMountDir = this._mountBrowser.model.path
       .split(MOUNT_BROWSER_NAME)[1]
       .split('/')[0];
+    if (currentMountDir === 'out') {
+      return;
+    }
     for (let i = 0; i < mounted.length; i++) {
       if (currentMountDir === mounted[i].name) {
         return;
