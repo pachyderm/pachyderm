@@ -34,7 +34,8 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
             >
               {enterpriseActive ? (
                 <>
-                  HPE <span className={styles.hpeLogoSpan}>MLDM</span>
+                  HPE{' '}
+                  <span className={styles.hpeLogoSpan}>ML Data Management</span>
                 </>
               ) : (
                 'Console'

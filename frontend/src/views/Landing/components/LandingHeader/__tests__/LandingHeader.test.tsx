@@ -17,7 +17,7 @@ describe('LandingHeader', () => {
     mockServer.getState().enterprise = enterpriseStates.active;
     render(<Header />);
 
-    await screen.findByRole('heading', {name: 'HPE MLDM'});
+    await screen.findByRole('heading', {name: 'HPE ML Data Management'});
   });
 
   it('should show the console branding when enterprise is inactive', async () => {

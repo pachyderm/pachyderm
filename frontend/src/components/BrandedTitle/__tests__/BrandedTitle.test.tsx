@@ -27,7 +27,7 @@ describe('BrandedDocLink', () => {
     render(<BrandedDocLink title="Project" />);
 
     await waitFor(() => {
-      expect(document.title).toBe('Project - HPE MLDM');
+      expect(document.title).toBe('Project - HPE ML Data Management');
     });
   });
 });

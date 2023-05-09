@@ -48,6 +48,6 @@ describe('Header', () => {
   it('when in Enterprise Edition the header shows the correct app name', () => {
     cy.visit('/');
     cy.visit('/');
-    cy.findByRole('banner').findByRole('heading', {name: 'HPE MLDM'});
+    cy.findByRole('banner').findByRole('heading', {name: 'HPE ML Data Management'});
   });
 });

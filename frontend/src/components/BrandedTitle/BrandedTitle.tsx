@@ -10,8 +10,12 @@ const BrandedTitle: React.FC<{title: string}> = ({title}) => {
     <Helmet>
       <title>
         {title
-          ? `${title} - ${enterpriseActive ? 'HPE MLDM' : 'Pachyderm Console'}`
-          : `${enterpriseActive ? 'HPE MLDM' : 'Pachyderm Console'}`}
+          ? `${title} - ${
+              enterpriseActive ? 'HPE ML Data Management' : 'Pachyderm Console'
+            }`
+          : `${
+              enterpriseActive ? 'HPE ML Data Management' : 'Pachyderm Console'
+            }`}
       </title>
     </Helmet>
   );
