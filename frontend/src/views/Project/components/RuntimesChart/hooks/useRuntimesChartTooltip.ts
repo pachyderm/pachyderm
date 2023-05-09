@@ -1,8 +1,8 @@
 import {Job} from '@graphqlTypes';
 import {useCallback, useState} from 'react';
 
-const TOOLTIP_OFFSET_X = -20;
-const TOOLTIP_OFFSET_Y = 125;
+const TOOLTIP_OFFSET_X = 50;
+const TOOLTIP_OFFSET_Y = -150;
 
 const useRuntimesChartTooltip = (
   jobsCrossReference: Record<string, Record<string, Job>>,
@@ -23,11 +23,13 @@ const useRuntimesChartTooltip = (
         setTooltip((prev) => ({...prev, opacity: 0}));
         return;
       }
+      const position = context.chart.canvas.getBoundingClientRect();
       const data = tooltipModel.dataPoints[0];
+
       const newTooltipData = {
         opacity: 1,
-        left: context.tooltip._eventPosition.x + TOOLTIP_OFFSET_X,
-        top: context.tooltip._eventPosition.y + TOOLTIP_OFFSET_Y,
+        left: tooltipModel._eventPosition.x + TOOLTIP_OFFSET_X,
+        top: tooltipModel._eventPosition.y + position.top + TOOLTIP_OFFSET_Y,
         runtime: String(data.raw[1] - data.raw[0]),
         failedDatums: jobsCrossReference[data.dataset.label][data.label]
           ? jobsCrossReference[data.dataset.label][data.label].dataFailed

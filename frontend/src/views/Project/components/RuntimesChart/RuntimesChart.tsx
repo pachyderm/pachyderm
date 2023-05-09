@@ -295,6 +295,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
             options={options}
             chartRef={chartRef}
             pipelinesLength={pipelines.length}
+            maxJobsPerPipeline={pipelineDatasets.length}
             handleBarClick={handleClick}
           />
           <Tooltip tooltipState={tooltip} useHoursAsUnit={useHoursAsUnit} />

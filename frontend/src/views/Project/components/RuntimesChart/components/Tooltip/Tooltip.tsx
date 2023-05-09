@@ -6,6 +6,8 @@ import {CaptionTextSmall} from '@pachyderm/components';
 import styles from './Tooltip.module.css';
 
 ChartJS.register(TooltipChartJS);
+const TOOLTIP_HEIGHT = 99;
+const TOOLTIP_DATUMS_HEIGHT = 137;
 
 type TooltipProps = {
   tooltipState: {
@@ -23,7 +25,11 @@ const Tooltip: React.FC<TooltipProps> = ({tooltipState, useHoursAsUnit}) => {
     <div
       className={styles.base}
       style={{
-        top: tooltipState.top,
+        top:
+          tooltipState.top -
+          (tooltipState.failedDatums > 0
+            ? TOOLTIP_DATUMS_HEIGHT
+            : TOOLTIP_HEIGHT),
         left: tooltipState.left,
         opacity: tooltipState.opacity,
       }}

@@ -4,13 +4,15 @@ import {Bar} from 'react-chartjs-2';
 
 import styles from './BarChart.module.css';
 
-const Y_AXIS_HEIGHT = 200;
+const Y_AXIS_OVERHEAD = 100;
+const Y_AXIS_JOB_HEIGHT = 30;
 
 type BarChartProps = {
   chartData: ChartData<'bar'>;
   options: ChartOptions<'bar'>;
   chartRef: React.RefObject<ChartJS<'bar'>>;
   pipelinesLength: number;
+  maxJobsPerPipeline: number;
   handleBarClick: (
     event: React.MouseEvent<HTMLCanvasElement, MouseEvent>,
   ) => void;
@@ -21,6 +23,7 @@ const BarChart: React.FC<BarChartProps> = ({
   options,
   chartRef,
   pipelinesLength,
+  maxJobsPerPipeline,
   handleBarClick,
 }) => {
   return (
@@ -29,7 +32,11 @@ const BarChart: React.FC<BarChartProps> = ({
         data={chartData}
         options={options}
         ref={chartRef}
-        style={{height: pipelinesLength * Y_AXIS_HEIGHT}}
+        style={{
+          height:
+            Y_AXIS_OVERHEAD +
+            maxJobsPerPipeline * Y_AXIS_JOB_HEIGHT * pipelinesLength,
+        }}
         onClick={handleBarClick}
         aria-label="Runtimes Chart"
       >
