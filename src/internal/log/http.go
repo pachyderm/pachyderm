@@ -37,7 +37,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 					url = url[:16384]
 					url += fmt.Sprintf("... (%d bytes)", len(url))
 				}
-				Info(ctx, "incoming http request", zap.String("path", url), zap.String("method", r.Method), zap.String("host", r.Host), id)
+				Info(ctx, "incoming http request", zap.String("path", url), zap.String("method", r.Method), zap.String("host", r.Host), zap.String("peer", r.RemoteAddr), id)
 			}
 
 			ctx = ChildLogger(ctx, "", WithFields(id))
