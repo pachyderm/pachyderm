@@ -1612,20 +1612,16 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	}
 	return lokiutil.QueryRange(ctx, loki, query, from, time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
-		raw := false
 		if err := ParseLokiLine(line, msg); err != nil {
 			msg.Message = line
-			raw = true
 			log.Debug(ctx, "get logs (loki): unparseable log line", zap.String("line", line), zap.Error(err))
-		}
-
-		// These filters are almost always unnecessary because we apply
-		// them in the Loki request, but many of them are just done with
-		// string matching so there technically could be some false
-		// positive matches (although it's pretty unlikely), checking here
-		// just makes sure we don't accidentally intersperse unrelated log
-		// messages.
-		if !raw {
+		} else {
+			// These filters are almost always unnecessary because we apply
+			// them in the Loki request, but many of them are just done with
+			// string matching so there technically could be some false
+			// positive matches (although it's pretty unlikely), checking here
+			// just makes sure we don't accidentally intersperse unrelated log
+			// messages.
 			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 				return nil
 			}
