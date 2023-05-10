@@ -405,6 +405,9 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	if reverse {
 		fis := newCircularList(number)
 		if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+			if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+				return nil
+			}
 			fis.add(fi)
 			return nil
 		}); err != nil {
@@ -415,6 +418,9 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if number == 0 {
 			return errutil.ErrBreak
+		}
+		if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+			return nil
 		}
 		number--
 		return cb(fi)

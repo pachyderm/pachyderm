@@ -177,7 +177,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
-		require.Equal(t, 7, len(fis))
+		require.Equal(t, 6, len(fis))
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 2, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
