@@ -293,7 +293,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 	if reverse {
 		fis := newCircularList(number)
 		if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
-			if strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+			if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
 				return nil
 			}
 			if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
@@ -309,7 +309,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		if number == 0 {
 			return errutil.ErrBreak
 		}
-		if strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+		if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
 			return nil
 		}
 		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
