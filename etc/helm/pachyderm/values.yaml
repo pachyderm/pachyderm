@@ -857,8 +857,6 @@ oidc:
   #       insecureEnableGroups: true
   #       insecureSkipEmailVerified: true
   #       insecureSkipIssuerCallbackDomainCheck: true
-  #       forwardedLoginParams:
-  #       - login_hint
   #     name: idpConnector
   #     type: oidc
   #
@@ -871,8 +869,6 @@ oidc:
   #       insecureEnableGroups: true
   #       insecureSkipEmailVerified: true
   #       insecureSkipIssuerCallbackDomainCheck: true
-  #       forwardedLoginParams:
-  #       - login_hint
   #     name: okta
   #     type: oidc
   upstreamIDPs: []
