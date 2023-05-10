@@ -306,10 +306,9 @@ func TestTransformPipeline(suite *testing.T) {
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		objC := dockertestenv.NewTestObjClient(ctx, t)
+		bucket, url := dockertestenv.NewTestBucket(ctx, t)
 		pi := defaultPipelineInfo()
-		egressURL := objC.BucketURL().String()
-		pi.Details.Egress = &pps.Egress{URL: egressURL}
+		pi.Details.Egress = &pps.Egress{URL: url}
 		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		files := []tarutil.File{
@@ -324,20 +323,19 @@ func TestTransformPipeline(suite *testing.T) {
 			buf1 := &bytes.Buffer{}
 			require.NoError(t, file.Content(buf1))
 
-			buf2 := &bytes.Buffer{}
-			err = objC.Get(context.Background(), hdr.Name, buf2)
+			data, err := bucket.ReadAll(ctx, hdr.Name)
 			require.NoError(t, err)
 
-			require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
+			require.True(t, bytes.Equal(buf1.Bytes(), data))
 		}
 	})
 
 	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		objC := dockertestenv.NewTestObjClient(ctx, t)
+		_, url := dockertestenv.NewTestBucket(ctx, t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
-		pi.Details.Egress = &pps.Egress{URL: objC.BucketURL().String()}
+		pi.Details.Egress = &pps.Egress{URL: url}
 		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		testJobSuccess(t, env, pi, nil)
