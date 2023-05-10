@@ -74,12 +74,12 @@ Start using your Pachyderm deployment by visiting the Console at https://{{.Valu
 
 Connect pachctl by running:
 
-    echo '{"pachd_address":"grpcs://{{ .Values.proxy.host }}:443"}' | pachctl config set context {{ .Release.Name }} --overwrite && pachctl config set active-context {{ .Release.Name }}
+    pachctl connect grpcs://{{ .Values.proxy.host }}:443
 {{- else }}
 Start using your Pachyderm deployment by visiting the Console at http://{{.Values.proxy.host}} in your browser.
 
 Connect pachctl by running:
 
-    echo '{"pachd_address":"grpc://{{ .Values.proxy.host }}:80"}' | pachctl config set context {{ .Release.Name}} --overwrite && pachctl config set active-context {{ .Release.Name }}
+    pachctl connect grpc://{{ .Values.proxy.host }}:80
 {{- end }}
 {{- end -}}

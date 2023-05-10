@@ -133,6 +133,8 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	// DECIMAL is used by MySQL
 	case
 		"SMALLINT", "INT2", "INTEGER", "INT", "INT4", "BIGINT", "INT8",
+		"UNSIGNED SMALLINT", "UNSIGNED INT2", "UNSIGNED INTEGER", "UNSIGNED INT",
+		"UNSIGNED INT4", "UNSIGNED BIGINT", "UNSIGNED INT8",
 		"FLOAT", "FLOAT4", "FLOAT8", "REAL", "DOUBLE PRECISION",
 		"NUMERIC", "DECIMAL", "NUMBER", "FIXED":
 		if nullable {

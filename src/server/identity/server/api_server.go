@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 )
 
@@ -45,14 +44,14 @@ func NewIdentityServer(env Env, public bool, options ...IdentityServerOption) *a
 	}
 
 	if public {
-		ctx := pctx.Background("identity")
+		ctx := env.BackgroundContext
 		web := newDexWeb(env, server, options...)
 		go func() {
 			server := &http.Server{
 				Addr:    web.addr,
 				Handler: web,
 			}
-			log.AddLoggerToHTTPServer(ctx, "dexWeb.http", server)
+			log.AddLoggerToHTTPServer(ctx, "dex.serve", server)
 			if err := server.ListenAndServe(); err != nil {
 				log.Error(ctx, "error setting up and/or running the identity server; restarting container", zap.Error(err))
 				os.Exit(30)
