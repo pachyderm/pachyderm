@@ -3,67 +3,36 @@ import formatBytes from '@dash-backend/lib/formatBytes';
 import {DiffFileResponse} from '@dash-backend/proto';
 
 const formatDiff = (diff: DiffFileResponse.AsObject[]) => {
-  let counts = {
+  const counts = {
     added: {count: 0, sizeDelta: 0},
     updated: {count: 0, sizeDelta: 0},
     deleted: {count: 0, sizeDelta: 0},
   };
 
-  const diffTotals = diff.reduce<Record<string, FileCommitState>>(
-    (acc, fileDiff) => {
-      if (fileDiff.newFile?.file && !fileDiff.oldFile?.file) {
-        if (!fileDiff.newFile.file.path.endsWith('/')) {
-          counts = {
-            ...counts,
-            added: {
-              count: counts.added.count + 1,
-              sizeDelta: counts.added.sizeDelta + fileDiff.newFile?.sizeBytes,
-            },
-          };
-        }
-        return {
-          ...acc,
-          [fileDiff.newFile.file.path]: FileCommitState.ADDED,
-        };
+  const diffTotals: Record<string, FileCommitState> = {};
+
+  for (const fileDiff of diff) {
+    if (fileDiff.newFile?.file && !fileDiff.oldFile?.file) {
+      if (!fileDiff.newFile.file.path.endsWith('/')) {
+        counts.added.count += 1;
+        counts.added.sizeDelta += fileDiff.newFile.sizeBytes;
       }
-      if (!fileDiff.newFile?.file && fileDiff.oldFile?.file) {
-        if (!fileDiff.oldFile.file.path.endsWith('/')) {
-          counts = {
-            ...counts,
-            deleted: {
-              count: counts.deleted.count + 1,
-              sizeDelta:
-                counts.deleted.sizeDelta - (fileDiff.oldFile?.sizeBytes || 0),
-            },
-          };
-        }
-        return {
-          ...acc,
-          [fileDiff.oldFile.file.path]: FileCommitState.DELETED,
-        };
+      diffTotals[fileDiff.newFile.file.path] = FileCommitState.ADDED;
+    } else if (!fileDiff.newFile?.file && fileDiff.oldFile?.file) {
+      if (!fileDiff.oldFile.file.path.endsWith('/')) {
+        counts.deleted.count += 1;
+        counts.deleted.sizeDelta -= fileDiff.oldFile.sizeBytes || 0;
       }
-      if (fileDiff.newFile?.file && fileDiff.oldFile?.file) {
-        if (!fileDiff.newFile.file.path.endsWith('/')) {
-          counts = {
-            ...counts,
-            updated: {
-              count: counts.updated.count + 1,
-              sizeDelta:
-                counts.updated.sizeDelta +
-                fileDiff.newFile?.sizeBytes -
-                fileDiff.oldFile?.sizeBytes,
-            },
-          };
-        }
-        return {
-          ...acc,
-          [fileDiff.newFile.file.path]: FileCommitState.UPDATED,
-        };
+      diffTotals[fileDiff.oldFile.file.path] = FileCommitState.DELETED;
+    } else if (fileDiff.newFile?.file && fileDiff.oldFile?.file) {
+      if (!fileDiff.newFile.file.path.endsWith('/')) {
+        counts.updated.count += 1;
+        counts.updated.sizeDelta +=
+          fileDiff.newFile.sizeBytes - fileDiff.oldFile.sizeBytes;
       }
-      return acc;
-    },
-    {},
-  );
+      diffTotals[fileDiff.newFile.file.path] = FileCommitState.UPDATED;
+    }
+  }
 
   const sizeDiff =
     (diff[0]?.newFile?.sizeBytes || 0) - (diff[0]?.oldFile?.sizeBytes || 0);
