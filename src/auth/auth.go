@@ -242,16 +242,6 @@ func (e *ErrNotAuthorized) GRPCStatus() *status.Status {
 	return status.New(codes.PermissionDenied, e.Error())
 }
 
-// IsErrNotAuthorized checks if an error is a ErrNotAuthorized
-func IsErrNotAuthorized(err error) bool {
-	if err == nil {
-		return false
-	}
-	// TODO(msteffen) This is unstructured because we have no way to propagate
-	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), errNotAuthorizedMsg)
-}
-
 // ErrInvalidPrincipal indicates that a an argument to e.g. GetScope,
 // SetScope, or SetACL is invalid
 type ErrInvalidPrincipal struct {
