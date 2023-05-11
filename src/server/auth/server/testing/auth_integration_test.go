@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v6"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -93,13 +95,13 @@ func TestListDatum(t *testing.T) {
 	// bob cannot call ListDatum
 	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	require.True(t, status.Convert(err).Code() == codes.PermissionDenied, err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoA, bob, []string{auth.RepoReaderRole}))
 	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	require.True(t, status.Convert(err).Code() == codes.PermissionDenied, err.Error())
 
 	// alice removes bob from repoA and adds bob to repoB, but bob still can't
 	// call ListDatum
@@ -107,13 +109,13 @@ func TestListDatum(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoB, bob, []string{auth.RepoReaderRole}))
 	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	require.True(t, status.Convert(err).Code() == codes.PermissionDenied, err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoA, bob, []string{auth.RepoReaderRole}))
 	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	require.True(t, status.Convert(err).Code() == codes.PermissionDenied, err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoReaderRole}))
@@ -388,13 +390,13 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 //	iter := bobClient.GetProjectLogs(pfs.DefaultProjectName,pipeline, "", nil, "", false, false, 0)
 //	require.False(t, iter.Next())
 //	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
+//	require.True(t, status.Convert(iter.Err()).Code() == codes.PermissionDenied, iter.Err().Error())
 //
 //	// bob also can't call GetLogs for the master process
 //	iter = bobClient.GetProjectLogs(pfs.DefaultProjectName,pipeline, "", nil, "", true, false, 0)
 //	require.False(t, iter.Next())
 //	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
+//	require.True(t, status.Convert(iter.Err()).Code() == codes.PermissionDenied, iter.Err().Error())
 //
 //	// alice adds bob to the input repo, but bob still can't call GetLogs
 //	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -405,7 +407,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 //	iter = bobClient.GetProjectLogs(pfs.DefaultProjectName,pipeline, "", nil, "", false, false, 0)
 //	require.False(t, iter.Next())
 //	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
+//	require.True(t, status.Convert(iter.Err()).Code() == codes.PermissionDenied, iter.Err().Error())
 //
 //	// alice removes bob from the input repo and adds bob to the output repo, but
 //	// bob still can't call GetLogs
@@ -422,7 +424,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 //	iter = bobClient.GetProjectLogs(pfs.DefaultProjectName,pipeline, "", nil, "", false, false, 0)
 //	require.False(t, iter.Next())
 //	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
+//	require.True(t, status.Convert(iter.Err()).Code() == codes.PermissionDenied, iter.Err().Error())
 //
 //	// alice adds bob to the output repo, and now bob can call GetLogs
 //	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{

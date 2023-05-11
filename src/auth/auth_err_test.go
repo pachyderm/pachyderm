@@ -45,27 +45,27 @@ func TestIsErrBadToken(t *testing.T) {
 }
 
 func TestIsErrNotAuthorized(t *testing.T) {
-	require.False(t, IsErrNotAuthorized(nil))
-	require.True(t, IsErrNotAuthorized(&ErrNotAuthorized{
+	require.False(t, status.Convert(nil).Code() == codes.OK)
+	require.True(t, status.Convert(&ErrNotAuthorized{
 		Subject:  "alice",
 		Resource: Resource{Type: ResourceType_REPO, Name: "data"},
 		Required: []Permission{},
-	}))
-	require.True(t, IsErrNotAuthorized(grpcify(&ErrNotAuthorized{
+	}).Code() == codes.PermissionDenied)
+	require.True(t, status.Convert(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
 		Resource: Resource{Type: ResourceType_REPO, Name: "data"},
 		Required: []Permission{},
-	})))
-	require.True(t, IsErrNotAuthorized(&ErrNotAuthorized{
+	})).Code() == codes.PermissionDenied)
+	require.True(t, status.Convert(&ErrNotAuthorized{
 		Subject:  "alice",
 		Resource: Resource{Type: ResourceType_CLUSTER},
 		Required: []Permission{},
-	}))
-	require.True(t, IsErrNotAuthorized(grpcify(&ErrNotAuthorized{
+	}).Code() == codes.PermissionDenied)
+	require.True(t, status.Convert(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
 		Resource: Resource{Type: ResourceType_CLUSTER},
 		Required: []Permission{},
-	})))
+	})).Code() == codes.PermissionDenied)
 	s, ok := status.FromError(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
 		Resource: Resource{Type: ResourceType_CLUSTER},

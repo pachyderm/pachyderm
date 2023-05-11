@@ -21,6 +21,8 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -898,7 +900,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		}
 		if request.GetDetails() {
 			if err := a.getJobDetails(ctx, jobInfo); err != nil {
-				if auth.IsErrNotAuthorized(err) {
+				if status.Convert(err).Code() == codes.PermissionDenied {
 					return nil // skip job--see note at top of function
 				}
 				return err

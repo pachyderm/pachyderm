@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
@@ -145,7 +146,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 		// Create a new driver that uses a new cancelable pachClient
 		return runSpawner(w.driver.WithContext(ctx), logger)
 	}, b, func(err error, d time.Duration) error {
-		if auth.IsErrNotAuthorized(err) {
+		if status.Convert(err).Code() == codes.PermissionDenied {
 			logger.Logf("failing %q due to auth rejection", pipelineInfo.Pipeline.Name)
 			return ppsutil.FailPipeline(
 				w.driver.PachClient().Ctx(),

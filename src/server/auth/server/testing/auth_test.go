@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -1382,7 +1384,7 @@ func TestListJob(t *testing.T) {
 	// bob cannot call ListJob on 'pipeline'
 	_, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	require.True(t, status.Convert(err).Code() == codes.PermissionDenied, err.Error())
 	// bob can call blank ListJob, but gets no results
 	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
@@ -1393,7 +1395,7 @@ func TestListJob(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{auth.RepoReaderRole}))
 	_, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	require.True(t, status.Convert(err).Code() == codes.PermissionDenied, err.Error())
 	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobs))

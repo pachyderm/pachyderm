@@ -24,7 +24,9 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type PipelineStateDriver interface {
@@ -144,7 +146,7 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 		errCnt++
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
-		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
+		if (status.Convert(err).Code() == codes.PermissionDenied || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
 			log.Info(ctx, "could not retrieve pipelineInfo; retrying", zap.Error(err), zap.Duration("retryAfter", d), zap.Int("nErr", errCnt), zap.Int("maxErr", maxErrCount))
 			return nil
 		}

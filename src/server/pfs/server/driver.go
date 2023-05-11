@@ -611,7 +611,7 @@ func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.
 	userRepo := proto.Clone(repo).(*pfs.Repo)
 	userRepo.Type = pfs.UserRepoType
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, userRepo, auth.Permission_REPO_DELETE); err != nil {
-		if auth.IsErrNotAuthorized(err) {
+		if status.Convert(err).Code() == codes.PermissionDenied {
 			return false, nil
 		}
 		return false, errors.Wrapf(err, "check repo %q is authorized for deletion", userRepo.String())
