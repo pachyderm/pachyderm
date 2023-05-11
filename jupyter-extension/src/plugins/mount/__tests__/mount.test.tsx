@@ -82,7 +82,7 @@ describe('mount plugin', () => {
     });
   });
 
-  it.skip('should /pfs/out as a valid FileBrowser path', async () => {
+  it('should /pfs/out as a valid FileBrowser path', async () => {
     const plugin = new MountPlugin(
       app,
       settings,
