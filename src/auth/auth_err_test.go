@@ -3,14 +3,15 @@ package auth
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // grpcify returns an error e such that e.Error() is similar to what grpc
 // errors emit (though this doesn't convert 'error' to an actual GRPC error)
 func grpcify(err error) error {
-	return errors.Errorf("rpc error: code = Unknown desc = %s", err.Error())
+	return status.Convert(err).Err() //nolint:wrapcheck
 }
 
 func TestIsErrNotActivated(t *testing.T) {
@@ -65,6 +66,13 @@ func TestIsErrNotAuthorized(t *testing.T) {
 		Resource: Resource{Type: ResourceType_CLUSTER},
 		Required: []Permission{},
 	})))
+	s, ok := status.FromError(grpcify(&ErrNotAuthorized{
+		Subject:  "alice",
+		Resource: Resource{Type: ResourceType_CLUSTER},
+		Required: []Permission{},
+	}))
+	require.True(t, ok, "ErrNotAuthorized should be a gRPC status")
+	require.Equal(t, s.Code(), codes.PermissionDenied, "ErrNotAuthorized should be a gRPC PermissionDenied")
 }
 
 func TestErrNoRoleBinding(t *testing.T) {

@@ -90,55 +90,55 @@ func TestUserNotAdmin(t *testing.T) {
 	aliceClient := tu.AuthenticatedPachClient(t, c, alice, peerPort)
 	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.GetIdentityServerConfig(aliceClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.CreateIDPConnector(aliceClient.Ctx(), &identity.CreateIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.GetIDPConnector(aliceClient.Ctx(), &identity.GetIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.UpdateIDPConnector(aliceClient.Ctx(), &identity.UpdateIDPConnectorRequest{})
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 	require.YesError(t, err)
 
 	_, err = aliceClient.ListIDPConnectors(aliceClient.Ctx(), &identity.ListIDPConnectorsRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.DeleteIDPConnector(aliceClient.Ctx(), &identity.DeleteIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.CreateOIDCClient(aliceClient.Ctx(), &identity.CreateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.GetOIDCClient(aliceClient.Ctx(), &identity.GetOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.UpdateOIDCClient(aliceClient.Ctx(), &identity.UpdateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.ListOIDCClients(aliceClient.Ctx(), &identity.ListOIDCClientsRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.DeleteOIDCClient(aliceClient.Ctx(), &identity.DeleteOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.IdentityAPIClient.DeleteAll(aliceClient.Ctx(), &identity.DeleteAllRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 }
 
 // TestSetConfiguration tests that the web server configuration reloads when the etcd config value is updated
