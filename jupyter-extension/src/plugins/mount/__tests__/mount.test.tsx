@@ -82,7 +82,7 @@ describe('mount plugin', () => {
     });
   });
 
-  it('should /pfs/out as a valid FileBrowser path', async () => {
+  it('should accept /pfs/out as a valid FileBrowser path', async () => {
     const plugin = new MountPlugin(
       app,
       settings,
@@ -91,7 +91,6 @@ describe('mount plugin', () => {
       restorer,
       widgetTracker,
     );
-    await plugin.ready;
     const mounts: Mount[] = [
       {
         name: 'default_images',
