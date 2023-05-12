@@ -977,3 +977,54 @@ func TestMountWithProjects(t *testing.T) {
 		require.Equal(t, 4, len((*mountsList).Mounted))
 	})
 }
+
+func TestProjects(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b1", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	projectName := tu.UniqueString("p1")
+	require.NoError(t, env.PachClient.CreateProject(projectName))
+	require.NoError(t, env.PachClient.CreateProjectRepo(projectName, "repo_p1"))
+	commit = client.NewProjectCommit(projectName, "repo_p1", "b1", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewProjectCommit(projectName, "repo_p1", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	emptyProjectName := tu.UniqueString("p2")
+	require.NoError(t, env.PachClient.CreateProject(emptyProjectName))
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		type Project struct {
+			name string `json:"name"`
+		}
+
+		type ProjectAuth struct {
+			permissions []int    `json:"permissions"`
+			roles       []string `json:"roles"`
+		}
+
+		type ProjectResp struct {
+			project Project     `json:"project"`
+			auth    ProjectAuth `json:"auth_info"`
+		}
+
+		resp, err := get("projects")
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		defer resp.Body.Close()
+
+		projectData := []*ProjectResp{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(projectData))
+		require.Equal(t, len(projectData), 3)
+	})
+}

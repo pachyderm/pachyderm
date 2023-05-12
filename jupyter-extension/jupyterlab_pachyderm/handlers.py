@@ -56,7 +56,7 @@ class MountsHandler(BaseHandler):
             raise tornado.web.HTTPError(
                 status_code=getattr(e, "code", 500), reason=f"Error listing mounts: {e}."
             )
-  
+
 
 class ProjectsHandler(BaseHandler):
     @tornado.web.authenticated
