@@ -22,7 +22,11 @@ export const BreadCrumbs: React.FC<BreadCrumbsProps> = ({
   isExpanded,
   setIsExpanded,
 }) => {
-  const {currentJobId, currentDatumId, updateSelectedJob} = useDatumPath();
+  const {
+    urlJobId: currentJobId,
+    currentDatumId,
+    updateSelectedJob,
+  } = useDatumPath();
 
   const back = () => {
     updateSelectedJob(currentJobId);

@@ -1,5 +1,6 @@
 describe('Dag', () => {
   before(() => {
+    cy.deleteReposAndPipelines();
     cy.setupProject('error-opencv').visit('/');
   });
   beforeEach(() => {
@@ -77,6 +78,12 @@ describe('Dag', () => {
     const edgesPipelineNode = cy.get("#GROUP_edges", { timeout: 10000 });
     edgesPipelineNode.within(() => cy.findByText('Output').click());
     cy.url().should("contain", "/lineage/default/repos/edges/branch/default");
+  });
+
+  it('should update the url correctly when selecting a status icon', () => {
+    const edgesPipelineNode = cy.get("#GROUP_edges", { timeout: 10000 });
+    edgesPipelineNode.within(() => cy.findByTestId('Node__state-ERROR').click());
+    cy.url().should("contain", "/lineage/default/pipelines/edges/logs?prevPath=%2Flineage%2Fdefault");
   });
 
   it('should not update the url when selecting an egress node', () => {

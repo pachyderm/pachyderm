@@ -1,7 +1,10 @@
 import {NodeType} from '@graphqlTypes';
 import {select} from 'd3-selection';
 import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useHistory} from 'react-router';
 
+import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
@@ -19,6 +22,9 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
     pipelinePathMatch,
     repoPathMatch,
   } = useRouteController();
+  const {projectId} = useUrlState();
+  const {getPathToLatestJobLogs} = useLogsNavigation();
+  const browserHistory = useHistory();
   const {hoveredNode, setHoveredNode} = useHoveredNode();
   const [showSuccess, setShowSuccess] = useState(false);
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);
@@ -40,12 +46,31 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   }, [node]);
 
   const onClick = useCallback(
-    (destination: 'pipeline' | 'repo') => {
+    (destination: 'pipeline' | 'repo' | 'logs') => {
       if (noAccess) return;
       if (isInteractive && isEgress && supported) return copy();
+      if (destination === 'logs') {
+        return browserHistory.push(
+          getPathToLatestJobLogs({
+            projectId,
+            pipelineId: node.name,
+          }),
+        );
+      }
       if (isInteractive) navigateToNode(node, destination);
     },
-    [node, isInteractive, navigateToNode, isEgress, supported, copy, noAccess],
+    [
+      noAccess,
+      isInteractive,
+      isEgress,
+      supported,
+      copy,
+      navigateToNode,
+      node,
+      browserHistory,
+      getPathToLatestJobLogs,
+      projectId,
+    ],
   );
 
   const onMouseOver = useCallback(() => {

@@ -88,14 +88,17 @@ const Node: React.FC<NodeProps> = ({
   const pipelineClasses = classNames(styles.buttonGroup, {
     [styles.interactive]: isInteractive,
     [styles.selected]: pipelineSelected,
-    [styles.hover]: isHovered,
     [styles.access]: node.access,
   });
 
   const repoClasses = classNames(styles.buttonGroup, {
     [styles.interactive]: isInteractive,
     [styles.selected]: repoSelected,
-    [styles.hover]: isHovered,
+    [styles.access]: node.access,
+  });
+
+  const statusClasses = classNames(styles.statusRect, {
+    [styles.interactive]: isInteractive,
     [styles.access]: node.access,
   });
 
@@ -106,8 +109,6 @@ const Node: React.FC<NodeProps> = ({
         id={groupName}
         transform={`translate (${node.x}, ${node.y})`}
         onClick={() => onClick('repo')}
-        onMouseOver={onMouseOver}
-        onMouseOut={onMouseOut}
       >
         <rect
           className={classNames(styles.node, {
@@ -189,7 +190,7 @@ const Node: React.FC<NodeProps> = ({
           />
           {visiblePipelineStatus && (
             <g
-              id="pipeineStatusGroup"
+              id="pipelineStatusGroup"
               data-testid={`Node__state-${node.state}`}
               transform={`translate (${
                 nodeWidth - NODE_ICON_X_OFFSET - 8
@@ -213,11 +214,13 @@ const Node: React.FC<NodeProps> = ({
             transform={`translate (${
               nodeWidth - NODE_ICON_X_OFFSET / 2 - 4
             }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
+            onClick={() => onClick('logs')}
+            className={styles.statusGroup}
           >
             <rect
               width={44 / 0.6}
               height={19 / 0.6}
-              className={styles.statusRect}
+              className={statusClasses}
               rx={8}
               ry={8}
             />
@@ -228,8 +231,6 @@ const Node: React.FC<NodeProps> = ({
           <g
             id="pipelineButtonGroup"
             transform={`translate (0, ${nodeHeight - BUTTON_HEIGHT})`}
-            onMouseOver={onMouseOver}
-            onMouseOut={onMouseOut}
             onClick={() => onClick('pipeline')}
             className={pipelineClasses}
           >
@@ -259,8 +260,6 @@ const Node: React.FC<NodeProps> = ({
             transform={`translate (${BUTTON_WIDTH + 20}, ${
               nodeHeight - BUTTON_HEIGHT
             })`}
-            onMouseOver={onMouseOver}
-            onMouseOut={onMouseOut}
             onClick={() => onClick('repo')}
             className={repoClasses}
           >

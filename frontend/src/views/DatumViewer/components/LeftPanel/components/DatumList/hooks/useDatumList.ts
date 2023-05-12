@@ -29,7 +29,11 @@ const useDatumList = (
 ) => {
   const {projectId, pipelineId} = useUrlState();
   const {searchParams} = useUrlQueryState();
-  const {currentJobId, currentDatumId, updateSelectedDatum} = useDatumPath();
+  const {
+    urlJobId: currentJobId,
+    currentDatumId,
+    updateSelectedDatum,
+  } = useDatumPath();
 
   const [searchValue, setSearchValue] = useState('');
   const [searchedDatumId, setSearchedDatumId] = useState('');

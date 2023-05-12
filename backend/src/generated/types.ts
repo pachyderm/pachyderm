@@ -384,7 +384,7 @@ export type Job = {
 };
 
 export type JobQueryArgs = {
-  id: Scalars['ID'];
+  id?: InputMaybe<Scalars['ID']>;
   pipelineName: Scalars['String'];
   projectId: Scalars['String'];
 };

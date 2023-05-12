@@ -1,3 +1,4 @@
+import {Job} from '@graphqlTypes';
 import React from 'react';
 import {Route} from 'react-router-dom';
 
@@ -10,6 +11,8 @@ import {
   PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
   LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
   PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
+  PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 import {FullPagePanelModal} from '@pachyderm/components';
 
@@ -20,7 +23,11 @@ import JobList from './components/JobList';
 import useLeftPanel from './hooks/useLeftPanel';
 import styles from './LeftPanel.module.css';
 
-const LeftPanel: React.FC = () => {
+type LeftPanelProps = {
+  job?: Job;
+};
+
+const LeftPanel: React.FC<LeftPanelProps> = ({job}) => {
   const {isExpanded, setIsExpanded, jobs, loading, formCtx} = useLeftPanel();
   return (
     <FullPagePanelModal.LeftPanel
@@ -37,10 +44,13 @@ const LeftPanel: React.FC = () => {
               PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
               LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
               PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
+              LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
+              PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
             ]}
             exact
           >
             <JobList
+              currentJob={job}
               jobs={jobs}
               loading={loading}
               isExpanded={isExpanded}

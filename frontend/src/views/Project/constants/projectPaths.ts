@@ -12,6 +12,7 @@ export const PROJECT_FILE_BROWSER_PATH =
 export const PROJECT_FILE_BROWSER_PATH_LATEST =
   '/project/:projectId/repos/:repoId/branch/:branchId/latest';
 
+export const PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST = `/project/:projectId/logs/pipelines/:pipelineId/logs`;
 export const PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH = `/project/:projectId/pipelines/:pipelineId/jobs/:jobId/logs`;
 export const PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH = `/project/:projectId/pipelines/:pipelineId/jobs/:jobId/logs/datum/:datumId?`;
 export const PROJECT_JOB_LOGS_VIEWER_JOB_PATH = `/project/:projectId/jobs/:jobId/pipeline/:pipelineId/logs`;
@@ -30,6 +31,8 @@ export const LINEAGE_FILE_BROWSER_PATH =
   '/lineage/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath?/';
 export const LINEAGE_FILE_BROWSER_PATH_LATEST =
   '/lineage/:projectId/repos/:repoId/branch/:branchId/latest';
+
+export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST = `/lineage/:projectId/pipelines/:pipelineId/logs`;
 export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/pipelines/:pipelineId/jobs/:jobId/logs`;
 export const LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH = `/lineage/:projectId/pipelines/:pipelineId/jobs/:jobId/logs/datum/:datumId?`;
 export const LINEAGE_JOB_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/jobs/:jobId/pipeline/:pipelineId/logs`;
@@ -43,6 +46,7 @@ export const PROJECT_PATHS = [
   LINEAGE_FILE_BROWSER_PATH,
   LINEAGE_FILE_BROWSER_PATH_LATEST,
   PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
   PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH,
   PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
   PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
@@ -55,6 +59,7 @@ export const PROJECT_PATHS = [
   PROJECT_FILE_BROWSER_PATH,
   PROJECT_FILE_BROWSER_PATH_LATEST,
   LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
   LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
   LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
   LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,

@@ -1,3 +1,4 @@
+import {JOB_QUERY} from '@dash-frontend/queries/GetJobQuery';
 import {JOBS_BY_PIPELINE_QUERY} from '@dash-frontend/queries/GetJobsByPipelineQuery';
 import {JOB_SET_QUERY} from '@dash-frontend/queries/GetJobsetQuery';
 import {JOB_SETS_QUERY} from '@dash-frontend/queries/GetJobSetsQuery';
@@ -6,6 +7,7 @@ import {JOBS_QUERY} from '@dash-frontend/queries/GetJobsQuery';
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import {executeQuery} from '@dash-backend/testHelpers';
 import {
+  JobQuery,
   JobSetQuery,
   JobSetsQuery,
   JobsQuery,
@@ -14,6 +16,56 @@ import {
 } from '@graphqlTypes';
 
 describe('Jobs', () => {
+  describe('Job', () => {
+    it('should return a job based on given job id', async () => {
+      const {data, errors = []} = await executeQuery<JobQuery>(JOB_QUERY, {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+          pipelineName: 'montage',
+          id: '33b9af7d5d4343219bc8e02ff44cd55a',
+        },
+      });
+
+      expect(errors).toHaveLength(0);
+      expect(data?.job).toEqual(
+        expect.objectContaining({
+          __typename: 'Job',
+          id: '33b9af7d5d4343219bc8e02ff44cd55a',
+          state: 'JOB_FAILURE',
+          nodeState: 'ERROR',
+          createdAt: 1614126190,
+          startedAt: 1614126191,
+          finishedAt: 1614126194,
+          pipelineName: 'montage',
+        }),
+      );
+    });
+
+    it('should return the latest job when no id is given', async () => {
+      const {data, errors = []} = await executeQuery<JobQuery>(JOB_QUERY, {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+          pipelineName: 'montage',
+          id: '',
+        },
+      });
+
+      expect(errors).toHaveLength(0);
+      expect(data?.job).toEqual(
+        expect.objectContaining({
+          __typename: 'Job',
+          id: '23b9af7d5d4343219bc8e02ff44cd55a',
+          state: 'JOB_SUCCESS',
+          nodeState: 'SUCCESS',
+          createdAt: 1616533099,
+          startedAt: 1616533100,
+          finishedAt: 1616533103,
+          pipelineName: 'montage',
+        }),
+      );
+    });
+  });
+
   describe('Pipeline Jobs', () => {
     it('should find jobs for a given project', async () => {
       const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {

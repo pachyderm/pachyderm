@@ -1,4 +1,10 @@
-import {render, waitFor, within, screen} from '@testing-library/react';
+import {
+  render,
+  waitFor,
+  within,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
@@ -699,7 +705,16 @@ describe('Datum Viewer', () => {
           'Datum Logs for0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
 
-        await click(await screen.findByText('Job...'));
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        const link = screen.getByRole('link', {
+          name: 'Job...',
+        });
+        expect(link).toHaveAttribute(
+          'href',
+          '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+        );
+        await click(link);
 
         expect(
           await screen.findByTestId('DatumHeaderBreadCrumbs__path'),

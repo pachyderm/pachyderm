@@ -29,6 +29,16 @@ const pipelineJobResolver: PipelineJobResolver = {
       {args: {id, pipelineName, projectId}},
       {pachClient},
     ) => {
+      if (!id) {
+        const latestJob = (
+          await pachClient.pps().listJobs({
+            pipelineId: pipelineName,
+            projectId,
+            number: 1,
+          })
+        )[0];
+        return jobInfoToGQLJob(latestJob);
+      }
       return jobInfoToGQLJob(
         await pachClient.pps().inspectJob({id, pipelineName, projectId}),
       );

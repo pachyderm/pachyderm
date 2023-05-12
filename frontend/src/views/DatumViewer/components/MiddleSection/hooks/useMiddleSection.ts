@@ -29,6 +29,7 @@ const useMiddleSection = () => {
 
   return {
     jobId,
+    job,
     datumId,
     headerText,
     startTime,

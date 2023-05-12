@@ -13,8 +13,14 @@ import {
 
 import styles from './DatumHeaderBreadCrumbs.module.css';
 
-const DatumHeaderBreadCrumbs: React.FC = () => {
-  const {projectId, pipelineId, jobId, datumId} = useUrlState();
+type DatumHeaderBreadcrumbsProps = {
+  jobId?: string;
+};
+
+const DatumHeaderBreadCrumbs: React.FC<DatumHeaderBreadcrumbsProps> = ({
+  jobId,
+}) => {
+  const {projectId, pipelineId, datumId} = useUrlState();
 
   const jobPath = jobId
     ? logsViewerJobRoute({

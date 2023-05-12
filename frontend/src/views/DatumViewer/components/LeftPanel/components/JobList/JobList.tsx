@@ -1,4 +1,4 @@
-import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
+import {JobOverviewFragment, JobSetFieldsFragment, Job} from '@graphqlTypes';
 import classNames from 'classnames';
 import React, {useCallback} from 'react';
 
@@ -20,6 +20,7 @@ export type jobListProps = {
   loading: boolean;
   isExpanded: boolean;
   setIsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+  currentJob?: Job;
 };
 
 const JobList: React.FC<jobListProps> = ({
@@ -27,19 +28,20 @@ const JobList: React.FC<jobListProps> = ({
   loading,
   isExpanded,
   setIsExpanded,
+  currentJob,
 }) => {
-  const {currentJobId, currentDatumId, updateSelectedJob} = useDatumPath();
+  const {urlJobId, currentDatumId, updateSelectedJob} = useDatumPath();
 
   const deriveState = useCallback(
     (jobId: string) => {
-      if (currentJobId === jobId && !currentDatumId) {
+      if ([urlJobId, currentJob?.id].includes(jobId) && !currentDatumId) {
         return 'selected';
-      } else if (currentJobId === jobId && currentDatumId) {
+      } else if ([urlJobId, currentJob?.id].includes(jobId) && currentDatumId) {
         return 'highlighted';
       }
       return 'default';
     },
-    [currentDatumId, currentJobId],
+    [currentDatumId, currentJob?.id, urlJobId],
   );
 
   const onClick = useCallback(

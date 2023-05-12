@@ -5,6 +5,7 @@ import {useLocation} from 'react-router';
 import {
   logsViewerJobRoute,
   logsViewerDatumRoute,
+  logsViewerLatestRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 
 import useUrlQueryState from './useUrlQueryState';
@@ -35,6 +36,15 @@ const useLogsNavigation = () => {
     [pathname, getUpdatedSearchParams],
   );
 
+  const getPathToLatestJobLogs = useCallback(
+    (args: Parameters<typeof logsViewerLatestRoute>[0]) => {
+      return `${logsViewerLatestRoute(args, false)}?${getUpdatedSearchParams({
+        prevPath: pathname,
+      })}`;
+    },
+    [pathname, getUpdatedSearchParams],
+  );
+
   const getPathFromLogs = useCallback(
     (path: string) => {
       return `${searchParams.prevPath || path}?${getUpdatedSearchParams({
@@ -47,6 +57,7 @@ const useLogsNavigation = () => {
   return {
     getPathToJobLogs,
     getPathToDatumLogs,
+    getPathToLatestJobLogs,
     getPathFromLogs,
   };
 };

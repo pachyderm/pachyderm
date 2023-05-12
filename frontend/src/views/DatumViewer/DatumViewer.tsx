@@ -16,13 +16,13 @@ type DatumViewerProps = {
   onCloseRoute: string;
 };
 const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
-  const {isOpen, onClose, datumId} = useDatumViewer(onCloseRoute);
+  const {isOpen, onClose, datumId, job} = useDatumViewer(onCloseRoute);
 
   return (
     <>
       {isOpen && (
         <FullPagePanelModal show={isOpen} onHide={onClose} hideType="exit">
-          <LeftPanel />
+          <LeftPanel job={job} />
           <MiddleSection />
           <FullPagePanelModal.RightPanel>
             {datumId ? (

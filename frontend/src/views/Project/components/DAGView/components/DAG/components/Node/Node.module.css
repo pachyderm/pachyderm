@@ -10,6 +10,10 @@
   opacity: 0;
 }
 
+.statusGroup > svg {
+  pointer-events: none;
+}
+
 .statusRect {
   fill: var(--white);
   paint-order: stroke;
@@ -26,13 +30,19 @@
   user-select: none;
 }
 
-.buttonGroup.interactive.access:hover rect,
-.buttonGroup.selected rect {
+.buttonGroup.selected rect,
+.buttonGroup.interactive.access:hover rect {
   stroke: var(--cyan);
   stroke-width: 2px;
 }
 
-.buttonGroup.interactive.access:hover {
+.statusRect.interactive.access:hover {
+  stroke: var(--cyan);
+  stroke-width: 6px;
+}
+
+.buttonGroup.interactive.access:hover,
+.statusRect.interactive.access:hover {
   cursor: pointer;
 }
 

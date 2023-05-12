@@ -12,6 +12,7 @@ import styles from './MiddleSection.module.css';
 const MiddleSection = () => {
   const {
     headerText,
+    job,
     jobId,
     datumId,
     startTime,
@@ -33,11 +34,11 @@ const MiddleSection = () => {
   return (
     <FullPagePanelModal.Body>
       <div className={styles.base}>
-        <DatumHeaderBreadcrumbs />
+        <DatumHeaderBreadcrumbs jobId={jobId || job?.id} />
         <div className={styles.header} data-testid="MiddleSection__title">
           <h6>{headerText}</h6>
           <CaptionText color="black" className={styles.headerId}>
-            {datumId ? datumId : jobId}
+            {datumId ? datumId : jobId || job?.id}
           </CaptionText>
         </div>
 

@@ -35,7 +35,7 @@ const useDatumPath = () => {
   };
 
   return {
-    currentJobId: jobId,
+    urlJobId: jobId,
     updateSelectedJob,
     currentDatumId: datumId,
     updateSelectedDatum,

@@ -26,6 +26,8 @@ import {
   LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
   PROJECT_FILE_BROWSER_PATH_LATEST,
   LINEAGE_FILE_BROWSER_PATH_LATEST,
+  PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
+  LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
 } from '../constants/projectPaths';
 
 const generateRouteFn = <S extends string>(path: S) => {
@@ -119,6 +121,11 @@ export const logsViewerDatumRoute = generateLineageOrProjectLogsRouteFn(
   PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
   LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
   LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
+);
+
+export const logsViewerLatestRoute = generateLineageOrProjectRouteFn(
+  PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
+  LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
 );
 
 export const fileUploadRoute = generateLineageOrProjectRouteFn(

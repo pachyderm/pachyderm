@@ -474,7 +474,7 @@ input JobSetsQueryArgs {
 }
 
 input JobQueryArgs {
-  id: ID!
+  id: ID
   projectId: String!
   pipelineName: String!
 }

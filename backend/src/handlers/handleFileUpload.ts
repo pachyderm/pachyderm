@@ -1,5 +1,4 @@
 import {ServiceError} from '@grpc/grpc-js';
-import {Status} from '@grpc/grpc-js/build/src/constants';
 import {ApolloError} from 'apollo-server-errors';
 import busboy from 'busboy';
 import cors from 'cors';
