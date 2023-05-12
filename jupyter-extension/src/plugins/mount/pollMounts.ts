@@ -1,7 +1,14 @@
 import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import {requestAPI} from '../../handler';
-import {AuthConfig, Mount, ListMountsResponse, mountState, Repo, ProjectInfo} from './types';
+import {
+  AuthConfig,
+  Mount,
+  ListMountsResponse,
+  mountState,
+  Repo,
+  ProjectInfo,
+} from './types';
 import {ServerConnection} from '@jupyterlab/services';
 
 export const MOUNTED_STATES: mountState[] = [
@@ -83,7 +90,7 @@ export class PollMounts {
   }
 
   set projects(data: ProjectInfo[]) {
-    if (data == this._projects) {
+    if (data === this._projects) {
       return;
     }
     this._projects = data;

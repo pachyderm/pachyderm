@@ -1,5 +1,11 @@
 import React, {useCallback, useState} from 'react';
-import {Repo, Mount, ListMountsResponse, Project, ProjectInfo} from '../../types';
+import {
+  Repo,
+  Mount,
+  ListMountsResponse,
+  Project,
+  ProjectInfo,
+} from '../../types';
 import {caretUpIcon, caretDownIcon} from '@jupyterlab/ui-components';
 import {useSort, stringComparator} from '../../../../utils/hooks/useSort';
 import ListMount from './ListMount';
@@ -31,7 +37,7 @@ const SortableList: React.FC<SortableListProps> = ({
 }) => {
   const allProjectsLabel = 'All projects';
   const projectsList: string[] = projects.map(
-    (project: ProjectInfo): string => project.project.name
+    (project: ProjectInfo): string => project.project.name,
   );
   const [selectedProject, setSelectedProject] =
     useState<string>(allProjectsLabel);
@@ -50,7 +56,7 @@ const SortableList: React.FC<SortableListProps> = ({
     setComparator(nameComparator);
   }, [setComparator]);
 
-  console.log("creating sortable list with projects: ");
+  console.log('creating sortable list with projects: ');
   console.log(projectsList);
 
   return (
