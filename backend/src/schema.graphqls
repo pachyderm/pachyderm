@@ -683,6 +683,32 @@ type PageableFoundCommits {
   hasNextPage: Boolean
 }
 
+## RBAC
+
+enum ResourceType {
+  RESOURCE_TYPE_UNKNOWN
+  CLUSTER
+  REPO
+  SPEC_REPO
+  PROJECT
+}
+
+input Resource {
+  name: String! # project/name
+  type: ResourceType!
+}
+
+input GetPermissionsArgs {
+  resource: Resource!
+}
+
+type GetPermissionsResp {
+  permissionsList: [Int]!
+  rolesList: [String]!
+}
+
+## ----
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -714,6 +740,9 @@ type Query {
   datums(args: DatumsQueryArgs!): PageableDatum!
   enterpriseInfo: EnterpriseInfo!
   adminInfo: AdminInfo!
+
+  # RBAC
+  getPermissions(args: GetPermissionsArgs!): GetPermissionsResp
 }
 
 type Subscription {

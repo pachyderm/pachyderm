@@ -7,6 +7,7 @@ import {
   OriginKind,
   DatumState,
   State,
+  ResourceType,
 } from '@dash-backend/proto';
 import {
   FileType as GQLFileType,
@@ -16,6 +17,7 @@ import {
   DatumState as GQLDatumState,
   DatumFilter as GQLDatumFilter,
   EnterpriseState as GQLEnterpriseState,
+  ResourceType as GQLResourceType,
 } from '@graphqlTypes';
 
 /*
@@ -169,5 +171,22 @@ export const toGQLEnterpriseState = (state: State) => {
       return GQLEnterpriseState.NONE;
     default:
       throw new ApolloError(`Unknown enterprise state ${state}`);
+  }
+};
+
+export const toProtoResourceType = (resourceType: GQLResourceType) => {
+  switch (resourceType) {
+    case 'RESOURCE_TYPE_UNKNOWN':
+      return ResourceType.RESOURCE_TYPE_UNKNOWN;
+    case 'CLUSTER':
+      return ResourceType.CLUSTER;
+    case 'REPO':
+      return ResourceType.REPO;
+    case 'SPEC_REPO':
+      return ResourceType.SPEC_REPO;
+    case 'PROJECT':
+      return ResourceType.PROJECT;
+    default:
+      throw new ApolloError(`Unknown resource type ${resourceType}`);
   }
 };

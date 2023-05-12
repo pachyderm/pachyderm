@@ -6,7 +6,10 @@ import {
   DatumState,
   State,
 } from '@dash-backend/proto';
-import {OriginKind as GQLOriginKind} from '@graphqlTypes';
+import {
+  OriginKind as GQLOriginKind,
+  ResourceType as GQLResourceType,
+} from '@graphqlTypes';
 
 import {
   toGQLFileType,
@@ -16,6 +19,7 @@ import {
   toProtoCommitOrigin,
   toGQLDatumState,
   toGQLEnterpriseState,
+  toProtoResourceType,
 } from '../gqlEnumMappers';
 
 describe('gqlEnumMappers', () => {
@@ -78,6 +82,15 @@ describe('gqlEnumMappers', () => {
       Object.values(State).forEach((val) => {
         if (typeof val === 'string') return;
         expect(() => toGQLEnterpriseState(val)).not.toThrow();
+      });
+    });
+  });
+
+  describe('toProtoResourceType', () => {
+    it('should not return an error for any resource type', () => {
+      Object.values(GQLResourceType).forEach((val) => {
+        if (typeof val === 'string') return;
+        expect(() => toProtoResourceType(val)).not.toThrow();
       });
     });
   });

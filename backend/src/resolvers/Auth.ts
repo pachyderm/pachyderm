@@ -4,13 +4,11 @@ import {getOIDCClient, getTokenIssuer} from '@dash-backend/lib/auth';
 import {UnauthenticatedContext} from '@dash-backend/lib/types';
 import {AuthConfig, MutationResolvers, QueryResolvers} from '@graphqlTypes';
 interface AuthResolver {
-  Query: {
-    account: QueryResolvers['account'];
-    authConfig: QueryResolvers<UnauthenticatedContext>['authConfig'];
-  };
-  Mutation: {
-    exchangeCode: MutationResolvers<UnauthenticatedContext>['exchangeCode'];
-  };
+  Query: Required<
+    Pick<QueryResolvers, 'account' | 'getPermissions'> &
+      Pick<QueryResolvers<UnauthenticatedContext>, 'authConfig'>
+  >;
+  Mutation: Pick<MutationResolvers<UnauthenticatedContext>, 'exchangeCode'>;
 }
 
 const authResolver: AuthResolver = {
@@ -61,6 +59,9 @@ const authResolver: AuthResolver = {
           {sourceError: e},
         );
       }
+    },
+    getPermissions: async (_field, {args: {resource}}, {pachClient}) => {
+      return await pachClient.auth().getPermissions({resource});
     },
   },
   Mutation: {

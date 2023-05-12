@@ -2220,6 +2220,64 @@ export type GetLogsStreamSubscriptionHookResult = ReturnType<
 >;
 export type GetLogsStreamSubscriptionResult =
   Apollo.SubscriptionResult<Types.GetLogsStreamSubscription>;
+export const GetPermissionsDocument = gql`
+  query getPermissions($args: GetPermissionsArgs!) {
+    getPermissions(args: $args) {
+      rolesList
+    }
+  }
+`;
+
+/**
+ * __useGetPermissionsQuery__
+ *
+ * To run a query within a React component, call `useGetPermissionsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetPermissionsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetPermissionsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useGetPermissionsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.GetPermissionsQuery,
+    Types.GetPermissionsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetPermissionsQuery,
+    Types.GetPermissionsQueryVariables
+  >(GetPermissionsDocument, options);
+}
+export function useGetPermissionsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetPermissionsQuery,
+    Types.GetPermissionsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetPermissionsQuery,
+    Types.GetPermissionsQueryVariables
+  >(GetPermissionsDocument, options);
+}
+export type GetPermissionsQueryHookResult = ReturnType<
+  typeof useGetPermissionsQuery
+>;
+export type GetPermissionsLazyQueryHookResult = ReturnType<
+  typeof useGetPermissionsLazyQuery
+>;
+export type GetPermissionsQueryResult = Apollo.QueryResult<
+  Types.GetPermissionsQuery,
+  Types.GetPermissionsQueryVariables
+>;
 export const PipelineDocument = gql`
   query pipeline($args: PipelineQueryArgs!) {
     pipeline(args: $args) {

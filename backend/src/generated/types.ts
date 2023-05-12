@@ -326,6 +326,16 @@ export type FoundCommit = {
   started: Scalars['Int'];
 };
 
+export type GetPermissionsArgs = {
+  resource: Resource;
+};
+
+export type GetPermissionsResp = {
+  __typename?: 'GetPermissionsResp';
+  permissionsList: Array<Maybe<Scalars['Int']>>;
+  rolesList: Array<Maybe<Scalars['String']>>;
+};
+
 export type GitInput = {
   __typename?: 'GitInput';
   name: Scalars['String'];
@@ -737,6 +747,7 @@ export type Query = {
   enterpriseInfo: EnterpriseInfo;
   files: PageableFile;
   findCommits: PageableFoundCommits;
+  getPermissions?: Maybe<GetPermissionsResp>;
   job: Job;
   jobSet: JobSet;
   jobSets: PageableJobSet;
@@ -797,6 +808,10 @@ export type QueryFilesArgs = {
 
 export type QueryFindCommitsArgs = {
   args: FindCommitsQueryArgs;
+};
+
+export type QueryGetPermissionsArgs = {
+  args: GetPermissionsArgs;
 };
 
 export type QueryJobArgs = {
@@ -890,6 +905,19 @@ export type ReposQueryArgs = {
   jobSetId?: InputMaybe<Scalars['ID']>;
   projectId: Scalars['String'];
 };
+
+export type Resource = {
+  name: Scalars['String'];
+  type: ResourceType;
+};
+
+export enum ResourceType {
+  CLUSTER = 'CLUSTER',
+  PROJECT = 'PROJECT',
+  REPO = 'REPO',
+  RESOURCE_TYPE_UNKNOWN = 'RESOURCE_TYPE_UNKNOWN',
+  SPEC_REPO = 'SPEC_REPO',
+}
 
 export type SchedulingSpec = {
   __typename?: 'SchedulingSpec';
@@ -1141,6 +1169,8 @@ export type ResolversTypes = ResolversObject<{
   FinishCommitArgs: FinishCommitArgs;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   FoundCommit: ResolverTypeWrapper<FoundCommit>;
+  GetPermissionsArgs: GetPermissionsArgs;
+  GetPermissionsResp: ResolverTypeWrapper<GetPermissionsResp>;
   GitInput: ResolverTypeWrapper<GitInput>;
   ID: ResolverTypeWrapper<Scalars['ID']>;
   Input: ResolverTypeWrapper<Input>;
@@ -1190,6 +1220,8 @@ export type ResolversTypes = ResolversObject<{
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   ReposQueryArgs: ReposQueryArgs;
+  Resource: Resource;
+  ResourceType: ResourceType;
   SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: ResolverTypeWrapper<SearchResults>;
@@ -1246,6 +1278,8 @@ export type ResolversParentTypes = ResolversObject<{
   FinishCommitArgs: FinishCommitArgs;
   Float: Scalars['Float'];
   FoundCommit: FoundCommit;
+  GetPermissionsArgs: GetPermissionsArgs;
+  GetPermissionsResp: GetPermissionsResp;
   GitInput: GitInput;
   ID: Scalars['ID'];
   Input: Input;
@@ -1287,6 +1321,7 @@ export type ResolversParentTypes = ResolversObject<{
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   ReposQueryArgs: ReposQueryArgs;
+  Resource: Resource;
   SchedulingSpec: SchedulingSpec;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: SearchResults;
@@ -1509,6 +1544,23 @@ export type FoundCommitResolvers<
   >;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type GetPermissionsRespResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['GetPermissionsResp'] = ResolversParentTypes['GetPermissionsResp'],
+> = ResolversObject<{
+  permissionsList?: Resolver<
+    Array<Maybe<ResolversTypes['Int']>>,
+    ParentType,
+    ContextType
+  >;
+  rolesList?: Resolver<
+    Array<Maybe<ResolversTypes['String']>>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2056,6 +2108,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryFindCommitsArgs, 'args'>
   >;
+  getPermissions?: Resolver<
+    Maybe<ResolversTypes['GetPermissionsResp']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryGetPermissionsArgs, 'args'>
+  >;
   job?: Resolver<
     ResolversTypes['Job'],
     ParentType,
@@ -2303,6 +2361,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   File?: FileResolvers<ContextType>;
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
   FoundCommit?: FoundCommitResolvers<ContextType>;
+  GetPermissionsResp?: GetPermissionsRespResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
@@ -3272,6 +3331,18 @@ export type GetLogsStreamSubscription = {
       nanos: number;
     } | null;
   };
+};
+
+export type GetPermissionsQueryVariables = Exact<{
+  args: GetPermissionsArgs;
+}>;
+
+export type GetPermissionsQuery = {
+  __typename?: 'Query';
+  getPermissions?: {
+    __typename?: 'GetPermissionsResp';
+    rolesList: Array<string | null>;
+  } | null;
 };
 
 export type PipelineQueryVariables = Exact<{

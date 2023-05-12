@@ -146,9 +146,6 @@ const client = ({
       );
       return authService;
     },
-    attachCredentials: (header: string, value: string) => {
-      credentialMetadata.set(header, value);
-    },
     admin: () => {
       if (adminService) return adminService;
 
@@ -161,6 +158,12 @@ const client = ({
         plugins,
       );
       return adminService;
+    },
+    attachCredentials: (header: string, value: string) => {
+      credentialMetadata.set(header, value);
+    },
+    setAuthnToken: (token: string) => {
+      credentialMetadata.set('authn-token', token);
     },
   };
 

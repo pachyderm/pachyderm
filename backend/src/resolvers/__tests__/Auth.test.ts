@@ -10,7 +10,15 @@ import {
   executeMutation,
   executeQuery,
 } from '@dash-backend/testHelpers';
-import {Account, AuthConfig, Tokens} from '@graphqlTypes';
+import {
+  Account,
+  AuthConfig,
+  GetPermissionsArgs,
+  ResourceType,
+  Tokens,
+} from '@graphqlTypes';
+
+import authResolver from '../Auth';
 
 describe('Auth resolver', () => {
   describe('exchangeCode', () => {
@@ -94,6 +102,65 @@ describe('Auth resolver', () => {
 
       expect(data).toBeNull();
       expect(errors[0].extensions.code).toBe('UNAUTHENTICATED');
+    });
+  });
+  describe('getPermissions - unit test', () => {
+    it('should return rolesList', async () => {
+      // TODO; Ideally we have a proper integration test here but permissions
+      // and rbac are not implemented in the mock server. It would be preferred
+      // if we could mock the pachClient functions. This doesn't work right now
+      // though since the mock server uses the mock pachclient.
+      //
+      // // import {pachydermClient} from '@dash-backend/proto';
+      // jest.mock('@dash-backend/proto', () => {
+      //   return {
+      //     __esModule: true,
+      //     pachydermClient: jest.fn(() => {
+      //       return {
+      //         auth: () => {
+      //           // eslint-disable-next-line no-unused-labels
+      //           getPermisisons: () => {
+      //             return Promise.resolve({rolesList: ['clusterAdmin']});
+      //           };
+      //         },
+      //       };
+      //     }),
+      //   };
+      // });
+      //
+      // const response = await testServer.executeOperation({
+      //   query: GET_PERMISSIONS_QUERY,
+      //   variables: {args: {resource: {type: 'REPO', name: 'default/wow'}}},
+      // });
+
+      const getPermissions = jest
+        .fn()
+        .mockResolvedValue({rolesList: ['clusterAdmin']});
+
+      const pachClient = {
+        auth: jest.fn().mockReturnValue({getPermissions}),
+      };
+
+      const args: GetPermissionsArgs = {
+        resource: {name: 'tutorial/images', type: ResourceType.REPO},
+      };
+
+      // @ts-expect-error ts2349 -- ?. should fix it though but ts still isn't happy.
+      const resp = await authResolver.Query.getPermissions?.(
+        null,
+        {args},
+        {
+          pachClient,
+        },
+      );
+
+      expect(getPermissions).toHaveBeenCalledWith({
+        resource: {
+          name: 'tutorial/images',
+          type: 'REPO',
+        },
+      });
+      expect(resp).toStrictEqual({rolesList: ['clusterAdmin']});
     });
   });
 });
