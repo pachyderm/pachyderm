@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -199,7 +198,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 				if err != nil {
 					return errors.Wrapf(err, "path %v: start GetFileTAR", path)
 				}
-				defer multierr.AppendInvoke(&retErr, multierr.Close(tr))
+				defer errors.Close(&retErr, tr, "close tar reader")
 
 				// Decode the TAR from pachd.
 				r := tar.NewReader(tr)
@@ -242,7 +241,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 				}
 			}(file)
 			if err != nil {
-				multierr.AppendInto(&downloadErrs, err)
+				errors.JoinInto(&downloadErrs, err)
 			}
 		}
 	}
@@ -284,7 +283,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 		}
 
 		// We will eventually return finalErr to the caller.
-		multierr.AppendInto(&finalErr, errors.Wrap(resolveErr, "resolve files (reported via @error.txt)"))
+		errors.JoinInto(&finalErr, errors.Wrap(resolveErr, "resolve files (reported via @error.txt)"))
 	}
 	if downloadErrs != nil {
 		if _, werr := fmt.Fprintf(w, "%v\n", downloadErrs); werr != nil {
@@ -293,7 +292,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 			bw.Flush()
 			return errors.Errorf("write @error.txt: %v; cause by %v", werr, downloadErrs)
 		}
-		multierr.AppendInto(&finalErr, errors.Wrap(downloadErrs, "download files (reported via @error.txt)"))
+		errors.JoinInto(&finalErr, errors.Wrap(downloadErrs, "download files (reported via @error.txt)"))
 	}
 
 	// Finish the ZIP file.
