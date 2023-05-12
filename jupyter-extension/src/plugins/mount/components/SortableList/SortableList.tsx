@@ -56,9 +56,6 @@ const SortableList: React.FC<SortableListProps> = ({
     setComparator(nameComparator);
   }, [setComparator]);
 
-  console.log('creating sortable list with projects: ');
-  console.log(projectsList);
-
   return (
     <div className="pachyderm-mount-sortableList">
       {type === 'unmounted' && (

@@ -2,7 +2,7 @@ import React from 'react';
 import {render, fireEvent, waitFor} from '@testing-library/react';
 
 import SortableList from '../SortableList';
-import {Repo, Mount} from 'plugins/mount/types';
+import {Repo, Mount, ProjectInfo} from 'plugins/mount/types';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 jest.mock('../../../../../handler');
@@ -550,6 +550,27 @@ describe('sortable list components', () => {
       },
     ];
 
+    const projects: ProjectInfo[] = [
+      {
+        project: {
+          name: 'p1'
+        },
+        auth: {
+          permissions: [0, 1, 2],
+          roles: ['foo', 'bar']
+        }
+      },
+      {
+        project: {
+          name: 'default'
+        },
+        auth: {
+          permissions: [3, 4, 5],
+          roles: ['foo', 'bar', 'baz']
+        }
+      }
+    ]
+
     const {getAllByTestId, getByTestId} = render(
       <SortableList
         open={open}
@@ -557,7 +578,7 @@ describe('sortable list components', () => {
         updateData={updateData}
         mountedItems={[]}
         type={'unmounted'}
-        projects={[]}
+        projects={projects}
       />,
     );
 
