@@ -2,6 +2,8 @@ package client
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
@@ -14,7 +16,7 @@ func (c APIClient) IsAuthActive() (bool, error) {
 	switch {
 	case err == nil:
 		return true, nil
-	case auth.IsErrNotAuthorized(err):
+	case status.Convert(err).Code() == codes.PermissionDenied:
 		return true, nil
 	case auth.IsErrNotSignedIn(err):
 		return true, nil
