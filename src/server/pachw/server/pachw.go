@@ -5,7 +5,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,11 +44,7 @@ func (p *pachW) run(ctx context.Context) {
 		if err != nil {
 			return errors.Wrap(err, "locking pachw-controller lock")
 		}
-		defer func() {
-			if err := lock.Unlock(ctx); err != nil {
-				retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
-			}
-		}()
+		defer errors.Invoke1(&retErr, lock.Unlock, ctx, "error unlocking")
 		var replicas int
 		var scaleDownCount int
 		ticker := time.NewTicker(period)
