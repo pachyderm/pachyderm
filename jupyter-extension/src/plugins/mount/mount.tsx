@@ -419,15 +419,22 @@ export class MountPlugin implements IMountPlugin {
       return;
     }
 
-    const currentMountDir = this._mountBrowser.model.path
-      .split(MOUNT_BROWSER_NAME)[1]
-      .split('/')[0];
+    if (!this.isValidBrowserPath(this._mountBrowser.model.path, mounted)) {
+      this.open('');
+    }
+  };
+
+  isValidBrowserPath = (path: string, mounted: Mount[]): boolean => {
+    const currentMountDir = path.split(MOUNT_BROWSER_NAME)[1].split('/')[0];
+    if (currentMountDir === 'out') {
+      return true;
+    }
     for (let i = 0; i < mounted.length; i++) {
       if (currentMountDir === mounted[i].name) {
-        return;
+        return true;
       }
     }
-    this.open('');
+    return false;
   };
 
   setShowDatum = async (shouldShow: boolean): Promise<void> => {
