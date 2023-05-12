@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pachyderm/pachyderm/v2/src/client/limit"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"

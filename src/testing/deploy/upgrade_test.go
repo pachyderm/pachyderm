@@ -12,8 +12,8 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -75,13 +75,13 @@ func TestUpgradeTrigger(t *testing.T) {
 		"2.5.0",
 	}
 	dataRepo := "TestTrigger_data"
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
-			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
 			pipeline2 := "TestTrigger2"
-			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				pipeline1,
 				"",
 				[]string{"bash"},
@@ -91,14 +91,14 @@ func TestUpgradeTrigger(t *testing.T) {
 				&pps.ParallelismSpec{
 					Constant: 1,
 				},
-				client.NewProjectPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+				client.NewPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 					Branch:  "master",
 					Commits: 1,
 				}),
 				"",
 				false,
 			))
-			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				pipeline2,
 				"",
 				[]string{"bash"},
@@ -108,7 +108,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				&pps.ParallelismSpec{
 					Constant: 1,
 				},
-				client.NewProjectPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+				client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 					Commits: 2,
 				}),
 				"",
@@ -117,7 +117,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
-			ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			ci, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
 			_, err = c.WaitCommitSetAll(ci.Commit.ID)
 			require.NoError(t, err)
@@ -126,12 +126,12 @@ func TestUpgradeTrigger(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
-			latestDataCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-				ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
+				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
-				aliasCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.ID)
+				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.ID)
 				require.NoError(t, err)
 				if aliasCI.Commit.ID != latestDataCI.Commit.ID {
 					return errors.New("not ready")
@@ -168,8 +168,8 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
-			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
-			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))
+			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				edgesRepo,
 				"pachyderm/opencv:1.0",
 				[]string{"python3", "/edges.py"}, /* cmd */
@@ -180,7 +180,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				false,    /* update */
 			))
 			require.NoError(t,
-				c.CreateProjectPipeline(pfs.DefaultProjectName,
+				c.CreatePipeline(pfs.DefaultProjectName,
 					montage,
 					"dpokidov/imagemagick:7.1.0-23",
 					[]string{"sh"}, /* cmd */
@@ -194,11 +194,11 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 					false,    /* update */
 				))
 
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", "" /* commitID */), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", "" /* commitID */), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "http://i.imgur.com/46Q8nDz.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
@@ -209,7 +209,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
@@ -219,11 +219,11 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://i.imgur.com/g2QnNqa.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -234,7 +234,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}

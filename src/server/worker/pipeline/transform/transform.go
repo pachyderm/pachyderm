@@ -16,7 +16,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	}
 	logger.Logf("transform spawner started")
 
-	return driver.PachClient().SubscribeProjectJob(
+	return driver.PachClient().SubscribeJob(
 		driver.PipelineInfo().Pipeline.Project.GetName(),
 		driver.PipelineInfo().Pipeline.Name,
 		true,

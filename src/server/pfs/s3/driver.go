@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -106,13 +106,13 @@ func bucketNameToCommit(bucketName string) (*pfs.Commit, error) {
 		return nil, errors.Errorf("invalid bucket name %q; must include a repo", bucketName)
 	case 1:
 		// e.g. s3://myrepo
-		repo, branch = client.NewProjectRepo(pfs.DefaultProjectName, parts[0]), "master"
+		repo, branch = client.NewRepo(pfs.DefaultProjectName, parts[0]), "master"
 	case 2:
 		// e.g. s3://mybranch.myrepo
-		repo, branch = client.NewProjectRepo(pfs.DefaultProjectName, parts[1]), parts[0]
+		repo, branch = client.NewRepo(pfs.DefaultProjectName, parts[1]), parts[0]
 	case 3:
 		// e.g. s3://mybranch.myrepo.myproject
-		repo, branch = client.NewProjectRepo(parts[2], parts[1]), parts[0]
+		repo, branch = client.NewRepo(parts[2], parts[1]), parts[0]
 	default:
 		return nil, errors.Errorf("invalid bucket name: %q", bucketName)
 	}

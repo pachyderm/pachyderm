@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -27,7 +27,7 @@ func TestPrometheusStats(t *testing.T) {
 	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	// We want several commits (for multiple jobs) and several datums per job
@@ -38,7 +38,7 @@ func TestPrometheusStats(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -53,7 +53,7 @@ func TestPrometheusStats(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: uint64(numDatums),
 			},
-			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
 		},
@@ -63,7 +63,7 @@ func TestPrometheusStats(t *testing.T) {
 	var commit *pfs.Commit
 	// Do numCommits-1 commits w good data
 	for i := 0; i < numCommits-1; i++ {
-		commit, err = c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+		commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		// We want several datums per job so that we have multiple data points
 		// per job time series
@@ -71,17 +71,17 @@ func TestPrometheusStats(t *testing.T) {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
 		}
 		require.NoError(t, err)
-		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 		// Prometheus scrapes every 10s
 		// We run a new job outside this window so that we see a more organic
 		// time series
 		time.Sleep(15 * time.Second)
 	}
 	// Now write data that'll make the job fail
-	commit, err = c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "test", strings.NewReader("fail")))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 
 	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
@@ -236,27 +236,27 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{"sleep 1"},
 			},
-			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
 		},
 	)
 	require.NoError(t, err)
 
-	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout
@@ -264,10 +264,10 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make sure the job succeeded as well
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }

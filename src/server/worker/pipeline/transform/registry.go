@@ -10,9 +10,9 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client/limit"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -517,7 +517,7 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failed []string
 	waitCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.WaitProjectCommit(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.ID)
+		ci, err := pachClient.WaitCommit(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
 			return errors.Wrapf(err, "error blocking on commit %s", commit)
 		}
@@ -528,7 +528,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	}
 	visitErr := pps.VisitInput(jobInfo.Details.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Commit != "" {
-			if err := waitCommit(input.Pfs.Name, client.NewProjectCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
+			if err := waitCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
 				return err
 			}
 		}

@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -113,7 +113,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			defer close(ciChan)
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+				return pachClient.SubscribeCommit(client.NewRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
 					return nil
 				})
@@ -307,7 +307,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 
 func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
 	if err := pachClient.WithModifyFileClient(
-		client.NewProjectRepo(cron.Project, cron.Repo).NewCommit("master", ""),
+		client.NewRepo(cron.Project, cron.Repo).NewCommit("master", ""),
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {
@@ -369,7 +369,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 	var latestTime time.Time
 	pachClient := env.GetPachClient(ctx)
 	defer log.Span(ctx, "getLatestCronTime")(zap.Timep("latest", &retTime), log.Errorp(&retErr))
-	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
+	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
 	// bail if cron repo is not accessible
 	if err != nil {
 		return latestTime, err
