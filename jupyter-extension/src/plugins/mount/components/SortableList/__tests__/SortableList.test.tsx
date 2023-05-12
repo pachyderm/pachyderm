@@ -553,23 +553,23 @@ describe('sortable list components', () => {
     const projects: ProjectInfo[] = [
       {
         project: {
-          name: 'p1'
+          name: 'p1',
         },
         auth: {
           permissions: [0, 1, 2],
-          roles: ['foo', 'bar']
-        }
+          roles: ['foo', 'bar'],
+        },
       },
       {
         project: {
-          name: 'default'
+          name: 'default',
         },
         auth: {
           permissions: [3, 4, 5],
-          roles: ['foo', 'bar', 'baz']
-        }
-      }
-    ]
+          roles: ['foo', 'bar', 'baz'],
+        },
+      },
+    ];
 
     const {getAllByTestId, getByTestId} = render(
       <SortableList

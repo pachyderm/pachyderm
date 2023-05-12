@@ -1026,5 +1026,8 @@ func TestProjects(t *testing.T) {
 		projectData := []*ProjectResp{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(projectData))
 		require.Equal(t, len(projectData), 3)
+		require.Equal(t, projectData[0].project.name, "default")
+		require.Equal(t, projectData[1].project.name, "p1")
+		require.Equal(t, projectData[2].project.name, "p2")
 	})
 }
