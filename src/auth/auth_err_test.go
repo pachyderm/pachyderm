@@ -66,6 +66,11 @@ func TestIsErrNotAuthorized(t *testing.T) {
 		Resource: Resource{Type: ResourceType_CLUSTER},
 		Required: []Permission{},
 	})).Code() == codes.PermissionDenied)
+	require.True(t, status.Convert(grpcify(&ErrNotAuthorized{
+		Subject:  "alice",
+		Resource: Resource{Type: ResourceType_CLUSTER},
+		Required: []Permission{},
+	})).Code() == codes.PermissionDenied)
 	s, ok := status.FromError(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
 		Resource: Resource{Type: ResourceType_CLUSTER},
