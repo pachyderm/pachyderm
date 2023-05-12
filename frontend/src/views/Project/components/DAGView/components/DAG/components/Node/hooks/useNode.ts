@@ -8,6 +8,7 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
+import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useClipboardCopy} from '@pachyderm/components';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
@@ -46,7 +47,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   }, [node]);
 
   const onClick = useCallback(
-    (destination: 'pipeline' | 'repo' | 'logs') => {
+    (destination: 'pipeline' | 'repo' | 'logs' | 'status') => {
       if (noAccess) return;
       if (isInteractive && isEgress && supported) return copy();
       if (destination === 'logs') {
@@ -54,6 +55,15 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
           getPathToLatestJobLogs({
             projectId,
             pipelineId: node.name,
+          }),
+        );
+      }
+      if (destination === 'status') {
+        return browserHistory.push(
+          pipelineRoute({
+            projectId,
+            pipelineId: node.name,
+            tabId: 'info',
           }),
         );
       }

@@ -195,11 +195,13 @@ const Node: React.FC<NodeProps> = ({
               transform={`translate (${
                 nodeWidth - NODE_ICON_X_OFFSET - 8
               }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
+              onClick={() => onClick('status')}
+              className={styles.statusGroup}
             >
               <rect
                 width={44 / 0.6}
                 height={19 / 0.6}
-                className={styles.statusRect}
+                className={statusClasses}
                 rx={8}
                 ry={8}
               />
