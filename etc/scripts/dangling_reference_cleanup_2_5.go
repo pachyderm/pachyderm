@@ -6,6 +6,9 @@ import (
 	"os"
 	"strings"
 
+	_ "github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pkg/errors"
@@ -35,6 +38,9 @@ func main() {
 	}
 	defer db.Close()
 	tx, err := db.Beginx()
+	if err != nil {
+		panic(errors.Wrap(err, "start transaction"))
+	}
 	defer tx.Commit()
 	cs, err := listReferencedCommits(tx)
 	if err != nil {
@@ -101,6 +107,9 @@ func listRepoKeys(tx *sqlx.Tx) (map[string]struct{}, error) {
 
 func parseCommit_2_5(key string) *pfs.Commit {
 	split := strings.Split(key, "=")
+	if len(split) != 2 {
+		panic(errors.Errorf("parsing commit key with 2.6.x+ structure %q", key))
+	}
 	b := parseBranch(split[0])
 	return &pfs.Commit{
 		Repo:   b.Repo,
