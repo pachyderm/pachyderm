@@ -71,7 +71,7 @@ const (
 	secret   = "secret"
 
 	create  = "create"
-	delete  = "delete"
+	del     = "delete"
 	edit    = "edit"
 	inspect = "inspect"
 	list    = "list"
@@ -506,7 +506,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		pachctl create pipeline -f - <<EOF
 		pipeline:
 		  name: first
-		  project: 
+		  project:
 		    name: P
 		input:
 		  pfs:
@@ -1201,7 +1201,7 @@ func TestListJobWithProject(t *testing.T) {
 	projectName := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data 
+		pachctl create repo data
 
 		pachctl create pipeline <<EOF
 		{
@@ -1501,9 +1501,9 @@ func TestListDatumFromFile(t *testing.T) {
 func resourcesMap() map[string][]string {
 	return map[string][]string{
 		datum:    {inspect, list, restart},
-		job:      {delete, inspect, list, stop, wait},
-		pipeline: {create, delete, edit, inspect, list, start, stop, update},
-		secret:   {create, delete, inspect, list},
+		job:      {del, inspect, list, stop, wait},
+		pipeline: {create, del, edit, inspect, list, start, stop, update},
+		secret:   {create, del, inspect, list},
 	}
 }
 

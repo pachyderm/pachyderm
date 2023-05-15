@@ -1392,14 +1392,14 @@ func (v *lokiValue) UnmarshalJSON(text []byte) error {
 	// string as the first "message".
 	var raw []string
 	if err := json.Unmarshal(text, &raw); err != nil {
-		return err
+		return errors.Wrap(err, "unmarshal value part")
 	}
 	if len(raw) < 1 {
 		return errors.New("too short")
 	}
 	ts, err := strconv.ParseInt(string(raw[0]), 10, 64)
 	if err != nil {
-		return fmt.Errorf("parse time: %w", err)
+		return errors.Errorf("parse time: %w", err)
 	}
 	v.Time = time.Unix(0, int64(ts))
 	for _, m := range raw[1:] {
@@ -1436,7 +1436,7 @@ main:
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.Wrap(ctx.Err(), "main loop exiting")
 		default:
 		}
 

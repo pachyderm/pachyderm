@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -687,14 +688,89 @@ each datum.`,
 					case *pps.TailLokiResponse_Stream:
 						for _, v := range x.Stream.Values {
 							for _, m := range v.Messages {
-								fmt.Println(string(m))
+								if raw {
+									fmt.Println(string(m))
+									continue
+								}
+
+								t, _ := types.TimestampFromProto(v.Time)
+								var obj map[string]any
+								if err := json.Unmarshal(m, &obj); err != nil {
+									obj = map[string]any{}
+									obj["time"] = t.Format(time.RFC3339Nano)
+									obj["severity"] = "info"
+									obj["message"] = string(m)
+									if bytes.HasPrefix(m, []byte("{")) && bytes.HasSuffix(m, []byte("}")) {
+										// If the object was trying to be JSON, emit the decode error.
+										obj["decodeError"] = err.Error()
+									}
+								}
+								for k, v := range x.Stream.Metadata {
+									obj["loki."+k] = v
+								}
+								switch x.Stream.Metadata["app"] {
+								case "pachd": // We adapt other logs to pachd's format.
+								case "pachyderm-kube-event-tail", "etcd":
+									obj["time"] = obj["ts"]
+									obj["message"] = obj["msg"]
+									obj["severity"] = obj["level"]
+									delete(obj, "ts")
+									delete(obj, "msg")
+									delete(obj, "level")
+								case "pachyderm-proxy":
+									obj["time"] = obj["timestamp"]
+									delete(obj, "timestamp")
+								case "console":
+									delete(obj, "hostname") // duplicated by loki.pod
+									obj["message"] = obj["msg"]
+									delete(obj, "msg")
+									lvl, lvlOK := obj["level"].(float64)
+									v, vOK := obj["v"].(float64)
+									if vOK && lvlOK && v == 0 {
+										delete(obj, "v")
+										var sev string
+										switch {
+										case lvl <= 10:
+											sev = "trace"
+										case lvl <= 20:
+											sev = "debug"
+										case lvl <= 30:
+											sev = "info"
+										case lvl <= 40:
+											sev = "warn"
+										case lvl <= 50:
+											sev = "error"
+										case lvl <= 60:
+											sev = "fatal"
+										}
+										if sev != "" {
+											delete(obj, "level")
+											obj["severity"] = sev
+										}
+									}
+								default:
+									if _, ok := obj["time"]; !ok {
+										obj["time"] = t.Format(time.RFC3339Nano)
+									}
+									if _, ok := obj["severity"]; !ok {
+										obj["severity"] = "info"
+									}
+									if _, ok := obj["message"]; !ok {
+										obj["message"] = ""
+									}
+								}
+								out, err := json.Marshal(obj)
+								if err != nil {
+									log.Error(ctx, "problem marshaling log; try --raw", zap.Error(err), log.Proto("response", x.Stream), zap.ByteString("log", m))
+									continue
+								}
+								fmt.Println(string(out))
 							}
 						}
 					}
 
 				}
 			}
-			return nil
 		}),
 	}
 	tailLoki.Flags().DurationVar(&since, "since", 0, "Return log messages starting at the current time minus \"since\".")
