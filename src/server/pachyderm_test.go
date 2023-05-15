@@ -4746,6 +4746,35 @@ func TestLokiLogs(t *testing.T) {
 	require.Equal(t, numFiles, foundFoos, "didn't receive enough log lines containing foo")
 }
 
+func TestTailLoki(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
+		tail, err := c.TailLoki(c.Ctx(), &pps.LokiRequest{Since: types.DurationProto(0), Query: `{suite="pachyderm"}`})
+		if err != nil {
+			return errors.Wrap(err, "tail")
+		}
+		msg, err := tail.Recv()
+		if err != nil {
+			return errors.Wrap(err, "recv")
+		}
+		t.Logf("got message: %v", msg.String())
+		for _, v := range msg.GetStream().GetValues() {
+			for _, m := range v.Messages {
+				if len(m) > 0 {
+					t.Log("found non-zero length message")
+					return nil
+				}
+			}
+		}
+		return errors.New("no non-zero length messages found")
+	})
+}
+
 func TestAllDatumsAreProcessed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -11652,7 +11681,7 @@ func TestDatumBatching(t *testing.T) {
 			do
 				pachctl next datum
 				if [ ! -f /tmp/exec ]
-				then 
+				then
 					touch /tmp/exec
 					pachctl next datum --error oops
 				fi
@@ -11686,9 +11715,9 @@ func TestDatumBatching(t *testing.T) {
 			do
 				pachctl next datum
 				if [ ! -f /tmp/exec ]
-				then 
+				then
 					touch /tmp/exec
-					sleep 5	
+					sleep 5
 				fi
 				cp /pfs/%s/* /pfs/out/
 			done
