@@ -1,4 +1,5 @@
 from .client import Client
+from .batch_datums import batch_datums
 
 # Python version compatibility.
 try:
@@ -21,6 +22,7 @@ __all__ = [
     "parse_dict_pipeline_spec",
     "ConfigError",
     "BadClusterDeploymentID",
+    "batch_datums"
 ]
 
 __version__ = ""
