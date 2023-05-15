@@ -1005,29 +1005,29 @@ func TestProjects(t *testing.T) {
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		type Project struct {
-			name string `json:"name"`
+			Name string `json:"name"`
 		}
 
 		type ProjectAuth struct {
-			permissions []int    `json:"permissions"`
-			roles       []string `json:"roles"`
+			Permissions []int    `json:"permissions"`
+			Roles       []string `json:"roles"`
 		}
 
 		type ProjectResp struct {
-			project Project     `json:"project"`
-			auth    ProjectAuth `json:"auth_info"`
+			Project Project     `json:"project"`
+			Auth    ProjectAuth `json:"auth_info"`
 		}
 
 		resp, err := get("projects")
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 		defer resp.Body.Close()
+		projectData := []ProjectResp{}
 
-		projectData := []*ProjectResp{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&projectData))
 		require.Equal(t, len(projectData), 3)
-		require.Equal(t, projectData[0].project.name, "default")
-		require.Equal(t, projectData[1].project.name, "p1")
-		require.Equal(t, projectData[2].project.name, "p2")
+		require.Equal(t, projectData[0].Project.Name, emptyProjectName)
+		require.Equal(t, projectData[1].Project.Name, projectName)
+		require.Equal(t, projectData[2].Project.Name, pfs.DefaultProjectName)
 	})
 }
