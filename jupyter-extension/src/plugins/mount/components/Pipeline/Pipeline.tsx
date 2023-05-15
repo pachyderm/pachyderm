@@ -18,6 +18,7 @@ pfs:
   glob: /*
 `;
 const placeholderRequirements = './requirements.txt';
+const placeholderProject = 'default';
 
 const Pipeline: React.FC<PipelineProps> = ({
   ppsContext,
@@ -28,8 +29,10 @@ const Pipeline: React.FC<PipelineProps> = ({
 }) => {
   const {
     loading,
-    pipeline,
-    setPipeline,
+    pipelineName,
+    setPipelineName,
+    pipelineProject,
+    setPipelineProject,
     imageName,
     setImageName,
     inputSpec,
@@ -94,15 +97,30 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input"
           data-testid="Pipeline__inputPipelineName"
           name="pipelineName"
-          value={
-            pipeline.project?.name
-              ? `${pipeline.project.name}/${pipeline.name}`
-              : pipeline.name
-          }
+          value={pipelineName}
           onChange={(e: any) => {
-            setPipeline(e.target.value);
+            setPipelineName(e.target.value);
           }}
           disabled={loading}
+        ></input>
+      </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label
+          className="pachyderm-pipeline-input-label"
+          htmlFor="pipelineProjectName"
+        >
+          Pipeline Project Name:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPipelineProjectName"
+          name="pipelineName"
+          value={pipelineProject}
+          onChange={(e: any) => {
+            setPipelineProject(e.target.value);
+          }}
+          disabled={loading}
+          placeholder={placeholderProject}
         ></input>
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
@@ -169,8 +187,8 @@ const Pipeline: React.FC<PipelineProps> = ({
           data-testid="Pipeline__specPreview"
           name="specPreview"
           value={`pipeline:
-  name: ${pipeline.name}
-  project: ${pipeline.project?.name ?? 'default'}
+  name: ${pipelineName}
+  project: ${pipelineProject || placeholderProject}
 transform:
   image: ${imageName}
 input:
