@@ -4,11 +4,10 @@ import {
   QueryResolvers,
   FileCommitState,
   OriginKind,
-  Diff,
 } from '@dash-backend/generated/types';
 import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
 import formatBytes from '@dash-backend/lib/formatBytes';
-import formatDiff from '@dash-backend/lib/formatDiff';
+import {formatDiffOnlyTotals} from '@dash-backend/lib/formatDiff';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
 import {FileInfo, CommitState} from '@dash-backend/proto';
 
@@ -58,9 +57,7 @@ const fileResolver: FileResolver = {
       },
       {pachClient, host},
     ) => {
-      let diff:
-        | undefined
-        | {diffTotals: Record<string, FileCommitState>; diff: Diff};
+      let diffTotals: Record<string, FileCommitState>;
       limit = limit || DEFAULT_FILE_LIMIT;
 
       const files = await pachClient.pfs().listFile({
@@ -102,7 +99,7 @@ const fileResolver: FileResolver = {
             },
           },
         });
-        diff = formatDiff(diffResponse);
+        diffTotals = formatDiffOnlyTotals(diffResponse);
       }
 
       let nextCursor = undefined;
@@ -116,7 +113,6 @@ const fileResolver: FileResolver = {
       }
 
       return {
-        diff: diff?.diff,
         cursor: nextCursor,
         hasNextPage: !!nextCursor,
         files: files.map((file) => ({
@@ -131,8 +127,8 @@ const fileResolver: FileResolver = {
           sizeBytes: file.sizeBytes || 0,
           sizeDisplay: formatBytes(file.sizeBytes || 0),
           type: toGQLFileType(file.fileType),
-          commitAction: diff
-            ? diff.diffTotals[file.file?.path || '']
+          commitAction: diffTotals
+            ? diffTotals[file.file?.path || '']
             : undefined,
         })),
       };

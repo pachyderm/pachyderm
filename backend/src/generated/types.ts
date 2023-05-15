@@ -613,7 +613,6 @@ export type PageableDatum = {
 export type PageableFile = {
   __typename?: 'PageableFile';
   cursor?: Maybe<Scalars['String']>;
-  diff?: Maybe<Diff>;
   files: Array<File>;
   hasNextPage?: Maybe<Scalars['Boolean']>;
 };
@@ -1871,7 +1870,6 @@ export type PageableFileResolvers<
   ParentType extends ResolversParentTypes['PageableFile'] = ResolversParentTypes['PageableFile'],
 > = ResolversObject<{
   cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
   files?: Resolver<Array<ResolversTypes['File']>, ParentType, ContextType>;
   hasNextPage?: Resolver<
     Maybe<ResolversTypes['Boolean']>,
@@ -2987,22 +2985,6 @@ export type GetFilesQuery = {
     __typename?: 'PageableFile';
     cursor?: string | null;
     hasNextPage?: boolean | null;
-    diff?: {
-      __typename?: 'Diff';
-      size: number;
-      sizeDisplay: string;
-      filesUpdated: {
-        __typename?: 'DiffCount';
-        count: number;
-        sizeDelta: number;
-      };
-      filesAdded: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
-      filesDeleted: {
-        __typename?: 'DiffCount';
-        count: number;
-        sizeDelta: number;
-      };
-    } | null;
     files: Array<{
       __typename?: 'File';
       commitId: string;

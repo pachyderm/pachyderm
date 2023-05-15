@@ -55,7 +55,6 @@ const FileHistory: React.FC = () => {
               [styles.selected]: commit.id === commitId,
             })}
             to={
-              commit.commitAction &&
               commit.commitAction !== FileCommitState.DELETED
                 ? getPathToFileBrowser({
                     projectId,

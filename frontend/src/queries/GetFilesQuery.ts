@@ -1,13 +1,8 @@
 import {gql} from '@apollo/client';
 
-import {DiffFragment} from '@dash-frontend/fragments/Diff';
-
 export const GET_FILES_QUERY = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {
-      diff {
-        ...DiffFragment
-      }
       files {
         committed {
           nanos
@@ -28,5 +23,4 @@ export const GET_FILES_QUERY = gql`
       hasNextPage
     }
   }
-  ${DiffFragment}
 `;

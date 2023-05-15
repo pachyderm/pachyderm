@@ -5,7 +5,7 @@ import {
   DEFAULT_FIND_COMMITS_LIMIT,
 } from '@dash-backend/constants/limits';
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
-import formatDiff from '@dash-backend/lib/formatDiff';
+import formatDiff, {formatDiffOnlyTotals} from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {NotFoundError, PachClient} from '@dash-backend/lib/types';
 import {CommitState} from '@dash-backend/proto';
@@ -278,7 +278,7 @@ const commitResolver: CommitResolver = {
             }),
           );
 
-          let diff;
+          let diffTotals;
           if (
             commitInfo.originKind !== OriginKind.ALIAS &&
             commitInfo.finished !== -1
@@ -294,14 +294,14 @@ const commitResolver: CommitResolver = {
                 },
               },
             });
-            diff = formatDiff(diffResponse);
+            diffTotals = formatDiffOnlyTotals(diffResponse);
           }
 
           return {
             id: commitInfo.id,
             started: commitInfo.started,
             description: commitInfo.description,
-            commitAction: diff && Object.values(diff.diffTotals)[0],
+            commitAction: diffTotals && Object.values(diffTotals)[0],
           };
         }),
       );

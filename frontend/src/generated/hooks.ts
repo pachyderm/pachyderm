@@ -1559,9 +1559,6 @@ export type GetEnterpriseInfoQueryResult = Apollo.QueryResult<
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {
-      diff {
-        ...DiffFragment
-      }
       files {
         committed {
           nanos
@@ -1582,7 +1579,6 @@ export const GetFilesDocument = gql`
       hasNextPage
     }
   }
-  ${DiffFragmentFragmentDoc}
 `;
 
 /**

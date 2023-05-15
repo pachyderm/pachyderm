@@ -49,4 +49,24 @@ const formatDiff = (diff: DiffFileResponse.AsObject[]) => {
   };
 };
 
+// This formatDiffOnlyTotals function serves as a temporary solution to improve the performance of the long-running synchronous functions above it,
+// which block the main thread. It is a small optimization that aims to speed up their execution. If these functions ever get refactored to
+// become asynchronous and non-blocking, the person responsible should consider revisiting and potentially merging these functions.
+export const formatDiffOnlyTotals = (diff: DiffFileResponse.AsObject[]) => {
+  const diffTotals: Record<string, FileCommitState> = {};
+
+  for (const fileDiff of diff) {
+    if (fileDiff.newFile?.file && !fileDiff.oldFile?.file) {
+      diffTotals[fileDiff.newFile.file.path] = FileCommitState.ADDED;
+    } else if (!fileDiff.newFile?.file && fileDiff.oldFile?.file) {
+      diffTotals[fileDiff.oldFile.file.path] = FileCommitState.DELETED;
+    } else if (fileDiff.newFile?.file && fileDiff.oldFile?.file) {
+      if (!fileDiff.newFile.file.path.endsWith('/')) {
+        diffTotals[fileDiff.newFile.file.path] = FileCommitState.UPDATED;
+      }
+    }
+  }
+  return diffTotals;
+};
+
 export default formatDiff;

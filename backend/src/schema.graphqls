@@ -657,7 +657,6 @@ type PageableJobSet {
 type PageableFile {
   cursor: String
   hasNextPage: Boolean
-  diff: Diff
   files: [File!]!
 }
 
