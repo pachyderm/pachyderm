@@ -11,9 +11,9 @@ message TraceProto {
   // (trace ID, span ID, sampled) tuple, basically)
   map<string, string> serialized_trace = 1;
 
-  string project = 3;
-  // pipeline specifies the target pipeline of this trace; this would be set for
-  // a trace created by 'pachctl create-pipeline' or 'pachctl update-pipeline'
-  // and would include the kubernetes RPCs involved in creating a pipeline
-  string pipeline = 2;
+  // key is an identifying key of this trace. For example, for a trace created
+  // by 'pachctl create-pipeline', this would be the pipeline name and project;
+  // future PPS master and worker events would be associated with the same
+  // pipeline.
+  string key = 2;
 }

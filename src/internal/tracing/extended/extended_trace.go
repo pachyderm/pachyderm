@@ -10,12 +10,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
@@ -25,16 +24,17 @@ const (
 	// timestamp) is treated as arbitrary bytes and base-64 encoded before being
 	// transmitted (see
 	// https://github.com/grpc/grpc-go/blob/b2c5f4a808fd5de543c4e987cd85d356140ed681/Documentation/grpc-metadata.md)
-	traceMDKey = "pipeline-trace-duration-bin"
+	traceMDKey = "extended-trace-duration-bin"
 
 	// tracesCollectionPrefix is the prefix associated with the 'traces'
 	// collection in etcd (which maps pipelines and commits to extended traces)
-	tracesCollectionPrefix = "commit_traces"
+	tracesCollectionPrefix = "extended_traces"
 
-	// TraceDurationEnvVar determines whether a traced 'CreatePipeline' RPC is
-	// propagated to the PPS master, and whether worker creation and such is
-	// traced in addition to the original RPC. This value should be set to a
-	// go duration to create an extended trace
+	// TraceDurationEnvVar determines whether an extended trace is started (such
+	// as a traced 'CreatePipeline' RPC propagating to the PPS master and
+	// workers), and whether worker creation and such is traced in addition to the
+	// original RPC.  This value should be set to a go duration to create an
+	// extended trace
 	TraceDurationEnvVar = "PACH_TRACE_DURATION"
 
 	// The default duration over which to conduct an extended trace (used if the
@@ -57,7 +57,7 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 // trace for future updates by the PPS master and workers.  This function is
 // best-effort, and therefore doesn't currently return an error. Any errors are
 // logged, and then the given context is returned.
-func PersistAny(ctx context.Context, c *etcd.Client, pipeline *pps.Pipeline) {
+func PersistAny(ctx context.Context, c *etcd.Client, key string) {
 	if !tracing.IsActive() {
 		return
 	}
@@ -78,7 +78,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline *pps.Pipeline) {
 		return // no extended trace attached to RPC
 	}
 	if len(vals) > 1 {
-		log.Info(ctx, "multiple durations attached to extended trace", zap.String("pipeline", pipeline.GetName()), zap.String("usingDuration", vals[0]))
+		log.Info(ctx, "multiple durations attached to extended trace", zap.String("key", key), zap.String("usingDuration", vals[0]))
 	}
 
 	// Extended trace found, now create a span & persist it to etcd
@@ -91,8 +91,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline *pps.Pipeline) {
 	// serialize extended trace & write to etcd
 	traceProto := &TraceProto{
 		SerializedTrace: map[string]string{}, // init map
-		Project:         pipeline.GetProject().GetName(),
-		Pipeline:        pipeline.GetName(),
+		Key:             key,
 	}
 	if err := opentracing.GlobalTracer().Inject(
 		span.Context(), opentracing.TextMap,
@@ -102,9 +101,9 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline *pps.Pipeline) {
 	}
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
-		return errors.EnsureStack(tracesCol.PutTTL(pipeline.String(), traceProto, int64(duration.Seconds())))
+		return errors.EnsureStack(tracesCol.PutTTL(key, traceProto, int64(duration.Seconds())))
 	}); err != nil {
-		log.Error(ctx, "could not persist extended trace for pipeline to etcd", zap.String("pipeline", pipeline.GetName()), zap.Error(err))
+		log.Error(ctx, "could not persist extended trace for pipeline to etcd", zap.String("key", key), zap.Error(err))
 	}
 }
 

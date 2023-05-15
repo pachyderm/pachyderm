@@ -463,7 +463,7 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val p
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}
+	}()
 	if atomic.LoadInt64(&index.limit) == 0 {
 		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}

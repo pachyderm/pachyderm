@@ -239,7 +239,7 @@ func (c *postgresCollection) withKey(key interface{}, query func(string) error) 
 	return nil
 }
 
-func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(ctx, "/postgres.RO/getByIndex", "table", c.table, "index", index, "indexVal", indexVal)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -768,7 +768,7 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 }
 
 func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/update",
+	span, _ := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/update",
 		"table", c.table, "key", key)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -801,7 +801,7 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/insert",
+	span, _ := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/insert",
 		"table", c.table, "key", key, "upsert", upsert)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
