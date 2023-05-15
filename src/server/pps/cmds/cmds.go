@@ -547,7 +547,10 @@ each datum.`,
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
 
-	var since string
+	var (
+		since     time.Duration
+		lokiQuery string
+	)
 	kubeEvents := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Return the kubernetes events.",
@@ -558,10 +561,6 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			since, err := time.ParseDuration(since)
-			if err != nil {
-				return errors.Wrapf(err, "parse since(%q)", since)
-			}
 			request := pps.LokiRequest{
 				Since: types.DurationProto(since),
 			}
@@ -584,7 +583,7 @@ each datum.`,
 		}),
 	}
 	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
-	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	kubeEvents.Flags().DurationVar(&since, "since", 0, "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
 
 	queryLoki := &cobra.Command{
@@ -598,10 +597,6 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			since, err := time.ParseDuration(since)
-			if err != nil {
-				return errors.Wrapf(err, "parse since(%q)", since)
-			}
 			request := pps.LokiRequest{
 				Query: query,
 				Since: types.DurationProto(since),
@@ -619,8 +614,93 @@ each datum.`,
 			return nil
 		}),
 	}
-	queryLoki.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	queryLoki.Flags().DurationVar(&since, "since", 0, "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(queryLoki, "loki"))
+
+	tailLoki := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Tail a loki query.",
+		Long:  "Tail a loki query.",
+		Run: cmdutil.RunFixedArgs(0, func(s []string) error {
+			ctx, done := pctx.Interactive()
+			defer done()
+
+			sleep := func() {
+				select {
+				case <-ctx.Done():
+				case <-time.After(time.Second):
+				}
+			}
+
+			var connected bool
+		main:
+			for {
+				// Attempt to stay connected forever, so that tailing can continue
+				// when pachd restarts.
+				select {
+				case <-ctx.Done():
+					return nil
+				default:
+				}
+
+				client, err := pachctlCfg.NewOnUserMachine(ctx, false)
+				if err != nil {
+					if !connected {
+						// If the first connection fails, it's probably
+						// never going to work.  Give up.
+						return errors.Wrap(err, "dial")
+					}
+					log.Error(ctx, "attempt to reconnect to server failed; retrying", zap.Error(err))
+					sleep()
+					continue
+				}
+				c, err := client.TailLoki(client.Ctx(), &pps.LokiRequest{
+					Since: types.DurationProto(since),
+					Query: lokiQuery,
+				})
+				if err != nil {
+					if !connected {
+						return errors.Wrap(err, "start tail")
+					}
+					log.Error(ctx, "attempt to start tail stream failed; retrying", zap.Error(err))
+					sleep()
+					continue
+				}
+				for {
+					msg, err := c.Recv()
+					if err != nil {
+						if errors.Is(err, io.EOF) {
+							time.Sleep(time.Second)
+							continue main
+						}
+						if !connected {
+							return errors.Wrap(err, "recv")
+						}
+						log.Error(ctx, "failed to recv message; retrying", zap.Error(err))
+						sleep()
+						continue main
+					}
+					connected = true
+					switch x := msg.GetResponse().(type) {
+					case *pps.TailLokiResponse_Warning:
+						log.Info(ctx, "server warning: "+x.Warning)
+					case *pps.TailLokiResponse_Stream:
+						for _, v := range x.Stream.Values {
+							for _, m := range v.Messages {
+								fmt.Println(string(m))
+							}
+						}
+					}
+
+				}
+			}
+			return nil
+		}),
+	}
+	tailLoki.Flags().DurationVar(&since, "since", 0, "Return log messages starting at the current time minus \"since\".")
+	tailLoki.Flags().StringVar(&lokiQuery, "query", `{suite="pachyderm"}`, "The LogQL query to tail.")
+	tailLoki.Flags().BoolVar(&raw, "raw", false, "If true, only print the returned log lines.")
+	commands = append(commands, cmdutil.CreateAlias(tailLoki, "tail-loki"))
 
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
@@ -720,10 +800,6 @@ each datum.`,
 					i++
 				}
 			}
-			since, err := time.ParseDuration(since)
-			if err != nil {
-				return errors.Wrapf(err, "error parsing since (%q)", since)
-			}
 			if tail != 0 {
 				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
 			}
@@ -783,7 +859,7 @@ each datum.`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
-	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
+	getLogs.Flags().DurationVar(&since, "since", 24*time.Hour, "Return log messages more recent than \"since\".")
 	getLogs.Flags().StringVar(&project, "project", project, "Project containing the job.")
 	shell.RegisterCompletionFunc(getLogs,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {

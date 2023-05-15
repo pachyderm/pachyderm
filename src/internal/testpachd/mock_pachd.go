@@ -1487,6 +1487,7 @@ type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
+type tailLokiFunc func(*pps.LokiRequest, pps.API_TailLokiServer) error
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1521,6 +1522,7 @@ type mockRenderTemplate struct{ handler renderTemplateFunc }
 type mockListTaskPPS struct{ handler listTaskPPSFunc }
 type mockGetKubeEvents struct{ handler getKubeEventsFunc }
 type mockQueryLoki struct{ handler queryLokiFunc }
+type mockTailLoki struct{ handler tailLokiFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1555,6 +1557,7 @@ func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.
 func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.handler = cb }
 func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.handler = cb }
+func (mock *mockTailLoki) Use(cb tailLokiFunc)                           { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -1595,6 +1598,7 @@ type mockPPSServer struct {
 	ListTask           mockListTaskPPS
 	GetKubeEvents      mockGetKubeEvents
 	QueryLoki          mockQueryLoki
+	TailLoki           mockTailLoki
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1794,6 +1798,12 @@ func (api *ppsServerAPI) QueryLoki(req *pps.LokiRequest, server pps.API_QueryLok
 		return api.mock.QueryLoki.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pps.QueryLoki")
+}
+func (api *ppsServerAPI) TailLoki(req *pps.LokiRequest, server pps.API_TailLokiServer) error {
+	if api.mock.TailLoki.handler != nil {
+		return api.mock.TailLoki.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pps.TailLoki")
 }
 
 /* Transaction Server Mocks */

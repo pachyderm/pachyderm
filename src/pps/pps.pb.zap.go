@@ -1068,3 +1068,41 @@ func (x *LokiLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("message", x.Message)
 	return nil
 }
+
+func (x *TailLokiResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("stream", x.GetStream())
+	enc.AddString("warning", x.GetWarning())
+	return nil
+}
+
+func (x *LokiStream) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
+	valuesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Values {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("values", zapcore.ArrayMarshalerFunc(valuesArrMarshaller))
+	return nil
+}
+
+func (x *LokiValue) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddTimestamp(enc, "time", x.Time)
+	enc.AddString("messages", "[MASKED]")
+	return nil
+}
