@@ -6,7 +6,6 @@ import {Contents} from '@jupyterlab/services';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
-import {splitAtFirstSlash} from '../hooks/usePipeline';
 
 jest.mock('../../../../../handler');
 import {MountSettings} from '../../../types';
@@ -47,7 +46,12 @@ describe('PPS screen', () => {
       const inputPipelineName = await findByTestId(
         'Pipeline__inputPipelineName',
       );
-      userEvent.type(inputPipelineName, 'test_project/ThisPipelineIsNamedFred');
+      userEvent.type(inputPipelineName, 'ThisPipelineIsNamedFred');
+
+      const inputPipelineProject = await findByTestId(
+        'Pipeline__inputPipelineProjectName',
+      );
+      userEvent.type(inputPipelineProject, 'test_project');
 
       const inputImageName = await findByTestId('Pipeline__inputImageName');
       expect(inputImageName).toHaveValue(settings.defaultPipelineImage);
@@ -105,19 +109,5 @@ input:
       );
       expect(valueCurrentNotebook).toHaveTextContent('None');
     });
-  });
-});
-
-describe('unit tests for helper functions', () => {
-  it('splitAtFirstSlash', () => {
-    expect(splitAtFirstSlash('name')).toStrictEqual(['name']);
-    expect(splitAtFirstSlash('first/second')).toStrictEqual([
-      'first',
-      'second',
-    ]);
-    expect(splitAtFirstSlash('first/second/third')).toStrictEqual([
-      'first',
-      'second/third',
-    ]);
   });
 });
