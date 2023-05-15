@@ -11,5 +11,5 @@ jobs:
       - name: Run PR reviewer stats
         uses: pachyderm/pr-stats@main
         with:
-          slack-channel: '#eng-console'
-          slack-webhook: 'https://hooks.slack.com/services/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'
+          slack-channel: '#eng-pach-console'
+          slack-webhook: 'https://hooks.slack.com/services/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'
