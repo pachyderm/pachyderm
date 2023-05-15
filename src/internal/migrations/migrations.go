@@ -87,7 +87,7 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	ctx, end := log.SpanContextL(ctx, "ApplyMigrations", log.InfoLevel)
 	defer end(log.Errorp(&retErr))
 
-	for _, state := range collectStates(make([]State, 0, state.n+1), state) {
+	for _, state := range CollectStates(make([]State, 0, state.n+1), state) {
 		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
 			return err
 		}
@@ -95,12 +95,47 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	return nil
 }
 
-// collectStates does a reverse order traversal of a linked list and adds each item to a slice
-func collectStates(slice []State, s State) []State {
+// CollectStates does a reverse order traversal of a linked list and adds each item to a slice
+func CollectStates(slice []State, s State) []State {
 	if s.prev != nil {
-		slice = collectStates(slice, *s.prev)
+		slice = CollectStates(slice, *s.prev)
 	}
 	return append(slice, s)
+}
+
+func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
+	tx := env.Tx
+	if state.n == 0 {
+		if err := state.change(ctx, env); err != nil {
+			panic(err)
+		}
+	}
+	_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	if finished, err := isFinished(ctx, tx, state); err != nil {
+		return err
+	} else if finished {
+		// skip migration
+		msg := fmt.Sprintf("migration %d already applied", state.n)
+		log.Info(ctx, msg) // avoid log rate limit
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
+		return errors.EnsureStack(err)
+	}
+	msg := fmt.Sprintf("applying migration %d: %s", state.n, state.name)
+	log.Info(ctx, msg) // avoid log rate limit
+	if err := state.change(ctx, env); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
+		return errors.EnsureStack(err)
+	}
+	msg = fmt.Sprintf("successfully applied migration %d", state.n)
+	log.Info(ctx, msg) // avoid log rate limit
+	return nil
 }
 
 func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
@@ -110,39 +145,7 @@ func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state Stat
 	}
 	env := baseEnv
 	env.Tx = tx
-	if err := func() error {
-		if state.n == 0 {
-			if err := state.change(ctx, env); err != nil {
-				panic(err)
-			}
-		}
-		_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if finished, err := isFinished(ctx, tx, state); err != nil {
-			return err
-		} else if finished {
-			// skip migration
-			msg := fmt.Sprintf("migration %d already applied", state.n)
-			log.Info(ctx, msg) // avoid log rate limit
-			return nil
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
-			return errors.EnsureStack(err)
-		}
-		msg := fmt.Sprintf("applying migration %d: %s", state.n, state.name)
-		log.Info(ctx, msg) // avoid log rate limit
-		if err := state.change(ctx, env); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
-			return errors.EnsureStack(err)
-		}
-		msg = fmt.Sprintf("successfully applied migration %d", state.n)
-		log.Info(ctx, msg) // avoid log rate limit
-		return nil
-	}(); err != nil {
+	if err := ApplyMigrationTx(ctx, env, state); err != nil {
 		if err := tx.Rollback(); err != nil {
 			log.Error(ctx, "problem rolling back migrations", zap.Error(err))
 		}
