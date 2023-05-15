@@ -29,13 +29,13 @@ import graphqlServer from '.';
 
 export const generateIdTokenForAccount = ({id, ...rest}: Account) => {
   return sign(
-    {some: 'stuff', azp: 'dash', ...rest},
+    {some: 'stuff', azp: 'console-local', ...rest},
     fs.readFileSync(path.resolve(__dirname, 'mock/mockPrivate.key')),
     {
       algorithm: 'RS256',
       issuer: process.env.ISSUER_URI,
       subject: id,
-      audience: ['pachd', 'dash'],
+      audience: ['pachd', 'console-local'],
       expiresIn: '30 days',
       keyid: keys.keys[0].kid,
     },
