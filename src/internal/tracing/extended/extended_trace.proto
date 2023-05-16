@@ -10,10 +10,4 @@ message TraceProto {
   // serialized_trace contains the info identifying a trace in Jaeger (a
   // (trace ID, span ID, sampled) tuple, basically)
   map<string, string> serialized_trace = 1;
-
-  // key is an identifying key of this trace. For example, for a trace created
-  // by 'pachctl create-pipeline', this would be the pipeline name and project;
-  // future PPS master and worker events would be associated with the same
-  // pipeline.
-  string key = 2;
 }

@@ -2,7 +2,9 @@ package extended
 
 import (
 	"context"
+	fmt "fmt"
 	"os"
+	"strings"
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -14,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
@@ -57,7 +58,7 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 // trace for future updates by the PPS master and workers.  This function is
 // best-effort, and therefore doesn't currently return an error. Any errors are
 // logged, and then the given context is returned.
-func PersistAny(ctx context.Context, c *etcd.Client, key string) {
+func PersistAny(ctx context.Context, c *etcd.Client, keys ...string) {
 	if !tracing.IsActive() {
 		return
 	}
@@ -78,7 +79,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, key string) {
 		return // no extended trace attached to RPC
 	}
 	if len(vals) > 1 {
-		log.Info(ctx, "multiple durations attached to extended trace", zap.String("key", key), zap.String("usingDuration", vals[0]))
+		log.Info(ctx, "multiple durations attached to extended trace", zap.String("keys", strings.Join(keys, ",")), zap.String("usingDuration", vals[0]))
 	}
 
 	// Extended trace found, now create a span & persist it to etcd
@@ -91,7 +92,6 @@ func PersistAny(ctx context.Context, c *etcd.Client, key string) {
 	// serialize extended trace & write to etcd
 	traceProto := &TraceProto{
 		SerializedTrace: map[string]string{}, // init map
-		Key:             key,
 	}
 	if err := opentracing.GlobalTracer().Inject(
 		span.Context(), opentracing.TextMap,
@@ -101,9 +101,14 @@ func PersistAny(ctx context.Context, c *etcd.Client, key string) {
 	}
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
-		return errors.EnsureStack(tracesCol.PutTTL(key, traceProto, int64(duration.Seconds())))
+		for _, key := range keys {
+			if err := errors.EnsureStack(tracesCol.PutTTL(key, traceProto, int64(duration.Seconds()))); err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
-		log.Error(ctx, "could not persist extended trace for pipeline to etcd", zap.String("key", key), zap.Error(err))
+		log.Error(ctx, "could not persist extended trace for pipeline to etcd", zap.String("key", strings.Join(keys, ",")), zap.Error(err))
 	}
 }
 
@@ -111,20 +116,28 @@ func (t *TraceProto) isValid() bool {
 	return len(t.SerializedTrace) > 0
 }
 
-// AddSpanToAnyPipelineTrace finds any extended traces associated with
-// 'pipeline', and if any such trace exists, it creates a new span associated
+func Pipeline(s fmt.Stringer) string {
+	return "pipeline:" + s.String()
+}
+
+func Repo(project, name string) string {
+	return "repo:" + project + "/" + name
+}
+
+// AddSpanToAnyExtendedTrace finds any extended traces associated with
+// 'key', and if any such trace exists, it creates a new span associated
 // with that trace and returns it
-func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
-	pipeline *pps.Pipeline, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
+func AddSpanToAnyExtendedTrace(ctx context.Context, c *etcd.Client,
+	key string, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
 	if !tracing.IsActive() {
 		return nil, ctx // no Jaeger instance to send trace info to
 	}
 
 	traceProto := &TraceProto{}
 	tracesCol := TracesCol(c).ReadOnly(ctx)
-	if err := tracesCol.Get(pipeline, traceProto); err != nil {
+	if err := tracesCol.Get(key, traceProto); err != nil {
 		if !col.IsErrNotFound(err) {
-			log.Error(ctx, "error getting trace for pipeline", zap.String("pipeline", pipeline.GetName()), zap.Error(err))
+			log.Error(ctx, "error getting extended trace", zap.String("key", key), zap.Error(err))
 		}
 		return nil, ctx
 	}
@@ -143,8 +156,7 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	// return new span
 	span, ctx := opentracing.StartSpanFromContext(ctx,
 		operation, opentracing.FollowsFrom(spanCtx),
-		opentracing.Tag{Key: "project", Value: pipeline.Project.GetName()},
-		opentracing.Tag{Key: "pipeline", Value: pipeline.Name})
+		opentracing.Tag{Key: "key", Value: key})
 	tracing.TagAnySpan(span, kvs...)
 	return span, ctx
 }

@@ -2186,11 +2186,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
-	tracing.TagAnySpan(span, "project", request.Pipeline.Project.GetName(), "pipeline", request.Pipeline.Name)
+	tracing.TagAnySpan(span, "pipeline", request.Pipeline.String())
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 	}()
-	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline)
+	extended.PersistAny(ctx, a.env.EtcdClient, extended.Pipeline(request.Pipeline))
 
 	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
 		return nil, err

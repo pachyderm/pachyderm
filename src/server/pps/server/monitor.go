@@ -132,8 +132,8 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					tracing.FinishAnySpan(childSpan)
 				}()
 				// start span to capture & contextualize etcd state transition
-				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-					pc.env.EtcdClient, pipelineInfo.Pipeline,
+				childSpan, ctx = extended.AddSpanToAnyExtendedTrace(oldCtx,
+					pc.env.EtcdClient, extended.Pipeline(pipelineInfo.Pipeline),
 					"/pps.Master/MonitorPipeline/Begin")
 				if err := pc.psDriver.TransitionState(ctx,
 					pipelineInfo.SpecCommit,
@@ -173,8 +173,8 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						if ci.Finished != nil {
 							continue
 						}
-						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-							pc.env.EtcdClient, pipelineInfo.Pipeline,
+						childSpan, ctx = extended.AddSpanToAnyExtendedTrace(oldCtx,
+							pc.env.EtcdClient, extended.Pipeline(pipelineInfo.Pipeline),
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
@@ -206,8 +206,8 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								if !ok {
 									return nil // subscribeCommit exited, nothing left to do
 								}
-								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-									pc.env.EtcdClient, pipelineInfo.Pipeline,
+								childSpan, ctx = extended.AddSpanToAnyExtendedTrace(oldCtx,
+									pc.env.EtcdClient, extended.Pipeline(pipelineInfo.Pipeline),
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
 							default:

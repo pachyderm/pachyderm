@@ -19,6 +19,5 @@ func (x *TraceProto) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
-	enc.AddString("key", x.Key)
 	return nil
 }

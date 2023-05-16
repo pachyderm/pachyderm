@@ -319,7 +319,8 @@ func (pc *pipelineController) tryFinish() {
 func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr error) {
 	log.Debug(pc.ctx, "processing event")
 	// Handle tracing
-	span, _ := extended.AddSpanToAnyPipelineTrace(pc.ctx, pc.env.EtcdClient, pc.pipeline, "/pps.Master/ProcessPipelineUpdate")
+	span, _ := extended.AddSpanToAnyExtendedTrace(pc.ctx, pc.env.EtcdClient,
+		extended.Pipeline(pc.pipeline), "/pps.Master/ProcessPipelineUpdate")
 	if !timestamp.IsZero() {
 		tracing.TagAnySpan(span, "update-time", timestamp)
 	} else {
