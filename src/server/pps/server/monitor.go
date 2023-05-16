@@ -297,7 +297,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 		return nil // loop again to check for new workers
 	}), backoff.NewConstantBackOff(pc.crashingBackoff),
 		backoff.NotifyContinue(fmt.Sprintf("monitorCrashingPipeline for %s", pipelineInfo.Pipeline)),
-	); err != nil && context.Cause(ctx) == nil {
+	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
 		// unreachable (restart master if not)
 		log.Error(ctx, "monitorCrashingPipeline is exiting prematurely which should not happen; restarting container...", zap.Error(err))

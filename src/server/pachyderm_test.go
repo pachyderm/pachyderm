@@ -3708,7 +3708,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(dataCommit, "/"+file, strings.NewReader(file), client.WithAppendPutFile()))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	for context.Cause(ctx) == nil {
+	for ctx.Err() == nil {
 		pi, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 		require.NoError(t, err)
 		require.NotEqual(t, pps.PipelineState_PIPELINE_RUNNING, pi.State)

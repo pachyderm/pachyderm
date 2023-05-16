@@ -161,7 +161,7 @@ func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Contex
 		for {
 			_, more := <-keepAliveChan
 			if !more {
-				if context.Cause(ctx) == nil {
+				if ctx.Err() == nil {
 					log.Error(ctx, "failed to renew etcd lease", zap.Stack("stacktrace"))
 					cancel()
 				}

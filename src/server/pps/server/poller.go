@@ -170,7 +170,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 		return nil
 	}), backoff.NewConstantBackOff(pollBackoffTime),
 		backoff.NotifyContinue("pollPipelines"),
-	); err != nil && context.Cause(ctx) == nil {
+	); err != nil && ctx.Err() == nil {
 		log.Error(ctx, "pollPipelines is exiting prematurely which should not happen; restarting container...", zap.Error(err))
 		os.Exit(10)
 	}
@@ -254,7 +254,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 			}
 		}
 	}), backoff.NewInfiniteBackOff(), backoff.NotifyContinue("pollPipelinePods"),
-	); err != nil && context.Cause(ctx) == nil {
+	); err != nil && ctx.Err() == nil {
 		log.Error(ctx, "pollPipelinePods is exiting prematurely which should not happen; restarting container...", zap.Error(err))
 		os.Exit(11)
 	}
@@ -309,7 +309,7 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 		}
 		return nil // reset until ctx is cancelled (RetryUntilCancel)
 	}), &backoff.ZeroBackOff{}, backoff.NotifyContinue("watchPipelines"),
-	); err != nil && context.Cause(ctx) == nil {
+	); err != nil && ctx.Err() == nil {
 		log.Error(ctx, "watchPipelines is exiting prematurely which should not happen; restarting container...", zap.Error(err))
 		os.Exit(11)
 	}
