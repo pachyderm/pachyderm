@@ -33,7 +33,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/blake2b"
@@ -130,7 +129,7 @@ func main() {
 	flag.Parse()
 
 	// Cancel context on first SIGINT.
-	ctx, cancel := pctx.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	cancelCh := make(chan os.Signal, 1)
 	signal.Notify(cancelCh, os.Interrupt)
 	go func() {
