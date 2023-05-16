@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 )
 
@@ -100,7 +99,7 @@ func TestWrappedContext(t *testing.T) {
 	rootCtx, h := testWithCaptureParallel(t, zap.Development())
 	timeCtx, tc := context.WithTimeout(rootCtx, time.Minute)
 	t.Cleanup(tc)
-	ctx, cc := pctx.WithCancel(timeCtx)
+	ctx, cc := context.WithCancel(timeCtx)
 	t.Cleanup(cc)
 	Debug(ctx, "this should not panic")
 

@@ -5,14 +5,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 func TestCombineLogger(t *testing.T) {
 	lctx, h := testWithCaptureParallel(t)
-	cctx, c := pctx.WithCancel(context.Background())
+	cctx, c := context.WithCancel(context.Background())
 	c()
 	ctx := CombineLogger(cctx, lctx)
 	select {
