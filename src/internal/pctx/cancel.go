@@ -20,14 +20,14 @@ func WithCancel(root context.Context) (context.Context, context.CancelFunc) {
 			fmt.Fprintf(b, "context created at %v:%v", createdFile, createdLine)
 		}
 		if createdOK && cancelledOK {
-			b.WriteRune(';')
+			b.WriteString("; ")
 		}
 		if cancelledOK {
 			fmt.Fprintf(b, "context cancelled at %v:%v", cancelledFile, cancelledLine)
 		}
 		err := context.Canceled
 		if createdOK || cancelledOK {
-			err = errors.New(b.String())
+			err = errors.Join(context.Canceled, errors.New(b.String()))
 		}
 		c(err)
 	}
