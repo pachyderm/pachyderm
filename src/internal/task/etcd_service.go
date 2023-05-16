@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -123,7 +124,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 		prefix := path.Join(ed.group, uuid.NewWithoutDashes())
 		done := make(chan struct{})
 		var count int64
-		ctx, cancel := context.WithCancel(ctx)
+		ctx, cancel := pctx.WithCancel(ctx)
 		defer func() {
 			cancel()
 			eg.Wait() //nolint:errcheck
@@ -240,7 +241,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					zap.String("taskID", taskID))
 				atomic.AddInt64(&count, 1)
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 		}
 	})
@@ -318,9 +319,9 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 				case taskFuncChan <- es.createTaskFunc(ctx, taskKey, cb):
 					return nil
 				case <-ctx.Done():
-					return errors.EnsureStack(ctx.Err())
+					return errors.EnsureStack(context.Cause(ctx))
 				}
-			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+			}); err != nil && !errors.Is(context.Cause(ctx), context.Canceled) {
 				log.Info(ctx, "errored in group callback", zap.String("group", group), zap.Error(err))
 			}
 		})
@@ -358,7 +359,7 @@ func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(str
 				return err
 			}
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 	}
 }
@@ -386,7 +387,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 					zap.Error(taskErr))
 
 				// If the task context was canceled or the claim was lost, just return with no error.
-				if errors.Is(ctx.Err(), context.Canceled) {
+				if errors.Is(context.Cause(ctx), context.Canceled) {
 					return nil
 				}
 				task := &Task{}
@@ -410,7 +411,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 			return errors.EnsureStack(err)
 		}(); err != nil {
 			// If the group context was canceled or the task was deleted / not claimed, then no error should be logged.
-			if errors.Is(ctx.Err(), context.Canceled) ||
+			if errors.Is(context.Cause(ctx), context.Canceled) ||
 				col.IsErrNotFound(err) || errors.Is(err, col.ErrNotClaimed) {
 				return
 			}

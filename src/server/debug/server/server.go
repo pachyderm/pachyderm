@@ -44,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -468,7 +469,7 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (ret
 		select {
 		case <-ctx.Done():
 			t.Stop()
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		case <-t.C:
 			return nil
 		}
@@ -651,7 +652,7 @@ func (s *debugServer) collectCommits(rctx context.Context, tw *tar.Writer, pachC
 		},
 	}
 	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
-		ctx, cancel := context.WithCancel(rctx)
+		ctx, cancel := pctx.WithCancel(rctx)
 		defer cancel()
 		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
 			Repo:   repo,
@@ -802,7 +803,7 @@ func (s *debugServer) collectDescribe(ctx context.Context, tw *tar.Writer, pod s
 			// Close the pipe when the context times out; bounding the time on the
 			// io.Copy operation below.
 			<-ctx.Done()
-			w.CloseWithError(errors.EnsureStack(ctx.Err()))
+			w.CloseWithError(errors.EnsureStack(context.Cause(ctx)))
 		}()
 		if _, err := io.Copy(output, r); err != nil {
 			return errors.EnsureStack(err)

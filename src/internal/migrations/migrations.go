@@ -188,7 +188,7 @@ func BlockUntil(ctx context.Context, db *pachsql.DB, state State) error {
 		}
 		select {
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		case <-ticker.C:
 		}
 	}

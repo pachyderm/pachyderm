@@ -69,7 +69,7 @@ func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipeline
 // APIServer's fields, just wrapps the passed function in a goroutine, and
 // returns a cancel() fn to cancel it and block until it returns.
 func startMonitorThread(ctx context.Context, f func(ctx context.Context)) func() {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() {
 		f(ctx)
@@ -233,7 +233,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return errors.EnsureStack(err)
 						}
 					case <-ctx.Done():
-						return errors.EnsureStack(ctx.Err())
+						return errors.EnsureStack(context.Cause(ctx))
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
@@ -274,7 +274,7 @@ func (pc *pipelineController) blockStandby(pachClient *client.APIClient, commit 
 }
 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	ctx, cancelInner := context.WithCancel(ctx)
+	ctx, cancelInner := pctx.WithCancel(ctx)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		currRC, _, err := pc.getRC(ctx, pipelineInfo)
 		if err != nil {
@@ -350,7 +350,7 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 		select {
 		case <-time.After(time.Until(next)):
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 		if err := cronTick(pachClient, next, in.Cron); err != nil {
 			return errors.Wrap(err, "cronTick")

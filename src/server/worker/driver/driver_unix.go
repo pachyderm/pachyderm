@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
@@ -44,7 +45,7 @@ func makeSysProcAttr(uid *uint32, gid *uint32) *syscall.SysProcAttr {
 // but the job will succeed.  If user code wants to fail when its children hang, it will have to
 // implement that logic itself (by calling waitpid on the children; "wait" in bash).
 func makeProcessGroupKiller(rctx context.Context, l logs.TaggedLogger, pgid int) func() {
-	ctx, c := context.WithCancel(rctx)
+	ctx, c := pctx.WithCancel(rctx)
 	go func() {
 		<-ctx.Done()
 		logRunningProcesses(l, pgid)

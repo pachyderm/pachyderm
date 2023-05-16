@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -1969,7 +1970,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 		errchan: make(chan error),
 	}
 
-	ctx, mock.cancel = context.WithCancel(ctx)
+	ctx, mock.cancel = pctx.WithCancel(ctx)
 
 	mock.PFS.api.mock = &mock.PFS
 	mock.PPS.api.mock = &mock.PPS

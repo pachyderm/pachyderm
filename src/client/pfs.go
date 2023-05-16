@@ -1,12 +1,12 @@
 package client
 
 import (
-	"context"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -169,7 +169,7 @@ func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr er
 // ListProjectRepo returns a list of RepoInfos given a ListRepoRequest, which can
 // include information about which projects to filter with.
 func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PfsAPIClient.ListRepo(
 		ctx,
@@ -406,7 +406,7 @@ func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number int6
 		To:      to,
 		From:    from,
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	stream, err := c.PfsAPIClient.ListCommit(ctx, req)
 	if err != nil {
@@ -443,7 +443,7 @@ type FindCommitsResponse struct {
 
 // FindCommits searches for commits that reference a supplied file being modified in a branch.
 func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsResponse, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PfsAPIClient.FindCommits(ctx, req)
 	if err != nil {
@@ -547,7 +547,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 
 // ListProjectBranch lists the active branches on a Repo.
 func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.BranchInfo, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	var repo *pfs.Repo
 	if repoName != "" {
@@ -631,7 +631,7 @@ func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PfsAPIClient.ListProject(
 		ctx,
@@ -664,7 +664,7 @@ func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInf
 		CommitSet: NewCommitSet(id),
 		Wait:      wait,
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PfsAPIClient.InspectCommitSet(ctx, req)
 	if err != nil {
@@ -851,7 +851,7 @@ func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error, opts ...Fsck
 // FsckFastExit performs checks on pfs, similar to Fsck, except that it returns the
 // first fsck error it encounters and exits.
 func (c APIClient) FsckFastExit() error {
-	ctx, cancel := context.WithCancel(c.Ctx())
+	ctx, cancel := pctx.WithCancel(c.Ctx())
 	defer cancel()
 	fsckClient, err := c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
@@ -138,7 +139,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 
 	txStartedMetric.Inc()
 	err := backoff.RetryUntilCancel(ctx, func() error {
-		ctx, cf := context.WithCancel(ctx)
+		ctx, cf := pctx.WithCancel(ctx)
 		defer cf()
 		underlyingTxStartedMetric.Inc()
 		attempts++

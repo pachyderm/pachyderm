@@ -46,7 +46,7 @@ type lockTestConfig struct {
 }
 
 func setupTest(t *testing.T) testRingConfig {
-	ctx, cancel := context.WithCancel(pctx.TestContext(t))
+	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 	etcdEnv := testetcd.NewEnv(ctx, t)
 	return testRingConfig{
 		client: etcdEnv.EtcdClient,
@@ -115,7 +115,7 @@ func TestLockingWithDeleteWorker(t *testing.T) {
 		require.NoError(t, test.eg.Wait())
 	}()
 	nodeToDelete := strconv.Itoa(100)
-	deleteCtx, deleteCancel := context.WithCancel(test.ctx)
+	deleteCtx, deleteCancel := pctx.WithCancel(test.ctx)
 	defer deleteCancel()
 	for i := 0; i < test.workers; i++ {
 		nodeId := test.workerIds[i]
@@ -196,7 +196,7 @@ func setupLockTest(t *testing.T, numNodes, numLocks int) lockTestConfig {
 		ringConfig: setupTest(t),
 	}
 	test.eg, test.ctx = errgroup.WithContext(test.ringConfig.ctx)
-	test.ctx, test.cancel = context.WithCancel(test.ctx)
+	test.ctx, test.cancel = pctx.WithCancel(test.ctx)
 	test.workersReady = make(chan struct{}, numNodes)
 	test.beginLocking = make(chan struct{}, numNodes)
 	test.doneLocking = make(chan struct{}, numLocks)

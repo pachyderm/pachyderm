@@ -139,7 +139,7 @@ func closeHeadCommit(ctx context.Context, env *realenv.RealEnv, branch *pfs.Bran
 
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 	// Create a context that the caller can wait on
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 
 	go func() {
 		select {
@@ -155,7 +155,7 @@ func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 
 func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit *pfs.Commit) (context.Context, *pps.JobInfo) {
 	// Create a context that the caller can wait on
-	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(env.PachClient.Ctx())
 	// Mock out the initial ListJob, and InspectJob calls
 	jobInfo := &pps.JobInfo{Job: client.NewProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commit.ID)}
 	jobInfo.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)

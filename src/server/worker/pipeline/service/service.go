@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -101,7 +102,7 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		}
 		logger.Logf("starting new service, job: %s", ji.Job.ID)
 		var ctx context.Context
-		ctx, cancel = context.WithCancel(pachClient.Ctx())
+		ctx, cancel = pctx.WithCancel(pachClient.Ctx())
 		eg, ctx = errgroup.WithContext(ctx)
 		eg.Go(func() error { return cb(ctx, ji) })
 		return nil

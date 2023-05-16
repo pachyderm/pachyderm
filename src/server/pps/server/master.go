@@ -140,7 +140,7 @@ func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, 
 func (a *apiServer) master(ctx context.Context) {
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-		ctx, cancel := context.WithCancel(pctx.Child(ctx, "master", pctx.WithServerID()))
+		ctx, cancel := pctx.WithCancel(pctx.Child(ctx, "master", pctx.WithServerID()))
 		// set internal auth for basic operations
 		ctx = middleware_auth.AsInternalUser(ctx, "pps-master")
 		defer cancel()
@@ -154,7 +154,7 @@ func (a *apiServer) master(ctx context.Context) {
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)
 		m := newMaster(ctx, a.env, a.etcdPrefix, kd, sd)
 		m.run()
-		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
+		return errors.Wrapf(context.Cause(ctx), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Error(ctx, "PPS master: error running the master process; retrying",
 			zap.Error(err), zap.Duration("retryIn", d))
@@ -211,7 +211,7 @@ eventLoop:
 					pc.Bump(e.timestamp) // raises flag in pipelineController to run again whenever it finishes
 				} else {
 					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
-					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
+					pcCtx, pcCancel := pctx.WithCancel(m.masterCtx)
 					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
 					m.pcMgr.pcs[key] = pc
 					go pc.Start(e.timestamp)

@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 )
 
@@ -38,7 +39,7 @@ type Writer struct {
 
 // NewWriter create a new Writer.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	return &Writer{
 		ctx:    ctx,
 		cancel: cancel,
