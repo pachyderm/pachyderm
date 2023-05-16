@@ -17,6 +17,7 @@ import pipelineResolver from './Pipeline';
 import projectsResolver from './Projects';
 import repoResolver from './Repo';
 import searchResolver from './Search';
+import versionResolver from './Version';
 
 const resolvers: Resolvers = merge(
   fileResolver,
@@ -33,6 +34,7 @@ const resolvers: Resolvers = merge(
   branchResolver,
   enterpriseResolver,
   adminResolver,
+  versionResolver,
   {},
 );
 

@@ -21,7 +21,7 @@ RUN npm i module-alias
 FROM node:18.16.0-buster-slim
 
 ARG DOCKER_TAG=${DOCKER_TAG:-local}
-ENV CONSOLE_VERSION=${DOCKER_TAG:-local}
+ENV REACT_APP_RELEASE_VERSION=${DOCKER_TAG:-local}
 
 WORKDIR /usr/src/app
 

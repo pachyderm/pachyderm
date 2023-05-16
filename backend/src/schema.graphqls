@@ -628,6 +628,23 @@ type AdminInfo {
   clusterId: String
 }
 
+type Version {
+  major: Int
+  minor: Int
+  micro: Int
+  additional: String
+  gitCommit: String
+  gitTreeModified: String
+  buildDate: String
+  goVersion: String
+  platform: String
+}
+
+type VersionInfo {
+  pachdVersion: Version
+  consoleVersion: String
+}
+
 type PageableDatum {
   items: [Datum!]!
   cursor: String
@@ -739,6 +756,7 @@ type Query {
   datums(args: DatumsQueryArgs!): PageableDatum!
   enterpriseInfo: EnterpriseInfo!
   adminInfo: AdminInfo!
+  versionInfo: VersionInfo!
 
   # RBAC
   getPermissions(args: GetPermissionsArgs!): GetPermissionsResp

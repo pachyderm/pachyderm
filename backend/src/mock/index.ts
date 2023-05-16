@@ -15,6 +15,7 @@ import {
   PfsAPIService,
   PpsAPIService,
   AdminAPIService,
+  VersionAPIService,
 } from '@dash-backend/proto';
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 
@@ -27,6 +28,7 @@ import enterprise from './handlers/enterprise';
 import MockState from './handlers/MockState';
 import pfs from './handlers/pfs';
 import pps from './handlers/pps';
+import version from './handlers/version';
 
 const defaultState = {
   tokenError: false,
@@ -56,6 +58,7 @@ const createServer = () => {
   grpcServer.addService(AuthAPIService, auth.getService());
   grpcServer.addService(EnterpriseAPIService, enterprise.getService());
   grpcServer.addService(AdminAPIService, admin.getService());
+  grpcServer.addService(VersionAPIService, version.getService());
 
   // allow cors request to dev auth server
   // for devtools

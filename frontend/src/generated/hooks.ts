@@ -2905,3 +2905,71 @@ export type SearchResultsQueryResult = Apollo.QueryResult<
   Types.SearchResultsQuery,
   Types.SearchResultsQueryVariables
 >;
+export const GetVersionInfoDocument = gql`
+  query getVersionInfo {
+    versionInfo {
+      pachdVersion {
+        major
+        minor
+        micro
+        additional
+        gitCommit
+        gitTreeModified
+        buildDate
+        goVersion
+        platform
+      }
+      consoleVersion
+    }
+  }
+`;
+
+/**
+ * __useGetVersionInfoQuery__
+ *
+ * To run a query within a React component, call `useGetVersionInfoQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetVersionInfoQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetVersionInfoQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetVersionInfoQuery(
+  baseOptions?: Apollo.QueryHookOptions<
+    Types.GetVersionInfoQuery,
+    Types.GetVersionInfoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetVersionInfoQuery,
+    Types.GetVersionInfoQueryVariables
+  >(GetVersionInfoDocument, options);
+}
+export function useGetVersionInfoLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetVersionInfoQuery,
+    Types.GetVersionInfoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetVersionInfoQuery,
+    Types.GetVersionInfoQueryVariables
+  >(GetVersionInfoDocument, options);
+}
+export type GetVersionInfoQueryHookResult = ReturnType<
+  typeof useGetVersionInfoQuery
+>;
+export type GetVersionInfoLazyQueryHookResult = ReturnType<
+  typeof useGetVersionInfoLazyQuery
+>;
+export type GetVersionInfoQueryResult = Apollo.QueryResult<
+  Types.GetVersionInfoQuery,
+  Types.GetVersionInfoQueryVariables
+>;

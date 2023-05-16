@@ -8,6 +8,7 @@ import enterprise from './services/enterprise';
 import license from './services/license';
 import pfs from './services/pfs';
 import pps from './services/pps';
+import version from './services/version';
 
 interface ClientArgs {
   pachdAddress?: string;
@@ -71,6 +72,7 @@ const client = ({
   let ppsService: ReturnType<typeof pps> | undefined;
   let authService: ReturnType<typeof auth> | undefined;
   let adminService: ReturnType<typeof admin> | undefined;
+  let versionService: ReturnType<typeof version> | undefined;
   let enterpriseService: ReturnType<typeof enterprise> | undefined;
   let licenseService: ReturnType<typeof license> | undefined;
 
@@ -164,6 +166,19 @@ const client = ({
     },
     setAuthnToken: (token: string) => {
       credentialMetadata.set('authn-token', token);
+    },
+    version: () => {
+      if (versionService) return versionService;
+
+      versionService = attachPlugins(
+        version({
+          pachdAddress,
+          channelCredentials,
+          credentialMetadata,
+        }),
+        plugins,
+      );
+      return versionService;
     },
   };
 

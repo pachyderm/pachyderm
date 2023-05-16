@@ -332,3 +332,14 @@ export {
 } from './proto/license/license_pb';
 export {GRPC_MAX_MESSAGE_LENGTH} from './services/pfs/lib/constants';
 export {STREAM_OVERHEAD_LENGTH} from './services/pfs/lib/FileClient';
+
+export * from './proto/version/versionpb/version_pb';
+
+export {
+  APIClient as VersionAPIClient,
+  APIService as VersionAPIService,
+  IAPIClient as VersionIAPIClient,
+  IAPIServer as VersionIAPIServer,
+  IAPIService as VersionIAPIService,
+  IAPIService_IGetVersion,
+} from './proto/version/versionpb/version_grpc_pb';

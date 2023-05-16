@@ -762,6 +762,7 @@ export type Query = {
   repo: Repo;
   repos: Array<Maybe<Repo>>;
   searchResults: SearchResults;
+  versionInfo: VersionInfo;
   workspaceLogs: Array<Maybe<Log>>;
 };
 
@@ -996,6 +997,25 @@ export type TransformInput = {
 export type UpdateProjectArgs = {
   description: Scalars['String'];
   name: Scalars['String'];
+};
+
+export type Version = {
+  __typename?: 'Version';
+  additional?: Maybe<Scalars['String']>;
+  buildDate?: Maybe<Scalars['String']>;
+  gitCommit?: Maybe<Scalars['String']>;
+  gitTreeModified?: Maybe<Scalars['String']>;
+  goVersion?: Maybe<Scalars['String']>;
+  major?: Maybe<Scalars['Int']>;
+  micro?: Maybe<Scalars['Int']>;
+  minor?: Maybe<Scalars['Int']>;
+  platform?: Maybe<Scalars['String']>;
+};
+
+export type VersionInfo = {
+  __typename?: 'VersionInfo';
+  consoleVersion?: Maybe<Scalars['String']>;
+  pachdVersion?: Maybe<Version>;
 };
 
 export type Vertex = {
@@ -1233,6 +1253,8 @@ export type ResolversTypes = ResolversObject<{
   Transform: ResolverTypeWrapper<Transform>;
   TransformInput: TransformInput;
   UpdateProjectArgs: UpdateProjectArgs;
+  Version: ResolverTypeWrapper<Version>;
+  VersionInfo: ResolverTypeWrapper<VersionInfo>;
   Vertex: ResolverTypeWrapper<Vertex>;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
@@ -1333,6 +1355,8 @@ export type ResolversParentTypes = ResolversObject<{
   Transform: Transform;
   TransformInput: TransformInput;
   UpdateProjectArgs: UpdateProjectArgs;
+  Version: Version;
+  VersionInfo: VersionInfo;
   Vertex: Vertex;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
@@ -2196,6 +2220,11 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QuerySearchResultsArgs, 'args'>
   >;
+  versionInfo?: Resolver<
+    ResolversTypes['VersionInfo'],
+    ParentType,
+    ContextType
+  >;
   workspaceLogs?: Resolver<
     Array<Maybe<ResolversTypes['Log']>>,
     ParentType,
@@ -2325,6 +2354,59 @@ export type TransformResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type VersionResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Version'] = ResolversParentTypes['Version'],
+> = ResolversObject<{
+  additional?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  buildDate?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  gitCommit?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  gitTreeModified?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  goVersion?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  major?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  micro?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  minor?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  platform?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type VersionInfoResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['VersionInfo'] = ResolversParentTypes['VersionInfo'],
+> = ResolversObject<{
+  consoleVersion?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  pachdVersion?: Resolver<
+    Maybe<ResolversTypes['Version']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type VertexResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Vertex'] = ResolversParentTypes['Vertex'],
@@ -2390,6 +2472,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Timestamp?: TimestampResolvers<ContextType>;
   Tokens?: TokensResolvers<ContextType>;
   Transform?: TransformResolvers<ContextType>;
+  Version?: VersionResolvers<ContextType>;
+  VersionInfo?: VersionInfoResolvers<ContextType>;
   Vertex?: VertexResolvers<ContextType>;
 }>;
 
@@ -3587,5 +3671,27 @@ export type SearchResultsQuery = {
     pipelines: Array<{__typename?: 'Pipeline'; name: string; id: string}>;
     repos: Array<{__typename?: 'Repo'; name: string; id: string}>;
     jobSet?: {__typename?: 'JobSet'; id: string} | null;
+  };
+};
+
+export type GetVersionInfoQueryVariables = Exact<{[key: string]: never}>;
+
+export type GetVersionInfoQuery = {
+  __typename?: 'Query';
+  versionInfo: {
+    __typename?: 'VersionInfo';
+    consoleVersion?: string | null;
+    pachdVersion?: {
+      __typename?: 'Version';
+      major?: number | null;
+      minor?: number | null;
+      micro?: number | null;
+      additional?: string | null;
+      gitCommit?: string | null;
+      gitTreeModified?: string | null;
+      buildDate?: string | null;
+      goVersion?: string | null;
+      platform?: string | null;
+    } | null;
   };
 };

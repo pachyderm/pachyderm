@@ -11,6 +11,7 @@ import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
 import {projectInfo as projects} from '@dash-backend/mock/fixtures/projects';
 import repos from '@dash-backend/mock/fixtures/repos';
+import version from '@dash-backend/mock/fixtures/version';
 import {
   RepoInfo,
   CommitInfo,
@@ -23,6 +24,7 @@ import {
   GetStateResponse,
   ClusterInfo,
   ProjectInfo,
+  Version,
 } from '@dash-backend/proto';
 
 import jobSets from '../fixtures/jobSets';
@@ -58,6 +60,7 @@ export type StateType = {
   };
   enterprise: GetStateResponse;
   admin: ClusterInfo;
+  version: Version;
 };
 
 const defaultState: StateType = {
@@ -76,6 +79,7 @@ const defaultState: StateType = {
   datums,
   enterprise: enterpriseStates.active,
   admin: admin,
+  version,
 };
 
 class MockState {
