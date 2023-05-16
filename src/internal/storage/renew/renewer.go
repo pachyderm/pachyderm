@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +28,7 @@ type Renewer struct {
 // where period will be some fraction ttl.
 // If ctx is cancelled the renewer will be closed.
 func NewRenewer(ctx context.Context, ttl time.Duration, renewFunc Func) *Renewer {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	r := &Renewer{
 		renewFunc: renewFunc,
 		ttl:       ttl,
@@ -40,7 +41,7 @@ func NewRenewer(ctx context.Context, ttl time.Duration, renewFunc Func) *Renewer
 		defer close(r.done)
 		defer r.cancel()
 		err := r.renewLoop(ctx)
-		if errors.Is(ctx.Err(), context.Canceled) {
+		if errors.Is(context.Cause(ctx), context.Canceled) {
 			err = nil
 		}
 		r.err = err
@@ -75,7 +76,7 @@ func (r *Renewer) renewLoop(ctx context.Context) (retErr error) {
 		select {
 		case <-ticker.C:
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 	}
 }

@@ -133,7 +133,7 @@ func newTestEnv(ctx context.Context, t *testing.T, pipelineInfo *pps.PipelineInf
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(realEnv.PachClient.Ctx())
 	t.Cleanup(cancel)
 	driver = driver.WithContext(ctx)
 

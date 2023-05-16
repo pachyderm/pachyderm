@@ -48,9 +48,10 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					Version:     from,
-					DisableLoki: true,
-					PortOffset:  portOffset,
+					Version:        from,
+					DisableLoki:    true,
+					PortOffset:     portOffset,
+					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5"},
 				}))
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,

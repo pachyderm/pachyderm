@@ -60,7 +60,7 @@ func putItem(item *col.TestItem) func(rw col.ReadWriteCollection) error {
 
 // canceledContext is a helper function to provide a context that is already canceled
 func canceledContext() context.Context {
-	ctx, cancel := context.WithCancel(pctx.Child(pctx.TODO(), "canceled"))
+	ctx, cancel := pctx.WithCancel(pctx.Child(pctx.TODO(), "canceled"))
 	cancel()
 	return ctx
 }

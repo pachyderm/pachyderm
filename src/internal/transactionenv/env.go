@@ -308,7 +308,7 @@ func (env *TransactionEnv) waitReady(ctx context.Context) error {
 	case <-env.initDone:
 		return nil
 	case <-ctx.Done():
-		return errors.EnsureStack(ctx.Err())
+		return errors.EnsureStack(context.Cause(ctx))
 	}
 }
 

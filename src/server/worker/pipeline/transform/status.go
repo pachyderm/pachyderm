@@ -131,12 +131,12 @@ func (s *Status) NextDatum(ctx context.Context, err error) ([]string, error) {
 	select {
 	case s.nextChan <- err:
 	case <-ctx.Done():
-		return nil, errors.EnsureStack(ctx.Err())
+		return nil, errors.EnsureStack(context.Cause(ctx))
 	}
 	select {
 	case env := <-s.setupChan:
 		return env, nil
 	case <-ctx.Done():
-		return nil, errors.EnsureStack(ctx.Err())
+		return nil, errors.EnsureStack(context.Cause(ctx))
 	}
 }

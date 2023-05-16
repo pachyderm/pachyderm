@@ -21,7 +21,7 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
-import {MountSettings} from '../types';
+import {Mount, MountSettings} from '../types';
 
 jest.mock('../../../handler');
 
@@ -80,6 +80,50 @@ describe('mount plugin', () => {
       first: Promise.resolve<void>(void 0),
       registry: new CommandRegistry(),
     });
+  });
+
+  it('should accept /pfs/out as a valid FileBrowser path', async () => {
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      widgetTracker,
+    );
+    const mounts: Mount[] = [
+      {
+        name: 'default_images',
+        project: 'default',
+        branch: 'master',
+        commit: null,
+        repo: 'images',
+        glob: '/*',
+        mode: 'ro',
+        state: 'mounted',
+        status: '',
+        mountpoint: '/pfs',
+        how_many_commits_behind: 0,
+        actual_mounted_commit: '1a2b3c',
+        latest_commit: '1a2b3c',
+      },
+    ];
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_images', mounts),
+    ).toBe(true);
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_images/testdir', mounts),
+    ).toBe(true);
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_edges', mounts),
+    ).toBe(false);
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_edges/testdir', mounts),
+    ).toBe(false);
+    expect(plugin.isValidBrowserPath('mount-browser:out', mounts)).toBe(true);
+    expect(plugin.isValidBrowserPath('mount-browser:out/testdir', mounts)).toBe(
+      true,
+    );
   });
 
   it.skip('should poll for mounts', async () => {

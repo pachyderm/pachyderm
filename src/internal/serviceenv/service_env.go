@@ -157,7 +157,7 @@ func goCtx(eg *errgroup.Group, ctx context.Context, f func(context.Context) erro
 // until the client is ready.
 func InitPachOnlyEnv(rctx context.Context, config *Configuration) *NonblockingServiceEnv {
 	sctx, end := log.SpanContext(rctx, "serviceenv")
-	ctx, cancel := context.WithCancel(sctx)
+	ctx, cancel := pctx.WithCancel(sctx)
 	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: func() { cancel(); end() }}
 	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.config.PeerPort))
 	goCtx(&env.pachEg, ctx, env.initPachClient)
