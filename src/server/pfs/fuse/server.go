@@ -1048,7 +1048,7 @@ func updateConfig(cfgReq ConfigRequest) error {
 	}
 	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	cfg.V2.ActiveContext = "mount-server"
-	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
+	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCas: cfgReq.ServerCas}
 	if err = cfg.Write(); err != nil {
 		return err
 	}

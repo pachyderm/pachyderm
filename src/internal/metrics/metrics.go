@@ -106,12 +106,12 @@ func reportAndFlushUserAction(action string, value interface{}) func() {
 	go func() {
 		defer close(metricsDone)
 		cfg, _ := config.Read(false, false)
-		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
+		if cfg == nil || cfg.UserId == "" || !cfg.V2.Metrics {
 			return
 		}
 		client := newSegmentClient()
 		defer client.Close()
-		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+		reportUserMetricsToSegment(client, cfg.UserId, "user", action, value, "")
 	}()
 	return func() {
 		select {
