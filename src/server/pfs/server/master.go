@@ -87,7 +87,7 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) finishCommits(ctx context.Context) (retErr error) {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	repos := make(map[string]context.CancelFunc)
 	defer func() {
@@ -116,11 +116,11 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 				if _, ok := repos[key]; ok {
 					return nil
 				}
-				ctx, cancel := context.WithCancel(ctx)
+				ctx, cancel := pctx.WithCancel(ctx)
 				repos[key] = cancel
 				go func() {
 					backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-						ctx, cancel := context.WithCancel(ctx)
+						ctx, cancel := pctx.WithCancel(ctx)
 						defer cancel()
 						lockCtx, err := ring.Lock(ctx, lockPrefix)
 						if err != nil {

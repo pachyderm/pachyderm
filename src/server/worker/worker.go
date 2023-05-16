@@ -134,7 +134,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error { //nolint:errcheck
 		// We use pachClient.Ctx here because it contains auth information.
-		ctx, cancel := context.WithCancel(w.driver.PachClient().Ctx())
+		ctx, cancel := pctx.WithCancel(w.driver.PachClient().Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {

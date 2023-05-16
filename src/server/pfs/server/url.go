@@ -113,7 +113,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			select {
 			case inputChan <- input:
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 			return nil
 		}); err != nil {
@@ -234,7 +234,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 				select {
 				case inputChan <- input:
 				case <-ctx.Done():
-					return errors.EnsureStack(ctx.Err())
+					return errors.EnsureStack(context.Cause(ctx))
 				}
 				return nil
 			}

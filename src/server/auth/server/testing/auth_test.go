@@ -2786,7 +2786,7 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(tc.user.Ctx())
+			ctx, cancel := pctx.WithCancel(tc.user.Ctx())
 			defer cancel()
 			lrClient, err := tc.user.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType, Projects: tc.filterBy})
 			require.NoError(t, err)
@@ -2853,7 +2853,7 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(tc.c.Ctx())
+			ctx, cancel := pctx.WithCancel(tc.c.Ctx())
 			defer cancel()
 			lpClient, err := tc.c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Projects: tc.projects})
 			require.NoError(t, err)

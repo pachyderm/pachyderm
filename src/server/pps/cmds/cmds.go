@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -294,7 +295,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 						JqFilter:    filter,
 					}
 
-					ctx, cf := context.WithCancel(client.Ctx())
+					ctx, cf := pctx.WithCancel(client.Ctx())
 					defer cf()
 					ljClient, err := client.PpsAPIClient.ListJob(ctx, req)
 					if err != nil {

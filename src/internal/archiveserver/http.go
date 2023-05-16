@@ -90,7 +90,7 @@ func (h *HTTP) ListenAndServe(ctx context.Context) error {
 	}()
 	select {
 	case <-ctx.Done():
-		log.Info(ctx, "terminating download server", zap.Error(ctx.Err()))
+		log.Info(ctx, "terminating download server", zap.Error(context.Cause(ctx)))
 		return errors.EnsureStack(h.server.Shutdown(ctx))
 	case err := <-errCh:
 		return err

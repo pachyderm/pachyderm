@@ -10925,7 +10925,7 @@ func TestDatumSetCache(t *testing.T) {
 			DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 		})
 	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := pctx.WithCancel(context.Background())
 	defer cancel()
 	go func() {
 		ticker := time.NewTimer(50 * time.Second)

@@ -78,7 +78,7 @@ func (p *pachW) run(ctx context.Context) {
 			select {
 			case <-ticker.C:
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
