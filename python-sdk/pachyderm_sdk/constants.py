@@ -11,6 +11,10 @@ CONFIG_PATH_SPOUT = Path("/").joinpath("pachctl", "config.json")
 CONFIG_PATH_LOCAL = Path.home().joinpath(".pachyderm", "config.json")
 
 MAX_RECEIVE_MESSAGE_SIZE = 20 * 1024**2  # 20MB
+PRIMARY_USER_AGENT = "pachyderm-sdk"
+SECONDARY_USER_AGENT = "v0.0.0"  # TODO: populate this programmatically
 GRPC_CHANNEL_OPTIONS = [
     ("grpc.max_receive_message_length", MAX_RECEIVE_MESSAGE_SIZE),
+    ("grpc.primary_user_agent", PRIMARY_USER_AGENT),
+    ("grpc.secondary_user_agent", SECONDARY_USER_AGENT),
 ]
