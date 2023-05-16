@@ -3708,7 +3708,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(dataCommit, "/"+file, strings.NewReader(file), client.WithAppendPutFile()))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	for ctx.Err() == nil {
+	for context.Cause(ctx) == nil {
 		pi, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 		require.NoError(t, err)
 		require.NotEqual(t, pps.PipelineState_PIPELINE_RUNNING, pi.State)
@@ -10925,7 +10925,7 @@ func TestDatumSetCache(t *testing.T) {
 			DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 		})
 	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := pctx.WithCancel(context.Background())
 	defer cancel()
 	go func() {
 		ticker := time.NewTimer(50 * time.Second)

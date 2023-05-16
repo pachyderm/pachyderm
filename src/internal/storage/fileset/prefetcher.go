@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
@@ -34,7 +35,7 @@ func NewPrefetcher(storage *Storage, fileSet FileSet) FileSet {
 }
 
 func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(p.storage.prefetchLimit)))
 	fetchChunk := func(ref *chunk.DataRef, files []File) error {
@@ -68,7 +69,7 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 		case <-done:
 			return nil
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 	}
 	var ref *chunk.DataRef

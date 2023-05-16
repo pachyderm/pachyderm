@@ -17,6 +17,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -35,7 +36,7 @@ type Env struct {
 func NewEnv(rctx context.Context, t testing.TB) *Env {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
-	ctx, cancel := context.WithCancel(rctx)
+	ctx, cancel := pctx.WithCancel(rctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	t.Cleanup(func() {
 		require.NoError(t, eg.Wait())

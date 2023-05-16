@@ -1,7 +1,6 @@
 package meters
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +24,7 @@ func TestImmediate(t *testing.T) {
 
 func TestAggregatedGauge(t *testing.T) {
 	ctx, h := log.TestWithCapture(t)
-	ctx, c := context.WithCancel(ctx)
+	ctx, c := pctx.WithCancel(ctx)
 	doneCh := make(chan struct{})
 	ctx = NewAggregatedGauge(ctx, "test", 0, withDoneCh(doneCh)) // No log expected.
 	Set(ctx, "test", 42)                                         // No log expected.
@@ -68,7 +68,7 @@ func TestAggregatedGauge(t *testing.T) {
 
 func TestAggregatedCounter(t *testing.T) {
 	ctx, h := log.TestWithCapture(t)
-	ctx, c := context.WithCancel(ctx)
+	ctx, c := pctx.WithCancel(ctx)
 	doneCh := make(chan struct{})
 	ctx = NewAggregatedCounter(ctx, "test", 0, withDoneCh(doneCh))
 	for i := 0; i < 10000; i++ {
@@ -95,7 +95,7 @@ func TestAggregatedCounter(t *testing.T) {
 
 func TestAggregatedDelta(t *testing.T) {
 	ctx, h := log.TestWithCapture(t)
-	ctx, c := context.WithCancel(ctx)
+	ctx, c := pctx.WithCancel(ctx)
 	doneCh := make(chan struct{})
 	ctx = NewAggregatedDelta(ctx, "test", 500, withDoneCh(doneCh))
 	for i := 0; i < 1000; i++ {
@@ -125,7 +125,7 @@ func TestAggregatedDelta(t *testing.T) {
 
 func TestWithNewFields(t *testing.T) {
 	ctx, h := log.TestWithCapture(t)
-	ctx, c := context.WithCancel(ctx)
+	ctx, c := pctx.WithCancel(ctx)
 	ctx = log.ChildLogger(ctx, "a", log.WithFields(zap.Bool("a", true)))
 	t.Logf("ctx: %s", reflect.ValueOf(ctx))
 	ctxA := NewAggregatedCounter(ctx, "test", 0, Deferred())
@@ -195,7 +195,7 @@ func BenchmarkGauge(b *testing.B) {
 
 func BenchmarkAggregatedGauge(b *testing.B) {
 	ctx, w := log.NewBenchLogger(false)
-	ctx, c := context.WithCancel(ctx)
+	ctx, c := pctx.WithCancel(ctx)
 	doneCh := make(chan struct{})
 	ctx = NewAggregatedGauge(ctx, "bench", 0, withDoneCh(doneCh), WithFlushInterval(100*time.Millisecond))
 	writesDoneCh := make(chan struct{})

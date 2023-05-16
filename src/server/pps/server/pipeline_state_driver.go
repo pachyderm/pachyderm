@@ -232,7 +232,7 @@ func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(
 		defer close(d.eChan)
 		select {
 		case <-ctx.Done():
-			d.eChan <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
+			d.eChan <- &watch.Event{Type: watch.EventError, Err: context.Cause(ctx)}
 			return
 		case <-d.closeEChan:
 			return

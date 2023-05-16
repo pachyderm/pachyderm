@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -77,7 +78,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 // Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
 // during iteration, and the File.
 func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
-	ctx, cf := context.WithCancel(ctx)
+	ctx, cf := pctx.WithCancel(ctx)
 	defer cf()
 	iter := fileset.NewIterator(ctx, s.fileSet.Iterate, s.dirIndexOpts...)
 	cache := make(map[string]*pfs.FileInfo)

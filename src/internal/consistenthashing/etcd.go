@@ -81,7 +81,7 @@ func WithRing(ctx context.Context, client *etcd.Client, prefix string, cb func(c
 func withRing(rctx context.Context, client *etcd.Client, prefix, id string, cb func(ctx context.Context, ring *Ring) error) error {
 	ring := ring(client, prefix, id)
 
-	cancelCtx, cancel := context.WithCancel(pctx.Child(rctx, "ring", pctx.WithFields(zap.Inline(ring))))
+	cancelCtx, cancel := pctx.WithCancel(pctx.Child(rctx, "ring", pctx.WithFields(zap.Inline(ring))))
 	defer cancel()
 
 	eg, ctx := errgroup.WithContext(cancelCtx)
@@ -99,7 +99,7 @@ func withRing(rctx context.Context, client *etcd.Client, prefix, id string, cb f
 		return nil
 	})
 	err := eg.Wait()
-	if errors.Is(cancelCtx.Err(), context.Canceled) {
+	if errors.Is(context.Cause(cancelCtx), context.Canceled) {
 		err = nil
 	}
 	return errors.EnsureStack(err)
@@ -216,7 +216,7 @@ func (ring *Ring) releaseLock(key string) error {
 	// - The unlock call completes successfully.
 	ctx := lockInfo.ctx
 	return backoff.RetryNotify(func() error {
-		if errors.Is(ctx.Err(), context.Canceled) {
+		if errors.Is(context.Cause(ctx), context.Canceled) {
 			return nil
 		}
 		return lockInfo.lock.Unlock(ctx)
@@ -305,7 +305,7 @@ func (ring *Ring) Lock(ctx context.Context, key string) (context.Context, error)
 		select {
 		case <-ctx.Done():
 			ring.stateLock.Lock()
-			return nil, errors.EnsureStack(ctx.Err())
+			return nil, errors.EnsureStack(context.Cause(ctx))
 		case <-ticker.C:
 			ring.stateLock.Lock()
 		}

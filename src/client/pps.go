@@ -1,13 +1,13 @@
 package client
 
 import (
-	"context"
 	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
@@ -294,7 +294,7 @@ func (c APIClient) WaitProjectJob(projectName, pipelineName, jobID string, detai
 }
 
 func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pps.JobInfo) error) (retErr error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	req := &pps.InspectJobSetRequest{
 		JobSet:  NewJobSet(id),
@@ -502,7 +502,7 @@ func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, input
 	if projectName != "" && pipelineName != "" {
 		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListJob(
 		ctx,
@@ -543,7 +543,7 @@ func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.
 // SubscribeProjectJob calls the given callback with each open job in the given
 // pipeline until cancelled.
 func (c APIClient) SubscribeProjectJob(projectName, pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.SubscribeJob(
 		ctx,
@@ -700,7 +700,7 @@ func (c APIClient) ListDatumInputAll(input *pps.Input) (_ []*pps.DatumInfo, retE
 }
 
 func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) error) (retErr error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListDatum(ctx, req)
 	if err != nil {
@@ -951,7 +951,7 @@ func (c APIClient) InspectProjectPipeline(projectName, pipelineName string, deta
 
 // ListPipeline returns info about all pipelines.
 func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListPipeline(
 		ctx,
@@ -998,7 +998,7 @@ func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, 
 	if pipelineName != "" {
 		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListPipeline(
 		ctx,

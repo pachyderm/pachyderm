@@ -5506,7 +5506,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "B", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 
-		ctx, cancel := context.WithCancel(env.PachClient.Ctx())
+		ctx, cancel := pctx.WithCancel(env.PachClient.Ctx())
 		defer cancel()
 		pachClient := env.PachClient.WithCtx(ctx)
 
@@ -7197,7 +7197,7 @@ func TestPFS(suite *testing.T) {
 				require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
 			}
 		}
-		ctx, cf := context.WithCancel(c.Ctx())
+		ctx, cf := pctx.WithCancel(c.Ctx())
 		defer cf()
 		_, err := c.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{})
 		requireNoPanic(err)
