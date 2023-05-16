@@ -71,7 +71,7 @@ func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *m
 	return from, compare
 }
 
-func listRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+func listRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix, prefix, "prefix")
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
