@@ -5,7 +5,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
 func ExampleChild() {
@@ -16,7 +15,7 @@ func ExampleChild() {
 	meters.Set(ctx, "gauge", 42)
 	meters.Sample(ctx, "sampler", "hi")
 
-	ctx, c := pctx.WithCancel(ctx)
+	ctx, c := WithCancel(ctx)
 	ctx = Child(ctx, "aggregated", WithCounter("counter", 0, meters.WithFlushInterval(time.Second)))
 	ctx = Child(ctx, "", WithGauge("gauge", 0, meters.WithFlushInterval(time.Second)))
 	for i := 0; i < 1<<24; i++ {
