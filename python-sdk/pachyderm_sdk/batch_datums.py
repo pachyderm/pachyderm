@@ -32,26 +32,8 @@ def batch_datums(user_code: PIPELINE_FUNC) -> PIPELINE_FUNC:
     @wraps(user_code)
     def wrapper(*args, **kwargs) -> None:
         client = Client()
-        env: Dict[str, str] = dict()
-        error: Optional[str] = None
-
         while True:
-            for key in env.keys():
-                del os.environ[key]
-            env.clear()
-
-            response = client.worker.next_datum(error=error or "")
-
-            for _var in response.env:
-                # TODO: set env vars here and update env_vars dict
-                pass
-
-            error = None
-            try:
+            with client.worker.batch_datums():
                 user_code(*args, **kwargs)
-            except Exception as error:
-                error = repr(error)
-                # TODO: Probably want better logging here than a print statement.
-                print(f"{error}\nReporting above error to worker.")
 
     return wrapper

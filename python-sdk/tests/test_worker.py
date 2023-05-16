@@ -6,7 +6,7 @@ from tests.utils import count
 
 from pachyderm_sdk.api import pfs, pps
 
-IMAGE_NAME = "bonenfan5ben/datum_batching:0036"
+IMAGE_NAME = "bonenfan5ben/datum_batching:0036"  # TODO: Don't do this.
 
 
 def generate_stdin(func: Callable[[], None]):
@@ -18,9 +18,10 @@ def generate_stdin(func: Callable[[], None]):
           method to a class or defined within another function.
     """
     from inspect import getsource
+    from textwrap import dedent
 
     test_script = (
-        f'{getsource(func)}\n\n'
+        f'{dedent(getsource(func))}\n\n'
         'if __name__ == "__main__":\n'
         f'    {func.__name__}()\n'
     )
@@ -28,22 +29,6 @@ def generate_stdin(func: Callable[[], None]):
         f"echo '{test_script}' > main.py",
         "python3 main.py",
     ]
-
-
-def user_code():
-    """Assert the one file is mounted in /pfs/batch_datums_input
-    and copy it to /pfs/out.
-    """
-    import os
-    import shutil
-    from pachyderm_sdk import Client
-
-    while True:
-        with Client.worker.batch_datums():
-            datum_files = os.listdir(f"/pfs/batch_datums_input")
-            print(datum_files)
-            assert len(datum_files) == 1
-            shutil.copy(f"/pfs/batch_datums_input/{datum_files[0]}", f"/pfs/out/{datum_files[0]}")
 
 
 def test_datum_batching(client: TestClient):
@@ -54,29 +39,30 @@ def test_datum_batching(client: TestClient):
       copies each file to the output repo. The pipeline job should finish
       successfully and the output repo should contain 10 files.
     """
+
+    def user_code():
+        """Assert the one file is mounted in /pfs/batch_datums_input
+        and copy it to /pfs/out.
+        """
+        import os
+        import shutil
+        from pachyderm_sdk import batch_datums
+
+        @batch_datums
+        def main():
+            datum_files = os.listdir("/pfs/batch_datums_input")
+            print(datum_files)
+            assert len(datum_files) == 1
+            shutil.copy(f"/pfs/batch_datums_input/{datum_files[0]}", f"/pfs/out/{datum_files[0]}")
+        return main()
+
     repo = client.new_repo()
     branch = pfs.Branch(repo=repo, name="master")
-
     input_files = [f"/file_{i:02d}.dat" for i in range(10)]
     with client.pfs.commit(branch=branch) as commit:
         for file in input_files:
             commit.put_file_from_file(path=file, file=io.BytesIO(b"DATA"))
-    script = """
-import os
-import shutil
-from pachyderm_sdk import batch_datums
 
-@batch_datums
-def main():
-    datum_files = os.listdir(f"/pfs/batch_datums_input")
-    print(datum_files)
-    assert len(datum_files) == 1
-    shutil.copy(f"/pfs/batch_datums_input/{datum_files[0]}", f"/pfs/out/{datum_files[0]}")
-
-if __name__ == "__main__":
-    main()
-"""
-    stdin = [f"echo '{script}' > main.py", "python3 main.py"]
     pipeline = pps.Pipeline(name=client._generate_name())
     try:
         client.pps.create_pipeline(
@@ -93,7 +79,7 @@ if __name__ == "__main__":
                 cmd=["bash", ],
                 datum_batching=True,
                 image=IMAGE_NAME,
-                stdin=stdin,  # generate_stdin(user_code)
+                stdin=generate_stdin(user_code)
             )
         )
         job_info = next(client.pps.list_job(pipeline=pipeline))
@@ -106,15 +92,6 @@ if __name__ == "__main__":
             client.pps.delete_pipeline(pipeline=pipeline, force=True)
 
 
-def user_code_errors():
-    """Raises an Exception for every datum."""
-    from pachyderm_sdk import Client
-
-    while True:
-        with Client.worker.batch_datums():
-            raise Exception("Something Bad Happened!")
-
-
 def test_datum_batching_errors(client: TestClient):
     """Test that exceptions within the user code is caught, reported to the
     worker binary, and iteration continues.
@@ -124,6 +101,14 @@ def test_datum_batching_errors(client: TestClient):
       the pipeline job should finish successfully and the output repo should
       be empty.
     """
+    def user_code_errors():
+        """Raises an Exception for every datum."""
+        from pachyderm_sdk import Client
+
+        while True:
+            with Client.worker.batch_datums():
+                raise Exception("Something Bad Happened!")
+
     repo = client.new_repo()
     branch = pfs.Branch(repo=repo, name="master")
     with client.pfs.commit(branch=branch) as commit:
@@ -145,7 +130,7 @@ def test_datum_batching_errors(client: TestClient):
                 err_cmd=["true", ],  # Note err_cmd set.
                 datum_batching=True,
                 image=IMAGE_NAME,
-                stdin=generate_std_in(user_code_errors)
+                stdin=generate_stdin(user_code_errors)
             )
         )
         started_job = next(client.pps.list_job(pipeline=pipeline))
