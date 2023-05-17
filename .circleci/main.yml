@@ -868,7 +868,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "Integration tests"
           command: |
@@ -898,7 +898,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "e2e tests"
           command: |
@@ -1411,7 +1411,7 @@ jobs:
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
-      - install-jupyter-test-deps
+      - install-python-test-deps
 
       # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
       # export export PACH_PYTHON_AUTH_TOKEN=iamroot
@@ -1920,7 +1920,7 @@ workflows:
             - aws-prerelease-testing
 
 commands:
-  install-jupyter-test-deps: # Requires build-docker-images and build-pachctl-bin
+  install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
           at: ./
