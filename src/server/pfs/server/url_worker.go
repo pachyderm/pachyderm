@@ -8,7 +8,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"gocloud.dev/blob"
 
@@ -63,11 +62,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			retErr = multierror.Append(retErr, errors.EnsureStack(err))
-		}
-	}()
+	defer errors.Close(&retErr, bucket, "close bucket")
 	prefix := strings.TrimPrefix(url.Object, "/")
 	result := &PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
@@ -87,11 +82,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 						if err != nil {
 							return errors.EnsureStack(err)
 						}
-						defer func() {
-							if err := r.Close(); err != nil {
-								retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for bucket %s", url.Bucket))
-							}
-						}()
+						defer errors.Close(&retErr, r, "close reader for bucket %s", url.Bucket)
 						return uw.Put(ctx, filepath.Join(task.Dst, strings.TrimPrefix(path, prefix)), task.Datum, true, r)
 					}(); err != nil {
 						return err
@@ -127,11 +118,8 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	if url.Object != "" {
 		bucket = blob.PrefixedBucket(bucket, strings.Trim(url.Object, "/")+"/")
 	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			retErr = multierror.Append(retErr, errors.EnsureStack(err))
-		}
-	}()
+	defer errors.Close(&retErr, bucket, "close bucket")
+
 	if err := log.LogStep(ctx, "getFileURLTask", func(ctx context.Context) error {
 		err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 			if fi.FileType != pfs.FileType_FILE {
@@ -141,11 +129,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			defer func() {
-				if err := w.Close(); err != nil {
-					retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing writer for bucket %s", url.Bucket))
-				}
-			}()
+			defer errors.Close(&retErr, w, "close writer for bucket %s", url.Bucket)
 			return errors.EnsureStack(file.Content(ctx, w))
 		})
 		return errors.EnsureStack(err)

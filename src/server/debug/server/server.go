@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/wcharczuk/go-chart"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
@@ -110,11 +109,11 @@ func (s *debugServer) handleRedirect(
 				case *debug.Filter_Pachd:
 					var errs error
 					if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
-						multierr.AppendInto(&errs, errors.Wrap(err, "collectPachd"))
+						errors.JoinInto(&errs, errors.Wrap(err, "collectPachd"))
 					}
 					if wantDatabase {
 						if err := s.collectDatabaseDump(ctx, tw, databasePrefix); err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
+							errors.JoinInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
 						}
 					}
 					return errs
@@ -122,10 +121,10 @@ func (s *debugServer) handleRedirect(
 					var errs error
 					pipelineInfo, err := pachClient.InspectProjectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
 					if err != nil {
-						multierr.AppendInto(&errs, errors.Wrapf(err, "inspectProjectPipeline(%s)", f.Pipeline))
+						errors.JoinInto(&errs, errors.Wrapf(err, "inspectProjectPipeline(%s)", f.Pipeline))
 					}
 					if err := s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
-						multierr.AppendInto(&errs, errors.Wrapf(err, "handlePipelineRedirect(%s)", pipelineInfo.GetPipeline()))
+						errors.JoinInto(&errs, errors.Wrapf(err, "handlePipelineRedirect(%s)", pipelineInfo.GetPipeline()))
 					}
 					return errs
 				case *debug.Filter_Worker:
@@ -137,15 +136,15 @@ func (s *debugServer) handleRedirect(
 						}
 						// Collect the user container.
 						if err := collect(ctx, tw, pachClient, client.PPSWorkerUserContainerName); err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collect user container"))
+							errors.JoinInto(&errs, errors.Wrap(err, "collect user container"))
 						}
 						// Redirect to the storage container.
 						r, err := redirect(ctx, s.sidecarClient.DebugClient, filter)
 						if err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collect storage container"))
+							errors.JoinInto(&errs, errors.Wrap(err, "collect storage container"))
 						}
 						if err := collectDebugStream(tw, r); err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collect debug stream"))
+							errors.JoinInto(&errs, errors.Wrap(err, "collect debug stream"))
 						}
 						return errs
 					}
@@ -167,26 +166,26 @@ func (s *debugServer) handleRedirect(
 			// No filter, return everything
 			var errs error
 			if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "collectPachd"))
+				errors.JoinInto(&errs, errors.Wrap(err, "collectPachd"))
 			}
 			pipelineInfos, err := pachClient.ListPipeline(true)
 			if err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "listPipelines"))
+				errors.JoinInto(&errs, errors.Wrap(err, "listPipelines"))
 			}
 			for _, pipelineInfo := range pipelineInfos {
 				if err := s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
-					multierr.AppendInto(&errs, errors.Wrapf(err, "handlePipelineRedirect(%s)", pipelineInfo.GetPipeline()))
+					errors.JoinInto(&errs, errors.Wrapf(err, "handlePipelineRedirect(%s)", pipelineInfo.GetPipeline()))
 				}
 			}
 			if wantAppLogs {
 				// All other pachyderm apps (console, pg-bouncer, etcd, pachw, etc.).
 				if err := s.appLogs(ctx, tw); err != nil {
-					multierr.AppendInto(&errs, errors.Wrap(err, "appLogs"))
+					errors.JoinInto(&errs, errors.Wrap(err, "appLogs"))
 				}
 			}
 			if wantDatabase {
 				if err := s.collectDatabaseDump(ctx, tw, databasePrefix); err != nil {
-					multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
+					errors.JoinInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
 				}
 			}
 			return errs
@@ -227,15 +226,15 @@ func (s *debugServer) appLogs(ctx context.Context, tw *tar.Writer) (retErr error
 	for _, pod := range pods.Items {
 		podPrefix := join(pod.Labels["app"], pod.Name)
 		if err := s.collectDescribe(ctx, tw, pod.Name, podPrefix); err != nil {
-			multierr.AppendInto(&errs, errors.Wrapf(err, "describe(%s)", pod.Name))
+			errors.JoinInto(&errs, errors.Wrapf(err, "describe(%s)", pod.Name))
 		}
 		for _, container := range pod.Spec.Containers {
 			prefix := join(podPrefix, container.Name)
 			if err := s.collectLogs(ctx, tw, pod.Name, container.Name, prefix); err != nil {
-				multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogs(%s.%s)", pod.Name, container.Name))
+				errors.JoinInto(&errs, errors.Wrapf(err, "collectLogs(%s.%s)", pod.Name, container.Name))
 			}
 			if err := s.collectLogsLoki(ctx, tw, pod.Name, container.Name, prefix); err != nil {
-				multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, container.Name))
+				errors.JoinInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, container.Name))
 			}
 		}
 	}
@@ -287,7 +286,7 @@ func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.Pipel
 	var errs error
 	for _, pod := range pods {
 		if err := cb(&pod); err != nil {
-			multierr.AppendInto(&errs, errors.Wrapf(err, "forEachWorker(%s)", pod.Name))
+			errors.JoinInto(&errs, errors.Wrapf(err, "forEachWorker(%s)", pod.Name))
 		}
 	}
 	return nil
@@ -423,10 +422,10 @@ func collectProfileFunc(profile *debug.Profile) collectFunc {
 				return errors.Wrap(err, "generate random coverage id")
 			}
 			if err := collectDebugFile(tw, fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), "", coverage.WriteCounters, prefix...); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "counters"))
+				errors.JoinInto(&errs, errors.Wrap(err, "counters"))
 			}
 			if err := collectDebugFile(tw, fmt.Sprintf("cover/covmeta.%x", hash), "", coverage.WriteMeta, prefix...); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "meta"))
+				errors.JoinInto(&errs, errors.Wrap(err, "meta"))
 			}
 			if errs == nil {
 				log.Debug(ctx, "clearing coverage counters")
@@ -571,33 +570,33 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 		var errs error
 		// Collect helm info.
 		if err := s.helmReleases(ctx, tw); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "helmReleases"))
+			errors.JoinInto(&errs, errors.Wrap(err, "helmReleases"))
 		}
 		// Collect input repos.
 		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectInputRepos"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectInputRepos"))
 		}
 		// Collect the pachd version.
 		if err := s.collectPachdVersion(ctx, tw, pachClient, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectPachdVersion"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectPachdVersion"))
 		}
 		// Collect the pachd describe output.
 		if err := s.collectDescribe(ctx, tw, s.name, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectDescribe"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectDescribe"))
 		}
 		// Collect the pachd container logs.
 		if err := s.collectLogs(ctx, tw, s.name, "pachd", prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectLogs"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectLogs"))
 		}
 		// Collect the pachd container logs from loki.
 		lctx, c := context.WithTimeout(ctx, time.Minute)
 		defer c()
 		if err := s.collectLogsLoki(lctx, tw, s.name, "pachd", prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectLogsLoki"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectLogsLoki"))
 		}
 		// Collect the pachd container dump.
 		if err := collectDump(ctx, tw, pachClient, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectDump"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectDump"))
 		}
 		return errs
 	}
@@ -612,18 +611,18 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 	var errs error
 	for i, repoInfo := range repoInfos {
 		if err := validateRepoInfo(repoInfo); err != nil {
-			multierr.AppendInto(&errs, errors.Wrapf(err, "invalid repo info %d (%s) from ListRepo", i, repoInfo.String()))
+			errors.JoinInto(&errs, errors.Wrapf(err, "invalid repo info %d (%s) from ListRepo", i, repoInfo.String()))
 			continue
 		}
 		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				if err := s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix); err != nil {
-					multierr.AppendInto(&errs, errors.Wrapf(err, "collectCommits(%s:%s)", repoInfo.GetRepo(), repoPrefix))
+					errors.JoinInto(&errs, errors.Wrapf(err, "collectCommits(%s:%s)", repoInfo.GetRepo(), repoPrefix))
 				}
 				continue
 			}
-			multierr.AppendInto(&errs, errors.Wrapf(err, "inspectPipeline(%s)", repoInfo.GetRepo()))
+			errors.JoinInto(&errs, errors.Wrapf(err, "inspectPipeline(%s)", repoInfo.GetRepo()))
 		}
 	}
 	return errs
@@ -926,18 +925,18 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 			var pipelineErrs error
 			for _, fullPipelineInfo := range fullPipelineInfos {
 				if err := s.marshaller.Marshal(w, fullPipelineInfo); err != nil {
-					multierr.AppendInto(&pipelineErrs, errors.Wrapf(err, "marshalFullPipelineInfo(%s)", fullPipelineInfo.GetPipeline()))
+					errors.JoinInto(&pipelineErrs, errors.Wrapf(err, "marshalFullPipelineInfo(%s)", fullPipelineInfo.GetPipeline()))
 				}
 			}
 			return nil
 		}, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
+			errors.JoinInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
 		}
 		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectCommits"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectCommits"))
 		}
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline, limit, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectJobs"))
+			errors.JoinInto(&errs, errors.Wrap(err, "collectJobs"))
 		}
 		if s.hasLoki() {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) (retErr error) {
@@ -974,7 +973,7 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 	var errs error
 	for pod := range pods {
 		if err := cb(pod); err != nil {
-			multierr.AppendInto(&errs, errors.Wrapf(err, "forEachWorkersLoki(%s)", pod))
+			errors.JoinInto(&errs, errors.Wrapf(err, "forEachWorkersLoki(%s)", pod))
 		}
 	}
 	return errs
@@ -1191,10 +1190,10 @@ func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod
 	}
 	var errs error
 	if err := s.collectLogs(ctx, tw, pod.Name, client.PPSWorkerUserContainerName, userPrefix); err != nil {
-		multierr.AppendInto(&errs, errors.Wrap(err, "userContainerLogs"))
+		errors.JoinInto(&errs, errors.Wrap(err, "userContainerLogs"))
 	}
 	if err := s.collectLogs(ctx, tw, pod.Name, client.PPSWorkerSidecarContainerName, sidecarPrefix); err != nil {
-		multierr.AppendInto(&errs, errors.Wrap(err, "storageContainerLogs"))
+		errors.JoinInto(&errs, errors.Wrap(err, "storageContainerLogs"))
 	}
 	return errs
 }
@@ -1240,7 +1239,7 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 	}); err != nil {
 		// We can still try to get the release JSON if the metadata doesn't marshal
 		// or write cleanly.
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect metadata", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect metadata", name))
 	}
 
 	// Get the text of the release and write it to release.json.
@@ -1279,7 +1278,7 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 		}
 		return nil
 	}); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect release", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect release", name))
 		// The next steps need the release JSON, so we have to give up if any of
 		// this failed.  Technically if the write fails, we could continue, but it
 		// doesn't seem worth the effort because the next writes are also likely to
@@ -1295,7 +1294,7 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 		Manifest string `json:"manifest"`
 	}
 	if err := json.Unmarshal(releaseJSON, &release); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", name))
 		return errs
 	}
 
@@ -1307,7 +1306,7 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 		}
 		return nil
 	}); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", name))
 		// We can try the next step if this fails.
 	}
 
@@ -1322,7 +1321,7 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 		}
 		return nil
 	}); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write values.yaml", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: write values.yaml", name))
 	}
 	return errs
 }
@@ -1343,7 +1342,7 @@ func (s *debugServer) helmReleases(ctx context.Context, tw *tar.Writer) (retErr 
 	for _, secret := range secrets.Items {
 		if err := handleHelmSecret(ctx, tw, secret); err != nil {
 			if err := writeErrorFile(tw, err, path.Join("helm", secret.Name)); err != nil {
-				multierr.AppendInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
+				errors.JoinInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
 				continue
 			}
 		}

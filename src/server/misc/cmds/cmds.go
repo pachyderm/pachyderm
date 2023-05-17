@@ -28,7 +28,6 @@ import (
 	"github.com/spf13/cobra"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -68,25 +67,22 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			var errs error
 			if result, err := r.LookupHost(ctx, args[0]); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "lookup host"))
+				errors.JoinInto(&errs, errors.Wrap(err, "lookup host"))
 			} else {
 				fmt.Printf("A: %v\n", result)
 			}
 			if result, err := r.LookupCNAME(ctx, args[0]); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "lookup cname"))
+				errors.JoinInto(&errs, errors.Wrap(err, "lookup cname"))
 			} else {
 				fmt.Printf("CNAME: %v\n", result)
 			}
 			if result, err := r.LookupAddr(ctx, args[0]); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "lookup reverse address"))
+				errors.JoinInto(&errs, errors.Wrap(err, "lookup reverse address"))
 			} else {
 				fmt.Printf("IP: %v\n", result)
 			}
 			if errs != nil {
-				fmt.Fprintf(os.Stderr, "some lookups not successful, this is normally fine:\n")
-				for _, err := range multierr.Errors(errs) {
-					fmt.Fprintf(os.Stderr, "    %v\n", err)
-				}
+				fmt.Fprintf(os.Stderr, "some lookups not successful, this is normally fine:\n%v", errs)
 			}
 			return nil
 		}),
@@ -245,7 +241,7 @@ func Cmds(ctx context.Context) []*cobra.Command {
 			}
 			defer func() {
 				if err := txx.Rollback(); err != nil {
-					multierr.AppendInto(&retErr, errors.Wrap(err, "rollback"))
+					errors.JoinInto(&retErr, errors.Wrap(err, "rollback"))
 				}
 			}()
 			states := migrations.CollectStates(nil, clusterstate.DesiredClusterState)
@@ -255,7 +251,7 @@ func Cmds(ctx context.Context) []*cobra.Command {
 			for _, s := range states {
 				if err := migrations.ApplyMigrationTx(ctx, env, s); err != nil {
 					log.Error(ctx, "migration did not apply; continuing", zap.Error(err))
-					multierr.AppendInto(&errs, err)
+					errors.JoinInto(&retErr, errors.Wrapf(err, "migration %v", s.Number()))
 				}
 			}
 			log.Info(ctx, "done applying migrations")

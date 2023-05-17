@@ -438,6 +438,9 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 				input = i
 			}
 		}
+		if input == nil {
+			return errors.Errorf("could not find input %q", pathSplit[0])
+		}
 		// Upload the local files if they are not using the empty or lazy files feature.
 		if !(input.EmptyFiles || input.Lazy) {
 			return d.uploadSymlink(mf, dstPath, file, fi)

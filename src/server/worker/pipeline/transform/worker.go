@@ -10,7 +10,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -347,9 +346,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 				// Restart the user code if an error occurred.
 				if retErr != nil {
 					stop()
-					if err := start(); err != nil {
-						retErr = multierror.Append(retErr, errors.Wrap(err, "error restarting user code"))
-					}
+					errors.Invoke(&retErr, start, "error restarting user code")
 				}
 			}()
 			select {
