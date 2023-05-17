@@ -853,6 +853,12 @@ message LokiLogMessage {
   string message = 1;
 }
 
+message ExtendedTraceRequest {
+  repeated string repos = 1;
+  repeated string pipelines = 2;
+  google.protobuf.Duration ttl = 3;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -909,4 +915,8 @@ service API {
 
   // QueryLoki returns a stream of loki log messages given a query string
   rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // StartExtendedTrace starts an extended trace tied to the given repos and
+  // pipelines, for the given duration
+  rpc StartExtendedTrace(ExtendedTraceRequest) returns (google.protobuf.Empty) {}
 }

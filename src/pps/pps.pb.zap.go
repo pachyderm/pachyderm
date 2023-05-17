@@ -1068,3 +1068,25 @@ func (x *LokiLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("message", x.Message)
 	return nil
 }
+
+func (x *ExtendedTraceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	reposArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Repos {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("repos", zapcore.ArrayMarshalerFunc(reposArrMarshaller))
+	pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Pipelines {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("pipelines", zapcore.ArrayMarshalerFunc(pipelinesArrMarshaller))
+	protoextensions.AddDuration(enc, "ttl", x.Ttl)
+	return nil
+}

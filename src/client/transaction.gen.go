@@ -591,6 +591,10 @@ func (c *unsupportedPpsBuilderClient) RunPipeline(_ context.Context, _ *pps_v2.R
 	return nil, unsupportedError("RunPipeline")
 }
 
+func (c *unsupportedPpsBuilderClient) StartExtendedTrace(_ context.Context, _ *pps_v2.ExtendedTraceRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("StartExtendedTrace")
+}
+
 func (c *unsupportedPpsBuilderClient) StartPipeline(_ context.Context, _ *pps_v2.StartPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("StartPipeline")
 }
