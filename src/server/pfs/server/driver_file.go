@@ -293,7 +293,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 	if reverse {
 		fis := newCircularList(number)
 		if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
-			if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+			if isPaginationMarker(paginationMarker, fi) {
 				return nil
 			}
 			if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
@@ -309,7 +309,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		if number == 0 {
 			return errutil.ErrBreak
 		}
-		if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+		if isPaginationMarker(paginationMarker, fi) {
 			return nil
 		}
 		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
@@ -321,6 +321,11 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		return errors.EnsureStack(err)
 	}
 	return errors.EnsureStack(err)
+}
+
+// isPaginationMarker returns true if the file info has the same path as the pagination marker
+func isPaginationMarker(marker *pfs.File, fi *pfs.FileInfo) bool {
+	return marker != nil && pfsfile.CleanPath(marker.Path) == pfsfile.CleanPath(fi.File.Path)
 }
 
 type circularList struct {
@@ -405,7 +410,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	if reverse {
 		fis := newCircularList(number)
 		if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
-			if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+			if isPaginationMarker(paginationMarker, fi) {
 				return nil
 			}
 			fis.add(fi)
@@ -419,7 +424,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		if number == 0 {
 			return errutil.ErrBreak
 		}
-		if paginationMarker != nil && strings.Compare(pfsfile.CleanPath(fi.File.Path), pfsfile.CleanPath(paginationMarker.Path)) == 0 {
+		if isPaginationMarker(paginationMarker, fi) {
 			return nil
 		}
 		number--
