@@ -1,23 +1,32 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
+	gotestresults "github.com/pachyderm/pachyderm/v2/etc/testing/circle/workloads/go-test-results"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
 const (
-	projectName = "ci-metrics"
-	repoName    = "go-test-results-raw"
-	fileSuffix  = "go-test-results.jsonl"
+	projectName        = "ci-metrics"
+	repoName           = "go-test-results-raw"
+	fileSuffix         = "go-test-results.jsonl"
+	commitRetryBackoff = 10 * time.Second
+	commitMaxRetries   = 30
 )
 
 var pachdAddress = findPachdAddress()
@@ -38,12 +47,81 @@ func sanitizeName(s string) string {
 	return string(ret)
 }
 
-func findDestinationPath(path string, branch string, jobName string, resultsFolder string) string {
+func findDestinationPath(path string, statsPath string, resultsFolder string) string {
 	tmpPath := strings.Split(strings.TrimPrefix(path, resultsFolder), "/") // remove standard /tmp/test-results/ folder
-	tmpPath = append([]string{branch, jobName}, tmpPath...)                // set up output file location
+	tmpPath = append([]string{statsPath}, tmpPath...)                      // set up output file location
 	return filepath.Join(tmpPath...)
 }
 
+func findJobInfoFromCI() (gotestresults.JobInfo, error) {
+	jobInfo := gotestresults.JobInfo{}
+	mapping := make(map[string](*string))
+	mapping["CIRCLE_BRANCH"] = &jobInfo.Branch
+	mapping["CIRCLE_TAG"] = &jobInfo.Tag
+	mapping["CIRCLE_WORKFLOW_ID"] = &jobInfo.WorkflowId
+	mapping["CIRCLE_WORKFLOW_JOB_ID"] = &jobInfo.JobId
+	mapping["CIRCLE_JOB"] = &jobInfo.JobName
+	mapping["CIRCLE_SHA1"] = &jobInfo.Commit
+	mapping["CIRCLE_BRANCH"] = &jobInfo.Branch
+	mapping["CIRCLE_USERNAME"] = &jobInfo.Username
+	mapping["CIRCLE_PULL_REQUESTS"] = &jobInfo.PullRequests
+
+	allowEmpty := make(map[string]bool)
+	allowEmpty["CIRCLE_BRANCH"] = true
+	allowEmpty["CIRCLE_TAG"] = true
+	allowEmpty["CIRCLE_PULL_REQUESTS"] = true
+
+	for envVar, statsField := range mapping {
+		*statsField = os.Getenv(envVar)
+		if *statsField == "" && !allowEmpty[envVar] {
+			return jobInfo, errors.WithStack(fmt.Errorf("%s needs to be populated to upload test results.", envVar))
+		}
+	}
+	// non-string fields
+	jobInfo.JobTimestamp = time.Now()
+	var err error
+	jobInfo.JobNumExecutors, err = strconv.Atoi(os.Getenv("CIRCLE_NODE_TOTAL"))
+	return jobInfo, errors.Wrap(err, "Parsing CIRCLE_NODE_TOTAL")
+}
+
+func findBasePath(jobInfo gotestresults.JobInfo) string {
+	var branchFolderName string
+	if jobInfo.Branch != "" {
+		branchFolderName = jobInfo.Branch
+	} else {
+		branchFolderName = jobInfo.Tag
+	}
+	basePath := filepath.Join(sanitizeName(branchFolderName), sanitizeName(jobInfo.JobName))
+	return basePath
+}
+
+// Uploads job info to pachyderm cluster.
+func uploadJobInfo(basePath string, jobInfo gotestresults.JobInfo, pachClient *client.APIClient, commit *pfs.Commit) error {
+	jobInfoJson, err := json.Marshal(jobInfo)
+	if err != nil {
+		return errors.Wrapf(err, "Could not marshal CI job stats to json: %v ", jobInfo)
+	}
+	if err = pachClient.PutFile(commit, filepath.Join(basePath, "JobInfo.json"), bytes.NewReader(jobInfoJson)); err != nil {
+		return errors.Wrapf(err, "Could not output CI job stats to pachyderm cluster ")
+	}
+	return nil
+}
+
+func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder string, pachClient *client.APIClient, commit *pfs.Commit) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "opening file %v", d.Name())
+	}
+	defer file.Close()
+	destPath := findDestinationPath(path, basePath, resultsFolder)
+	if err = pachClient.PutFile(commit, destPath, file); err != nil {
+		return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetID())
+	}
+	logger.Printf("Succeeded uploading %s \n", path)
+	return nil
+}
+
+// This runs in circle-ci pipelines and sends the raw test data to pachyderm for transform.
 func main() {
 	logger.Println("Beginning results upload.")
 	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
@@ -54,52 +132,59 @@ func main() {
 	if len(resultsFolder) == 0 {
 		logger.Fatal("TEST_RESULTS needs to be populated to find the test results folder.")
 	}
-	var branchFolderName string
-	if branch := sanitizeName(os.Getenv("CIRCLE_BRANCH")); len(branch) != 0 {
-		branchFolderName = branch
-	} else if tag := sanitizeName(os.Getenv("CIRCLE_TAG")); len(tag) != 0 {
-		branchFolderName = tag
-	} else {
-		logger.Fatal("CIRCLE_BRANCH or CIRCLE_TAG needs to be populated to upload test results.")
+	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
+		logger.Fatalf("The test result folder at %v does not exist. Exiting early.", resultsFolder)
 	}
-	jobName := sanitizeName(os.Getenv("CIRCLE_JOB"))
-	if len(jobName) == 0 {
-		logger.Fatal("CIRCLE_JOB needs to be populated to upload test results.")
-	}
-
+	// connect and authenticate to pachyderm
 	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
 	if err != nil {
 		logger.Fatalf("Provisioning pach client: %v", err)
 	}
 	pachClient.SetAuthToken(robotToken)
-
+	// retry in case the parent commit is still in progress from another pipeline
+	var commit *pfs.Commit
+	for i := 0; i < commitMaxRetries; i++ {
+		commit, err = pachClient.StartProjectCommit(projectName, repoName, "master")
+		if err != nil {
+			logger.Printf("Unable to start commit due to error. Retrying. Error: %v", err)
+			time.Sleep(commitRetryBackoff)
+		} else {
+			break
+		}
+	}
+	if err != nil {
+		logger.Fatalf("Starting commit: %v", err)
+	}
+	defer func() {
+		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
+			logger.Fatalf("Finishing commit: %v", err)
+		}
+	}()
+	// upload general job information
+	jobInfo, err := findJobInfoFromCI()
+	if err != nil {
+		logger.Fatalf("Collecting job info: %v", err)
+	}
+	basePath := findBasePath(jobInfo)
+	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
+		logger.Fatalf("Uploading job info: %v", err)
+	}
+	// upload individual test  results
 	eg, _ := errgroup.WithContext(pachClient.Ctx())
 	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
 			eg.Go(func() error {
-				file, err := os.Open(path)
-				if err != nil {
-					return errors.Wrapf(err, "opening file %v", d.Name())
-				}
-				defer file.Close()
-
-				destPath := findDestinationPath(path, branchFolderName, jobName, resultsFolder)
-				commit := client.NewProjectCommit(projectName, repoName, "master", "")
-				err = pachClient.PutFile(commit, destPath, file)
-				if err != nil {
-					return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetID())
-				}
-				logger.Printf("Succeeded uploading %s \n", path)
-				return nil
+				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, commit)
 			})
 		}
 		return nil
 	})
 	if err != nil {
-		logger.Fatalf("Failed walking file paths: %v", err)
+		logger.Fatalf("Walking file paths: %v", err)
 	}
 	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		logger.Fatalf("Failed creating files: %v", err)
+		logger.Fatalf("Putting files: %v", err)
 	}
+
 	logger.Println("Successfully uploaded files.")
 }

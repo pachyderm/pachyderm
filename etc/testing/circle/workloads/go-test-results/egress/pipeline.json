@@ -1,0 +1,27 @@
+{
+    "pipeline": {
+        "name": "go-test-results-sql-egress"
+    },
+    "input": {
+        "pfs": {
+            "repo": "go-test-results-raw",
+            "project": "ci-metrics",
+            "glob": "/*"
+        }
+    },
+    "transform": {
+        "image": "pachyderm/go-test-results:local",
+        "cmd": [
+            "/go/egress/egress",
+            "/pfs/go-test-results-raw"
+        ],
+        "env": {
+            "LOG_LEVEL": "DEBUG"
+        },
+        "secrets": [{
+            "name": "postgres",
+            "env_var": "POSTGRESQL_PASSWORD",
+            "key": "postgresql-password"
+        }]
+    }
+}
