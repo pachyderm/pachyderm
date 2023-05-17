@@ -1517,6 +1517,11 @@ func (d *driver) listCommit(
 				}
 				number--
 			}
+			var err error
+			commitInfo.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, commitInfo.Commit)
+			if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
+				return err
+			}
 			cursor = commitInfo.ParentCommit
 		}
 	}
