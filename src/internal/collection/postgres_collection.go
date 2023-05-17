@@ -768,7 +768,7 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 }
 
 func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/update",
+	span, _ := tracing.AddSpanToAnyExisting(c.tx.Context(), "/postgres.RW/Update",
 		"table", c.table, "key", key)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -800,8 +800,8 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 	})
 }
 
-func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
-	span, _ := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/insert",
+func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(c.tx.Context(), "/postgres.RW/insert",
 		"table", c.table, "key", key, "upsert", upsert)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -883,7 +883,7 @@ func (c *postgresReadWriteCollection) Delete(key interface{}) error {
 }
 
 func (c *postgresReadWriteCollection) delete(key string) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/delete",
+	span, _ := tracing.AddSpanToAnyExisting(c.tx.Context(), "/postgres.RW/delete",
 		"table", c.table, "key", key)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -903,9 +903,9 @@ func (c *postgresReadWriteCollection) delete(key string) (retErr error) {
 	return nil
 }
 
-func (c *postgresReadWriteCollection) DeleteAll() error {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/deleteAll",
-		"table", c.table, "key", key)
+func (c *postgresReadWriteCollection) DeleteAll() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(c.tx.Context(),
+		"/postgres.RW/DeleteAll", "table", c.table)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
@@ -915,8 +915,8 @@ func (c *postgresReadWriteCollection) DeleteAll() error {
 	return c.mapSQLError(err, "")
 }
 
-func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal string) error {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/postgres.RW/deleteByIndex",
+func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal string) (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(c.tx.Context(), "/postgres.RW/DeleteByIndex",
 		"table", c.table, "key", indexVal, "index", index.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)

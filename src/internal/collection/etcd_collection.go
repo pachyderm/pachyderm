@@ -260,7 +260,13 @@ func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int6
 	})
 }
 
-func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc func(string, string, uintptr) error) error {
+func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc func(string, string, uintptr) error) (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(c.stm.Context(), "/etcd.RO/Get",
+		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
 	if strings.Contains(key, indexIdentifier) {
 		return errors.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
 	}
@@ -496,7 +502,7 @@ func (c *etcdReadOnlyCollection) TTL(key string) (_ int64, retErr error) {
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}
+	}()
 	leaseTTLResp, err := c.etcdClient.TimeToLive(ctx, leaseID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "could not fetch lease TTL")

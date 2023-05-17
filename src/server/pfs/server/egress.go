@@ -53,7 +53,7 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 	defer db.Close()
 
 	// all table are written through a single transaction
-	tx, err := db.BeginTxx(ctx, nil)
+	tx, err := pachsql.BeginTx(ctx, db, nil)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

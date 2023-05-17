@@ -104,7 +104,7 @@ func collectStates(slice []State, s State) []State {
 }
 
 func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
+	tx, err := pachsql.BeginTx(ctx, db, &sql.TxOptions{})
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

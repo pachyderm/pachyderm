@@ -2,6 +2,7 @@ package pachsql
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"strconv"
 	"strings"
@@ -41,7 +42,10 @@ var fixMysqlLoggerOnce sync.Once
 type DB = sqlx.DB
 
 // Tx is an alias for sqlx.Tx which is the standard transaction type used throughout the project
-type Tx = sqlx.Tx
+type Tx struct {
+	*sqlx.Tx
+	ctx context.Context
+}
 
 // Stmt is an alias for sqlx.Stmt which is the standard prepared statement type used throught the project
 type Stmt = sqlx.Stmt
@@ -50,6 +54,21 @@ type Stmt = sqlx.Stmt
 type SchemaTable struct {
 	SchemaName string `json:"schemaname"`
 	TableName  string `json:"tablename"`
+}
+
+func (tx *Tx) Context() context.Context {
+	return tx.ctx
+}
+
+func BeginTx(ctx context.Context, db *DB, opts *sql.TxOptions) (*Tx, error) {
+	sqlTx, err := db.BeginTxx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &Tx{
+		Tx:  sqlTx,
+		ctx: ctx,
+	}, nil
 }
 
 // RowMap is an alias for map[string]interface{} which is the type used by sqlx.MapScan()

@@ -142,7 +142,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 		defer cf()
 		underlyingTxStartedMetric.Inc()
 		attempts++
-		tx, err := db.BeginTxx(ctx, &c.TxOptions)
+		tx, err := pachsql.BeginTx(ctx, db, &c.TxOptions)
 		if err != nil {
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
 			return errors.EnsureStack(err)

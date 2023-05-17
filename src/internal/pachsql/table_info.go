@@ -29,7 +29,7 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 	if db.DriverName() == "snowflake" {
 		readonly = false
 	}
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: readonly}) // TODO Snowflake doesn't support ReadOnly
+	tx, err := BeginTx(ctx, db, &sql.TxOptions{ReadOnly: readonly}) // TODO Snowflake doesn't support ReadOnly
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
