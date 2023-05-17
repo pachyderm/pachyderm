@@ -1441,6 +1441,60 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	nextDatum.Flags().StringVar(&errStr, "error", "", "A string representation of an error that occurred while processing the current datum.")
 	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
 
+	var repos []string
+	var pipelines []string
+	startExtendedTrace := &cobra.Command{
+		Short: "Start an extended trace.",
+		Long:  "Start an extended trace.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			repoObjs := make([]*pfs.Repo, 0)
+			for _, r := range repos {
+				parts := strings.SplitN(r, "/", 2)
+				if len(parts) == 0 {
+					continue
+				}
+				if len(parts) == 1 {
+					parts = append(parts, parts[0])
+					parts[0] = pfs.DefaultProjectName
+				}
+				repoObjs = append(repoObjs, cmdutil.ParseRepo(parts[0], parts[1]))
+			}
+			pipelineObjs := make([]*pps.Pipeline, 0)
+			for _, p := range pipelines {
+				parts := strings.SplitN(p, "/", 2)
+				if len(parts) == 0 {
+					continue
+				}
+				if len(parts) == 1 {
+					parts = append(parts, parts[0])
+					parts[0] = pfs.DefaultProjectName
+				}
+				pipelineObjs = append(pipelineObjs, &pps.Pipeline{
+					Project: &pfs.Project{
+						Name: parts[0],
+					},
+					Name: parts[1],
+				})
+			}
+
+			if _, err := client.PpsAPIClient.StartExtendedTrace(
+				client.Ctx(),
+				&pps.ExtendedTraceRequest{}); err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return nil
+		}),
+	}
+	startExtendedTrace.Flags().StringSlice("repos", repos, "repos to attach to the extended trace, denoted as $project/$repo.")
+	startExtendedTrace.Flags().StringSlice("pipelines", pipelines, "pipelines to attach to the extended trace, denoted as $project/$pipeline.")
+	commands = append(commands, cmdutil.CreateAliases(startExtendedTrace, "inspect secret", secrets))
+
 	return commands
 }
 

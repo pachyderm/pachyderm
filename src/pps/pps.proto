@@ -854,8 +854,8 @@ message LokiLogMessage {
 }
 
 message ExtendedTraceRequest {
-  repeated string repos = 1;
-  repeated string pipelines = 2;
+  repeated pfs_v2.Repo repos = 1;
+  repeated Pipeline pipelines = 2;
   google.protobuf.Duration ttl = 3;
 }
 

@@ -1486,6 +1486,7 @@ type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
+type StartExtendedTraceFunc func(context.Context, *pps.ExtendedTraceRequest) (*types.Empty, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1520,6 +1521,7 @@ type mockRenderTemplate struct{ handler renderTemplateFunc }
 type mockListTaskPPS struct{ handler listTaskPPSFunc }
 type mockGetKubeEvents struct{ handler getKubeEventsFunc }
 type mockQueryLoki struct{ handler queryLokiFunc }
+type mockStartExtendedTrace struct{ handler StartExtendedTraceFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1554,6 +1556,7 @@ func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.
 func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.handler = cb }
 func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.handler = cb }
+func (mock *mockStartExtendedTrace) Use(cb queryLokiFunc)                { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -1594,6 +1597,7 @@ type mockPPSServer struct {
 	ListTask           mockListTaskPPS
 	GetKubeEvents      mockGetKubeEvents
 	QueryLoki          mockQueryLoki
+	StartExtendedTrace mockStartExtendedTrace
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1791,6 +1795,12 @@ func (api *ppsServerAPI) GetKubeEvents(req *pps.LokiRequest, server pps.API_GetK
 func (api *ppsServerAPI) QueryLoki(req *pps.LokiRequest, server pps.API_QueryLokiServer) error {
 	if api.mock.QueryLoki.handler != nil {
 		return api.mock.QueryLoki.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pps.QueryLoki")
+}
+func (api *ppsServerAPI) StartExtendedTrace(req *pps.StartExtendedTraceRequest, server pps.API_QueryLokiServer) error {
+	if api.mock.StartExtendedTrace.handler != nil {
+		return api.mock.StartExtendedTrace.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pps.QueryLoki")
 }

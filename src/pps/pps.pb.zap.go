@@ -1075,14 +1075,14 @@ func (x *ExtendedTraceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 	reposArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Repos {
-			enc.AppendString(v)
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("repos", zapcore.ArrayMarshalerFunc(reposArrMarshaller))
 	pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Pipelines {
-			enc.AppendString(v)
+			enc.AppendObject(v)
 		}
 		return nil
 	}

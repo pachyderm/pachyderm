@@ -3574,3 +3574,30 @@ func ensurePipelineProject(p *pps.Pipeline) {
 		p.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
 }
+
+func (a *apiServer) StartExtendedTrace(ctx context.Context, request *pps.ExtendedTraceRequest) (response *types.Empty, retErr error) {
+	// Annotate current span with pipeline & persist any extended trace to etcd
+	// opentracing.
+	keys := make([]string, len(request.Repos)+len(request.Pipelines))
+	tags := make(map[string]interface{})
+	for i := range keys {
+		if i < len(request.Repos) {
+			keys[i] = extended.Repo(request.Repos[i])
+		} else {
+			keys[i] = extended.Pipeline(request.Pipelines[i-len(request.Repos)])
+		}
+	}
+	tags["repos"] = strings.Join(keys[0:len(request.Repos)], ",")
+	tags["pipelines"] = strings.Join(keys[len(request.Repos):], ",")
+	d, err := types.DurationFromProto(request.Ttl)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse request duration: %v", request.Ttl)
+	}
+	if d > (12 * time.Hour) {
+		log.Info(ctx, "clamping extended trace to 12h", zap.Duration("request-trace-duration", d))
+		d = 12 * time.Hour
+	}
+
+	extended.Start(d, a.env.EtcdClient, tags, keys...)
+	return &types.Empty{}, nil
+}

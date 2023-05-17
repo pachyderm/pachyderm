@@ -53,11 +53,6 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 		nil) // no val check
 }
 
-// PersistAny copies any extended traces from the incoming RPC context in 'ctx'
-// into etcd. Currently, this is only called by CreatePipeline, when it stores a
-// trace for future updates by the PPS master and workers.  This function is
-// best-effort, and therefore doesn't currently return an error. Any errors are
-// logged, and then the given context is returned.
 func PersistAny(ctx context.Context, c *etcd.Client, keys ...string) {
 	if !tracing.IsActive() {
 		return
@@ -90,6 +85,20 @@ func PersistAny(ctx context.Context, c *etcd.Client, keys ...string) {
 	}
 
 	// serialize extended trace & write to etcd
+	if err := persist(ctx, span, duration, c, keys...); err != nil {
+		log.Info(ctx, "error persisting trace", zap.String("key", strings.Join(keys, ",")), zap.Error(err))
+	}
+}
+
+func Start(ttl time.Duration, c *etcd.Client, tags map[string]interface{}, keys ...string) {
+	opentracing.GlobalTracer().StartSpan("op", opentracing.Tags(tags))
+	return
+}
+
+// persist is an internal helper for PersistAny and Start. It actually
+// serializes 'span' into etcd with a TTL of 'duration'.
+func persist(ctx context.Context, span opentracing.Span, duration time.Duration, c *etcd.Client, keys ...string) error {
+	// serialize extended trace & write to etcd
 	traceProto := &TraceProto{
 		SerializedTrace: map[string]string{}, // init map
 	}
@@ -97,7 +106,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, keys ...string) {
 		span.Context(), opentracing.TextMap,
 		opentracing.TextMapCarrier(traceProto.SerializedTrace),
 	); err != nil {
-		log.Info(ctx, "could not inject context into GlobalTracer", zap.Error(err))
+		return errors.Wrap(err, "could not inject context into GlobalTracer")
 	}
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
@@ -108,8 +117,9 @@ func PersistAny(ctx context.Context, c *etcd.Client, keys ...string) {
 		}
 		return nil
 	}); err != nil {
-		log.Error(ctx, "could not persist extended trace for pipeline to etcd", zap.String("key", strings.Join(keys, ",")), zap.Error(err))
+		return errors.Wrap(err, "could not persist extended trace for pipeline to etcd")
 	}
+	return nil
 }
 
 func (t *TraceProto) isValid() bool {
@@ -120,8 +130,8 @@ func Pipeline(s fmt.Stringer) string {
 	return "pipeline:" + s.String()
 }
 
-func Repo(project, name string) string {
-	return "repo:" + project + "/" + name
+func Repo(s fmt.Stringer) string {
+	return "repo:" + s.String()
 }
 
 // AddSpanToAnyExtendedTrace finds any extended traces associated with
