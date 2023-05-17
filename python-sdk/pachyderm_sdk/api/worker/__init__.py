@@ -34,11 +34,23 @@ class CancelResponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class NextDatumRequest(betterproto.Message):
+    """
+    Error indicates that the processing of the current datum errored. Datum
+    error semantics with datum batching enabled are similar to datum error
+    semantics without datum batching enabled in that the datum may be retried,
+    recovered, or result with a job failure.
+    """
+
     error: str = betterproto.string_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class NextDatumResponse(betterproto.Message):
+    """
+    Env is a list of environment variables that should be set for the
+    processing of the next datum.
+    """
+
     env: List[str] = betterproto.string_field(1)
 
 

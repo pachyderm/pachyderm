@@ -9,6 +9,7 @@ from typing import (
     AsyncIterator,
     Dict,
     Iterator,
+    List,
     Optional,
 )
 
@@ -21,6 +22,14 @@ from .. import pps as _pps__
 
 if TYPE_CHECKING:
     import grpc
+
+
+class SetLogLevelRequestLogLevel(betterproto.Enum):
+    UNKNOWN = 0
+    DEBUG = 1
+    INFO = 2
+    ERROR = 3
+    OFF = 4
 
 
 @dataclass(eq=False, repr=False)
@@ -64,6 +73,20 @@ class DumpRequest(betterproto.Message):
     """
 
 
+@dataclass(eq=False, repr=False)
+class SetLogLevelRequest(betterproto.Message):
+    pachyderm: "SetLogLevelRequestLogLevel" = betterproto.enum_field(1, group="level")
+    grpc: "SetLogLevelRequestLogLevel" = betterproto.enum_field(2, group="level")
+    duration: timedelta = betterproto.message_field(3)
+    recurse: bool = betterproto.bool_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class SetLogLevelResponse(betterproto.Message):
+    affected_pods: List[str] = betterproto.string_field(1)
+    errored_pods: List[str] = betterproto.string_field(2)
+
+
 class DebugStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_profile = channel.unary_stream(
@@ -80,6 +103,11 @@ class DebugStub:
             "/debug_v2.Debug/Dump",
             request_serializer=DumpRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.BytesValue.FromString,
+        )
+        self.__rpc_set_log_level = channel.unary_unary(
+            "/debug_v2.Debug/SetLogLevel",
+            request_serializer=SetLogLevelRequest.SerializeToString,
+            response_deserializer=SetLogLevelResponse.FromString,
         )
 
     def profile(
@@ -115,6 +143,23 @@ class DebugStub:
         for response in self.__rpc_dump(request):
             yield response
 
+    def set_log_level(
+        self,
+        *,
+        pachyderm: "SetLogLevelRequestLogLevel" = None,
+        grpc: "SetLogLevelRequestLogLevel" = None,
+        duration: timedelta = None,
+        recurse: bool = False
+    ) -> "SetLogLevelResponse":
+        request = SetLogLevelRequest()
+        request.pachyderm = pachyderm
+        request.grpc = grpc
+        if duration is not None:
+            request.duration = duration
+        request.recurse = recurse
+
+        return self.__rpc_set_log_level(request)
+
 
 class DebugBase:
     def profile(
@@ -138,6 +183,18 @@ class DebugBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def set_log_level(
+        self,
+        pachyderm: "SetLogLevelRequestLogLevel",
+        grpc: "SetLogLevelRequestLogLevel",
+        duration: timedelta,
+        recurse: bool,
+        context: "grpc.ServicerContext",
+    ) -> "SetLogLevelResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "debug_v2.Debug"
 
     @property
@@ -157,5 +214,10 @@ class DebugBase:
                 self.dump,
                 request_deserializer=DumpRequest.FromString,
                 response_serializer=DumpRequest.SerializeToString,
+            ),
+            "SetLogLevel": grpc.unary_unary_rpc_method_handler(
+                self.set_log_level,
+                request_deserializer=SetLogLevelRequest.FromString,
+                response_serializer=SetLogLevelRequest.SerializeToString,
             ),
         }
