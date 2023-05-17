@@ -22,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -538,7 +537,7 @@ func scaleDownWorkers(ctx context.Context, kc kubernetes.Interface, namespace st
 		}, metav1.UpdateOptions{
 			FieldManager: "enterprise-server",
 		}); err != nil {
-			multierr.AppendInto(&errs, errors.Errorf("could not scale down %s: %v", w.GetName(), err))
+			errors.JoinInto(&errs, errors.Errorf("could not scale down %s: %v", w.GetName(), err))
 		}
 	}
 	return errs
