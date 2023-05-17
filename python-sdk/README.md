@@ -44,4 +44,12 @@ Bugs?
   * >>> file = pfs.File.from_uri("master@images:/")
     >>> file.commit.branch.repo.type = None
     >>> list(client.pfs.list_file(file=file))
-    
+
+
+Developer Guide
+
+Running Tests:
+
+```
+pytest -vvv tests
+```

@@ -28,8 +28,8 @@ for i in ${PROTO_FILES}; do
     sed -i 's/.*gogoproto.*//' "${i}"
 
     # remove the protoextensions/log.proto
-    sed -i 's/import.*protoextensions\/log.proto.*\;//' ${i}
-    sed -i 's/\[.*log.*\]//' ${i}
+    sed -i 's/import.*protoextensions\/log.proto.*\;//' "${i}"
+    sed -i 's/\[.*log.*\]//' "${i}"
 done
 
 # fix imports to be relative to $OUTDIR
