@@ -112,6 +112,10 @@ spec:
         - name: NO_PROXY
           value:  {{.Values.global.noProxy}}
         {{ end }}
+        - name: PACHYDERM_PUBLIC_HOST
+          value: {{ include "pachyderm.host" . }}
+        - name: PACHYDERM_PUBLIC_TLS
+          value: "{{ .Values.proxy.tls.enabled | ternary "true" "false" }}"
         {{- if .Values.console.resources }}
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}
