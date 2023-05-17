@@ -649,6 +649,22 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
+	var jqCode *gojq.Code
+	var enc serde.Encoder
+	var jsonBuffer bytes.Buffer
+	if request.GetJqFilter() != "" {
+		jqQuery, err := gojq.Parse(request.GetJqFilter())
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		jqCode, err = gojq.Compile(jqQuery)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		// ensure field names and enum values match with --raw output
+		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
+	}
+
 	number := request.Number
 	if number < 0 {
 		return errors.Errorf("number must be non-negative")
@@ -690,6 +706,22 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
 			return err
+		}
+		if jqCode != nil {
+			jsonBuffer.Reset()
+			// convert jobInfo to a map[string]interface{} for use with gojq
+			if err := enc.EncodeProto(jobInfo); err != nil {
+				return errors.EnsureStack(err)
+			}
+			var jobInterface interface{}
+			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
+				return errors.EnsureStack(err)
+			}
+			iter := jqCode.Run(jobInterface)
+			// treat either jq false-y value as rejection
+			if v, _ := iter.Next(); v == false || v == nil {
+				return nil
+			}
 		}
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.

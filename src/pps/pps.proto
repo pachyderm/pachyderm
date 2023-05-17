@@ -485,6 +485,8 @@ message ListJobSetRequest {
   int64 number = 4;
   // if true, return results in reverse order
   bool reverse = 5;
+  // A jq program string for additional result filtering
+  string jqFilter = 6;
 }
 
 message InspectJobRequest {
