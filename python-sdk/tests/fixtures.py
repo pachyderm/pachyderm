@@ -26,33 +26,6 @@ def client(request) -> "TestClient":
     client.tear_down()
 
 
-@pytest.fixture
-def auth_client(client: "TestClient") -> "TestClient":
-    from pachyderm_sdk.api.identity import IdentityServerConfig
-
-    activation_code = os.environ.get(ENTERPRISE_CODE_ENV)
-    auth_token = "i-am-root"
-    secret = "secret"
-    license_id = "localhost"
-    license_server = "localhost:1650"
-
-    client.license.activate(activation_code=activation_code)
-    client.license.add_cluster(id=license_id, address=license_server, secret=secret)
-    client.enterprise.activate(license_server=license_server, id=license_id, secret=secret)
-
-    client.auth_token = auth_token
-    client.auth.activate(root_token=auth_token)
-    client.identity.set_identity_server_config(
-        config=IdentityServerConfig(issuer="http://localhost:1658")
-    )
-    yield client
-
-    # not redundant because auth_token could be overriden by tests
-    client.auth_token = auth_token
-    client.tear_down()
-    client.enterprise.deactivate()
-
-
 class TestClient(_Client):
     """This is a test client that keeps track of the resources created and
     cleans them up once the test is complete.
