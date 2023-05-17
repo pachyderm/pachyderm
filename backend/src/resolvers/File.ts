@@ -24,7 +24,7 @@ interface FileResolver {
   };
   Mutation: {
     putFilesFromURLs: MutationResolvers['putFilesFromURLs'];
-    deleteFile: MutationResolvers['deleteFile'];
+    deleteFiles: MutationResolvers['deleteFiles'];
   };
 }
 
@@ -191,14 +191,14 @@ const fileResolver: FileResolver = {
       await fileClient.end();
       return files.map((file) => file.url);
     },
-    deleteFile: async (
+    deleteFiles: async (
       _field,
-      {args: {projectId, repo, branch, filePath}},
+      {args: {projectId, repo, branch, filePaths}},
       {pachClient},
     ) => {
       const fileClient = await pachClient.pfs().fileSet();
 
-      const fileSetId = await fileClient.deleteFile(filePath).end();
+      const fileSetId = await fileClient.deleteFiles(filePaths).end();
 
       const commit = await pachClient.pfs().startCommit({
         projectId,

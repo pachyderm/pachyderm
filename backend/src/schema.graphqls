@@ -577,8 +577,8 @@ input PutFilesFromURLsArgs {
   projectId: String!
 }
 
-input DeleteFileArgs {
-  filePath: String!
+input DeleteFilesArgs {
+  filePaths: [String!]!
   repo: String!
   branch: String!
   force: Boolean
@@ -808,7 +808,7 @@ type Mutation {
   deleteProjectAndResources(args: DeleteProjectAndResourcesArgs!): Boolean!
   createBranch(args: CreateBranchArgs!): Branch!
   putFilesFromURLs(args: PutFilesFromURLsArgs!): [String!]!
-  deleteFile(args: DeleteFileArgs!): ID!
+  deleteFiles(args: DeleteFilesArgs!): ID!
   startCommit(args: StartCommitArgs!): OpenCommit!
   finishCommit(args: FinishCommitArgs!): Boolean!
 }

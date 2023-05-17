@@ -182,6 +182,56 @@ describe('ModifyFile', () => {
     });
   });
 
+  describe('deleteFiles', () => {
+    it('should delete files by path', async () => {
+      const client = await createSandbox('deleteFiles');
+      const commit = await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'deleteFiles'}},
+      });
+
+      const fileClient = await client.pfs().modifyFile();
+
+      await fileClient
+        .setCommit(commit)
+        .putFileFromBytes('test.dat', Buffer.from('data'))
+        .putFileFromBytes('test2.dat', Buffer.from('data'))
+        .end();
+
+      await client.pfs().finishCommit({projectId: 'default', commit});
+
+      const files = await client.pfs().listFile({
+        projectId: 'default',
+        commitId: commit.id,
+        branch: {name: 'master', repo: {name: 'deleteFiles'}},
+      });
+      expect(files).toHaveLength(2);
+
+      const deleteCommit = await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'deleteFiles'}},
+      });
+
+      const fileClient2 = await client.pfs().modifyFile();
+
+      await fileClient2
+        .setCommit(deleteCommit)
+        .deleteFiles(['test.dat', 'test2.dat'])
+        .end();
+
+      await client
+        .pfs()
+        .finishCommit({projectId: 'default', commit: deleteCommit});
+
+      const postDeleteFiles = await client.pfs().listFile({
+        projectId: 'default',
+        commitId: deleteCommit.id,
+        branch: {name: 'master', repo: {name: 'deleteFiles'}},
+      });
+      expect(postDeleteFiles).toHaveLength(0);
+    });
+  });
+
   describe('autoCommit', () => {
     it('should be able to use auto commits', async () => {
       const client = await createSandbox('putFileFromFilePath');

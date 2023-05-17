@@ -359,53 +359,53 @@ export type CreateRepoMutationOptions = Apollo.BaseMutationOptions<
   Types.CreateRepoMutation,
   Types.CreateRepoMutationVariables
 >;
-export const DeleteFileDocument = gql`
-  mutation deleteFile($args: DeleteFileArgs!) {
-    deleteFile(args: $args)
+export const DeleteFilesDocument = gql`
+  mutation deleteFiles($args: DeleteFilesArgs!) {
+    deleteFiles(args: $args)
   }
 `;
-export type DeleteFileMutationFn = Apollo.MutationFunction<
-  Types.DeleteFileMutation,
-  Types.DeleteFileMutationVariables
+export type DeleteFilesMutationFn = Apollo.MutationFunction<
+  Types.DeleteFilesMutation,
+  Types.DeleteFilesMutationVariables
 >;
 
 /**
- * __useDeleteFileMutation__
+ * __useDeleteFilesMutation__
  *
- * To run a mutation, you first call `useDeleteFileMutation` within a React component and pass it any options that fit your needs.
- * When your component renders, `useDeleteFileMutation` returns a tuple that includes:
+ * To run a mutation, you first call `useDeleteFilesMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteFilesMutation` returns a tuple that includes:
  * - A mutate function that you can call at any time to execute the mutation
  * - An object with fields that represent the current status of the mutation's execution
  *
  * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
  *
  * @example
- * const [deleteFileMutation, { data, loading, error }] = useDeleteFileMutation({
+ * const [deleteFilesMutation, { data, loading, error }] = useDeleteFilesMutation({
  *   variables: {
  *      args: // value for 'args'
  *   },
  * });
  */
-export function useDeleteFileMutation(
+export function useDeleteFilesMutation(
   baseOptions?: Apollo.MutationHookOptions<
-    Types.DeleteFileMutation,
-    Types.DeleteFileMutationVariables
+    Types.DeleteFilesMutation,
+    Types.DeleteFilesMutationVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
   return Apollo.useMutation<
-    Types.DeleteFileMutation,
-    Types.DeleteFileMutationVariables
-  >(DeleteFileDocument, options);
+    Types.DeleteFilesMutation,
+    Types.DeleteFilesMutationVariables
+  >(DeleteFilesDocument, options);
 }
-export type DeleteFileMutationHookResult = ReturnType<
-  typeof useDeleteFileMutation
+export type DeleteFilesMutationHookResult = ReturnType<
+  typeof useDeleteFilesMutation
 >;
-export type DeleteFileMutationResult =
-  Apollo.MutationResult<Types.DeleteFileMutation>;
-export type DeleteFileMutationOptions = Apollo.BaseMutationOptions<
-  Types.DeleteFileMutation,
-  Types.DeleteFileMutationVariables
+export type DeleteFilesMutationResult =
+  Apollo.MutationResult<Types.DeleteFilesMutation>;
+export type DeleteFilesMutationOptions = Apollo.BaseMutationOptions<
+  Types.DeleteFilesMutation,
+  Types.DeleteFilesMutationVariables
 >;
 export const DeletePipelineDocument = gql`
   mutation deletePipeline($args: DeletePipelineArgs!) {

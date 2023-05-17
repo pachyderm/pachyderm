@@ -204,9 +204,9 @@ export type DatumsQueryArgs = {
   projectId: Scalars['String'];
 };
 
-export type DeleteFileArgs = {
+export type DeleteFilesArgs = {
   branch: Scalars['String'];
-  filePath: Scalars['String'];
+  filePaths: Array<Scalars['String']>;
   force?: InputMaybe<Scalars['Boolean']>;
   projectId: Scalars['String'];
   repo: Scalars['String'];
@@ -481,7 +481,7 @@ export type Mutation = {
   createPipeline: Pipeline;
   createProject: Project;
   createRepo: Repo;
-  deleteFile: Scalars['ID'];
+  deleteFiles: Scalars['ID'];
   deletePipeline?: Maybe<Scalars['Boolean']>;
   deleteProjectAndResources: Scalars['Boolean'];
   deleteRepo?: Maybe<Scalars['Boolean']>;
@@ -508,8 +508,8 @@ export type MutationCreateRepoArgs = {
   args: CreateRepoArgs;
 };
 
-export type MutationDeleteFileArgs = {
-  args: DeleteFileArgs;
+export type MutationDeleteFilesArgs = {
+  args: DeleteFilesArgs;
 };
 
 export type MutationDeletePipelineArgs = {
@@ -1182,7 +1182,7 @@ export type ResolversTypes = ResolversObject<{
   DatumQueryArgs: DatumQueryArgs;
   DatumState: DatumState;
   DatumsQueryArgs: DatumsQueryArgs;
-  DeleteFileArgs: DeleteFileArgs;
+  DeleteFilesArgs: DeleteFilesArgs;
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteProjectAndResourcesArgs: DeleteProjectAndResourcesArgs;
   DeleteRepoArgs: DeleteRepoArgs;
@@ -1297,7 +1297,7 @@ export type ResolversParentTypes = ResolversObject<{
   Datum: Datum;
   DatumQueryArgs: DatumQueryArgs;
   DatumsQueryArgs: DatumsQueryArgs;
-  DeleteFileArgs: DeleteFileArgs;
+  DeleteFilesArgs: DeleteFilesArgs;
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteProjectAndResourcesArgs: DeleteProjectAndResourcesArgs;
   DeleteRepoArgs: DeleteRepoArgs;
@@ -1780,11 +1780,11 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreateRepoArgs, 'args'>
   >;
-  deleteFile?: Resolver<
+  deleteFiles?: Resolver<
     ResolversTypes['ID'],
     ParentType,
     ContextType,
-    RequireFields<MutationDeleteFileArgs, 'args'>
+    RequireFields<MutationDeleteFilesArgs, 'args'>
   >;
   deletePipeline?: Resolver<
     Maybe<ResolversTypes['Boolean']>,
@@ -2702,11 +2702,14 @@ export type CreateRepoMutation = {
   };
 };
 
-export type DeleteFileMutationVariables = Exact<{
-  args: DeleteFileArgs;
+export type DeleteFilesMutationVariables = Exact<{
+  args: DeleteFilesArgs;
 }>;
 
-export type DeleteFileMutation = {__typename?: 'Mutation'; deleteFile: string};
+export type DeleteFilesMutation = {
+  __typename?: 'Mutation';
+  deleteFiles: string;
+};
 
 export type DeletePipelineMutationVariables = Exact<{
   args: DeletePipelineArgs;

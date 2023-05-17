@@ -1,9 +1,11 @@
+import {DELETE_FILES_MUTATION} from '@dash-frontend/mutations/DeleteFiles';
 import {PUT_FILES_FROM_URLS_MUTATION} from '@dash-frontend/mutations/PutFilesFromURLs';
 import {GET_FILE_DOWNLOAD_QUERY} from '@dash-frontend/queries/GetFileDownloadQuery';
 import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
 import {
+  DeleteFilesMutation,
   FileQueryResponse,
   FileType,
   GetFilesQuery,
@@ -289,6 +291,51 @@ describe('File Resolver', () => {
       expect(data?.fileDownload).toBe(
         '/archive/ASi1L_0gbw0CAEQDZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi9BVC1BVC5wbmcAZm9sZGVycGlja2l0dGVuLnBuZwMAULGhQpSQWj0B.zip',
       );
+    });
+  });
+
+  describe('deleteFiles', () => {
+    it('should delete requested files', async () => {
+      const {data, errors = []} = await executeQuery<{
+        files: FileQueryResponse;
+      }>(GET_FILES_QUERY, {
+        args: {
+          projectId,
+          commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+          path: '/',
+          branchName: 'master',
+          repoName: 'images',
+        },
+      });
+
+      expect(errors).toHaveLength(0);
+      expect(data?.files.files).toHaveLength(20);
+
+      const {errors: mutationErrors = []} =
+        await executeMutation<DeleteFilesMutation>(DELETE_FILES_MUTATION, {
+          args: {
+            branch: 'master',
+            repo: 'images',
+            filePaths: ['/liberty.png', '/csv_commas.csv'],
+            projectId,
+          },
+        });
+      expect(mutationErrors).toHaveLength(0);
+
+      const {data: updatedFiles, errors: updatedErrors = []} =
+        await executeQuery<{
+          files: FileQueryResponse;
+        }>(GET_FILES_QUERY, {
+          args: {
+            projectId,
+            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+            path: '/',
+            branchName: 'master',
+            repoName: 'images',
+          },
+        });
+      expect(updatedErrors).toHaveLength(0);
+      expect(updatedFiles?.files.files).toHaveLength(18);
     });
   });
 });

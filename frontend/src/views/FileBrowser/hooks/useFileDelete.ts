@@ -2,7 +2,7 @@ import {File} from '@graphqlTypes';
 import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
-import {useDeleteFileMutation} from '@dash-frontend/generated/hooks';
+import {useDeleteFilesMutation} from '@dash-frontend/generated/hooks';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -15,35 +15,35 @@ const useFileDelete = (file: File) => {
     isOpen: deleteModalOpen,
   } = useModal(false);
   const {repoId, branchId, projectId} = useUrlState();
-  const [deleteFileMutation, {loading: deleteLoading, error}] =
-    useDeleteFileMutation();
+  const [deleteFilesMutation, {loading: deleteLoading, error}] =
+    useDeleteFilesMutation();
   const {loading: repoLoading, repo} = useCurrentRepo();
   const browserHistory = useHistory();
 
   const deleteFile = useCallback(async () => {
-    const deleteCommit = await deleteFileMutation({
+    const deleteCommit = await deleteFilesMutation({
       variables: {
         args: {
-          filePath: file.path,
+          filePaths: [file.path],
           repo: repoId,
           branch: branchId,
           projectId,
         },
       },
     });
-    deleteCommit.data?.deleteFile &&
+    deleteCommit.data?.deleteFiles &&
       browserHistory.push(
         fileBrowserRoute({
           repoId,
           branchId,
           projectId,
-          commitId: deleteCommit.data?.deleteFile,
+          commitId: deleteCommit.data?.deleteFiles,
         }),
       );
   }, [
     branchId,
     browserHistory,
-    deleteFileMutation,
+    deleteFilesMutation,
     file.path,
     projectId,
     repoId,

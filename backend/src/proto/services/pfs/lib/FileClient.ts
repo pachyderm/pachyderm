@@ -97,6 +97,15 @@ export class FileClient<T> {
     return this;
   }
 
+  deleteFiles(paths: string[]) {
+    for (const path of paths) {
+      this.stream.write(
+        new ModifyFileRequest().setDeleteFile(deleteFileFromObject({path})),
+      );
+    }
+    return this;
+  }
+
   end() {
     this.stream.end();
     return this.promise;
