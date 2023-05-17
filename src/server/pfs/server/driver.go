@@ -13,7 +13,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -844,7 +843,7 @@ func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *p
 	}
 	var errs error
 	if err := d.listRepoInTransaction(txnCtx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		errs = multierror.Append(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
+		errs = errors.Join(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
 		return nil
 	}); err != nil {
 		return err

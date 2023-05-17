@@ -38,7 +38,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340
 	github.com/gruntwork-io/terratest v0.38.8
 	github.com/hanwen/go-fuse/v2 v2.1.0
-	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/itchyny/gojq v0.11.2
@@ -79,7 +78,6 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.8
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.5.1
-	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.24.0
 	gocloud.dev v0.27.0
 	golang.org/x/crypto v0.7.0
@@ -119,6 +117,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
@@ -131,6 +130,7 @@ require (
 	github.com/texttheater/golang-levenshtein v0.0.0-20191208221605-eb6844b05fc6 // indirect
 	github.com/tweekmonster/luser v0.0.0-20161003172636-3fa38070dbd7 // indirect
 	github.com/xanzy/ssh-agent v0.3.2 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0 // indirect
