@@ -1,4 +1,5 @@
 import {PUT_FILES_FROM_URLS_MUTATION} from '@dash-frontend/mutations/PutFilesFromURLs';
+import {GET_FILE_DOWNLOAD_QUERY} from '@dash-frontend/queries/GetFileDownloadQuery';
 import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
@@ -6,6 +7,7 @@ import {
   FileQueryResponse,
   FileType,
   GetFilesQuery,
+  FileDownloadQuery,
   PutFilesFromUrLsMutation,
 } from '@graphqlTypes';
 
@@ -248,6 +250,45 @@ describe('File Resolver', () => {
         });
       expect(updatedErrors).toHaveLength(0);
       expect(updatedFiles?.files.files).toHaveLength(21);
+    });
+  });
+
+  describe('file download', () => {
+    it('should return a valid url for root directory', async () => {
+      const {data, errors = []} = await executeQuery<FileDownloadQuery>(
+        GET_FILE_DOWNLOAD_QUERY,
+        {
+          args: {
+            projectId: 'default',
+            repoId: 'edges',
+            commitId: '3f549092055c471980559f9062098ab4',
+            paths: ['/'],
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.fileDownload).toBe(
+        '/archive/ASi1L_0gMIEBAGRlZmF1bHQvZWRnZXNAM2Y1NDkwOTIwNTVjNDcxOTgwNTU5ZjkwNjIwOThhYjQ6Lw.zip',
+      );
+    });
+    it('should return a valid url for multiple files in a directory', async () => {
+      const {data, errors = []} = await executeQuery<FileDownloadQuery>(
+        GET_FILE_DOWNLOAD_QUERY,
+        {
+          args: {
+            projectId: 'default',
+            repoId: 'images',
+            commitId: 'master',
+            paths: ['/folder/folder/pic.png', '/kitten.png', '/AT-AT.png'],
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.fileDownload).toBe(
+        '/archive/ASi1L_0gbw0CAEQDZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi9BVC1BVC5wbmcAZm9sZGVycGlja2l0dGVuLnBuZwMAULGhQpSQWj0B.zip',
+      );
     });
   });
 });

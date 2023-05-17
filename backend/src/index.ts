@@ -107,7 +107,7 @@ const attachAnalytics = async () => {
 
 const createServer = () => {
   const app = express();
-  app.use(json());
+  app.use(json({limit: '500kb'}));
   app.use(urlencoded({extended: true}));
 
   attachFileHandlers(app);

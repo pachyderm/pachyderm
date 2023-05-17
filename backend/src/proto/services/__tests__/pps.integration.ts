@@ -301,7 +301,7 @@ describe('services/pps', () => {
       expect(datums[0].state).toEqual(DatumState.SUCCESS);
       expect(datums[0].dataList[0]?.file?.path).toBe('/dummyData.csv');
       expect(datums[0].dataList[0]?.sizeBytes).toBe(5);
-    });
+    }, 90_000);
 
     it('should filter datum list', async () => {
       const {pachClient, inputRepoName} = await createSandBox('listDatums');

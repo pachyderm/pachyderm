@@ -276,6 +276,13 @@ export enum FileCommitState {
   UPDATED = 'UPDATED',
 }
 
+export type FileDownloadArgs = {
+  commitId: Scalars['String'];
+  paths: Array<Scalars['String']>;
+  projectId: Scalars['String'];
+  repoId: Scalars['String'];
+};
+
 export type FileFromUrl = {
   path: Scalars['String'];
   url: Scalars['String'];
@@ -744,6 +751,7 @@ export type Query = {
   datumSearch?: Maybe<Datum>;
   datums: PageableDatum;
   enterpriseInfo: EnterpriseInfo;
+  fileDownload: Scalars['String'];
   files: PageableFile;
   findCommits: PageableFoundCommits;
   getPermissions?: Maybe<GetPermissionsResp>;
@@ -800,6 +808,10 @@ export type QueryDatumSearchArgs = {
 
 export type QueryDatumsArgs = {
   args: DatumsQueryArgs;
+};
+
+export type QueryFileDownloadArgs = {
+  args: FileDownloadArgs;
 };
 
 export type QueryFilesArgs = {
@@ -1180,6 +1192,7 @@ export type ResolversTypes = ResolversObject<{
   EnterpriseState: EnterpriseState;
   File: ResolverTypeWrapper<File>;
   FileCommitState: FileCommitState;
+  FileDownloadArgs: FileDownloadArgs;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   FileQueryResponse: ResolverTypeWrapper<FileQueryResponse>;
@@ -1292,6 +1305,7 @@ export type ResolversParentTypes = ResolversObject<{
   DiffCount: DiffCount;
   EnterpriseInfo: EnterpriseInfo;
   File: File;
+  FileDownloadArgs: FileDownloadArgs;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   FileQueryResponse: FileQueryResponse;
@@ -2117,6 +2131,12 @@ export type QueryResolvers<
     ResolversTypes['EnterpriseInfo'],
     ParentType,
     ContextType
+  >;
+  fileDownload?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryFileDownloadArgs, 'args'>
   >;
   files?: Resolver<
     ResolversTypes['PageableFile'],
@@ -3058,6 +3078,12 @@ export type GetEnterpriseInfoQuery = {
     expiration: number;
   };
 };
+
+export type FileDownloadQueryVariables = Exact<{
+  args: FileDownloadArgs;
+}>;
+
+export type FileDownloadQuery = {__typename?: 'Query'; fileDownload: string};
 
 export type GetFilesQueryVariables = Exact<{
   args: FileQueryArgs;

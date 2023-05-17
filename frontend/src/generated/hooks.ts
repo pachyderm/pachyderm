@@ -1556,6 +1556,62 @@ export type GetEnterpriseInfoQueryResult = Apollo.QueryResult<
   Types.GetEnterpriseInfoQuery,
   Types.GetEnterpriseInfoQueryVariables
 >;
+export const FileDownloadDocument = gql`
+  query fileDownload($args: FileDownloadArgs!) {
+    fileDownload(args: $args)
+  }
+`;
+
+/**
+ * __useFileDownloadQuery__
+ *
+ * To run a query within a React component, call `useFileDownloadQuery` and pass it any options that fit your needs.
+ * When your component renders, `useFileDownloadQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useFileDownloadQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useFileDownloadQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.FileDownloadQuery,
+    Types.FileDownloadQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.FileDownloadQuery,
+    Types.FileDownloadQueryVariables
+  >(FileDownloadDocument, options);
+}
+export function useFileDownloadLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.FileDownloadQuery,
+    Types.FileDownloadQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.FileDownloadQuery,
+    Types.FileDownloadQueryVariables
+  >(FileDownloadDocument, options);
+}
+export type FileDownloadQueryHookResult = ReturnType<
+  typeof useFileDownloadQuery
+>;
+export type FileDownloadLazyQueryHookResult = ReturnType<
+  typeof useFileDownloadLazyQuery
+>;
+export type FileDownloadQueryResult = Apollo.QueryResult<
+  Types.FileDownloadQuery,
+  Types.FileDownloadQueryVariables
+>;
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {

@@ -725,6 +725,13 @@ type GetPermissionsResp {
 
 ## ----
 
+input FileDownloadArgs {
+  projectId: String!
+  repoId: String!
+  commitId: String! # BranchId and CommitID are interchangeable, either can be passed in here
+  paths: [String!]!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -738,6 +745,7 @@ type Query {
   jobsByPipeline(args: JobsByPipelineQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): [Vertex!]!
   files(args: FileQueryArgs!): PageableFile!
+  fileDownload(args: FileDownloadArgs!): String!
   account: Account!
   searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!

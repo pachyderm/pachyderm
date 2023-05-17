@@ -46,7 +46,8 @@
     "openid-client": "4.4.0",
     "p-queue": "6.6.2",
     "retry": "^0.13.1",
-    "uuid": "9.0.0"
+    "uuid": "9.0.0",
+    "zstd-codec": "^0.1.4"
   },
   "devDependencies": {
     "@apollo/client": "3.5.10",

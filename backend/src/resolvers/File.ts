@@ -5,17 +5,22 @@ import {
   FileCommitState,
   OriginKind,
 } from '@dash-backend/generated/types';
-import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
+import {appendBuffer} from '@dash-backend/lib/appendBuffer';
+import {
+  FILE_DOWNLOAD_API_VERSION,
+  FILE_DOWNLOAD_LIMIT,
+} from '@dash-backend/lib/constants';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {formatDiffOnlyTotals} from '@dash-backend/lib/formatDiff';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
+import {zstdCompress} from '@dash-backend/lib/zstd';
 import {FileInfo, CommitState} from '@dash-backend/proto';
 
 import {commitInfoToGQLCommit} from './builders/pfs';
-
 interface FileResolver {
   Query: {
     files: QueryResolvers['files'];
+    fileDownload: QueryResolvers['fileDownload'];
   };
   Mutation: {
     putFilesFromURLs: MutationResolvers['putFilesFromURLs'];
@@ -132,6 +137,44 @@ const fileResolver: FileResolver = {
             : undefined,
         })),
       };
+    },
+    // This resolver follows steps laid out here to generate a url that pach can consume
+    // https://www.notion.so/2023-04-03-HTTP-file-and-archive-downloads-cfb56fac16e54957b015070416b09e94
+    fileDownload: async (
+      _parent,
+      {args: {projectId, repoId, commitId, paths}},
+      {log},
+    ) => {
+      try {
+        // 1. Sort the list of paths asciibetically.
+        const sortedPaths = paths
+          .map((p) => `${projectId}/${repoId}@${commitId}:${p}`)
+          .sort();
+
+        // 2. Terminate each file name with a `0x00` byte and concatenate to one string. A request MUST end with a `0x00` byte.
+        const terminatedString = sortedPaths.join('\x00');
+        // 2. a. encode to Uint8Array
+        const encoder = new TextEncoder();
+        const encodedData = encoder.encode(terminatedString);
+
+        // 3. Compress the result with [Zstandard](https://facebook.github.io/zstd/).
+        const compressedData = await zstdCompress(encodedData);
+
+        // 4. Prefix the result with `0x01` (for URL format version 1).
+        const prefixedData = appendBuffer(
+          new Uint8Array([FILE_DOWNLOAD_API_VERSION]),
+          compressedData,
+        );
+
+        // 5. Convert the result to URL-safe Base64.  See section 3.5 of RFC4648 for a description of this coding.  Padding may be omitted.
+        const base64url = Buffer.from(prefixedData).toString('base64url');
+
+        // 6. Prefix the result with `/archive` and suffix it with the desired archive format, like `.tar.zst`
+        return `/archive/${base64url}.zip`;
+      } catch (error) {
+        log.error({err: error}, 'Error generating archive URL');
+        throw error;
+      }
     },
   },
   Mutation: {
