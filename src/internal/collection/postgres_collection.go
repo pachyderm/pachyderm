@@ -13,7 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	etcd "go.etcd.io/etcd/client/v3"
-	"go.uber.org/multierr"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -418,7 +417,7 @@ func (c *postgresCollection) list(
 		}
 		defer func() {
 			if err := rs.Close(); err != nil {
-				retErr = multierr.Append(
+				retErr = errors.Join(
 					retErr,
 					errors.Wrapf(c.mapSQLError(err, ""), "closing rows for list query buffer with offset %v", offset),
 				)
