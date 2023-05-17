@@ -139,7 +139,7 @@ func closeHeadCommit(ctx context.Context, env *realenv.RealEnv, branch *pfs.Bran
 
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 	// Create a context that the caller can wait on
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 
 	go func() {
 		select {
@@ -155,7 +155,7 @@ func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 
 func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit *pfs.Commit) (context.Context, *pps.JobInfo) {
 	// Create a context that the caller can wait on
-	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(env.PachClient.Ctx())
 	// Mock out the initial ListJob, and InspectJob calls
 	jobInfo := &pps.JobInfo{Job: client.NewProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commit.ID)}
 	jobInfo.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
@@ -167,7 +167,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		Spout:            pi.Details.Spout,
 		ResourceRequests: pi.Details.ResourceRequests,
 		ResourceLimits:   pi.Details.ResourceLimits,
-		Input:            ppsutil.JobInput(pi, client.NewProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, commit.ID)),
+		Input:            ppsutil.JobInput(pi, jobInfo.OutputCommit),
 		Salt:             pi.Details.Salt,
 		DatumSetSpec:     pi.Details.DatumSetSpec,
 		DatumTimeout:     pi.Details.DatumTimeout,
@@ -192,7 +192,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 			Spout:            pi.Details.Spout,
 			ResourceRequests: pi.Details.ResourceRequests,
 			ResourceLimits:   pi.Details.ResourceLimits,
-			Input:            ppsutil.JobInput(pi, client.NewProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, request.Job.ID)),
+			Input:            ppsutil.JobInput(pi, jobInfo.OutputCommit),
 			Salt:             pi.Details.Salt,
 			DatumSetSpec:     pi.Details.DatumSetSpec,
 			DatumTimeout:     pi.Details.DatumTimeout,
@@ -306,10 +306,9 @@ func TestTransformPipeline(suite *testing.T) {
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		objC := dockertestenv.NewTestObjClient(ctx, t)
+		bucket, url := dockertestenv.NewTestBucket(ctx, t)
 		pi := defaultPipelineInfo()
-		egressURL := objC.BucketURL().String()
-		pi.Details.Egress = &pps.Egress{URL: egressURL}
+		pi.Details.Egress = &pps.Egress{URL: url}
 		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		files := []tarutil.File{
@@ -324,20 +323,19 @@ func TestTransformPipeline(suite *testing.T) {
 			buf1 := &bytes.Buffer{}
 			require.NoError(t, file.Content(buf1))
 
-			buf2 := &bytes.Buffer{}
-			err = objC.Get(context.Background(), hdr.Name, buf2)
+			data, err := bucket.ReadAll(ctx, hdr.Name)
 			require.NoError(t, err)
 
-			require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
+			require.True(t, bytes.Equal(buf1.Bytes(), data))
 		}
 	})
 
 	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		objC := dockertestenv.NewTestObjClient(ctx, t)
+		_, url := dockertestenv.NewTestBucket(ctx, t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
-		pi.Details.Egress = &pps.Egress{URL: objC.BucketURL().String()}
+		pi.Details.Egress = &pps.Egress{URL: url}
 		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		testJobSuccess(t, env, pi, nil)

@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -822,6 +823,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled) //nolint:errcheck
 	})
+	// We have split login into two endpoints, both of which must be called to complete the login flow.
+	// /auth/_login gets the OIDC login, which the user should be redirected to for login. Following this,
+	// /auth/_login_token should be called to retrieve the session token so that the caller may use it as well.
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
 		if errMsg != "" {
@@ -843,23 +847,44 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		authUrl := loginInfo.LoginURL
 		state := loginInfo.State
 
-		r := map[string]string{"auth_url": authUrl}
+		r := map[string]string{"auth_url": authUrl, "oidc_state": state}
 		marshalled, err := jsonMarshal(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
+	})
+	// takes oidc state as arg
+	// returns pachyderm config for the mount-server
+	router.Methods("PUT").Path("/auth/_login_token").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+		oidcState, err := io.ReadAll(req.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-		go func() {
-			resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			config.WritePachTokenToConfig(resp.PachToken, false) //nolint:errcheck
-			mm.Client.SetAuthToken(resp.PachToken)
-		}()
+		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: string(oidcState)})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		config.WritePachTokenToConfig(resp.PachToken, false) //nolint:errcheck
+		mm.Client.SetAuthToken(resp.PachToken)
+
+		cfg, err := config.Read(false, false)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		json, err := serde.EncodeJSON(cfg, serde.WithIndent(2))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(json) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/auth/_logout").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)

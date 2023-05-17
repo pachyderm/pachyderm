@@ -49,5 +49,8 @@ func (t *Propagater) Run() error {
 	for _, branch := range t.branches {
 		branches = append(branches, branch)
 	}
+	if err := t.d.validateDAGStructure(t.txnCtx, branches); err != nil {
+		return errors.Wrap(err, "validate DAG at end of transaction")
+	}
 	return t.d.propagateBranches(t.txnCtx, branches)
 }

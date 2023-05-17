@@ -10,12 +10,12 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/robfig/cron"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -69,7 +69,7 @@ func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipeline
 // APIServer's fields, just wrapps the passed function in a goroutine, and
 // returns a cancel() fn to cancel it and block until it returns.
 func startMonitorThread(ctx context.Context, f func(ctx context.Context)) func() {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() {
 		f(ctx)
@@ -233,7 +233,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return errors.EnsureStack(err)
 						}
 					case <-ctx.Done():
-						return errors.EnsureStack(ctx.Err())
+						return errors.EnsureStack(context.Cause(ctx))
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
@@ -274,7 +274,7 @@ func (pc *pipelineController) blockStandby(pachClient *client.APIClient, commit 
 }
 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	ctx, cancelInner := context.WithCancel(ctx)
+	ctx, cancelInner := pctx.WithCancel(ctx)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		currRC, _, err := pc.getRC(ctx, pipelineInfo)
 		if err != nil {
@@ -328,7 +328,7 @@ func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) 
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
 func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
-	schedule, err := cron.ParseStandard(in.Cron.Spec)
+	schedule, err := cronutil.ParseCronExpression(in.Cron.Spec)
 	if err != nil {
 		return errors.EnsureStack(err) // Shouldn't happen, as the input is validated in CreatePipeline
 	}
@@ -350,7 +350,7 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 		select {
 		case <-time.After(time.Until(next)):
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 		if err := cronTick(pachClient, next, in.Cron); err != nil {
 			return errors.Wrap(err, "cronTick")
@@ -370,22 +370,36 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 	pachClient := env.GetPachClient(ctx)
 	defer log.Span(ctx, "getLatestCronTime")(zap.Timep("latest", &retTime), log.Errorp(&retErr))
 	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
+	// bail if cron repo is not accessible
 	if err != nil {
 		return latestTime, err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(in.Cron.Start)
-		if err != nil {
-			return latestTime, errors.EnsureStack(err)
-		}
-	} else {
+	}
+	// otherwise get timestamp from latest filename
+	if len(files) > 0 {
 		// Take the name of the most recent file as the latest timestamp
 		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
 		// from largest unit of time to smallest, so the most recent file will be the last one
 		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		// bail if filename format is bad
 		if err != nil {
-			return latestTime, errors.EnsureStack(err)
+			return latestTime, err //nolint:wrapcheck
+		}
+		// get cron start time to compare if previous start time was updated
+		startTime, err := types.TimestampFromProto(in.Cron.Start)
+		// return latest time from filename if start time cannot be determined
+		if err != nil {
+			return latestTime, err //nolint:wrapcheck
+		}
+		if latestTime.After(startTime) {
+			return latestTime, nil
+		} else {
+			return startTime, nil
 		}
 	}
-	return latestTime, nil
+	// otherwise return cron start time since there are no files in cron repo
+	startTime, err := types.TimestampFromProto(in.Cron.Start)
+	if err != nil {
+		return startTime, err //nolint:wrapcheck
+	}
+	return startTime, nil
 }

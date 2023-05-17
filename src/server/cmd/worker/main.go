@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -35,6 +36,7 @@ func main() {
 	log.InitWorkerLogger()
 	ctx := pctx.Child(pctx.Background(""), "", pctx.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
 	go log.WatchDroppedLogs(ctx, time.Minute)
+	go proc.MonitorSelf(ctx)
 	log.Debug(ctx, "version info", log.Proto("versionInfo", version.Version))
 
 	// append pachyderm bins to path to allow use of pachctl

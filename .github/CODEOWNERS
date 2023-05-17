@@ -2,5 +2,7 @@
 # PFS
 /src/pfs/                @pachyderm/PFS
 /src/server/pfs/         @pachyderm/PFS
-# Exclude S3 Gateway
-/src/server/pfs/s3 
+
+# Integrations
+/src/server/pfs/s3       @pachyderm/INT
+/src/server/pfs/fuse     @pachyderm/INT

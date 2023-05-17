@@ -71,14 +71,12 @@ func TestCommitKey(t *testing.T) {
 	}
 	for i, c := range cases {
 		if got, err := pipelineCommitKey(&pfs.Commit{
-			Branch: &pfs.Branch{
-				Repo: &pfs.Repo{
-					Project: &pfs.Project{
-						Name: c.projectName,
-					},
-					Name: c.repoName,
-					Type: pfs.SpecRepoType,
+			Repo: &pfs.Repo{
+				Project: &pfs.Project{
+					Name: c.projectName,
 				},
+				Name: c.repoName,
+				Type: pfs.SpecRepoType,
 			},
 			ID: c.id,
 		}); err != nil {

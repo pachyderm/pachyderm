@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -31,8 +32,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		// TODO: Add cache?
 		taskDoer := driver.NewTaskDoer(jobInfo.Job.ID, nil)
-		jobInput := ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
-		di, err := datum.NewIterator(pachClient, taskDoer, jobInput)
+		di, err := datum.NewIterator(pachClient, taskDoer, ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit))
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
 				inputs := meta.Inputs
 				logger = logger.WithData(inputs)
-				env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs)
+				env := driver.UserCodeEnv(logger.JobID(), jobInfo.OutputCommit, inputs, pipelineInfo.GetAuthToken())
 				return s.WithDatum(meta, func(d *datum.Datum) error {
 					err := driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
 						return d.Run(ctx, func(runCtx context.Context) error {
@@ -102,7 +102,7 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		}
 		logger.Logf("starting new service, job: %s", ji.Job.ID)
 		var ctx context.Context
-		ctx, cancel = context.WithCancel(pachClient.Ctx())
+		ctx, cancel = pctx.WithCancel(pachClient.Ctx())
 		eg, ctx = errgroup.WithContext(ctx)
 		eg.Go(func() error { return cb(ctx, ji) })
 		return nil

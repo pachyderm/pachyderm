@@ -1,32 +1,38 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {SameMetadata} from '../../types';
+import {PpsContext, PpsMetadata, MountSettings} from '../../types';
 
 type PipelineProps = {
+  ppsContext: PpsContext | undefined;
+  settings: MountSettings;
   setShowPipeline: (shouldShow: boolean) => void;
-  notebookPath: string | undefined;
-  saveNotebookMetadata: (metadata: any) => void;
-  metadata: SameMetadata | undefined;
+  saveNotebookMetadata: (metadata: PpsMetadata) => void;
+  saveNotebookToDisk: () => Promise<string | null>;
 };
 
-const placeholderInputSpec = `pfs:
+const placeholderInputSpec = `# example:
+pfs:
   repo: images
   branch: dev
   glob: /*
 `;
 const placeholderRequirements = './requirements.txt';
+const placeholderProject = 'default';
 
 const Pipeline: React.FC<PipelineProps> = ({
+  ppsContext,
+  settings,
   setShowPipeline,
-  notebookPath,
   saveNotebookMetadata,
-  metadata,
+  saveNotebookToDisk,
 }) => {
   const {
     loading,
     pipelineName,
     setPipelineName,
+    pipelineProject,
+    setPipelineProject,
     imageName,
     setImageName,
     inputSpec,
@@ -34,9 +40,15 @@ const Pipeline: React.FC<PipelineProps> = ({
     requirements,
     setRequirements,
     callCreatePipeline,
-    callSavePipeline,
+    currentNotebook,
     errorMessage,
-  } = usePipeline(metadata, notebookPath, saveNotebookMetadata);
+    responseMessage,
+  } = usePipeline(
+    ppsContext,
+    settings,
+    saveNotebookMetadata,
+    saveNotebookToDisk,
+  );
 
   return (
     <div className="pachyderm-mount-pipeline-base">
@@ -56,40 +68,30 @@ const Pipeline: React.FC<PipelineProps> = ({
         </button>
       </div>
       <span className="pachyderm-mount-pipeline-subheading">
-        Notebook-to-Pipeline
+        Publish as Pipeline
       </span>
 
-      <div className="pachyderm-pipeline-buttons">
-        <button
-          data-testid="Pipeline__save"
-          className="pachyderm-button-link"
-          onClick={callSavePipeline}
+      <div className="pachyderm-pipeline-current-notebook-wrapper">
+        <label
+          className="pachyderm-pipeline-current-notebook-label"
+          htmlFor="currentNotebook"
         >
-          Save
-        </button>
-
-        <button
-          data-testid="Pipeline__create_pipeline"
-          className="pachyderm-button-link"
-          onClick={callCreatePipeline}
+          Current Notebook:{'  '}
+        </label>
+        <span
+          className="pachyderm-pipeline-current-notebook-value"
+          data-testid="Pipeline__currentNotebookValue"
         >
-          Create Pipeline
-        </button>
+          {currentNotebook}
+        </span>
       </div>
-
-      <span
-        className="pachyderm-pipeline-error"
-        data-testid="Pipeline__errorMessage"
-      >
-        {errorMessage}
-      </span>
 
       <div className="pachyderm-pipeline-input-wrapper">
         <label
           className="pachyderm-pipeline-input-label"
           htmlFor="pipelineName"
         >
-          *Name:{'  '}
+          *Pipeline Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -103,8 +105,27 @@ const Pipeline: React.FC<PipelineProps> = ({
         ></input>
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
+        <label
+          className="pachyderm-pipeline-input-label"
+          htmlFor="pipelineProjectName"
+        >
+          Pipeline Project Name:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPipelineProjectName"
+          name="pipelineName"
+          value={pipelineProject}
+          onChange={(e: any) => {
+            setPipelineProject(e.target.value);
+          }}
+          disabled={loading}
+          placeholder={placeholderProject}
+        ></input>
+      </div>
+      <div className="pachyderm-pipeline-input-wrapper">
         <label className="pachyderm-pipeline-input-label" htmlFor="imageName">
-          *Image:{'  '}
+          *Container Image Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -122,7 +143,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input-label"
           htmlFor="requirements"
         >
-          Requirements:{'  '}
+          Requirements File:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -141,7 +162,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-textarea-label"
           htmlFor="inputSpec"
         >
-          Input Spec
+          Pipeline Input Spec:
         </label>
         <textarea
           className="pachyderm-pipeline-textarea pachyderm-input"
@@ -165,7 +186,9 @@ const Pipeline: React.FC<PipelineProps> = ({
           style={{backgroundColor: '#80808080'}}
           data-testid="Pipeline__specPreview"
           name="specPreview"
-          value={`name: ${pipelineName}
+          value={`pipeline:
+  name: ${pipelineName}
+  project: ${pipelineProject || placeholderProject}
 transform:
   image: ${imageName}
 input:
@@ -177,6 +200,28 @@ ${inputSpec
           readOnly={true}
         ></textarea>
       </div>
+
+      <div className="pachyderm-pipeline-buttons">
+        <button
+          data-testid="Pipeline__create_pipeline"
+          className="pachyderm-button"
+          onClick={callCreatePipeline}
+        >
+          Run
+        </button>
+      </div>
+      <span
+        className="pachyderm-pipeline-error"
+        data-testid="Pipeline__errorMessage"
+      >
+        {errorMessage}
+      </span>
+      <span
+        className="pachyderm-pipeline-response"
+        data-testid="Pipeline__responseMessage"
+      >
+        {responseMessage}
+      </span>
     </div>
   );
 };

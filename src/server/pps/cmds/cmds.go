@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -294,7 +295,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 						JqFilter:    filter,
 					}
 
-					ctx, cf := context.WithCancel(client.Ctx())
+					ctx, cf := pctx.WithCancel(client.Ctx())
 					defer cf()
 					ljClient, err := client.PpsAPIClient.ListJob(ctx, req)
 					if err != nil {
@@ -561,19 +562,23 @@ each datum.`,
 			if err != nil {
 				return errors.Wrapf(err, "parse since(%q)", since)
 			}
-			events, err := client.GetKubeEvents(since)
-			if err != nil {
-				return err
+			request := pps.LokiRequest{
+				Since: types.DurationProto(since),
 			}
-			if raw {
-				for _, event := range events {
-					fmt.Println(event.Message)
-				}
-				return nil
+			kubeEventsClient, err := client.PpsAPIClient.GetKubeEvents(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.KubeEventsHeader)
-			for _, event := range events {
-				pretty.PrintKubeEvent(writer, event.Message)
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](kubeEventsClient, func(msg *pps.LokiLogMessage) error {
+				if raw {
+					fmt.Println(msg.Message)
+				} else {
+					pretty.PrintKubeEvent(writer, msg.Message)
+				}
+				return nil
+			}); err != nil {
+				return err
 			}
 			return writer.Flush()
 		}),
@@ -581,6 +586,41 @@ each datum.`,
 	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
+
+	queryLoki := &cobra.Command{
+		Use:   "{{alias}} <query>",
+		Short: "Query the loki logs.",
+		Long:  "Query the loki logs.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			query := args[0]
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "parse since(%q)", since)
+			}
+			request := pps.LokiRequest{
+				Query: query,
+				Since: types.DurationProto(since),
+			}
+			lokiClient, err := client.PpsAPIClient.QueryLoki(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](lokiClient, func(log *pps.LokiLogMessage) error {
+				fmt.Println(log.Message)
+				return nil
+			}); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	queryLoki.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	commands = append(commands, cmdutil.CreateAlias(queryLoki, "loki"))
 
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
@@ -661,7 +701,7 @@ each datum.`,
 
 	# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
 	$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
@@ -682,7 +722,7 @@ each datum.`,
 			}
 			since, err := time.ParseDuration(since)
 			if err != nil {
-				return errors.Wrapf(err, "error parsing since(%q)", since)
+				return errors.Wrapf(err, "error parsing since (%q)", since)
 			}
 			if tail != 0 {
 				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
@@ -703,6 +743,9 @@ each datum.`,
 			}
 
 			// Issue RPC
+			if !cmd.Flags().Changed("since") {
+				since = 0
+			}
 			iter := client.GetProjectLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			m := &jsonpb.Marshaler{}

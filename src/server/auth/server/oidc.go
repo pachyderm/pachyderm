@@ -284,8 +284,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	// Verify the ID token, and if it's valid, add it to this state's SessionInfo
 	// in postgres, so that any concurrent Authorize() calls can discover it and give
 	// the caller a Pachyderm token.
-	nonce, email, conversionErr := a.handleOIDCExchangeInternal(
-		context.Background(), code, state)
+	nonce, email, conversionErr := a.handleOIDCExchangeInternal(ctx, code, state)
 	_, txErr := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		var si auth.SessionInfo
 		err := a.oidcStates.ReadWrite(stm).Update(state, &si, func() error {
@@ -315,11 +314,13 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 			fmt.Sprintf("authorization failed (OIDC state token: %q; Pachyderm "+
 				"logs may contain more information)", half(state)),
 			http.StatusUnauthorized)
+		log.Info(ctx, "authorization failed", zap.Error(conversionErr), zap.String("state", half(state)))
 	case txErr != nil:
 		http.Error(w,
 			fmt.Sprintf("temporary error during authorization (OIDC state token: "+
 				"%q; Pachyderm logs may contain more information)", half(state)),
 			http.StatusInternalServerError)
+		log.Debug(ctx, "authorization failed (temporary)", zap.Error(txErr), zap.String("state", half(state)))
 	default:
 		// Success
 		fmt.Fprintf(w, "You are now logged in. Go back to the terminal to use Pachyderm!")
@@ -414,5 +415,10 @@ func (a *apiServer) serveOIDC() error {
 	})
 	// serve OIDC handler to exchange the auth code
 	mux.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config.OidcPort), mux))
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%v", a.env.Config.OidcPort),
+		Handler: mux,
+	}
+	log.AddLoggerToHTTPServer(a.env.BackgroundContext, "oidc.serve", server)
+	return errors.EnsureStack(server.ListenAndServe())
 }

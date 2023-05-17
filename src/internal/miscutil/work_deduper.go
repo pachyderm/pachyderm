@@ -46,6 +46,6 @@ func (f future) await(ctx context.Context) error {
 	case <-f.done:
 		return f.err
 	case <-ctx.Done():
-		return errors.EnsureStack(ctx.Err())
+		return errors.EnsureStack(context.Cause(ctx))
 	}
 }

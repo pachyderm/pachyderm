@@ -33,6 +33,8 @@ type TaggedLogger interface {
 
 	JobID() string
 	Writer(string) io.WriteCloser
+
+	Context(context.Context) context.Context
 }
 
 // taggedLogger is a port of the legacy worker logger to one compatible with the rest of Pachyderm.
@@ -41,6 +43,12 @@ type taggedLogger struct {
 	// and we don't have enough tests for a safe refactor.
 	ctx   context.Context
 	jobID string // Yup, we also use the logger to pass around state.
+}
+
+// Context allows integration with log.* and m.* for new-style logging in the worker.  The logger
+// inside the taggedLogger is added to the provided context, and returned.
+func (l *taggedLogger) Context(ctx context.Context) context.Context {
+	return log.CombineLogger(ctx, l.ctx)
 }
 
 // New adapts context-based logging to the worker.
@@ -138,4 +146,29 @@ func (logger *taggedLogger) Errf(formatString string, args ...any) {
 // rate-limited, even if the parent logger is.
 func (logger *taggedLogger) Writer(stream string) io.WriteCloser {
 	return log.WriterAt(pctx.Child(logger.ctx, "", pctx.WithFields(zap.String("stream", stream)), pctx.WithoutRatelimit()), log.InfoLevel)
+}
+
+// TestTaggedLogger is a taggedLogger that captures (some) logs for testing.  It is not safe for
+// concurrent use.
+type TestTaggedLogger struct {
+	*taggedLogger
+	Logs, Errors []string
+}
+
+// NewTest creates a new TestTaggedLogger.  The context probably wants to be pctx.TestContext, so
+// you can both see (with go test -v) and capture logs.
+func NewTest(ctx context.Context) *TestTaggedLogger {
+	return &TestTaggedLogger{
+		taggedLogger: New(ctx),
+	}
+}
+
+func (l *TestTaggedLogger) Logf(format string, args ...any) {
+	l.Logs = append(l.Logs, fmt.Sprintf(format, args...))
+	l.taggedLogger.Logf(format, args...)
+}
+
+func (l *TestTaggedLogger) Errf(format string, args ...any) {
+	l.Errors = append(l.Logs, fmt.Sprintf(format, args...))
+	l.taggedLogger.Errf(format, args...)
 }

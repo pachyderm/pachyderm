@@ -101,7 +101,7 @@ func newDexWeb(env Env, apiServer identity.APIServer, options ...IdentityServerO
 
 // stopWebServer must be called while holding the write mutex
 func (w *dexWeb) stopWebServer() {
-	ctx := pctx.Background("dexWeb")
+	ctx := pctx.Child(w.env.BackgroundContext, "dex")
 	log.Info(ctx, "stopping identity web server")
 	// Stop the background jobs for the existing server
 	if w.serverCancel != nil {
@@ -123,7 +123,7 @@ func (w *dexWeb) serverNeedsRestart(config *identity.IdentityServerConfig, conne
 
 // startWebServer starts a new web server with the appropriate configuration and connectors.
 func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connectors *identity.ListIDPConnectorsResponse) (*dex_server.Server, error) {
-	ctx := pctx.Background("dexWeb")
+	ctx := pctx.Child(w.env.BackgroundContext, "dex")
 	w.Lock()
 	defer w.Unlock()
 
@@ -185,7 +185,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 		Logger:             log.NewLogrus(ctx),
 	}
 
-	ctx, w.serverCancel = context.WithCancel(ctx)
+	ctx, w.serverCancel = pctx.WithCancel(ctx)
 	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -248,7 +248,6 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			log.Error(ctx, "error while adding user in tx", zap.Error(err))
 			return
 		}
-
 		server.ServeHTTP(rw, r)
 	}
 }

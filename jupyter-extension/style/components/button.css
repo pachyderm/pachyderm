@@ -62,3 +62,10 @@
 .pachyderm-button-link:focus {
   color: var(--jp-brand-color0);
 }
+
+.pachyderm-button-alpha-notice {
+  font-size: 0.6em;
+  color: red;
+  position: relative;
+  bottom: 0.5em;
+}

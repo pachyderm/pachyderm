@@ -119,7 +119,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
 	// outside the cluster.
-	c := &http.Client{}
+	c := NewLoggingHTTPClient(t)
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
@@ -141,10 +141,9 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 
 	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(enterpriseClient)), vals)
 	require.NoError(t, err)
-
-	// The username/password flow redirects back to the dex /approval endpoint
-	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
-	require.NoError(t, err)
+	if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
+		require.Equal(t, want, got, "login status code")
+	}
 
 	// Follow the resulting redirect back to pachd to complete the flow
 	_, err = c.Get(RewriteRedirect(t, resp, pachHost(pachClient)))
@@ -156,7 +155,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
 	// outside the cluster.
-	c := &http.Client{}
+	c := NewLoggingHTTPClient(t)
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
@@ -199,11 +198,12 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 
 	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(testClient)), vals)
 	require.NoError(t, err)
+	if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
+		require.Equal(t, want, got, "login status code")
+	}
 
-	// The username/password flow redirects back to the dex /approval endpoint
-	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
-	require.NoError(t, err)
-
+	// The username/password flow used to redirect to the /approval endpoint, but now it goes
+	// right to our redirect.
 	codeURL, err := url.Parse(resp.Header.Get("Location"))
 	require.NoError(t, err)
 

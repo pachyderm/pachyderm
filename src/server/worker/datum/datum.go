@@ -25,9 +25,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	workerStats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 )
+
+// TODO: Switch from path.Join to filepath.Join for all local filesystem paths.
 
 const (
 	defaultNumRetries = 3
@@ -160,6 +163,7 @@ type Datum struct {
 	recoveryCallback func(context.Context) error
 	timeout          time.Duration
 	IDPrefix         string
+	env              []string
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
@@ -225,6 +229,9 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = errors.EnsureStack(err)
 		}
 	}()
+	if err := d.createEnvFile(); err != nil {
+		return err
+	}
 	return pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
 		if err := d.downloadData(downloader); err != nil {
@@ -232,6 +239,15 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 		}
 		return cb()
 	})
+}
+
+func (d *Datum) createEnvFile() error {
+	var envStr string
+	for _, e := range d.env {
+		envStr += e + "\n"
+	}
+	err := os.WriteFile(path.Join(d.PFSStorageRoot(), common.EnvFileName), []byte(envStr), 0666)
+	return errors.EnsureStack(err)
 }
 
 func (d *Datum) downloadData(downloader pfssync.Downloader) error {
@@ -248,6 +264,13 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	d.meta.Stats.DownloadBytes = 0
 	var mu sync.Mutex
 	for _, input := range d.meta.Inputs {
+		inputPath := path.Join(d.PFSStorageRoot(), input.Name)
+		if input.S3 {
+			if err := os.MkdirAll(inputPath, 0700); err != nil {
+				return errors.EnsureStack(err)
+			}
+			continue
+		}
 		// TODO: Need some validation to catch lazy & empty since they are incompatible.
 		// Probably should catch this at the input validation during pipeline creation?
 		opts := []pfssync.DownloadOption{
@@ -264,7 +287,7 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 		if input.EmptyFiles {
 			opts = append(opts, pfssync.WithEmpty())
 		}
-		if err := downloader.Download(path.Join(d.PFSStorageRoot(), input.Name), input.FileInfo.File, opts...); err != nil {
+		if err := downloader.Download(inputPath, input.FileInfo.File, opts...); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -335,6 +358,9 @@ func (d *Datum) uploadOutput() error {
 		start := time.Now()
 		d.meta.Stats.UploadBytes = 0
 		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), common.OutputPrefix), func(hdr *tar.Header) error {
+			if err := server.ValidateFilename(hdr.Name); err != nil {
+				return errors.Wrap(err, "cannot upload file produced by the user code because its name cannot be represented in PFS")
+			}
 			d.meta.Stats.UploadBytes += hdr.Size
 			return nil
 		}); err != nil {

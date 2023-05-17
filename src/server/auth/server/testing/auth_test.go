@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
@@ -1911,10 +1913,9 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// force-delete input and output repos
 	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, true))
-	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
-	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
 	pis, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
 	for _, pi := range pis {
@@ -2069,6 +2070,7 @@ func TestRolesForPermission(t *testing.T) {
 // TODO: This test mirrors TestLoad in src/server/pfs/server/testing/load_test.go.
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
+// Other tests that follow this pattern: TestPutFileURL, TestGetFileURL.
 func TestLoad(t *testing.T) {
 	t.Parallel()
 	env := envWithAuth(t)
@@ -2080,6 +2082,108 @@ func TestLoad(t *testing.T) {
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
 	require.Equal(t, "", resp.Error, buf.String())
+}
+
+// TODO: Refer to TestLoad
+func TestPutFileURL(t *testing.T) {
+	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	ctx := aliceClient.Ctx()
+	repo := "repo"
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	bucket, url := dockertestenv.NewTestBucket(ctx, t)
+	paths := []string{"files/foo", "files/bar", "files/fizz"}
+	for _, path := range paths {
+		require.NoError(t, bucket.WriteAll(ctx, path, []byte(path), nil))
+	}
+	for _, p := range paths {
+		objURL := url + "/" + p
+		require.NoError(t, aliceClient.PutFileURL(commit, p, objURL, false))
+	}
+	srcURL := url + "/files"
+	require.NoError(t, aliceClient.PutFileURL(commit, "recursive", srcURL, true))
+	check := func() {
+		cis, err := aliceClient.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), nil, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(cis))
+		for _, path := range paths {
+			var b bytes.Buffer
+			require.NoError(t, aliceClient.GetFile(commit, path, &b))
+			require.Equal(t, path, b.String())
+			b.Reset()
+			require.NoError(t, aliceClient.GetFile(commit, filepath.Join("recursive", filepath.Base(path)), &b))
+			require.Equal(t, path, b.String())
+		}
+	}
+	check()
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	check()
+}
+
+func finishCommit(pachClient *client.APIClient, repo, branch, id string) error {
+	return finishProjectCommit(pachClient, pfs.DefaultProjectName, repo, branch, id)
+}
+
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
+	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) {
+			return err
+		}
+	}
+	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	return err
+}
+
+// TODO: Refer to TestLoad.
+func TestGetFileURL(t *testing.T) {
+	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	ctx := aliceClient.Ctx()
+	repo := "repo"
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	paths := []string{"files/foo", "files/bar", "files/fizz"}
+	for _, path := range paths {
+		require.NoError(t, aliceClient.PutFile(commit, path, strings.NewReader(path)))
+	}
+	check := func() {
+		bucket, url := dockertestenv.NewTestBucket(ctx, t)
+		for _, path := range paths {
+			require.NoError(t, env.PachClient.GetFileURL(commit, path, url))
+		}
+		for _, path := range paths {
+			data, err := bucket.ReadAll(ctx, path)
+			require.NoError(t, err)
+			require.True(t, bytes.Equal([]byte(path), data))
+			require.NoError(t, bucket.Delete(ctx, path))
+		}
+		require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", url))
+		for _, path := range paths {
+			data, err := bucket.ReadAll(ctx, path)
+			require.NoError(t, err)
+			require.True(t, bytes.Equal([]byte(path), data))
+			require.NoError(t, bucket.Delete(ctx, path))
+		}
+		prefix := "/prefix"
+		require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", url+prefix))
+		for _, path := range paths {
+			data, err := bucket.ReadAll(ctx, prefix+"/"+path)
+			require.NoError(t, err)
+			require.True(t, bytes.Equal([]byte(path), data))
+		}
+	}
+	check()
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	check()
 }
 
 // TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself
@@ -2682,7 +2786,7 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(tc.user.Ctx())
+			ctx, cancel := pctx.WithCancel(tc.user.Ctx())
 			defer cancel()
 			lrClient, err := tc.user.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType, Projects: tc.filterBy})
 			require.NoError(t, err)
@@ -2749,7 +2853,7 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(tc.c.Ctx())
+			ctx, cancel := pctx.WithCancel(tc.c.Ctx())
 			defer cancel()
 			lpClient, err := tc.c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Projects: tc.projects})
 			require.NoError(t, err)
@@ -2760,6 +2864,45 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 				pipelines = append(pipelines, pipelineInfo.Pipeline.Name)
 			}
 			require.ElementsEqual(t, tc.expected, pipelines)
+		})
+	}
+}
+
+func TestListProjectWithAuth(t *testing.T) {
+	t.Parallel()
+	c := envWithAuth(t).PachClient
+
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	_, alice := tu.RandomRobot(t, c, "alice")
+
+	adminProject := tu.UniqueString("adminProject")
+	aliceProject := tu.UniqueString("aliceProject")
+	require.NoError(t, admin.CreateProject(adminProject))
+	require.NoError(t, alice.CreateProject(aliceProject))
+
+	// For each project, we have a list of expected roles given the client.
+	tests := map[string]struct {
+		client   *client.APIClient
+		expected map[string]*pfs.AuthInfo
+	}{
+		"admin": {client: admin, expected: map[string]*pfs.AuthInfo{
+			pfs.DefaultProjectName: {Roles: []string{auth.ClusterAdminRole, auth.ProjectWriterRole}},
+			adminProject:           {Roles: []string{auth.ClusterAdminRole, auth.ProjectOwnerRole}},
+			aliceProject:           {Roles: []string{auth.ClusterAdminRole}},
+		}},
+		"alice": {client: alice, expected: map[string]*pfs.AuthInfo{
+			pfs.DefaultProjectName: {Roles: []string{auth.ProjectWriterRole}},
+			adminProject:           {Roles: []string{}},
+			aliceProject:           {Roles: []string{auth.ProjectOwnerRole}},
+		}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			projectInfos, err := tc.client.ListProject()
+			require.NoError(t, err)
+			for _, projectInfo := range projectInfos {
+				require.ElementsEqual(t, tc.expected[projectInfo.Project.Name].Roles, projectInfo.AuthInfo.Roles)
+			}
 		})
 	}
 }

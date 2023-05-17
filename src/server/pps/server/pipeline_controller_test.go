@@ -45,7 +45,7 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 		PFSServer:   nil,
 		TxnEnv:      nil,
 	}
-	ctx, cf := context.WithCancel(context.Background())
+	ctx, cf := pctx.WithCancel(context.Background())
 	t.Cleanup(func() { cf() })
 	master := newMaster(ctx, env, env.EtcdPrefix, iDriver, sDriver)
 	master.scaleUpInterval = 2 * time.Second

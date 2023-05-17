@@ -188,6 +188,7 @@ func TestLogApprovedUsers(t *testing.T) {
 	// Create an auth request that has already done the Github flow
 	require.NoError(t, env.GetDexDB().CreateAuthRequest(dex_storage.AuthRequest{
 		ID:       "testreq",
+		HMACKey:  []byte{1},
 		ClientID: "testclient",
 		Expiry:   time.Now().Add(time.Hour),
 		LoggedIn: true,
@@ -195,7 +196,8 @@ func TestLogApprovedUsers(t *testing.T) {
 	}))
 
 	// Hit the approval endpoint to be redirected
-	req := httptest.NewRequest("GET", "/approval?req=testreq", nil)
+	req := httptest.NewRequest("GET", "/approval?req=testreq&hmac=hEdjDhdQtKNWQg5sc8Kk1oFhT93hhs87STU-ysYvToI", nil)
+	req = req.WithContext(env.Context())
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusSeeOther, recorder.Result().StatusCode)
@@ -208,13 +210,15 @@ func TestLogApprovedUsers(t *testing.T) {
 	// Create a second request and confirm the last-authenticated date is updated
 	require.NoError(t, env.GetDexDB().CreateAuthRequest(dex_storage.AuthRequest{
 		ID:       "testreq2",
+		HMACKey:  []byte{1},
 		ClientID: "testclient",
 		Expiry:   time.Now().Add(time.Hour),
 		LoggedIn: true,
 		Claims:   dex_storage.Claims{Email: "test@example.com"},
 	}))
 
-	req = httptest.NewRequest("GET", "/approval?req=testreq2", nil)
+	req = httptest.NewRequest("GET", "/approval?req=testreq2&hmac=JdYXChZhwtxW_pkp3pIbNmY0Kj9HNJbh58bwpXwsoww", nil)
+	req = req.WithContext(env.Context())
 	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusSeeOther, recorder.Result().StatusCode)

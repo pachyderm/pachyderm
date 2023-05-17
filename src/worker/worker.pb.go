@@ -131,6 +131,10 @@ func (m *CancelResponse) GetSuccess() bool {
 	return false
 }
 
+// Error indicates that the processing of the current datum errored.
+// Datum error semantics with datum batching enabled are similar to datum error
+// semantics without datum batching enabled in that the datum may be retried,
+// recovered, or result with a job failure.
 type NextDatumRequest struct {
 	Error                string   `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -178,6 +182,8 @@ func (m *NextDatumRequest) GetError() string {
 	return ""
 }
 
+// Env is a list of environment variables that should be set for the processing
+// of the next datum.
 type NextDatumResponse struct {
 	Env                  []string `protobuf:"bytes,1,rep,name=env,proto3" json:"env,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -276,6 +282,16 @@ const _ = grpc.SupportPackageIsVersion4
 type WorkerClient interface {
 	Status(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error)
 	Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResponse, error)
+	// NextDatum should only be called by user code running in a pipeline with
+	// datum batching enabled.
+	// NextDatum will signal to the worker code that the user code is ready to
+	// proceed to the next datum. This generally means setting up the next
+	// datum's filesystem state and updating internal metadata similarly to datum
+	// processing in a normal pipeline.
+	// NextDatum is a synchronous operation, so user code should expect to block
+	// on this until the next datum is set up for processing.
+	// User code should generally be migratable to datum batching by wrapping it
+	// in a loop that calls next datum.
 	NextDatum(ctx context.Context, in *NextDatumRequest, opts ...grpc.CallOption) (*NextDatumResponse, error)
 }
 
@@ -318,6 +334,16 @@ func (c *workerClient) NextDatum(ctx context.Context, in *NextDatumRequest, opts
 type WorkerServer interface {
 	Status(context.Context, *types.Empty) (*pps.WorkerStatus, error)
 	Cancel(context.Context, *CancelRequest) (*CancelResponse, error)
+	// NextDatum should only be called by user code running in a pipeline with
+	// datum batching enabled.
+	// NextDatum will signal to the worker code that the user code is ready to
+	// proceed to the next datum. This generally means setting up the next
+	// datum's filesystem state and updating internal metadata similarly to datum
+	// processing in a normal pipeline.
+	// NextDatum is a synchronous operation, so user code should expect to block
+	// on this until the next datum is set up for processing.
+	// User code should generally be migratable to datum batching by wrapping it
+	// in a loop that calls next datum.
 	NextDatum(context.Context, *NextDatumRequest) (*NextDatumResponse, error)
 }
 

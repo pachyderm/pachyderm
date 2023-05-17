@@ -157,7 +157,7 @@ func goCtx(eg *errgroup.Group, ctx context.Context, f func(context.Context) erro
 // until the client is ready.
 func InitPachOnlyEnv(rctx context.Context, config *Configuration) *NonblockingServiceEnv {
 	sctx, end := log.SpanContext(rctx, "serviceenv")
-	ctx, cancel := context.WithCancel(sctx)
+	ctx, cancel := pctx.WithCancel(sctx)
 	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: func() { cancel(); end() }}
 	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.config.PeerPort))
 	goCtx(&env.pachEg, ctx, env.initPachClient)
@@ -337,6 +337,7 @@ func (env *NonblockingServiceEnv) initDirectDBClient(ctx context.Context) error 
 		dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
 		dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
 		dbutil.WithSSLMode(env.config.PostgresSSL),
+		dbutil.WithQueryLog(env.config.PostgresQueryLogging, "pgx.direct"),
 	)
 	if err != nil {
 		return err
@@ -363,6 +364,7 @@ func (env *NonblockingServiceEnv) initDBClient(ctx context.Context) error {
 		dbutil.WithConnMaxLifetime(time.Duration(env.config.PostgresConnMaxLifetimeSeconds)*time.Second),
 		dbutil.WithConnMaxIdleTime(time.Duration(env.config.PostgresConnMaxIdleSeconds)*time.Second),
 		dbutil.WithSSLMode(dbutil.SSLModeDisable),
+		dbutil.WithQueryLog(env.config.PostgresQueryLogging, "pgx.bouncer"),
 	)
 	if err != nil {
 		return err
@@ -408,6 +410,12 @@ func (env *NonblockingServiceEnv) newDirectListener() col.PostgresListener {
 		dbutil.WithDBName(env.config.PostgresDBName),
 		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
 		dbutil.WithSSLMode(env.config.PostgresSSL),
+		// Note: enabling query logs with WithQueryLog silentely causes Pachyderm to fail,
+		// so don't do it.  nabling logs generates a synthetic DSN to pass to sql.DB (this
+		// is how PGX maps its own non-string config to sql.DB connection strings), but it
+		// only works for PGX connections, not PQ connections.  For the listener, we use the
+		// PQ library instead of PGX, so the synthetic DSNs are not interchangeable.
+		// Avoiding WithQueryLogs suppresses generating a synthetic DSN.
 	)
 	// The postgres listener is lazily initialized to avoid consuming too many
 	// postgres resources by having idle client connections, so construction

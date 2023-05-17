@@ -29,16 +29,24 @@ done
 if [ "${1}" = "wp" ]; then
   # cloning wp-workload test repo
   git clone https://github.com/pachyderm/customer-success.git customer-success
-  git checkout -b "bosterbuhr/wp-load-test"
-  make wp-dag-test
+  cd ci-load-tests/
+  make wp-test
   pachctl create pipeline -f ~/project/etc/testing/circle/workloads/aws-wp/metrics.json
 elif [ "${1}" = "btl" ]; then
-  # cloning battelle workload test repo
+  # cloning btl workload test repo
   git clone https://github.com/pachyderm/customer-success.git customer-success
   git checkout -b "workload-hackathon-22"
   cd customer-success/testing/performance/battelle/dag/scripts/
   ./dataload.sh
-  ./deploy-all.sh
+  ./deploy-most.sh
+  pachctl create pipeline -f ~/project/etc/testing/circle/workloads/aws-btl/metrics.json
+elif [ "${1}" = "krs" ]; then
+  # cloning krs workload test repo
+  git clone https://github.com/pachyderm/customer-success.git customer-success
+  git checkout -b "workload-hackathon-22"
+  cd ./testing/performance/karius/FD-0388/
+  make pipeline
+  pachctl create pipeline -f ~/project/etc/testing/circle/workloads/aws-krs/metrics.json
 else
   echo "no valid customer name provided"
   exit 1

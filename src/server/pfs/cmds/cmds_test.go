@@ -246,7 +246,7 @@ func TestDiffFile(t *testing.T) {
                 echo "foo" | pachctl put file {{.repo}}@master:/data --project {{.otherProject}}
 
                 pachctl diff file {{.repo}}@master:/data {{.repo}}@master:/data --project {{.project}} \
-			--old-project {{.otherProject}} | match -- '-foo'                
+			--old-project {{.otherProject}} | match -- '-foo'
                 `,
 		"repo", tu.UniqueString("TestDiffFile-repo"),
 		"project", tu.UniqueString("TestDiffFile-project"),
@@ -361,9 +361,9 @@ func TestProject(t *testing.T) {
 	// c := env.PachClient
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
-                pachctl create project foo 
-                pachctl list project | match "foo     -"
+                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
+                pachctl create project foo
+                pachctl list project | match "foo     ([^-]+ ago) -"
 		`,
 	).Run())
 	require.YesError(t, tu.PachctlBashCmd(t, c, `
@@ -381,7 +381,7 @@ func TestProject(t *testing.T) {
                 `,
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
                 pachctl create project foo
                 `,
 	).Run())
@@ -539,10 +539,10 @@ func TestCopyFile(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
 		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file2
 		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file3
-	
+
 		pachctl copy file --dest-project {{.project}} {{.srcRepo}}@master:/file2 {{.destRepo}}@master:/file2
 		pachctl get file --project {{.project}} {{.destRepo}}@master:/file2 | match "Lorem ipsum"
-	
+
 		pachctl copy file --src-project default --dest-project {{.project}} {{.srcRepo}}@master:/file3 {{.destRepo}}@master:/file3
 		pachctl get file --project {{.project}} {{.destRepo}}@master:/file3 | match "Lorem ipsum"
 	`,
@@ -563,11 +563,28 @@ func TestDeleteProject(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}} --project {{.project}}
+		pachctl put file --project {{.project}} {{.repo}}@master:/file <<<"This is a test"
+		pachctl create pipeline --project {{.project}} <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "{{.repo}}"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/{{.repo}}/file /pfs/out"]
+		    }
+		  }
+		EOF
 		(pachctl delete project {{.project}} </dev/null) && exit 1
 		(yes | pachctl delete project {{.project}}) || exit 1
 		if [ $(pachctl list project | tail -n +2 | wc -l) -ne 1 ]; then exit 1; fi
 		`,
 		"project", project,
 		"repo", tu.UniqueString("repo"),
+		"pipeline", tu.UniqueString("pipeline"),
 	).Run())
 }

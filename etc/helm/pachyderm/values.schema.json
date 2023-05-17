@@ -841,6 +841,15 @@
                 "defaultPipelineStorageRequest": {
                     "type": "string"
                 },
+                "defaultSidecarCPURequest": {
+                    "type": "string"
+                },
+                "defaultSidecarMemoryRequest": {
+                    "type": "string"
+                },
+                "defaultSidecarStorageRequest": {
+                    "type": "string"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
@@ -865,6 +874,9 @@
                     "type": "boolean"
                 },
                 "developmentLogger": {
+                    "type": "boolean"
+                },
+                "sqlQueryLogs": {
                     "type": "boolean"
                 },
                 "lokiDeploy": {

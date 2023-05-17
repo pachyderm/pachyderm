@@ -69,20 +69,21 @@ type workerOptions struct {
 	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
 	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
-	userImage             string                // The user's pipeline/job image
-	labels                map[string]string     // k8s labels attached to the RC and workers
-	annotations           map[string]string     // k8s annotations attached to the RC and workers
-	parallelism           int32                 // Number of replicas the RC maintains
-	resourceRequests      *v1.ResourceList      // Resources requested by pipeline/job pods
-	resourceLimits        *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the user and init containers
-	sidecarResourceLimits *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
-	workerEnv             []v1.EnvVar           // Environment vars set in the user container
-	volumes               []v1.Volume           // Volumes that we expose to the user container
-	volumeMounts          []v1.VolumeMount      // Paths where we mount each volume in 'volumes'
-	postgresSecret        *v1.SecretKeySelector // the reference to the postgres password
-	schedulingSpec        *pps.SchedulingSpec   // the SchedulingSpec for the pipeline
-	podSpec               string
-	podPatch              string
+	userImage               string                // The user's pipeline/job image
+	labels                  map[string]string     // k8s labels attached to the RC and workers
+	annotations             map[string]string     // k8s annotations attached to the RC and workers
+	parallelism             int32                 // Number of replicas the RC maintains
+	resourceRequests        *v1.ResourceList      // Resources requested by pipeline/job pods
+	resourceLimits          *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the user and init containers
+	sidecarResourceLimits   *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
+	sidecarResourceRequests *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
+	workerEnv               []v1.EnvVar           // Environment vars set in the user container
+	volumes                 []v1.Volume           // Volumes that we expose to the user container
+	volumeMounts            []v1.VolumeMount      // Paths where we mount each volume in 'volumes'
+	postgresSecret          *v1.SecretKeySelector // the reference to the postgres password
+	schedulingSpec          *pps.SchedulingSpec   // the SchedulingSpec for the pipeline
+	podSpec                 string
+	podPatch                string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -519,6 +520,13 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		}
 	}
 
+	if options.sidecarResourceRequests != nil {
+		podSpec.Containers[1].Resources.Requests = make(v1.ResourceList)
+		for k, v := range *options.sidecarResourceRequests {
+			podSpec.Containers[1].Resources.Requests[k] = v
+		}
+	}
+
 	if options.podSpec != "" || options.podPatch != "" {
 		jsonPodSpec, err := json.Marshal(&podSpec)
 		if err != nil {
@@ -643,6 +651,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	var resourceRequests *v1.ResourceList
 	var resourceLimits *v1.ResourceList
 	var sidecarResourceLimits *v1.ResourceList
+	var sidecarResourceRequests *v1.ResourceList
 	if pipelineInfo.Details.ResourceRequests != nil {
 		var err error
 		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(ctx, pipelineInfo)
@@ -677,6 +686,13 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(ctx, pipelineInfo.Details.SidecarResourceLimits)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
+		}
+	}
+	if pipelineInfo.Details.SidecarResourceRequests != nil {
+		var err error
+		sidecarResourceRequests, err = ppsutil.GetLimitsResourceList(ctx, pipelineInfo.Details.SidecarResourceRequests)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not determine sidecar resource request")
 		}
 	}
 
@@ -842,26 +858,27 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(pipelineInfo),
-		s3GatewayPort:         s3GatewayPort,
-		specCommit:            pipelineInfo.SpecCommit.ID,
-		labels:                labels,
-		annotations:           annotations,
-		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up
-		resourceRequests:      resourceRequests,
-		resourceLimits:        resourceLimits,
-		sidecarResourceLimits: sidecarResourceLimits,
-		userImage:             userImage,
-		workerEnv:             workerEnv,
-		volumes:               volumes,
-		volumeMounts:          volumeMounts,
-		postgresSecret:        postgresSecretRef,
-		imagePullSecrets:      imagePullSecrets,
-		service:               service,
-		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
-		podSpec:               pipelineInfo.Details.PodSpec,
-		podPatch:              pipelineInfo.Details.PodPatch,
-		tolerations:           tolerations,
+		rcName:                  ppsutil.PipelineRcName(pipelineInfo),
+		s3GatewayPort:           s3GatewayPort,
+		specCommit:              pipelineInfo.SpecCommit.ID,
+		labels:                  labels,
+		annotations:             annotations,
+		parallelism:             int32(0), // pipelines start w/ 0 workers & are scaled up
+		resourceRequests:        resourceRequests,
+		resourceLimits:          resourceLimits,
+		sidecarResourceLimits:   sidecarResourceLimits,
+		sidecarResourceRequests: sidecarResourceRequests,
+		userImage:               userImage,
+		workerEnv:               workerEnv,
+		volumes:                 volumes,
+		volumeMounts:            volumeMounts,
+		postgresSecret:          postgresSecretRef,
+		imagePullSecrets:        imagePullSecrets,
+		service:                 service,
+		schedulingSpec:          pipelineInfo.Details.SchedulingSpec,
+		podSpec:                 pipelineInfo.Details.PodSpec,
+		podPatch:                pipelineInfo.Details.PodPatch,
+		tolerations:             tolerations,
 	}, nil
 }
 

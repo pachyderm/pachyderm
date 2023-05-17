@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -156,7 +157,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 			defer timer.Stop()
 		}
 		if err := backoff.RetryUntilCancel(reg.driver.PachClient().Ctx(), func() error {
-			ctx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
+			ctx, cancel := pctx.WithCancel(reg.driver.PachClient().Ctx())
 			defer cancel()
 			eg, jobCtx := errgroup.WithContext(ctx)
 			pj.driver = reg.driver.WithContext(jobCtx)
@@ -169,7 +170,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				for err == nil {
 					err = reg.processJob(pj)
 				}
-				if errors.Is(err, errutil.ErrBreak) || errors.Is(ctx.Err(), context.Canceled) {
+				if errors.Is(err, errutil.ErrBreak) || errors.Is(context.Cause(ctx), context.Canceled) {
 					return nil
 				}
 				return err
@@ -517,7 +518,7 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failed []string
 	waitCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.WaitProjectCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+		ci, err := pachClient.WaitProjectCommit(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
 			return errors.Wrapf(err, "error blocking on commit %s", commit)
 		}

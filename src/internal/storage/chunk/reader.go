@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 
@@ -28,22 +29,13 @@ type Reader struct {
 	prefetchLimit int
 }
 
-type ReaderOption func(*Reader)
-
-func WithOffsetBytes(offsetBytes int64) ReaderOption {
-	return func(r *Reader) {
-		r.offsetBytes = offsetBytes
-	}
-}
-
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], prefetchLimit int, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	r := &Reader{
-		ctx:           ctx,
-		client:        client,
-		memCache:      memCache,
-		deduper:       deduper,
-		prefetchLimit: prefetchLimit,
-		dataRefs:      dataRefs,
+		ctx:      ctx,
+		client:   client,
+		memCache: memCache,
+		deduper:  deduper,
+		dataRefs: dataRefs,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -67,7 +59,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 		_, err := io.Copy(w, newDataReader(r.ctx, r.client, r.memCache, r.deduper, r.dataRefs[0], r.offsetBytes))
 		return errors.EnsureStack(err)
 	}
-	ctx, cancel := context.WithCancel(r.ctx)
+	ctx, cancel := pctx.WithCancel(r.ctx)
 	defer cancel()
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
 	defer func() {

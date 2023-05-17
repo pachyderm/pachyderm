@@ -13,11 +13,13 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/multierr"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
@@ -37,6 +39,7 @@ type postgresCollection struct {
 	notFound           func(interface{}) string
 	exists             func(interface{}) string
 	listBufferCapacity int
+	putHook            func(*pachsql.Tx, interface{}) error
 }
 
 func indexFieldName(idx *Index) string {
@@ -80,6 +83,12 @@ func WithNotFoundMessage(format func(interface{}) string) Option {
 func WithListBufferCapacity(cap int) Option {
 	return func(c *postgresCollection) {
 		c.listBufferCapacity = cap
+	}
+}
+
+func WithPutHook(putHook func(*pachsql.Tx, interface{}) error) Option {
+	return func(c *postgresCollection) {
+		c.putHook = putHook
 	}
 }
 
@@ -230,7 +239,7 @@ func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, 
 	}
 	return c.list(ctx, map[string]string{indexFieldName(index): indexVal}, opts, q, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
-			return errors.EnsureStack(err)
+			return errors.Wrapf(err, "getByIndex unmarshal proto")
 		}
 		return f(m.Key)
 	})
@@ -392,7 +401,7 @@ func (c *postgresCollection) list(
 	opts *Options,
 	q sqlx.ExtContext,
 	f func(*model) error,
-) error {
+) (retErr error) {
 	// To avoid holding a transaction open (which holds a DB connection) for an unknown duration
 	// dictated by the client's callback, we:
 	// (1) query a limited count of SQL rows into a buffer
@@ -405,25 +414,28 @@ func (c *postgresCollection) list(
 		}
 		rs, err := q.QueryxContext(ctx, query, args...)
 		if err != nil {
-			return nil, false, c.mapSQLError(err, "")
+			return nil, false, errors.Wrapf(c.mapSQLError(err, ""), "list query into buffer with offset %v", offset)
 		}
-		defer rs.Close()
-
+		defer func() {
+			if err := rs.Close(); err != nil {
+				retErr = multierr.Append(
+					retErr,
+					errors.Wrapf(c.mapSQLError(err, ""), "closing rows for list query buffer with offset %v", offset),
+				)
+			}
+		}()
 		var rowCnt int
 		rowsBuffer := make([]*model, 0, c.listBufferCapacity)
 		for rs.Next() && rowCnt < c.listBufferCapacity {
 			result := &model{}
 			if err := rs.StructScan(result); err != nil {
-				return nil, false, c.mapSQLError(err, "")
+				return nil, false, errors.Wrapf(c.mapSQLError(err, ""), "scan row in list query with offset %v", offset)
 			}
 			rowsBuffer = append(rowsBuffer, result)
 			rowCnt++
 		}
 		if err := rs.Err(); err != nil {
-			return nil, false, errors.EnsureStack(err)
-		}
-		if err := rs.Close(); err != nil {
-			return nil, false, c.mapSQLError(rs.Close(), "")
+			return nil, false, errors.Wrapf(err, "list query error with offset %v", offset)
 		}
 		return rowsBuffer, rowCnt == c.listBufferCapacity, nil
 	}
@@ -440,7 +452,7 @@ func (c *postgresCollection) list(
 				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
-				return err
+				return errors.Wrap(err, "apply function to list row element")
 			}
 			last = v
 			offset++
@@ -470,7 +482,7 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 // NOTE: Internally, List scans the collection using multiple queries,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f func(string) error) error {
-	ctx, cf := context.WithCancel(context.Background())
+	ctx, cf := pctx.WithCancel(context.Background())
 	defer cf()
 	return c.postgresCollection.list(ctx, nil, opts, c.tx, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
@@ -800,7 +812,11 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
-
+	if c.putHook != nil {
+		if err := c.putHook(c.tx, val); err != nil {
+			return c.mapSQLError(err, key)
+		}
+	}
 	if !upsert {
 		count, err := result.RowsAffected()
 		if err != nil {

@@ -81,6 +81,9 @@ const (
 	// DebuggerRole is a role which grants the ability to produce debug dumps.
 	DebuggerRole = "debugger"
 
+	// LokiLogReaderRole is a role which grants the ability to read logs from Loki.
+	LokiLogReaderRole = "lokiLogReader"
+
 	// RobotUserRole is a role which grants the ability to generate tokens for robot
 	// users.
 	RobotUserRole = "robotUser"
@@ -231,6 +234,12 @@ const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
 	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v. Run `pachctl auth roles-for-permission` to find roles that grant a given permission.", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
+}
+
+// Implement the interface expected by status.FromError.  An ErrNotAuthorized is
+// a permission-denied status.
+func (e *ErrNotAuthorized) GRPCStatus() *status.Status {
+	return status.New(codes.PermissionDenied, e.Error())
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized

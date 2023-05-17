@@ -71,7 +71,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.6.0-alpha.3"
+    tag: "2.6.0-alpha.5"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
@@ -367,10 +367,11 @@ pachw:
   # When set to false, a nil value will be used by default instead. Some configuration variables will always use their
   # corresponding pachd value, regardless of whether 'inheritFromPachd' is true, such as 'serviceAccountName'
   inheritFromPachd: true
-  # inSidecars is enabled by default to also process storage related tasks in pipeline storage sidecars like version 2.4 or less.
+  # When set to true, inSidecars also processes storage related tasks in pipeline storage sidecars like version 2.4 or less.
   # when enabled, pachw instances can still run in their own dedicated kubernetes deployment if maxReplicas is greater than 0.
-  # For more control of where pachw instances run, 'inSidecars' can be disabled.
-  inSidecars: true
+  # For more control of where pachw instances run, 'inSidecars' should be disabled.
+  inSidecars: false
+  # maxReplicas should be tuned based on the number of pipelines on a user-per-user basis.
   maxReplicas: 1
   # minReplicas: 0
   # We recommend defining resources when running pachw with a high value of maxReplicas.
@@ -414,6 +415,9 @@ pachd:
   logLevel: "info"
   disableLogSampling: false
   developmentLogger: false
+  # If true, log every SQL query at debug level.  This can potentially log sensitive information
+  # without redaction, so it's not recommended for production.
+  sqlQueryLogs: false
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.
   lokiDeploy: true
@@ -705,6 +709,9 @@ pachd:
   defaultPipelineCPURequest: ""
   defaultPipelineMemoryRequest: ""
   defaultPipelineStorageRequest: ""
+  defaultSidecarCPURequest: ""
+  defaultSidecarMemoryRequest: ""
+  defaultSidecarStorageRequest: ""
 kubeEventTail:
   # Deploys a lightweight app that watches kubernetes events and echos them to logs.
   enabled: true
@@ -851,8 +858,6 @@ oidc:
   #       insecureEnableGroups: true
   #       insecureSkipEmailVerified: true
   #       insecureSkipIssuerCallbackDomainCheck: true
-  #       forwardedLoginParams:
-  #       - login_hint
   #     name: idpConnector
   #     type: oidc
   #
@@ -865,8 +870,6 @@ oidc:
   #       insecureEnableGroups: true
   #       insecureSkipEmailVerified: true
   #       insecureSkipIssuerCallbackDomainCheck: true
-  #       forwardedLoginParams:
-  #       - login_hint
   #     name: okta
   #     type: oidc
   upstreamIDPs: []
@@ -914,7 +917,7 @@ proxy:
   # The envoy image to pull.
   image:
     repository: "envoyproxy/envoy-distroless"
-    tag: "v1.24.1"
+    tag: "v1.25.5"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.

@@ -67,7 +67,7 @@ func (x *RepoInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *RepoAuthInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *AuthInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
@@ -143,8 +143,9 @@ func (x *Commit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddObject("branch", x.Branch)
+	enc.AddObject("repo", x.Repo)
 	enc.AddString("id", x.ID)
+	enc.AddObject("branch", x.Branch)
 	return nil
 }
 
@@ -238,6 +239,8 @@ func (x *ProjectInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddObject("project", x.Project)
 	enc.AddString("description", x.Description)
+	enc.AddObject("auth_info", x.AuthInfo)
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	return nil
 }
 

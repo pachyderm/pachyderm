@@ -77,6 +77,7 @@ func (r *Repo) NewBranch(name string) *Branch {
 
 func (r *Repo) NewCommit(branch, id string) *Commit {
 	return &Commit{
+		Repo:   r,
 		ID:     id,
 		Branch: r.NewBranch(branch),
 	}
@@ -90,13 +91,22 @@ func (c *Commit) NewFile(path string) *File {
 }
 
 func (c *Commit) String() string {
-	return c.Branch.String() + "=" + c.ID
+	return c.Repo.String() + "@" + c.ID
+}
+
+// TODO(provenance): there's a concern client code will unknowningly call GetRepo() when it shouldn't
+func (c *Commit) AccessRepo() *Repo {
+	if c.GetRepo() != nil {
+		return c.GetRepo()
+	}
+	return c.GetBranch().GetRepo()
 }
 
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),
 		ID:     id,
+		Repo:   b.Repo,
 	}
 }
 

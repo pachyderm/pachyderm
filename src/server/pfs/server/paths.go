@@ -46,7 +46,7 @@ func pathIsChild(parent, child string) bool {
 
 var validRangeRegex = regexp.MustCompile("^[ -~]+$")
 
-func validate(p string) error {
+func ValidateFilename(p string) error {
 	pBytes := []byte(p)
 	if !validRangeRegex.Match(pBytes) {
 		return errors.Errorf("path (%v) invalid: only printable ASCII characters allowed", p)

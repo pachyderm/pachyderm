@@ -1,7 +1,9 @@
 import {ReactWidget, WidgetTracker} from '@jupyterlab/apputils';
 import {
+  ILabShell,
   ILayoutRestorer,
   JupyterLab,
+  LabShell,
   LayoutRestorer,
 } from '@jupyterlab/application';
 import {IDocumentManager, DocumentManager} from '@jupyterlab/docmanager';
@@ -19,7 +21,7 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
-import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
+import {Mount, MountSettings} from '../types';
 
 jest.mock('../../../handler');
 
@@ -38,13 +40,14 @@ const items = {
 
 describe('mount plugin', () => {
   let app: JupyterLab;
+  let settings: MountSettings;
   let docManager: IDocumentManager;
   let docRegistry: DocumentRegistry;
   let manager: ServiceManager;
   let factory: IFileBrowserFactory;
   let fileBrowser: FileBrowser;
   let restorer: ILayoutRestorer;
-  let tracker: INotebookTracker;
+  let widgetTracker: ILabShell;
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
   beforeEach(() => {
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI(items));
@@ -54,6 +57,7 @@ describe('mount plugin', () => {
     };
 
     app = new JupyterLab();
+    settings = {defaultPipelineImage: ''};
     docRegistry = new DocumentRegistry();
     manager = new ServiceManager();
     docManager = new DocumentManager({
@@ -70,12 +74,56 @@ describe('mount plugin', () => {
       defaultBrowser: fileBrowser,
       tracker: new WidgetTracker<FileBrowser>({namespace: 'test'}),
     };
-    tracker = new NotebookTracker({namespace: 'test'});
+    widgetTracker = new LabShell();
     restorer = new LayoutRestorer({
       connector: new StateDB(),
       first: Promise.resolve<void>(void 0),
       registry: new CommandRegistry(),
     });
+  });
+
+  it('should accept /pfs/out as a valid FileBrowser path', async () => {
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      widgetTracker,
+    );
+    const mounts: Mount[] = [
+      {
+        name: 'default_images',
+        project: 'default',
+        branch: 'master',
+        commit: null,
+        repo: 'images',
+        glob: '/*',
+        mode: 'ro',
+        state: 'mounted',
+        status: '',
+        mountpoint: '/pfs',
+        how_many_commits_behind: 0,
+        actual_mounted_commit: '1a2b3c',
+        latest_commit: '1a2b3c',
+      },
+    ];
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_images', mounts),
+    ).toBe(true);
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_images/testdir', mounts),
+    ).toBe(true);
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_edges', mounts),
+    ).toBe(false);
+    expect(
+      plugin.isValidBrowserPath('mount-browser:default_edges/testdir', mounts),
+    ).toBe(false);
+    expect(plugin.isValidBrowserPath('mount-browser:out', mounts)).toBe(true);
+    expect(plugin.isValidBrowserPath('mount-browser:out/testdir', mounts)).toBe(
+      true,
+    );
   });
 
   it.skip('should poll for mounts', async () => {
@@ -104,7 +152,14 @@ describe('mount plugin', () => {
           ],
         }),
       );
-    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      widgetTracker,
+    );
 
     await plugin.ready;
 
@@ -126,18 +181,52 @@ describe('mount plugin', () => {
   });
 
   it('should generate the correct layout', async () => {
-    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      widgetTracker,
+    );
     expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
     expect(plugin.layout.id).toBe('pachyderm-mount');
     expect(plugin.layout.orientation).toBe('vertical');
-    expect(plugin.layout.widgets).toHaveLength(8);
+    expect(plugin.layout.widgets).toHaveLength(9);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[4]).toBeInstanceOf(FileBrowser);
-    expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[5]).toBeInstanceOf(FileBrowser);
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[8]).toBeInstanceOf(ReactWidget);
+  });
+
+  it('return from pipeline view to the correct layout', async () => {
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      widgetTracker,
+    );
+    const pipelineSplash = plugin.layout.widgets[3];
+    const fileBrowser = plugin.layout.widgets[5];
+    expect(fileBrowser).toBeInstanceOf(FileBrowser);
+
+    plugin.setShowConfig(false);
+    expect(pipelineSplash.isHidden).toBe(true);
+    expect(fileBrowser.isHidden).toBe(false);
+
+    plugin.setShowPipeline(true);
+    expect(pipelineSplash.isHidden).toBe(false);
+    expect(fileBrowser.isHidden).toBe(true);
+
+    plugin.setShowPipeline(false);
+    expect(pipelineSplash.isHidden).toBe(true);
+    expect(fileBrowser.isHidden).toBe(false);
   });
 });
