@@ -3,6 +3,7 @@ package cmds
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/spf13/cobra"
 )
@@ -120,6 +122,81 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
 	dump.Flags().DurationVar(&timeout, "timeout", 30*time.Minute, "Set an absolute timeout on the debug dump operation.")
 	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
+
+	dumpV2Template := &cobra.Command{
+		Use:   "{{alias}} <file>",
+		Short: "Collect a standard set of debugging information.",
+		Long:  "Collect a standard set of debugging information.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			filter, err := createFilter(pachd, database, pipeline, worker)
+			if err != nil {
+				return err
+			}
+			return withFile(args[0], func(f *os.File) error {
+				if timeout != 0 {
+					ctx, c := context.WithTimeout(client.Ctx(), timeout)
+					client = client.WithCtx(ctx)
+					defer c()
+				}
+				return client.Dump(filter, limit, f)
+			})
+		}),
+	}
+	dump.Flags().BoolVar(&pachd, "pachd", false, "Only collect the dump from pachd.")
+	dump.Flags().BoolVar(&database, "database", false, "Only collect the dump from pachd's database.")
+	dump.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the dump from the worker pods for the given pipeline.")
+	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
+	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
+	dump.Flags().DurationVar(&timeout, "timeout", 30*time.Minute, "Set an absolute timeout on the debug dump operation.")
+	commands = append(commands, cmdutil.CreateAlias(dumpV2Template, "debug dumpV2Template"))
+
+	var template string
+	dumpV2 := &cobra.Command{
+		Use:   "{{alias}} <file>",
+		Short: "Collect a standard set of debugging information.",
+		Long:  "Collect a standard set of debugging information.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			if template != "" {
+
+			}
+			ctx, cf := context.WithCancel(mainCtx)
+			defer cf()
+			c, err := client.DebugClient.DumpV2(ctx, &debug.DumpV2Request{})
+			if err != nil {
+				return err
+			}
+			return withFile(args[0], func(f *os.File) error {
+				var d *debug.DumpChunk
+				for d, err = c.Recv(); !errors.Is(err, io.EOF); d, err = c.Recv() {
+					if err != nil {
+						return err
+					}
+					if content := d.GetContent(); content != nil {
+						if _, err = f.Write(content.Content); err != nil {
+							return errors.Wrap(err, "write dump contents")
+						}
+					}
+					// erroring here should not stop the dump from working
+					if prgs := d.GetProgress(); prgs != nil {
+						progress.WriteProgress(prgs.Message, 0, 100)
+					}
+				}
+				return nil
+			})
+		}),
+	}
+	dumpV2.Flags().StringVarP(&template, "template", "t", "", "A template to customize the output of the debug dump operation.")
+	commands = append(commands, cmdutil.CreateAlias(dumpV2, "debug dumpV2"))
 
 	var serverPort int
 	analyze := &cobra.Command{

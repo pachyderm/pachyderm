@@ -26,6 +26,19 @@ var (
 	enabled       = true
 )
 
+var bars map[string]*mpb.Bar
+
+func WriteProgress(bar string, completion int64, total int64) {
+	initContainer()
+	b, ok := bars[bar]
+	if !ok {
+		b = container.AddBar(total,
+			mpb.PrependDecorators(decor.Name(bar), decor.Name(" "), decor.CountersKiloByte("% .2f / % .2f")),
+			mpb.AppendDecorators(decor.EwmaETA(decor.ET_STYLE_GO, 90), decor.Name(" "), decor.EwmaSpeed(decor.UnitKB, "% .2f", 60)))
+	}
+	b.SetCurrent(completion)
+}
+
 // Disable turns off printing of progress bars.
 func Disable() {
 	enabled = false
@@ -35,6 +48,7 @@ func initContainer() {
 	if enabled {
 		containerInit.Do(func() {
 			container = mpb.New(mpb.WithRefreshRate(refreshRate))
+			bars = make(map[string]*mpb.Bar)
 		})
 	}
 }

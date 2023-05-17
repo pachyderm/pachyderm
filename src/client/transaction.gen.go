@@ -149,6 +149,10 @@ func (c *unsupportedDebugBuilderClient) DumpV2(_ context.Context, _ *debug_v2.Du
 	return nil, unsupportedError("DumpV2")
 }
 
+func (c *unsupportedDebugBuilderClient) GetDumpV2Template(_ context.Context, _ *debug_v2.GetDumpV2TemplateRequest, opts ...grpc.CallOption) (*debug_v2.GetDumpV2TemplateResponse, error) {
+	return nil, unsupportedError("GetDumpV2Template")
+}
+
 func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.ProfileRequest, opts ...grpc.CallOption) (debug_v2.Debug_ProfileClient, error) {
 	return nil, unsupportedError("Profile")
 }

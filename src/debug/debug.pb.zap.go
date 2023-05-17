@@ -96,6 +96,28 @@ func (x *SetLogLevelResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	return nil
 }
 
+func (x *GetDumpV2TemplateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	filtersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Filters {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("filters", zapcore.ArrayMarshalerFunc(filtersArrMarshaller))
+	return nil
+}
+
+func (x *GetDumpV2TemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("request", x.Request)
+	return nil
+}
+
 func (x *PachdDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -127,6 +149,13 @@ func (x *PipelineDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("name", x.Name)
+	tasksArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Tasks {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("tasks", zapcore.ArrayMarshalerFunc(tasksArrMarshaller))
 	return nil
 }
 
@@ -177,7 +206,9 @@ func (x *DumpProgress) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("message", x.Message)
+	enc.AddString("task", x.Task)
+	enc.AddInt64("total", x.Total)
+	enc.AddInt64("progress", x.Progress)
 	return nil
 }
 

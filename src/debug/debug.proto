@@ -63,6 +63,14 @@ message SetLogLevelResponse {
     repeated string errored_pods = 2;
 }
 
+message GetDumpV2TemplateRequest {
+ repeated string filters = 1;
+}
+
+message GetDumpV2TemplateResponse {
+ DumpV2Request request = 1;
+}
+
 message PachdDump {
   bool describe = 1;
   bool logs = 2;
@@ -104,7 +112,9 @@ message DumpContent {
 }
 
 message DumpProgress {
-  string message = 1;
+  string task = 1;
+  int64 total = 2;
+  int64 progress = 3;
 }
 
 message DumpChunk {
@@ -119,5 +129,6 @@ service Debug {
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
+  rpc GetDumpV2Template(GetDumpV2TemplateRequest) returns (GetDumpV2TemplateResponse) {}
   rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
 }
