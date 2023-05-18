@@ -17,5 +17,7 @@ kubectl port-forward service/grafana 3000:3000
 
 
 ## Making changes
-To make a change the production docker image needs to be updated then pulled by pachyderm@pachops.com.
- DNJ TODO
+To make a change the production docker image needs to be updated then pulled by pachyderm@pachops.com. To do this:
+* login as a docker user with push permissions to the pachyderm repo
+* Run ./build-docker.sh in this folder with the updated `<version number>`
+* Run `docker push pachyderm/go-test-results:<version number>`

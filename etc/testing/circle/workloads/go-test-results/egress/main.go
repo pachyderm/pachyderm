@@ -21,9 +21,10 @@ import (
 )
 
 var logger = log.Default()
+var postgresqlUser = os.Getenv("POSTGRESQL_USER")
 var postgresqlPassword = os.Getenv("POSTGRESQL_PASSWORD")
+var postgresqlHost = os.Getenv("POSTGRESQL_HOST")
 
-// Actions
 const (
 	jobInfoFileName string = "JobInfo.json"
 )
@@ -35,6 +36,48 @@ type TestResultLine struct {
 	Package  string    `json:"Package"`
 	Elapsed  float32   `json:"Elapsed"`
 	Output   string    `json:"Output"`
+}
+
+// This is built and runs in a pachyderm pipeline to egress data uploaded to pachyderm to postgresql.
+func main() {
+	logger.Println("Beginning egress transform of data to sql DB")
+	inputFolder := os.Args[1]
+
+	db, err := sqlx.Open("pgx", fmt.Sprintf("user=%s password=%s host=%s port=5432 database=ci_metrics", postgresqlUser, postgresqlPassword, postgresqlHost))
+	if err != nil {
+		logger.Fatalf("Failed opening db connection %v", err)
+	}
+	// filpathWalkDir does not evaluate the PFS symlink
+	sym, err := filepath.EvalSymlinks(inputFolder)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	jobInfoPaths := make(map[string]gotestresults.JobInfo)
+	testResultPaths := []string{}
+	err = filepath.WalkDir(sym, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			if d.Name() == jobInfoFileName {
+				jobInfo, err := readJobInfo(path, jobInfoPaths, d)
+				if err != nil {
+					return err
+				}
+				return insertJobInfo(jobInfo, db)
+			} else {
+				// we need the job info inserted first due to foreign key constraints,
+				// so save results to loop over later ensuring ordered inserts
+				testResultPaths = append(testResultPaths, path)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Fatal("Walking file tree for job info ", err)
+	}
+	for _, path := range testResultPaths {
+		if err = insertTestResultFile(path, jobInfoPaths, db); err != nil {
+			logger.Fatal("Inserting test results into DB ", err)
+		}
+	}
 }
 
 func readJobInfo(path string, jobInfoPaths map[string]gotestresults.JobInfo, d fs.DirEntry) (*gotestresults.JobInfo, error) {
@@ -139,45 +182,4 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 		}
 	}
 	return nil
-}
-
-// This is built and runs in a pachyderm pipeline to egress data uploaded to pachyderm to postgresql.
-func main() {
-	logger.Println("Beginning egress transform of data to sql DB")
-	inputFolder := os.Args[1]
-	db, err := sqlx.Open("pgx", fmt.Sprintf("user=pachyderm password=%s host=postgres port=5432 database=ci_metrics", postgresqlPassword))
-	if err != nil {
-		logger.Fatalf("Failed opening db connection %v", err)
-	}
-	// filpathWalkDir does not evaluate the PFS symlink
-	sym, err := filepath.EvalSymlinks(inputFolder)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	jobInfoPaths := make(map[string]gotestresults.JobInfo)
-	testResultPaths := []string{}
-	err = filepath.WalkDir(sym, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
-			if d.Name() == jobInfoFileName {
-				jobInfo, err := readJobInfo(path, jobInfoPaths, d)
-				if err != nil {
-					return err
-				}
-				return insertJobInfo(jobInfo, db)
-			} else {
-				// we need the job info inserted first due to foreign key constraints,
-				// so save results to loop over later ensuring ordered inserts
-				testResultPaths = append(testResultPaths, path)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		logger.Fatal("Walking file tree for job info ", err)
-	}
-	for _, path := range testResultPaths {
-		if err = insertTestResultFile(path, jobInfoPaths, db); err != nil {
-			logger.Fatal("Inserting test results into DB ", err)
-		}
-	}
 }

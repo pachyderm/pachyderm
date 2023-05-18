@@ -10,15 +10,15 @@
         }
     },
     "transform": {
-        "image": "pachyderm/go-test-results:0.0.2",
+        "image": "pachyderm/go-test-results:0.0.1",
         "cmd": [
             "/go/egress/egress",
             "/pfs/go-test-results-raw"
         ],
         "env": {
             "LOG_LEVEL": "DEBUG",
-            "POSTGRESQL_HOST": "cloudsql-auth-proxy.pachyderm.svc.cluster.local.",
-            "POSTGRESQL_USER":"postgres"
+            "POSTGRESQL_HOST": "postgres",
+            "POSTGRESQL_USER":"pachyderm"
         },
         "secrets": [{
             "name": "postgres",

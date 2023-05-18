@@ -40,6 +40,74 @@ func findPachdAddress() string {
 	return "grpcs://pachyderm.pachops.com:443"
 }
 
+// This runs in circle-ci pipelines and sends the raw test data to pachyderm for transform.
+func main() {
+	logger.Println("Beginning results upload.")
+	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
+	if len(robotToken) == 0 {
+		logger.Println("No pachyderm robot token found. Continuing with unauthenticated pach client.")
+	}
+	resultsFolder := os.Getenv("TEST_RESULTS")
+	if len(resultsFolder) == 0 {
+		logger.Fatal("TEST_RESULTS needs to be populated to find the test results folder.")
+	}
+	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
+		logger.Fatalf("The test result folder at %v does not exist. Exiting early.", resultsFolder)
+	}
+	// connect and authenticate to pachyderm
+	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
+	if err != nil {
+		logger.Fatalf("Provisioning pach client: %v", err)
+	}
+	pachClient.SetAuthToken(robotToken)
+	// retry in case the parent commit is still in progress from another pipeline
+	var commit *pfs.Commit
+	for i := 0; i < commitMaxRetries; i++ {
+		commit, err = pachClient.StartProjectCommit(projectName, repoName, "master")
+		if err != nil {
+			logger.Printf("Unable to start commit due to error. Retrying. Error: %v", err)
+			time.Sleep(commitRetryBackoff)
+		} else {
+			break
+		}
+	}
+	if err != nil {
+		logger.Fatalf("Starting commit: %v", err)
+	}
+	defer func() {
+		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
+			logger.Fatalf("Finishing commit: %v", err)
+		}
+	}()
+	// upload general job information
+	jobInfo, err := findJobInfoFromCI()
+	if err != nil {
+		logger.Fatalf("Collecting job info: %v", err)
+	}
+	basePath := findBasePath(jobInfo)
+	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
+		logger.Fatalf("Uploading job info: %v", err)
+	}
+	// upload individual test  results
+	eg, _ := errgroup.WithContext(pachClient.Ctx())
+	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
+			eg.Go(func() error {
+				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, commit)
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Fatalf("Walking file paths: %v", err)
+	}
+	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
+		logger.Fatalf("Putting files: %v", err)
+	}
+
+	logger.Println("Successfully uploaded files.")
+}
+
 func sanitizeName(s string) string {
 	ret := []byte(strings.ReplaceAll(s, " ", "_"))
 	invalidCharacters := regexp.MustCompile("[^a-zA-Z0-9-_]+")
@@ -119,72 +187,4 @@ func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder
 	}
 	logger.Printf("Succeeded uploading %s \n", path)
 	return nil
-}
-
-// This runs in circle-ci pipelines and sends the raw test data to pachyderm for transform.
-func main() {
-	logger.Println("Beginning results upload.")
-	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
-	if len(robotToken) == 0 {
-		logger.Println("No pachyderm robot token found. Continuing with unauthenticated pach client.")
-	}
-	resultsFolder := os.Getenv("TEST_RESULTS")
-	if len(resultsFolder) == 0 {
-		logger.Fatal("TEST_RESULTS needs to be populated to find the test results folder.")
-	}
-	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
-		logger.Fatalf("The test result folder at %v does not exist. Exiting early.", resultsFolder)
-	}
-	// connect and authenticate to pachyderm
-	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
-	if err != nil {
-		logger.Fatalf("Provisioning pach client: %v", err)
-	}
-	pachClient.SetAuthToken(robotToken)
-	// retry in case the parent commit is still in progress from another pipeline
-	var commit *pfs.Commit
-	for i := 0; i < commitMaxRetries; i++ {
-		commit, err = pachClient.StartProjectCommit(projectName, repoName, "master")
-		if err != nil {
-			logger.Printf("Unable to start commit due to error. Retrying. Error: %v", err)
-			time.Sleep(commitRetryBackoff)
-		} else {
-			break
-		}
-	}
-	if err != nil {
-		logger.Fatalf("Starting commit: %v", err)
-	}
-	defer func() {
-		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
-			logger.Fatalf("Finishing commit: %v", err)
-		}
-	}()
-	// upload general job information
-	jobInfo, err := findJobInfoFromCI()
-	if err != nil {
-		logger.Fatalf("Collecting job info: %v", err)
-	}
-	basePath := findBasePath(jobInfo)
-	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
-		logger.Fatalf("Uploading job info: %v", err)
-	}
-	// upload individual test  results
-	eg, _ := errgroup.WithContext(pachClient.Ctx())
-	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
-			eg.Go(func() error {
-				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, commit)
-			})
-		}
-		return nil
-	})
-	if err != nil {
-		logger.Fatalf("Walking file paths: %v", err)
-	}
-	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		logger.Fatalf("Putting files: %v", err)
-	}
-
-	logger.Println("Successfully uploaded files.")
 }
