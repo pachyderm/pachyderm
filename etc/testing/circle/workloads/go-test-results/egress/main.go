@@ -122,9 +122,9 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, db *sqlx.DB) error {
 		jobInfo.PullRequests,
 	)
 	if err != nil {
-		return errors.Wrapf(err, "inserting job info for workflow %s  job %s  executor %s", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
+		return errors.Wrapf(err, "inserting job info for workflow %v  job %v  executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 	}
-	logger.Printf("Inserted job info for workflow %s and job %s", jobInfo.WorkflowId, jobInfo.JobId)
+	logger.Printf("Inserted job info for workflow %v and job %v", jobInfo.WorkflowId, jobInfo.JobId)
 	return nil
 }
 
