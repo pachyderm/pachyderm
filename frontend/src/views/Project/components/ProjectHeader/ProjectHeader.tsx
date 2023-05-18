@@ -1,6 +1,7 @@
 import React, {useCallback, useState} from 'react';
 
 import Header from '@dash-frontend/components/Header';
+import HeaderDropdown from '@dash-frontend/components/HeaderDropdown';
 import Search from '@dash-frontend/components/Search';
 import {
   SkeletonDisplayText,
@@ -71,9 +72,7 @@ const ProjectHeader = () => {
       </Group>
       <div className={styles.dividerSearch} />
       <Search />
-      <Group align="center">
-        {/* Tutorial is temporarily disabled because of "Project" Console Support */}
-      </Group>
+      <HeaderDropdown />
     </Header>
   );
 };

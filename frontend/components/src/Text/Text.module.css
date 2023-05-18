@@ -17,6 +17,10 @@
   color: var(--placeholder-grey);
 }
 
+.white {
+  color: var(--white);
+}
+
 .bodyText,
 .bodyErrorText {
   font-family: 'Montserrat', sans-serif;

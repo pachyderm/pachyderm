@@ -2,7 +2,7 @@ import {Project} from '@graphqlTypes';
 import React from 'react';
 
 import Header from '@dash-frontend/components/Header';
-import HeaderButtons from '@dash-frontend/components/HeaderButtons';
+import HeaderDropdown from '@dash-frontend/components/HeaderDropdown';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import {Group, LogoElephant, LogoHpe} from '@pachyderm/components';
 
@@ -43,7 +43,7 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
             </h5>
           </a>
         </Group>
-        <HeaderButtons showSupport showAccount />
+        <HeaderDropdown />
       </Group>
     </Header>
   );

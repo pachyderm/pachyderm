@@ -32,7 +32,7 @@ describe('FileBrowser', () => {
   it('should display commits for selected branch', () => {
     cy.visit('/lineage/default/repos/images/branch/master/latest');
     cy.findAllByTestId('CommitList__listItem').should('have.length', 2);
-    cy.findByTestId('DropdownButton__button').click();
+    cy.findAllByTestId('DropdownButton__button').eq(1).click();
     cy.findByText('test').click();
     cy.findAllByTestId('CommitList__listItem').should('have.length', 4);
   });

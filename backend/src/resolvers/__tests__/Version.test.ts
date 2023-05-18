@@ -10,7 +10,7 @@ describe('Version Resolver', () => {
         GET_VERSION_INFO_QUERY,
       );
       expect(errors).toHaveLength(0);
-      expect(data?.versionInfo.consoleVersion).toBe('unversioned-development');
+      expect(data?.versionInfo.consoleVersion).toBe('development');
       expect(data?.versionInfo.pachdVersion).toEqual(
         expect.objectContaining({
           __typename: 'Version',

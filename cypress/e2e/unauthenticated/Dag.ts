@@ -37,7 +37,9 @@ describe('Dag', () => {
     cy.findByLabelText('expand filters').click();
     cy.findAllByText('Failed').filter(':visible').click();
     cy.findAllByTestId('RunsList__row', {timeout: 60000}).should('have.length', 2)
-    cy.findAllByTestId('DropdownButton__button').eq(1).click();
+    cy.findAllByTestId('RunsList__row').eq(1)
+      .findByTestId('DropdownButton__button')
+      .click();
     cy.findAllByText('Apply Global ID and view in DAG').eq(1).click();
 
     cy.findByText("DAG").click();

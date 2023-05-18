@@ -92,6 +92,7 @@ const CodeTextBlock: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 };
 
 const CaptionColors = {
+  white: 'white',
   black: 'black',
   grey: 'captionGrey',
 };

@@ -7,19 +7,20 @@ import styles from './Account.module.css';
 
 const Account: React.FC = () => {
   const {loggedIn} = useLoggedIn();
-  const {displayName, loading} = useAccount({skip: !loggedIn});
-
-  if (loading) {
-    return (
-      <div className={styles.loaderContainer} data-testid="Account__loader" />
-    );
-  }
+  const {displayName} = useAccount({skip: !loggedIn});
 
   if (!loggedIn) {
     return null;
   }
 
-  return <strong className={styles.base}>Hello, {displayName}!</strong>;
+  return (
+    <div className={styles.base}>
+      <div className={styles.letter}>
+        <h5>{displayName ? displayName[0] : 'U'}</h5>
+      </div>
+      <h5>{displayName}</h5>
+    </div>
+  );
 };
 
 export default Account;

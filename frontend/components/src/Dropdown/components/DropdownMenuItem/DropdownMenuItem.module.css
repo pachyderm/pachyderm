@@ -9,7 +9,7 @@
 }
 
 .tertiary {
-  background-color: var(--background-black);
+  background-color: var(--grey-9);
   color: var(--white);
 }
 
@@ -20,7 +20,7 @@
 
 .tertiary:hover,
 .tertiary:focus {
-  background-color: var(--grey-9);
+  background-color: var(--disabled-tertiary);
 }
 
 .base:focus {
