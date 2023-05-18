@@ -177,7 +177,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
-		require.Equal(t, 7, len(fis))
+		require.Equal(t, 6, len(fis))
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 2, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
@@ -242,8 +242,8 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(fis))
-		require.ElementsEqual(t, []string{"/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
+		require.Equal(t, 1, len(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
@@ -251,7 +251,7 @@ func TestPFS(suite *testing.T) {
 		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
-		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Number: 1, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
