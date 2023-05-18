@@ -137,13 +137,13 @@ func TestCompactLevelBasedRenewal(t *testing.T) {
 	s := newTestStorage(ctx, t)
 	ttl := 100 * time.Millisecond
 	gc := s.NewGC(ttl)
-	cancelCtx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	var eg *errgroup.Group
 	eg, ctx = errgroup.WithContext(cancelCtx)
 	eg.Go(func() error {
 		err := gc.RunForever(ctx)
-		if errors.Is(cancelCtx.Err(), context.Canceled) {
+		if errors.Is(context.Cause(cancelCtx), context.Canceled) {
 			err = nil
 		}
 		return err

@@ -6,7 +6,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +35,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 		}
 		select {
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		case <-ticker.C:
 		}
 	}
@@ -53,11 +52,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer func() {
-		if err := rows.Close(); retErr == nil {
-			retErr = multierr.Append(retErr, err)
-		}
-	}()
+	defer errors.Close(&retErr, rows, "close rows")
 	for rows.Next() {
 		var ent Entry
 		if err := rows.StructScan(&ent); err != nil {

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -87,7 +86,7 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) finishCommits(ctx context.Context) (retErr error) {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	repos := make(map[string]context.CancelFunc)
 	defer func() {
@@ -116,21 +115,17 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 				if _, ok := repos[key]; ok {
 					return nil
 				}
-				ctx, cancel := context.WithCancel(ctx)
+				ctx, cancel := pctx.WithCancel(ctx)
 				repos[key] = cancel
 				go func() {
 					backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-						ctx, cancel := context.WithCancel(ctx)
+						ctx, cancel := pctx.WithCancel(ctx)
 						defer cancel()
 						lockCtx, err := ring.Lock(ctx, lockPrefix)
 						if err != nil {
 							return errors.Wrap(err, "error locking repo lock")
 						}
-						defer func() {
-							if err := ring.Unlock(lockPrefix); err != nil {
-								retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
-							}
-						}()
+						defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
 						return d.finishRepoCommits(lockCtx, key)
 					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 						log.Error(ctx, "error finishing commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))

@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -229,7 +230,7 @@ func TestLoginEnterprise(t *testing.T) {
 
 // TestLoginPachd tests logging in to pachd
 func TestLoginPachd(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)

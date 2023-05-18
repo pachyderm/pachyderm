@@ -13,12 +13,12 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	etcd "go.etcd.io/etcd/client/v3"
-	"go.uber.org/multierr"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
@@ -417,7 +417,7 @@ func (c *postgresCollection) list(
 		}
 		defer func() {
 			if err := rs.Close(); err != nil {
-				retErr = multierr.Append(
+				retErr = errors.Join(
 					retErr,
 					errors.Wrapf(c.mapSQLError(err, ""), "closing rows for list query buffer with offset %v", offset),
 				)
@@ -481,7 +481,7 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 // NOTE: Internally, List scans the collection using multiple queries,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f func(string) error) error {
-	ctx, cf := context.WithCancel(context.Background())
+	ctx, cf := pctx.WithCancel(context.Background())
 	defer cf()
 	return c.postgresCollection.list(ctx, nil, opts, c.tx, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {

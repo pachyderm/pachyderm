@@ -57,5 +57,10 @@ popd > /dev/stderr
 
 # TODO (brendon): figure out how to configure protoc
 pushd v2 > /dev/stderr
-gofmt -w src > /dev/stderr
+
+pushd src > /dev/stderr
+gopatch ./... -p=/proto.patch
+popd > /dev/stderr
+
+gofmt -w . > /dev/stderr
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -
