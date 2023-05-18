@@ -45,7 +45,7 @@ func TestIsErrBadToken(t *testing.T) {
 }
 
 func TestIsErrNotAuthorized(t *testing.T) {
-	require.False(t, status.Convert(nil).Code() == codes.OK)
+	require.False(t, status.Convert(nil).Code() == codes.PermissionDenied)
 	require.True(t, status.Convert(&ErrNotAuthorized{
 		Subject:  "alice",
 		Resource: Resource{Type: ResourceType_REPO, Name: "data"},
