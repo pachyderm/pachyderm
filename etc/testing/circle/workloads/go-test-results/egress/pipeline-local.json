@@ -10,7 +10,7 @@
         }
     },
     "transform": {
-        "image": "pachyderm/go-test-results:0.0.1",
+        "image": "pachyderm/go-test-results:0.0.3",
         "cmd": [
             "/go/egress/egress",
             "/pfs/go-test-results-raw"

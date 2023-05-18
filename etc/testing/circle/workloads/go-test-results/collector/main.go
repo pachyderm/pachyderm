@@ -149,7 +149,11 @@ func findJobInfoFromCI() (gotestresults.JobInfo, error) {
 	jobInfo.JobTimestamp = time.Now()
 	var err error
 	jobInfo.JobNumExecutors, err = strconv.Atoi(os.Getenv("CIRCLE_NODE_TOTAL"))
-	return jobInfo, errors.Wrap(err, "Parsing CIRCLE_NODE_TOTAL")
+	if err != nil {
+		return jobInfo, errors.Wrap(err, "Parsing CIRCLE_NODE_TOTAL")
+	}
+	jobInfo.JobExecutor, err = strconv.Atoi(os.Getenv("CIRCLE_NODE_INDEX"))
+	return jobInfo, errors.Wrap(err, "Parsing CIRCLE_NODE_INDEX")
 }
 
 func findBasePath(jobInfo gotestresults.JobInfo) string {

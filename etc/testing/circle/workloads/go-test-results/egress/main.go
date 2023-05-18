@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	gotestresults "github.com/pachyderm/pachyderm/v2/etc/testing/circle/workloads/go-test-results"
@@ -102,6 +101,7 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, db *sqlx.DB) error {
 	_, err := db.Exec(`INSERT INTO public.ci_jobs (
 							workflow_id, 
 							job_id, 
+							job_executor,
 							job_name, 
 							job_timestamp, 
 							job_num_executors,
@@ -109,9 +109,10 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, db *sqlx.DB) error {
 							branch, 
 							tag,
 							pull_requests
-						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		jobInfo.WorkflowId,
 		jobInfo.JobId,
+		jobInfo.JobExecutor,
 		jobInfo.JobName,
 		jobInfo.JobTimestamp,
 		jobInfo.JobNumExecutors,
@@ -121,14 +122,7 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, db *sqlx.DB) error {
 		jobInfo.PullRequests,
 	)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			// Unique key constraint violation. In other words, the record already exists.
-			// Ignore insert to since we don't want to change the timestamp, but log it. This is expected with multiple executors.
-			logger.Printf("Job info already inserted, so skipping insert for workflow %s and job %s", jobInfo.WorkflowId, jobInfo.JobId)
-			return nil
-		}
-		return errors.Wrapf(err, "inserting job info ")
+		return errors.Wrapf(err, "inserting job info for workflow %s  job %s  executor %s", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 	}
 	logger.Printf("Inserted job info for workflow %s and job %s", jobInfo.WorkflowId, jobInfo.JobId)
 	return nil
@@ -162,6 +156,7 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 									id, 
 									workflow_id, 
 									job_id, 
+									job_executor,
 									test_name, 
 									package, "action", 
 									elapsed_seconds, 
@@ -170,6 +165,7 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 				uuid.New(),
 				jobInfo.WorkflowId,
 				jobInfo.JobId,
+				jobInfo.JobExecutor,
 				result.TestName,
 				result.Package,
 				result.Action,

@@ -9,6 +9,7 @@ type JobInfo struct {
 	JobName         string    `json:"job_name"`
 	JobTimestamp    time.Time `json:"job_timestamp"`
 	JobNumExecutors int       `json:"job_num_executors"`
+	JobExecutor     int       `json:"job_executor"`
 	Commit          string    `json:"commit"`
 	Branch          string    `json:"branch"`
 	Username        string    `json:"username"`
