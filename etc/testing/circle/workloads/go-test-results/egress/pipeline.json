@@ -6,7 +6,7 @@
         "pfs": {
             "repo": "go-test-results-raw",
             "project": "ci-metrics",
-            "glob": "/*"
+            "glob": "/*/*"
         }
     },
     "transform": {
