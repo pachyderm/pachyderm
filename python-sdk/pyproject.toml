@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "pachyderm_sdk"
+version = "0.0.1"
+description = "Python Pachyderm Client"
+authors = ["Pachyderm Integrations <integrations@pachyderm.io>"]
+license = "Apache 2.0"
+documentation = "https://python-pachyderm.readthedocs.io/en/stable/"
+readme = 'README.md'
+repository = "https://github.com/pachyderm/python-pachyderm"
+keywords = ["pachyderm"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+
+[tool.poetry.dependencies]
+python = ">=3.7,<4.0"
+betterproto = "2.0.0b5"
+certifi = ">=2022.9"
+grpcio = ">=1.50.0,<1.52.0"
+grpc-interceptor = "^0.14.2"
+importlib-metadata = { version = ">1.5.1", python = "<3.8" }
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.2.1"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
