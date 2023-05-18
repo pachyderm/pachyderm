@@ -163,7 +163,7 @@ func findBasePath(jobInfo gotestresults.JobInfo) string {
 	} else {
 		branchFolderName = jobInfo.Tag
 	}
-	basePath := filepath.Join(sanitizeName(branchFolderName), sanitizeName(jobInfo.JobName))
+	basePath := filepath.Join(sanitizeName(branchFolderName), sanitizeName(jobInfo.JobName), strconv.Itoa(jobInfo.JobExecutor))
 	return basePath
 }
 
