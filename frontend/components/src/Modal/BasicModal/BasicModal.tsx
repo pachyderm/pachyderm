@@ -57,7 +57,6 @@ const BasicModal: React.FC<BasicModalProps> = ({
       show={show}
       onHide={onHide}
       onShow={onShow}
-      actionable={actionable}
       className={className}
       small={small}
     >

@@ -96,8 +96,7 @@ export const Actionable = () => {
         small={true}
       >
         The actionable modal is for modals that require input or actions from
-        the user. Users are not able to close the Modal by clicking the screen
-        background. When the action is completed by clicking onConfirm, success
+        the user. When the action is completed by clicking onConfirm, success
         will be shown by the appearance of a green check mark in the header.
       </BasicModal>
     </>

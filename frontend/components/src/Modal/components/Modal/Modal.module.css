@@ -37,14 +37,6 @@
   z-index: 1;
 }
 
-.notActionable {
-  right: -2.25rem;
-}
-
-.notActionable path:last-of-type {
-  color: var(--white);
-}
-
 .icon {
   cursor: pointer;
 }

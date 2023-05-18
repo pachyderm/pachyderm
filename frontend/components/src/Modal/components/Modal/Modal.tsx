@@ -16,7 +16,6 @@ export interface ModalProps
   show: boolean;
   onHide?: () => void;
   onShow?: () => void;
-  actionable?: boolean;
   className?: string;
   small?: boolean;
 }
@@ -26,7 +25,6 @@ const Modal: React.FC<ModalProps> = ({
   show,
   onHide = noop,
   onShow = noop,
-  actionable = false,
   className,
   small = false,
   ...props
@@ -42,16 +40,13 @@ const Modal: React.FC<ModalProps> = ({
       })}
       animation={false}
       show={showing}
-      backdrop={actionable ? 'static' : true}
       onHide={onHide}
     >
       <Button
         aria-label="Close"
         data-testid="Modal__close"
         onClick={onHide}
-        className={classNames(styles.close, {
-          [styles.notActionable]: !actionable,
-        })}
+        className={styles.close}
         IconSVG={CloseSVG}
         buttonType="ghost"
         color="black"

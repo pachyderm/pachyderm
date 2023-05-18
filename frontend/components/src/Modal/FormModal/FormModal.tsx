@@ -53,7 +53,7 @@ const FormModal = <T extends FieldValues>({
   const modalStatusMessage = error || (success && "You're all set!") || '';
 
   return (
-    <Modal show={isOpen} onHide={onHide} small={small} actionable>
+    <Modal show={isOpen} onHide={onHide} small={small}>
       <Form
         className={styles.form}
         formContext={formContext}
