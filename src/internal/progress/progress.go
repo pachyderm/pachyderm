@@ -32,9 +32,17 @@ func WriteProgress(bar string, completion int64, total int64) {
 	initContainer()
 	b, ok := bars[bar]
 	if !ok {
-		b = container.AddBar(total,
-			mpb.PrependDecorators(decor.Name(bar), decor.Name(" "), decor.CountersKiloByte("% .2f / % .2f")),
-			mpb.AppendDecorators(decor.EwmaETA(decor.ET_STYLE_GO, 90), decor.Name(" "), decor.EwmaSpeed(decor.UnitKB, "% .2f", 60)))
+		b = container.AddBar(int64(total),
+			// progress bar filler with customized style
+			mpb.PrependDecorators(
+				// display our name with one space on the right
+				decor.Name(bar, decor.WC{W: len(bar) + 1, C: decor.DidentRight}),
+				// replace ETA decorator with "done" message, OnComplete event
+				decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_GO, 60), "done"),
+			),
+			mpb.AppendDecorators(decor.Percentage()),
+		)
+		bars[bar] = b
 	}
 	b.SetCurrent(completion)
 }
@@ -47,7 +55,7 @@ func Disable() {
 func initContainer() {
 	if enabled {
 		containerInit.Do(func() {
-			container = mpb.New(mpb.WithRefreshRate(refreshRate))
+			container = mpb.New(mpb.WithRefreshRate(refreshRate), mpb.WithWidth(64))
 			bars = make(map[string]*mpb.Bar)
 		})
 	}

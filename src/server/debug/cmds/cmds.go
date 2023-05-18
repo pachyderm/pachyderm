@@ -166,12 +166,18 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 			defer client.Close()
+			var req *debug.DumpV2Request
 			if template != "" {
-
+				r, err := client.DebugClient.GetDumpV2Template(mainCtx, &debug.GetDumpV2TemplateRequest{})
+				if err != nil {
+					return errors.Wrap(err, "get dump template")
+				}
+				req = r.Request
+				fmt.Printf("Debug Dump with Dump Request: %v\n", req)
 			}
 			ctx, cf := context.WithCancel(mainCtx)
 			defer cf()
-			c, err := client.DebugClient.DumpV2(ctx, &debug.DumpV2Request{})
+			c, err := client.DebugClient.DumpV2(ctx, req)
 			if err != nil {
 				return err
 			}
@@ -188,7 +194,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					}
 					// erroring here should not stop the dump from working
 					if prgs := d.GetProgress(); prgs != nil {
-						progress.WriteProgress(prgs.Message, 0, 100)
+						progress.WriteProgress(prgs.Task, prgs.Progress, prgs.Total)
 					}
 				}
 				return nil

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -89,17 +88,6 @@ type collectWorkerFunc func(context.Context, *tar.Writer, *v1.Pod, ...string) er
 type redirectFunc func(context.Context, debug.DebugClient, *debug.Filter) (io.Reader, error)
 type collectFunc func(context.Context, *tar.Writer, *client.APIClient, ...string) error
 
-var opts []string = []string{
-	"helm",
-	"pachdLogs",
-	"inputRepos",
-	"pipelines", // should be a list of specific pipelines
-	"version",
-	"database",
-	"profile",
-	"worker", // ??
-}
-
 type taskOpts struct {
 	timeout time.Duration
 }
@@ -136,7 +124,7 @@ func (s *debugServer) runTask(ctx context.Context, name string, dir string) (ret
 			}
 		}
 		return writeErrs
-	case "inputRepos":
+	case "input_repos":
 		// Collect input repos.
 		return s.collectInputRepos(ctx, s.env.GetPachClient(ctx), filepath.Join(dir, "source-repos"), int64(0))
 	case "pachd_describe":
@@ -163,7 +151,11 @@ func (s *debugServer) runTask(ctx context.Context, name string, dir string) (ret
 					retErr = writeErrorFileV2(dir, retErr)
 				}
 			}()
-			if err := s.collectPipelineV2(ctx, dir, pi, 0); err != nil {
+			// is this necessary????
+			if err := validatePipelineInfo(pi); err != nil {
+				return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+			}
+			if err := s.collectPipelineV2(ctx, dir, pi.Pipeline, 0); err != nil {
 				return err
 			}
 			// return s.forEachWorker(ctx, pi, func(pod *v1.Pod) error {
@@ -177,28 +169,100 @@ func (s *debugServer) runTask(ctx context.Context, name string, dir string) (ret
 		if err != nil {
 			return errors.Wrapf(err, "inspect pipeline %q", p.String())
 		}
+		if err := validatePipelineInfo(pi); err != nil {
+			return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+		}
 		dir := filepath.Join(dir, pipelinePrefix, p.Project.Name, p.Name)
 		defer func() {
 			if retErr != nil {
 				retErr = writeErrorFileV2(dir, retErr)
 			}
 		}()
-		if err := s.collectPipelineV2(ctx, dir, pi, 0); err != nil {
+		if err := s.collectPipelineV2(ctx, dir, pi.Pipeline, 0); err != nil {
 			return err
 		}
 		// return s.forEachWorker(ctx, pi, func(pod *v1.Pod) error {
 		// 	return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect, prefix)
 		// })
 		return nil
-	case "appLogs":
+	case "app_logs":
 		return s.appLogs(ctx, dir)
 	default:
 		return nil
 	}
 }
 
+func (s *debugServer) GetDumpV2Template(request *debug.GetDumpV2TemplateRequest) (*debug.GetDumpV2TemplateResponse, error) {
+	var ps []string
+	var pipTasks []*debug.PipelineDump
+	for _, p := range ps {
+		pipTasks = append(pipTasks, &debug.PipelineDump{Name: p})
+	}
+	return &debug.GetDumpV2TemplateResponse{
+		Request: &debug.DumpV2Request{
+			SystemDump: &debug.SystemDump{
+				Version: true,
+				Helm:    true,
+				Profile: true,
+			},
+			PachdDump: &debug.PachdDump{
+				Describe: true,
+				Logs:     true, // do we want to either do Logs or LokiLogs based on env?
+				LokiLogs: true,
+			},
+			AppDump: &debug.AppDump{
+				InputRepos: true,
+			},
+			PipelinesDump: &debug.PipelinesDump{
+				Tasks: pipTasks,
+			},
+		},
+	}, nil
+}
+
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
 	return s.dump(s.env.GetPachClient(server.Context()), nil, nil, time.Minute)
+}
+
+func dumpRequestTasks(request *debug.DumpV2Request) []task {
+	var tasks []task
+	if request.AppDump != nil {
+		if request.AppDump.InputRepos {
+			tasks = append(tasks, task{name: "input_repos"})
+		}
+	}
+	if request.PachdDump != nil {
+		if request.PachdDump.Describe {
+			tasks = append(tasks, task{name: "pachd_describe"})
+		}
+		if request.PachdDump.Logs {
+			tasks = append(tasks, task{name: "pachd_logs"})
+		}
+		if request.PachdDump.LokiLogs {
+			tasks = append(tasks, task{name: "pachd_loki_logs"})
+		}
+	}
+	if request.PipelinesDump != nil {
+		for _, t := range request.PipelinesDump.Tasks {
+			if len(t.Tasks) == 0 { // expand to all pipelines
+
+			} else {
+
+			}
+		}
+	}
+	if request.SystemDump != nil {
+		if request.SystemDump.Version {
+			tasks = append(tasks, task{name: "version"})
+		}
+		if request.SystemDump.Helm {
+			tasks = append(tasks, task{name: "helm"})
+		}
+		if request.SystemDump.Profile {
+			tasks = append(tasks, task{name: "profile"})
+		}
+	}
+	return tasks
 }
 
 func (s *debugServer) dump(
@@ -215,6 +279,7 @@ func (s *debugServer) dump(
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
 	eg, ctx := errgroup.WithContext(ctx)
+	// setup mutex for pushing files to tar writer as they finish
 	for _, t := range tasks {
 		eg.Go(func(t task) error {
 			// t should include info like
@@ -508,31 +573,32 @@ func redirectBinary(ctx context.Context, c debug.DebugClient, filter *debug.Filt
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
-	if request.Limit == 0 {
-		request.Limit = math.MaxInt64
-	}
-	timeout := 25 * time.Minute // If no client-side deadline set, use 25 minutes.
-	if deadline, ok := server.Context().Deadline(); ok {
-		d := time.Until(deadline)
-		// Time out our own operations at ~90% of the client-set deadline. (22 minutes of
-		// server-side processing for every 25 minutes of debug dumping.)
-		timeout = time.Duration(22) * d / time.Duration(25)
-	}
-	ctx, c := context.WithTimeout(server.Context(), timeout)
-	defer c()
-	pachClient := s.env.GetPachClient(ctx)
-	return s.handleRedirect(
-		pachClient,
-		server,
-		request.Filter,
-		s.collectPachdDumpFunc(request.Limit), /* collectPachd */
-		nil,                                   /* collectPipeline */
-		s.collectWorkerDump,                   /* collectWorker */
-		redirectDump,                          /* redirect */
-		collectDump,                           /* collect */
-		true,
-		true,
-	)
+	return errors.New("Dump gRPC is deprecated in favor of DumpV2")
+	// if request.Limit == 0 {
+	// 	request.Limit = math.MaxInt64
+	// }
+	// timeout := 25 * time.Minute // If no client-side deadline set, use 25 minutes.
+	// if deadline, ok := server.Context().Deadline(); ok {
+	// 	d := time.Until(deadline)
+	// 	// Time out our own operations at ~90% of the client-set deadline. (22 minutes of
+	// 	// server-side processing for every 25 minutes of debug dumping.)
+	// 	timeout = time.Duration(22) * d / time.Duration(25)
+	// }
+	// ctx, c := context.WithTimeout(server.Context(), timeout)
+	// defer c()
+	// pachClient := s.env.GetPachClient(ctx)
+	// return s.handleRedirect(
+	// 	pachClient,
+	// 	server,
+	// 	request.Filter,
+	// 	s.collectPachdDumpFunc(request.Limit), /* collectPachd */
+	// 	nil,                                   /* collectPipeline */
+	// 	s.collectWorkerDump,                   /* collectWorker */
+	// 	redirectDump,                          /* redirect */
+	// 	collectDump,                           /* collect */
+	// 	true,
+	// 	true,
+	// )
 }
 
 func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
@@ -842,15 +908,12 @@ func collectDump(ctx context.Context, dir string) (retErr error) {
 	return nil
 }
 
-func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, pi *pps.PipelineInfo, limit int64) (retErr error) {
-	ctx, end := log.SpanContext(ctx, "collectPipelineDump", zap.Stringer("pipeline", pi.GetPipeline()))
+func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, p *pps.Pipeline, limit int64) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "collectPipelineDump", zap.Stringer("pipeline", p))
 	defer end(log.Errorp(&retErr))
-	if err := validatePipelineInfo(pi); err != nil {
-		return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
-	}
 	var errs error
 	if err := collectDebugFileV2(dir, "spec.json", func(w io.Writer) error {
-		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListProjectPipelineHistory(pi.Pipeline.Project.Name, pi.Pipeline.Name, -1, true)
+		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListProjectPipelineHistory(p.Project.Name, p.Name, -1, true)
 		if err != nil {
 			return err
 		}
@@ -864,14 +927,14 @@ func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, pi *pps
 	}); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
 	}
-	if err := s.collectCommits(ctx, s.env.GetPachClient(ctx), dir, client.NewProjectRepo(pi.Pipeline.Project.GetName(), pi.Pipeline.Name), limit); err != nil {
+	if err := s.collectCommits(ctx, s.env.GetPachClient(ctx), dir, client.NewProjectRepo(p.Project.GetName(), p.Name), limit); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "collectCommits"))
 	}
-	if err := s.collectJobs(s.env.GetPachClient(ctx), dir, pi.Pipeline, limit); err != nil {
+	if err := s.collectJobs(s.env.GetPachClient(ctx), dir, p, limit); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "collectJobs"))
 	}
 	if s.hasLoki() {
-		if err := s.forEachWorkerLoki(ctx, pi, func(pod string) (retErr error) {
+		if err := s.forEachWorkerLoki(ctx, p, func(pod string) (retErr error) {
 			ctx, end := log.SpanContext(ctx, "forEachWorkerLoki.worker", zap.String("pod", pod))
 			defer end(log.Errorp(&retErr))
 			workerDir := filepath.Join(dir, podPrefix, pod)
@@ -888,8 +951,8 @@ func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, pi *pps
 	return errs
 }
 
-func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo, cb func(string) error) error {
-	pods, err := s.getWorkerPodsLoki(ctx, pipelineInfo)
+func (s *debugServer) forEachWorkerLoki(ctx context.Context, p *pps.Pipeline, cb func(string) error) error {
+	pods, err := s.getWorkerPodsLoki(ctx, p)
 	if err != nil {
 		return err
 	}
@@ -913,14 +976,14 @@ func quoteLogQLStreamSelector(s string) string {
 	return strconv.Quote(s)
 }
 
-func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
+func (s *debugServer) getWorkerPodsLoki(ctx context.Context, p *pps.Pipeline) (map[string]struct{}, error) {
 	// This function uses the log querying API and not the label querying API, to bound the the
 	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
 	// logs for each pipeline, and return the names of the workers that contributed to those
 	// logs for further inspection.  The alternative would be to get every worker that existed
 	// in some time interval, but that results in too much data to inspect.
 
-	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQLStreamSelector(pipelineInfo.Pipeline.Project.Name), quoteLogQLStreamSelector(pipelineInfo.Pipeline.Name))
+	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQLStreamSelector(p.Project.Name), quoteLogQLStreamSelector(p.Name))
 	pods := make(map[string]struct{})
 	logs, err := s.queryLoki(ctx, queryStr)
 	if err != nil {
