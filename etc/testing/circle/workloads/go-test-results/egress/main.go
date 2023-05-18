@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	gotestresults "github.com/pachyderm/pachyderm/v2/etc/testing/circle/workloads/go-test-results"
@@ -56,11 +57,11 @@ func main() {
 	err = filepath.WalkDir(sym, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			if d.Name() == jobInfoFileName {
-				jobInfo, err := readJobInfo(path, jobInfoPaths, d)
+				jobInfo, err := readJobInfo(path)
 				if err != nil {
 					return err
 				}
-				return insertJobInfo(jobInfo, db)
+				return insertJobInfo(jobInfo, jobInfoPaths, path, d, db)
 			} else {
 				// we need the job info inserted first due to foreign key constraints,
 				// so save results to loop over later ensuring ordered inserts
@@ -72,6 +73,10 @@ func main() {
 	if err != nil {
 		logger.Fatal("Walking file tree for job info ", err)
 	}
+	if len(jobInfoPaths) == 0 {
+		logger.Println("No new job info found, exiting without inserting test results.")
+		return
+	}
 	for _, path := range testResultPaths {
 		if err = insertTestResultFile(path, jobInfoPaths, db); err != nil {
 			logger.Fatal("Inserting test results into DB ", err)
@@ -79,7 +84,7 @@ func main() {
 	}
 }
 
-func readJobInfo(path string, jobInfoPaths map[string]gotestresults.JobInfo, d fs.DirEntry) (*gotestresults.JobInfo, error) {
+func readJobInfo(path string) (*gotestresults.JobInfo, error) {
 	jobInfoFile, err := os.Open(path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unmarshalling job info json ")
@@ -93,11 +98,10 @@ func readJobInfo(path string, jobInfoPaths map[string]gotestresults.JobInfo, d f
 	if err = json.Unmarshal(jobInfoJson, &jobInfo); err != nil {
 		return nil, errors.Wrapf(err, "unmarshalling job info json ")
 	}
-	jobInfoPaths[strings.TrimSuffix(path, d.Name())] = jobInfo // read for use when inserting individual test results
 	return &jobInfo, nil
 }
 
-func insertJobInfo(jobInfo *gotestresults.JobInfo, db *sqlx.DB) error {
+func insertJobInfo(jobInfo *gotestresults.JobInfo, jobInfoPaths map[string]gotestresults.JobInfo, path string, d fs.DirEntry, db *sqlx.DB) error {
 	_, err := db.Exec(`INSERT INTO public.ci_jobs (
 							workflow_id, 
 							job_id, 
@@ -122,8 +126,16 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, db *sqlx.DB) error {
 		jobInfo.PullRequests,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			// Unique key constraint violation. In other words, the record already exists.
+			// Ignore insert to since we don't want to change the timestamp, but log it. This is expected with multiple executors.
+			logger.Printf("Job info already inserted, Skipping insert for workflow %v  job %v  executor %v\n", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
+			return nil
+		}
 		return errors.Wrapf(err, "inserting job info for workflow %v  job %v  executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 	}
+	jobInfoPaths[strings.TrimSuffix(path, d.Name())] = *jobInfo // read for use when inserting individual test results, don't insert if errored
 	logger.Printf("Inserted job info for workflow %v and job %v", jobInfo.WorkflowId, jobInfo.JobId)
 	return nil
 }
@@ -158,10 +170,11 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 									job_id, 
 									job_executor,
 									test_name, 
-									package, "action", 
+									package, 
+									"action", 
 									elapsed_seconds, 
 									"output"
-								) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+								) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 				uuid.New(),
 				jobInfo.WorkflowId,
 				jobInfo.JobId,
