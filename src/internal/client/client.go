@@ -829,6 +829,25 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	return nil
 }
 
+func (c *APIClient) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	clientData := make(map[string]string)
+	if c.authenticationToken != "" {
+		clientData[auth.ContextTokenKey] = c.authenticationToken
+	}
+	// metadata API downcases all the key names
+	if c.metricsUserID != "" {
+		clientData["userid"] = c.metricsUserID
+		clientData["prefix"] = c.metricsPrefix
+	}
+	if len(os.Args) > 1 && os.Args[0] != "/pachd" {
+		clientData["command"] = strings.Join(os.Args, " ")
+	}
+
+	return clientData, nil
+}
+
+func (c *APIClient) RequireTransportSecurity() bool { return false }
+
 // AddMetadata adds necessary metadata (including authentication credentials)
 // to the context 'ctx', preserving any metadata that is present in either the
 // incoming or outgoing metadata of 'ctx'.
