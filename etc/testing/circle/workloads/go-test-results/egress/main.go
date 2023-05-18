@@ -136,7 +136,7 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, jobInfoPaths map[string]gotes
 		return errors.Wrapf(err, "inserting job info for workflow %v  job %v  executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 	}
 	jobInfoPaths[strings.TrimSuffix(path, d.Name())] = *jobInfo // read for use when inserting individual test results, don't insert if errored
-	logger.Printf("Inserted job info for workflow %v and job %v", jobInfo.WorkflowId, jobInfo.JobId)
+	logger.Printf("Inserted job info for workflow %v job %v executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 	return nil
 }
 
