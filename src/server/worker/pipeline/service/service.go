@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
@@ -89,7 +89,7 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
-	return pachClient.SubscribeProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
+	return pachClient.SubscribeJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
 		if ji.State == pps.JobState_JOB_FINISHING {
 			return nil // don't pick up a "finishing" job
 		}

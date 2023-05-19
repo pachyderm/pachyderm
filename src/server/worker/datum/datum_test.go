@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -38,7 +38,7 @@ func TestUploadOutput(t *testing.T) {
 				},
 				meta: &Meta{
 					Stats: &pps.ProcessStats{},
-					Job:   client.NewProjectJob(pfs.DefaultProjectName, "test", "id"),
+					Job:   client.NewJob(pfs.DefaultProjectName, "test", "id"),
 				},
 			}
 			if err := os.MkdirAll(filepath.Join(root, "pfs", "out"), 0o755); err != nil {

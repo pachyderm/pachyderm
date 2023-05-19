@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -679,7 +679,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 		// list meta repos as a proxy for finding pipelines
 		return a.driver.listRepo(ctx, false /* includeAuth */, pfs.MetaRepoType, nil /* projectsFilter */, func(info *pfs.RepoInfo) error {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
-			output := client.NewProjectCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
+			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
 				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
 				if err != nil {
@@ -840,14 +840,14 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		project = req.Branch.Repo.Project.GetName()
 		repo = req.Branch.Repo.Name
 	}
-	if err := pachClient.CreateProjectRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
+	if err := pachClient.CreateRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
 		return nil, err
 	}
 	branch := uuid.New()
 	if req.Branch != nil {
 		branch = req.Branch.Name
 	}
-	if err := pachClient.CreateProjectBranch(project, repo, branch, "", "", nil); err != nil {
+	if err := pachClient.CreateBranch(project, repo, branch, "", "", nil); err != nil {
 		return nil, err
 	}
 	seed := time.Now().UTC().UnixNano()
@@ -856,7 +856,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 	}
 	resp := &pfs.RunLoadTestResponse{
 		Spec:   req.Spec,
-		Branch: client.NewProjectBranch(req.Branch.GetRepo().GetProject().GetName(), repo, branch),
+		Branch: client.NewBranch(req.Branch.GetRepo().GetProject().GetName(), repo, branch),
 		Seed:   seed,
 	}
 	start := time.Now()

@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
@@ -50,7 +50,7 @@ func NewMockEnv(rctx context.Context, t testing.TB, options ...InterceptorOption
 		return errorWait(ctx, mockEnv.MockPachd.Err())
 	})
 
-	mockEnv.PachClient, err = client.NewFromURIContext(ctx, mockEnv.MockPachd.Addr.String())
+	mockEnv.PachClient, err = client.NewFromURI(ctx, mockEnv.MockPachd.Addr.String())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, mockEnv.PachClient.Close())

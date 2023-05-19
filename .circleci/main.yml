@@ -49,6 +49,10 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
+  run-python-sdk-jobs:
+    type: boolean
+    default: false
+
 executors:
   docker-go:
     docker:
@@ -864,7 +868,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "Integration tests"
           command: |
@@ -894,7 +898,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "e2e tests"
           command: |
@@ -1387,6 +1391,35 @@ jobs:
           command: |
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
+  test-python-sdk:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Install Poetry
+          command: |
+            mkdir -p /home/circleci/.local/poetry/venv
+            export POETRY_HOME=/home/circleci/.local/poetry/venv
+            python3 -m venv $POETRY_HOME
+            $POETRY_HOME/bin/pip install poetry==1.4.1
+            $POETRY_HOME/bin/poetry --version
+            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+      - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
+          name: Install Python Dependencies with Poetry
+          command: poetry --no-ansi install
+      - install-python-test-deps
+
+      # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
+      # export export PACH_PYTHON_AUTH_TOKEN=iamroot
+      - run:
+          name: Run Tests
+          command: |
+            nohup pachctl port-forward &
+            poetry run pytest -vvv tests
 
 workflows:
   integration-tests:
@@ -1584,6 +1617,16 @@ workflows:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
+      - build-pachctl-bin:
+          version: $CIRCLE_SHA1
+  python-sdk:
+    when: << pipeline.parameters.run-python-sdk-jobs >>
+    jobs:
+      - test-python-sdk:
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+      - build-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
 
@@ -1877,7 +1920,7 @@ workflows:
             - aws-prerelease-testing
 
 commands:
-  install-jupyter-test-deps:
+  install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
           at: ./

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	ci "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 )
 
@@ -24,7 +24,7 @@ func (cfg *Config) NewOnUserMachine(ctx context.Context, enterprise bool, opts .
 	if enterprise {
 		c, err = client.NewEnterpriseClientOnUserMachineContext(ctx, "user", opts...)
 	} else {
-		c, err = client.NewOnUserMachineContext(ctx, "user", opts...)
+		c, err = client.NewOnUserMachine(ctx, "user", opts...)
 	}
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (cfg *Config) NewInWorker(ctx context.Context, opts ...client.Option) (*cli
 	if cfg.Verbose {
 		opts = append(opts, client.WithAdditionalStreamClientInterceptors(ci.LogStream), client.WithAdditionalUnaryClientInterceptors(ci.LogUnary))
 	}
-	c, err := client.NewInWorkerContext(ctx, opts...)
+	c, err := client.NewInWorker(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
