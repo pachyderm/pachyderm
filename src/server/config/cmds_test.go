@@ -70,6 +70,19 @@ func TestConnectExisting(t *testing.T) {
 	`))
 }
 
+func TestConnectWithAlias(t *testing.T) {
+	require.NoError(t, run(t, `  
+	pachctl connect blah --alias=aliasName | match "New context 'aliasName' created, will connect to Pachyderm at grpc://blah:30650"  
+	`))
+}
+
+func TestConnectExistingWithAlias(t *testing.T) {
+	require.NoError(t, run(t, `  
+	pachctl connect blah --alias=aliasName 
+	pachctl connect blah --alias=aliasName | match "Context 'aliasName' set as active"  
+	`))
+}
+
 func TestMetrics(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
