@@ -1,4 +1,4 @@
-# Check https://circleci.com/docs/2.0/language-go/ for more details
+# Check https://circleci.com/docs/2.0/language-go/ for more detail
 version: 2.1
 
 aliases:
