@@ -29,6 +29,7 @@ orbs:
   node: circleci/node@5.0.2
   kubernetes: circleci/kubernetes@1.3.0
   aws-eks: circleci/aws-eks@2.2.0
+  jira: circleci/jira@1.0.5
 
 parameters:
   machine_image:
@@ -1392,7 +1393,9 @@ workflows:
   integration-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
-      - build-docker-images
+      - build-docker-images:
+          post-steps:
+            - jira/notify # Runs the Jira's "notify" commands after a build has finished its
       - build-docker-images:
           enableCoverage: true
       #- build-pachctl-bin:
