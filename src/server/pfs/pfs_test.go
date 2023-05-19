@@ -5,13 +5,13 @@ package pfs
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func TestErrorMatching(t *testing.T) {
-	c := client.NewProjectCommit(pfs.DefaultProjectName, "foo", "bar", "")
+	c := client.NewCommit(pfs.DefaultProjectName, "foo", "bar", "")
 	require.True(t, IsCommitNotFoundErr(ErrCommitNotFound{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitDeleted{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitFinished{c}))

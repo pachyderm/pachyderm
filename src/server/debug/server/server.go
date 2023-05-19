@@ -35,8 +35,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -119,7 +119,7 @@ func (s *debugServer) handleRedirect(
 					return errs
 				case *debug.Filter_Pipeline:
 					var errs error
-					pipelineInfo, err := pachClient.InspectProjectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
+					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
 					if err != nil {
 						errors.JoinInto(&errs, errors.Wrapf(err, "inspectProjectPipeline(%s)", f.Pipeline))
 					}
@@ -614,7 +614,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 			errors.JoinInto(&errs, errors.Wrapf(err, "invalid repo info %d (%s) from ListRepo", i, repoInfo.String()))
 			continue
 		}
-		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
+		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				if err := s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix); err != nil {
@@ -918,7 +918,7 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}
 		var errs error
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name, -1, true)
+			fullPipelineInfos, err := pachClient.ListPipelineHistory(pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}
@@ -932,7 +932,7 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}, prefix...); err != nil {
 			errors.JoinInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
 		}
-		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
+		if err := s.collectCommits(ctx, tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			errors.JoinInto(&errs, errors.Wrap(err, "collectCommits"))
 		}
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline, limit, prefix...); err != nil {
@@ -1138,7 +1138,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
-		return pachClient.ListProjectJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+		return pachClient.ListJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 			if count >= limit {
 				return errutil.ErrBreak
 			}

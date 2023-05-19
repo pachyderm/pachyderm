@@ -25,8 +25,8 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -239,7 +239,7 @@ func (env *NonblockingServiceEnv) initPachClient(ctx context.Context) error {
 	// Initialize pach client
 	return backoff.Retry(func() (retErr error) {
 		defer log.Span(ctx, "initPachClient")(log.Errorp(&retErr))
-		pachClient, err := client.NewFromURIContext(
+		pachClient, err := client.NewFromURI(
 			ctx,
 			env.pachAddress,
 			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor, mlc.LogUnary),
@@ -396,7 +396,7 @@ func (env *NonblockingServiceEnv) newProxyClient() (proxy.APIClient, error) {
 	var servicePachClient *client.APIClient
 	if err := backoff.Retry(func() error {
 		var err error
-		servicePachClient, err = client.NewInClusterContext(pctx.TODO())
+		servicePachClient, err = client.NewInCluster(pctx.TODO())
 		return err
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute)); err != nil {
 		return nil, errors.Wrapf(err, "failed to initialize service pach client")

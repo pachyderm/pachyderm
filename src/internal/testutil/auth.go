@@ -10,7 +10,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -123,7 +123,7 @@ func BuildBindings(s ...string) *auth.RoleBinding {
 
 func GetRepoRoleBinding(t *testing.T, c *client.APIClient, projectName, repoName string) *auth.RoleBinding {
 	t.Helper()
-	resp, err := c.GetProjectRepoRoleBinding(projectName, repoName)
+	resp, err := c.GetRepoRoleBinding(projectName, repoName)
 	require.NoError(t, err)
 	return resp
 }

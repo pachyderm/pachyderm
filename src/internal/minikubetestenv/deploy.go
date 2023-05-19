@@ -23,8 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -432,7 +432,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		if certpool != nil {
 			opts = append(opts, client.WithCertPool(certpool))
 		}
-		c, err = client.NewFromPachdAddressContext(pctx.TODO(), pachAddress, opts...)
+		c, err = client.NewFromPachdAddress(pctx.TODO(), pachAddress, opts...)
 		if err != nil {
 			t.Logf("retryable: failed to connect to pachd on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)

@@ -12,7 +12,7 @@ import (
 	"gocloud.dev/blob"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
@@ -197,7 +197,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 				return err
 			}
 			file := proto.Clone(file).(*pfs.File)
-			file.Commit = client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
+			file.Commit = client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
 			src, err := d.getFile(ctx, file, basePathRange)
 			if err != nil {
 				return err

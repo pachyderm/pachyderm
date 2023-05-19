@@ -9,9 +9,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
@@ -95,7 +95,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}
 	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
 	cluster.Secret = a.env.Config.EnterpriseSecret
-	es, err := client.NewFromURIContext(ctx, a.env.Config.EnterpriseServerAddress, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
+	es, err := client.NewFromURI(ctx, a.env.Config.EnterpriseServerAddress, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
 	if err != nil {
 		return errors.Wrap(err, "connect to enterprise server")
 	}
@@ -215,7 +215,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		clientID = config.Configuration.ClientID
 	}
 
-	pachClient, err := client.NewFromURIContext(ctx, licenseServer, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
+	pachClient, err := client.NewFromURI(ctx, licenseServer, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
 	if err != nil {
 		return nil, err
 	}

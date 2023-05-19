@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -214,7 +214,7 @@ func ParseJob(project, arg string) (*pps.Job, error) {
 	if len(parts) != 2 {
 		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
 	}
-	return client.NewProjectJob(project, parts[0], parts[1]), nil
+	return client.NewJob(project, parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the
@@ -251,7 +251,7 @@ func ParsePartialFile(project, arg string) *pfs.File {
 	if err == nil {
 		return file
 	}
-	return client.NewProjectFile(project, arg, "", "", "")
+	return client.NewFile(project, arg, "", "", "")
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"

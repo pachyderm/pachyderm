@@ -13,7 +13,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
