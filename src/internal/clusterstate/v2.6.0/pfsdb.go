@@ -3,6 +3,7 @@ package v2_6_0
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -329,6 +330,11 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 	if err != nil {
 		return false, err
 	}
+	if md1 == nil || md2 == nil {
+		// the semantics here are a little odd - if either commit doesn't have a fileset yet,
+		// we assume that they aren't different and are therefore the same.
+		return true, nil
+	}
 	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
 		ser1, err := proto.Marshal(md1.GetPrimitive())
 		if err != nil {
@@ -359,6 +365,9 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 func getFileSetMd(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) (*fileset.Metadata, error) {
 	var mdData []byte
 	if err := tx.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets JOIN pfs.commit_totals ON id = fileset_id WHERE commit_id = $1`, oldCommitKey(c)); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, errors.EnsureStack(err)
 	}
 	md := &fileset.Metadata{}
