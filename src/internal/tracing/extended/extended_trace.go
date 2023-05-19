@@ -91,7 +91,8 @@ func PersistAny(ctx context.Context, c *etcd.Client, keys ...string) {
 }
 
 func Start(ttl time.Duration, c *etcd.Client, tags map[string]interface{}, keys ...string) {
-	opentracing.GlobalTracer().StartSpan("op", opentracing.Tags(tags))
+	tags["__keys__"] = strings.Join(keys, ",")
+	opentracing.GlobalTracer().StartSpan("ExtendedTrace", opentracing.Tags(tags))
 	return
 }
 

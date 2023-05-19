@@ -366,6 +366,7 @@ func (b *builder) resumeHealth(ctx context.Context) error {
 
 func (b *builder) initS3Server(ctx context.Context) error {
 	b.daemon.s3 = &s3Server{
+		env:           b.env,
 		clientFactory: b.env.GetPachClient,
 		port:          b.env.Config().S3GatewayPort,
 	}

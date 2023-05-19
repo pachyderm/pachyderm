@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	etcd "go.etcd.io/etcd/client/v3"
 
 	"github.com/pachyderm/s2"
 )
@@ -40,6 +41,8 @@ const (
 var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "pachyderm"}
 
 type controller struct {
+	etcdClient *etcd.Client
+
 	// Project of the PFS repo holding the multipart content
 	project string
 	// Name of the PFS repo holding multipart content
@@ -88,9 +91,10 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Router(ctx context.Context, driver Driver, clientFactory ClientFactory) *mux.Router {
+func Router(ctx context.Context, client *etcd.Client, driver Driver, clientFactory ClientFactory) *mux.Router {
 	logger := log.NewLogrus(ctx).WithField("source", "s3gateway")
 	c := &controller{
+		etcdClient:      client,
 		repo:            multipartRepo,
 		maxAllowedParts: maxAllowedParts,
 		driver:          driver,

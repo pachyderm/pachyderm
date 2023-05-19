@@ -11,13 +11,15 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 	"go.uber.org/zap"
 )
 
-func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
+func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (_ *s2.GetObjectResult, retErr error) {
 	defer log.Span(r.Context(), "GetObject", zap.String("bucketName", bucketName), zap.String("file", file), zap.String("version", version))()
 
 	pc := c.requestClient(r)
@@ -27,6 +29,10 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	if err != nil {
 		return nil, err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/GetObject", "bucket", bucketName, "file", file, "version", version)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
+
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
@@ -90,7 +96,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	return &result, nil
 }
 
-func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, srcObj *s2.GetObjectResult, destBucketName, destFile string) (string, error) {
+func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, srcObj *s2.GetObjectResult, destBucketName, destFile string) (_ string, retErr error) {
 	defer log.Span(r.Context(), "CopyObject", zap.String("srcBucketName", srcBucketName), zap.String("srcFile", srcFile), zap.Any("srcObj", srcObj), zap.String("destBucketName", destBucketName), zap.String("destFile", destFile))()
 
 	pc := c.requestClient(r)
@@ -107,6 +113,10 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 	if err != nil {
 		return "", err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(destBucket.Commit.Repo), "s3g/CopyObject", "source-bucket", srcBucketName, "dest-bucket", destBucketName, "src-file", srcFile, "dest-file", destFile)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
+
 	destBucketCaps, err := c.driver.bucketCapabilities(pc, r, destBucket)
 	if err != nil {
 		return "", err
@@ -148,6 +158,10 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	if err != nil {
 		return nil, err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/PutObject", "bucket", bucketName, "file", file)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
+
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
@@ -182,7 +196,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	return &result, nil
 }
 
-func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (*s2.DeleteObjectResult, error) {
+func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (_ *s2.DeleteObjectResult, retErr error) {
 	defer log.Span(r.Context(), "DeleteObject", zap.String("bucketName", bucketName), zap.String("file", file), zap.String("version", version))()
 
 	pc := c.requestClient(r)
@@ -195,6 +209,10 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 	if err != nil {
 		return nil, err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/DeleteObject", "bucket", bucketName, "file", file, "version", version)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
+
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err

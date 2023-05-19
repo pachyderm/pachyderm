@@ -13,18 +13,20 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/s2"
+	"go.uber.org/zap"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"go.uber.org/zap"
-
-	"github.com/pachyderm/s2"
 )
 
 var multipartChunkPathMatcher = regexp.MustCompile(`([^/]+)/([^/]+)/(.+)/([^/]+)/(\d+)`)
@@ -98,8 +100,8 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 	return nil
 }
 
-func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
-	defer log.Span(r.Context(), "ListMulitpart", zap.String("bucketName", bucketName), zap.String("keyMarker", keyMarker), zap.String("uploadIDMarker", uploadIDMarker), zap.Int("maxUploads", maxUploads))()
+func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (_ *s2.ListMultipartResult, retErr error) {
+	defer log.Span(r.Context(), "ListMultipart", zap.String("bucketName", bucketName), zap.String("keyMarker", keyMarker), zap.String("uploadIDMarker", uploadIDMarker), zap.Int("maxUploads", maxUploads))()
 
 	pc := c.requestClient(r)
 	if err := c.ensureRepo(pc); err != nil {
@@ -110,6 +112,9 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 	if err != nil {
 		return nil, err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/ListMultipart", "bucket", bucketName, "keyMarker", keyMarker, "uploadIDMarker", uploadIDMarker, "maxUploads", maxUploads)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
 
 	result := s2.ListMultipartResult{
 		Uploads: []*s2.Upload{},
@@ -152,7 +157,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 	return &result, err
 }
 
-func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (string, error) {
+func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (_ string, retErr error) {
 	defer log.Span(r.Context(), "InitMultipart", zap.String("bucketName", bucketName), zap.String("key", key))()
 
 	pc := c.requestClient(r)
@@ -164,6 +169,9 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 	if err != nil {
 		return "", err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/InitMultipart", "bucket", bucketName, "key", key)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return "", err
@@ -220,6 +228,10 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	if err != nil {
 		return nil, err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/CompleteMultipart", "bucket", bucketName, "key", key, "uploadID", uploadID, "parts", len(parts))
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
+
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
@@ -300,7 +312,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	return &result, nil
 }
 
-func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
+func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (_ *s2.ListMultipartChunksResult, retErr error) {
 	defer log.Span(r.Context(), "ListMultipartChunks", zap.String("bucketName", bucketName), zap.String("key", key), zap.String("uploadID", uploadID), zap.Int("partNumberMarker", partNumberMarker), zap.Int("maxParts", maxParts))()
 
 	pc := c.requestClient(r)
@@ -312,6 +324,9 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 	if err != nil {
 		return nil, err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/ListMultipartChunks", "bucket", bucketName, "key", key, "uploadID", uploadID, "partNumberMarker", partNumberMarker, "maxParts", maxParts)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
 
 	result := s2.ListMultipartChunksResult{
 		Initiator:    &defaultUser,
@@ -349,7 +364,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 	return &result, err
 }
 
-func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
+func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (_ string, retErr error) {
 	defer log.Span(r.Context(), "UploadMultipartChunk", zap.String("bucketName", bucketName), zap.String("key", key), zap.String("uploadID", uploadID), zap.Int("partNumber", partNumber))()
 
 	pc := c.requestClient(r)
@@ -361,6 +376,9 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 	if err != nil {
 		return "", err
 	}
+	span, ctx := extended.AddSpanToAnyExtendedTrace(r.Context(), c.etcdClient, extended.Repo(bucket.Commit.Repo), "s3g/UploadMultipartChunk", "bucket", bucketName, "key", key, "uploadID", uploadID, "partNumber", partNumber)
+	pc = pc.WithCtx(ctx)
+	defer tracing.FinishAnySpan(span, "err", retErr)
 
 	_, err = pc.InspectFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID))
 	if err != nil {
