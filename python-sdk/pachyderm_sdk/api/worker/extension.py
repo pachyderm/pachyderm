@@ -1,17 +1,18 @@
-import os
 from contextlib import contextmanager
-from typing import ContextManager, Dict, Optional
+from typing import ContextManager, Optional
 
+from dotenv import load_dotenv
+
+from ...constants import DOTENV_PATH_WORKER
 from . import WorkerStub as _GeneratedWorkerStub
 
 
 class WorkerStub(_GeneratedWorkerStub):
 
-    __env: Dict[str, str] = dict()  # used by batch_datums
     __error: Optional[str] = None   # used by batch_datums
 
     @contextmanager
-    def batch_datums(self) -> ContextManager:
+    def batch_datum(self) -> ContextManager:
         """A ContextManager that, when entered, calls the NextDatum
         endpoint within the worker to step forward during datum batching.
         This context manager will also prepare the environment for the user
@@ -24,27 +25,20 @@ class WorkerStub(_GeneratedWorkerStub):
 
         Note: The API stub must have an open gRPC channel with the worker
         for NextDatum to function correctly. The ``Client`` object
-        should automatically do this for the user. Accordingly, you are
-        able to call this method on both instantiated and uninstantiated
-        Client objects.
+        should automatically do this for the user.
 
         Examples
         --------
         >>> from pachyderm_sdk import Client
+        >>>
+        >>> worker = Client().worker
         >>> while True:
-        >>>     with Client.worker.batch_datums():
+        >>>     with worker.batch_datum():
         >>>         # process datums
         >>>         pass
         """
-        for key in self.__env.keys():
-            del os.environ[key]
-        self.__env.clear()
-
-        response = self.next_datum(error=self.__error or "")
-
-        for _var in response.env:
-            # TODO: set env vars here and update __env dict
-            pass
+        self.next_datum(error=self.__error or "")
+        load_dotenv(DOTENV_PATH_WORKER, override=True)
 
         self.__error = None
         try:

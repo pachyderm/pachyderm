@@ -31,7 +31,6 @@ from .constants import (
 )
 from .errors import AuthServiceNotActivated, BadClusterDeploymentID, ConfigError
 from .interceptor import MetadataClientInterceptor, MetadataType
-from ._classproperty import classproperty
 
 __all__ = ("Client", )
 
@@ -287,18 +286,14 @@ class Client:
         )
         self._init_api()
 
-    @classproperty
-    def worker(cls) -> "_WorkerStub":
+    @property
+    def worker(self) -> _WorkerStub:
         """Access the worker API stub.
 
         This is dynamically loaded in order to provide a helpful error message
         to the user if they try to interact the worker API from outside a worker.
-
-        This is a class property since the worker API is accessed over a gRPC
-        channel that does not use auth or tls, and therefore requires no user
-        configuration.
         """
-        if cls._worker is None:
+        if self._worker is None:
             port = os.environ.get(WORKER_PORT_ENV)
             if port is None:
                 raise ConnectionError(
@@ -311,8 +306,8 @@ class Client:
                 root_certs=None,
                 options=GRPC_CHANNEL_OPTIONS
             )
-            cls._worker = _WorkerStub(channel)
-        return cls._worker
+            self._worker = _WorkerStub(channel)
+        return self._worker
 
     def _build_metadata(self):
         metadata = []

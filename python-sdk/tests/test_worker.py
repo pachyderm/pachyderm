@@ -6,7 +6,7 @@ from tests.utils import count
 
 from pachyderm_sdk.api import pfs, pps
 
-IMAGE_NAME = "bonenfan5ben/datum_batching:0036"  # TODO: Don't do this.
+IMAGE_NAME = "bonenfan5ben/datum_batching:0037"  # TODO: Don't do this.
 
 
 def generate_stdin(func: Callable[[], None]):
@@ -46,9 +46,9 @@ def test_datum_batching(client: TestClient):
         """
         import os
         import shutil
-        from pachyderm_sdk import batch_datums
+        from pachyderm_sdk import batch_all_datums
 
-        @batch_datums
+        @batch_all_datums
         def main():
             datum_files = os.listdir("/pfs/batch_datums_input")
             print(datum_files)
@@ -105,8 +105,9 @@ def test_datum_batching_errors(client: TestClient):
         """Raises an Exception for every datum."""
         from pachyderm_sdk import Client
 
+        worker = Client().worker
         while True:
-            with Client.worker.batch_datums():
+            with worker.batch_datum():
                 raise Exception("Something Bad Happened!")
 
     repo = client.new_repo()

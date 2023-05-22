@@ -1,13 +1,12 @@
-import os
 from functools import wraps
-from typing import Callable, Dict, Optional
+from typing import Callable
 
 from . import Client
 
 PIPELINE_FUNC = Callable[..., None]
 
 
-def batch_datums(user_code: PIPELINE_FUNC) -> PIPELINE_FUNC:
+def batch_all_datums(user_code: PIPELINE_FUNC) -> PIPELINE_FUNC:
     """A decorator that will repeatedly call the wrapped function until
     all datums have been processed. Before calling the wrapped function,
     this decorator will call the NextDatum endpoint within the worker
@@ -21,9 +20,9 @@ def batch_datums(user_code: PIPELINE_FUNC) -> PIPELINE_FUNC:
 
     Examples
     --------
-    >>> from pachyderm_sdk import batch_datums
+    >>> from pachyderm_sdk import batch_all_datums
     >>>
-    >>> @batch_datums
+    >>> @batch_all_datums
     >>> def pipeline():
     >>>     # process datums
     >>>     pass
@@ -31,9 +30,9 @@ def batch_datums(user_code: PIPELINE_FUNC) -> PIPELINE_FUNC:
 
     @wraps(user_code)
     def wrapper(*args, **kwargs) -> None:
-        client = Client()
+        worker = Client().worker
         while True:
-            with client.worker.batch_datums():
+            with worker.batch_datum():
                 user_code(*args, **kwargs)
 
     return wrapper

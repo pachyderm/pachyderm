@@ -1,5 +1,5 @@
 from .client import Client
-from .batch_datums import batch_datums
+from .batch_datums import batch_all_datums
 
 # Python version compatibility.
 try:
@@ -23,6 +23,7 @@ __all__ = [
     "ConfigError",
     "BadClusterDeploymentID",
     "batch_datums"
+    "batch_all_datums"
 ]
 
 __version__ = ""
