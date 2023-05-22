@@ -2,6 +2,15 @@ import path from 'path';
 
 import client from '../../../../client';
 
+const libertyPngFilePath = path.resolve(
+  __dirname,
+  '../../../../../../../etc/testing/files/liberty.png',
+);
+const atatPngFilePath = path.resolve(
+  __dirname,
+  '../../../../../../../etc/testing/files/AT-AT.png',
+);
+
 describe('FileSet', () => {
   afterAll(async () => {
     const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
@@ -24,8 +33,8 @@ describe('FileSet', () => {
 
       const fileClient = await client.pfs().fileSet();
       const fileSetId = await fileClient
-        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
-        .putFileFromURL('liberty.png', 'http://imgur.com/46Q8nDz.png')
+        .putFileFromFilepath(atatPngFilePath, 'at-at.png')
+        .putFileFromFilepath(libertyPngFilePath, 'liberty.png')
         .end();
 
       const commit = await client.pfs().startCommit({

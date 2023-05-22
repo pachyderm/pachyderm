@@ -228,7 +228,7 @@ describe('File Resolver', () => {
               repo: 'images',
               files: [
                 {
-                  url: 'https://imgur.com/a/rN7hjOQ',
+                  url: 'https://imgur.com/a/rN7hjOQ', // This 404s
                   path: '/puppy.png',
                 },
               ],

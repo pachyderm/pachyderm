@@ -1,5 +1,16 @@
+import path from 'path';
+
 import client from '../../../client';
 import {CommitState, FileType} from '../../../proto/pfs/pfs_pb';
+
+const libertyPngFilePath = path.resolve(
+  __dirname,
+  '../../../../../../etc/testing/files/liberty.png',
+);
+const atatPngFilePath = path.resolve(
+  __dirname,
+  '../../../../../../etc/testing/files/AT-AT.png',
+);
 
 describe('services/pfs', () => {
   afterAll(async () => {
@@ -27,7 +38,7 @@ describe('services/pfs', () => {
 
       await fileClient
         .setCommit(commit)
-        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .putFileFromFilepath(atatPngFilePath, 'at-at.png')
         .end();
 
       await client.pfs().finishCommit({projectId: 'default', commit});
@@ -53,7 +64,7 @@ describe('services/pfs', () => {
 
       await fileClient
         .setCommit(commit)
-        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .putFileFromFilepath(atatPngFilePath, 'at-at.png')
         .end();
 
       await client.pfs().finishCommit({projectId: 'default', commit});
@@ -76,7 +87,7 @@ describe('services/pfs', () => {
 
       await fileClient
         .setCommit(commit)
-        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .putFileFromFilepath(atatPngFilePath, 'at-at.png')
         .end();
 
       await client.pfs().finishCommit({projectId: 'default', commit});
@@ -101,7 +112,7 @@ describe('services/pfs', () => {
 
       await fileClient
         .setCommit(commit)
-        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .putFileFromFilepath(atatPngFilePath, 'at-at.png')
         .end();
 
       await client.pfs().finishCommit({projectId: 'default', commit});
@@ -170,7 +181,7 @@ describe('services/pfs', () => {
       });
       await fileClient1
         .setCommit(commit1)
-        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .putFileFromFilepath(atatPngFilePath, 'at-at.png')
         .end();
       await client.pfs().finishCommit({projectId: 'default', commit: commit1});
       await client.pfs().inspectCommit({
@@ -186,7 +197,7 @@ describe('services/pfs', () => {
       });
       await fileClient2
         .setCommit(commit2)
-        .putFileFromURL('at-at.png', 'http://imgur.com/46Q8nDz.png')
+        .putFileFromFilepath(libertyPngFilePath, 'at-at.png')
         .end();
       await client.pfs().finishCommit({projectId: 'default', commit: commit2});
       await client.pfs().inspectCommit({
@@ -491,7 +502,7 @@ describe('services/pfs', () => {
       const fileClient1 = await client.pfs().modifyFile();
       await fileClient1
         .setCommit(commit1)
-        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .putFileFromFilepath(atatPngFilePath, 'at-at.png')
         .end();
       await client.pfs().finishCommit({projectId: 'default', commit: commit1});
 
@@ -502,7 +513,7 @@ describe('services/pfs', () => {
       const fileClient2 = await client.pfs().modifyFile();
       await fileClient2
         .setCommit(commit2)
-        .putFileFromURL('liberty.png', 'http://imgur.com/46Q8nDz.png')
+        .putFileFromFilepath(libertyPngFilePath, 'liberty.png')
         .end();
       await client.pfs().finishCommit({projectId: 'default', commit: commit2});
 

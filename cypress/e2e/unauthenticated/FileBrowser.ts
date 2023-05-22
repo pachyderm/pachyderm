@@ -4,20 +4,20 @@ describe('FileBrowser', () => {
       .then(() => {
         cy.exec('pachctl create repo images')
           .exec(
-            'pachctl put file images@master:image1.png -f http://imgur.com/46Q8nDz.png',
+            'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
           )
           .exec(
-            'pachctl put file images@master:image1.png -f http://imgur.com/8MN9Kg0.png',
+            'pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png',
           )
           .exec(
-            'pachctl put file images@test:image1.png -f http://imgur.com/46Q8nDz.png',
+            'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
           )
           .exec('pachctl delete file images@test:image1.png')
           .exec(
-            'pachctl put file images@test:image1.png -f http://imgur.com/46Q8nDz.png',
+            'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
           )
           .exec(
-            'pachctl put file images@test:image1.png -f http://imgur.com/8MN9Kg0.png',
+            'pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png',
           );
       })
       .visit('/');
