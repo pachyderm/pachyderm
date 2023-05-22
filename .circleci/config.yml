@@ -38,23 +38,28 @@ commands:
       - run:
           name: Npm install frontend and backend
           command: npm ci --prefix ./backend & npm ci --prefix ./frontend
+  install-pachyderm-dependencies:
+    steps:
+      - run:
+          name: Install Pachyderm Dependencies
+          command: |
+            etc/testing/circle/install.sh
+            etc/testing/circle/start-kind.sh
   run-pachyderm-ce:
     steps:
       - gh/setup:
           version: 2.20.2
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-kind.sh
+      - install-pachyderm-dependencies
       - run:
-          name: Deploy Pachyderm CE
+          name: Deploy Pachyderm CE (Port-Forward)
           command: etc/testing/circle/deploy-pachyderm.sh
   run-pachyderm-with-console:
     steps:
       - gh/setup:
           version: 2.20.2
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-kind.sh
+      - install-pachyderm-dependencies
       - run:
-          name: Deploy Pachyderm With Console
+          name: Deploy Pachyderm With Console (Port-Forward)
           command: etc/testing/circle/deploy-pachyderm-with-console.sh
   activate-pachyderm-enterprise:
     steps:
