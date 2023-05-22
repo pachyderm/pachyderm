@@ -9,7 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -140,7 +140,7 @@ func migrateMetaInputsV2_6_0(meta *Meta) {
 
 // NewFileSetIterator creates a new fileset iterator.
 func NewFileSetIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
-	return NewCommitIterator(pachClient, client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
+	return NewCommitIterator(pachClient, client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
 }
 
 type fileSetMultiIterator struct {
@@ -152,7 +152,7 @@ type fileSetMultiIterator struct {
 func newFileSetMultiIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
 	return &fileSetMultiIterator{
 		pachClient: pachClient,
-		commit:     client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
+		commit:     client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
 		pathRange:  pathRange,
 	}
 }

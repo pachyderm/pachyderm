@@ -25,7 +25,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -149,7 +149,7 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bis, err := mm.Client.ListProjectBranch(projectName, repoName)
+			bis, err := mm.Client.ListBranch(projectName, repoName)
 			if err != nil {
 				// Repo was deleted between ListRepo and ListBranch RPCs
 				if auth.IsErrNoRoleBinding(err) {
@@ -1007,7 +1007,7 @@ func getNewClient(cfgReq ConfigRequest) (*client.APIClient, error) {
 		options = append(options, client.WithAdditionalRootCAs(pemBytes))
 	}
 	options = append(options, client.WithDialTimeout(5*time.Second))
-	newClient, err := client.NewFromPachdAddressContext(pctx.TODO(), pachdAddress, options...)
+	newClient, err := client.NewFromPachdAddress(pctx.TODO(), pachdAddress, options...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
 	}
@@ -1064,7 +1064,7 @@ func (mm *MountManager) verifyProjectRepoExist(project, repo string) (bool, erro
 	if _, err := mm.verifyProjectExists(project); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectProjectRepo(project, repo); err != nil {
+	if _, err := mm.Client.InspectRepo(project, repo); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1074,7 +1074,7 @@ func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch strin
 	if _, err := mm.verifyProjectRepoExist(project, repo); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectProjectBranch(project, repo, branch); err != nil {
+	if _, err := mm.Client.InspectBranch(project, repo, branch); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1220,7 +1220,7 @@ func createLocalOutDir(mm *MountManager) {
 	// info is necessary.
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
-		File:  client.NewProjectFile("", "out", "", "", ""),
+		File:  client.NewFile("", "out", "", "", ""),
 		Write: true,
 	}
 }
@@ -1266,7 +1266,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
-	branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
+	branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 	if err != nil {
 		return err
 	}
@@ -1392,7 +1392,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 		switch req.Action {
 		case "mount":
 			// check user permissions on repo
-			repoInfo, err := m.manager.Client.InspectProjectRepo(req.Project, req.Repo)
+			repoInfo, err := m.manager.Client.InspectRepo(req.Project, req.Repo)
 			if err != nil {
 				m.responses <- Response{
 					Project:    req.Project,
@@ -1477,14 +1477,14 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:     m.Name,
-			File:     client.NewProjectFile(m.Project, m.Repo, m.Branch, "", ""),
+			File:     client.NewFile(m.Project, m.Repo, m.Branch, "", ""),
 			Subpaths: m.Files,
 			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
 
 		// Get the latest non-alias commit on branch
-		branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
+		branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 		if errutil.IsNotFoundError(err) {
 			m.manager.root.commits[m.Name] = ""
 			return nil
@@ -1713,7 +1713,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	}
 	projectName := opts.File.Commit.Branch.Repo.Project.GetName()
 	repoName := opts.File.Commit.Branch.Repo.Name
-	mfc, err := mm.Client.NewModifyFileClient(client.NewProjectCommit(projectName, repoName, mm.root.branch(name), ""))
+	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
 	}

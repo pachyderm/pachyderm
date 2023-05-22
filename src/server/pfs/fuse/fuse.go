@@ -11,7 +11,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
@@ -43,7 +43,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 			// which supports mounting different versions of the same repo at
 			// different named paths.
 			branch := "master"
-			bi, err := c.InspectProjectBranch(ri.Repo.Project.GetName(), ri.Repo.Name, branch)
+			bi, err := c.InspectBranch(ri.Repo.Project.GetName(), ri.Repo.Name, branch)
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}
@@ -56,7 +56,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				// mount name is same as repo name, i.e. mount it at a directory
 				// named the same as the repo itself
 				Name:  ri.Repo.Name,
-				File:  client.NewProjectFile(ri.Repo.Project.GetName(), ri.Repo.Name, branch, "", ""),
+				File:  client.NewFile(ri.Repo.Project.GetName(), ri.Repo.Name, branch, "", ""),
 				Write: write,
 			}
 		}
@@ -118,7 +118,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 		if mfc, ok := mfcs[repo]; ok {
 			return mfc, nil
 		}
-		mfc, err := c.NewModifyFileClient(client.NewProjectCommit(project, repo, root.branch(repo), ""))
+		mfc, err := c.NewModifyFileClient(client.NewCommit(project, repo, root.branch(repo), ""))
 		if err != nil {
 			return nil, err
 		}

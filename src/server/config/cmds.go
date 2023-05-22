@@ -55,6 +55,7 @@ func deduceActiveEnterpriseContext(ctx context.Context, cfg *config.Config, pach
 
 func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
+	var alias string
 
 	connect := &cobra.Command{
 		Use:   "{{alias}} <address>",
@@ -67,7 +68,12 @@ func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.C
 				return err
 			}
 
-			context, contextExists := cfg.V2.Contexts[address]
+			contextName := address
+			if alias != "" {
+				contextName = alias
+			}
+
+			context, contextExists := cfg.V2.Contexts[contextName]
 
 			if !contextExists {
 				context = new(config.Context)
@@ -76,16 +82,20 @@ func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.C
 					return err
 				}
 				context.PachdAddress = pachdAddress.Qualified()
-				fmt.Printf("New context '%s' created, will connect to Pachyderm at %s\n", address, pachdAddress.Qualified())
+				fmt.Printf("New context '%s' created, will connect to Pachyderm at %s\n", contextName, pachdAddress.Qualified())
 			}
 
-			cfg.V2.Contexts[address] = context
-			cfg.V2.ActiveContext = address
-			fmt.Printf("Context '%s' set as active\n", address)
+			cfg.V2.Contexts[contextName] = context
+			cfg.V2.ActiveContext = contextName
+			fmt.Printf("Context '%s' set as active\n", contextName)
+
 			return cfg.Write()
 
 		}),
 	}
+
+	connect.Flags().StringVar(&alias, "alias", "", "Alias for the context that is created")
+
 	commands = append(commands, cmdutil.CreateAlias(connect, "connect"))
 	return commands
 }

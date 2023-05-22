@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
+	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -99,7 +99,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+			jobInfo, err := client.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 			if err != nil {
 				return errors.Wrap(err, "error from InspectJob")
 			}
@@ -165,7 +165,7 @@ If the job fails, the output commit will not be populated with data.`,
 				if err != nil {
 					return err
 				}
-				jobInfo, err := client.WaitProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+				jobInfo, err := client.WaitJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 				if err != nil {
 					return errors.Wrap(err, "error from InspectJob")
 				}
@@ -377,7 +377,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return err
 			}
 			defer client.Close()
-			if err := client.DeleteProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID); err != nil {
+			if err := client.DeleteJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID); err != nil {
 				return errors.Wrap(err, "error from DeleteJob")
 			}
 			return nil
@@ -406,7 +406,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				}
 				if _, err := client.RunBatchInTransaction(func(tb *pachdclient.TransactionBuilder) error {
 					for _, jobInfo := range jobInfos {
-						if err := tb.StopProjectJob(jobInfo.Job.Pipeline.Project.Name, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
+						if err := tb.StopJob(jobInfo.Job.Pipeline.Project.Name, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
 							return err
 						}
 					}
@@ -419,7 +419,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				if err != nil {
 					return err
 				}
-				if err := client.StopProjectJob(job.Pipeline.Project.Name, job.Pipeline.Name, job.ID); err != nil {
+				if err := client.StopJob(job.Pipeline.Project.Name, job.Pipeline.Name, job.ID); err != nil {
 					return errors.Wrap(err, "error from StopProjectJob")
 				}
 			}
@@ -468,7 +468,7 @@ each datum.`,
 					i++
 				}
 			}
-			return client.RestartProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, datumFilter)
+			return client.RestartDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, datumFilter)
 		}),
 	}
 	restartDatum.Flags().StringVar(&project, "project", project, "Project containing the datum job")
@@ -535,7 +535,7 @@ each datum.`,
 				if err != nil {
 					return err
 				}
-				return client.ListProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, printF)
+				return client.ListDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, printF)
 			} else {
 				return errors.Errorf("must specify either a job or a pipeline spec")
 			}
@@ -636,7 +636,7 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			datumInfo, err := client.InspectProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, args[1])
+			datumInfo, err := client.InspectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, args[1])
 			if err != nil {
 				return err
 			}
@@ -746,7 +746,7 @@ each datum.`,
 			if !cmd.Flags().Changed("since") {
 				since = 0
 			}
-			iter := client.GetProjectLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
+			iter := client.GetLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			m := &jsonpb.Marshaler{}
 			for iter.Next() {
@@ -864,7 +864,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			err = client.RunProjectCron(project, args[0])
+			err = client.RunCron(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -884,7 +884,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			pipelineInfo, err := client.InspectProjectPipeline(project, args[0], true)
+			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}
@@ -918,7 +918,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer client.Close()
 
-			pipelineInfo, err := client.InspectProjectPipeline(project, args[0], true)
+			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}
@@ -1045,7 +1045,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				Projects:  projectsFilter,
 			}
 			if pipeline != "" {
-				request.Pipeline = pachdclient.NewProjectPipeline(project, pipeline)
+				request.Pipeline = pachdclient.NewPipeline(project, pipeline)
 			}
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
 			if err != nil {
@@ -1175,7 +1175,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				KeepRepo: keepRepo,
 			}
 			if len(args) > 0 {
-				req.Pipeline = pachdclient.NewProjectPipeline(project, args[0])
+				req.Pipeline = pachdclient.NewPipeline(project, args[0])
 			}
 			if _, err = client.PpsAPIClient.DeletePipeline(client.Ctx(), req); err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -1200,7 +1200,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			if err := client.StartProjectPipeline(project, args[0]); err != nil {
+			if err := client.StartPipeline(project, args[0]); err != nil {
 				return errors.Wrap(err, "error from StartProjectPipeline")
 			}
 			return nil
@@ -1219,7 +1219,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			if err := client.StopProjectPipeline(project, args[0]); err != nil {
+			if err := client.StopPipeline(project, args[0]); err != nil {
 				return errors.Wrap(err, "error from StopProjectPipeline")
 			}
 			return nil

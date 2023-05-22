@@ -10,7 +10,7 @@ import (
 
 	minio "github.com/minio/minio-go/v6"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 
@@ -35,8 +35,8 @@ func workerListBuckets(t *testing.T, s *workerTestState) {
 	// create a repo - this should not show up list buckets with the worker
 	// driver
 	repo := tu.UniqueString("testlistbuckets1")
-	require.NoError(t, s.pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, s.pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	require.NoError(t, s.pachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, s.pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 
 	buckets, err := s.minioClient.ListBuckets()
 	require.NoError(t, err)
@@ -89,7 +89,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
-	require.NoError(t, s.pachClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
+	require.NoError(t, s.pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
@@ -238,12 +238,12 @@ func TestWorkerDriver(t *testing.T) {
 	pachClient := env.PachClient
 
 	inputRepo := tu.UniqueString("testworkerdriverinput")
-	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, inputRepo))
 	outputRepo := tu.UniqueString("testworkerdriveroutput")
-	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, outputRepo))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, outputRepo))
 
 	// create a master branch on the input repo
-	inputMasterCommit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, inputRepo, "master")
+	inputMasterCommit, err := pachClient.StartCommit(pfs.DefaultProjectName, inputRepo, "master")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(inputMasterCommit, func(mf client.ModifyFile) error {
@@ -252,10 +252,10 @@ func TestWorkerDriver(t *testing.T) {
 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
 		return nil
 	}))
-	require.NoError(t, pachClient.FinishProjectCommit(pfs.DefaultProjectName, inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
 
 	// create a develop branch on the input repo
-	inputDevelopCommit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, inputRepo, "develop")
+	inputDevelopCommit, err := pachClient.StartCommit(pfs.DefaultProjectName, inputRepo, "develop")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(inputDevelopCommit, func(mf client.ModifyFile) error {
@@ -267,11 +267,11 @@ func TestWorkerDriver(t *testing.T) {
 		}
 		return nil
 	}))
-	require.NoError(t, pachClient.FinishProjectCommit(pfs.DefaultProjectName, inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
 
 	// create the output branch
 	outputBranch := "master"
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, outputRepo, outputBranch, "", "", nil))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, outputRepo, outputBranch, "", "", nil))
 
 	driver := s3.NewWorkerDriver(
 		[]*s3.Bucket{
@@ -285,7 +285,7 @@ func TestWorkerDriver(t *testing.T) {
 			},
 		},
 		&s3.Bucket{
-			Commit: client.NewProjectRepo(pfs.DefaultProjectName, outputRepo).NewCommit(outputBranch, ""),
+			Commit: client.NewRepo(pfs.DefaultProjectName, outputRepo).NewCommit(outputBranch, ""),
 			Name:   "out",
 		},
 	)

@@ -9,11 +9,10 @@ import (
 	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	"gocloud.dev/blob"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
@@ -54,11 +53,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		} else if resp.StatusCode >= 400 {
 			return 0, errors.Errorf("error retrieving content from %q: %s", src.URL, resp.Status)
 		}
-		defer func() {
-			if err := resp.Body.Close(); retErr == nil {
-				retErr = err
-			}
-		}()
+		defer errors.Close(&retErr, resp.Body, "close http body")
 		return 0, uw.Put(ctx, dstPath, tag, true, resp.Body)
 	default:
 		if src.Recursive {
@@ -72,20 +67,12 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		if err != nil {
 			return 0, err
 		}
-		defer func() {
-			if err := bucket.Close(); err != nil {
-				retErr = multierror.Append(retErr, errors.EnsureStack(err))
-			}
-		}()
+		defer errors.Close(&retErr, bucket, "close bucket")
 		r, err := bucket.NewReader(ctx, url.Object, nil)
 		if err != nil {
 			return 0, errors.EnsureStack(err)
 		}
-		defer func() {
-			if err := r.Close(); err != nil {
-				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for bucket %s", url.Bucket))
-			}
-		}()
+		defer errors.Close(&retErr, r, "close reader for bucket %v", url.Bucket)
 		return 0, uw.Put(ctx, dstPath, tag, true, r)
 	}
 }
@@ -159,11 +146,7 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			retErr = multierror.Append(retErr, errors.EnsureStack(err))
-		}
-	}()
+	defer errors.Close(&retErr, bucket, "close bucket")
 	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
 	var paths []string
 	var size int64
@@ -214,7 +197,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 				return err
 			}
 			file := proto.Clone(file).(*pfs.File)
-			file.Commit = client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
+			file.Commit = client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
 			src, err := d.getFile(ctx, file, basePathRange)
 			if err != nil {
 				return err
