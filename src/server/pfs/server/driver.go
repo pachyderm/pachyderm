@@ -1508,6 +1508,11 @@ func (d *driver) listCommit(
 				return errors.EnsureStack(err)
 			}
 			if passesCommitOriginFilter(commitInfo, all, originKind) {
+				var err error
+				commitInfo.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, commitInfo.Commit)
+				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
+					return err
+				}
 				if err := cb(commitInfo); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
 						return nil
@@ -1515,11 +1520,6 @@ func (d *driver) listCommit(
 					return err
 				}
 				number--
-			}
-			var err error
-			commitInfo.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, commitInfo.Commit)
-			if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
-				return err
 			}
 			cursor = commitInfo.ParentCommit
 		}
