@@ -53,6 +53,14 @@ commands:
       - run:
           name: Deploy Pachyderm CE (Port-Forward)
           command: etc/testing/circle/deploy-pachyderm.sh
+  run-pachyderm-ee:
+    steps:
+      - gh/setup:
+          version: 2.20.2
+      - install-pachyderm-dependencies
+      - run:
+          name: Deploy Pachyderm EE (Proxy)
+          command: etc/testing/circle/deploy-pachyderm-enterprise-proxy.sh
   run-pachyderm-with-console:
     steps:
       - gh/setup:
@@ -66,13 +74,6 @@ commands:
       - run:
           name: Activate Pachyderm Enterprise
           command: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
-  activate-auth-console:
-    steps:
-      - run:
-          name: Activate authorization in Console
-          command: |
-            touch .env.development.local
-            make setup-ci-auth
 
 jobs:
   components-storybook-release:
@@ -177,12 +178,10 @@ jobs:
     steps:
       - checkout
       - node-install-all
-      - run-pachyderm-ce
-      - activate-pachyderm-enterprise
-      - activate-auth-console
+      - run-pachyderm-ee
       - run:
           name: Run Enterprise Edition Cypress tests
-          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:

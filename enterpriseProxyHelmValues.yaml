@@ -16,6 +16,7 @@ pachd:
     enabled: false
   additionalTrustedPeers:
     - console-local
+  rootToken: 'pizza'
 oidc:
   additionalClients:
     - id: console-local

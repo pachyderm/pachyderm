@@ -27,42 +27,17 @@ import 'cypress-wait-until';
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 
-Cypress.Commands.add(
-  'login',
-  (
-    email = Cypress.env('AUTH_EMAIL'),
-    password = Cypress.env('AUTH_PASSWORD'),
-  ) => {
-    cy.visit('/');
-    cy.findByLabelText('Email', {timeout: 12000}).type(email);
-    cy.findByLabelText('Password').type(password);
+Cypress.Commands.add('login', (email = 'admin', password = 'password') => {
+  cy.visit('/', {timeout: 12000});
+  cy.findByRole('textbox', {timeout: 12000}).type(email);
+  cy.findByLabelText('Password').type(password);
 
-    return cy.findByLabelText('Log In').click();
-  },
-);
+  return cy.findByRole('button', {name: /login/i, timeout: 12000}).click();
+});
 
 Cypress.Commands.add('logout', () => {
   cy.clearCookies();
-  cy.clearLocalStorage();
-
-  return cy.request('https://hub-e2e-testing.us.auth0.com/logout').visit('/');
-});
-
-Cypress.Commands.add('authenticatePachctl', () => {
-  if (!window.localStorage.getItem('id-token')) {
-    return cy
-      .login()
-      .waitUntil(() => window.localStorage.getItem('id-token'))
-      .then((idToken) => {
-        cy.exec(`echo ${idToken} | pachctl auth login --id-token`);
-      });
-  } else {
-    return cy.exec(
-      `echo ${window.localStorage.getItem(
-        'id-token',
-      )} | pachctl auth login --id-token`,
-    );
-  }
+  return cy.clearLocalStorage();
 });
 
 Cypress.Commands.add('setupProject', (projectTemplate) => {
