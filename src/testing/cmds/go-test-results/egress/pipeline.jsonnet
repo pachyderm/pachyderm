@@ -1,4 +1,4 @@
-function(version, pghost)
+function(version, pghost, pguser)
 {
     "pipeline": {
         "name": "go-test-results-sql-egress"
@@ -19,7 +19,7 @@ function(version, pghost)
         "env": {
             "LOG_LEVEL": "DEBUG",
             "POSTGRESQL_HOST": pghost, // remote GCP: "cloudsql-auth-proxy.pachyderm.svc.cluster.local." local testing: "postgres"
-            "POSTGRESQL_USER":"postgres"
+            "POSTGRESQL_USER": pguser  // remote GCP:"postgres" local testing: "pachyderm"
         },
         "secrets": [{
             "name": "postgres",

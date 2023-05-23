@@ -58,7 +58,7 @@ func main() {
 	// connect and authenticate to pachyderm
 	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
 	if err != nil {
-		logger.Fatalf("Provisioning pach client: %v", err)
+		logger.Fatalf("Problem provisioning pach client: %v", err)
 	}
 	pachClient.SetAuthToken(robotToken)
 	// retry in case the parent commit is still in progress from another pipeline
@@ -73,25 +73,28 @@ func main() {
 		}
 	}
 	if err != nil {
-		logger.Fatalf("Starting commit: %v", err)
+		logger.Fatalf("Problem starting commit: %v", err)
 	}
 	defer func() {
 		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
-			logger.Fatalf("Finishing commit: %v", err)
+			logger.Fatalf("Problem finishing commit: %v", err)
 		}
 	}()
 	// upload general job information
 	jobInfo, err := findJobInfoFromCI()
 	if err != nil {
-		logger.Fatalf("Collecting job info: %v", err)
+		logger.Fatalf("Problem collecting job info: %v", err)
 	}
 	basePath := findBasePath(jobInfo)
 	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
-		logger.Fatalf("Uploading job info: %v", err)
+		logger.Fatalf("Problem uploading job info: %v", err)
 	}
 	// upload individual test  results
 	eg, _ := errgroup.WithContext(pachClient.Ctx())
 	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
 			eg.Go(func() error {
 				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, commit)
@@ -100,10 +103,10 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		logger.Fatalf("Walking file paths: %v", err)
+		logger.Fatalf("Problem walking file paths: %v", err)
 	}
 	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		logger.Fatalf("Putting files: %v", err)
+		logger.Fatalf("Problem putting files to pachyderm: %v", err)
 	}
 
 	logger.Println("Successfully uploaded files.")

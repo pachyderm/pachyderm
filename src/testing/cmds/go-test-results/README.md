@@ -9,12 +9,6 @@
 
 If you want to test with local grafana check this page out: https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/
 
-The grafana.yml is [here](./grafana.yml), so from this folder you can run
-```bash
-kubectl apply -f grafana.yaml 
-kubectl port-forward service/grafana 3000:3000
-```
-
 
 ## Making changes
 To make a change the production docker image needs to be updated then pulled by pachyderm@pachops.com. To do this:

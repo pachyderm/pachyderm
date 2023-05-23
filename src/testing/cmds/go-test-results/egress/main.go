@@ -55,23 +55,27 @@ func main() {
 	jobInfoPaths := make(map[string]gotestresults.JobInfo)
 	var testResultPaths []string
 	err = filepath.WalkDir(sym, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
-			if d.Name() == jobInfoFileName {
-				jobInfo, err := readJobInfo(path)
-				if err != nil {
-					return err
-				}
-				return insertJobInfo(jobInfo, jobInfoPaths, path, d, db)
-			} else {
-				// we need the job info inserted first due to foreign key constraints,
-				// so save results to loop over later ensuring ordered inserts
-				testResultPaths = append(testResultPaths, path)
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if d.Name() == jobInfoFileName {
+			jobInfo, err := readJobInfo(path)
+			if err != nil {
+				return err
 			}
+			return insertJobInfo(jobInfo, jobInfoPaths, path, d, db)
+		} else {
+			// we need the job info inserted first due to foreign key constraints,
+			// so save results to loop over later ensuring ordered inserts
+			testResultPaths = append(testResultPaths, path)
 		}
 		return nil
 	})
 	if err != nil {
-		logger.Fatal("Walking file tree for job info ", err)
+		logger.Fatal("Problem walking file tree for job info ", err)
 	}
 	if len(jobInfoPaths) == 0 {
 		logger.Println("No new job info found, exiting without inserting test results.")
@@ -79,7 +83,7 @@ func main() {
 	}
 	for _, path := range testResultPaths {
 		if err = insertTestResultFile(path, jobInfoPaths, db); err != nil {
-			logger.Fatal("Inserting test results into DB ", err)
+			logger.Fatal("Problem inserting test results into DB ", err)
 		}
 	}
 }
@@ -129,7 +133,7 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, jobInfoPaths map[string]gotes
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			// Unique key constraint violation. In other words, the record already exists.
-			// Ignore insert to since we don't want to change the timestamp, but log it. This is expected with multiple executors.
+			// Ignore insert to since we don't want to change the timestamp, but log it.
 			logger.Printf("Job info already inserted, Skipping insert for workflow %v  job %v  executor %v\n", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 			return nil
 		}
@@ -146,6 +150,9 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 		return errors.Wrapf(err, "opening results file ")
 	}
 	defer resultsFile.Close()
+
+	splitPath := strings.Split(path, "/")
+	fileName := splitPath[len(splitPath)-1]
 	resultsScanner := bufio.NewScanner(resultsFile)
 	for resultsScanner.Scan() {
 		resultJson := resultsScanner.Bytes()
@@ -155,16 +162,15 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 			logger.Printf("Failed unmarshalling file as a test result - %s - %v. Continuing to parse results file.\n", path, err)
 			continue
 		}
-		// output is mostly logs and coverage and it's not that useful, so we don't store output-only actions
-		if result.Action != "output" {
-			splitPath := strings.Split(path, "/")
-			fileName := splitPath[len(splitPath)-1]
-			// get job info previously inserted in order to link foreign keys to jobs table
-			jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
-			if !ok {
-				return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, fileName, jobInfoPaths))
-			}
-			_, err = db.Exec(`INSERT INTO public.test_results (
+		if result.Action == "output" {
+			continue // output is mostly logs and coverage and it's not that useful, so we don't store output-only actions
+		}
+		// get job info previously inserted in order to link foreign keys to jobs table
+		jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
+		if !ok {
+			return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, fileName, jobInfoPaths))
+		}
+		_, err = db.Exec(`INSERT INTO public.test_results (
 									id, 
 									workflow_id, 
 									job_id, 
@@ -175,19 +181,18 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 									elapsed_seconds, 
 									"output"
 								) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-				uuid.New(),
-				jobInfo.WorkflowId,
-				jobInfo.JobId,
-				jobInfo.JobExecutor,
-				result.TestName,
-				result.Package,
-				result.Action,
-				result.Elapsed,
-				result.Output,
-			)
-			if err != nil {
-				logger.Printf("Failed updating SQL DB %s - %v - continuing to parse results file.\n", string(resultJson), err)
-			}
+			uuid.New(),
+			jobInfo.WorkflowId,
+			jobInfo.JobId,
+			jobInfo.JobExecutor,
+			result.TestName,
+			result.Package,
+			result.Action,
+			result.Elapsed,
+			result.Output,
+		)
+		if err != nil {
+			logger.Printf("Failed updating SQL DB %s - %v - continuing to parse results file.\n", string(resultJson), err)
 		}
 	}
 	return nil
