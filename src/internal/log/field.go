@@ -74,7 +74,9 @@ func Metadata(name string, md metadata.MD) Field {
 		for _, k := range keys {
 			v := md[k]
 			if k == constants.ContextTokenKey {
-				v = []string{"[MASKED]"}
+				for i := range v {
+					v[i] = "[MASKED]"
+				}
 			}
 			switch len(v) {
 			case 0:
