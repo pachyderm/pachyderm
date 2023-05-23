@@ -2012,7 +2012,7 @@ commands:
   collect-test-results:
     steps:
       - run:
-          name: Store test results
+          name: Store test results for overtime reports
           when: always
           shell: /bin/sh # ignore fails without pipefail
-          command: go run -v etc/testing/circle/workloads/go-test-results/collector/main.go || true
+          command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
