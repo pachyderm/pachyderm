@@ -1,19 +1,21 @@
 describe('Repos', () => {
   before(() => {
-    cy.visit('/');
-  })
+    cy.deleteReposAndPipelines();
+  });
 
   beforeEach(() => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
+    cy.visit('/');
+    cy.findAllByText(/^View(\sProject)*$/)
+      .eq(0)
+      .click();
     cy.findByText('Create Repo', {timeout: 12000}).click();
-    cy.findByLabelText('Name', {exact: false, timeout: 12000}).type("TestRepo")
+    cy.findByLabelText('Name', {exact: false, timeout: 12000}).type('TestRepo');
     cy.findByText('Create').click();
   });
 
   afterEach(() => {
     cy.deleteReposAndPipelines();
-    cy.visit('/')
-  })
+  });
 
   it('should allow a user to create a repo', () => {
     cy.findByText('Create Repo', {timeout: 12000}).click();

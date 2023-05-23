@@ -1,19 +1,19 @@
 describe('JobSets', () => {
   before(() => {
+    cy.deleteReposAndPipelines();
     cy.setupProject('error-opencv').visit('/');
-  })
-
-  beforeEach(() => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
   });
 
-  afterEach(() => {
-    cy.visit('/')
-  })
+  beforeEach(() => {
+    cy.visit('/');
+    cy.findAllByText(/^View(\sProject)*$/)
+      .eq(0)
+      .click();
+  });
 
   after(() => {
     cy.deleteReposAndPipelines();
-  })
+  });
 
   it('should allow a user to select a subset of jobsets to inspect subjobs', () => {
     cy.findByText('Jobs').click();

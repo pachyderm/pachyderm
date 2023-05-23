@@ -4,10 +4,8 @@ describe('Dag', () => {
     cy.setupProject('error-opencv').visit('/');
   });
   beforeEach(() => {
-    cy.findByRole('button', {name: /View project default/i}).click();
-  });
-  afterEach(() => {
     cy.visit('/');
+    cy.findByRole('button', {name: /View project default/i}).click();
   });
   after(() => {
     cy.deleteReposAndPipelines();

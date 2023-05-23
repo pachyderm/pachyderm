@@ -51,7 +51,7 @@ commands:
           version: 2.20.2
       - install-pachyderm-dependencies
       - run:
-          name: Deploy Pachyderm CE (Port-Forward)
+          name: Deploy Pachyderm CE (Proxy)
           command: etc/testing/circle/deploy-pachyderm.sh
   run-pachyderm-ee:
     steps:
@@ -163,10 +163,9 @@ jobs:
       - checkout
       - node-install-all
       - run-pachyderm-ce
-      - run: touch .env.development.local
       - run:
           name: Run Community Edition Cypress tests
-          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
