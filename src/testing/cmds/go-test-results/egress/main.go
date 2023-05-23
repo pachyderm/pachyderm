@@ -8,16 +8,19 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
-	"github.com/pkg/errors"
 )
 
 var logger = log.Default()
@@ -40,10 +43,19 @@ type TestResultLine struct {
 
 // This is built and runs in a pachyderm pipeline to egress data uploaded to pachyderm to postgresql.
 func main() {
-	logger.Println("Beginning egress transform of data to sql DB")
+	logger.Println("Running DB Migrate")
+	_, err := exec.Command("tern", "migrate").CombinedOutput()
+	if err != nil {
+		logger.Fatal("Error running migrates.", err)
+	}
+	logger.Println("Migrate successful, beginning egress transform of data to sql DB")
 	inputFolder := os.Args[1]
-
-	db, err := sqlx.Open("pgx", fmt.Sprintf("user=%s password=%s host=%s port=5432 database=ci_metrics", postgresqlUser, postgresqlPassword, postgresqlHost))
+	db, err := dbutil.NewDB(
+		dbutil.WithHostPort(postgresqlHost, 5432),
+		dbutil.WithDBName("ci_metrics"),
+		dbutil.WithUserPassword(postgresqlUser, postgresqlPassword),
+	)
+	// db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
 		logger.Fatalf("Failed opening db connection %v", err)
 	}
@@ -106,7 +118,7 @@ func readJobInfo(path string) (*gotestresults.JobInfo, error) {
 }
 
 func insertJobInfo(jobInfo *gotestresults.JobInfo, jobInfoPaths map[string]gotestresults.JobInfo, path string, d fs.DirEntry, db *sqlx.DB) error {
-	_, err := db.Exec(`INSERT INTO public.ci_jobs (
+	_, err := db.NamedExec(`INSERT INTO public.ci_jobs (
 							workflow_id, 
 							job_id, 
 							job_executor,
@@ -117,18 +129,10 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, jobInfoPaths map[string]gotes
 							branch, 
 							tag,
 							pull_requests
-						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		jobInfo.WorkflowId,
-		jobInfo.JobId,
-		jobInfo.JobExecutor,
-		jobInfo.JobName,
-		jobInfo.JobTimestamp,
-		jobInfo.JobNumExecutors,
-		jobInfo.Commit,
-		jobInfo.Branch,
-		jobInfo.Tag,
-		jobInfo.PullRequests,
+						) VALUES (:workflowid, :jobid, :jobexecutor, :jobname, :jobtimestamp, :jobnumexecutors, :branch, :commit, :tag, :pullrequests)`,
+		jobInfo,
 	)
+
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {

@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -145,7 +145,7 @@ func findJobInfoFromCI() (gotestresults.JobInfo, error) {
 	for envVar, statsField := range mapping {
 		*statsField = os.Getenv(envVar)
 		if *statsField == "" && !allowEmpty[envVar] {
-			return jobInfo, errors.WithStack(fmt.Errorf("%s needs to be populated to upload test results.", envVar))
+			return jobInfo, errors.EnsureStack(fmt.Errorf("%s needs to be populated to upload test results.", envVar))
 		}
 	}
 	// non-string fields
