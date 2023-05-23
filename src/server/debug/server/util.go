@@ -36,9 +36,12 @@ func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 func collectDebugFileV2(dir string, name string, cb func(io.Writer) error) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			retErr = writeErrorFileV2(filepath.Join(dir, name), retErr)
+			retErr = writeErrorFileV2(dir, retErr)
 		}
 	}()
+	if err := os.MkdirAll(dir, os.ModeDir); err != nil || !os.IsExist(err) {
+		return errors.Wrapf(err, "mkdir %q", dir)
+	}
 	f, err := os.Create(filepath.Join(dir, name))
 	if err != nil {
 		return errors.Wrapf(err, "create file %q", filepath.Join(dir, name))

@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -127,32 +129,24 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
 		Long:  "Collect a standard set of debugging information.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.Run(func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			filter, err := createFilter(pachd, database, pipeline, worker)
+			r, err := client.GetDumpV2Template(mainCtx, &debug.GetDumpV2TemplateRequest{})
 			if err != nil {
 				return err
 			}
-			return withFile(args[0], func(f *os.File) error {
-				if timeout != 0 {
-					ctx, c := context.WithTimeout(client.Ctx(), timeout)
-					client = client.WithCtx(ctx)
-					defer c()
-				}
-				return client.Dump(filter, limit, f)
-			})
+			bytes, err := json.Marshal(r.Request)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(bytes))
+			return nil
 		}),
 	}
-	dump.Flags().BoolVar(&pachd, "pachd", false, "Only collect the dump from pachd.")
-	dump.Flags().BoolVar(&database, "database", false, "Only collect the dump from pachd's database.")
-	dump.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the dump from the worker pods for the given pipeline.")
-	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
-	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
-	dump.Flags().DurationVar(&timeout, "timeout", 30*time.Minute, "Set an absolute timeout on the debug dump operation.")
 	commands = append(commands, cmdutil.CreateAlias(dumpV2Template, "debug dumpV2Template"))
 
 	var template string
@@ -167,13 +161,23 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			defer client.Close()
 			var req *debug.DumpV2Request
-			if template != "" {
+			if template == "" {
 				r, err := client.DebugClient.GetDumpV2Template(mainCtx, &debug.GetDumpV2TemplateRequest{})
 				if err != nil {
 					return errors.Wrap(err, "get dump template")
 				}
 				req = r.Request
 				fmt.Printf("Debug Dump with Dump Request: %v\n", req)
+			} else {
+				f, err := os.Open(template)
+				if err != nil {
+					return errors.Wrap(err, "open template file")
+				}
+				req = &debug.DumpV2Request{}
+				if err := jsonpb.Unmarshal(f, req); err != nil {
+					return errors.Wrap(err, "unmarhsal template to DumpV2Request")
+				}
+				fmt.Println(req)
 			}
 			ctx, cf := context.WithCancel(mainCtx)
 			defer cf()

@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wcharczuk/go-chart"
@@ -88,22 +89,22 @@ type collectWorkerFunc func(context.Context, *tar.Writer, *v1.Pod, ...string) er
 type redirectFunc func(context.Context, debug.DebugClient, *debug.Filter) (io.Reader, error)
 type collectFunc func(context.Context, *tar.Writer, *client.APIClient, ...string) error
 
-type taskOpts struct {
+type task struct {
+	name    string
 	timeout time.Duration
 }
 
-// write whatever you want to a path
-type processTaskFunc func(ctx context.Context, path string, opts taskOpts)
-
-type task struct {
-	name string
-}
-
-func (s *debugServer) runTask(ctx context.Context, name string, dir string) (retErr error) {
+// TODO: pipe reportProgress() through the task types
+func (s *debugServer) runTask(ctx context.Context, name string, dir string, reportProgress func(progress, total int64)) (retErr error) {
 	ctx, end := log.SpanContext(ctx, "collect_"+name, zap.String("path", dir))
 	defer func() {
-		retErr = errors.Wrap(retErr, "collect_"+name)
+		retErr = errors.Wrap(retErr, " collect_"+name)
 		end(log.Errorp(&retErr))
+		// if retErr != nil {
+		// 	if err := writeErrorFileV2(dir, retErr); err != nil {
+		// 		retErr = errors.Wrapf(err, "write errors file to dir %q", dir)
+		// 	}
+		// }
 	}()
 	switch name {
 	case "helm":
@@ -137,7 +138,7 @@ func (s *debugServer) runTask(ctx context.Context, name string, dir string) (ret
 		return s.collectDatabaseDump(ctx, filepath.Join(dir, databasePrefix))
 	case "version":
 		return s.collectPachdVersion(ctx, s.env.GetPachClient(ctx), dir)
-	case "dump_info":
+	case "profile":
 		return collectDump(ctx, dir)
 	case "pipelines":
 		pis, err := s.env.GetPachClient(ctx).ListPipeline(true)
@@ -188,11 +189,11 @@ func (s *debugServer) runTask(ctx context.Context, name string, dir string) (ret
 	case "app_logs":
 		return s.appLogs(ctx, dir)
 	default:
-		return nil
+		return errors.Errorf("no task implemetation for %q", name)
 	}
 }
 
-func (s *debugServer) GetDumpV2Template(request *debug.GetDumpV2TemplateRequest) (*debug.GetDumpV2TemplateResponse, error) {
+func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetDumpV2TemplateRequest) (*debug.GetDumpV2TemplateResponse, error) {
 	var ps []string
 	var pipTasks []*debug.PipelineDump
 	for _, p := range ps {
@@ -221,7 +222,8 @@ func (s *debugServer) GetDumpV2Template(request *debug.GetDumpV2TemplateRequest)
 }
 
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
-	return s.dump(s.env.GetPachClient(server.Context()), nil, nil, time.Minute)
+	ts := dumpRequestTasks(request)
+	return s.dump(s.env.GetPachClient(server.Context()), server, ts, time.Minute)
 }
 
 func dumpRequestTasks(request *debug.DumpV2Request) []task {
@@ -236,10 +238,16 @@ func dumpRequestTasks(request *debug.DumpV2Request) []task {
 			tasks = append(tasks, task{name: "pachd_describe"})
 		}
 		if request.PachdDump.Logs {
-			tasks = append(tasks, task{name: "pachd_logs"})
+			tasks = append(tasks, task{
+				name:    "pachd_logs",
+				timeout: 10 * time.Minute,
+			})
 		}
 		if request.PachdDump.LokiLogs {
-			tasks = append(tasks, task{name: "pachd_loki_logs"})
+			tasks = append(tasks, task{
+				name:    "pachd_loki_logs",
+				timeout: 10 * time.Minute,
+			})
 		}
 	}
 	if request.PipelinesDump != nil {
@@ -265,45 +273,74 @@ func dumpRequestTasks(request *debug.DumpV2Request) []task {
 	return tasks
 }
 
+type dumpContentServer struct {
+	server debug.Debug_DumpV2Server
+}
+
+func (dcs *dumpContentServer) Send(bytesValue *types.BytesValue) error {
+	return dcs.server.Send(&debug.DumpChunk{Chunk: &debug.DumpChunk_Content{Content: &debug.DumpContent{Content: bytesValue.Value}}})
+}
+
+// TODO: do we want a timeout field here?
 func (s *debugServer) dump(
 	c *client.APIClient,
-	server grpcutil.StreamingBytesServer,
+	server debug.Debug_DumpV2Server,
 	tasks []task,
 	timeout time.Duration,
 ) (retErr error) {
 	ctx := c.Ctx() // this context has authorization credentials we need
 	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
+	if err := os.Mkdir(dumpRoot, os.ModeDir); err != nil {
+		return err
+	}
 	defer func() {
 		retErr = multierr.Append(retErr, os.RemoveAll(dumpRoot))
 	}()
-	ctx, cf := context.WithTimeout(ctx, timeout)
-	defer cf()
 	eg, ctx := errgroup.WithContext(ctx)
-	// setup mutex for pushing files to tar writer as they finish
-	for _, t := range tasks {
-		eg.Go(func(t task) error {
-			// t should include info like
-			// - how long should the task run
-			// - know what path it's writing to
-			// - when run is done, it should try to write to tw
-			path := filepath.Join(dumpRoot, t.name)
-			return s.runTask(ctx, t.name, path)
-		}(t))
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	// note - where is recursion handles
-	//
-	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
+	// mutex to synchronize writes to the tar stream
+	var mu sync.Mutex
+	dumpContent := &dumpContentServer{server: server}
+	return grpcutil.WithStreamingBytesWriter(dumpContent, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
-			return filepath.Walk(dumpRoot, func(path string, fi fs.FileInfo, err error) error {
-				if fi.IsDir() {
-					return nil
-				}
-				path = strings.TrimPrefix(path, dumpRoot)
-				return writeTarFileV2(tw, path, fi)
-			})
+			for _, t := range tasks {
+				func(t task) {
+					eg.Go(func() error {
+						path := filepath.Join(dumpRoot, t.name)
+						if t.timeout != 0 {
+							var cf context.CancelFunc
+							ctx, cf = context.WithTimeout(ctx, t.timeout)
+							defer cf()
+						}
+						if err := s.runTask(ctx, t.name, path, func(progress, total int64) {
+							if err := server.Send(&debug.DumpChunk{Chunk: &debug.DumpChunk_Progress{Progress: &debug.DumpProgress{
+								Task:     t.name,
+								Progress: progress,
+								Total:    total,
+							}}}); err != nil {
+								log.Error(ctx, fmt.Sprintf("error sending progress for task %q", t.name), zap.Error(err))
+							}
+						}); err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						return filepath.Walk(path, func(path string, fi fs.FileInfo, err error) error {
+							if err != nil {
+								return errors.Wrapf(err, "walk path %q", path)
+							}
+							if fi.IsDir() {
+								return nil
+							}
+							path = strings.TrimPrefix(path, dumpRoot)
+							return writeTarFileV2(tw, path, fi)
+						})
+					})
+				}(t)
+			}
+			if err := eg.Wait(); err != nil {
+				return errors.Wrap(err, "wait for task runs")
+			}
+			return nil
 		})
 	})
 }
@@ -438,7 +475,7 @@ func (s *debugServer) collectWorker(ctx context.Context, dir string, pod *v1.Pod
 			retErr = writeErrorFileV2(workerDir, retErr)
 		}
 	}()
-
+	return nil
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
@@ -485,7 +522,8 @@ func collectProfileFunc(profile *debug.Profile) collectFunc {
 			}
 			return errs
 		default:
-			return collectProfile(ctx, tw, profile, prefix...)
+			//return collectProfile(ctx, tw, profile, prefix...)
+			return nil
 		}
 
 	}
