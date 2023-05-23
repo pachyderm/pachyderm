@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	gotestresults "github.com/pachyderm/pachyderm/v2/etc/testing/circle/workloads/go-test-results"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,6 +31,7 @@ const (
 
 var pachdAddress = findPachdAddress()
 var logger = log.Default()
+var invalidCharacters = regexp.MustCompile("[^a-zA-Z0-9-_]+")
 
 func findPachdAddress() string {
 	env := os.Getenv("OPS_PACHD_ADDRESS")
@@ -109,8 +110,7 @@ func main() {
 }
 
 func sanitizeName(s string) string {
-	ret := []byte(strings.ReplaceAll(s, " ", "_"))
-	invalidCharacters := regexp.MustCompile("[^a-zA-Z0-9-_]+")
+	ret := bytes.ReplaceAll([]byte(s), []byte(" "), []byte("_"))
 	ret = invalidCharacters.ReplaceAll(ret, []byte("-"))
 	return string(ret)
 }

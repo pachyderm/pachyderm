@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
-	gotestresults "github.com/pachyderm/pachyderm/v2/etc/testing/circle/workloads/go-test-results"
+	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
 	"github.com/pkg/errors"
 )
 
@@ -53,7 +53,7 @@ func main() {
 		logger.Fatal(err)
 	}
 	jobInfoPaths := make(map[string]gotestresults.JobInfo)
-	testResultPaths := []string{}
+	var testResultPaths []string
 	err = filepath.WalkDir(sym, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			if d.Name() == jobInfoFileName {

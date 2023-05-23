@@ -7,7 +7,7 @@
 * Apply the schema `etc/testing/circle/workloads/go-test-results/schema.sql` to the DB if the tables do not exist.
 * run the collector with `etc/testing/circle/workloads/ci-results/collector/test-collect.sh
 
-If you want to test with local grafan check this page out: https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/
+If you want to test with local grafana check this page out: https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/
 
 The grafana.yml is [here](./grafana.yml), so from this folder you can run
 ```bash

@@ -1,3 +1,4 @@
+function(version, pghost)
 {
     "pipeline": {
         "name": "go-test-results-sql-egress"
@@ -10,14 +11,14 @@
         }
     },
     "transform": {
-        "image": "pachyderm/go-test-results:0.0.3",
+        "image": "pachyderm/go-test-results:"+version,
         "cmd": [
             "/go/egress/egress",
             "/pfs/go-test-results-raw"
         ],
         "env": {
             "LOG_LEVEL": "DEBUG",
-            "POSTGRESQL_HOST": "cloudsql-auth-proxy.pachyderm.svc.cluster.local.",
+            "POSTGRESQL_HOST": pghost, // remote GCP: "cloudsql-auth-proxy.pachyderm.svc.cluster.local." local testing: "postgres"
             "POSTGRESQL_USER":"postgres"
         },
         "secrets": [{
@@ -27,3 +28,4 @@
         }]
     }
 }
+
