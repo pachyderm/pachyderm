@@ -83,7 +83,8 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 		}
 		duplicates[commitBranchlessKey(ci.Commit)][oldCommitKey(ci.Commit)] = ci
 	}
-	// the only duplicate commits we allow and handle in the migration are two commits with a parent/child relationship
+	// the only duplicate commits we allow and handle in the migration are those connected through direct ancestry.
+	// the allowed duplicate commits are expected to arise from branch triggers / deferred processing.
 	var badCommitSets []string
 	for _, dups := range duplicates {
 		if len(dups) <= 1 {
