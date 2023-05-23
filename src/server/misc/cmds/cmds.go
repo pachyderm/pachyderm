@@ -216,8 +216,8 @@ func Cmds(ctx context.Context) []*cobra.Command {
 			etcdConfig.InitialElectionTickAdvance = false
 			etcdConfig.TickMs = 10
 			etcdConfig.ElectionMs = 50
-			etcdConfig.ListenPeerUrls = []url.URL{}
-			etcdConfig.ListenClientUrls = []url.URL{{
+			etcdConfig.LPUrls = []url.URL{}
+			etcdConfig.LCUrls = []url.URL{{
 				Scheme: "http",
 				Host:   "localhost:7777",
 			}}
