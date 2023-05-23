@@ -175,6 +175,7 @@ export class MountPlugin implements IMountPlugin {
               updateData={this._poller.updateData}
               mountedItems={[]}
               type={'mounted'}
+              projects={[]}
             />
           </div>
         )}
@@ -185,18 +186,23 @@ export class MountPlugin implements IMountPlugin {
     this._unmountedList = ReactWidget.create(
       <UseSignal signal={this._poller.unmountedSignal}>
         {(_, unmounted) => (
-          <div className="pachyderm-mount-base">
-            <div className="pachyderm-mount-base-title">
-              Unmounted Repositories
-            </div>
-            <SortableList
-              open={this.open}
-              items={unmounted ? unmounted : this._poller.unmounted}
-              updateData={this._poller.updateData}
-              mountedItems={this._poller.mounted}
-              type={'unmounted'}
-            />
-          </div>
+          <UseSignal signal={this._poller.projectSignal}>
+            {(_, projects) => (
+              <div className="pachyderm-mount-base">
+                <div className="pachyderm-mount-base-title">
+                  Unmounted Repositories
+                </div>
+                <SortableList
+                  open={this.open}
+                  items={unmounted ? unmounted : this._poller.unmounted}
+                  updateData={this._poller.updateData}
+                  mountedItems={this._poller.mounted}
+                  type={'unmounted'}
+                  projects={projects ? projects : this._poller.projects}
+                />
+              </div>
+            )}
+          </UseSignal>
         )}
       </UseSignal>,
     );
