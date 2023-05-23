@@ -36,7 +36,7 @@ describe(
     });
 
     it('should display the last item properly when scrolling a list of project jobs', () => {
-      cy.findByText('Solar-Power-Data-Logger-Team-Collab')
+      cy.contains('[role="row"]', /Solar-Power-Data-Logger-Team-Collab/i)
         .scrollIntoView()
         .click();
       inspectListItemScrolling('JobListItem__job', 9);

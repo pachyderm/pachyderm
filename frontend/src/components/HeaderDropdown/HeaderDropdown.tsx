@@ -1,21 +1,36 @@
 import React from 'react';
+import {Route} from 'react-router';
 
+import ActiveProjectModal from '@dash-frontend/components/ActiveProjectModal';
 import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
 import {useGetVersionInfoQuery} from '@dash-frontend/generated/hooks';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {
+  PROJECT_PATH,
+  LINEAGE_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   CaptionTextSmall,
   HamburgerSVG,
   SupportSVG,
+  TerminalSVG,
   Dropdown,
+  useModal,
 } from '@pachyderm/components';
 
 import Account from './components/Account';
 import styles from './HeaderDropdown.module.css';
 
 const HeaderDropdown: React.FC = () => {
+  const {projectId} = useUrlState();
   const {enterpriseActive} = useEnterpriseActive();
   const {data: version} = useGetVersionInfoQuery();
+  const {
+    openModal: openActiveProjectModal,
+    closeModal: closeActiveProjectModal,
+    isOpen: activeProjectModalIsOpen,
+  } = useModal(false);
 
   const pachdVersion = version?.versionInfo.pachdVersion;
   const pachdVersionString = pachdVersion
@@ -29,6 +44,9 @@ const HeaderDropdown: React.FC = () => {
         return window.open(
           enterpriseActive ? emailLinkWithPrefill : SLACK_SUPPORT,
         );
+      case 'set-active-project':
+        openActiveProjectModal();
+        return null;
       default:
         return null;
     }
@@ -50,6 +68,16 @@ const HeaderDropdown: React.FC = () => {
           )}
           {pachdVersion && <div>Pachd {pachdVersionString}</div>}
         </div>
+        <Route path={[PROJECT_PATH, LINEAGE_PATH]}>
+          <Dropdown.MenuItem
+            id="set-active-project"
+            closeOnClick
+            buttonStyle="tertiary"
+            IconSVG={TerminalSVG}
+          >
+            Set Active Project
+          </Dropdown.MenuItem>
+        </Route>
         <Dropdown.MenuItem
           id="support"
           closeOnClick
@@ -63,6 +91,14 @@ const HeaderDropdown: React.FC = () => {
           © {new Date().getFullYear()}, HPE
         </CaptionTextSmall>
       </Dropdown.Menu>
+
+      {activeProjectModalIsOpen && (
+        <ActiveProjectModal
+          show={activeProjectModalIsOpen}
+          onHide={closeActiveProjectModal}
+          projectName={projectId}
+        />
+      )}
     </Dropdown>
   );
 };

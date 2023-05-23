@@ -99,19 +99,17 @@ const Landing: React.FC = () => {
                 </Group>
               </TabView.Body.Header>
               <TabView.Body.Content id={'Projects'}>
-                <table className={styles.table}>
-                  <tbody>
-                    {projects.map((project) => (
-                      <ProjectRow
-                        multiProject={multiProject}
-                        project={project}
-                        key={project.id}
-                        setSelectedProject={() => setSelectedProject(project)}
-                        isSelected={project.id === selectedProject?.id}
-                      />
-                    ))}
-                  </tbody>
-                </table>
+                <Group className={styles.projectsList} spacing={16} vertical>
+                  {projects.map((project) => (
+                    <ProjectRow
+                      multiProject={multiProject}
+                      project={project}
+                      key={project.id}
+                      setSelectedProject={() => setSelectedProject(project)}
+                      isSelected={project.id === selectedProject?.id}
+                    />
+                  ))}
+                </Group>
               </TabView.Body.Content>
               <TabView.Body.Content id="Personal" />
               <TabView.Body.Content id="Playground" />

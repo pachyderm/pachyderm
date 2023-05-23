@@ -262,6 +262,32 @@ describe('Landing', () => {
     ).toBeInTheDocument();
   });
 
+  it('should give users a pachctl command to set their active project', async () => {
+    render(<Landing />);
+
+    expect(
+      await screen.findByText('Data-Cleaning-Process'),
+    ).toBeInTheDocument();
+
+    await click(
+      screen.getByRole('button', {
+        name: /data-cleaning-process overflow menu/i,
+      }),
+    );
+    await click(
+      await screen.findByRole('menuitem', {
+        name: /set active project/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText('Set Active Project: "Data-Cleaning-Process"'),
+    ).toBeInTheDocument();
+    await click(screen.getByRole('button', {name: 'Copy'}));
+
+    expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+  });
+
   describe('Create Project Modal', () => {
     it('should create a project', async () => {
       render(<Landing />);
@@ -422,12 +448,12 @@ describe('Landing', () => {
 
       await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
 
-      const cell = await screen.findByRole('cell', {
+      const row = await screen.findByRole('row', {
         name: /egress-examples/i,
         exact: false,
       });
 
-      expect(await within(cell).findByText('N/A')).toBeInTheDocument();
+      expect(await within(row).findByText('N/A')).toBeInTheDocument();
 
       // reopen it to edit and save some data
       expect(
@@ -466,12 +492,12 @@ describe('Landing', () => {
 
       await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
 
-      const cell2 = await screen.findByRole('cell', {
+      const row2 = await screen.findByRole('row', {
         name: /egress-examples/i,
         exact: false,
       });
 
-      expect(await within(cell2).findByText('new desc')).toBeInTheDocument();
+      expect(await within(row2).findByText('new desc')).toBeInTheDocument();
     });
   });
 

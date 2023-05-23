@@ -4,6 +4,7 @@ import noop from 'lodash/noop';
 import React from 'react';
 import {useHistory} from 'react-router';
 
+import ActiveProjectModal from '@dash-frontend/components/ActiveProjectModal';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Button,
@@ -36,6 +37,11 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 }) => {
   const browserHistory = useHistory();
   const {
+    openModal: openActiveProjectModal,
+    closeModal: closeActiveProjectModal,
+    isOpen: activeProjectModalIsOpen,
+  } = useModal(false);
+  const {
     openModal: openUpdateModal,
     closeModal: closeUpdateModal,
     isOpen: updateModalIsOpen,
@@ -51,6 +57,11 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   const overflowMenuItems: DropdownItem[] = [
     {
+      id: 'set-active',
+      content: 'Set Active Project',
+      closeOnClick: true,
+    },
+    {
       id: 'edit-project-info',
       content: 'Edit Project Info',
       closeOnClick: true,
@@ -64,6 +75,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   const onSelect = (id: string) => {
     switch (id) {
+      case 'set-active':
+        openActiveProjectModal();
+        return null;
       case 'edit-project-info':
         openUpdateModal();
         return null;
@@ -77,60 +91,64 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   return (
     <>
-      <tr
+      <div
         className={classNames(styles.row, {
           [styles[`${project.status}Selected`]]: isSelected,
           [styles.rowHover]: multiProject && !isSelected,
         })}
-        onClick={(e: React.MouseEvent<HTMLTableRowElement, MouseEvent>) =>
-          setSelectedProject()
-        }
+        onClick={() => setSelectedProject()}
+        role="row"
       >
-        <td>
-          <Group vertical spacing={16}>
-            <Group justify="between" align="baseline" spacing={16}>
-              <h5>{project.id}</h5>
-              <Group spacing={8}>
-                <Button
-                  buttonType="secondary"
-                  onClick={onClick}
-                  className={styles.button}
-                  aria-label={`View project ${project.id}`}
-                >
-                  <span>View</span>
-                  <span className={styles.responsiveHide}> Project</span>
-                </Button>
-                <DefaultDropdown
-                  items={overflowMenuItems}
-                  onSelect={onSelect}
-                  aria-label={`${project.id} overflow menu`}
-                  buttonOpts={{
-                    hideChevron: true,
-                    IconSVG: OverflowSVG,
-                    buttonType: 'ghost',
-                  }}
-                  menuOpts={{pin: 'right'}}
-                />
-              </Group>
-            </Group>
-            <Group spacing={64}>
-              <Info header="Project Status" headerId="project-status">
-                <ProjectStatus
-                  status={project.status}
-                  data-testid="ProjectRow__status"
-                />
-              </Info>
-              <Info
-                header="Description"
-                headerId="project-description"
-                className={styles.responsiveHide}
+        <Group vertical spacing={16}>
+          <Group justify="between" align="baseline" spacing={16}>
+            <h5>{project.id}</h5>
+            <Group spacing={8}>
+              <Button
+                buttonType="secondary"
+                onClick={onClick}
+                className={styles.button}
+                aria-label={`View project ${project.id}`}
               >
-                {project.description || 'N/A'}
-              </Info>
+                <span>View</span>
+                <span className={styles.responsiveHide}> Project</span>
+              </Button>
+              <DefaultDropdown
+                items={overflowMenuItems}
+                onSelect={onSelect}
+                aria-label={`${project.id} overflow menu`}
+                buttonOpts={{
+                  hideChevron: true,
+                  IconSVG: OverflowSVG,
+                  buttonType: 'ghost',
+                }}
+                menuOpts={{pin: 'right'}}
+              />
             </Group>
           </Group>
-        </td>
-      </tr>
+          <Group spacing={64}>
+            <Info header="Project Status" headerId="project-status">
+              <ProjectStatus
+                status={project.status}
+                data-testid="ProjectRow__status"
+              />
+            </Info>
+            <Info
+              header="Description"
+              headerId="project-description"
+              className={styles.responsiveHide}
+            >
+              {project.description || 'N/A'}
+            </Info>
+          </Group>
+        </Group>
+      </div>
+      {activeProjectModalIsOpen && (
+        <ActiveProjectModal
+          show={activeProjectModalIsOpen}
+          onHide={closeActiveProjectModal}
+          projectName={project.id}
+        />
+      )}
       {updateModalIsOpen && (
         <UpdateProjectModal
           show={updateModalIsOpen}

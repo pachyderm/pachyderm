@@ -14,9 +14,7 @@ describe('Landing', () => {
   });
 
   it('should show default project info', () => {
-    cy.findByRole('heading', {
-      name: /default/i,
-    }).click();
+    cy.contains('[role="row"]', /default/i).click();
     cy.findByRole('heading', {
       name: 'Project Preview',
     });
@@ -58,10 +56,7 @@ describe('Landing', () => {
       timeout: 15000,
     });
 
-    cy.findByRole('cell', {
-      name: /new-project/i,
-      exact: false,
-    }).within(() => {
+    cy.contains('[role="row"]', /new-project/i).within(() => {
       // because we run cypress at a small screen size, the text will be hidden
       cy.findByText('New desc').should('not.be.visible');
     });
@@ -91,10 +86,7 @@ describe('Landing', () => {
 
     cy.findByRole('dialog').should('not.exist');
 
-    cy.findByRole('cell', {
-      name: /new-project/i,
-      exact: false,
-    }).within(() => {
+    cy.contains('[role="row"]', /new-project/i).within(() => {
       // because we run cypress at a small screen size, the text will be hidden
       cy.findByText('Edit desc').should('not.be.visible');
     });
@@ -118,9 +110,6 @@ describe('Landing', () => {
 
     cy.findByRole('dialog').should('not.exist');
 
-    cy.findByRole('cell', {
-      name: /new-project/i,
-      exact: false,
-    }).should('not.exist');
+    cy.contains('[role="row"]', /new-project/i).should('not.exist');
   });
 });

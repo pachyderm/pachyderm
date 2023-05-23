@@ -77,4 +77,28 @@ describe('HeaderDropdown', () => {
       expect.stringMatching(new RegExp(EMAIL_SUPPORT)),
     );
   });
+
+  it('should give users a pachctl command to set their active project', async () => {
+    window.history.replaceState('', '', `/lineage/testProject`);
+
+    render(<HeaderDropdown />);
+
+    await click(
+      screen.getByRole('button', {
+        name: /header menu/i,
+      }),
+    );
+    await click(
+      await screen.findByRole('menuitem', {
+        name: /set active project/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText('Set Active Project: "testProject"'),
+    ).toBeInTheDocument();
+    await click(screen.getByRole('button', {name: 'Copy'}));
+
+    expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+  });
 });
