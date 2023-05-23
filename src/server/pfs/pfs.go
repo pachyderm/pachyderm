@@ -165,7 +165,7 @@ var (
 )
 
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo, e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo, e.File.Commit.Id)
 }
 
 func (e ErrFileNotFound) GRPCStatus() *status.Status {
@@ -229,7 +229,7 @@ func (e ErrCommitNotFound) GRPCStatus() *status.Status {
 }
 
 func (e ErrCommitSetNotFound) Error() string {
-	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
+	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.Id)
 }
 
 func (e ErrCommitSetNotFound) GRPCStatus() *status.Status {

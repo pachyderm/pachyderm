@@ -176,7 +176,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 							pc.env.EtcdClient, pipelineInfo.Pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
-							"commit", ci.Commit.ID)
+							"commit", ci.Commit.Id)
 
 						if err := pc.psDriver.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
@@ -209,7 +209,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 									pc.env.EtcdClient, pipelineInfo.Pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
-									"commit", ci.Commit.ID)
+									"commit", ci.Commit.Id)
 							default:
 								break running
 							}

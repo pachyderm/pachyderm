@@ -668,9 +668,9 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 			}
 		}
 	}
-	if context.ClusterDeploymentId != clusterInfo.DeploymentID {
+	if context.ClusterDeploymentId != clusterInfo.DeploymentId {
 		if context.ClusterDeploymentId == "" {
-			context.ClusterDeploymentId = clusterInfo.DeploymentID
+			context.ClusterDeploymentId = clusterInfo.DeploymentId
 			if err = cfg.Write(); err != nil {
 				return nil, errors.Wrap(err, "could not write config to save cluster deployment ID")
 			}

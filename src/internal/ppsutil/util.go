@@ -235,7 +235,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 
 // JobInput fills in the commits for an Input
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
-	commitsetID := outputCommit.ID
+	commitsetID := outputCommit.Id
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
@@ -315,7 +315,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) (retErr error) {
-	ctx, end := log.SpanContext(pachClient.Ctx(), "finishJob", zap.String("jobID", jobInfo.GetJob().GetID()), zap.Stringer("state", state), zap.String("reason", reason))
+	ctx, end := log.SpanContext(pachClient.Ctx(), "finishJob", zap.String("jobID", jobInfo.GetJob().GetId()), zap.Stringer("state", state), zap.String("reason", reason))
 	defer end(log.Errorp(&retErr))
 	pachClient = pachClient.WithCtx(ctx)
 	jobInfo.State = state
@@ -369,7 +369,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+	return client.NewSystemRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.Id)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
@@ -526,10 +526,10 @@ func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, se
 			if request.Pipeline != nil && (request.Pipeline.Project.GetName() != msg.ProjectName || request.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
-			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Project.GetName() != msg.ProjectName || request.Job.Pipeline.Name != msg.PipelineName) {
+			if request.Job != nil && (request.Job.Id != msg.JobId || request.Job.Pipeline.Project.GetName() != msg.ProjectName || request.Job.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
-			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+			if request.Datum != nil && request.Datum.Id != msg.DatumId {
 				continue
 			}
 			if request.Master != msg.Master {

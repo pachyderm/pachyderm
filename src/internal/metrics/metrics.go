@@ -157,8 +157,8 @@ func (r *Reporter) reportClusterMetrics(ctx context.Context) {
 		metrics := &Metrics{}
 		r.internalMetrics(metrics)
 		externalMetrics(r.env.GetKubeClient(), metrics) //nolint:errcheck
-		metrics.ClusterID = r.clusterID
-		metrics.PodID = uuid.NewWithoutDashes()
+		metrics.ClusterId = r.clusterID
+		metrics.PodId = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
 		r.router.reportClusterMetricsToSegment(metrics)
 	}
@@ -362,7 +362,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 						metrics.CfgErrcmd++
 					}
 				}
-				if details.TFJob != nil {
+				if details.TfJob != nil {
 					metrics.CfgTfjob++
 				}
 			}

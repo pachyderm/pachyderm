@@ -94,7 +94,7 @@ func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 				if inspectErr != nil {
 					return errors.Wrapf(inspectErr, "could not inspect cluster")
 				}
-				clusterId = clusterInfo.DeploymentID
+				clusterId = clusterInfo.DeploymentId
 			}
 
 			enterpriseServer, err := getIsActiveContextEnterpriseServer()

@@ -91,10 +91,10 @@ func assertMasterHeads(t *testing.T, c *client.APIClient, repoToCommitIDs map[st
 	for repo, id := range repoToCommitIDs {
 		info, err := c.InspectCommit(pfs.DefaultProjectName, repo, "master", "")
 		require.NoError(t, err)
-		if id != info.Commit.ID {
-			fmt.Printf("for repo %q, expected: %q; actual: %q\n", repo, id, info.Commit.ID)
+		if id != info.Commit.Id {
+			fmt.Printf("for repo %q, expected: %q; actual: %q\n", repo, id, info.Commit.Id)
 		}
-		require.Equal(t, id, info.Commit.ID)
+		require.Equal(t, id, info.Commit.Id)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir/dir3/file3.1", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir/dir3/file3.2", &bytes.Buffer{}))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 		// should list all files including directories and root
 		var fis []*pfs.FileInfo
 		require.NoError(t, env.PachClient.WalkFile(commit1, "/", func(fi *pfs.FileInfo) error {
@@ -222,7 +222,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 		// should list a directory but not siblings
 		var fis []*pfs.FileInfo
 		require.NoError(t, env.PachClient.ListFile(commit1, "/dir1", func(fi *pfs.FileInfo) error {
@@ -296,7 +296,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < 3; i++ {
 			newCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "foo", "master")
 			require.NoError(t, err)
-			err = env.PachClient.FinishCommit(pfs.DefaultProjectName, "foo", "master", newCommit.ID)
+			err = env.PachClient.FinishCommit(pfs.DefaultProjectName, "foo", "master", newCommit.Id)
 			require.NoError(t, err)
 			commits[i] = newCommit
 		}
@@ -307,7 +307,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, len(expectedIDs), len(cis))
 			for i, ci := range cis {
-				require.Equal(t, expectedIDs[i], ci.Commit.ID)
+				require.Equal(t, expectedIDs[i], ci.Commit.Id)
 			}
 			return cis
 		}
@@ -315,12 +315,12 @@ func TestPFS(suite *testing.T) {
 		cis := listCommitsAndCheck(&pfs.ListCommitRequest{
 			Repo:   client.NewRepo(pfs.DefaultProjectName, "foo"),
 			Number: 1,
-		}, []string{commits[2].ID})
+		}, []string{commits[2].Id})
 		cis = listCommitsAndCheck(&pfs.ListCommitRequest{
 			Repo:        client.NewRepo(pfs.DefaultProjectName, "foo"),
 			Number:      2,
 			StartedTime: cis[0].Started,
-		}, []string{commits[1].ID, commits[0].ID})
+		}, []string{commits[1].Id, commits[0].Id})
 		// no commits should be returned if we set the started time to be the time of the oldest commit
 		_ = listCommitsAndCheck(&pfs.ListCommitRequest{
 			Repo:        client.NewRepo(pfs.DefaultProjectName, "foo"),
@@ -332,7 +332,7 @@ func TestPFS(suite *testing.T) {
 			Repo:    client.NewRepo(pfs.DefaultProjectName, "foo"),
 			Number:  1,
 			Reverse: true,
-		}, []string{commits[0].ID})
+		}, []string{commits[0].Id})
 	})
 
 	suite.Run("InvalidProject", func(t *testing.T) {
@@ -644,7 +644,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		outCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, inCommitInfo.Commit.ID, outCommitInfo.Commit.ID)
+		require.Equal(t, inCommitInfo.Commit.Id, outCommitInfo.Commit.Id)
 
 		// Toggle out@master provenance off
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "master", "", nil))
@@ -663,7 +663,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		outCommitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, inCommitInfo.Commit.ID, outCommitInfo.Commit.ID)
+		require.Equal(t, inCommitInfo.Commit.Id, outCommitInfo.Commit.Id)
 
 		// Toggle out@master provenance back on, creating a new output commit
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{
@@ -681,12 +681,12 @@ func TestPFS(suite *testing.T) {
 		// make sure new output commit has the same ID as the new input commit
 		outCommitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
 		require.NoError(t, err)
-		inCommitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "in", "", outCommitInfo.Commit.ID)
+		inCommitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "in", "", outCommitInfo.Commit.Id)
 		require.NoError(t, err)
-		require.NotEqual(t, inCommitInfo.Commit.ID, outCommitInfo.Commit.ID)
+		require.NotEqual(t, inCommitInfo.Commit.Id, outCommitInfo.Commit.Id)
 		inMasterCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "in", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, inCommitInfo.Commit.ID, inMasterCommitInfo.Commit.ID)
+		require.Equal(t, inCommitInfo.Commit.Id, inMasterCommitInfo.Commit.Id)
 	})
 
 	suite.Run("RecreateBranchProvenance", func(t *testing.T) {
@@ -704,11 +704,11 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 2, len(cis))
 		commit1 := cis[0].Commit
 		require.NoError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, "out", "master", false))
-		require.NoError(t, finishCommit(env.PachClient, "out", "", commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, "out", "", commit1.Id))
 		cis, err = env.PachClient.ListCommit(outRepo, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(cis))
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", commit1.ID, []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", commit1.Id, []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
 		cis, err = env.PachClient.ListCommit(outRepo, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(cis))
@@ -735,19 +735,19 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "a", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("1")))
-		require.NoError(t, finishCommit(env.PachClient, commit1.Branch.Repo.Name, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, commit1.Branch.Repo.Name, commit1.Branch.Name, commit1.Id))
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "a", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit2, "file", strings.NewReader("2")))
-		require.NoError(t, finishCommit(env.PachClient, commit2.Branch.Repo.Name, commit1.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, commit2.Branch.Repo.Name, commit1.Branch.Name, commit2.Id))
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "a", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit3, "file", strings.NewReader("3")))
-		require.NoError(t, finishCommit(env.PachClient, commit3.Branch.Repo.Name, commit1.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, commit3.Branch.Repo.Name, commit1.Branch.Name, commit3.Id))
 		checkRepoCommits := func(repos []string, commits []*pfs.Commit) {
 			ids := []string{}
 			for _, c := range commits {
-				ids = append(ids, c.ID)
+				ids = append(ids, c.Id)
 			}
 			for _, repo := range repos {
 				listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), &pfs.ListCommitRequest{
@@ -761,16 +761,16 @@ func TestPFS(suite *testing.T) {
 				// those and just check that the latest commits match.
 				require.True(t, len(ids) <= len(cis))
 				for i, id := range ids {
-					require.Equal(t, id, cis[i].Commit.ID)
+					require.Equal(t, id, cis[i].Commit.Id)
 				}
 			}
 		}
 		checkRepoCommits([]string{"a", "b", "c"}, []*pfs.Commit{commit3, commit2, commit1})
 		// Rewinding branch b.master to commit2 can reuses that commit, and propagates a new commit to C
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "b", "master", "master", commit2.ID, provB))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "b", "master", "master", commit2.Id, provB))
 		ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "b", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, ci.Commit.ID, commit2.ID)
+		require.Equal(t, ci.Commit.Id, commit2.Id)
 		checkRepoCommits([]string{"a", "b"}, []*pfs.Commit{commit3, commit2, commit1})
 		// Check that a@<new-global-id> resolves to commit2
 		ci, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "c", "master", "")
@@ -779,22 +779,22 @@ func TestPFS(suite *testing.T) {
 		// The commit4 data in "a" should be the same as what we wrote into commit2 (as that's the source data in "b")
 		ci, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "c", "master", "")
 		require.NoError(t, err)
-		latestCommit := ci.Commit.ID
+		latestCommit := ci.Commit.Id
 		aCommit := client.NewCommit(pfs.DefaultProjectName, "a", "", latestCommit)
 		var b bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(aCommit, "file", &b))
 		require.Equal(t, "2", b.String())
 		// Rewinding branch b.master to commit1 can reuses that commit, and propagates a new commit to C
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "b", "master", "master", commit1.ID, provB))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "b", "master", "master", commit1.Id, provB))
 		require.NoError(t, err)
 		ci, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "b", "master", "")
 		require.NoError(t, err)
 		commit4 := ci.Commit
-		require.Equal(t, commit4.ID, commit1.ID)
+		require.Equal(t, commit4.Id, commit1.Id)
 		// The commit4 data in "a" should be from commit1
 		ci, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "c", "master", "")
 		require.NoError(t, err)
-		latestCommit = ci.Commit.ID
+		latestCommit = ci.Commit.Id
 		aCommit = client.NewCommit(pfs.DefaultProjectName, "a", "", latestCommit)
 		b.Reset()
 		require.NoError(t, env.PachClient.GetFile(aCommit, "file", &b))
@@ -830,7 +830,7 @@ func TestPFS(suite *testing.T) {
 			})
 		})
 		require.NoError(t, err)
-		firstID := txnInfo.Transaction.ID
+		firstID := txnInfo.Transaction.Id
 		expectedMasterCommits := map[string]string{
 			"A": firstID,
 			"B": firstID,
@@ -842,13 +842,13 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "A", "master", ""), "one", strings.NewReader("foo")))
 		info, err := c.InspectCommit(pfs.DefaultProjectName, "A", "master", "")
 		require.NoError(t, err)
-		secondID := info.Commit.ID
+		secondID := info.Commit.Id
 		require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "A", "master", ""), "two", strings.NewReader("bar")))
 		// rewind once, everything should be back to firstCommit
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "A", "master", "master", secondID, nil))
 		info, err = c.InspectCommit(pfs.DefaultProjectName, "B", "master", "")
 		require.NoError(t, err)
-		fourthID := info.Commit.ID
+		fourthID := info.Commit.Id
 		expectedMasterCommits["A"] = secondID
 		expectedMasterCommits["B"] = fourthID
 		expectedMasterCommits["Z"] = fourthID
@@ -857,16 +857,16 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "C", "master", ""), "file", strings.NewReader("baz")))
 		info, err = c.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
-		expectedMasterCommits["C"] = info.Commit.ID
-		expectedMasterCommits["Z"] = info.Commit.ID
+		expectedMasterCommits["C"] = info.Commit.Id
+		expectedMasterCommits["Z"] = info.Commit.Id
 		assertMasterHeads(t, c, expectedMasterCommits)
 		// rewind A back to the start
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "A", "master", "master", firstID, nil))
 		info, err = c.InspectCommit(pfs.DefaultProjectName, "B", "master", "")
 		require.NoError(t, err)
 		expectedMasterCommits["A"] = firstID
-		expectedMasterCommits["B"] = info.Commit.ID
-		expectedMasterCommits["Z"] = info.Commit.ID
+		expectedMasterCommits["B"] = info.Commit.Id
+		expectedMasterCommits["Z"] = info.Commit.Id
 		assertMasterHeads(t, c, expectedMasterCommits)
 	})
 
@@ -892,8 +892,8 @@ func TestPFS(suite *testing.T) {
 		_, err = c.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
 		expectedMasterCommits := map[string]string{
-			"A": oldHead.Commit.ID,
-			"C": oldHead.Commit.ID,
+			"A": oldHead.Commit.Id,
+			"C": oldHead.Commit.Id,
 		}
 		assertMasterHeads(t, c, expectedMasterCommits)
 		// add B to C's provenance
@@ -903,29 +903,29 @@ func TestPFS(suite *testing.T) {
 		}))
 		cHead, err := c.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
-		expectedMasterCommits["C"] = cHead.Commit.ID
+		expectedMasterCommits["C"] = cHead.Commit.Id
 		assertMasterHeads(t, c, expectedMasterCommits)
 		// add a file to B and record C's new head
 		require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "B", "master", ""), "foo", strings.NewReader("bar")))
 		cHead, err = c.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
-		expectedMasterCommits["B"] = cHead.Commit.ID
-		expectedMasterCommits["C"] = cHead.Commit.ID
+		expectedMasterCommits["B"] = cHead.Commit.Id
+		expectedMasterCommits["C"] = cHead.Commit.Id
 		assertMasterHeads(t, c, expectedMasterCommits)
 		// rewind A to before the provenance change
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "A", "master", "master", oldHead.ParentCommit.ID, nil))
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "A", "master", "master", oldHead.ParentCommit.Id, nil))
 		// this must create a new commit set, since the old one isn't consistent with current provenance
 		aHead, err := c.InspectBranch(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.Equal(t, aHead.Head.ID, oldHead.ParentCommit.ID)
+		require.Equal(t, aHead.Head.Id, oldHead.ParentCommit.Id)
 		cHeadOld := cHead
 		cHead, err = c.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
 		// there's no clear relationship between C's new state and any old one, so the new commit's parent should be the previous head
 		require.NoError(t, err)
 		require.NotNil(t, cHead.ParentCommit)
-		require.NotEqual(t, cHeadOld.Commit.ID, cHead.Commit.ID)
-		require.Equal(t, cHeadOld.Commit.ID, cHead.ParentCommit.ID)
+		require.NotEqual(t, cHeadOld.Commit.Id, cHead.Commit.Id)
+		require.Equal(t, cHeadOld.Commit.Id, cHead.ParentCommit.Id)
 	})
 
 	suite.Run("CreateAndInspectRepo", func(t *testing.T) {
@@ -1025,7 +1025,7 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("foo")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: systemRepo.NewBranch("master"),
@@ -1142,7 +1142,7 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		require.YesError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
 
@@ -1350,7 +1350,7 @@ func TestPFS(suite *testing.T) {
 
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.Id))
 
 		// Delete the provenance repo; that should fail.
 		require.YesError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "A", false))
@@ -1497,7 +1497,7 @@ func TestPFS(suite *testing.T) {
 		fileContent := "foo\n"
 		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader(fileContent)))
 
-		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID)
+		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
 		require.NoError(t, err)
 
 		tStarted, err := types.TimestampFromProto(commitInfo.Started)
@@ -1510,9 +1510,9 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, commitInfo.Finished)
 
 		finished := time.Now()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
-		commitInfo, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID)
+		commitInfo, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
 		require.NoError(t, err)
 
 		tStarted, err = types.TimestampFromProto(commitInfo.Started)
@@ -1541,10 +1541,10 @@ func TestPFS(suite *testing.T) {
 		var eg errgroup.Group
 		eg.Go(func() error {
 			time.Sleep(2 * time.Second)
-			return finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID)
+			return finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id)
 		})
 
-		commitInfo, err := env.PachClient.WaitCommit(pfs.DefaultProjectName, commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+		commitInfo, err := env.PachClient.WaitCommit(pfs.DefaultProjectName, commit.Branch.Repo.Name, commit.Branch.Name, commit.Id)
 		require.NoError(t, err)
 		require.NotNil(t, commitInfo.Finished)
 
@@ -1573,19 +1573,19 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Squashing should fail because the commit has no children
-		err = env.PachClient.SquashCommitSet(commit2.ID)
+		err = env.PachClient.SquashCommitSet(commit2.Id)
 		require.YesError(t, err)
 		require.True(t, pfsserver.IsSquashWithoutChildrenErr(err))
 
-		require.NoError(t, env.PachClient.DropCommitSet(commit2.ID))
+		require.NoError(t, env.PachClient.DropCommitSet(commit2.Id))
 
-		_, err = env.PachClient.InspectCommit(project, repo, commit2.Branch.Name, commit2.ID)
+		_, err = env.PachClient.InspectCommit(project, repo, commit2.Branch.Name, commit2.Id)
 		require.YesError(t, err)
 
 		// Check that the head has been set to the parent
 		commitInfo, err := env.PachClient.InspectCommit(project, repo, "master", "")
 		require.NoError(t, err)
-		require.Equal(t, commit1.ID, commitInfo.Commit.ID)
+		require.Equal(t, commit1.Id, commitInfo.Commit.Id)
 
 		// Check that the branch still exists
 		branchInfos, err := env.PachClient.ListBranch(project, repo)
@@ -1611,7 +1611,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
 
-		require.NoError(t, env.PachClient.DropCommitSet(commit.ID))
+		require.NoError(t, env.PachClient.DropCommitSet(commit.Id))
 
 		// The branch has not been deleted, though its head has been replaced with an empty commit
 		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
@@ -1644,7 +1644,7 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		commitInfos, err := env.PachClient.ListCommit(repoProto, repoProto.NewCommit("master", ""), nil, 0)
 		require.NoError(t, err)
@@ -1652,7 +1652,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit, commitInfos[0].Commit)
 		require.Equal(t, int64(4), commitInfos[0].Details.SizeBytes)
 
-		require.NoError(t, env.PachClient.DropCommitSet(commit.ID))
+		require.NoError(t, env.PachClient.DropCommitSet(commit.Id))
 
 		// The branch has not been deleted, though it only has an empty commit
 		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
@@ -1685,7 +1685,7 @@ func TestPFS(suite *testing.T) {
 		data := "data"
 		require.NoError(t, env.PachClient.PutFile(commit, file, strings.NewReader(data)))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		var b bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commit, "file", &b))
@@ -1703,7 +1703,7 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commit1, "foo", &buffer))
@@ -1712,7 +1712,7 @@ func TestPFS(suite *testing.T) {
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit2, "foo", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-		err = finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID)
+		err = finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id)
 		require.NoError(t, err)
 
 		buffer.Reset()
@@ -1737,7 +1737,7 @@ func TestPFS(suite *testing.T) {
 		// fails because the parent commit has not been finished
 		require.YesError(t, err)
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 		_, err = env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 	})
@@ -1766,17 +1766,17 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("1")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit2, "file", strings.NewReader("2")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit3, "file", strings.NewReader("3")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 
 		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master^")
 		require.NoError(t, err)
@@ -1835,7 +1835,7 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 
 		for i := 1; i <= 2; i++ {
-			_, err := env.PachClient.InspectFile(client.NewCommit(pfs.DefaultProjectName, repo, "", fmt.Sprintf("%v^%v", commit3.ID, 3-i)), "file")
+			_, err := env.PachClient.InspectFile(client.NewCommit(pfs.DefaultProjectName, repo, "", fmt.Sprintf("%v^%v", commit3.Id, 3-i)), "file")
 			require.NoError(t, err)
 		}
 
@@ -1906,41 +1906,41 @@ func TestPFS(suite *testing.T) {
 
 		ACommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", ACommit.Branch.Name, ACommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", ACommit.Branch.Name, ACommit.Id))
 
 		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "B", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, ACommit.ID, commitInfo.Commit.ID)
+		require.Equal(t, ACommit.Id, commitInfo.Commit.Id)
 
 		commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, ACommit.ID, commitInfo.Commit.ID)
+		require.Equal(t, ACommit.Id, commitInfo.Commit.Id)
 
 		commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "D", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, ACommit.ID, commitInfo.Commit.ID)
+		require.Equal(t, ACommit.Id, commitInfo.Commit.Id)
 
 		ECommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "E", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "E", ECommit.Branch.Name, ECommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "E", ECommit.Branch.Name, ECommit.Id))
 
 		commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "B", "master", "")
 		require.NoError(t, err)
-		aliasCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "B", "", ECommit.ID)
+		aliasCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "B", "", ECommit.Id)
 		require.NoError(t, err)
-		require.Equal(t, aliasCommitInfo.Commit.ID, commitInfo.Commit.ID)
+		require.Equal(t, aliasCommitInfo.Commit.Id, commitInfo.Commit.Id)
 
 		commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
-		aliasCommitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "C", "", ECommit.ID)
+		aliasCommitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "C", "", ECommit.Id)
 		require.NoError(t, err)
-		require.Equal(t, aliasCommitInfo.Commit.ID, commitInfo.Commit.ID)
+		require.Equal(t, aliasCommitInfo.Commit.Id, commitInfo.Commit.Id)
 
 		commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "D", "master", "")
 		require.NoError(t, err)
-		_, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "D", "", ECommit.ID)
+		_, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "D", "", ECommit.Id)
 		require.NoError(t, err)
-		require.Equal(t, ECommit.ID, commitInfo.Commit.ID)
+		require.Equal(t, ECommit.Id, commitInfo.Commit.Id)
 	})
 
 	suite.Run("CommitBranch", func(t *testing.T) {
@@ -1956,15 +1956,15 @@ func TestPFS(suite *testing.T) {
 		// Now make a commit on the master branch, which should trigger a downstream commit on each of the two branches
 		masterCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "input", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.Id))
 		// Check that the commit in output1 has the information and provenance we expect
 		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "output1", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, masterCommit.ID, commitInfo.Commit.ID)
+		require.Equal(t, masterCommit.Id, commitInfo.Commit.Id)
 		// Check that the commit in output2 has the information and provenance we expect
 		commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "output2", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, masterCommit.ID, commitInfo.Commit.ID)
+		require.Equal(t, masterCommit.Id, commitInfo.Commit.Id)
 	})
 
 	suite.Run("CommitBranchProvenanceMovement", func(t *testing.T) {
@@ -1976,12 +1976,12 @@ func TestPFS(suite *testing.T) {
 		// create two commits on input@master
 		parentCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "input", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "input", parentCommit.Branch.Name, parentCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "input", parentCommit.Branch.Name, parentCommit.Id))
 		masterCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "input", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.Id))
 		// Make input@A set to input@master
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "input", "A", masterCommit.Branch.Name, masterCommit.ID, nil))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "input", "A", masterCommit.Branch.Name, masterCommit.Id, nil))
 		// Now create a branch provenant on input@A
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "output", "C", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "input", "A")}))
 		require.NoError(t, finishCommit(env.PachClient, "output", "C", ""))
@@ -1992,15 +1992,15 @@ func TestPFS(suite *testing.T) {
 		aHead, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "input", "A", "")
 		require.NoError(t, err)
 		// Chain of C should only have one commit, differing from A & B
-		require.NotEqual(t, cHead.Commit.ID, aHead.Commit.ID)
+		require.NotEqual(t, cHead.Commit.Id, aHead.Commit.Id)
 		require.Equal(t, 1, len(cHead.DirectProvenance))
-		require.Equal(t, aHead.Commit.ID, cHead.DirectProvenance[0].ID)
+		require.Equal(t, aHead.Commit.Id, cHead.DirectProvenance[0].Id)
 		// We should be able to squash input@A^
-		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.Id))
 		aHead, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "input", "A", "")
 		require.NoError(t, err)
 		require.Nil(t, aHead.ParentCommit)
-		_, err = env.PFSServer.DropCommitSet(ctx, &pfs.DropCommitSetRequest{CommitSet: &pfs.CommitSet{ID: cHead.Commit.ID}})
+		_, err = env.PFSServer.DropCommitSet(ctx, &pfs.DropCommitSetRequest{CommitSet: &pfs.CommitSet{Id: cHead.Commit.Id}})
 		require.NoError(t, err)
 		cHeadNew, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "output", "C", "")
 		require.NoError(t, err)
@@ -2009,12 +2009,12 @@ func TestPFS(suite *testing.T) {
 		// check C.Head's commit provenance
 		require.Equal(t, 1, len(cHeadNew.DirectProvenance))
 		require.Equal(t, "input", cHeadNew.DirectProvenance[0].Repo.Name)
-		require.Equal(t, aHeadNew.Commit.ID, cHeadNew.DirectProvenance[0].ID)
-		require.NotEqual(t, cHead.Commit.ID, cHeadNew.Commit.ID)
+		require.Equal(t, aHeadNew.Commit.Id, cHeadNew.DirectProvenance[0].Id)
+		require.NotEqual(t, cHead.Commit.Id, cHeadNew.Commit.Id)
 		// It should also be ok to make new commits on branch A
 		aCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "input", "A")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "input", aCommit.Branch.Name, aCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "input", aCommit.Branch.Name, aCommit.Id))
 	})
 
 	// For the "V" shaped DAG:
@@ -2042,14 +2042,14 @@ func TestPFS(suite *testing.T) {
 		commit1, err := c.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo")))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "A", commit1.Branch.Name, commit1.ID))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "A", commit1.Branch.Name, commit1.Id))
 		// Assert that referencing "B" at the latest commit ID gives us the latest "B" commit
-		cis, err := c.InspectCommitSet(commit1.ID)
+		cis, err := c.InspectCommitSet(commit1.Id)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(cis))
-		resolvedAliasCommit, err := c.InspectCommit(pfs.DefaultProjectName, "B", "", commit1.ID)
+		resolvedAliasCommit, err := c.InspectCommit(pfs.DefaultProjectName, "B", "", commit1.Id)
 		require.NoError(t, err)
-		require.Equal(t, ci.Commit.ID, resolvedAliasCommit.Commit.ID)
+		require.Equal(t, ci.Commit.Id, resolvedAliasCommit.Commit.Id)
 
 	})
 
@@ -2111,7 +2111,7 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, finishCommit(c, subv.Repo.Name, subv.Name, ""))
 			}
 			checkpoint(fmt.Sprintf("makeCommit: %v", repos))
-			return &pfs.CommitSet{ID: txnInfo.Transaction.ID}
+			return &pfs.CommitSet{Id: txnInfo.Transaction.Id}
 		}
 		listCommitSets := func() []*pfs.CommitSetInfo {
 			csClient, err := c.ListCommitSet(ctx, &pfs.ListCommitSetRequest{Project: client.NewProject(pfs.DefaultProjectName)})
@@ -2174,7 +2174,7 @@ func TestPFS(suite *testing.T) {
 		checkpoint("good squash latest")
 		css := listCommitSets()
 		require.Equal(t, 18, len(css))
-		require.Equal(t, realLatest.ID, css[0].CommitSet.ID)
+		require.Equal(t, realLatest.Id, css[0].CommitSet.Id)
 		fmt.Println(benches)
 	})
 
@@ -2211,19 +2211,19 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
 
 		// Check that moving the commit to other branches uses the same CommitSet ID and extends the existing CommitSet
-		commitInfos, err := env.PachClient.InspectCommitSet(commit.ID)
+		commitInfos, err := env.PachClient.InspectCommitSet(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master2", commit.Branch.Name, commit.ID, nil))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master2", commit.Branch.Name, commit.Id, nil))
 
-		commitInfos, err = env.PachClient.InspectCommitSet(commit.ID)
+		commitInfos, err = env.PachClient.InspectCommitSet(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master3", commit.Branch.Name, commit.ID, nil))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master3", commit.Branch.Name, commit.Id, nil))
 
-		commitInfos, err = env.PachClient.InspectCommitSet(commit.ID)
+		commitInfos, err = env.PachClient.InspectCommitSet(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -2252,7 +2252,7 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, pinInput, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, finishCommit(env.PachClient, pinInput, "master", commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, pinInput, "master", commit1.Id))
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, pinInput, "pin2", "master", "", nil))
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, output, "master", "", "",
 			[]*pfs.Branch{
@@ -2277,7 +2277,7 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "foo", r))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		fileInfo, err := env.PachClient.InspectFile(commit1, "foo")
 		require.NoError(t, err)
@@ -2324,7 +2324,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
 		require.NoError(t, env.PachClient.PutFile(masterCommit, "file", strings.NewReader("buzz\n"), client.WithAppendPutFile()))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		expected := "foo\nbar\nbuzz\n"
 		buffer := &bytes.Buffer{}
@@ -2351,13 +2351,13 @@ func TestPFS(suite *testing.T) {
 
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "foo", "", commit3.ID, nil))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "foo", "", commit3.Id, nil))
 
 		commit4, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit4, "file", strings.NewReader("foo\nbar\nbuzz\n"), client.WithAppendPutFile()))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.Id))
 
 		// commit 3 should have remained unchanged
 		buffer.Reset()
@@ -2399,7 +2399,7 @@ func TestPFS(suite *testing.T) {
 			})
 		}
 		require.NoError(t, eg.Wait())
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commit, "foo", &buffer))
@@ -2425,7 +2425,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 		checks()
 
 		fileContent2 := "barbar\n"
@@ -2433,7 +2433,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit2, "foo", strings.NewReader(fileContent2), client.WithAppendPutFile()))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		fileInfo, err := env.PachClient.InspectFile(commit2, "foo")
 		require.NoError(t, err)
@@ -2449,7 +2449,7 @@ func TestPFS(suite *testing.T) {
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit3, "bar", strings.NewReader(fileContent3), client.WithAppendPutFile()))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 
 		fis, err := env.PachClient.ListFileAll(commit3, "")
 		require.NoError(t, err)
@@ -2518,7 +2518,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, fileInfo)
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		fi, err := env.PachClient.InspectFile(commit1, "foo/bar")
 		require.NoError(t, err)
@@ -2533,7 +2533,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, fileInfo)
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		fi, err = env.PachClient.InspectFile(commit2, "foo")
 		require.NoError(t, err)
@@ -2543,7 +2543,7 @@ func TestPFS(suite *testing.T) {
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit3, "bar", strings.NewReader(fileContent3)))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 		fi, err = env.PachClient.InspectFile(commit3, "bar")
 		require.NoError(t, err)
 		require.NotNil(t, fi)
@@ -2563,7 +2563,7 @@ func TestPFS(suite *testing.T) {
 		fileContent := "foo\n"
 		require.NoError(t, env.PachClient.PutFile(commit1, "dir/foo", strings.NewReader(fileContent)))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		fileInfo, err := env.PachClient.InspectFile(commit1, "dir/foo")
 		require.NoError(t, err)
@@ -2640,7 +2640,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("file%d", i), strings.NewReader("foo\n")))
 		}
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		fis, err := env.PachClient.ListFileAll(commit1, "")
 		require.NoError(t, err)
@@ -2653,7 +2653,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(commit2, fmt.Sprintf("file2-%d", i), strings.NewReader("foo\n")))
 		}
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		fis, err = env.PachClient.ListFileAll(commit2, "")
 		require.NoError(t, err)
@@ -2694,7 +2694,7 @@ func TestPFS(suite *testing.T) {
 
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		checks()
 	})
 
@@ -2810,7 +2810,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 		// should list a directory but not siblings
 		var fis []*pfs.FileInfo
 		require.NoError(t, env.PachClient.ListFile(commit1, "/dir1", func(fi *pfs.FileInfo) error {
@@ -2841,7 +2841,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader(fileContent)))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		fileInfos, err := env.PachClient.ListFileAll(commit, "")
 		require.NoError(t, err)
@@ -2869,7 +2869,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, env.PachClient.DeleteFile(commit1, "foo"))
 
-		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit1.Branch.Name, commit1.Id))
 
 		_, err = env.PachClient.InspectFile(commit1, "foo")
 		require.YesError(t, err)
@@ -2885,7 +2885,7 @@ func TestPFS(suite *testing.T) {
 		// Empty commit
 		commit2, err := env.PachClient.StartCommit(project, repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit2.Branch.Name, commit2.Id))
 
 		// Should still see one files
 		fileInfos, err = env.PachClient.ListFileAll(commit2, "")
@@ -2897,7 +2897,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(commit3, "bar"))
 
-		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit3.Branch.Name, commit3.Id))
 
 		// Should see no file
 		fileInfos, err = env.PachClient.ListFileAll(commit3, "")
@@ -2911,7 +2911,7 @@ func TestPFS(suite *testing.T) {
 		commit4, err := env.PachClient.StartCommit(project, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(commit4, "nonexistent"))
-		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit4.Branch.Name, commit4.ID))
+		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit4.Branch.Name, commit4.Id))
 	})
 
 	suite.Run("DeleteFile2", func(t *testing.T) {
@@ -2925,14 +2925,14 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("foo\n")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		err = env.PachClient.DeleteFile(commit2, "file")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit2, "file", strings.NewReader("bar\n")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		expected := "bar\n"
 		var buffer bytes.Buffer
@@ -2945,7 +2945,7 @@ func TestPFS(suite *testing.T) {
 		err = env.PachClient.DeleteFile(commit3, "file")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit3, "file", strings.NewReader("foo\n")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 
 		expected = "foo\n"
 		buffer.Reset()
@@ -2965,7 +2965,7 @@ func TestPFS(suite *testing.T) {
 		fileContent := "bar\n"
 		require.NoError(t, env.PachClient.PutFile(commit1, "/bar", strings.NewReader(fileContent)))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/dir2/bar", strings.NewReader(fileContent)))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
@@ -2974,12 +2974,12 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit2, "/dir1/bar", strings.NewReader(fileContent)))
 		require.NoError(t, env.PachClient.PutFile(commit2, "/dir1/dir2/bar", strings.NewReader(fileContent)))
 		require.NoError(t, env.PachClient.PutFile(commit2, "/dir1/dir2/barbar", strings.NewReader(fileContent)))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(commit3, "/dir1/dir2/"))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 
 		_, err = env.PachClient.InspectFile(commit3, "/dir1")
 		require.NoError(t, err)
@@ -2995,7 +2995,7 @@ func TestPFS(suite *testing.T) {
 		commit4, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit4, "/dir1/dir2/bar", strings.NewReader(fileContent)))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.Id))
 
 		_, err = env.PachClient.InspectFile(commit4, "/dir1")
 		require.NoError(t, err)
@@ -3025,7 +3025,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, env.PachClient.DeleteFile(commit1, "/dir/"))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		fileInfos, err := env.PachClient.ListFileAll(commit1, "")
 		require.NoError(t, err)
@@ -3044,7 +3044,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, env.PachClient.PutFile(commit2, "dir/bar", strings.NewReader("bar2")))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		// Should see two files
 		fileInfos, err = env.PachClient.ListFileAll(commit2, "dir")
@@ -3065,7 +3065,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, env.PachClient.DeleteFile(commit3, "/dir/"))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 
 		// Should see zero files
 		fileInfos, err = env.PachClient.ListFileAll(commit3, "")
@@ -3099,7 +3099,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))
 			if i == numCommits/2 {
-				midCommitID = commit.ID
+				midCommitID = commit.Id
 			}
 		}
 
@@ -3192,12 +3192,12 @@ func TestPFS(suite *testing.T) {
 		commit, err := env.PachClient.StartCommit(project, repo, "branch1")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("bar")))
-		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.Id))
 
 		expectedBranches := []string{"branch1", "branch2", "branch3"}
 		expectedCommits := []*pfs.Commit{}
 		for _, branch := range expectedBranches {
-			require.NoError(t, env.PachClient.CreateBranch(project, repo, branch, commit.Branch.Name, commit.ID, nil))
+			require.NoError(t, env.PachClient.CreateBranch(project, repo, branch, commit.Branch.Name, commit.Id, nil))
 			commitInfo, err := env.PachClient.InspectCommit(project, repo, branch, "")
 			require.NoError(t, err)
 			expectedCommits = append(expectedCommits, commitInfo.Commit)
@@ -3270,7 +3270,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < numCommits; i++ {
 			commit, err := env.PachClient.StartCommit(project, repo, "master-v1")
 			require.NoError(t, err)
-			require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.ID))
+			require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.Id))
 		}
 
 		require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -3293,7 +3293,7 @@ func TestPFS(suite *testing.T) {
 				for i := 0; i < numCommits; i++ {
 					commit, err := env.PachClient.StartCommit(project, repo, "master")
 					require.NoError(t, err)
-					require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.ID))
+					require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.Id))
 					nextCommitChan <- commit
 				}
 				return nil
@@ -3320,7 +3320,7 @@ func TestPFS(suite *testing.T) {
 		file2Content := "bar\n"
 		require.NoError(t, env.PachClient.PutFile(commit, "bar", strings.NewReader(file2Content)))
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		info, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
@@ -3355,7 +3355,7 @@ func TestPFS(suite *testing.T) {
 
 		}
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		info, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
@@ -3401,7 +3401,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, "foo\n", buffer.String())
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		checks()
 		t.Run("InvalidCommit", func(t *testing.T) {
 			buffer := bytes.Buffer{}
@@ -3424,7 +3424,7 @@ func TestPFS(suite *testing.T) {
 			data := "data"
 			require.NoError(t, env.PachClient.PutFile(commit, file, strings.NewReader(data)))
 
-			require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+			require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 			for i := 0; i <= len(data); i++ {
 				var b bytes.Buffer
@@ -3478,7 +3478,7 @@ func TestPFS(suite *testing.T) {
 			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 		}
 		wg.Wait()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		var buffer bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commit1, "foo", &buffer))
@@ -3561,7 +3561,7 @@ func TestPFS(suite *testing.T) {
 			}
 		}
 		require.NoError(t, eg.Wait())
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		for i := 0; i < 25; i++ {
 			files, err := env.PachClient.ListFileAll(commit, fmt.Sprintf("dir%d", i))
 			require.NoError(t, err)
@@ -3579,20 +3579,20 @@ func TestPFS(suite *testing.T) {
 
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 
 		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "master", "")
 		require.NoError(t, err)
-		require.Equal(t, commit3.ID, commitInfo.Commit.ID)
+		require.Equal(t, commit3.Id, commitInfo.Commit.Id)
 	})
 
 	suite.Run("CreateBranchTwice", func(t *testing.T) {
@@ -3605,13 +3605,13 @@ func TestPFS(suite *testing.T) {
 
 		commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit1.ID, nil))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit1.Id, nil))
 
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
-		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit2.ID, nil))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
+		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit2.Id, nil))
 
 		branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
@@ -3619,9 +3619,9 @@ func TestPFS(suite *testing.T) {
 		// branches should be returned newest-first
 		require.Equal(t, 2, len(branchInfos))
 		require.Equal(t, "master", branchInfos[0].Branch.Name)
-		require.Equal(t, commit2.ID, branchInfos[0].Head.ID) // aliased branch should have the same commit ID
+		require.Equal(t, commit2.Id, branchInfos[0].Head.Id) // aliased branch should have the same commit ID
 		require.Equal(t, "foo", branchInfos[1].Branch.Name)
-		require.Equal(t, commit2.ID, branchInfos[1].Head.ID) // original branch should remain unchanged
+		require.Equal(t, commit2.Id, branchInfos[1].Head.Id) // original branch should remain unchanged
 	})
 
 	suite.Run("WaitCommitSet", func(t *testing.T) {
@@ -3636,11 +3636,11 @@ func TestPFS(suite *testing.T) {
 
 		ACommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		BCommit := client.NewCommit(pfs.DefaultProjectName, "B", "master", ACommit.ID)
+		BCommit := client.NewCommit(pfs.DefaultProjectName, "B", "master", ACommit.Id)
 		require.NoError(t, finishCommit(env.PachClient, "A", "master", ""))
 		require.NoError(t, finishCommit(env.PachClient, "B", "master", ""))
 
-		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, ACommit, commitInfos[0].Commit)
@@ -3681,11 +3681,11 @@ func TestPFS(suite *testing.T) {
 		}()
 
 		// Wait for the commits to finish
-		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.Id)
 		require.NoError(t, err)
-		BCommit := client.NewCommit(pfs.DefaultProjectName, "B", "master", ACommit.ID)
-		CCommit := client.NewCommit(pfs.DefaultProjectName, "C", "master", ACommit.ID)
-		DCommit := client.NewCommit(pfs.DefaultProjectName, "D", "master", ACommit.ID)
+		BCommit := client.NewCommit(pfs.DefaultProjectName, "B", "master", ACommit.Id)
+		CCommit := client.NewCommit(pfs.DefaultProjectName, "C", "master", ACommit.Id)
+		DCommit := client.NewCommit(pfs.DefaultProjectName, "D", "master", ACommit.Id)
 		require.Equal(t, 4, len(commitInfos))
 		require.Equal(t, ACommit, commitInfos[0].Commit)
 		require.Equal(t, BCommit, commitInfos[1].Commit)
@@ -3715,27 +3715,27 @@ func TestPFS(suite *testing.T) {
 
 		ACommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", ACommit.Branch.Name, ACommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", ACommit.Branch.Name, ACommit.Id))
 		require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 		BCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "B", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "B", BCommit.Branch.Name, BCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "B", BCommit.Branch.Name, BCommit.Id))
 		require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 
 		BCommit, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "B", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "B", BCommit.Branch.Name, BCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "B", BCommit.Branch.Name, BCommit.Id))
 		require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 
 		// The first two commits will be A and B, but they aren't deterministically sorted
-		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
-		require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", ACommit.ID), commitInfos[2].Commit)
-		commitInfos, err = env.PachClient.WaitCommitSetAll(BCommit.ID)
+		require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", ACommit.Id), commitInfos[2].Commit)
+		commitInfos, err = env.PachClient.WaitCommitSetAll(BCommit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
-		require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", BCommit.ID), commitInfos[2].Commit)
+		require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", BCommit.Id), commitInfos[2].Commit)
 	})
 
 	suite.Run("WaitCommitSetWithNoDownstreamRepos", func(t *testing.T) {
@@ -3747,8 +3747,8 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
-		commitInfos, err := env.PachClient.WaitCommitSetAll(commit.ID)
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+		commitInfos, err := env.PachClient.WaitCommitSetAll(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
@@ -3781,11 +3781,11 @@ func TestPFS(suite *testing.T) {
 		})
 
 		// Wait for the commit to finish
-		commitInfos, err := env.PachClient.WaitCommitSetAll(commit.ID)
+		commitInfos, err := env.PachClient.WaitCommitSetAll(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		require.Equal(t, commit, commitInfos[0].Commit)
-		require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "B", "master", commit.ID), commitInfos[1].Commit)
+		require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "B", "master", commit.Id), commitInfos[1].Commit)
 	})
 
 	suite.Run("WaitUninvolvedBranch", func(t *testing.T) {
@@ -3800,7 +3800,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Blocking on a commit that doesn't exist does not work
-		_, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, "B", "master", commit.ID)
+		_, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, "B", "master", commit.Id)
 		require.YesError(t, err)
 	})
 
@@ -4083,7 +4083,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, "/foo", newFis[1].File.Path)
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, c1.Branch.Name, c1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, c1.Branch.Name, c1.Id))
 		checks()
 
 		// Change the value of foo
@@ -4100,7 +4100,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, "/foo", newFis[1].File.Path)
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, c2.Branch.Name, c2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, c2.Branch.Name, c2.Id))
 		checks()
 
 		// Write bar
@@ -4115,7 +4115,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, "/bar", newFis[1].File.Path)
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, c3.Branch.Name, c3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, c3.Branch.Name, c3.Id))
 		checks()
 
 		// Delete bar
@@ -4130,7 +4130,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, 1, len(newFis))
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, c4.Branch.Name, c4.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, c4.Branch.Name, c4.Id))
 		checks()
 
 		// Write dir/fizz and dir/buzz
@@ -4145,7 +4145,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, 4, len(newFis))
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, c5.Branch.Name, c5.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, c5.Branch.Name, c5.Id))
 		checks()
 
 		// Modify dir/fizz
@@ -4161,7 +4161,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, "/dir/fizz", newFis[2].File.Path)
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, c6.Branch.Name, c6.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, c6.Branch.Name, c6.Id))
 		checks()
 	})
 
@@ -4336,7 +4336,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.2", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 		globFile := func(pattern string) []string {
 			var fis []*pfs.FileInfo
 			require.NoError(t, env.PachClient.GlobFile(commit1, pattern, func(fi *pfs.FileInfo) error {
@@ -4371,7 +4371,7 @@ func TestPFS(suite *testing.T) {
 			expected.WriteString(next)
 			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("/data/%010d", i), strings.NewReader(next)))
 		}
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		var output bytes.Buffer
 		rc, err := env.PachClient.GetFileTAR(commit, "/data/*")
@@ -4522,22 +4522,22 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "/files/a", strings.NewReader("foo")))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/files/b", strings.NewReader("bar")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit2, "/files/c", strings.NewReader("baz")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit3, "/files/b", strings.NewReader("foo")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
 
 		commit4, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(commit4, "/files/b"))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.Id))
 
 		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit4, Limit: 0})
 		require.NoError(t, err)
@@ -4560,12 +4560,12 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "/files/a", strings.NewReader("foo")))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/files/b", strings.NewReader("bar")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 		commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit2, "/files/b", strings.NewReader("foo")))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 
 		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit2, Limit: 1})
 		require.NoError(t, err)
@@ -4618,7 +4618,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < numFiles; i++ {
 			require.NoError(t, env.PachClient.PutFile(masterCommit, fmt.Sprintf("files/%d", i), strings.NewReader(fmt.Sprintf("foo %d\n", i))))
 		}
-		require.NoError(t, finishCommit(env.PachClient, repo, masterCommit.Branch.Name, masterCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, masterCommit.Branch.Name, masterCommit.Id))
 
 		for i := 0; i < numFiles; i++ {
 			_, err = env.PachClient.InspectFile(masterCommit, fmt.Sprintf("files/%d", i))
@@ -4630,7 +4630,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CopyFile(otherCommit, "files", masterCommit, "files", client.WithAppendCopyFile()))
 		require.NoError(t, env.PachClient.CopyFile(otherCommit, "file0", masterCommit, "files/0", client.WithAppendCopyFile()))
 		require.NoError(t, env.PachClient.CopyFile(otherCommit, "all", masterCommit, "/", client.WithAppendCopyFile()))
-		require.NoError(t, finishCommit(env.PachClient, repo, otherCommit.Branch.Name, otherCommit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, otherCommit.Branch.Name, otherCommit.Id))
 
 		for i := 0; i < numFiles; i++ {
 			_, err = env.PachClient.InspectFile(otherCommit, fmt.Sprintf("files/%d", i))
@@ -4656,7 +4656,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo2, "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, repo1, "master")}))
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo1, "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo1, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo1, commit.Branch.Name, commit.Id))
 		commits, err := env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, repo2))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commits))
@@ -4741,7 +4741,7 @@ func TestPFS(suite *testing.T) {
 		cCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
 
-		commitInfos, err := env.PachClient.InspectCommitSet(cCommitInfo.Commit.ID)
+		commitInfos, err := env.PachClient.InspectCommitSet(cCommitInfo.Commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(commitInfos))
 	})
@@ -4932,31 +4932,31 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Inspect commit 1 and 2
-		commit1Info, commit2Info := inspect("A", commit1.Branch.Name, commit1.ID), inspect("A", commit2.Branch.Name, commit2.ID)
-		require.Equal(t, commit1.ID, commit2Info.ParentCommit.ID)
+		commit1Info, commit2Info := inspect("A", commit1.Branch.Name, commit1.Id), inspect("A", commit2.Branch.Name, commit2.Id)
+		require.Equal(t, commit1.Id, commit2Info.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{commit2}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit 2 and make sure it's removed from commit1.ChildCommits
-		require.NoError(t, env.PachClient.DropCommitSet(commit2.ID))
-		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
+		require.NoError(t, env.PachClient.DropCommitSet(commit2.Id))
+		commit1Info = inspect("A", commit1.Branch.Name, commit1.Id)
 		require.ElementsEqualUnderFn(t, nil, commit1Info.ChildCommits, CommitToID)
 
 		// Re-create commit2, and create a third commit also extending from commit1.
 		// Make sure both appear in commit1.children
 		commit2, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", commit2.Branch.Name, commit2.Id))
 		commit3, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(pfs.DefaultProjectName, "A", "foo"),
 			Parent: commit1,
 		})
 		require.NoError(t, err)
-		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
+		commit1Info = inspect("A", commit1.Branch.Name, commit1.Id)
 		require.ImagesEqual(t, []*pfs.Commit{commit2, commit3}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit3 and make sure commit1 has the right children
-		require.NoError(t, env.PachClient.DropCommitSet(commit3.ID))
-		commit1Info = inspect("A", commit1.Branch.Name, commit1.ID)
+		require.NoError(t, env.PachClient.DropCommitSet(commit3.Id))
+		commit1Info = inspect("A", commit1.Branch.Name, commit1.Id)
 		require.ImagesEqual(t, []*pfs.Commit{commit2}, commit1Info.ChildCommits, CommitToID)
 
 		// Create a downstream branch in a different repo, then commit to "A" and
@@ -4969,10 +4969,10 @@ func TestPFS(suite *testing.T) {
 		bCommit1 := inspect("B", "master", "")
 		commit3, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", commit3.Branch.Name, commit3.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", commit3.Branch.Name, commit3.Id))
 		// Re-inspect bCommit1, which has been updated by StartCommit
-		bCommit1, bCommit2 := inspect("B", bCommit1.Commit.Branch.Name, bCommit1.Commit.ID), inspect("B", "master", "")
-		require.Equal(t, bCommit1.Commit.ID, bCommit2.ParentCommit.ID)
+		bCommit1, bCommit2 := inspect("B", bCommit1.Commit.Branch.Name, bCommit1.Commit.Id), inspect("B", "master", "")
+		require.Equal(t, bCommit1.Commit.Id, bCommit2.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{bCommit2.Commit}, bCommit1.ChildCommits, CommitToID)
 
 		// create a new branch in a different repo, then update it so that two commits
@@ -4987,8 +4987,8 @@ func TestPFS(suite *testing.T) {
 			client.NewBranch(pfs.DefaultProjectName, "B", "master"),
 		}))
 		// Re-inspect cCommit1, which has been updated by CreateBranch
-		cCommit1, cCommit2 := inspect("C", cCommit1.Commit.Branch.Name, cCommit1.Commit.ID), inspect("C", "master", "")
-		require.Equal(t, cCommit1.Commit.ID, cCommit2.ParentCommit.ID)
+		cCommit1, cCommit2 := inspect("C", cCommit1.Commit.Branch.Name, cCommit1.Commit.Id), inspect("C", "master", "")
+		require.Equal(t, cCommit1.Commit.Id, cCommit2.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{cCommit2.Commit}, cCommit1.ChildCommits, CommitToID)
 	})
 
@@ -5000,13 +5000,13 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.Id))
 		commit2, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(pfs.DefaultProjectName, "A", "master2"),
 			Parent: client.NewCommit(pfs.DefaultProjectName, "A", "master", ""),
 		})
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", commit2.Branch.Name, commit2.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", commit2.Branch.Name, commit2.Id))
 
 		aRepo := client.NewRepo(pfs.DefaultProjectName, "A")
 		commitInfos, err := env.PachClient.ListCommit(aRepo, nil, nil, 0)
@@ -5043,10 +5043,10 @@ func TestPFS(suite *testing.T) {
 		// Create commits in A and B
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.Id))
 		commit, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "B", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "B", commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, "B", commit.Branch.Name, commit.Id))
 		// Check for first output commit in C (plus the old empty head commit)
 		cRepo := client.NewRepo(pfs.DefaultProjectName, "C")
 		commits, err := env.PachClient.ListCommit(cRepo, cRepo.NewCommit("master", ""), nil, 0)
@@ -5084,10 +5084,10 @@ func TestPFS(suite *testing.T) {
 		// Create commits 'a' and 'b'
 		a, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "repo", a.Branch.Name, a.ID))
+		require.NoError(t, finishCommit(env.PachClient, "repo", a.Branch.Name, a.Id))
 		b, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "repo", b.Branch.Name, b.ID))
+		require.NoError(t, finishCommit(env.PachClient, "repo", b.Branch.Name, b.Id))
 
 		// Create 'd' by aliasing 'b' into another branch (force a new CommitSet rather than extending 'b')
 		_, err = env.PachClient.PfsAPIClient.CreateBranch(env.PachClient.Ctx(), &pfs.CreateBranchRequest{
@@ -5098,20 +5098,20 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		d, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master2")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "repo", d.Branch.Name, d.ID))
+		require.NoError(t, finishCommit(env.PachClient, "repo", d.Branch.Name, d.Id))
 
 		// Create 'c'
 		c, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "repo", c.Branch.Name, c.ID))
+		require.NoError(t, finishCommit(env.PachClient, "repo", c.Branch.Name, c.Id))
 
 		// Collect info re: a, b, c, and d, and make sure that the parent/child
 		// relationships are all correct
-		aInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.ID)
+		aInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.Id)
 		require.NoError(t, err)
-		bInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", b.Branch.Name, b.ID)
+		bInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", b.Branch.Name, b.Id)
 		require.NoError(t, err)
-		cInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", c.Branch.Name, c.ID)
+		cInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", c.Branch.Name, c.Id)
 		require.NoError(t, err)
 		dInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master2", "")
 		require.NoError(t, err)
@@ -5119,34 +5119,34 @@ func TestPFS(suite *testing.T) {
 		require.NotNil(t, aInfo.ParentCommit) // this should be the empty default head
 		require.ImagesEqual(t, []*pfs.Commit{b}, aInfo.ChildCommits, CommitToID)
 
-		require.Equal(t, a.ID, bInfo.ParentCommit.ID)
+		require.Equal(t, a.Id, bInfo.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{c, d}, bInfo.ChildCommits, CommitToID)
 
-		require.Equal(t, b.ID, cInfo.ParentCommit.ID)
+		require.Equal(t, b.Id, cInfo.ParentCommit.Id)
 		require.Equal(t, 0, len(cInfo.ChildCommits))
 
-		require.Equal(t, b.ID, dInfo.ParentCommit.ID)
+		require.Equal(t, b.Id, dInfo.ParentCommit.Id)
 		require.Equal(t, 0, len(dInfo.ChildCommits))
 
 		// Delete commit 'b'
-		require.NoError(t, env.PachClient.SquashCommitSet(b.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(b.Id))
 
 		// Collect info re: a, c, and d, and make sure that the parent/child
 		// relationships are still correct
-		aInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.ID)
+		aInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.Id)
 		require.NoError(t, err)
-		cInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", c.Branch.Name, c.ID)
+		cInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", c.Branch.Name, c.Id)
 		require.NoError(t, err)
-		dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.ID)
+		dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.Id)
 		require.NoError(t, err)
 
 		require.NotNil(t, aInfo.ParentCommit)
 		require.ImagesEqual(t, []*pfs.Commit{c, d}, aInfo.ChildCommits, CommitToID)
 
-		require.Equal(t, a.ID, cInfo.ParentCommit.ID)
+		require.Equal(t, a.Id, cInfo.ParentCommit.Id)
 		require.Equal(t, 0, len(cInfo.ChildCommits))
 
-		require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+		require.Equal(t, a.Id, dInfo.ParentCommit.Id)
 		require.Equal(t, 0, len(dInfo.ChildCommits))
 	})
 
@@ -5183,15 +5183,15 @@ func TestPFS(suite *testing.T) {
 		aInfo, err := env.PachClient.InspectCommit(project, "repo", "master", "")
 		require.NoError(t, err)
 		a := aInfo.Commit
-		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", a.Branch.Name, a.ID))
+		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", a.Branch.Name, a.Id))
 		// Create 'd'
 		resp, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(project, "repo", "fod"),
 			Parent: a,
 		})
 		require.NoError(t, err)
-		d := client.NewCommit(project, "repo", resp.Branch.Name, resp.ID)
-		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", resp.Branch.Name, resp.ID))
+		d := client.NewCommit(project, "repo", resp.Branch.Name, resp.Id)
+		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", resp.Branch.Name, resp.Id))
 		// Create 'b'
 		// (a & b have same prov commit in upstream2, so this is the commit that will
 		// be deleted, as both b and c are provenant on it)
@@ -5201,16 +5201,16 @@ func TestPFS(suite *testing.T) {
 		bInfo, err := env.PachClient.InspectCommit(project, "repo", "master", "")
 		require.NoError(t, err)
 		b := bInfo.Commit
-		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", b.Branch.Name, b.ID))
-		require.Equal(t, b.ID, squashMeCommit.ID)
+		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", b.Branch.Name, b.Id))
+		require.Equal(t, b.Id, squashMeCommit.Id)
 		// Create 'e'
 		resp, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(project, "repo", "foe"),
 			Parent: b,
 		})
 		require.NoError(t, err)
-		e := client.NewCommit(project, "repo", resp.Branch.Name, resp.ID)
-		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", resp.Branch.Name, resp.ID))
+		e := client.NewCommit(project, "repo", resp.Branch.Name, resp.Id)
+		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", resp.Branch.Name, resp.Id))
 		// Create 'c'
 		_, err = env.PachClient.StartCommit(project, "repo", "master")
 		require.NoError(t, err)
@@ -5218,37 +5218,37 @@ func TestPFS(suite *testing.T) {
 		cInfo, err := env.PachClient.InspectCommit(project, "repo", "master", "")
 		require.NoError(t, err)
 		c := cInfo.Commit
-		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", c.Branch.Name, c.ID))
+		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", c.Branch.Name, c.Id))
 		// Create 'f'
 		resp, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(project, "repo", "fof"),
 			Parent: c,
 		})
 		require.NoError(t, err)
-		f := client.NewCommit(project, "repo", resp.Branch.Name, resp.ID)
-		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", resp.Branch.Name, resp.ID))
+		f := client.NewCommit(project, "repo", resp.Branch.Name, resp.Id)
+		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", resp.Branch.Name, resp.Id))
 		// Make sure child/parent relationships are as shown in first diagram
 		commits, err := env.PachClient.ListCommit(repoProto, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 6, len(commits))
-		aInfo, err = env.PachClient.InspectCommit(project, "repo", a.Branch.Name, a.ID)
+		aInfo, err = env.PachClient.InspectCommit(project, "repo", a.Branch.Name, a.Id)
 		require.NoError(t, err)
-		bInfo, err = env.PachClient.InspectCommit(project, "repo", b.Branch.Name, b.ID)
+		bInfo, err = env.PachClient.InspectCommit(project, "repo", b.Branch.Name, b.Id)
 		require.NoError(t, err)
-		cInfo, err = env.PachClient.InspectCommit(project, "repo", c.Branch.Name, c.ID)
+		cInfo, err = env.PachClient.InspectCommit(project, "repo", c.Branch.Name, c.Id)
 		require.NoError(t, err)
-		dInfo, err := env.PachClient.InspectCommit(project, "repo", d.Branch.Name, d.ID)
+		dInfo, err := env.PachClient.InspectCommit(project, "repo", d.Branch.Name, d.Id)
 		require.NoError(t, err)
-		eInfo, err := env.PachClient.InspectCommit(project, "repo", e.Branch.Name, e.ID)
+		eInfo, err := env.PachClient.InspectCommit(project, "repo", e.Branch.Name, e.Id)
 		require.NoError(t, err)
-		fInfo, err := env.PachClient.InspectCommit(project, "repo", f.Branch.Name, f.ID)
+		fInfo, err := env.PachClient.InspectCommit(project, "repo", f.Branch.Name, f.Id)
 		require.NoError(t, err)
 		require.Nil(t, aInfo.ParentCommit)
-		require.Equal(t, a.ID, bInfo.ParentCommit.ID)
-		require.Equal(t, a.ID, dInfo.ParentCommit.ID)
-		require.Equal(t, b.ID, cInfo.ParentCommit.ID)
-		require.Equal(t, b.ID, eInfo.ParentCommit.ID)
-		require.Equal(t, c.ID, fInfo.ParentCommit.ID)
+		require.Equal(t, a.Id, bInfo.ParentCommit.Id)
+		require.Equal(t, a.Id, dInfo.ParentCommit.Id)
+		require.Equal(t, b.Id, cInfo.ParentCommit.Id)
+		require.Equal(t, b.Id, eInfo.ParentCommit.Id)
+		require.Equal(t, c.Id, fInfo.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{b, d}, aInfo.ChildCommits, CommitToID)
 		require.ImagesEqual(t, []*pfs.Commit{c, e}, bInfo.ChildCommits, CommitToID)
 		require.ImagesEqual(t, []*pfs.Commit{f}, cInfo.ChildCommits, CommitToID)
@@ -5256,17 +5256,17 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, eInfo.ChildCommits)
 		require.Nil(t, fInfo.ChildCommits)
 		// Delete b
-		require.NoError(t, env.PachClient.SquashCommitSet(squashMeCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(squashMeCommit.Id))
 		// Re-read commit info to get new parents/children
-		aInfo, err = env.PachClient.InspectCommit(project, "repo", a.Branch.Name, a.ID)
+		aInfo, err = env.PachClient.InspectCommit(project, "repo", a.Branch.Name, a.Id)
 		require.NoError(t, err)
-		cInfo, err = env.PachClient.InspectCommit(project, "repo", c.Branch.Name, c.ID)
+		cInfo, err = env.PachClient.InspectCommit(project, "repo", c.Branch.Name, c.Id)
 		require.NoError(t, err)
-		dInfo, err = env.PachClient.InspectCommit(project, "repo", d.Branch.Name, d.ID)
+		dInfo, err = env.PachClient.InspectCommit(project, "repo", d.Branch.Name, d.Id)
 		require.NoError(t, err)
-		eInfo, err = env.PachClient.InspectCommit(project, "repo", e.Branch.Name, e.ID)
+		eInfo, err = env.PachClient.InspectCommit(project, "repo", e.Branch.Name, e.Id)
 		require.NoError(t, err)
-		fInfo, err = env.PachClient.InspectCommit(project, "repo", f.Branch.Name, f.ID)
+		fInfo, err = env.PachClient.InspectCommit(project, "repo", f.Branch.Name, f.Id)
 		require.NoError(t, err)
 		// The head of master should be 'c'
 		// Make sure child/parent relationships are as shown in second diagram. Note
@@ -5276,10 +5276,10 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 5, len(commits))
 		require.Nil(t, aInfo.ParentCommit)
-		require.Equal(t, a.ID, cInfo.ParentCommit.ID)
-		require.Equal(t, a.ID, dInfo.ParentCommit.ID)
-		require.Equal(t, a.ID, eInfo.ParentCommit.ID)
-		require.Equal(t, c.ID, fInfo.ParentCommit.ID)
+		require.Equal(t, a.Id, cInfo.ParentCommit.Id)
+		require.Equal(t, a.Id, dInfo.ParentCommit.Id)
+		require.Equal(t, a.Id, eInfo.ParentCommit.Id)
+		require.Equal(t, c.Id, fInfo.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{d, e, c}, aInfo.ChildCommits, CommitToID)
 		require.ImagesEqual(t, []*pfs.Commit{f}, cInfo.ChildCommits, CommitToID)
 		require.Nil(t, dInfo.ChildCommits)
@@ -5287,7 +5287,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 		masterInfo, err := env.PachClient.InspectBranch(project, "repo", "master")
 		require.NoError(t, err)
-		require.Equal(t, c.ID, masterInfo.Head.ID)
+		require.Equal(t, c.Id, masterInfo.Head.Id)
 	})
 
 	// Tests that when you have the following commit graph in a *downstream* repo:
@@ -5331,15 +5331,15 @@ func TestPFS(suite *testing.T) {
 		aInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
 		require.NoError(t, err)
 		a := aInfo.Commit
-		require.NoError(t, finishCommit(env.PachClient, "repo", a.Branch.Name, a.ID))
+		require.NoError(t, finishCommit(env.PachClient, "repo", a.Branch.Name, a.Id))
 		// Create 'd'
 		resp, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(pfs.DefaultProjectName, "repo", "fod"),
 			Parent: a,
 		})
 		require.NoError(t, err)
-		d := client.NewCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.ID)
-		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.ID))
+		d := client.NewCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.Id)
+		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.Id))
 		// Create 'b'
 		// (a & b have same prov commit in upstream2, so this is the commit that will
 		// be deleted, as both b and c are provenant on it)
@@ -5349,16 +5349,16 @@ func TestPFS(suite *testing.T) {
 		bInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
 		require.NoError(t, err)
 		b := bInfo.Commit
-		require.NoError(t, finishCommit(env.PachClient, "repo", b.Branch.Name, b.ID))
-		require.Equal(t, b.ID, bSquashMeCommit.ID)
+		require.NoError(t, finishCommit(env.PachClient, "repo", b.Branch.Name, b.Id))
+		require.Equal(t, b.Id, bSquashMeCommit.Id)
 		// Create 'e'
 		resp, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(pfs.DefaultProjectName, "repo", "foe"),
 			Parent: b,
 		})
 		require.NoError(t, err)
-		e := client.NewCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.ID)
-		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.ID))
+		e := client.NewCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.Id)
+		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.Id))
 		// Create 'c'
 		_, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "upstream2", "master")
 		require.NoError(t, err)
@@ -5366,37 +5366,37 @@ func TestPFS(suite *testing.T) {
 		cInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
 		require.NoError(t, err)
 		cSquashMeToo := cInfo.Commit
-		require.NoError(t, finishCommit(env.PachClient, "repo", cSquashMeToo.Branch.Name, cSquashMeToo.ID))
+		require.NoError(t, finishCommit(env.PachClient, "repo", cSquashMeToo.Branch.Name, cSquashMeToo.Id))
 		// Create 'f'
 		resp, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch(pfs.DefaultProjectName, "repo", "fof"),
 			Parent: cSquashMeToo,
 		})
 		require.NoError(t, err)
-		f := client.NewCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.ID)
-		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.ID))
+		f := client.NewCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.Id)
+		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.Id))
 		// Make sure child/parent relationships are as shown in first diagram
 		commits, err := env.PachClient.ListCommit(repoProto, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 6, len(commits))
-		aInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.ID)
+		aInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.Id)
 		require.NoError(t, err)
-		bInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", b.Branch.Name, b.ID)
+		bInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", b.Branch.Name, b.Id)
 		require.NoError(t, err)
-		cInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", cSquashMeToo.Branch.Name, cSquashMeToo.ID)
+		cInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", cSquashMeToo.Branch.Name, cSquashMeToo.Id)
 		require.NoError(t, err)
-		dInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.ID)
+		dInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.Id)
 		require.NoError(t, err)
-		eInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", e.Branch.Name, e.ID)
+		eInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", e.Branch.Name, e.Id)
 		require.NoError(t, err)
-		fInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", f.Branch.Name, f.ID)
+		fInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", f.Branch.Name, f.Id)
 		require.NoError(t, err)
 		require.Nil(t, aInfo.ParentCommit)
-		require.Equal(t, a.ID, bInfo.ParentCommit.ID)
-		require.Equal(t, a.ID, dInfo.ParentCommit.ID)
-		require.Equal(t, b.ID, cInfo.ParentCommit.ID)
-		require.Equal(t, b.ID, eInfo.ParentCommit.ID)
-		require.Equal(t, cSquashMeToo.ID, fInfo.ParentCommit.ID)
+		require.Equal(t, a.Id, bInfo.ParentCommit.Id)
+		require.Equal(t, a.Id, dInfo.ParentCommit.Id)
+		require.Equal(t, b.Id, cInfo.ParentCommit.Id)
+		require.Equal(t, b.Id, eInfo.ParentCommit.Id)
+		require.Equal(t, cSquashMeToo.Id, fInfo.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{b, d}, aInfo.ChildCommits, CommitToID)
 		require.ImagesEqual(t, []*pfs.Commit{cSquashMeToo, e}, bInfo.ChildCommits, CommitToID)
 		require.ImagesEqual(t, []*pfs.Commit{f}, cInfo.ChildCommits, CommitToID)
@@ -5405,9 +5405,9 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 		// Delete second commit in upstream1, which deletes b
 		// didn't work, because commit set c depends on commit set b via repo.'c' on upstream1.'b'
-		require.YesError(t, env.PachClient.SquashCommitSet(bSquashMeCommit.ID))
+		require.YesError(t, env.PachClient.SquashCommitSet(bSquashMeCommit.Id))
 		// now squash commit sets c
-		require.YesError(t, env.PachClient.SquashCommitSet(cSquashMeToo.ID))
+		require.YesError(t, env.PachClient.SquashCommitSet(cSquashMeToo.Id))
 		// still doesn't work, because we would be deleting the heads of upstream1 & upstream2. To successfully squash, we need to push another commit set.
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -5423,16 +5423,16 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, finishCommit(env.PachClient, "repo", "master", ""))
 		// try squashing b & c again
 		// now squash commit sets b & c
-		require.NoError(t, env.PachClient.SquashCommitSet(cSquashMeToo.ID))
-		require.NoError(t, env.PachClient.SquashCommitSet(bSquashMeCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(cSquashMeToo.Id))
+		require.NoError(t, env.PachClient.SquashCommitSet(bSquashMeCommit.Id))
 		// Re-read commit info to get new parents/children
-		aInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.ID)
+		aInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.Id)
 		require.NoError(t, err)
-		dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.ID)
+		dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.Id)
 		require.NoError(t, err)
-		eInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", e.Branch.Name, e.ID)
+		eInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", e.Branch.Name, e.Id)
 		require.NoError(t, err)
-		fInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", f.Branch.Name, f.ID)
+		fInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", f.Branch.Name, f.Id)
 		require.NoError(t, err)
 		gInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
 		require.NoError(t, err)
@@ -5444,10 +5444,10 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 5, len(commits))
 		require.Nil(t, aInfo.ParentCommit)
-		require.Equal(t, a.ID, dInfo.ParentCommit.ID)
-		require.Equal(t, a.ID, eInfo.ParentCommit.ID)
-		require.Equal(t, a.ID, fInfo.ParentCommit.ID)
-		require.Equal(t, a.ID, gInfo.ParentCommit.ID)
+		require.Equal(t, a.Id, dInfo.ParentCommit.Id)
+		require.Equal(t, a.Id, eInfo.ParentCommit.Id)
+		require.Equal(t, a.Id, fInfo.ParentCommit.Id)
+		require.Equal(t, a.Id, gInfo.ParentCommit.Id)
 		require.ImagesEqual(t, []*pfs.Commit{d, e, f, gInfo.Commit}, aInfo.ChildCommits, CommitToID)
 		require.Nil(t, dInfo.ChildCommits)
 		require.Nil(t, eInfo.ChildCommits)
@@ -5455,7 +5455,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, gInfo.ChildCommits)
 		masterInfo, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, "repo", "master")
 		require.NoError(t, err)
-		require.Equal(t, gInfo.Commit.ID, masterInfo.Head.ID)
+		require.Equal(t, gInfo.Commit.Id, masterInfo.Head.Id)
 	})
 
 	suite.Run("CommitState", func(t *testing.T) {
@@ -5670,7 +5670,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, len(expectedPaths), i)
 		}
 		checks()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		checks()
 	})
 
@@ -5687,7 +5687,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.2", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 		walkFile := func(path string) []string {
 			var fis []*pfs.FileInfo
 			require.NoError(t, env.PachClient.WalkFile(commit1, path, func(fi *pfs.FileInfo) error {
@@ -5779,7 +5779,7 @@ func TestPFS(suite *testing.T) {
 			require.True(t, fileInfo.SizeBytes > 0)
 		}
 		check()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		check()
 	})
 
@@ -5810,7 +5810,7 @@ func TestPFS(suite *testing.T) {
 			}
 		}
 		check()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		check()
 	})
 
@@ -5849,7 +5849,7 @@ func TestPFS(suite *testing.T) {
 			}
 		}
 		check()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		check()
 	})
 
@@ -5893,7 +5893,7 @@ func TestPFS(suite *testing.T) {
 			}
 		}
 		check()
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 		check()
 	})
 
@@ -6016,7 +6016,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "input", "staging", ""), "file", strings.NewReader("foo")))
 		commitInfoA, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "input", "staging", "")
 		require.NoError(t, err)
-		commitsetID := commitInfoA.Commit.ID
+		commitsetID := commitInfoA.Commit.Id
 
 		commitInfos, err := env.PachClient.WaitCommitSetAll(commitsetID)
 		require.NoError(t, err)
@@ -6027,26 +6027,26 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, finishCommit(env.PachClient, "output1", "staging", ""))
 		commitInfoB, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "input", "master", "")
 		require.NoError(t, err)
-		require.Equal(t, commitsetID, commitInfoB.Commit.ID)
+		require.Equal(t, commitsetID, commitInfoB.Commit.Id)
 		commitInfos, err = env.PachClient.WaitCommitSetAll(commitsetID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos)) // only input@master. output1@staging should now have a commit that's provenant on input@master
 		outputStagingCi, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "output1", "staging", "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfoB.Commit.Repo, outputStagingCi.DirectProvenance[0].Repo)
-		require.Equal(t, commitInfoB.Commit.ID, outputStagingCi.DirectProvenance[0].ID)
+		require.Equal(t, commitInfoB.Commit.Id, outputStagingCi.DirectProvenance[0].Id)
 		// now kick off output2@staging by fast-forwarding output1@master -> output1@staging
 		require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "output1", "master", "staging", "", nil))
 		require.NoError(t, finishCommit(env.PachClient, "output2", "staging", ""))
 		output1Master, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "output1", "master", "")
 		require.NoError(t, err)
-		commitInfos, err = env.PachClient.WaitCommitSetAll(output1Master.Commit.ID)
+		commitInfos, err = env.PachClient.WaitCommitSetAll(output1Master.Commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfos))
 		output2StagingCi, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "output2", "staging", "")
 		require.NoError(t, err)
 		require.Equal(t, outputStagingCi.Commit.Repo, output2StagingCi.DirectProvenance[0].Repo)
-		require.Equal(t, outputStagingCi.Commit.ID, output2StagingCi.DirectProvenance[0].ID)
+		require.Equal(t, outputStagingCi.Commit.Id, output2StagingCi.DirectProvenance[0].Id)
 	})
 
 	suite.Run("SquashCommitEmptyChild", func(t *testing.T) {
@@ -6067,7 +6067,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// squash fails, child is still open
-		err = env.PachClient.SquashCommitSet(commitA.ID)
+		err = env.PachClient.SquashCommitSet(commitA.Id)
 		require.YesError(t, err)
 		require.Matches(t, "cannot squash until child commit .* is finished", err.Error())
 
@@ -6077,7 +6077,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// now squashing succeeds
-		require.NoError(t, env.PachClient.SquashCommitSet(commitA.ID))
+		require.NoError(t, env.PachClient.SquashCommitSet(commitA.Id))
 
 		var b bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(commitB, file, &b))
@@ -6167,7 +6167,7 @@ func TestPFS(suite *testing.T) {
 			}, seedStr(seed))
 			// Retry finish commit until it eventually succeeds.
 			monkeyRetry(t, func() error {
-				return finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID)
+				return finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id)
 			}, seedStr(seed))
 			// Retry get file until it eventually succeeds (after commit is finished).
 			monkeyRetry(t, func() error {
@@ -6414,16 +6414,16 @@ func TestPFS(suite *testing.T) {
 				branch := inputBranches[r.Intn(len(inputBranches))]
 				commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, branch.Repo.Name, branch.Name)
 				require.NoError(t, err)
-				require.NoError(t, finishCommit(env.PachClient, branch.Repo.Name, branch.Name, commit.ID))
+				require.NoError(t, finishCommit(env.PachClient, branch.Repo.Name, branch.Name, commit.Id))
 				// find and finish all commits in output branches, too
-				infos, err := env.PachClient.InspectCommitSet(commit.ID)
+				infos, err := env.PachClient.InspectCommitSet(commit.Id)
 				require.NoError(t, err)
 				for _, info := range infos {
-					if info.Commit.ID != commit.ID {
+					if info.Commit.Id != commit.Id {
 						continue
 					}
 					require.NoError(t, finishCommit(env.PachClient,
-						info.Commit.Branch.Repo.Name, info.Commit.Branch.Name, commit.ID))
+						info.Commit.Branch.Repo.Name, info.Commit.Branch.Name, commit.Id))
 				}
 				commits = append(commits, commit)
 			case squashCommitSet:
@@ -6433,9 +6433,9 @@ func TestPFS(suite *testing.T) {
 				i := r.Intn(len(commits))
 				commit := commits[i]
 
-				err := env.PachClient.SquashCommitSet(commit.ID)
+				err := env.PachClient.SquashCommitSet(commit.Id)
 				if pfsserver.IsSquashWithoutChildrenErr(err) {
-					err = env.PachClient.DropCommitSet(commit.ID)
+					err = env.PachClient.DropCommitSet(commit.Id)
 					if pfsserver.IsDropWithChildrenErr(err) {
 						// The commitset cannot be squashed or dropped as some commits have children and some commits don't
 						continue
@@ -6607,36 +6607,36 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 			require.NoError(t, err)
-			head := bi.Head.ID
+			head := bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader(strings.Repeat("a", units.KB))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 			require.NoError(t, err)
-			head = bi.Head.ID
+			head = bi.Head.Id
 
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 
 			// Output branch should have a commit now
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 
-			resolvedAlias, err := c.InspectCommit(pfs.DefaultProjectName, "in", "", bi.Head.ID)
+			resolvedAlias, err := c.InspectCommit(pfs.DefaultProjectName, "in", "", bi.Head.Id)
 			require.NoError(t, err)
-			require.Equal(t, head, resolvedAlias.Commit.ID)
+			require.Equal(t, head, resolvedAlias.Commit.Id)
 
 			// Put a file that will cause the trigger to go off
 			require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "out", "master", ""), "file", strings.NewReader(strings.Repeat("a", units.KB))))
@@ -6645,12 +6645,12 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
-			head = bi.Head.ID
+			head = bi.Head.Id
 
 			// Output trigger should have triggered
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 		})
 
 		t.Run("Cron", func(t *testing.T) {
@@ -6667,7 +6667,7 @@ func TestPFS(suite *testing.T) {
 			bi, err := c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
-			head := bi.Head.ID
+			head := bi.Head.Id
 
 			// Second commit should not trigger the cron because less than a
 			// minute has passed
@@ -6676,7 +6676,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 
 			time.Sleep(time.Minute)
 			// Third commit should trigger the cron because a minute has passed
@@ -6685,7 +6685,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 		})
 
 		t.Run("Count", func(t *testing.T) {
@@ -6720,7 +6720,7 @@ func TestPFS(suite *testing.T) {
 			// The trigger commit should have the same ID as the master commit
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "master")
 			require.NoError(t, err)
-			require.Equal(t, head.ID, bi.Head.ID)
+			require.Equal(t, head.Id, bi.Head.Id)
 
 			// Third commit shouldn't trigger
 			require.NoError(t, c.PutFile(masterHead, "file3", strings.NewReader("fizz")))
@@ -6742,7 +6742,7 @@ func TestPFS(suite *testing.T) {
 			// The trigger commit should have the same ID as the master commit
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "count", "master")
 			require.NoError(t, err)
-			require.Equal(t, head.ID, bi.Head.ID)
+			require.Equal(t, head.Id, bi.Head.Id)
 		})
 
 		t.Run("Or", func(t *testing.T) {
@@ -6761,22 +6761,22 @@ func TestPFS(suite *testing.T) {
 			bi, err := c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
-			head := bi.Head.ID
+			head := bi.Head.Id
 			// This one doesn't because none of them are satisfied
 			require.NoError(t, c.PutFile(orCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 			// This one triggers because we hit 100 bytes
 			require.NoError(t, c.PutFile(orCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
-			head = bi.Head.ID
+			require.NotEqual(t, head, bi.Head.Id)
+			head = bi.Head.Id
 
 			// This one doesn't trigger
 			require.NoError(t, c.PutFile(orCommit, "file4", strings.NewReader(strings.Repeat("a", 1))))
@@ -6784,22 +6784,22 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 			// This one neither
 			require.NoError(t, c.PutFile(orCommit, "file5", strings.NewReader(strings.Repeat("a", 1))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 			// This one does, because it's 3 commits
 			require.NoError(t, c.PutFile(orCommit, "file6", strings.NewReader(strings.Repeat("a", 1))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
-			head = bi.Head.ID
+			require.NotEqual(t, head, bi.Head.Id)
+			head = bi.Head.Id
 
 			// This one doesn't trigger
 			require.NoError(t, c.PutFile(orCommit, "file7", strings.NewReader(strings.Repeat("a", 1))))
@@ -6807,7 +6807,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 
 			time.Sleep(time.Minute)
 
@@ -6816,7 +6816,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 		})
 
 		t.Run("And", func(t *testing.T) {
@@ -6835,7 +6835,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err := c.InspectBranch(pfs.DefaultProjectName, "and", "master")
 			require.NoError(t, err)
-			head := bi.Head.ID
+			head := bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
@@ -6856,7 +6856,7 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
-			head = bi.Head.ID
+			head = bi.Head.Id
 
 			// Doesn't trigger because all 3 conditions must be met
 			require.NoError(t, c.PutFile(andCommit, "file4", strings.NewReader(strings.Repeat("a", 100))))
@@ -6864,7 +6864,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 
 			// Still no trigger, not enough time or commits
 			require.NoError(t, c.PutFile(andCommit, "file5", strings.NewReader(strings.Repeat("a", 100))))
@@ -6872,7 +6872,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 
 			// Still no trigger, not enough time
 			require.NoError(t, c.PutFile(andCommit, "file6", strings.NewReader(strings.Repeat("a", 100))))
@@ -6880,7 +6880,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 
 			time.Sleep(time.Minute)
 
@@ -6890,7 +6890,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "and", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 		})
 
 		t.Run("Chain", func(t *testing.T) {
@@ -6911,7 +6911,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err := c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
-			head := bi.Head.ID
+			head := bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
@@ -6925,13 +6925,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
-			head = bi.Head.ID
+			head = bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
@@ -6939,13 +6939,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
-			head = bi.Head.ID
+			head = bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 
 			// Triggers b and c
 			require.NoError(t, c.PutFile(aCommit, "file4", strings.NewReader(strings.Repeat("a", 50))))
@@ -6953,13 +6953,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
-			head = bi.Head.ID
+			head = bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.Id)
 
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file5", strings.NewReader(strings.Repeat("a", 50))))
@@ -6967,13 +6967,13 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
-			head = bi.Head.ID
+			head = bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 		})
 
 		t.Run("BranchMovement", func(t *testing.T) {
@@ -6989,11 +6989,11 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, err)
 			bi, err := c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "a")
 			require.NoError(t, err)
-			head := bi.Head.ID
+			head := bi.Head.Id
 			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "a", "", nil))
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.NotEqual(t, head, bi.Head.Id)
 
 			require.NoError(t, c.PutFile(moveCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
@@ -7002,7 +7002,7 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
-			cHead := bi.Head.ID
+			cHead := bi.Head.Id
 
 			require.NoError(t, c.PutFile(moveCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
 			_, err = c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
@@ -7011,7 +7011,7 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
-			require.Equal(t, cHead, bi.Head.ID)
+			require.Equal(t, cHead, bi.Head.Id)
 		})
 	})
 
@@ -7126,7 +7126,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFileTAR(commit1, fsSpec.makeTarStream()))
 			runtime.GC()
 		}
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 	})
 
 	suite.Run("ModifyFileGRPC", func(subsuite *testing.T) {

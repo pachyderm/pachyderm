@@ -83,9 +83,9 @@ func pipelineCommitKey(commit *pfs.Commit) (string, error) {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
 	if projectName := commit.Repo.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s@%s", projectName, commit.Repo.Name, commit.ID), nil
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Repo.Name, commit.Id), nil
 	}
-	return fmt.Sprintf("%s@%s", commit.Repo.Name, commit.ID), nil
+	return fmt.Sprintf("%s@%s", commit.Repo.Name, commit.Id), nil
 }
 
 // Pipelines returns a PostgresCollection of pipelines
@@ -136,7 +136,7 @@ var JobsTerminalIndex = &col.Index{
 var JobsJobSetIndex = &col.Index{
 	Name: "jobset",
 	Extract: func(val proto.Message) string {
-		return val.(*pps.JobInfo).Job.ID
+		return val.(*pps.JobInfo).Job.Id
 	},
 }
 
@@ -146,7 +146,7 @@ var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetI
 // key.  It will include the project if the project name is not the empty
 // string.
 func JobKey(j *pps.Job) string {
-	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)
+	return fmt.Sprintf("%s@%s", j.Pipeline, j.Id)
 }
 
 // Jobs returns a PostgresCollection of Jobs

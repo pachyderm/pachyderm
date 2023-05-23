@@ -403,12 +403,12 @@ func TestMountCommit(t *testing.T) {
 	c1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.Id))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "repo", "dev", "master", "", nil))
 	c2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "dev")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.Id))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {

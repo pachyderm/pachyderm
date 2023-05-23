@@ -147,7 +147,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err := bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -170,7 +170,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -201,7 +201,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID)) // # commits = 1
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id)) // # commits = 1
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataCommit, "/file", buf))
 	require.Equal(t, "1", buf.String())
@@ -219,7 +219,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -246,7 +246,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -923,7 +923,7 @@ func TestStopJob(t *testing.T) {
 		if len(jobs) != 1 {
 			return errors.Errorf("expected one job but got %d", len(jobs))
 		}
-		jobID = jobs[0].Job.ID
+		jobID = jobs[0].Job.Id
 		return nil
 	})
 
@@ -1377,7 +1377,7 @@ func TestListJob(t *testing.T) {
 	jobs, err := aliceClient.ListJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	jobID := jobs[0].Job.ID
+	jobID := jobs[0].Job.Id
 
 	// bob cannot call ListJob on 'pipeline'
 	_, err = bobClient.ListJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
@@ -1406,11 +1406,11 @@ func TestListJob(t *testing.T) {
 	jobs, err = bobClient.ListJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	require.Equal(t, jobID, jobs[0].Job.ID)
+	require.Equal(t, jobID, jobs[0].Job.Id)
 	jobs, err = bobClient.ListJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	require.Equal(t, jobID, jobs[0].Job.ID)
+	require.Equal(t, jobID, jobs[0].Job.Id)
 }
 
 // TestInspectDatum tests InspectDatum runs even when auth is activated
@@ -1450,7 +1450,7 @@ func TestInspectDatum(t *testing.T) {
 	jobs, err := aliceClient.ListJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	jobID := jobs[0].Job.ID
+	jobID := jobs[0].Job.Id
 
 	// ListDatum seems like it may return inconsistent results, so sleep until
 	// the /stats branch is written
@@ -1460,7 +1460,7 @@ func TestInspectDatum(t *testing.T) {
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
-			if _, err := aliceClient.InspectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.ID); err != nil {
+			if _, err := aliceClient.InspectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.Id); err != nil {
 				continue
 			}
 		}
@@ -1821,7 +1821,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	))
 
 	// Wait for pipeline to finish
-	_, err = aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+	_, err = aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 	require.NoError(t, err)
 
 	// alice calls 'list job'
@@ -1838,7 +1838,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	jobs2, err := aliceClient.ListJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
-	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
+	require.Equal(t, jobs[0].Job.Id, jobs2[0].Job.Id)
 }
 
 // TestDeleteFailedPipeline creates a pipeline with an invalid image and then
@@ -1877,7 +1877,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// make sure the pipeline failure doesn't cause waits to block indefinitely
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitCommitSetAll(commitInfo.Commit.ID)
+		_, err := aliceClient.WaitCommitSetAll(commitInfo.Commit.Id)
 		return err
 	})
 }
@@ -2121,7 +2121,7 @@ func TestPutFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
 	check()
 }
 
@@ -2182,7 +2182,7 @@ func TestGetFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
 	check()
 }
 
@@ -2450,7 +2450,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 

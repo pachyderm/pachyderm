@@ -66,7 +66,7 @@ func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 					Id:                  "localhost",
 					Address:             "grpc://localhost:1653",
 					UserAddress:         "grpc://localhost:1653",
-					ClusterDeploymentId: clusterInfo.DeploymentID,
+					ClusterDeploymentId: clusterInfo.DeploymentId,
 					EnterpriseServer:    true,
 				})
 			if err != nil {

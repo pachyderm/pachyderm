@@ -214,8 +214,8 @@ func (d *Datum) handleFailed(err error) {
 	d.meta.State = State_FAILED
 	d.meta.Reason = err.Error()
 	d.set.stats.Failed++
-	if d.set.stats.FailedID == "" {
-		d.set.stats.FailedID = d.ID
+	if d.set.stats.FailedId == "" {
+		d.set.stats.FailedId = d.ID
 	}
 }
 

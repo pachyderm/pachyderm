@@ -9,8 +9,6 @@ import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/any.proto";
 
-import "gogoproto/gogo.proto";
-
 import "auth/auth.proto";
 
 import "task/task.proto";
@@ -111,7 +109,7 @@ message CommitOrigin {
 // protos)
 message Commit {
   Repo repo = 3;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
   // only used by the client
   Branch branch = 1;
 }
@@ -142,7 +140,7 @@ message CommitInfo {
 }
 
 message CommitSet {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }
 
 message CommitSetInfo {
