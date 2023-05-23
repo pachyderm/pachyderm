@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -371,7 +372,7 @@ func TestHeartbeat(t *testing.T) {
 	require.Equal(t, 1, len(newClusters.Clusters))
 	require.Equal(t, true, newClusters.Clusters[0].AuthEnabled)
 	require.Equal(t, "some weird version", newClusters.Clusters[0].Version)
-	require.True(t, newClusters.Clusters[0].LastHeartbeat.After(*clusters.Clusters[0].LastHeartbeat))
+	require.True(t, protoutil.MustTime(newClusters.Clusters[0].LastHeartbeat).After(protoutil.MustTime(clusters.Clusters[0].LastHeartbeat)))
 }
 
 // TestHeartbeatWrongSecret tests that Heartbeat doesn't update the record if the shared secret is incorrect

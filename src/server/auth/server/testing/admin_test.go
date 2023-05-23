@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -518,7 +519,7 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 
 	// Generate auth credentials
 	robotUser := tu.UniqueString("rock-em-sock-em")
-	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, TTL: 600})
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, Ttl: 600})
 	require.NoError(t, err)
 	token1 := resp.Token
 	robotClient1 := tu.UnauthenticatedPachClient(t, c)
@@ -529,8 +530,8 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tu.Robot(robotUser), who.Username)
 
-	require.True(t, who.Expiration.After(time.Now()))
-	require.True(t, who.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
+	require.True(t, protoutil.MustTime(who.Expiration).After(time.Now()))
+	require.True(t, protoutil.MustTime(who.Expiration).Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response

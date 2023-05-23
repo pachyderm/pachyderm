@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -1936,10 +1937,10 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 	noExpirationResp, noExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice"})
 	require.NoError(t, noExpErr)
 
-	fastExpirationResp, fastExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", TTL: 1})
+	fastExpirationResp, fastExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", Ttl: 1})
 	require.NoError(t, fastExpErr)
 
-	slowExpirationResp, slowExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", TTL: 1000})
+	slowExpirationResp, slowExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", Ttl: 1000})
 	require.NoError(t, slowExpErr)
 
 	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
@@ -2304,7 +2305,7 @@ func TestExtractAuthToken(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// Create a token with a TTL and confirm it is extracted with an expiration
-	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", TTL: 1000})
+	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", Ttl: 1000})
 	require.NoError(t, err)
 
 	// Create a token without a TTL and confirm it is extracted
@@ -2322,7 +2323,7 @@ func TestExtractAuthToken(t *testing.T) {
 			if token.HashedToken == hash {
 				require.Equal(t, subject, token.Subject)
 				if expires {
-					require.True(t, token.Expiration.After(time.Now()))
+					require.True(t, protoutil.MustTime(token.Expiration).After(time.Now()))
 				} else {
 					require.Nil(t, token.Expiration)
 				}
@@ -2379,7 +2380,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	// restore a token with an expiration date in the past
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
 	pastExpiration := time.Now().Add(-1 * time.Minute)
-	req.Token.Expiration = &pastExpiration
+	req.Token.Expiration = protoutil.MustTimestamp(pastExpiration)
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.YesError(t, err)
@@ -2388,7 +2389,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	// restore a token with an expiration date in the future
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
 	futureExpiration := time.Now().Add(10 * time.Minute)
-	req.Token.Expiration = &futureExpiration
+	req.Token.Expiration = protoutil.MustTimestamp(futureExpiration)
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.NoError(t, err)
@@ -2399,8 +2400,8 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// Relying on time.Now is gross but the token should have a TTL in the
 	// next 10 minutes
-	require.True(t, whoAmIResp.Expiration.After(time.Now()))
-	require.True(t, whoAmIResp.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
+	require.True(t, protoutil.MustTime(whoAmIResp.Expiration).After(time.Now()))
+	require.True(t, protoutil.MustTime(whoAmIResp.Expiration).Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access

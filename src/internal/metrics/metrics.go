@@ -261,7 +261,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 
 	resp, err := r.env.AuthServer().GetRobotToken(ctx, &auth_client.GetRobotTokenRequest{
 		Robot: metricsUsername,
-		TTL:   int64(reportingInterval.Seconds() / 2),
+		Ttl:   int64(reportingInterval.Seconds() / 2),
 	})
 	if err != nil && !auth_client.IsErrNotActivated(err) {
 		log.Error(pctx.TODO(), "Error getting metics auth token", zap.Error(err))
