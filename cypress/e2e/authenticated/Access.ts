@@ -21,7 +21,6 @@ after(() => {
 
 describe('Access', () => {
   beforeEach(() => {
-    cy.visit('/');
     cy.findAllByText(/^View(\sProject)*$/)
       .eq(0)
       .click();
@@ -48,8 +47,6 @@ describe('Access', () => {
 
 describe('Header', () => {
   it('when in Enterprise Edition the header shows the correct app name', () => {
-    cy.visit('/');
-
     cy.findByRole('banner').findByRole('heading', {
       name: 'HPE ML Data Management',
     });
