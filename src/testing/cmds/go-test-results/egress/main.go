@@ -49,9 +49,9 @@ func main() {
 	log.InitPachctlLogger()
 	var ctx = pctx.Background("")
 	log.Info(ctx, "Running DB Migrate")
-	_, err := exec.Command("tern", "migrate").CombinedOutput()
+	out, err := exec.Command("tern", "migrate").CombinedOutput()
 	if err != nil {
-		log.Exit(ctx, "Error running migrates.", zap.Error(err))
+		log.Exit(ctx, "Error running migrates.", zap.ByteString("Migrate output", out), zap.Error(err))
 	}
 	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
 	inputFolder := os.Args[1]
