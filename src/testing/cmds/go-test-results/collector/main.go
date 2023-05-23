@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,8 +15,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -30,7 +32,6 @@ const (
 )
 
 var pachdAddress = findPachdAddress()
-var logger = log.Default()
 var invalidCharacters = regexp.MustCompile("[^a-zA-Z0-9-_]+")
 
 func findPachdAddress() string {
@@ -43,22 +44,23 @@ func findPachdAddress() string {
 
 // This runs in circle-ci pipelines and sends the raw test data to pachyderm for transform.
 func main() {
-	logger.Println("Beginning results upload.")
+	log.InitPachctlLogger()
+	ctx := pctx.Background("")
 	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
 	if len(robotToken) == 0 {
-		logger.Println("No pachyderm robot token found. Continuing with unauthenticated pach client.")
+		log.Info(ctx, "No pachyderm robot token found. Continuing with unauthenticated pach client.")
 	}
 	resultsFolder := os.Getenv("TEST_RESULTS")
 	if len(resultsFolder) == 0 {
-		logger.Fatal("TEST_RESULTS needs to be populated to find the test results folder.")
+		log.Exit(ctx, "TEST_RESULTS needs to be populated to find the test results folder.")
 	}
 	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
-		logger.Fatalf("The test result folder at %v does not exist. Exiting early.", resultsFolder)
+		log.Exit(ctx, "The test result folder at %v does not exist. Exiting early.", zap.String("resultsFolder", resultsFolder))
 	}
 	// connect and authenticate to pachyderm
 	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
 	if err != nil {
-		logger.Fatalf("Problem provisioning pach client: %v", err)
+		log.Exit(ctx, "Problem provisioning pach client: %v", zap.Error(err))
 	}
 	pachClient.SetAuthToken(robotToken)
 	// retry in case the parent commit is still in progress from another pipeline
@@ -66,28 +68,28 @@ func main() {
 	for i := 0; i < commitMaxRetries; i++ {
 		commit, err = pachClient.StartProjectCommit(projectName, repoName, "master")
 		if err != nil {
-			logger.Printf("Unable to start commit due to error. Retrying. Error: %v", err)
+			log.Info(ctx, "Unable to start commit due to error. Retrying. Error: %v", zap.Error(err))
 			time.Sleep(commitRetryBackoff)
 		} else {
 			break
 		}
 	}
 	if err != nil {
-		logger.Fatalf("Problem starting commit: %v", err)
+		log.Exit(ctx, "Problem starting commit: %v", zap.Error(err))
 	}
 	defer func() {
 		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
-			logger.Fatalf("Problem finishing commit: %v", err)
+			log.Exit(ctx, "Problem finishing commit: %v", zap.Error(err))
 		}
 	}()
 	// upload general job information
 	jobInfo, err := findJobInfoFromCI()
 	if err != nil {
-		logger.Fatalf("Problem collecting job info: %v", err)
+		log.Exit(ctx, "Problem collecting job info: %v", zap.Error(err))
 	}
 	basePath := findBasePath(jobInfo)
 	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
-		logger.Fatalf("Problem uploading job info: %v", err)
+		log.Exit(ctx, "Problem uploading job info: %v", zap.Error(err))
 	}
 	// upload individual test  results
 	eg, _ := errgroup.WithContext(pachClient.Ctx())
@@ -103,13 +105,13 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		logger.Fatalf("Problem walking file paths: %v", err)
+		log.Exit(ctx, "Problem walking file paths: %v", zap.Error(err))
 	}
 	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		logger.Fatalf("Problem putting files to pachyderm: %v", err)
+		log.Exit(ctx, "Problem putting files to pachyderm: %v", zap.Error(err))
 	}
 
-	logger.Println("Successfully uploaded files.")
+	log.Info(ctx, "Successfully uploaded files.")
 }
 
 func sanitizeName(s string) string {
@@ -192,6 +194,5 @@ func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder
 	if err = pachClient.PutFile(commit, destPath, file); err != nil {
 		return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetID())
 	}
-	logger.Printf("Succeeded uploading %s \n", path)
 	return nil
 }

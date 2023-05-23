@@ -15,3 +15,6 @@ To make a change the production docker image needs to be updated then pulled by 
 * login as a docker user with push permissions to the pachyderm repo
 * Run ./build-docker.sh in this folder with the updated `<version number>`
 * Run `docker push pachyderm/go-test-results:<version number>`
+
+To update the pipeline you can run the command 
+`pachctl update pipeline --jsonnet src/testing/cmds/go-test-results/egress/pipeline.jsonnet --arg version=<version> --arg pghost=postgres --arg pguser=pachyderm --project ci-metrics`

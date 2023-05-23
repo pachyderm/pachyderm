@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
+
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,15 +16,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"go.uber.org/zap"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
 )
 
-var logger = log.Default()
 var postgresqlUser = os.Getenv("POSTGRESQL_USER")
 var postgresqlPassword = os.Getenv("POSTGRESQL_PASSWORD")
 var postgresqlHost = os.Getenv("POSTGRESQL_HOST")
@@ -43,12 +46,14 @@ type TestResultLine struct {
 
 // This is built and runs in a pachyderm pipeline to egress data uploaded to pachyderm to postgresql.
 func main() {
-	logger.Println("Running DB Migrate")
+	log.InitPachctlLogger()
+	var ctx = pctx.Background("")
+	log.Info(ctx, "Running DB Migrate")
 	_, err := exec.Command("tern", "migrate").CombinedOutput()
 	if err != nil {
-		logger.Fatal("Error running migrates.", err)
+		log.Exit(ctx, "Error running migrates.", zap.Error(err))
 	}
-	logger.Println("Migrate successful, beginning egress transform of data to sql DB")
+	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
 	inputFolder := os.Args[1]
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(postgresqlHost, 5432),
@@ -57,12 +62,12 @@ func main() {
 	)
 	// db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
-		logger.Fatalf("Failed opening db connection %v", err)
+		log.Exit(ctx, "Failed opening db connection %v", zap.Error(err))
 	}
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)
 	if err != nil {
-		logger.Fatal(err)
+		log.Exit(ctx, "Problem evaluating symlinks", zap.Error(err))
 	}
 	jobInfoPaths := make(map[string]gotestresults.JobInfo)
 	var testResultPaths []string
@@ -78,7 +83,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			return insertJobInfo(jobInfo, jobInfoPaths, path, d, db)
+			return insertJobInfo(ctx, jobInfo, jobInfoPaths, path, d, db)
 		} else {
 			// we need the job info inserted first due to foreign key constraints,
 			// so save results to loop over later ensuring ordered inserts
@@ -87,15 +92,15 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		logger.Fatal("Problem walking file tree for job info ", err)
+		log.Exit(ctx, "Problem walking file tree for job info ", zap.Error(err))
 	}
 	if len(jobInfoPaths) == 0 {
-		logger.Println("No new job info found, exiting without inserting test results.")
+		log.Info(ctx, "No new job info found, exiting without inserting test results.")
 		return
 	}
 	for _, path := range testResultPaths {
-		if err = insertTestResultFile(path, jobInfoPaths, db); err != nil {
-			logger.Fatal("Problem inserting test results into DB ", err)
+		if err = insertTestResultFile(ctx, path, jobInfoPaths, db); err != nil {
+			log.Exit(ctx, "Problem inserting test results into DB ", zap.Error(err))
 		}
 	}
 }
@@ -117,7 +122,14 @@ func readJobInfo(path string) (*gotestresults.JobInfo, error) {
 	return &jobInfo, nil
 }
 
-func insertJobInfo(jobInfo *gotestresults.JobInfo, jobInfoPaths map[string]gotestresults.JobInfo, path string, d fs.DirEntry, db *sqlx.DB) error {
+func insertJobInfo(
+	ctx context.Context,
+	jobInfo *gotestresults.JobInfo,
+	jobInfoPaths map[string]gotestresults.JobInfo,
+	path string,
+	d fs.DirEntry,
+	db *sqlx.DB,
+) error {
 	_, err := db.NamedExec(`INSERT INTO public.ci_jobs (
 							workflow_id, 
 							job_id, 
@@ -138,17 +150,17 @@ func insertJobInfo(jobInfo *gotestresults.JobInfo, jobInfoPaths map[string]gotes
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			// Unique key constraint violation. In other words, the record already exists.
 			// Ignore insert to since we don't want to change the timestamp, but log it.
-			logger.Printf("Job info already inserted, Skipping insert for workflow %v  job %v  executor %v\n", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
+			log.Info(ctx, "Job info already inserted, Skipping insert for workflow %v  job %v  executor %v\n", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
 			return nil
 		}
 		return errors.Wrapf(err, "inserting job info for workflow %v  job %v  executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 	}
 	jobInfoPaths[strings.TrimSuffix(path, d.Name())] = *jobInfo // read for use when inserting individual test results, don't insert if errored
-	logger.Printf("Inserted job info for workflow %v job %v executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
+	log.Info(ctx, "Inserted job info for workflow %v job %v executor %v", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
 	return nil
 }
 
-func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.JobInfo, db *sqlx.DB) error {
+func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[string]gotestresults.JobInfo, db *sqlx.DB) error {
 	resultsFile, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "opening results file ")
@@ -163,7 +175,7 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 		var result TestResultLine
 		err = json.Unmarshal(resultJson, &result)
 		if err != nil {
-			logger.Printf("Failed unmarshalling file as a test result - %s - %v. Continuing to parse results file.\n", path, err)
+			log.Info(ctx, "Failed unmarshalling file as a test result - %s - %v. Continuing to parse results file.\n", zap.String("path", path), zap.Error(err))
 			continue
 		}
 		if result.Action == "output" {
@@ -196,7 +208,7 @@ func insertTestResultFile(path string, jobInfoPaths map[string]gotestresults.Job
 			result.Output,
 		)
 		if err != nil {
-			logger.Printf("Failed updating SQL DB %s - %v - continuing to parse results file.\n", string(resultJson), err)
+			log.Info(ctx, "Failed updating SQL DB %s - %v - continuing to parse results file.\n", zap.ByteString("result JSON", (resultJson)), zap.Error(err))
 		}
 	}
 	return nil
