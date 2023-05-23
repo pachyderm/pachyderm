@@ -130,6 +130,12 @@ type PachdSpecificConfiguration struct {
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
 	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
 	TLSCertSecretName            string `env:"TLS_CERT_SECRET_NAME,default="`
+
+	// Now that Pachyderm has HTTP endpoints, we need to be able to link users to the HTTP
+	// endpoint.  These two variables handle that; ProxyHost for the user-accessible location of
+	// the proxy, and ProxyTLS for whether or not to use https:// for generated URLs.
+	ProxyHost string `env:"PACHYDERM_PUBLIC_HOST,default="`
+	ProxyTLS  bool   `env:"PACHYDERM_PUBLIC_TLS,default=false"`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
