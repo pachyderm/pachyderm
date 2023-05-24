@@ -34,28 +34,23 @@ func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 }
 
 func collectDebugFileV2(dir string, name string, cb func(io.Writer) error) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFileV2(dir, retErr)
-		}
-	}()
-	if err := os.MkdirAll(dir, os.ModeDir); err != nil || !os.IsExist(err) {
+	if err := os.MkdirAll(dir, os.ModeDir); err != nil && !os.IsExist(err) {
 		return errors.Wrapf(err, "mkdir %q", dir)
 	}
-	f, err := os.Create(filepath.Join(dir, name))
+	path := filepath.Join(dir, name)
+	f, err := os.Create(path)
 	if err != nil {
-		return errors.Wrapf(err, "create file %q", filepath.Join(dir, name))
+		return errors.Wrapf(err, "create file %q", path)
 	}
 	defer func() {
-		err := f.Close()
-		retErr = multierr.Append(retErr, errors.Wrapf(err, "close file %q", filepath.Join(dir, name)))
+		closeErr := errors.Wrapf(f.Close(), "close file %q", path)
+		retErr = multierr.Append(retErr, closeErr)
 	}()
 	w := bufio.NewWriter(f)
-	defer func() {
-		err := w.Flush()
-		retErr = multierr.Append(retErr, errors.Wrapf(err, "flush file %q", filepath.Join(dir, name)))
-	}()
-	return cb(w)
+	if err := cb(w); err != nil {
+		return errors.Wrapf(err, "write to file %q", path)
+	}
+	return errors.Wrapf(w.Flush(), "flush file %q", path)
 }
 
 func collectDebugFile(tw *tar.Writer, name, ext string, cb func(io.Writer) error, prefix ...string) (retErr error) {
@@ -101,18 +96,20 @@ func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
 	})
 }
 
-func writeTarFileV2(tw *tar.Writer, name string, fi os.FileInfo) error {
-	hdr := &tar.Header{
-		Name: name,
+func writeTarFileV2(tw *tar.Writer, dest string, src string, fi os.FileInfo) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return errors.Wrapf(err, "open file %q", src)
+	}
+	if err := tw.WriteHeader(&tar.Header{
+		Name: dest,
 		Size: fi.Size(),
 		Mode: 0777,
-	}
-	f, err := os.Open(fi.Name())
-	if err := tw.WriteHeader(hdr); err != nil {
-		return errors.EnsureStack(err)
+	}); err != nil {
+		return errors.Wrapf(err, "write header for file %q", dest)
 	}
 	_, err = io.Copy(tw, f)
-	return errors.EnsureStack(err)
+	return errors.Wrapf(err, "write tar file %q", dest)
 
 }
 

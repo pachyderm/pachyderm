@@ -167,7 +167,6 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					return errors.Wrap(err, "get dump template")
 				}
 				req = r.Request
-				fmt.Printf("Debug Dump with Dump Request: %v\n", req)
 			} else {
 				f, err := os.Open(template)
 				if err != nil {
@@ -177,7 +176,6 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				if err := jsonpb.Unmarshal(f, req); err != nil {
 					return errors.Wrap(err, "unmarhsal template to DumpV2Request")
 				}
-				fmt.Println(req)
 			}
 			ctx, cf := context.WithCancel(mainCtx)
 			defer cf()
