@@ -468,6 +468,7 @@ class JobInfoDetails(betterproto.Message):
     scheduling_spec: "SchedulingSpec" = betterproto.message_field(16)
     pod_spec: str = betterproto.string_field(17)
     pod_patch: str = betterproto.string_field(18)
+    sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(19)
 
 
 @dataclass(eq=False, repr=False)
@@ -589,6 +590,7 @@ class PipelineInfoDetails(betterproto.Message):
     worker_rc: str = betterproto.string_field(32)
     autoscaling: bool = betterproto.bool_field(33)
     tolerations: List["Toleration"] = betterproto.message_field(34)
+    sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
 
 
 @dataclass(eq=False, repr=False)
@@ -917,6 +919,7 @@ class CreatePipelineRequest(betterproto.Message):
     reprocess_spec: str = betterproto.string_field(29)
     autoscaling: bool = betterproto.bool_field(30)
     tolerations: List["Toleration"] = betterproto.message_field(34)
+    sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
 
 
 @dataclass(eq=False, repr=False)
@@ -1101,6 +1104,7 @@ class RenderTemplateResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class LokiRequest(betterproto.Message):
     since: timedelta = betterproto.message_field(1)
+    query: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -1267,6 +1271,11 @@ class ApiStub:
         )
         self.__rpc_get_kube_events = channel.unary_stream(
             "/pps_v2.API/GetKubeEvents",
+            request_serializer=LokiRequest.SerializeToString,
+            response_deserializer=LokiLogMessage.FromString,
+        )
+        self.__rpc_query_loki = channel.unary_stream(
+            "/pps_v2.API/QueryLoki",
             request_serializer=LokiRequest.SerializeToString,
             response_deserializer=LokiLogMessage.FromString,
         )
@@ -1455,7 +1464,8 @@ class ApiStub:
         metadata: "Metadata" = None,
         reprocess_spec: str = "",
         autoscaling: bool = False,
-        tolerations: Optional[List["Toleration"]] = None
+        tolerations: Optional[List["Toleration"]] = None,
+        sidecar_resource_requests: "ResourceSpec" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1507,6 +1517,8 @@ class ApiStub:
         request.autoscaling = autoscaling
         if tolerations is not None:
             request.tolerations = tolerations
+        if sidecar_resource_requests is not None:
+            request.sidecar_resource_requests = sidecar_resource_requests
 
         return self.__rpc_create_pipeline(request)
 
@@ -1771,12 +1783,26 @@ class ApiStub:
         for response in self.__rpc_list_task(request):
             yield response
 
-    def get_kube_events(self, *, since: timedelta = None) -> Iterator["LokiLogMessage"]:
+    def get_kube_events(
+        self, *, since: timedelta = None, query: str = ""
+    ) -> Iterator["LokiLogMessage"]:
         request = LokiRequest()
         if since is not None:
             request.since = since
+        request.query = query
 
         for response in self.__rpc_get_kube_events(request):
+            yield response
+
+    def query_loki(
+        self, *, since: timedelta = None, query: str = ""
+    ) -> Iterator["LokiLogMessage"]:
+        request = LokiRequest()
+        if since is not None:
+            request.since = since
+        request.query = query
+
+        for response in self.__rpc_query_loki(request):
             yield response
 
 
@@ -1912,6 +1938,7 @@ class ApiBase:
         reprocess_spec: str,
         autoscaling: bool,
         tolerations: Optional[List["Toleration"]],
+        sidecar_resource_requests: "ResourceSpec",
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2104,7 +2131,14 @@ class ApiBase:
         raise NotImplementedError("Method not implemented!")
 
     def get_kube_events(
-        self, since: timedelta, context: "grpc.ServicerContext"
+        self, since: timedelta, query: str, context: "grpc.ServicerContext"
+    ) -> Iterator["LokiLogMessage"]:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def query_loki(
+        self, since: timedelta, query: str, context: "grpc.ServicerContext"
     ) -> Iterator["LokiLogMessage"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -2272,6 +2306,11 @@ class ApiBase:
             ),
             "GetKubeEvents": grpc.unary_stream_rpc_method_handler(
                 self.get_kube_events,
+                request_deserializer=LokiRequest.FromString,
+                response_serializer=LokiRequest.SerializeToString,
+            ),
+            "QueryLoki": grpc.unary_stream_rpc_method_handler(
+                self.query_loki,
                 request_deserializer=LokiRequest.FromString,
                 response_serializer=LokiRequest.SerializeToString,
             ),

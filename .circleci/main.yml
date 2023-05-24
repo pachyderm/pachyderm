@@ -113,7 +113,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: xlarge
+    resource_class: 2xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -238,7 +238,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: xlarge
+    resource_class: 2xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -326,7 +326,7 @@ jobs:
           when: always
       - run:
           name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
           when: always
       - run:
           name: Format code coverage
@@ -530,7 +530,7 @@ jobs:
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
           when: always
       - run:
           name: Format code coverage
@@ -550,7 +550,7 @@ jobs:
     parameters:
       resource_class:
         type: string
-        default: xlarge
+        default: 2xlarge
       arch:
         type: string
         default: amd64
@@ -625,7 +625,7 @@ jobs:
           when: always
       - run:
           name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
           when: always
       - run:
           name: Dump debugging info in case of failure
@@ -922,8 +922,8 @@ jobs:
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
-            pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
-            pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
+            pachctl put file images@master:liberty.png -f https://free-images.com/md/57ee/statue_liberty_usa_new.jpg
+            pachctl put file images@branch:branch.png -f https://free-images.com/md/57ee/statue_liberty_usa_new.jpg
             pachctl list repo
 
             mkdir pfs
@@ -2012,7 +2012,7 @@ commands:
   collect-test-results:
     steps:
       - run:
-          name: Store test results
+          name: Store test results for overtime reports
           when: always
           shell: /bin/sh # ignore fails without pipefail
-          command: go run -v etc/testing/circle/workloads/go-test-results/collector/main.go || true
+          command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
