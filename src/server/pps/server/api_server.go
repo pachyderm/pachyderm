@@ -1807,12 +1807,12 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if len(request.Pipeline.Name) > maxPipelineNameLength {
 		return errors.Errorf("pipeline name %q is %d characters longer than the %d max",
-			request.Pipeline.Name, maxPipelineNameLength-len(request.Pipeline.Name), maxPipelineNameLength)
+			request.Pipeline.Name, len(request.Pipeline.Name)-maxPipelineNameLength, maxPipelineNameLength)
 	}
 	// TODO(CORE-1489): Remove dependency of name length on Kubernetes
 	// resource naming convention.
 	if k8sName := ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: request.Pipeline.GetProject().GetName()}, Name: request.Pipeline.Name}, Version: 99}); len(k8sName) > dnsLabelLimit {
-		return errors.Errorf("Kubernetes name %q is %d characters longer than the %d max", k8sName, dnsLabelLimit-len(k8sName), dnsLabelLimit)
+		return errors.Errorf("Kubernetes name %q is %d characters longer than the %d max", k8sName, len(k8sName)-dnsLabelLimit, dnsLabelLimit)
 	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
