@@ -26,6 +26,12 @@ def batch_all_datums(user_code: PIPELINE_FUNC) -> PIPELINE_FUNC:
     >>> def pipeline():
     >>>     # process datums
     >>>     pass
+    >>>
+    >>> if __name__ == '__main__':
+    >>>   # Perform an expensive computation here before
+    >>>   #   entering your datum processing function
+    >>>   #   i.e. initializing a model.
+    >>>   pipeline()
     """
 
     @wraps(user_code)

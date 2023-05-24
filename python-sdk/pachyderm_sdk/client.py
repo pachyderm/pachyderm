@@ -48,9 +48,6 @@ class Client:
     spout_config = Path("/pachctl/config.json")
     local_config = Path.home().joinpath("pachyderm/config.json")
 
-    # Worker stub is loaded when accessed through the worker property.
-    _worker: Optional[_WorkerStub] = None
-
     def __init__(
         self,
         host: str = 'localhost',
@@ -106,6 +103,8 @@ class Client:
 
         # See implementation for api layout.
         self._init_api()
+        # Worker stub is loaded when accessed through the worker property.
+        self._worker = None
 
         if not auth_token and (oidc_token := os.environ.get(OIDC_TOKEN_ENV)):
             self.auth_token = self.auth.authenticate(id_token=oidc_token)
@@ -125,6 +124,7 @@ class Client:
             set_transaction_id=lambda value: setattr(self, "transaction_id", value),
         )
         self._version_api = _VersionStub(self._channel)
+        self._worker: Optional[_WorkerStub]
 
     @classmethod
     def new_in_cluster(

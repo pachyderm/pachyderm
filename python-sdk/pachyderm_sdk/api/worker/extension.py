@@ -32,6 +32,11 @@ class WorkerStub(_GeneratedWorkerStub):
         >>> from pachyderm_sdk import Client
         >>>
         >>> worker = Client().worker
+        >>>
+        >>> # Perform an expensive computation here before
+        >>> #   you being processing your datums
+        >>> #   i.e. initializing a model.
+        >>>
         >>> while True:
         >>>     with worker.batch_datum():
         >>>         # process datums
