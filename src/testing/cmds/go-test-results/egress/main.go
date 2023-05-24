@@ -141,7 +141,7 @@ func insertJobInfo(
 							branch, 
 							tag,
 							pull_requests
-						) VALUES (:workflowid, :jobid, :jobexecutor, :jobname, :jobtimestamp, :jobnumexecutors, :branch, :commit, :tag, :pullrequests)`,
+						) VALUES (:workflowid, :jobid, :jobexecutor, :jobname, :jobtimestamp, :jobnumexecutors, :commit, :branch, :tag, :pullrequests)`,
 		jobInfo,
 	)
 
