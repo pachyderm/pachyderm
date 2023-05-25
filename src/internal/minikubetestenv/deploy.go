@@ -439,9 +439,8 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		}
 		// Ensure that pachd is really ready to receive requests.
 		if _, err := c.InspectCluster(); err != nil {
-			scrubbedErr := grpcutil.ScrubGRPC(err)
-			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, scrubbedErr)
-			return errors.Wrapf(scrubbedErr, "failed to inspect cluster on port %v", pachAddress.Port)
+			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, err)
+			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
