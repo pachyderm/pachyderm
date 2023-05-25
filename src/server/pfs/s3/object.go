@@ -148,7 +148,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 	return version, nil
 }
 
-func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
+func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (_ *s2.PutObjectResult, retErr error) {
 	defer log.Span(r.Context(), "PutObject", zap.String("bucketName", bucketName), zap.String("file", file))()
 
 	pc := c.requestClient(r)
