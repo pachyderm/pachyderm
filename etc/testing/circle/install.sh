@@ -8,6 +8,7 @@ if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
 mkdir -p cached-deps
 
 # Install deps
+sudo apt clean
 sudo apt update -y
 sudo apt-get install -y -qq \
   silversearcher-ag \
