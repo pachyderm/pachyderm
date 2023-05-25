@@ -649,17 +649,19 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
-	var jqCode *gojq.Code
-	var enc serde.Encoder
-	var jsonBuffer bytes.Buffer
+	var (
+		jqCode     *gojq.Code
+		jsonBuffer bytes.Buffer
+		enc        serde.Encoder
+	)
 	if request.GetJqFilter() != "" {
 		jqQuery, err := gojq.Parse(request.GetJqFilter())
 		if err != nil {
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "error parsing jq filter")
 		}
 		jqCode, err = gojq.Compile(jqQuery)
 		if err != nil {
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "error compiling jq filter")
 		}
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
