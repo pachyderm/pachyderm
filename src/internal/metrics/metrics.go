@@ -250,7 +250,7 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// We should not return due to an error
 	// Activation code
-	ctx, cf := context.WithCancel(context.Background())
+	ctx, cf := pctx.WithCancel(context.Background())
 	defer cf()
 
 	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
@@ -282,7 +282,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 			// count total jobs
 			var cnt int64
 			// just ignore error
-			_ = pachClient.ListProjectJobF(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+			_ = pachClient.ListJobF(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 				cnt++
 				return nil
 			})

@@ -48,6 +48,7 @@ type GlobalConfiguration struct {
 	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=10"`
 	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
 	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
+	PostgresQueryLogging           bool   `env:"POSTGRES_QUERY_LOGGING,default=false"`
 	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
 	PachdServicePort               string `env:"PACHD_SERVICE_PORT"`
 
@@ -129,6 +130,12 @@ type PachdSpecificConfiguration struct {
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
 	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
 	TLSCertSecretName            string `env:"TLS_CERT_SECRET_NAME,default="`
+
+	// Now that Pachyderm has HTTP endpoints, we need to be able to link users to the HTTP
+	// endpoint.  These two variables handle that; ProxyHost for the user-accessible location of
+	// the proxy, and ProxyTLS for whether or not to use https:// for generated URLs.
+	ProxyHost string `env:"PACHYDERM_PUBLIC_HOST,default="`
+	ProxyTLS  bool   `env:"PACHYDERM_PUBLIC_TLS,default=false"`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server

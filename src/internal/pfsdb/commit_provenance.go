@@ -7,7 +7,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"go.uber.org/multierr"
 )
 
 // returns the commit of a certain repo in a commit set.
@@ -31,8 +30,8 @@ func ResolveCommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (
 func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr error) {
 	q := `
           WITH RECURSIVE prov(from_id, to_id) AS (
-            SELECT from_id, to_id 
-            FROM pfs.commit_provenance JOIN pfs.commits ON int_id = from_id 
+            SELECT from_id, to_id
+            FROM pfs.commit_provenance JOIN pfs.commits ON int_id = from_id
             WHERE commit_set_id = $1
            UNION ALL
             SELECT cp.from_id, cp.to_id
@@ -40,17 +39,13 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
             WHERE cp.from_id = p.to_id
           )
           SELECT DISTINCT commit_id
-          FROM pfs.commits, prov 
+          FROM pfs.commits, prov
           WHERE int_id = prov.to_id AND commit_set_id != $1;`
 	rows, err := tx.Queryx(q, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			retErr = multierr.Append(retErr, err)
-		}
-	}()
+	defer errors.Close(&retErr, rows, "close rows")
 	cs := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commit string
@@ -70,26 +65,22 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr error) {
 	q := `
           WITH RECURSIVE subv(from_id, to_id) AS (
-            SELECT from_id, to_id 
-            FROM pfs.commit_provenance JOIN pfs.commits ON int_id = to_id 
+            SELECT from_id, to_id
+            FROM pfs.commit_provenance JOIN pfs.commits ON int_id = to_id
             WHERE commit_set_id = $1
            UNION ALL
             SELECT cp.from_id, cp.to_id
             FROM subv s, pfs.commit_provenance cp
             WHERE cp.to_id = s.from_id
           )
-          SELECT DISTINCT commit_id 
-          FROM pfs.commits, subv 
+          SELECT DISTINCT commit_id
+          FROM pfs.commits, subv
           WHERE int_id = subv.from_id AND commit_set_id != $1;`
 	rows, err := tx.Queryx(q, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			retErr = multierr.Append(retErr, err)
-		}
-	}()
+	defer errors.Close(&retErr, rows, "close rows")
 	cs := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commit string
@@ -117,11 +108,7 @@ func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (_ int, retErr error) 
 	if err != nil {
 		return 0, errors.EnsureStack(err)
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			retErr = multierr.Append(retErr, err)
-		}
-	}()
+	defer errors.Close(&retErr, rows, "close rows")
 	var id int
 	for rows.Next() {
 		if err := rows.Scan(&id); err != nil {
@@ -175,11 +162,11 @@ var schema = `
 		to_id BIGSERIAL NOT NULL,
 		PRIMARY KEY (from_id, to_id),
                 CONSTRAINT fk_from_commit
-                  FOREIGN KEY(from_id) 
+                  FOREIGN KEY(from_id)
 	          REFERENCES pfs.commits(int_id)
 	          ON DELETE CASCADE,
                 CONSTRAINT fk_to_commit
-                  FOREIGN KEY(to_id) 
+                  FOREIGN KEY(to_id)
 	          REFERENCES pfs.commits(int_id)
 	          ON DELETE CASCADE
 	);

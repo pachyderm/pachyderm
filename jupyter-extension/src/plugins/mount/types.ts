@@ -78,6 +78,20 @@ export type ListMountsResponse = {
   unmounted: {[key: string]: Repo};
 };
 
+export type Project = {
+  name: string;
+};
+
+export type ProjectAuthInfo = {
+  permissions: number[];
+  roles: string[];
+};
+
+export type ProjectInfo = {
+  project: Project;
+  auth: ProjectAuthInfo;
+};
+
 export type AuthConfig = {
   cluster_status: clusterStatus;
   pachd_address?: string;
@@ -90,10 +104,6 @@ export interface IMountPlugin {
   layout: SplitPanel;
   ready: Promise<void>;
 }
-
-export type Project = {
-  name: string;
-};
 
 export type Pipeline = {
   name: string;

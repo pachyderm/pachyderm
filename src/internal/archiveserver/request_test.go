@@ -16,7 +16,7 @@ func TestArchiveRequest(t *testing.T) {
 	}{
 		{
 			name: "empty URL",
-			url:  "https://pachyderm.example.com/download/AQ.zip", // 0x01 | base64url == AQ
+			url:  "https://pachyderm.example.com/archive/AQ.zip", // 0x01 | base64url == AQ
 		},
 		{
 			name:    "wrong path",
@@ -25,7 +25,7 @@ func TestArchiveRequest(t *testing.T) {
 		},
 		{
 			name:    "wrong version",
-			url:     "https://pachdyerm.example.com/download/Ag.zip", // 0x02 | base64url == Ag
+			url:     "https://pachdyerm.example.com/archive/Ag.zip", // 0x02 | base64url == Ag
 			wantErr: true,
 		},
 		{
@@ -40,22 +40,22 @@ func TestArchiveRequest(t *testing.T) {
 		},
 		{
 			name:    "long url",
-			url:     "https://pachyderm.example.com/lots/of/stuff/download/AQ.zip",
+			url:     "https://pachyderm.example.com/lots/of/stuff/archive/AQ.zip",
 			wantErr: true,
 		},
 		{
 			name:    "missing extension",
-			url:     "https://pachyderm.example.com/download/AQ",
+			url:     "https://pachyderm.example.com/archive/AQ",
 			wantErr: true,
 		},
 		{
 			name:    "unsupported extension",
-			url:     "https://pachyderm.example.com/download/AQ.tar",
+			url:     "https://pachyderm.example.com/archive/AQ.tar",
 			wantErr: true,
 		},
 		{
 			name: "doc example",
-			url:  "https://pachyderm.example.com/download/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip",
+			url:  "https://pachyderm.example.com/archive/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip",
 			wantPaths: []string{
 				"default/images@master:/",
 				"default/montage@master:/montage.png",
@@ -63,7 +63,7 @@ func TestArchiveRequest(t *testing.T) {
 		},
 		{
 			name: "doc example, different compression settings",
-			url:  "https://pachyderm.example.com/download/ASi1L_0EAK0BALQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZW1vbnRhZ2UucG5nAAIQBFwMS4wBy2xQ2w.zip",
+			url:  "https://pachyderm.example.com/archive/ASi1L_0EAK0BALQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZW1vbnRhZ2UucG5nAAIQBFwMS4wBy2xQ2w.zip",
 			wantPaths: []string{
 				"default/images@master:/",
 				"default/montage@master:/montage.png",
@@ -111,8 +111,8 @@ func TestArchiveRequest(t *testing.T) {
 }
 
 func FuzzArchiveRequest(f *testing.F) {
-	f.Add("https://pachyderm.example.com/download/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip")
-	f.Add("https://pachyderm.example.com/download/ASi1L_0EAK0BALQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZW1vbnRhZ2UucG5nAAIQBFwMS4wBy2xQ2w.zip")
+	f.Add("https://pachyderm.example.com/archive/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip")
+	f.Add("https://pachyderm.example.com/archive/ASi1L_0EAK0BALQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZW1vbnRhZ2UucG5nAAIQBFwMS4wBy2xQ2w.zip")
 	f.Fuzz(func(t *testing.T, in string) {
 		u, err := url.Parse(in)
 		if err != nil {

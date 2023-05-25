@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2022.10.1
   go-version:
     type: string
-    default: "1.20.3"
+    default: "1.20.4"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -49,6 +49,10 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
+  run-python-sdk-jobs:
+    type: boolean
+    default: false
+
 executors:
   docker-go:
     docker:
@@ -82,13 +86,20 @@ jobs:
           command: |-
             GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
+            --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
-            --packages="./..." \
+            --debug \
             -- \
+            go test ./... -json \
             -tags=unit_test \
             -count=1 \
-            -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
@@ -96,12 +107,13 @@ jobs:
           path: /tmp/test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
+      - collect-test-results
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: xlarge
+    resource_class: 2xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -123,7 +135,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - run: go install gotest.tools/gotestsum@latest
       - restore_cache:
           keys:
@@ -190,32 +207,44 @@ jobs:
 
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+              --raw-command \
               --rerun-fails \
+              --format standard-verbose \
+              --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \
-              --packages="${package}" \
+              --debug \
               -- \
+              go test "${package}" -json \
               -run ${test_regex} \
               -tags="${test_tags}" \
               -count=1 \
-              -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+              -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
+      - collect-test-results
   integration-tests:
     parameters:
       bucket:
         type: string
-    resource_class: xlarge
+    resource_class: 2xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       - run:
@@ -230,7 +259,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -242,6 +276,7 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -290,13 +325,24 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
+          name: Format test results for upload
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
+          when: always
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
+      - collect-test-results
+      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
       - store_test_results:
-          path: /tmp/test-results
+          path: "/tmp/test-results"
       - store_artifacts:
           path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   helm-tests:
     executor: docker-go
     working_directory: ~/project/etc/helm
@@ -456,6 +502,8 @@ jobs:
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       - go/install:
@@ -475,19 +523,34 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run: mkdir ${TEST_RESULTS}
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
+          name: Format test results for upload
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
+          when: always
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: raw-test-output
+      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - collect-test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   deploy-tests:
     parameters:
       resource_class:
         type: string
-        default: xlarge
+        default: 2xlarge
       arch:
         type: string
         default: amd64
@@ -495,6 +558,8 @@ jobs:
     parallelism: 4
     machine:
       image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       # go/install doesn't support arm64 yet
@@ -513,7 +578,12 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -522,6 +592,7 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run: mkdir -p "${TEST_RESULTS}"
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -553,11 +624,26 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
+          name: Format test results for upload
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
+          when: always
+      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - store_artifacts:
+          path: /tmp/test-results
+      - run:
+          name: Format code coverage
+          when: always
+          command: etc/testing/circle/format-coverage.sh
       - store_test_results:
           path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
+      - collect-test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build-docker-images:
@@ -565,6 +651,9 @@ jobs:
       appVersion:
         type: string
         default: "0.0.0"
+      enableCoverage:
+        type: boolean
+        default: false
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
@@ -588,10 +677,21 @@ jobs:
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
-            make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            if << parameters.enableCoverage >>
+            then
+              make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            else
+              make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            fi
       - run:
           name: Push docker
-          command: make docker-push VERSION=${CIRCLE_SHA1}
+          command: |-
+            if << parameters.enableCoverage >>
+            then
+              make docker-push VERSION=cover-${CIRCLE_SHA1}
+            else
+              make docker-push VERSION=${CIRCLE_SHA1}
+            fi
   build-pachctl-bin:
     parameters:
       version:
@@ -768,7 +868,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "Integration tests"
           command: |
@@ -804,7 +904,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "e2e tests"
           command: |
@@ -828,8 +928,8 @@ jobs:
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
-            pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
-            pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
+            pachctl put file images@master:liberty.png -f https://free-images.com/md/57ee/statue_liberty_usa_new.jpg
+            pachctl put file images@branch:branch.png -f https://free-images.com/md/57ee/statue_liberty_usa_new.jpg
             pachctl list repo
 
             mkdir pfs
@@ -1073,7 +1173,7 @@ jobs:
       - aws-cli/setup
       - pulumi/login
       - run: |
-          pulumi plugin install resource eks v0.40.0
+          pulumi plugin install resource eks
       - when:
           condition:
             and:
@@ -1297,12 +1397,43 @@ jobs:
           command: |
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
+  test-python-sdk:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Install Poetry
+          command: |
+            mkdir -p /home/circleci/.local/poetry/venv
+            export POETRY_HOME=/home/circleci/.local/poetry/venv
+            python3 -m venv $POETRY_HOME
+            $POETRY_HOME/bin/pip install poetry==1.4.1
+            $POETRY_HOME/bin/poetry --version
+            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+      - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
+          name: Install Python Dependencies with Poetry
+          command: poetry --no-ansi install
+      - install-python-test-deps
+
+      # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
+      # export export PACH_PYTHON_AUTH_TOKEN=iamroot
+      - run:
+          name: Run Tests
+          command: |
+            nohup pachctl port-forward &
+            poetry run pytest -vvv tests
 
 workflows:
   integration-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
+      - build-docker-images:
+          enableCoverage: true
       #- build-pachctl-bin:
       #    version: $CIRCLE_SHA1
       #    upload: true
@@ -1492,6 +1623,16 @@ workflows:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
+      - build-pachctl-bin:
+          version: $CIRCLE_SHA1
+  python-sdk:
+    when: << pipeline.parameters.run-python-sdk-jobs >>
+    jobs:
+      - test-python-sdk:
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+      - build-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
 
@@ -1785,7 +1926,7 @@ workflows:
             - aws-prerelease-testing
 
 commands:
-  install-jupyter-test-deps:
+  install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
           at: ./
@@ -1874,3 +2015,10 @@ commands:
           name: Start minikube
           command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12Gi --wait=all
           background: true
+  collect-test-results:
+    steps:
+      - run:
+          name: Store test results for overtime reports
+          when: always
+          shell: /bin/sh # ignore fails without pipefail
+          command: go run -v src/testing/cmds/go-test-results/collector/main.go || true

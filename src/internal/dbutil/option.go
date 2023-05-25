@@ -64,9 +64,20 @@ const (
 	DefaultSSLMode = SSLModeDisable
 )
 
-// WithSSLMode sets the SSL mode for connections to the database
+// WithSSLMode sets the SSL mode for connections to the database.
 func WithSSLMode(mode string) Option {
 	return func(dbc *dbConfig) {
 		dbc.sslMode = mode
+	}
+}
+
+// WithQueryLog enables logging of SQL queries to zap at severity debug; see log.NewPGX.
+func WithQueryLog(enable bool, name string) Option {
+	return func(dbc *dbConfig) {
+		if enable {
+			dbc.queryLogName = name
+		} else {
+			dbc.queryLogName = ""
+		}
 	}
 }

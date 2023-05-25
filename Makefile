@@ -102,6 +102,9 @@ docker-build-amd:
 docker-build-netcat:
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 
+docker-build-coverage:
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-cover.yml
+
 # You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
 # it's very slow and this is only going to run on your local machine anyway.
 docker-build-proto:
@@ -420,6 +423,7 @@ validate-circle:
 	release-docker-images \
 	release-pachctl \
 	docker-build \
+	docker-build-coverage \
 	docker-build-proto \
 	docker-build-gpu \
 	docker-build-kafka \

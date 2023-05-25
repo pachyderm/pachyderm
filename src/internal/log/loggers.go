@@ -270,7 +270,7 @@ func WatchDroppedLogs(ctx context.Context, d time.Duration) {
 		case <-t.C:
 			reportDroppedLogs(ctx)
 		case <-ctx.Done():
-			Info(ctx, "dropped log reporting ended", zap.Error(ctx.Err()))
+			Info(ctx, "dropped log reporting ended", zap.Error(context.Cause(ctx)))
 			t.Stop()
 			return
 		}

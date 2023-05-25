@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -564,7 +564,7 @@ func CheckRepoCmd(ctx context.Context, pachCtx *config.Context, pachctlCfg *pach
 		Short: "Check the permissions a user has on 'repo'",
 		Long:  "Check the permissions a user has on 'repo'",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			repoResource := client.NewProjectRepo(project, args[0]).AuthResource()
+			repoResource := client.NewRepo(project, args[0]).AuthResource()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
@@ -614,7 +614,7 @@ func SetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyProjectRepoRoleBinding(project, repo, subject, roles)
+			err = c.ModifyRepoRoleBinding(project, repo, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -636,7 +636,7 @@ func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetProjectRepoRoleBinding(project, repo)
+			resp, err := c.GetRepoRoleBinding(project, repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}

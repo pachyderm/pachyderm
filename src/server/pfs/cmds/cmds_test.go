@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -197,21 +197,21 @@ func TestMountParsing(t *testing.T) {
 	expected := map[string]*fuse.RepoOptions{
 		"repo1": {
 			Name:  "repo1", // name of mount, i.e. where to mount it
-			File:  client.NewProjectFile(pfs.DefaultProjectName, "repo1", "branch", "", ""),
+			File:  client.NewFile(pfs.DefaultProjectName, "repo1", "branch", "", ""),
 			Write: true,
 		},
 		"repo2": {
 			Name:  "repo2",
-			File:  client.NewProjectFile(pfs.DefaultProjectName, "repo2", "master", "", ""),
+			File:  client.NewFile(pfs.DefaultProjectName, "repo2", "master", "", ""),
 			Write: true,
 		},
 		"repo3": {
 			Name: "repo3",
-			File: client.NewProjectFile(pfs.DefaultProjectName, "repo3", "master", "", ""),
+			File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", ""),
 		},
 		"repo4": {
 			Name: "repo4",
-			File: client.NewProjectFile(pfs.DefaultProjectName, "repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", ""),
+			File: client.NewFile(pfs.DefaultProjectName, "repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", ""),
 		},
 	}
 	opts, err := parseRepoOpts(pfs.DefaultProjectName, []string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
@@ -563,11 +563,28 @@ func TestDeleteProject(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}} --project {{.project}}
+		pachctl put file --project {{.project}} {{.repo}}@master:/file <<<"This is a test"
+		pachctl create pipeline --project {{.project}} <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "{{.repo}}"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/{{.repo}}/file /pfs/out"]
+		    }
+		  }
+		EOF
 		(pachctl delete project {{.project}} </dev/null) && exit 1
 		(yes | pachctl delete project {{.project}}) || exit 1
 		if [ $(pachctl list project | tail -n +2 | wc -l) -ne 1 ]; then exit 1; fi
 		`,
 		"project", project,
 		"repo", tu.UniqueString("repo"),
+		"pipeline", tu.UniqueString("pipeline"),
 	).Run())
 }

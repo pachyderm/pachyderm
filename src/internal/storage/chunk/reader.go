@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 
@@ -58,7 +59,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 		_, err := io.Copy(w, newDataReader(r.ctx, r.client, r.memCache, r.deduper, r.dataRefs[0], r.offsetBytes))
 		return errors.EnsureStack(err)
 	}
-	ctx, cancel := context.WithCancel(r.ctx)
+	ctx, cancel := pctx.WithCancel(r.ctx)
 	defer cancel()
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
 	defer func() {

@@ -175,6 +175,7 @@ export class MountPlugin implements IMountPlugin {
               updateData={this._poller.updateData}
               mountedItems={[]}
               type={'mounted'}
+              projects={[]}
             />
           </div>
         )}
@@ -185,18 +186,23 @@ export class MountPlugin implements IMountPlugin {
     this._unmountedList = ReactWidget.create(
       <UseSignal signal={this._poller.unmountedSignal}>
         {(_, unmounted) => (
-          <div className="pachyderm-mount-base">
-            <div className="pachyderm-mount-base-title">
-              Unmounted Repositories
-            </div>
-            <SortableList
-              open={this.open}
-              items={unmounted ? unmounted : this._poller.unmounted}
-              updateData={this._poller.updateData}
-              mountedItems={this._poller.mounted}
-              type={'unmounted'}
-            />
-          </div>
+          <UseSignal signal={this._poller.projectSignal}>
+            {(_, projects) => (
+              <div className="pachyderm-mount-base">
+                <div className="pachyderm-mount-base-title">
+                  Unmounted Repositories
+                </div>
+                <SortableList
+                  open={this.open}
+                  items={unmounted ? unmounted : this._poller.unmounted}
+                  updateData={this._poller.updateData}
+                  mountedItems={this._poller.mounted}
+                  type={'unmounted'}
+                  projects={projects ? projects : this._poller.projects}
+                />
+              </div>
+            )}
+          </UseSignal>
         )}
       </UseSignal>,
     );
@@ -419,15 +425,22 @@ export class MountPlugin implements IMountPlugin {
       return;
     }
 
-    const currentMountDir = this._mountBrowser.model.path
-      .split(MOUNT_BROWSER_NAME)[1]
-      .split('/')[0];
+    if (!this.isValidBrowserPath(this._mountBrowser.model.path, mounted)) {
+      this.open('');
+    }
+  };
+
+  isValidBrowserPath = (path: string, mounted: Mount[]): boolean => {
+    const currentMountDir = path.split(MOUNT_BROWSER_NAME)[1].split('/')[0];
+    if (currentMountDir === 'out') {
+      return true;
+    }
     for (let i = 0; i < mounted.length; i++) {
       if (currentMountDir === mounted[i].name) {
-        return;
+        return true;
       }
     }
-    this.open('');
+    return false;
   };
 
   setShowDatum = async (shouldShow: boolean): Promise<void> => {

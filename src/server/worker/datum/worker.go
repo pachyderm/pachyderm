@@ -8,7 +8,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
@@ -113,7 +113,7 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 
 func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, error) {
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-pfs", func(s *Set) error {
-		commit := client.NewProjectCommit(task.Input.Project, task.Input.Repo, task.Input.Branch, task.Input.Commit)
+		commit := client.NewCommit(task.Input.Project, task.Input.Repo, task.Input.Branch, task.Input.Commit)
 		client, err := pachClient.PfsAPIClient.GlobFile(
 			pachClient.Ctx(),
 			&pfs.GlobFileRequest{

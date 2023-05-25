@@ -7,8 +7,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -232,7 +232,7 @@ func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(
 		defer close(d.eChan)
 		select {
 		case <-ctx.Done():
-			d.eChan <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
+			d.eChan <- &watch.Event{Type: watch.EventError, Err: context.Cause(ctx)}
 			return
 		case <-d.closeEChan:
 			return
@@ -267,7 +267,7 @@ func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pip
 }
 
 func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
-	mockSpecCommit := client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
+	mockSpecCommit := client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
 	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.ID
 	d.specCommits[mockSpecCommit.ID] = pi

@@ -23,7 +23,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -101,7 +101,7 @@ or type (e.g. csv, binary, images, etc).`,
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
-						Repo:        client.NewProjectRepo(project, args[0]),
+						Repo:        client.NewRepo(project, args[0]),
 						Description: description,
 					},
 				)
@@ -688,7 +688,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			commitInfo, err := c.WaitProjectCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 			if err != nil {
 				return err
 			}
@@ -1213,6 +1213,34 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			}
 			defer c.Close()
 			project := args[0]
+			pipelineResp, err := c.PpsAPIClient.ListPipeline(
+				c.Ctx(),
+				&pps.ListPipelineRequest{
+					Projects: []*pfs.Project{{Name: project}},
+				},
+			)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pp, err := grpcutil.Collect[*pps.PipelineInfo](pipelineResp, 1000)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if len(pp) > 0 {
+				for _, p := range pp {
+					fmt.Printf("This will delete pipeline %s\n?", p.Pipeline)
+				}
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("cannot delete project with %d pipelines", len(pp))
+				}
+				for _, p := range pp {
+					if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: p.Pipeline}); err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
+				}
+			}
 			repoResp, err := c.PfsAPIClient.ListRepo(
 				c.Ctx(),
 				&pfs.ListRepoRequest{
@@ -1242,36 +1270,6 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 					}
 				}
 			}
-
-			pipelineResp, err := c.PpsAPIClient.ListPipeline(
-				c.Ctx(),
-				&pps.ListPipelineRequest{
-					Projects: []*pfs.Project{{Name: project}},
-				},
-			)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			pp, err := grpcutil.Collect[*pps.PipelineInfo](pipelineResp, 1000)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			if len(pp) > 0 {
-				for _, p := range pp {
-					fmt.Printf("This will delete pipeline %s\n?", p.Pipeline)
-				}
-				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
-					return err
-				} else if !ok {
-					return errors.Errorf("cannot delete project with %d pipelines", len(pp))
-				}
-				for _, p := range pp {
-					if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: p.Pipeline}); err != nil {
-						return grpcutil.ScrubGRPC(err)
-					}
-				}
-			}
-
 			_, err = c.PfsAPIClient.DeleteProject(
 				c.Ctx(),
 				&pfs.DeleteProjectRequest{
@@ -1367,7 +1365,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			defer progress.Wait()
 
 			// check whether or not the repo exists before attempting to upload
-			if _, err = c.InspectProjectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Branch.Repo.Name); err != nil {
+			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Branch.Repo.Name); err != nil {
 				if errutil.IsNotFoundError(err) {
 					return err
 				}

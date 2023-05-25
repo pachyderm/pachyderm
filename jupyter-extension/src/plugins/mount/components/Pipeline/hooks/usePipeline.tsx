@@ -4,7 +4,6 @@ import {ServerConnection} from '@jupyterlab/services';
 import {
   CreatePipelineResponse,
   MountSettings,
-  Pipeline,
   PpsContext,
   PpsMetadata,
 } from '../../../types';
@@ -14,8 +13,10 @@ export const PPS_VERSION = 'v1.0.0';
 
 export type usePipelineResponse = {
   loading: boolean;
-  pipeline: Pipeline;
-  setPipeline: (input: string) => void;
+  pipelineName: string;
+  setPipelineName: (input: string) => void;
+  pipelineProject: string;
+  setPipelineProject: (input: string) => void;
   imageName: string;
   setImageName: (input: string) => void;
   inputSpec: string;
@@ -35,7 +36,8 @@ export const usePipeline = (
   saveNotebookToDisk: () => Promise<string | null>,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
-  const [pipeline, setPipeline] = useState({name: ''} as Pipeline);
+  const [pipelineName, setPipelineName] = useState('');
+  const [pipelineProject, setPipelineProject] = useState('');
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
   const [requirements, setRequirements] = useState('');
@@ -43,28 +45,13 @@ export const usePipeline = (
   const [responseMessage, setResponseMessage] = useState('');
   const [currentNotebook, setCurrentNotebook] = useState('None');
 
-  const setPipelineFromString = (input: string) => {
-    if (input === '') {
-      setPipeline({name: ''} as Pipeline);
-      return;
-    }
-    const parts = splitAtFirstSlash(input);
-    if (parts.length === 1) {
-      setPipeline({name: input} as Pipeline);
-    } else {
-      setPipeline({
-        name: parts[1],
-        project: {name: parts[0]},
-      } as Pipeline);
-    }
-  };
-
   useEffect(() => {
     setImageName(
       ppsContext?.metadata?.config.image ?? settings.defaultPipelineImage,
     );
-    setPipeline(
-      ppsContext?.metadata?.config.pipeline ?? ({name: ''} as Pipeline),
+    setPipelineName(ppsContext?.metadata?.config.pipeline.name ?? '');
+    setPipelineProject(
+      ppsContext?.metadata?.config.pipeline.project?.name ?? '',
     );
     setRequirements(ppsContext?.metadata?.config.requirements ?? '');
     setResponseMessage('');
@@ -79,7 +66,7 @@ export const usePipeline = (
   useEffect(() => {
     const ppsMetadata: PpsMetadata = buildMetadata();
     saveNotebookMetaData(ppsMetadata);
-  }, [pipeline, imageName, requirements, inputSpec]);
+  }, [pipelineName, pipelineProject, imageName, requirements, inputSpec]);
 
   let callCreatePipeline: () => Promise<void>;
   if (ppsContext?.notebookModel) {
@@ -125,7 +112,7 @@ export const usePipeline = (
     return {
       version: PPS_VERSION,
       config: {
-        pipeline: pipeline,
+        pipeline: {name: pipelineName, project: {name: pipelineProject}},
         image: imageName,
         requirements: requirements,
         input_spec: inputSpec,
@@ -135,8 +122,10 @@ export const usePipeline = (
 
   return {
     loading,
-    pipeline,
-    setPipeline: setPipelineFromString,
+    pipelineName,
+    setPipelineName,
+    pipelineProject,
+    setPipelineProject,
     imageName,
     setImageName,
     inputSpec,
@@ -148,13 +137,4 @@ export const usePipeline = (
     errorMessage,
     responseMessage,
   };
-};
-
-/*
-splitAtFirstSlash splits a string into two components if it contains a backslash.
-  For example test/name => [test, name]. If the text does not contain a backslash
-  then text is returned as a one element array, name => [name].
- */
-export const splitAtFirstSlash = (text: string): string[] => {
-  return text.split(/\/(.*)/s, 2);
 };
