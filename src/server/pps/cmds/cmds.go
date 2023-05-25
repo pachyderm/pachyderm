@@ -1446,7 +1446,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	startExtendedTrace := &cobra.Command{
 		Short: "Start an extended trace.",
 		Long:  "Start an extended trace.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if len(repos) == 0 && len(pipelines) == 0 {
+				return errors.New("Must pass at least one repo (via --repos) or pipeline (via --pipelines)")
+			}
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
@@ -1491,9 +1494,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	startExtendedTrace.Flags().StringSlice("repos", repos, "repos to attach to the extended trace, denoted as $project/$repo.")
-	startExtendedTrace.Flags().StringSlice("pipelines", pipelines, "pipelines to attach to the extended trace, denoted as $project/$pipeline.")
-	commands = append(commands, cmdutil.CreateAliases(startExtendedTrace, "inspect secret", secrets))
+	startExtendedTrace.Flags().StringSliceVar(&repos, "repos", nil, "repos to attach to the extended trace, denoted as $project/$repo.")
+	startExtendedTrace.Flags().StringSliceVar(&pipelines, "pipelines", nil, "pipelines to attach to the extended trace, denoted as $project/$pipeline.")
+	commands = append(commands, cmdutil.CreateAliases(startExtendedTrace, "start trace"))
 
 	return commands
 }
