@@ -15,6 +15,6 @@ export OPS_PACHD_ADDRESS='grpc://localhost:30650'
 
 pachctl create project ci-metrics
 pachctl create repo go-test-results-raw --project ci-metrics
-pachctl create pipeline --jsonnet src/testing/cmds/go-test-results/egress/pipeline.jsonnet --arg version=0.0.8 --arg pghost=postgres --arg pguser=pachyderm --project ci-metrics
+pachctl create pipeline --jsonnet src/testing/cmds/go-test-results/egress/pipeline.jsonnet --arg version=0.0.9 --arg pghost=postgres --arg pguser=pachyderm --project ci-metrics
 
 go run -v src/testing/cmds/go-test-results/collector/main.go

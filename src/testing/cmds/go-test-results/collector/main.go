@@ -46,21 +46,28 @@ func findPachdAddress() string {
 func main() {
 	log.InitPachctlLogger()
 	ctx := pctx.Background("")
+	err := run(ctx)
+	if err != nil {
+		log.Error(ctx, "Error during metric collection", zap.Error(err))
+	}
+}
+
+func run(ctx context.Context) error {
 	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
 	if len(robotToken) == 0 {
 		log.Info(ctx, "No pachyderm robot token found. Continuing with unauthenticated pach client.")
 	}
 	resultsFolder := os.Getenv("TEST_RESULTS")
 	if len(resultsFolder) == 0 {
-		log.Exit(ctx, "TEST_RESULTS needs to be populated to find the test results folder.")
+		return errors.WithStack(fmt.Errorf("TEST_RESULTS needs to be populated to find the test results folder."))
 	}
 	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
-		log.Exit(ctx, "The test result folder at %v does not exist. Exiting early.", zap.String("resultsFolder", resultsFolder))
+		return errors.WithStack(fmt.Errorf("The test result folder at %v does not exist. Exiting early.", resultsFolder))
 	}
 	// connect and authenticate to pachyderm
 	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
 	if err != nil {
-		log.Exit(ctx, "Problem provisioning pach client: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem provisioning pach client")
 	}
 	pachClient.SetAuthToken(robotToken)
 	// retry in case the parent commit is still in progress from another pipeline
@@ -75,21 +82,21 @@ func main() {
 		}
 	}
 	if err != nil {
-		log.Exit(ctx, "Problem starting commit: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem starting commit")
 	}
 	defer func() {
 		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
-			log.Exit(ctx, "Problem finishing commit: %v", zap.Error(err))
+			log.Error(ctx, "Problem finishing commit: %v", zap.Error(err))
 		}
 	}()
 	// upload general job information
 	jobInfo, err := findJobInfoFromCI()
 	if err != nil {
-		log.Exit(ctx, "Problem collecting job info: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem collecting job info")
 	}
 	basePath := findBasePath(jobInfo)
 	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
-		log.Exit(ctx, "Problem uploading job info: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem uploading job info")
 	}
 	// upload individual test  results
 	eg, _ := errgroup.WithContext(pachClient.Ctx())
@@ -105,13 +112,14 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		log.Exit(ctx, "Problem walking file paths: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem walking file paths: %v")
 	}
 	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		log.Exit(ctx, "Problem putting files to pachyderm: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem putting files to pachyderm: %v")
 	}
 
 	log.Info(ctx, "Successfully uploaded files.")
+	return nil
 }
 
 func sanitizeName(s string) string {
@@ -143,6 +151,7 @@ func findJobInfoFromCI() (gotestresults.JobInfo, error) {
 	allowEmpty["CIRCLE_BRANCH"] = true
 	allowEmpty["CIRCLE_TAG"] = true
 	allowEmpty["CIRCLE_PULL_REQUESTS"] = true
+	allowEmpty["CIRCLE_USERNAME"] = true
 
 	for envVar, statsField := range mapping {
 		*statsField = os.Getenv(envVar)

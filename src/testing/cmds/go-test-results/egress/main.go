@@ -47,11 +47,17 @@ type TestResultLine struct {
 // This is built and runs in a pachyderm pipeline to egress data uploaded to pachyderm to postgresql.
 func main() {
 	log.InitPachctlLogger()
-	var ctx = pctx.Background("")
+	ctx := pctx.Background("")
+	err := run(ctx)
+	if err != nil {
+		log.Exit(ctx, "Error during metric collection", zap.Error(err))
+	}
+}
+func run(ctx context.Context) error {
 	log.Info(ctx, "Running DB Migrate")
 	out, err := exec.Command("tern", "migrate").CombinedOutput()
 	if err != nil {
-		log.Exit(ctx, "Error running migrates.", zap.ByteString("Migrate output", out), zap.Error(err))
+		return errors.Wrapf(err, "Error running migrates. %v", string(out))
 	}
 	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
 	inputFolder := os.Args[1]
@@ -60,14 +66,14 @@ func main() {
 		dbutil.WithDBName("ci_metrics"),
 		dbutil.WithUserPassword(postgresqlUser, postgresqlPassword),
 	)
-	// db, err := sqlx.Open("pgx", dsn)
+
 	if err != nil {
-		log.Exit(ctx, "Failed opening db connection %v", zap.Error(err))
+		return errors.Wrapf(err, "Failed opening db connection %v")
 	}
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)
 	if err != nil {
-		log.Exit(ctx, "Problem evaluating symlinks", zap.Error(err))
+		return errors.Wrapf(err, "Problem evaluating symlinks")
 	}
 	jobInfoPaths := make(map[string]gotestresults.JobInfo)
 	var testResultPaths []string
@@ -92,17 +98,18 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		log.Exit(ctx, "Problem walking file tree for job info ", zap.Error(err))
+		return errors.Wrapf(err, "Problem walking file tree for job info ")
 	}
 	if len(jobInfoPaths) == 0 {
 		log.Info(ctx, "No new job info found, exiting without inserting test results.")
-		return
+		return nil
 	}
 	for _, path := range testResultPaths {
 		if err = insertTestResultFile(ctx, path, jobInfoPaths, db); err != nil {
-			log.Exit(ctx, "Problem inserting test results into DB ", zap.Error(err))
+			return errors.Wrapf(err, "Problem inserting test results into DB ")
 		}
 	}
+	return nil
 }
 
 func readJobInfo(path string) (*gotestresults.JobInfo, error) {
@@ -140,8 +147,9 @@ func insertJobInfo(
 							commit_sha, 
 							branch, 
 							tag,
-							pull_requests
-						) VALUES (:workflowid, :jobid, :jobexecutor, :jobname, :jobtimestamp, :jobnumexecutors, :commit, :branch, :tag, :pullrequests)`,
+							pull_requests,
+							username
+						) VALUES (:workflowid, :jobid, :jobexecutor, :jobname, :jobtimestamp, :jobnumexecutors, :commit, :branch, :tag, :pullrequests, :username)`,
 		jobInfo,
 	)
 
