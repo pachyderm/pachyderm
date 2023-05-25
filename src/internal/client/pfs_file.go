@@ -93,9 +93,6 @@ func (c APIClient) WithModifyFileClient(commit *pfs.Commit, cb func(ModifyFile) 
 
 // NewModifyFileClient creates a new ModifyFileClient.
 func (c APIClient) NewModifyFileClient(commit *pfs.Commit) (_ *ModifyFileClient, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	client, err := c.PfsAPIClient.ModifyFile(c.Ctx())
 	if err != nil {
 		return nil, err
@@ -189,7 +186,6 @@ func (mfc *modifyFileCore) maybeError(f func() error) (retErr error) {
 		return mfc.err
 	}
 	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
 		if retErr != nil {
 			mfc.err = retErr
 		}
@@ -377,9 +373,6 @@ type CreateFileSetClient struct {
 
 // NewCreateFileSetClient returns a CreateFileSetClient instance backed by this client
 func (c APIClient) NewCreateFileSetClient() (_ *CreateFileSetClient, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	client, err := c.PfsAPIClient.CreateFileSet(c.Ctx())
 	if err != nil {
 		return nil, err
@@ -410,9 +403,6 @@ func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
 
 // GetFileSet gets a file set for a commit in a project.
 func (c APIClient) GetFileSet(project, repo, branch, commit string) (_ string, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	resp, err := c.PfsAPIClient.GetFileSet(
 		c.Ctx(),
 		&pfs.GetFileSetRequest{
@@ -427,9 +417,6 @@ func (c APIClient) GetFileSet(project, repo, branch, commit string) (_ string, r
 
 // AddFileSet adds a fileset to a commit in a project.
 func (c APIClient) AddFileSet(project, repo, branch, commit, ID string) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	_, err := c.PfsAPIClient.AddFileSet(
 		c.Ctx(),
 		&pfs.AddFileSetRequest{
@@ -442,9 +429,6 @@ func (c APIClient) AddFileSet(project, repo, branch, commit, ID string) (retErr 
 
 // RenewFileSet renews a fileset.
 func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	_, err := c.PfsAPIClient.RenewFileSet(
 		c.Ctx(),
 		&pfs.RenewFileSetRequest{
@@ -457,9 +441,6 @@ func (c APIClient) RenewFileSet(ID string, ttl time.Duration) (retErr error) {
 
 // ComposeFileSet composes a file set from a list of file sets.
 func (c APIClient) ComposeFileSet(IDs []string, ttl time.Duration) (_ string, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	resp, err := c.PfsAPIClient.ComposeFileSet(
 		c.Ctx(),
 		&pfs.ComposeFileSetRequest{
@@ -474,9 +455,6 @@ func (c APIClient) ComposeFileSet(IDs []string, ttl time.Duration) (_ string, re
 }
 
 func (c APIClient) ShardFileSet(ID string) (_ []*pfs.PathRange, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	resp, err := c.PfsAPIClient.ShardFileSet(
 		c.Ctx(),
 		&pfs.ShardFileSetRequest{
@@ -495,9 +473,6 @@ func (c APIClient) ShardFileSet(ID string) (_ []*pfs.PathRange, retErr error) {
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFile(commit *pfs.Commit, path string, w io.Writer, opts ...GetFileOption) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	gf := &pfs.GetFileRequest{
@@ -531,9 +506,6 @@ func (c APIClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadCloser, e
 }
 
 func (c APIClient) getFileTar(commit *pfs.Commit, path string) (_ io.ReadCloser, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	req := &pfs.GetFileRequest{
 		File: commit.NewFile(path),
 	}
@@ -627,9 +599,6 @@ func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 
 // GetFileURL gets the file at the specified URL
 func (c APIClient) GetFileURL(commit *pfs.Commit, path, URL string) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	req := &pfs.GetFileRequest{
 		File: commit.NewFile(path),
 		URL:  URL,
@@ -644,9 +613,6 @@ func (c APIClient) GetFileURL(commit *pfs.Commit, path, URL string) (retErr erro
 
 // InspectFile returns metadata about the specified file
 func (c APIClient) InspectFile(commit *pfs.Commit, path string) (_ *pfs.FileInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	fi, err := c.PfsAPIClient.InspectFile(
 		c.Ctx(),
 		&pfs.InspectFileRequest{
@@ -658,9 +624,6 @@ func (c APIClient) InspectFile(commit *pfs.Commit, path string) (_ *pfs.FileInfo
 
 // ListFile returns info about all files in a Commit under path, calling cb with each FileInfo.
 func (c APIClient) ListFile(commit *pfs.Commit, path string, cb func(fi *pfs.FileInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	client, err := c.PfsAPIClient.ListFile(
 		c.Ctx(),
 		&pfs.ListFileRequest{
@@ -689,9 +652,6 @@ func (c APIClient) ListFile(commit *pfs.Commit, path string, cb func(fi *pfs.Fil
 
 // ListFileAll returns info about all files in a Commit under path.
 func (c APIClient) ListFileAll(commit *pfs.Commit, path string) (_ []*pfs.FileInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	var fis []*pfs.FileInfo
 	if err := c.ListFile(commit, path, func(fi *pfs.FileInfo) error {
 		fis = append(fis, fi)
@@ -706,9 +666,6 @@ func (c APIClient) ListFileAll(commit *pfs.Commit, path string) (_ []*pfs.FileIn
 // calling cb with each FileInfo. The pattern is documented here:
 // https://golang.org/pkg/path/filepath/#Match
 func (c APIClient) GlobFile(commit *pfs.Commit, pattern string, cb func(fi *pfs.FileInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	client, err := c.PfsAPIClient.GlobFile(
 		c.Ctx(),
 		&pfs.GlobFileRequest{
@@ -739,9 +696,6 @@ func (c APIClient) GlobFile(commit *pfs.Commit, pattern string, cb func(fi *pfs.
 // GlobFileAll returns files that match a given glob pattern in a given commit.
 // The pattern is documented here: https://golang.org/pkg/path/filepath/#Match
 func (c APIClient) GlobFileAll(commit *pfs.Commit, pattern string) (_ []*pfs.FileInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	var fis []*pfs.FileInfo
 	if err := c.GlobFile(commit, pattern, func(fi *pfs.FileInfo) error {
 		fis = append(fis, fi)
@@ -755,9 +709,6 @@ func (c APIClient) GlobFileAll(commit *pfs.Commit, pattern string) (_ []*pfs.Fil
 // DiffFile returns the differences between 2 paths at 2 commits.
 // It streams back one file at a time which is either from the new path, or the old path
 func (c APIClient) DiffFile(newCommit *pfs.Commit, newPath string, oldCommit *pfs.Commit, oldPath string, shallow bool, cb func(*pfs.FileInfo, *pfs.FileInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	ctx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
 	var oldFile *pfs.File
@@ -789,9 +740,6 @@ func (c APIClient) DiffFile(newCommit *pfs.Commit, newPath string, oldCommit *pf
 
 // DiffFileAll returns the differences between 2 paths at 2 commits.
 func (c APIClient) DiffFileAll(newCommit *pfs.Commit, newPath string, oldCommit *pfs.Commit, oldPath string, shallow bool) (_ []*pfs.FileInfo, _ []*pfs.FileInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	var newFis, oldFis []*pfs.FileInfo
 	if err := c.DiffFile(newCommit, newPath, oldCommit, oldPath, shallow, func(newFi, oldFi *pfs.FileInfo) error {
 		if newFi != nil {

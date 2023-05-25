@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 )
 
@@ -13,9 +12,6 @@ import (
 func (c APIClient) ListTask(service string, namespace, group string, cb func(*task.TaskInfo) error) (retErr error) {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 
 	req := &task.ListTaskRequest{
 		Group: &task.Group{

@@ -68,7 +68,7 @@ func (c APIClient) CreateRepo(projectName, repoName string) error {
 			Repo: NewRepo(projectName, repoName),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // UpdateRepo upserts a repo with the given name.
@@ -80,14 +80,11 @@ func (c APIClient) UpdateRepo(projectName, repoName string) error {
 			Update: true,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectRepo returns info about a specific Repo.
 func (c APIClient) InspectRepo(projectName, repoName string) (_ *pfs.RepoInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	return c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
@@ -118,7 +115,7 @@ func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, err
 		r,
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return grpcutil.Collect[*pfs.RepoInfo](client, 1000)
 }
@@ -140,7 +137,7 @@ func (c APIClient) DeleteRepo(projectName, repoName string, force bool) error {
 		c.Ctx(),
 		request,
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // StartCommit begins the process of committing data to a Repo. Once
@@ -154,9 +151,6 @@ func (c APIClient) DeleteRepo(projectName, repoName string, force bool) error {
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
 func (c APIClient) StartCommit(projectName, repoName string, branchName string) (_ *pfs.Commit, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	return c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
@@ -169,7 +163,6 @@ func (c APIClient) StartCommit(projectName, repoName string, branchName string) 
 // persists the Commit.  Once a Commit is finished the data becomes immutable and
 // future attempts to write to it with PutFile will error.
 func (c APIClient) FinishCommit(projectName, repoName, branchName, commitID string) (retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
@@ -181,14 +174,12 @@ func (c APIClient) FinishCommit(projectName, repoName, branchName, commitID stri
 
 // InspectCommit returns info about a specific Commit.
 func (c APIClient) InspectCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	return c.inspectCommit(projectName, repoName, branchName, commitID, pfs.CommitState_STARTED)
 }
 
 // WaitCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
 func (c APIClient) WaitCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	return c.inspectCommit(projectName, repoName, branchName, commitID, pfs.CommitState_FINISHED)
 }
 
@@ -248,14 +239,14 @@ func (c APIClient) ListCommitF(repo *pfs.Repo, to, from *pfs.Commit, number int6
 	defer cf()
 	stream, err := c.PfsAPIClient.ListCommit(ctx, req)
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
 		ci, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}
 		if err := f(ci); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -285,11 +276,11 @@ func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsRespons
 	defer cf()
 	client, err := c.PfsAPIClient.FindCommits(ctx, req)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	resp := &FindCommitsResponse{}
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	if err := grpcutil.ForEach[*pfs.FindCommitsResponse](client, func(x *pfs.FindCommitsResponse) error {
 		switch x.Result.(type) {
@@ -301,7 +292,7 @@ func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsRespons
 		}
 		return nil
 	}); err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return resp, nil
 }
@@ -320,7 +311,7 @@ func (c APIClient) CreateBranch(projectName, repoName, branchName, commitBranch,
 			Provenance: provenance,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // CreateBranchTrigger creates a branch with a trigger. Note: triggers
@@ -339,7 +330,7 @@ func (c APIClient) CreateBranchTrigger(projectName, repoName, branchName, commit
 			Trigger: trigger,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectBranch returns information on a specific PFS branch.
@@ -350,7 +341,7 @@ func (c APIClient) InspectBranch(projectName, repoName string, branchName string
 			Branch: NewBranch(projectName, repoName, branchName),
 		},
 	)
-	return branchInfo, grpcutil.ScrubGRPC(err)
+	return branchInfo, err
 }
 
 // ListBranch lists the active branches on a Repo.
@@ -368,7 +359,7 @@ func (c APIClient) ListBranch(projectName, repoName string) ([]*pfs.BranchInfo, 
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return grpcutil.Collect[*pfs.BranchInfo](client, 1000)
 }
@@ -384,7 +375,7 @@ func (c APIClient) DeleteBranch(projectName, repoName, branchName string, force 
 			Force:  force,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // CreateProject creates a new Project object in pfs with the given name.
@@ -395,7 +386,7 @@ func (c APIClient) CreateProject(name string) error {
 			Project: NewProject(name),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // UpdateProject upserts a project with the given name.
@@ -408,7 +399,7 @@ func (c APIClient) UpdateProject(projectName, description string) error {
 			Update:      true,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectProject returns info about a specific Project.
@@ -420,16 +411,13 @@ func (c APIClient) InspectProject(name string) (*pfs.ProjectInfo, error) {
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return resp, nil
 }
 
 // ListProject lists projects.
 func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PfsAPIClient.ListProject(
@@ -455,7 +443,7 @@ func (c APIClient) DeleteProject(projectName string, force bool) error {
 		c.Ctx(),
 		request,
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInfo) error) error {
@@ -488,7 +476,6 @@ func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInf
 
 // InspectCommitSet returns info about a specific CommitSet.
 func (c APIClient) InspectCommitSet(id string) (_ []*pfs.CommitInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
 	if err := c.inspectCommitSet(id, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
@@ -502,7 +489,6 @@ func (c APIClient) InspectCommitSet(id string) (_ []*pfs.CommitInfo, retErr erro
 // WaitCommitSetAll blocks until all of a CommitSet's commits are finished.  To
 // wait for an individual commit, use WaitCommit instead.
 func (c APIClient) WaitCommitSetAll(id string) (_ []*pfs.CommitInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
 	if err := c.WaitCommitSet(id, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
@@ -517,7 +503,6 @@ func (c APIClient) WaitCommitSetAll(id string) (_ []*pfs.CommitInfo, retErr erro
 // passing them to the given callback as they finish.  To wait for an individual
 // commit, use WaitCommit instead.
 func (c APIClient) WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) (retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	if err := c.inspectCommitSet(id, true, cb); err != nil {
 		return err
 	}
@@ -532,7 +517,7 @@ func (c APIClient) SquashCommitSet(id string) error {
 			CommitSet: NewCommitSet(id),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // DropCommitSet drop the commits of a CommitSet and all data included in those commits.
@@ -543,15 +528,12 @@ func (c APIClient) DropCommitSet(id string) error {
 			CommitSet: NewCommitSet(id),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
 func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   repo,
 		Branch: branchName,
@@ -606,7 +588,7 @@ func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error, opts ...Fsck
 	}
 	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), req)
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
 		resp, err := fsckClient.Recv()
@@ -614,7 +596,7 @@ func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error, opts ...Fsck
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}
 		if err := cb(resp); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -633,7 +615,7 @@ func (c APIClient) FsckFastExit() error {
 	defer cancel()
 	fsckClient, err := c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
 		resp, err := fsckClient.Recv()
@@ -641,7 +623,7 @@ func (c APIClient) FsckFastExit() error {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}
 		if resp.Error != "" {
 			return errors.Errorf(resp.Error)
