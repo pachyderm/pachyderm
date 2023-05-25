@@ -977,3 +977,57 @@ func TestMountWithProjects(t *testing.T) {
 		require.Equal(t, 4, len((*mountsList).Mounted))
 	})
 }
+
+func TestProjects(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "b1", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	projectName := tu.UniqueString("p1")
+	require.NoError(t, env.PachClient.CreateProject(projectName))
+	require.NoError(t, env.PachClient.CreateRepo(projectName, "repo_p1"))
+	commit = client.NewCommit(projectName, "repo_p1", "b1", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewCommit(projectName, "repo_p1", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	emptyProjectName := tu.UniqueString("p2")
+	require.NoError(t, env.PachClient.CreateProject(emptyProjectName))
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		type Project struct {
+			Name string `json:"name"`
+		}
+
+		type ProjectAuth struct {
+			Permissions []int    `json:"permissions"`
+			Roles       []string `json:"roles"`
+		}
+
+		type ProjectResp struct {
+			Project Project     `json:"project"`
+			Auth    ProjectAuth `json:"auth_info"`
+		}
+
+		resp, err := get("projects")
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		defer resp.Body.Close()
+		projectData := []ProjectResp{}
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&projectData))
+		require.Equal(t, len(projectData), 3)
+		require.Equal(t, projectData[0].Project.Name, emptyProjectName)
+		require.Equal(t, projectData[1].Project.Name, projectName)
+		require.Equal(t, projectData[2].Project.Name, pfs.DefaultProjectName)
+	})
+}

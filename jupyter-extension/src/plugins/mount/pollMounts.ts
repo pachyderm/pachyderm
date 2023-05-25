@@ -1,7 +1,14 @@
 import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import {requestAPI} from '../../handler';
-import {AuthConfig, Mount, ListMountsResponse, mountState, Repo} from './types';
+import {
+  AuthConfig,
+  Mount,
+  ListMountsResponse,
+  mountState,
+  Repo,
+  ProjectInfo,
+} from './types';
 import {ServerConnection} from '@jupyterlab/services';
 
 export const MOUNTED_STATES: mountState[] = [
@@ -31,6 +38,7 @@ export class PollMounts {
 
   private _mounted: Mount[] = [];
   private _unmounted: Repo[] = [];
+  private _projects: ProjectInfo[] = [];
   private _status: ServerStatus = {code: 999, message: ''};
   private _config: AuthConfig = {
     pachd_address: '',
@@ -39,6 +47,7 @@ export class PollMounts {
 
   private _mountedSignal = new Signal<this, Mount[]>(this);
   private _unmountedSignal = new Signal<this, Repo[]>(this);
+  private _projectSignal = new Signal<this, ProjectInfo[]>(this);
   private _statusSignal = new Signal<this, ServerStatus>(this);
   private _configSignal = new Signal<this, AuthConfig>(this);
 
@@ -76,6 +85,18 @@ export class PollMounts {
     this._unmountedSignal.emit(data);
   }
 
+  get projects(): ProjectInfo[] {
+    return this._projects;
+  }
+
+  set projects(data: ProjectInfo[]) {
+    if (data === this._projects) {
+      return;
+    }
+    this._projects = data;
+    this._projectSignal.emit(data);
+  }
+
   get status(): ServerStatus {
     return this._status;
   }
@@ -107,6 +128,9 @@ export class PollMounts {
   get unmountedSignal(): ISignal<this, Repo[]> {
     return this._unmountedSignal;
   }
+  get projectSignal(): ISignal<this, ProjectInfo[]> {
+    return this._projectSignal;
+  }
 
   get statusSignal(): ISignal<this, ServerStatus> {
     return this._statusSignal;
@@ -133,6 +157,12 @@ export class PollMounts {
     }
   };
 
+  updateProjects = (data: ProjectInfo[]): void => {
+    if (JSON.stringify(data) !== JSON.stringify(this.projects)) {
+      this.projects = data;
+    }
+  };
+
   async getData(): Promise<void> {
     try {
       const config = await requestAPI<AuthConfig>('config', 'GET');
@@ -141,6 +171,8 @@ export class PollMounts {
         const data = await requestAPI<ListMountsResponse>('mounts', 'GET');
         this.status = {code: 200};
         this.updateData(data);
+        const project = await requestAPI<ProjectInfo[]>('projects', 'GET');
+        this.updateProjects(project);
       }
     } catch (error) {
       if (error instanceof ServerConnection.ResponseError) {

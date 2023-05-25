@@ -125,6 +125,9 @@ func getRequestLogger(ctx context.Context, req any) context.Context {
 	default:
 		f = append(f, zap.Any("request", x))
 	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		f = append(f, log.Metadata("metadata", md))
+	}
 	if deadline, ok := ctx.Deadline(); ok {
 		f = append(f, zap.Duration("deadline", time.Until(deadline)))
 	}

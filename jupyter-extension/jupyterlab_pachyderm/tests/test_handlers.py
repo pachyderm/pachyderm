@@ -552,6 +552,28 @@ async def test_pps_get(jp_fetch):
         assert expected_key in body
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.ProjectsHandler.mount_client",
+    spec=MountInterface,
+)
+async def test_get_projects(mock_client, jp_fetch):
+    test_projects = [
+        {
+            "project": {"name": "default"},
+            "auth_info":{"permissions": [1, 2, 3], "roles": ["clusterAdmin", "projectOwner"]}
+        },
+        {
+            "project": {"name": "p1"},
+            "auth_info":{"permissions": [4, 5, 6], "roles": ["test"]}
+        }
+    ]
+
+    mock_client.list_projects.return_value = json.dumps(test_projects)
+    resp = await jp_fetch(f"/{NAMESPACE}/{VERSION}/projects")
+    assert json.loads(resp.body) == test_projects
+
+
 async def test_write_token_to_config_no_context():
     timestamp = time.time_ns()
     test_config_path = f"/tmp/pach_test_config_{timestamp}.json"

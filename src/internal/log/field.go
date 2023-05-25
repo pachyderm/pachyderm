@@ -65,14 +65,19 @@ func RetryAttempt(i int, max int) Field {
 	return zap.Inline(&attempt{i: i, max: max})
 }
 
-// Metadata is a Field that logs the provided metadata (canonicalizing keys, and collapsing
-// single-element values to strings).
+// Metadata is a Field that logs the provided metadata (canonicalizing keys, collapsing
+// single-element values to strings, and removing the Pachyderm auth token).
 func Metadata(name string, md metadata.MD) Field {
 	return zap.Object(name, zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		keys := maps.Keys(md)
 		sort.Strings(keys)
 		for _, k := range keys {
 			v := md[k]
+			if k == constants.ContextTokenKey {
+				for i := range v {
+					v[i] = "[MASKED]"
+				}
+			}
 			switch len(v) {
 			case 0:
 				continue
@@ -100,9 +105,6 @@ func OutgoingMetadata(ctx context.Context) Field {
 	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		return zap.Skip()
-	}
-	if _, ok := md[constants.ContextTokenKey]; ok {
-		md[constants.ContextTokenKey] = []string{"..."}
 	}
 	return Metadata("metadata", md)
 }

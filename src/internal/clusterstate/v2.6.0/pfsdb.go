@@ -83,26 +83,16 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 		}
 		duplicates[commitBranchlessKey(ci.Commit)][oldCommitKey(ci.Commit)] = ci
 	}
-	// the only duplicate commits we allow and handle in the migration are two commits with a parent/child relationship
-	// for any set of commits with the same ID on a repo, we expect the following:
-	// 1. all commits has a non-nil Parent.
-	// 2. exactly one commit is not an ALIAS commit
-	// 3. the commits are in an ancestry chain
-	//
-	// TODO(provenance): this is all quite complicated and potentially needs to be revisted
+	// the only duplicate commits we allow and handle in the migration are those connected through direct ancestry.
+	// the allowed duplicate commits are expected to arise from branch triggers / deferred processing.
 	var badCommitSets []string
 	for _, dups := range duplicates {
 		if len(dups) <= 1 {
 			continue
 		}
 		seen := make(map[string]struct{})
-		aliasCount := 0
 		var commitSet string
 		for _, d := range dups {
-			// before 2.6, pfs.OriginKind_ALIAS = 4
-			if d.Origin.Kind == 4 {
-				aliasCount++
-			}
 			commitSet = d.Commit.ID
 			if d.ParentCommit != nil {
 				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
@@ -110,7 +100,7 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 				}
 			}
 		}
-		if len(dups)-len(seen) > 1 || len(dups)-aliasCount != 1 {
+		if len(dups)-len(seen) > 1 {
 			badCommitSets = append(badCommitSets, commitSet)
 		}
 	}

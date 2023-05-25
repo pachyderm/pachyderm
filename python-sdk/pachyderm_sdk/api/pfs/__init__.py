@@ -40,7 +40,6 @@ class OriginKind(betterproto.Enum):
     USER = 1
     AUTO = 2
     FSCK = 3
-    ALIAS = 4
 
 
 class FileType(betterproto.Enum):
@@ -107,7 +106,7 @@ class RepoInfo(betterproto.Message):
     size_bytes_upper_bound: int = betterproto.int64_field(3)
     description: str = betterproto.string_field(4)
     branches: List["Branch"] = betterproto.message_field(5)
-    auth_info: "RepoAuthInfo" = betterproto.message_field(6)
+    auth_info: "AuthInfo" = betterproto.message_field(6)
     """
     Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
     not stored in etcd. To set a user's auth scope for a repo, use the
@@ -125,26 +124,26 @@ class RepoInfoDetails(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class RepoAuthInfo(betterproto.Message):
+class AuthInfo(betterproto.Message):
     """
-    RepoAuthInfo includes the caller's access scope for a repo, and is returned
-    by ListRepo and InspectRepo but not persisted in etcd. It's used by the
-    Pachyderm dashboard to render repo access appropriately. To set a user's
-    auth scope for a repo, use the Pachyderm Auth API (in
-    src/client/auth/auth.proto)
+    AuthInfo includes the caller's access scope for a resource, and is returned
+    by services like ListRepo, InspectRepo, and ListProject, but is not
+    persisted in the database. It's used by the Pachyderm dashboard to render
+    repo access appropriately. To set a user's auth scope for a resource, use
+    the Pachyderm Auth API (in src/auth/auth.proto)
     """
 
     permissions: List["_auth__.Permission"] = betterproto.enum_field(1)
     """
-    The callers access level to the relevant repo. These are very granular
+    The callers access level to the relevant resource. These are very granular
     permissions - for the end user it makes sense to show them the roles they
     have instead.
     """
 
     roles: List[str] = betterproto.string_field(2)
     """
-    The caller's roles on the relevant repo. This includes inherited roles from
-    the cluster, group membership, etc.
+    The caller's roles on the relevant resource. This includes inherited roles
+    from the cluster, project, group membership, etc.
     """
 
 
@@ -205,8 +204,10 @@ class Commit(betterproto.Message):
     protos)
     """
 
-    branch: "Branch" = betterproto.message_field(1)
+    repo: "Repo" = betterproto.message_field(3)
     id: str = betterproto.string_field(2)
+    branch: "Branch" = betterproto.message_field(1)
+    """only used by the client"""
 
 
 @dataclass(eq=False, repr=False)
@@ -223,7 +224,7 @@ class CommitInfo(betterproto.Message):
     started: datetime = betterproto.message_field(6)
     finishing: datetime = betterproto.message_field(7)
     finished: datetime = betterproto.message_field(8)
-    direct_provenance: List["Branch"] = betterproto.message_field(9)
+    direct_provenance: List["Commit"] = betterproto.message_field(13)
     error: str = betterproto.string_field(10)
     size_bytes_upper_bound: int = betterproto.int64_field(11)
     details: "CommitInfoDetails" = betterproto.message_field(12)
@@ -267,6 +268,8 @@ class Project(betterproto.Message):
 class ProjectInfo(betterproto.Message):
     project: "Project" = betterproto.message_field(1)
     description: str = betterproto.string_field(2)
+    auth_info: "AuthInfo" = betterproto.message_field(3)
+    created_at: datetime = betterproto.message_field(4)
 
 
 @dataclass(eq=False, repr=False)
