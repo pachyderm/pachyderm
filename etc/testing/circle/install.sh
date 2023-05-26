@@ -38,7 +38,7 @@ fi
 # To get the latest minikube version:
 # curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort -V | tail -n1
 if [ ! -f cached-deps/minikube ] ; then
-    MINIKUBE_VERSION=v1.26.0
+    MINIKUBE_VERSION=v1.30.1
     curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-${ARCH} && \
         chmod +x ./minikube
         mv ./minikube cached-deps/minikube
