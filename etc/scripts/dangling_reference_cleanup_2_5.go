@@ -41,7 +41,11 @@ func main() {
 	if err != nil {
 		panic(errors.Wrap(err, "start transaction"))
 	}
-	defer tx.Commit()
+	defer func() {
+		if err := tx.Commit(); err != nil {
+			panic(errors.Wrap(err, "commit transaction"))
+		}
+	}()
 	cs, err := listReferencedCommits(tx)
 	if err != nil {
 		panic(errors.Wrap(err, "list referenced commits"))
