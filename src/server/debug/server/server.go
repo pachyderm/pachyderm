@@ -75,6 +75,8 @@ const (
 	TaskType_AppLogs
 	TaskType_Pipelines
 	TaskType_Pipeline
+	TaskType_LokiLogs
+	TaskType_Logs
 )
 
 // maps the task type to its sub-directory in the debug dump
@@ -124,6 +126,7 @@ type collectFunc func(context.Context, *tar.Writer, *client.APIClient, ...string
 type task struct {
 	taskType TaskType
 	timeout  time.Duration
+	app      string
 }
 
 // the returned taskPath gets deleted by the caller after its contents are streamed, and is the location of any associated error file
@@ -144,9 +147,9 @@ func (s *debugServer) runTask(ctx context.Context, taskType TaskType, dir string
 	case TaskType_SourceRepos:
 		return s.collectInputRepos(ctx, s.env.GetPachClient(ctx), filepath.Join(dir, taskType.String()), int64(0), reportProgress)
 	case TaskType_PachdDescribe:
-		return s.collectDescribe(ctx, filepath.Join(dir, "pachd"), s.name)
+		return s.collectDescribe(ctx, filepath.Join(dir, "pachd"), s.name, reportProgress)
 	case TaskType_PachdLogs:
-		return s.collectLogs(ctx, filepath.Join(dir, "pachd"), s.name, "pachd")
+		return s.collectLogs(ctx, filepath.Join(dir, "pachd"), s.name, "pachd", reportProgress)
 	case TaskType_PachdLokiLogs:
 		return s.collectLogsLoki(ctx, filepath.Join(dir, "pachd"), s.name, "pachd", reportProgress)
 	case TaskType_Database:
@@ -384,7 +387,6 @@ func (s *debugServer) appLogs(ctx context.Context, dir string) (retErr error) {
 	defer end(log.Errorp(&retErr))
 	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
 	defer c()
-
 	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
@@ -411,12 +413,12 @@ func (s *debugServer) appLogs(ctx context.Context, dir string) (retErr error) {
 	var errs error
 	for _, pod := range pods.Items {
 		dir := filepath.Join(dir, pod.Labels["app"], pod.Name)
-		if _, err := s.collectDescribe(ctx, dir, pod.Name); err != nil {
+		if _, err := s.collectDescribe(ctx, dir, pod.Name, func(_, _ int) {}); err != nil {
 			multierr.AppendInto(&errs, errors.Wrapf(err, "describe(%s)", pod.Name))
 		}
 		for _, container := range pod.Spec.Containers {
 			dir := filepath.Join(dir, container.Name)
-			if _, err := s.collectLogs(ctx, dir, pod.Name, container.Name); err != nil {
+			if _, err := s.collectLogs(ctx, dir, pod.Name, container.Name, func(progress, total int) {}); err != nil {
 				multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogs(%s.%s)", pod.Name, container.Name))
 			}
 			if _, err := s.collectLogsLoki(ctx, dir, pod.Name, container.Name, func(progress, total int) {}); err != nil {
@@ -683,6 +685,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.
 	if err := os.Mkdir(dir, os.ModeDir); err != nil {
 		return "", errors.Wrap(err, "make source-repos dir")
 	}
+	reportProgress(0, 1)
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
 		return "", errors.Wrap(err, "list repo")
@@ -705,6 +708,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.
 		}
 		reportProgress(i, len(repoInfos))
 	}
+	reportProgress(1, 1)
 	return dir, errs
 }
 
@@ -873,10 +877,11 @@ func (s *debugServer) collectHelm(ctx context.Context, dir string, reportProgres
 		}
 		reportProgress(i, len(secrets.Items))
 	}
+	reportProgress(100, 100)
 	return filepath.Join(dir, "helm"), writeErrs
 }
 
-func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod string) (string, error) {
+func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod string, reportProgress func(progress, total int)) (string, error) {
 	err := collectDebugFileV2(dir, "describe.txt", func(output io.Writer) (retErr error) {
 		// Gate the total time of "describe".
 		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
@@ -911,11 +916,13 @@ func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod strin
 		}
 		return nil
 	})
+	reportProgress(100, 100)
 	return filepath.Join(dir, "describe.txt"), err
 }
 
-func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, container string) (string, error) {
+func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, container string, reportProgress func(progress, total int)) (string, error) {
 	logsFile := "logs.txt"
+	reportProgress(0, 1)
 	if err := collectDebugFileV2(dir, logsFile, func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
@@ -932,6 +939,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, containe
 	}); err != nil {
 		return filepath.Join(dir, logsFile), err
 	}
+	reportProgress(1, 2)
 	logsFile = "logs-previous.txt"
 	if err := collectDebugFileV2(dir, logsFile, func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
@@ -949,6 +957,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, containe
 	}); err != nil {
 		return logsFile, err
 	}
+	reportProgress(1, 1)
 	// TODO: this isn't clean since it ignores the logs.txt file
 	return logsFile, nil
 }
@@ -996,6 +1005,7 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dir, pod, container s
 				reportProgress(i/progIncr, progTotal)
 			}
 		}
+		reportProgress(100, 100)
 		return nil
 	})
 	return logsPath, err
@@ -1278,17 +1288,17 @@ func (s *debugServer) collectJobs(pachClient *client.APIClient, dir string, pipe
 func (s *debugServer) collectWorkerDump(ctx context.Context, dir string, pod *v1.Pod, prefix ...string) (retErr error) {
 	defer log.Span(ctx, "collectWorkerDump")(log.Errorp(&retErr))
 	// Collect the worker describe output.
-	if _, err := s.collectDescribe(ctx, dir, pod.Name); err != nil {
+	if _, err := s.collectDescribe(ctx, dir, pod.Name, func(_, _ int) {}); err != nil {
 		return err
 	}
 	// Collect the worker user and storage container logs.
 	userDir := filepath.Join(dir, client.PPSWorkerUserContainerName)
 	sidecarDir := filepath.Join(dir, client.PPSWorkerSidecarContainerName)
 	var errs error
-	if _, err := s.collectLogs(ctx, userDir, pod.Name, client.PPSWorkerUserContainerName); err != nil {
+	if _, err := s.collectLogs(ctx, userDir, pod.Name, client.PPSWorkerUserContainerName, func(_, _ int) {}); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "userContainerLogs"))
 	}
-	if _, err := s.collectLogs(ctx, sidecarDir, pod.Name, client.PPSWorkerSidecarContainerName); err != nil {
+	if _, err := s.collectLogs(ctx, sidecarDir, pod.Name, client.PPSWorkerSidecarContainerName, func(_, _ int) {}); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "storageContainerLogs"))
 	}
 	return errs

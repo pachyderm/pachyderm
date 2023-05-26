@@ -71,40 +71,39 @@ message GetDumpV2TemplateResponse {
  DumpV2Request request = 1;
 }
 
-message PachdDump {
-  bool describe = 1;
-  bool logs = 2;
-  bool loki_logs = 3;
-}
-
-message AppDump {
-  bool input_repos = 1;
-}
-
 message WorkerDump {
-  string pod = 1;
+  Pod pod = 1;
 }
 
-message PipelineDump {
+message Pipeline {
+  string project = 1;
+  string name = 2;
+  repeated WorkerDump workers = 3;
+}
+
+message Pod {
   string name = 1;
-  repeated WorkerDump tasks = 2;
 }
 
-message PipelinesDump {
-  repeated PipelineDump tasks = 1;
+message App {
+  string name = 1;
+  repeated Pod pods = 2;
 }
 
-message SystemDump {
+message System {
   bool version = 1;
   bool helm = 2;
   bool profile = 3;
+  repeated App describes = 4;
+  repeated App logs = 5;  
+  repeated App loki_logs = 6;
+  repeated App binaries = 7;
 }
 
 message DumpV2Request {
-  SystemDump system_dump = 1;
-  PachdDump pachd_dump = 2;
-  PipelinesDump pipelines_dump = 3;
-  AppDump app_dump = 4;
+  System system = 1;
+  repeated Pipeline pipelines = 2;
+  bool input_repos = 3;
 }
 
 message DumpContent {
