@@ -63,14 +63,14 @@ func main() {
 			if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, id); err != nil {
 				panic(errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", id))
 			}
-			if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, id); err != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, id); err != nil {
 				panic(errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", id))
 			}
 		}
 	}
 }
 
-func listReferencedCommits(sqlTx *sqlx.Tx) ([]*pfs.Commit, error) {
+func listReferencedCommits(sqlTx *sqlx.Tx) (map[string]*pfs.Commit, error) {
 	cs := make(map[string]*pfs.Commit)
 	var ids []string
 	if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
@@ -86,11 +86,7 @@ func listReferencedCommits(sqlTx *sqlx.Tx) ([]*pfs.Commit, error) {
 	for _, id := range ids {
 		cs[id] = parseCommit_2_5(id)
 	}
-	var res []*pfs.Commit
-	for _, c := range cs {
-		res = append(res, c)
-	}
-	return res, nil
+	return cs, nil
 }
 
 func listRepoKeys(tx *sqlx.Tx) (map[string]struct{}, error) {

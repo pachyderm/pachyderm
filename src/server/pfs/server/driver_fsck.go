@@ -317,7 +317,7 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 	return nil
 }
 
-func (d *driver) listReferencedCommits(ctx context.Context) ([]*pfs.Commit, error) {
+func (d *driver) listReferencedCommits(ctx context.Context) (map[string]*pfs.Commit, error) {
 	cs := make(map[string]*pfs.Commit)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(sqlTx *pachsql.Tx) error {
 		var ids []string
@@ -338,14 +338,10 @@ func (d *driver) listReferencedCommits(ctx context.Context) ([]*pfs.Commit, erro
 	}); err != nil {
 		return nil, err
 	}
-	var res []*pfs.Commit
-	for _, c := range cs {
-		res = append(res, c)
-	}
-	return res, nil
+	return cs, nil
 }
 
-func fsckDanglingCommits(ris map[string]*pfs.RepoInfo, cs []*pfs.Commit) []*pfs.Commit {
+func fsckDanglingCommits(ris map[string]*pfs.RepoInfo, cs map[string]*pfs.Commit) []*pfs.Commit {
 	var danglingCommits []*pfs.Commit
 	for _, c := range cs {
 		if _, ok := ris[pfsdb.RepoKey(c.Repo)]; !ok {
@@ -412,7 +408,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
 					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", pfsdb.CommitKey(dc))
 				}
-				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
+				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
 					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", pfsdb.CommitKey(dc))
 				}
 			}
