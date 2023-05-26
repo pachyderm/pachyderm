@@ -524,9 +524,12 @@ jobs:
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
       - run: mkdir ${TEST_RESULTS}
+      - wait-for-docker
+      - start-minikube
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
+      - run: etc/testing/circle/wait-minikube.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Format test results for upload
