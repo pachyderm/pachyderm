@@ -499,7 +499,7 @@ jobs:
           path: /tmp/debug-dump
           destination: debug-dump
   rootless:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
