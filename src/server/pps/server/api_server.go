@@ -657,15 +657,11 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	if err != nil {
 		return errors.Wrap(err, "error creating jq filter function")
 	}
-	keep := func(jobInfo *pps.JobInfo) error {
+	getJobSet := func(jobInfo *pps.JobInfo) (*pps.JobSetInfo, error) {
 		id := jobInfo.GetJob().GetID()
-		if _, ok := seen[id]; ok {
-			return nil
-		}
-		seen[id] = struct{}{}
 		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
@@ -673,7 +669,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		for _, ji := range jobInfos {
 			// filter jobs based on jq filter.
 			if keep, err := jqFilter(ji); err != nil {
-				return errors.Wrap(err, "error applying jq filter")
+				return nil, errors.Wrap(err, "error applying jq filter")
 			} else if !keep {
 				continue
 			}
@@ -684,12 +680,12 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			jobInfosFiltered = append(jobInfosFiltered, ji)
 		}
 		if len(jobInfosFiltered) == 0 {
-			return nil
+			return nil, nil
 		}
-		return serv.Send(&pps.JobSetInfo{
+		return &pps.JobSetInfo{
 			JobSet: client.NewJobSet(id),
 			Jobs:   jobInfosFiltered,
-		})
+		}, nil
 	}
 
 	number := request.Number
@@ -712,6 +708,11 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if number == 0 {
 			return errutil.ErrBreak
 		}
+		id := jobInfo.GetJob().GetID()
+		if _, ok := seen[id]; ok {
+			return nil
+		}
+		seen[id] = struct{}{}
 		if paginationMarker != nil {
 			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
 			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
@@ -719,10 +720,16 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 				return nil
 			}
 		}
-		if err := keep(jobInfo); err != nil {
-			return errors.Wrap(err, "error sending jobset")
+		jobset, err := getJobSet(jobInfo)
+		if err != nil {
+			return errors.Wrap(err, "error filtering jobset")
 		}
-		number--
+		if jobset != nil {
+			if err := serv.Send(jobset); err != nil {
+				return errors.Wrap(err, "error sending jobset")
+			}
+			number--
+		}
 		return nil
 	}); err != nil && err != errutil.ErrBreak {
 		return errors.EnsureStack(err)
