@@ -655,7 +655,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	}
 	jqFilter, err := jqFilterFunc(request.GetJqFilter())
 	if err != nil {
-		return errors.Wrap(err, "error parsing jq filter")
+		return errors.Wrap(err, "error creating jq filter function")
 	}
 	keep := func(jobInfo *pps.JobInfo) error {
 		id := jobInfo.GetJob().GetID()
@@ -720,7 +720,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			}
 		}
 		if err := keep(jobInfo); err != nil {
-			return err
+			return errors.Wrap(err, "error sending jobset")
 		}
 		number--
 		return nil
@@ -842,7 +842,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 
 	jqFilter, err := jqFilterFunc(request.GetJqFilter())
 	if err != nil {
-		return errors.Wrap(err, "error parsing jq filter")
+		return errors.Wrap(err, "error creating jq filter function")
 	}
 	keep := func(j *pps.JobInfo) error {
 		// filter jobs based on jq filter.
@@ -855,7 +855,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		if len(projectFilter) > 0 && !projectFilter[j.Job.Pipeline.Project.GetName()] {
 			return nil
 		}
-		return errors.Wrap(resp.Send(j), "could not send filtered job")
+		return resp.Send(j)
 	}
 
 	ctx := resp.Context()
@@ -925,7 +925,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		}
 
 		if err := keep(jobInfo); err != nil {
-			return err
+			return errors.Wrap(err, "error sending job")
 		}
 		number--
 		return nil
@@ -3578,11 +3578,11 @@ func jqFilterFunc(filter string) (func(proto.Message) (bool, error), error) {
 	)
 	jqQuery, err := gojq.Parse(filter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error parsing jq filter")
 	}
 	jqCode, err = gojq.Compile(jqQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error compiling jq filter")
 	}
 	enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	return func(m proto.Message) (bool, error) {
@@ -3595,7 +3595,7 @@ func jqFilterFunc(filter string) (func(proto.Message) (bool, error), error) {
 		}
 		var v any
 		if err := json.Unmarshal(jsonBuffer.Bytes(), &v); err != nil {
-			return false, err
+			return false, errors.Wrap(err, "error unmarshalling proto message")
 		}
 		iter := jqCode.Run(v)
 		if v, _ := iter.Next(); v == false || v == nil {
