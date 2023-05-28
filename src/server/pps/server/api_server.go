@@ -648,23 +648,48 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
-
-	var (
-		jqCode     *gojq.Code
-		jsonBuffer bytes.Buffer
-		enc        serde.Encoder
-	)
-	if request.GetJqFilter() != "" {
-		jqQuery, err := gojq.Parse(request.GetJqFilter())
-		if err != nil {
-			return errors.Wrap(err, "error parsing jq filter")
+	// Prepare filter functions.
+	projectsFilter := make(map[string]bool, len(request.GetProjects()))
+	for _, project := range request.GetProjects() {
+		projectsFilter[project.GetName()] = true
+	}
+	jqFilter, err := jqFilterFunc(request.GetJqFilter())
+	if err != nil {
+		return errors.Wrap(err, "error parsing jq filter")
+	}
+	keep := func(jobInfo *pps.JobInfo) error {
+		id := jobInfo.GetJob().GetID()
+		if _, ok := seen[id]; ok {
+			return nil
 		}
-		jqCode, err = gojq.Compile(jqQuery)
+		seen[id] = struct{}{}
+		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
-			return errors.Wrap(err, "error compiling jq filter")
+			return err
 		}
-		// ensure field names and enum values match with --raw output
-		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
+		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
+		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
+		var jobInfosFiltered []*pps.JobInfo
+		for _, ji := range jobInfos {
+			// filter jobs based on jq filter.
+			if keep, err := jqFilter(ji); err != nil {
+				return errors.Wrap(err, "error applying jq filter")
+			} else if !keep {
+				continue
+			}
+			// filter jobs based on project filter.
+			if len(projectsFilter) > 0 && !projectsFilter[ji.Job.Pipeline.Project.GetName()] {
+				continue
+			}
+			jobInfosFiltered = append(jobInfosFiltered, ji)
+		}
+		if len(jobInfosFiltered) == 0 {
+			return nil
+		}
+		return serv.Send(&pps.JobSetInfo{
+			JobSet: client.NewJobSet(id),
+			Jobs:   jobInfosFiltered,
+		})
 	}
 
 	number := request.Number
@@ -675,12 +700,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		number = math.MaxInt64
 	}
 	paginationMarker := request.PaginationMarker
-
-	// For quickly filtering out jobs based on project
-	projectsFilter := make(map[string]bool, len(request.GetProjects()))
-	for _, project := range request.GetProjects() {
-		projectsFilter[project.GetName()] = true
-	}
 
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
@@ -693,11 +712,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if number == 0 {
 			return errutil.ErrBreak
 		}
-		id := jobInfo.GetJob().GetID()
-		if _, ok := seen[id]; ok {
-			return nil
-		}
-		seen[id] = struct{}{}
 		if paginationMarker != nil {
 			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
 			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
@@ -705,46 +719,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 				return nil
 			}
 		}
-		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
-		if err != nil {
-			return err
-		}
-		if jqCode != nil {
-			jsonBuffer.Reset()
-			// convert jobInfo to a map[string]interface{} for use with gojq
-			if err := enc.EncodeProto(jobInfo); err != nil {
-				return errors.EnsureStack(err)
-			}
-			var jobInterface interface{}
-			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
-				return errors.EnsureStack(err)
-			}
-			iter := jqCode.Run(jobInterface)
-			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
-				return nil
-			}
-		}
-		// Filter jobs based on projects.
-		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
-		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
-		var jobInfosFiltered []*pps.JobInfo
-		if len(projectsFilter) == 0 {
-			jobInfosFiltered = jobInfos
-		} else {
-			for _, ji := range jobInfos {
-				if projectsFilter[ji.Job.Pipeline.Project.GetName()] {
-					jobInfosFiltered = append(jobInfosFiltered, ji)
-				}
-			}
-		}
-		if len(jobInfosFiltered) == 0 {
-			return nil
-		}
-		if err := serv.Send(&pps.JobSetInfo{
-			JobSet: client.NewJobSet(id),
-			Jobs:   jobInfosFiltered,
-		}); err != nil {
+		if err := keep(jobInfo); err != nil {
 			return err
 		}
 		number--
@@ -859,15 +834,28 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	filter := make(map[string]bool, len(request.GetProjects()))
+	// Prepare filter functions.
+	projectFilter := make(map[string]bool, len(request.GetProjects()))
 	for _, project := range request.GetProjects() {
-		filter[project.GetName()] = true
+		projectFilter[project.GetName()] = true
+	}
+
+	jqFilter, err := jqFilterFunc(request.GetJqFilter())
+	if err != nil {
+		return errors.Wrap(err, "error parsing jq filter")
 	}
 	keep := func(j *pps.JobInfo) error {
-		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
-			return errors.Wrap(resp.Send(j), "could not send filtered job")
+		// filter jobs based on jq filter.
+		if keep, err := jqFilter(j); err != nil {
+			return errors.Wrap(err, "error applying jq filter")
+		} else if !keep {
+			return nil
 		}
-		return nil
+		// filter jobs based on project.
+		if len(projectFilter) > 0 && !projectFilter[j.Job.Pipeline.Project.GetName()] {
+			return nil
+		}
+		return errors.Wrap(resp.Send(j), "could not send filtered job")
 	}
 
 	ctx := resp.Context()
@@ -884,21 +872,6 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: pipeline.Project, Name: pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 			return errors.EnsureStack(err)
 		}
-	}
-	var jqCode *gojq.Code
-	var enc serde.Encoder
-	var jsonBuffer bytes.Buffer
-	if request.GetJqFilter() != "" {
-		jqQuery, err := gojq.Parse(request.GetJqFilter())
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		jqCode, err = gojq.Compile(jqQuery)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		// ensure field names and enum values match with --raw output
-		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
 
 	number := request.Number
@@ -951,22 +924,6 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return nil
 		}
 
-		if jqCode != nil {
-			jsonBuffer.Reset()
-			// convert jobInfo to a map[string]interface{} for use with gojq
-			if err := enc.EncodeProto(jobInfo); err != nil {
-				return errors.EnsureStack(err)
-			}
-			var jobInterface interface{}
-			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
-				return errors.EnsureStack(err)
-			}
-			iter := jqCode.Run(jobInterface)
-			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
-				return nil
-			}
-		}
 		if err := keep(jobInfo); err != nil {
 			return err
 		}
@@ -3606,4 +3563,44 @@ func ensurePipelineProject(p *pps.Pipeline) {
 	if p.Project.GetName() == "" {
 		p.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
+}
+
+func jqFilterFunc(filter string) (func(proto.Message) (bool, error), error) {
+	if filter == "" {
+		return func(_ proto.Message) (bool, error) {
+			return true, nil
+		}, nil
+	}
+	var (
+		jqCode     *gojq.Code
+		jsonBuffer bytes.Buffer
+		enc        serde.Encoder
+	)
+	jqQuery, err := gojq.Parse(filter)
+	if err != nil {
+		return nil, err
+	}
+	jqCode, err = gojq.Compile(jqQuery)
+	if err != nil {
+		return nil, err
+	}
+	enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
+	return func(m proto.Message) (bool, error) {
+		if jqCode == nil {
+			return true, nil
+		}
+		jsonBuffer.Reset()
+		if err := enc.EncodeProto(m); err != nil {
+			return false, err
+		}
+		var v any
+		if err := json.Unmarshal(jsonBuffer.Bytes(), &v); err != nil {
+			return false, err
+		}
+		iter := jqCode.Run(v)
+		if v, _ := iter.Next(); v == false || v == nil {
+			return false, nil
+		}
+		return true, nil
+	}, nil
 }
