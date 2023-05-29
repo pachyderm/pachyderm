@@ -499,7 +499,7 @@ jobs:
           path: /tmp/debug-dump
           destination: debug-dump
   rootless:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -524,9 +524,12 @@ jobs:
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
       - run: mkdir ${TEST_RESULTS}
+      - wait-for-docker
+      - start-minikube
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
+      - run: etc/testing/circle/wait-minikube.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Format test results for upload
@@ -2007,7 +2010,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12Gi --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
           background: true
   collect-test-results:
     steps:
