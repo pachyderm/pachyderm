@@ -28,6 +28,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -11752,4 +11754,97 @@ func TestDatumBatching(t *testing.T) {
 		request := createPipelineRequest(pipeline, script)
 		checkState(request, pps.JobState_JOB_SUCCESS)
 	})
+}
+
+func TestJQFilterDenialOfService(t *testing.T) {
+	var ctx = pctx.Background("TestJQFilterDenialOfService")
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	dataRepo := tu.UniqueString("DatumBatching_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	numFiles := 15
+	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("/file-%02d", i), strings.NewReader("")))
+		}
+		return nil
+	}))
+
+	createPipelineRequest := func(pipeline, script string) *pps.CreatePipelineRequest {
+		return &pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd:           []string{"bash"},
+				Stdin:         []string{script},
+				DatumBatching: true,
+			},
+			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			DatumSetSpec: &pps.DatumSetSpec{Number: 5},
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				cp /pfs/%s/* /pfs/out/
+			done
+			`, dataRepo)
+	pipeline := tu.UniqueString("DatumBatchingBasic")
+	request := createPipelineRequest(pipeline, script)
+	filter := `{ source: ., output: "" } | until(.source == "quux"; {"foo": "bar"}) | .output`
+
+	_, err := c.PpsAPIClient.CreatePipeline(ctx, request)
+	require.NoError(t, err, "could not create pipeline")
+
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
+	require.NoError(t, err, "could not inspect commit")
+
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
+	require.NoError(t, err, "could not wait for job")
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State, "job not successful")
+
+	r, err := c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{
+		JqFilter: filter,
+	})
+	require.NoError(t, err, "could not list pipelines")
+	var i int
+	for {
+		_, err := r.Recv()
+		if err == io.EOF {
+			break
+		}
+		if status.Code(err) != codes.DeadlineExceeded {
+			require.NoError(t, err, "list pipelines fails")
+		} else {
+			// deadline exceeded means that the server handled it
+			break
+		}
+		i++
+	}
+	require.NotEqual(t, 0, i, "expected at least one pipeline")
+
+	resp, err := c.PpsAPIClient.ListJob(ctx, &pps.ListJobRequest{
+		JqFilter: filter,
+	})
+	require.NoError(t, err, "could not list jobs")
+	i = 0
+	for {
+		_, err := resp.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err, "list jobs failed")
+		i++
+	}
+	require.NotEqual(t, 0, i, "expected at least one job")
 }
