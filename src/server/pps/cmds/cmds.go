@@ -1422,6 +1422,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	var errStr string
+	var duration string
 	nextDatum := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Used internally for datum batching",
@@ -1449,6 +1450,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if len(repos) == 0 && len(pipelines) == 0 {
 				return errors.New("Must pass at least one repo (via --repos) or pipeline (via --pipelines)")
+			}
+			durationT, err := time.ParseDuration(duration)
+			if err != nil {
+				return fmt.Errorf("Could not parse duration %q: %v", duration, err)
 			}
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1486,9 +1491,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				})
 			}
 
+			durationP := types.DurationProto(durationT)
 			if _, err := client.PpsAPIClient.StartExtendedTrace(
 				client.Ctx(),
-				&pps.ExtendedTraceRequest{}); err != nil {
+				&pps.ExtendedTraceRequest{
+					Repos:     repoObjs,
+					Pipelines: pipelineObjs,
+					Ttl:       durationP,
+				}); err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
@@ -1496,6 +1506,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	startExtendedTrace.Flags().StringSliceVar(&repos, "repos", nil, "repos to attach to the extended trace, denoted as $project/$repo.")
 	startExtendedTrace.Flags().StringSliceVar(&pipelines, "pipelines", nil, "pipelines to attach to the extended trace, denoted as $project/$pipeline.")
+	startExtendedTrace.Flags().StringVar(&duration, "duration", "1m", "amount of time to keep the trace running (default: 1m)")
 	commands = append(commands, cmdutil.CreateAliases(startExtendedTrace, "start trace"))
 
 	return commands
