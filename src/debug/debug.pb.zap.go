@@ -118,68 +118,104 @@ func (x *GetDumpV2TemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	return nil
 }
 
-func (x *PachdDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddBool("describe", x.Describe)
-	enc.AddBool("logs", x.Logs)
-	enc.AddBool("loki_logs", x.LokiLogs)
-	return nil
-}
-
-func (x *AppDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddBool("input_repos", x.InputRepos)
-	return nil
-}
-
 func (x *WorkerDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("pod", x.Pod)
+	enc.AddObject("pod", x.Pod)
 	return nil
 }
 
-func (x *PipelineDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *Pipeline) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("project", x.Project)
+	enc.AddString("name", x.Name)
+	workersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Workers {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("workers", zapcore.ArrayMarshalerFunc(workersArrMarshaller))
+	return nil
+}
+
+func (x *Pod) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddString("name", x.Name)
-	tasksArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Tasks {
-			enc.AppendObject(v)
+	enc.AddString("ip", x.Ip)
+	containersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Containers {
+			enc.AppendString(v)
 		}
 		return nil
 	}
-	enc.AddArray("tasks", zapcore.ArrayMarshalerFunc(tasksArrMarshaller))
+	enc.AddArray("containers", zapcore.ArrayMarshalerFunc(containersArrMarshaller))
 	return nil
 }
 
-func (x *PipelinesDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *App) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	tasksArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Tasks {
+	enc.AddString("name", x.Name)
+	podsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Pods {
 			enc.AppendObject(v)
 		}
 		return nil
 	}
-	enc.AddArray("tasks", zapcore.ArrayMarshalerFunc(tasksArrMarshaller))
+	enc.AddArray("pods", zapcore.ArrayMarshalerFunc(podsArrMarshaller))
+	enc.AddInt64("timeout", x.Timeout)
 	return nil
 }
 
-func (x *SystemDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *System) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddBool("version", x.Version)
 	enc.AddBool("helm", x.Helm)
-	enc.AddBool("profile", x.Profile)
+	enc.AddBool("database", x.Database)
+	describesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Describes {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("describes", zapcore.ArrayMarshalerFunc(describesArrMarshaller))
+	logsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Logs {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("logs", zapcore.ArrayMarshalerFunc(logsArrMarshaller))
+	loki_logsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.LokiLogs {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("loki_logs", zapcore.ArrayMarshalerFunc(loki_logsArrMarshaller))
+	binariesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Binaries {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("binaries", zapcore.ArrayMarshalerFunc(binariesArrMarshaller))
+	profilesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Profiles {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("profiles", zapcore.ArrayMarshalerFunc(profilesArrMarshaller))
 	return nil
 }
 
@@ -187,10 +223,16 @@ func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddObject("system_dump", x.SystemDump)
-	enc.AddObject("pachd_dump", x.PachdDump)
-	enc.AddObject("pipelines_dump", x.PipelinesDump)
-	enc.AddObject("app_dump", x.AppDump)
+	enc.AddObject("system", x.System)
+	pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Pipelines {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("pipelines", zapcore.ArrayMarshalerFunc(pipelinesArrMarshaller))
+	enc.AddBool("input_repos", x.InputRepos)
+	enc.AddInt64("timeout", x.Timeout)
 	return nil
 }
 

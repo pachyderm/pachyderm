@@ -19,11 +19,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func (s *debugServer) collectDatabaseDump(ctx context.Context, dir string, reportProgress func(progress, total int)) (_ string, retErr error) {
+func (s *debugServer) collectDatabaseDump(ctx context.Context, dir string, rp reportProgressFunc) (_ string, retErr error) {
 	defer log.Span(ctx, "collectDatabaseDump")(log.Errorp(&retErr))
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
-	reportProgress(0, 100)
+	rp(ctx, 0, 100)
 	var errs error
 	if err := s.collectDatabaseStats(ctxWithTimeout, dir); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseStats"))
@@ -31,7 +31,7 @@ func (s *debugServer) collectDatabaseDump(ctx context.Context, dir string, repor
 	if err := s.collectDatabaseTables(ctxWithTimeout, filepath.Join(dir, "tables")); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseTables"))
 	}
-	reportProgress(100, 100)
+	rp(ctx, 100, 100)
 	return dir, errs
 }
 

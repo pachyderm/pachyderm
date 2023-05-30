@@ -139,7 +139,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			bytes, err := json.Marshal(r.Request)
+			bytes, err := json.MarshalIndent(r.Request, "", "    ")
 			if err != nil {
 				return err
 			}
