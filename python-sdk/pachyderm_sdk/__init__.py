@@ -1,5 +1,5 @@
 from .client import Client
-from .batch_datums import batch_all_datums
+from .datum_batching import batch_all_datums
 
 # Python version compatibility.
 try:
