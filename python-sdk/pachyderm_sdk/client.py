@@ -23,6 +23,8 @@ from .api.version import ApiStub as _VersionStub, Version
 from .config import ConfigFile
 from .constants import (
     AUTH_TOKEN_ENV,
+    CONFIG_PATH_LOCAL,
+    CONFIG_PATH_SPOUT,
     GRPC_CHANNEL_OPTIONS,
     OIDC_TOKEN_ENV,
     PACHD_SERVICE_HOST_ENV,
@@ -41,11 +43,6 @@ class Client:
     To see documentation on the methods :class:`.Client` can call, refer to the
     `mixins` module.
     """
-
-    # Class variables for checking config
-    env_config = "PACH_CONFIG"
-    spout_config = Path("/pachctl/config.json")
-    local_config = Path.home().joinpath("pachyderm/config.json")
 
     def __init__(
         self,
@@ -143,9 +140,9 @@ class Client:
         Client
             A python_pachyderm client instance.
         """
-        if cls.spout_config.exists():
+        if CONFIG_PATH_SPOUT.exists():
             # TODO: Should we notify the user that we are using spout config?
-            return cls.from_config(cls.spout_config)
+            return cls.from_config(CONFIG_PATH_SPOUT)
 
         host = os.environ.get(PACHD_SERVICE_HOST_ENV)
         if host is None:

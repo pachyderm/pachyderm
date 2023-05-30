@@ -1,11 +1,10 @@
-import unittest
 import pytest
 from tempfile import NamedTemporaryFile
 
 from pachyderm_sdk.config import ConfigFile
 from pachyderm_sdk.errors import ConfigError
 
-TEST_CONFIG = bytes("""
+TEST_CONFIG = """
 {
   "user_id": "some_user",
   "v2": {
@@ -26,9 +25,9 @@ TEST_CONFIG = bytes("""
     "metrics": true
   }
 }
-""", 'utf-8')
+"""
 
-TEST_CONFIG_INVALID_CONTEXT = bytes("""
+TEST_CONFIG_INVALID_CONTEXT = """
 {
   "user_id": "some_user",
   "v2": {
@@ -49,12 +48,13 @@ TEST_CONFIG_INVALID_CONTEXT = bytes("""
     "metrics": true
   }
 }
-""", 'utf-8')
+"""
 
 class TestConfig():
     @staticmethod
-    def test_from_file():
-        with NamedTemporaryFile() as config_file:
+    def test_from_file(tmp_path):
+        config_path = tmp_path / "config.json"
+        with open(config_path, "w") as config_file:
             config_file.write(TEST_CONFIG)
             config_file.flush()
             c = ConfigFile(config_file.name)
@@ -65,8 +65,9 @@ class TestConfig():
             assert context.project == "default"
     
     @staticmethod
-    def test_invalid_context():
-        with NamedTemporaryFile() as config_file:
+    def test_invalid_context(tmp_path):
+        config_path = tmp_path / "config.json"
+        with open(config_path, "w") as config_file:
             config_file.write(TEST_CONFIG_INVALID_CONTEXT)
             config_file.flush()
             with pytest.raises(ConfigError) as e:
