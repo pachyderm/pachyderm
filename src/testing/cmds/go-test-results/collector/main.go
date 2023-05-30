@@ -33,6 +33,19 @@ const (
 
 var pachdAddress = findPachdAddress()
 var invalidCharacters = regexp.MustCompile("[^a-zA-Z0-9-_]+")
+var repo = &pfs.Repo{
+	Name: repoName,
+	Type: pfs.UserRepoType,
+	Project: &pfs.Project{
+		Name: projectName,
+	},
+}
+var commit = &pfs.Commit{
+	Branch: &pfs.Branch{
+		Name: "master",
+		Repo: repo,
+	},
+}
 
 func findPachdAddress() string {
 	env := os.Getenv("OPS_PACHD_ADDRESS")
@@ -70,36 +83,15 @@ func run(ctx context.Context) error {
 		return errors.Wrapf(err, "Problem provisioning pach client")
 	}
 	pachClient.SetAuthToken(robotToken)
-	// retry in case the parent commit is still in progress from another pipeline
-	var commit *pfs.Commit
-	for i := 0; i < commitMaxRetries; i++ {
-		commit, err = pachClient.StartProjectCommit(projectName, repoName, "master")
-		if err != nil {
-			log.Info(ctx, "Unable to start commit due to error. Retrying. Error: %v", zap.Error(err))
-			time.Sleep(commitRetryBackoff)
-		} else {
-			break
-		}
-	}
-	if err != nil {
-		return errors.Wrapf(err, "Problem starting commit")
-	}
-	defer func() {
-		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
-			log.Error(ctx, "Problem finishing commit: %v", zap.Error(err))
-		}
-	}()
+
 	// upload general job information
 	jobInfo, err := findJobInfoFromCI()
 	if err != nil {
 		return errors.Wrapf(err, "Problem collecting job info")
 	}
 	basePath := findBasePath(jobInfo)
-	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
-		return errors.Wrapf(err, "Problem uploading job info")
-	}
 	// upload individual test  results
-	eg, _ := errgroup.WithContext(pachClient.Ctx())
+	eg, _ := errgroup.WithContext(ctx)
 	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -111,13 +103,17 @@ func run(ctx context.Context) error {
 		}
 		return nil
 	})
+
 	if err != nil {
-		return errors.Wrapf(err, "Problem walking file paths: %v")
+		return errors.Wrapf(err, "Problem walking file paths")
 	}
 	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		return errors.Wrapf(err, "Problem putting files to pachyderm: %v")
+		return errors.Wrapf(goRoutineErrs, "Problem putting files to pachyderm")
 	}
-
+	// do this last so the egress knows that we are done for this job/executor
+	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
+		return errors.Wrapf(err, "Problem uploading job info")
+	}
 	log.Info(ctx, "Successfully uploaded files.")
 	return nil
 }
