@@ -3598,6 +3598,6 @@ func (a *apiServer) StartExtendedTrace(ctx context.Context, request *pps.Extende
 		d = 12 * time.Hour
 	}
 
-	extended.Start(d, a.env.EtcdClient, tags, keys...)
+	extended.Start(ctx, d, a.env.EtcdClient, tags, keys...)
 	return &types.Empty{}, nil
 }
