@@ -2,4 +2,4 @@
 *
 
 # Allow specified files and directories.
-entrypoint.sh
+!entrypoint.sh
