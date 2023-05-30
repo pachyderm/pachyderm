@@ -26,7 +26,7 @@ type s3Server struct {
 func (ss s3Server) listenAndServe(ctx context.Context, shutdownTimeout time.Duration) error {
 	ctx = pctx.Child(ctx, "s3", pctx.WithServerID())
 	var (
-		router = s3.Router(ctx, *ss.env.GetEtcdClient(), s3.NewMasterDriver(), ss.clientFactory)
+		router = s3.Router(ctx, ss.env.GetEtcdClient(), s3.NewMasterDriver(), ss.clientFactory)
 		srv    = s3.Server(ctx, ss.port, router)
 		errCh  = make(chan error, 1)
 	)
