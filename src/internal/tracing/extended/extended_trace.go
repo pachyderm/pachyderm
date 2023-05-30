@@ -90,9 +90,12 @@ func PersistAny(ctx context.Context, c *etcd.Client, keys ...string) {
 	}
 }
 
-func Start(ttl time.Duration, c *etcd.Client, tags map[string]interface{}, keys ...string) {
+func Start(ctx context.Context, ttl time.Duration, c *etcd.Client, tags map[string]interface{}, keys ...string) {
 	tags["__keys__"] = strings.Join(keys, ",")
-	opentracing.GlobalTracer().StartSpan("ExtendedTrace", opentracing.Tags(tags))
+	span := opentracing.GlobalTracer().StartSpan("ExtendedTrace", opentracing.Tags(tags))
+	log.Info(ctx, fmt.Sprintf("Starting extended span %+v", span))
+	persist(ctx, span, ttl, c, keys...)
+	span.Finish()
 	return
 }
 
