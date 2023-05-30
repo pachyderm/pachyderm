@@ -13,14 +13,6 @@ __pdoc__ = {"proto": False}
 
 __all__ = [
     "Client",
-    "RpcError",
-    "put_files",
-    "PFSFile",
-    "ModifyFileClient",
-    "parse_json_pipeline_spec",
-    "parse_dict_pipeline_spec",
-    "ConfigError",
-    "BadClusterDeploymentID",
 ]
 
 __version__ = ""
