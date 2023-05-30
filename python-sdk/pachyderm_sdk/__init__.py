@@ -22,7 +22,6 @@ __all__ = [
     "parse_dict_pipeline_spec",
     "ConfigError",
     "BadClusterDeploymentID",
-    "batch_datums"
     "batch_all_datums"
 ]
 
