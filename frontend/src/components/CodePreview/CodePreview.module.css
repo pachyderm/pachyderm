@@ -73,7 +73,7 @@
 }
 
 .codePreviewContent * {
-  font-family: 'Menlo', monospace;
+  font-family: Menlo, monospace;
   font-size: 0.75rem;
   font-weight: 400;
   letter-spacing: 0.24px;

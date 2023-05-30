@@ -8,7 +8,7 @@
 }
 
 .base * {
-  font-family: 'Menlo';
+  font-family: Menlo, monospace;
 }
 
 .cell {

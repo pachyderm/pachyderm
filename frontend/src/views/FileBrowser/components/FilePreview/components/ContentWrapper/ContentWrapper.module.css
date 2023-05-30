@@ -13,6 +13,6 @@
 }
 
 .base * {
-  font-family: 'Menlo';
+  font-family: Menlo, monospace;
   line-height: 1.5rem;
 }
