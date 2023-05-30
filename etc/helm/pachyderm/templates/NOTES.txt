@@ -44,8 +44,8 @@ Please see values.yaml for a full list of configuration options, including SSL/T
 The legacy ports are not strictly necessary except for compatability with your existing
 configuration.  The proxy inspects traffic arriving on normal http or https ports (80 and 443) and
 automatically routes it to the right service.  pachd, console, S3, oidc, and identity will be
-available on port 80 (grpc://<proxy.host>:80, http://<proxy.host>) if TLS is disabled, or port 443
-otherwise (grpcs://<proxy.host>:443, https://<proxy.host>).
+available on port 80 (http://<proxy.host>) if TLS is disabled, or port 443 otherwise
+(https://<proxy.host>).
 
 As of 2.5.0, the proxy is enabled by default, but not exposed to the Internet.  You can test it out
 with:
@@ -53,14 +53,14 @@ with:
 
     kubectl port-forward svc/pachyderm-proxy 443
 
-and then visiting https://localhost in the browser (or grpcs://localhost:443 with pachctl).  You may
+and then visiting https://localhost in the browser.  You may
 have to ignore certificate validation warnings until the URL you type into the browser contains the
 host that the TLS certificate was provisioned with.
 {{- else }}
 
     kubectl port-forward svc/pachyderm-proxy 80
 
-and then visiting http://localhost in the browser (or grpc://localhost:80 with pachctl).
+and then visiting http://localhost in the browser.
 {{- end }}
 
 Your deployment's security posture will improve by enabling the proxy.  It is hardened against
@@ -74,12 +74,12 @@ Start using your Pachyderm deployment by visiting the Console at https://{{.Valu
 
 Connect pachctl by running:
 
-    pachctl connect grpcs://{{ .Values.proxy.host }}:443
+    pachctl connect https://{{ .Values.proxy.host }}
 {{- else }}
 Start using your Pachyderm deployment by visiting the Console at http://{{.Values.proxy.host}} in your browser.
 
 Connect pachctl by running:
 
-    pachctl connect grpc://{{ .Values.proxy.host }}:80
+    pachctl connect http://{{ .Values.proxy.host }}
 {{- end }}
 {{- end -}}

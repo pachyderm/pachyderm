@@ -204,6 +204,12 @@ class Client:
         if u.path or u.params or u.query or u.fragment or u.username or u.password:
             raise ValueError("invalid pachd address")
 
+        if u.port == None:
+            if u.scheme == "http":
+                u.port = 80
+            elif u.scheme == "https":
+                u.port = 443
+
         return cls(
             host=u.hostname,
             port=u.port,
@@ -369,14 +375,14 @@ class _ConfigFile:
 @dataclass
 class _Context:
     source: Optional[int] = None
-    """An integer that specifies where the config came from. 
+    """An integer that specifies where the config came from.
     This parameter is for internal use only and should not be modified."""
 
     pachd_address: Optional[str] = None
     """A host:port specification for connecting to pachd."""
 
     server_cas: Optional[str] = None
-    """Trusted root certificates for the cluster, formatted as a 
+    """Trusted root certificates for the cluster, formatted as a
     base64-encoded PEM. This is only set when TLS is enabled."""
 
     session_token: Optional[str] = None

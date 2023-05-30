@@ -3,107 +3,184 @@ package grpcutil
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func TestParsePachdAddress(t *testing.T) {
-	_, err := ParsePachdAddress("")
-	require.True(t, errors.Is(err, ErrNoPachdAddress))
+	testData := []struct {
+		url     string
+		want    *PachdAddress
+		wantErr bool
+	}{
+		{
+			url:     "",
+			wantErr: true,
+		},
+		{
+			url:     "grpc://user@pachyderm.com:80",
+			wantErr: true,
+		},
+		{
+			url:     "grpc://user:pass@pachyderm.com:80",
+			wantErr: true,
+		},
+		{
+			url:     "grpc://pachyderm.com:80/",
+			wantErr: true,
+		},
+		{
+			url:     "grpc://pachyderm.com:80/?foo",
+			wantErr: true,
+		},
+		{
+			url:     "grpc://pachyderm.com:80/#foo",
+			wantErr: true,
+		},
+		{
+			url:     "invalid://pachyderm.com",
+			wantErr: true,
+		},
+		{
+			url: "http://pachyderm.com:80",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "pachyderm.com",
+				Port:    80,
+			},
+		},
+		{
+			url: "https://pachyderm.com:80",
+			want: &PachdAddress{
+				Secured: true,
+				Host:    "pachyderm.com",
+				Port:    80,
+			},
+		},
+		{
+			url: "grpc://pachyderm.com:80",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "pachyderm.com",
+				Port:    80,
+			},
+		},
+		{
+			url: "grpcs://pachyderm.com:80",
+			want: &PachdAddress{
+				Secured: true,
+				Host:    "pachyderm.com",
+				Port:    80,
+			},
+		},
+		{
+			url: "http://pachyderm.com",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "pachyderm.com",
+				Port:    80,
+			},
+		},
+		{
+			url: "https://pachyderm.com",
+			want: &PachdAddress{
+				Secured: true,
+				Host:    "pachyderm.com",
+				Port:    443,
+			},
+		},
+		{
+			url: "pachyderm.com",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "pachyderm.com",
+				Port:    DefaultPachdNodePort,
+			},
+		},
+		{
+			url: "grpc://pachyderm.com",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "pachyderm.com",
+				Port:    DefaultPachdNodePort,
+			},
+		},
+		{
+			url: "grpcs://pachyderm.com",
+			want: &PachdAddress{
+				Secured: true,
+				Host:    "pachyderm.com",
+				Port:    DefaultPachdNodePort,
+			},
+		},
+		{
+			url: "grpcs://[::1]:80",
+			want: &PachdAddress{
+				Secured: true,
+				Host:    "::1",
+				Port:    80,
+			},
+		},
+		{
+			url: "127.0.0.1",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "127.0.0.1",
+				Port:    DefaultPachdNodePort,
+			},
+		},
+		{
+			url: "127.0.0.1:80",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "127.0.0.1",
+				Port:    80,
+			},
+		},
+		{
+			url: "[::1]",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "::1",
+				Port:    DefaultPachdNodePort,
+			},
+		},
+		{
+			url: "[::1]:30650",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "::1",
+				Port:    30650,
+			},
+		},
+		{
+			url: "[::1]:80",
+			want: &PachdAddress{
+				Secured: false,
+				Host:    "::1",
+				Port:    80,
+			},
+		},
+		{
+			url: "unix:///tmp/socket",
+			want: &PachdAddress{
+				Secured:    false,
+				UnixSocket: "unix:///tmp/socket",
+			},
+		},
+	}
+	for _, test := range testData {
+		t.Run(test.url, func(t *testing.T) {
+			got, err := ParsePachdAddress(test.url)
+			if test.wantErr {
+				require.YesError(t, err, "parsing %q should error", test.url)
+				return
+			} else {
+				require.NoError(t, err, "parsing %q should not error", test.url)
+			}
+			require.Equal(t, test.want, got)
+		})
+	}
 
-	_, err = ParsePachdAddress("grpc://user@pachyderm.com:80")
-	require.YesError(t, err)
-
-	_, err = ParsePachdAddress("grpc://user:pass@pachyderm.com:80")
-	require.YesError(t, err)
-
-	_, err = ParsePachdAddress("grpc://pachyderm.com:80/")
-	require.YesError(t, err)
-
-	_, err = ParsePachdAddress("grpc://pachyderm.com:80/?foo")
-	require.YesError(t, err)
-
-	_, err = ParsePachdAddress("grpc://pachyderm.com:80/#foo")
-	require.YesError(t, err)
-
-	p, err := ParsePachdAddress("http://pachyderm.com:80")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: false,
-		Host:    "pachyderm.com",
-		Port:    80,
-	}, p)
-
-	p, err = ParsePachdAddress("https://pachyderm.com:80")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: true,
-		Host:    "pachyderm.com",
-		Port:    80,
-	}, p)
-
-	p, err = ParsePachdAddress("grpc://pachyderm.com:80")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: false,
-		Host:    "pachyderm.com",
-		Port:    80,
-	}, p)
-
-	p, err = ParsePachdAddress("grpcs://[::1]:80")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: true,
-		Host:    "::1",
-		Port:    80,
-	}, p)
-
-	p, err = ParsePachdAddress("grpc://pachyderm.com")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: false,
-		Host:    "pachyderm.com",
-		Port:    DefaultPachdNodePort,
-	}, p)
-
-	p, err = ParsePachdAddress("127.0.0.1")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: false,
-		Host:    "127.0.0.1",
-		Port:    DefaultPachdNodePort,
-	}, p)
-
-	p, err = ParsePachdAddress("127.0.0.1:80")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: false,
-		Host:    "127.0.0.1",
-		Port:    80,
-	}, p)
-
-	p, err = ParsePachdAddress("[::1]")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: false,
-		Host:    "::1",
-		Port:    DefaultPachdNodePort,
-	}, p)
-
-	p, err = ParsePachdAddress("[::1]:80")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured: false,
-		Host:    "::1",
-		Port:    80,
-	}, p)
-
-	p, err = ParsePachdAddress("unix:///tmp/socket")
-	require.NoError(t, err)
-	require.Equal(t, &PachdAddress{
-		Secured:    false,
-		UnixSocket: "unix:///tmp/socket",
-	}, p)
 }
 
 func TestPachdAddressQualified(t *testing.T) {
