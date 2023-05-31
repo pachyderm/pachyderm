@@ -11790,8 +11790,6 @@ func TestJQFilterInfiniteLoop(t *testing.T) {
 		}
 	}
 
-	// ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	// defer cancel()
 	script := fmt.Sprintf(`
 			while true
 			do
