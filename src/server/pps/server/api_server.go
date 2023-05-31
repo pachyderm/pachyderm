@@ -2785,7 +2785,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			if err := json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface); err != nil {
 				log.Error(ctx, "error parsing JSON encoded pipeline info", zap.Error(err))
 			}
-			iter := jqCode.Run(pipelineInterface)
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second) // assume that no filter will ever take more than 10 seconds to run
+			defer cancel()
+			iter := jqCode.RunWithContext(ctx, pipelineInterface)
 			// treat either jq false-y value as rejection
 			if v, _ := iter.Next(); v == false || v == nil {
 				return false
