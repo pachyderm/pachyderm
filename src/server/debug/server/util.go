@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/multierr"
@@ -29,7 +28,7 @@ func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	return cb(tw)
 }
 
-func collectDebugFileV2(dir string, name string, cb func(io.Writer) error) (retErr error) {
+func collectDebugFile(dir string, name string, cb func(io.Writer) error) (retErr error) {
 	if err := os.MkdirAll(dir, os.ModeDir); err != nil && !os.IsExist(err) {
 		return errors.Wrapf(err, "mkdir %q", dir)
 	}
@@ -49,28 +48,7 @@ func collectDebugFileV2(dir string, name string, cb func(io.Writer) error) (retE
 	return errors.Wrapf(w.Flush(), "flush file %q", path)
 }
 
-func collectDebugFile(tw *tar.Writer, name, ext string, cb func(io.Writer) error, prefix ...string) (retErr error) {
-	if len(prefix) > 0 {
-		name = join(prefix[0], name)
-	}
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFile(tw, retErr, name)
-		}
-	}()
-	return fsutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
-		if err := cb(f); err != nil {
-			return err
-		}
-		fullName := name
-		if ext != "" {
-			fullName += "." + ext
-		}
-		return writeTarFile(tw, fullName, f)
-	})
-}
-
-func writeErrorFileV2(dir string, err error) error {
+func writeErrorFile(dir string, err error) error {
 	return errors.Wrapf(
 		os.WriteFile(filepath.Join(dir, "error.txt"), []byte(err.Error()+"\n"), 0666),
 		"failed to upload error file %q with message %q",
@@ -79,20 +57,7 @@ func writeErrorFileV2(dir string, err error) error {
 	)
 }
 
-func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
-	file := "error.txt"
-	if len(prefix) > 0 {
-		file = join(prefix[0], file)
-	}
-	return fsutil.WithTmpFile("pachyderm_debug", func(f *os.File) error {
-		if _, err := io.Copy(f, strings.NewReader(err.Error()+"\n")); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return writeTarFile(tw, file, f)
-	})
-}
-
-func writeTarFileV2(tw *tar.Writer, dest string, src string, fi os.FileInfo) error {
+func writeTarFile(tw *tar.Writer, dest string, src string, fi os.FileInfo) error {
 	f, err := os.Open(src)
 	if err != nil {
 		return errors.Wrapf(err, "open file %q", src)
@@ -107,69 +72,6 @@ func writeTarFileV2(tw *tar.Writer, dest string, src string, fi os.FileInfo) err
 	_, err = io.Copy(tw, f)
 	return errors.Wrapf(err, "write tar file %q", dest)
 
-}
-
-func writeTarFile(tw *tar.Writer, name string, f *os.File) error {
-	fi, err := os.Stat(f.Name())
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	hdr := &tar.Header{
-		Name: join(name),
-		Size: fi.Size(),
-		Mode: 0777,
-	}
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	if err := tw.WriteHeader(hdr); err != nil {
-		return errors.EnsureStack(err)
-	}
-	_, err = io.Copy(tw, f)
-	return errors.EnsureStack(err)
-}
-
-func collectDebugStream(tw *tar.Writer, r io.Reader, prefix ...string) (retErr error) {
-	gr, err := gzip.NewReader(r)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer errors.Close(&retErr, gr, "close gzip reader")
-	tr := tar.NewReader(gr)
-	return copyTar(tw, tr, prefix...)
-}
-
-func copyTar(tw *tar.Writer, tr *tar.Reader, prefix ...string) error {
-	for {
-		hdr, err := tr.Next()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return errors.EnsureStack(err)
-		}
-		if len(prefix) > 0 {
-			hdr.Name = join(prefix[0], hdr.Name)
-		}
-		if err := fsutil.WithTmpFile("pachyderm_debug_copy_tar", func(f *os.File) error {
-			_, err = io.Copy(f, tr)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			_, err = f.Seek(0, 0)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			if err := tw.WriteHeader(hdr); err != nil {
-				return errors.EnsureStack(err)
-			}
-			_, err = io.Copy(tw, f)
-			return errors.EnsureStack(err)
-		}); err != nil {
-			return err
-		}
-	}
 }
 
 func validateProject(p *pfs.Project) error {
@@ -195,11 +97,11 @@ func validateRepo(r *pfs.Repo) error {
 	return nil
 }
 
-func validateRepoInfo(pi *pfs.RepoInfo) error {
-	if pi == nil {
+func validateRepoInfo(ri *pfs.RepoInfo) error {
+	if ri == nil {
 		return errors.Errorf("nil repo info")
 	}
-	if err := validateRepo(pi.Repo); err != nil {
+	if err := validateRepo(ri.Repo); err != nil {
 		return errors.Wrap(err, "invalid repo:")
 	}
 	return nil

@@ -54,7 +54,7 @@ func (s *debugServer) collectDatabaseStats(ctx context.Context, dir string) erro
 	}
 	var errs []error
 	for filename, query := range queries {
-		if err := collectDebugFileV2(dir, filename+".json", func(w io.Writer) error {
+		if err := collectDebugFile(dir, filename+".json", func(w io.Writer) error {
 			rows, err := s.database.QueryContext(ctx, query)
 			if err != nil {
 				return errors.EnsureStack(err)
@@ -78,7 +78,7 @@ func (s *debugServer) collectDatabaseTables(ctx context.Context, dir string) err
 	for _, table := range tables {
 		dir := filepath.Join(dir, table.SchemaName)
 		file := table.TableName + ".json"
-		if err := collectDebugFileV2(dir, file, func(rawWriter io.Writer) error {
+		if err := collectDebugFile(dir, file, func(rawWriter io.Writer) error {
 			w := bufio.NewWriter(rawWriter)
 			if err := s.collectTable(ctx, w, &table); err != nil {
 				return errors.Wrapf(err, "collect table %s.%s", table.SchemaName, table.TableName)

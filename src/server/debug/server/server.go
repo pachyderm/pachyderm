@@ -242,17 +242,16 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			rp := recordProgress(server, "logs", len(sys.Logs))
 			for _, app := range sys.Logs {
 				ts = append(ts, func(ctx context.Context, dir string) error {
+					defer rp(ctx)
 					if len(app.Pods) == 0 {
 						return nil
 					}
 					var errs error
-					path := filepath.Join(dir, app.Name, "logs")
 					for _, pod := range app.Pods {
-						if err := s.kubeLogs(ctx, filepath.Join(path, pod.Name), pod); err != nil {
+						if err := s.kubeLogs(ctx, filepath.Join(dir, app.Name, pod.Name), pod); err != nil {
 							multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogs(%s)", pod.Name))
 						}
 					}
-					rp(ctx)
 					return errs
 				})
 			}
@@ -262,9 +261,8 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			for _, app := range sys.LokiLogs {
 				ts = append(ts, func(ctx context.Context, dir string) (retErr error) {
 					var errs error
-					path := filepath.Join(dir, app.Name, "loki-logs")
 					for _, pod := range app.Pods {
-						if err := s.lokiLogs(ctx, filepath.Join(path, pod.Name), pod); err != nil {
+						if err := s.lokiLogs(ctx, filepath.Join(dir, app.Name, pod.Name), pod); err != nil {
 							multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s)", pod.Name))
 						}
 					}
@@ -299,7 +297,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 								}
 							}()
 							path := filepath.Join(dir, app.Name)
-							if err := collectDebugFileV2(path, "binary", func(w io.Writer) error {
+							if err := collectDebugFile(path, "binary", func(w io.Writer) error {
 								_, err := io.Copy(w, r)
 								return err
 							}); err != nil {
@@ -338,7 +336,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 							}
 						}()
 						path := filepath.Join(dir, app.Name)
-						if err := collectDebugFileV2(path, "binary", func(w io.Writer) error {
+						if err := collectDebugFile(path, "binary", func(w io.Writer) error {
 							_, err := io.Copy(w, r)
 							return err
 						}); err != nil {
@@ -459,7 +457,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 								return nil
 							}
 							dest := strings.TrimPrefix(path, taskDir)
-							return errors.Wrapf(writeTarFileV2(tw, dest, path, fi), "write tar file %q", dest)
+							return errors.Wrapf(writeTarFile(tw, dest, path, fi), "write tar file %q", dest)
 						})
 					})
 				}(f)
@@ -472,16 +470,15 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 func (s *debugServer) lokiLogs(ctx context.Context, dir string, pod *debug.Pod) (retErr error) {
 	ctx, end := log.SpanContext(ctx, "collectLokiLogs")
 	defer end(log.Errorp(&retErr))
-	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
-	defer c()
+	ctx, cf := context.WithTimeout(ctx, 10*time.Minute)
+	defer cf()
 	var errs error
 	for _, c := range pod.Containers {
-		dir := filepath.Join(dir, c)
-		if _, err := s.collectLogsLoki(ctx, dir, pod.Name, c, func(progress, total int) {}); err != nil {
+		if _, err := s.collectLogsLoki(ctx, filepath.Join(dir, c), pod.Name, c, func(progress, total int) {}); err != nil {
 			multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, c))
 		}
 	}
-	return nil
+	return errs
 }
 
 func (s *debugServer) kubeLogs(ctx context.Context, dir string, pod *debug.Pod) (retErr error) {
@@ -491,8 +488,7 @@ func (s *debugServer) kubeLogs(ctx context.Context, dir string, pod *debug.Pod) 
 	defer c()
 	var errs error
 	for _, c := range pod.Containers {
-		dir := filepath.Join(dir, c)
-		if _, err := s.collectLogs(ctx, dir, pod.Name, c, func(progress, total int) {}); err != nil {
+		if _, err := s.collectLogs(ctx, filepath.Join(dir, c), pod.Name, c, func(progress, total int) {}); err != nil {
 			multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, c))
 		}
 	}
@@ -548,7 +544,7 @@ func (s *debugServer) collectWorker(ctx context.Context, dir string, pod *v1.Pod
 	workerDir := filepath.Join(dir, podPrefix, pod.Name)
 	defer func() {
 		if retErr != nil {
-			retErr = writeErrorFileV2(workerDir, retErr)
+			retErr = writeErrorFile(workerDir, retErr)
 		}
 	}()
 	return nil
@@ -595,7 +591,7 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 // }
 
 func collectProfile(ctx context.Context, dir string, profile *debug.Profile) error {
-	return collectDebugFileV2(dir, profile.Name, func(w io.Writer) error {
+	return collectDebugFile(dir, profile.Name, func(w io.Writer) error {
 		return writeProfile(ctx, w, profile)
 	})
 }
@@ -648,23 +644,6 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 		_, err = io.Copy(w, f)
 		return errors.Wrap(err, "collect binary")
 	})
-}
-
-func collectBinary(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "binary", "", func(w io.Writer) (retErr error) {
-		defer log.Span(ctx, "collectBinary", zap.String("binary", os.Args[0]))(log.Errorp(&retErr))
-		f, err := os.Open(os.Args[0])
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		defer func() {
-			if err := f.Close(); retErr == nil {
-				retErr = err
-			}
-		}()
-		_, err = io.Copy(w, f)
-		return errors.EnsureStack(err)
-	}, prefix...)
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
@@ -724,7 +703,7 @@ func (s *debugServer) collectCommits(rctx context.Context, pachClient *client.AP
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFileV2(dir, "commits.json", func(w io.Writer) error {
+	if err := collectDebugFile(dir, "commits.json", func(w io.Writer) error {
 		ctx, cancel := context.WithCancel(rctx)
 		defer cancel()
 		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
@@ -781,7 +760,7 @@ func reverseContinuousSeries(series ...chart.ContinuousSeries) {
 }
 
 func collectGraph(dir, name, XAxisName string, series []chart.Series, prefix ...string) error {
-	return collectDebugFileV2(dir, name, func(w io.Writer) error {
+	return collectDebugFile(dir, name, func(w io.Writer) error {
 		graph := chart.Chart{
 			Title: name,
 			TitleStyle: chart.Style{
@@ -823,7 +802,7 @@ func collectGraph(dir, name, XAxisName string, series []chart.Series, prefix ...
 }
 
 func collectGoInfo(dir string) error {
-	return collectDebugFileV2(dir, "go_info.txt", func(w io.Writer) error {
+	return collectDebugFile(dir, "go_info.txt", func(w io.Writer) error {
 		fmt.Fprintf(w, "build info: ")
 		info, ok := runtimedebug.ReadBuildInfo()
 		if ok {
@@ -839,7 +818,7 @@ func collectGoInfo(dir string) error {
 func (s *debugServer) collectPachdVersion(ctx context.Context, pachClient *client.APIClient, dir string, rp reportProgressFunc) error {
 	rp(ctx, 0, 1)
 	defer rp(ctx, 1, 1)
-	err := collectDebugFileV2(dir, "version.txt", func(w io.Writer) (retErr error) {
+	err := collectDebugFile(dir, "version.txt", func(w io.Writer) (retErr error) {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -861,7 +840,7 @@ func (s *debugServer) collectHelm(ctx context.Context, dir string, rp reportProg
 	for i, secret := range secrets.Items {
 		helmPath := filepath.Join(dir, "helm", secret.Name)
 		if err := handleHelmSecretV2(ctx, helmPath, secret); err != nil {
-			if err := writeErrorFileV2(helmPath, err); err != nil {
+			if err := writeErrorFile(helmPath, err); err != nil {
 				multierr.AppendInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
 				continue
 			}
@@ -873,7 +852,7 @@ func (s *debugServer) collectHelm(ctx context.Context, dir string, rp reportProg
 }
 
 func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod string) (string, error) {
-	err := collectDebugFileV2(dir, "describe.txt", func(output io.Writer) (retErr error) {
+	err := collectDebugFile(dir, "describe.txt", func(output io.Writer) (retErr error) {
 		// Gate the total time of "describe".
 		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
 		defer c()
@@ -913,7 +892,7 @@ func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod strin
 func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, container string, reportProgress func(progress, total int)) (string, error) {
 	logsFile := "logs.txt"
 	reportProgress(0, 1)
-	if err := collectDebugFileV2(dir, logsFile, func(w io.Writer) (retErr error) {
+	if err := collectDebugFile(dir, logsFile, func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
@@ -931,7 +910,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, containe
 	}
 	reportProgress(1, 2)
 	logsFile = "logs-previous.txt"
-	if err := collectDebugFileV2(dir, logsFile, func(w io.Writer) (retErr error) {
+	if err := collectDebugFile(dir, logsFile, func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
@@ -962,7 +941,7 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dir, pod, container s
 	if !s.hasLoki() {
 		return "", nil
 	}
-	err := collectDebugFileV2(dir, "logs-loki.txt", func(w io.Writer) (retErr error) {
+	err := collectDebugFile(dir, "logs-loki.txt", func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogsLoki", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		queryStr := `{pod="` + pod
 		if container != "" {
@@ -1025,7 +1004,7 @@ func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, p *pps.
 	ctx, end := log.SpanContext(ctx, "collectPipelineDump", zap.Stringer("pipeline", p))
 	defer end(log.Errorp(&retErr))
 	var errs error
-	if err := collectDebugFileV2(dir, "spec.json", func(w io.Writer) error {
+	if err := collectDebugFile(dir, "spec.json", func(w io.Writer) error {
 		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListPipelineHistory(p.Project.Name, p.Name, -1, true)
 		if err != nil {
 			return err
@@ -1059,7 +1038,7 @@ func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, p *pps.
 			_, err := s.collectLogsLoki(ctx, sidecarDir, pod, client.PPSWorkerSidecarContainerName, func(progress, total int) {})
 			return err
 		}); err != nil {
-			return writeErrorFileV2(filepath.Join(dir, "loki"), err)
+			return writeErrorFile(filepath.Join(dir, "loki"), err)
 		}
 	}
 	return errs
@@ -1235,7 +1214,7 @@ func (s *debugServer) collectJobs(pachClient *client.APIClient, dir string, pipe
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFileV2(dir, "jobs.json", func(w io.Writer) error {
+	if err := collectDebugFile(dir, "jobs.json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
 		return pachClient.ListJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
@@ -1311,7 +1290,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 	}
 	// There are a few labels that helm adds that are interesting (the "release
 	// status").  Grab those and write to metadata.json.
-	if err := collectDebugFileV2(path, "metadata.json", func(w io.Writer) error {
+	if err := collectDebugFile(path, "metadata.json", func(w io.Writer) error {
 		text, err := json.Marshal(secret.ObjectMeta)
 		if err != nil {
 			return errors.Wrap(err, "marshal ObjectMeta")
@@ -1328,7 +1307,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 
 	// Get the text of the release and write it to release.json.
 	var releaseJSON []byte
-	if err := collectDebugFileV2(path, "release.json", func(w io.Writer) error {
+	if err := collectDebugFile(path, "release.json", func(w io.Writer) error {
 		// The helm release data is base64-encoded gzipped JSON-marshalled protobuf.
 		// The base64 encoding is IN ADDITION to the base64 encoding that k8s does
 		// when serving secrets through the API; client-go removes that for us.
@@ -1383,7 +1362,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 	}
 
 	// Write the manifest YAML.
-	if err := collectDebugFileV2(path, "manifest.yaml", func(w io.Writer) error {
+	if err := collectDebugFile(path, "manifest.yaml", func(w io.Writer) error {
 		// Helm adds a newline at the end of the manifest.
 		if _, err := fmt.Fprintf(w, "%s", release.Manifest); err != nil {
 			return errors.Wrap(err, "print manifest")
@@ -1395,7 +1374,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 	}
 
 	// Write values.yaml.
-	if err := collectDebugFileV2(path, "values.yaml", func(w io.Writer) error {
+	if err := collectDebugFile(path, "values.yaml", func(w io.Writer) error {
 		b, err := yaml.Marshal(release.Config)
 		if err != nil {
 			return errors.Wrap(err, "marshal values to yaml")
