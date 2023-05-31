@@ -445,7 +445,9 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 							}
 						}()
 						if err := f(ctx, taskDir); err != nil {
-							return errors.Wrapf(err, "run task")
+							if writeErr := writeErrorFile(taskDir, err); writeErr != nil {
+								log.Error(taskCtx, "write error", zap.Error(writeErr))
+							}
 						}
 						mu.Lock()
 						defer mu.Unlock()
@@ -488,7 +490,7 @@ func (s *debugServer) kubeLogs(ctx context.Context, dir string, pod *debug.Pod) 
 	defer c()
 	var errs error
 	for _, c := range pod.Containers {
-		if _, err := s.collectLogs(ctx, filepath.Join(dir, c), pod.Name, c, func(progress, total int) {}); err != nil {
+		if err := s.collectLogs(ctx, filepath.Join(dir, c), pod.Name, c); err != nil {
 			multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, c))
 		}
 	}
@@ -889,10 +891,8 @@ func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod strin
 	return filepath.Join(dir, "describe.txt"), err
 }
 
-func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, container string, reportProgress func(progress, total int)) (string, error) {
-	logsFile := "logs.txt"
-	reportProgress(0, 1)
-	if err := collectDebugFile(dir, logsFile, func(w io.Writer) (retErr error) {
+func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, container string) error {
+	if err := collectDebugFile(dir, "logs.txt", func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
@@ -906,11 +906,9 @@ func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, containe
 		_, err = io.Copy(w, stream)
 		return errors.EnsureStack(err)
 	}); err != nil {
-		return filepath.Join(dir, logsFile), err
+		return err
 	}
-	reportProgress(1, 2)
-	logsFile = "logs-previous.txt"
-	if err := collectDebugFile(dir, logsFile, func(w io.Writer) (retErr error) {
+	if err := collectDebugFile(dir, "logs-previous.txt", func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
@@ -924,11 +922,9 @@ func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, containe
 		_, err = io.Copy(w, stream)
 		return errors.EnsureStack(err)
 	}); err != nil {
-		return logsFile, err
+		return err
 	}
-	reportProgress(1, 1)
-	// TODO: this isn't clean since it ignores the logs.txt file
-	return logsFile, nil
+	return nil
 }
 
 func (s *debugServer) hasLoki() bool {
@@ -1264,10 +1260,10 @@ func (s *debugServer) collectWorkerDump(ctx context.Context, dir string, pod *v1
 	userDir := filepath.Join(dir, client.PPSWorkerUserContainerName)
 	sidecarDir := filepath.Join(dir, client.PPSWorkerSidecarContainerName)
 	var errs error
-	if _, err := s.collectLogs(ctx, userDir, pod.Name, client.PPSWorkerUserContainerName, func(_, _ int) {}); err != nil {
+	if err := s.collectLogs(ctx, userDir, pod.Name, client.PPSWorkerUserContainerName); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "userContainerLogs"))
 	}
-	if _, err := s.collectLogs(ctx, sidecarDir, pod.Name, client.PPSWorkerSidecarContainerName, func(_, _ int) {}); err != nil {
+	if err := s.collectLogs(ctx, sidecarDir, pod.Name, client.PPSWorkerSidecarContainerName); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "storageContainerLogs"))
 	}
 	return errs
