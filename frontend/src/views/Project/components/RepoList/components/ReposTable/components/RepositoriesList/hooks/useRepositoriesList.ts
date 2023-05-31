@@ -28,7 +28,7 @@ const useRepositoriesList = () => {
       switch (id) {
         case 'dag':
           return browserHistory.push(
-            repoRoute({projectId, repoId: repo?.id || '', branchId: 'default'}),
+            repoRoute({projectId, repoId: repo?.id || ''}),
           );
         case 'inspect-commits':
           return inspectCommitRedirect(repo?.lastCommit);

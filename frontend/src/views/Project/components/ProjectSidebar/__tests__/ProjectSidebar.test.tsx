@@ -85,7 +85,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/default',
+        '/lineage/Data-Cleaning-Process/repos/training',
       );
 
       render(<Project />);
@@ -95,7 +95,7 @@ describe('ProjectSidebar', () => {
       });
       expect(fileBrowserLink).toHaveAttribute(
         'href',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a/?prevPath=%2Flineage%2FData-Cleaning-Process%2Frepos%2Ftraining%2Fbranch%2Fdefault',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a/?prevPath=%2Flineage%2FData-Cleaning-Process%2Frepos%2Ftraining',
       );
     });
 
@@ -165,7 +165,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron',
       );
 
       render(<Project />);
@@ -194,7 +194,7 @@ describe('ProjectSidebar', () => {
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac4c43a476b86e3bb5e88e9d5daa/?prevPath=%2Flineage%2FSolar-Power-Data-Logger-Team-Collab%2Frepos%2Fcron%2Fbranch%2Fmaster',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac4c43a476b86e3bb5e88e9d5daa/?prevPath=%2Flineage%2FSolar-Power-Data-Logger-Team-Collab%2Frepos%2Fcron',
       );
       expect(
         within(previousCommits[1]).getByRole('link', {
@@ -202,7 +202,7 @@ describe('ProjectSidebar', () => {
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/?prevPath=%2Flineage%2FSolar-Power-Data-Logger-Team-Collab%2Frepos%2Fcron%2Fbranch%2Fmaster',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/?prevPath=%2Flineage%2FSolar-Power-Data-Logger-Team-Collab%2Frepos%2Fcron',
       );
     });
 
@@ -210,7 +210,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/lineage/Data-Cleaning-Process/repos/test/branch/default',
+        '/lineage/Data-Cleaning-Process/repos/test',
       );
 
       render(<Project />);
@@ -230,7 +230,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron',
       );
 
       render(<Project />);
@@ -241,7 +241,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron',
       );
 
       render(<Project />);
@@ -253,7 +253,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/lineage/OpenCV-Tutorial/repos/montage/branch/master',
+        '/lineage/OpenCV-Tutorial/repos/montage',
       );
 
       render(<Project />);
@@ -273,7 +273,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/lineage/Egress-Examples/repos/edges/branch/default',
+        '/lineage/Egress-Examples/repos/edges',
       );
 
       render(

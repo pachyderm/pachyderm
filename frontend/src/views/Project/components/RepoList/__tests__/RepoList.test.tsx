@@ -72,7 +72,7 @@ describe('Repo List', () => {
     await click((await screen.findAllByText('View in DAG'))[0]);
 
     expect(window.location.pathname).toBe(
-      '/lineage/Solar-Panel-Data-Sorting/repos/montage/branch/default',
+      '/lineage/Solar-Panel-Data-Sorting/repos/montage',
     );
   });
 

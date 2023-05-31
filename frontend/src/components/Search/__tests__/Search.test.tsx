@@ -128,7 +128,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/lineage/Solar-Panel-Data-Sorting/repos/images/branch/default',
+      '/lineage/Solar-Panel-Data-Sorting/repos/images',
     );
   });
 

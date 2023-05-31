@@ -23,7 +23,6 @@ const useRouteController = () => {
       if (destination === 'repo') {
         browserHistory.push(
           repoRoute({
-            branchId: 'default',
             projectId,
             repoId: deriveRouteParamFromNode(n),
           }),

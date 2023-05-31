@@ -36,7 +36,6 @@ export const RepoLink: React.FC<ResourceLinkProps> = ({
   const {projectId: projectIdFromURL} = useUrlState();
   const nodeName = name.replace(/_repo$/, '');
   const path = repoRoute({
-    branchId: 'default',
     projectId: projectId ?? projectIdFromURL,
     repoId: nodeName,
   });

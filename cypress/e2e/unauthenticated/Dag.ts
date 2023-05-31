@@ -51,7 +51,7 @@ describe('Dag', () => {
   });
 
   it('should derive the correct selected repo from the url', () => {
-    cy.visit('/lineage/default/repos/images/branch/default');
+    cy.visit('/lineage/default/repos/images');
     const imageNode = cy.get("#GROUP_images", { timeout: 10000 });
     imageNode.should('be.visible');
     cy.findByTestId("Title__name").should("have.text", "images");
@@ -67,7 +67,7 @@ describe('Dag', () => {
   it('should update the url correctly when selecting a repo', () => {
     const imageNode = cy.get("#GROUP_images", { timeout: 10000 });
     imageNode.click();
-    cy.url().should("contain", "/lineage/default/repos/images/branch/default");
+    cy.url().should("contain", "/lineage/default/repos/images");
   });
 
   it('should update the url correctly when selecting a pipeline', () => {
@@ -79,7 +79,7 @@ describe('Dag', () => {
   it('should update the url correctly when selecting an output repo', () => {
     const edgesPipelineNode = cy.get("#GROUP_edges", { timeout: 10000 });
     edgesPipelineNode.within(() => cy.findByText('Output').click());
-    cy.url().should("contain", "/lineage/default/repos/edges/branch/default");
+    cy.url().should("contain", "/lineage/default/repos/edges");
   });
 
   it('should update the url correctly when selecting a status icon', () => {

@@ -97,20 +97,11 @@ const useFileBrowser = () => {
     setTimeout(
       () =>
         browserHistory.push(
-          getPathFromFileBrowser(
-            repoRoute({projectId, repoId, branchId}, false),
-          ),
+          getPathFromFileBrowser(repoRoute({projectId, repoId}, false)),
         ),
       500,
     );
-  }, [
-    projectId,
-    repoId,
-    branchId,
-    browserHistory,
-    closeModal,
-    getPathFromFileBrowser,
-  ]);
+  }, [projectId, repoId, browserHistory, closeModal, getPathFromFileBrowser]);
 
   const handleBackNav = () => {
     const filePaths = filePath.split('/').slice(0, -2);

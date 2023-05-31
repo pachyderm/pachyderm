@@ -21,7 +21,7 @@ export const PROJECT_JOB_LOGS_VIEWER_DATUM_PATH = `/project/:projectId/jobs/:job
 export const LINEAGE_PATH = '/lineage/:projectId';
 
 export const LINEAGE_REPO_PATH =
-  '/lineage/:projectId/repos/:repoId/branch/:branchId';
+  '/lineage/:projectId/repos/:repoId';
 export const LINEAGE_PIPELINE_PATH =
   '/lineage/:projectId/pipelines/:pipelineId/:tabId?';
 export const LINEAGE_FILE_UPLOAD_PATH =

@@ -68,7 +68,7 @@ describe('Repos', () => {
     cy.findByLabelText('Commit Selected Files').click();
 
     // Needs to wait for commit polling to update
-    cy.visit('/lineage/default/repos/TestRepo/branch/default')
+    cy.visit('/lineage/default/repos/TestRepo')
     cy.findByText('532.13 kB', {timeout: 30000})
     cy.findByText('2');
     cy.findByText('New');
@@ -85,7 +85,7 @@ describe('Repos', () => {
     cy.waitUntil(() => cy.findByLabelText('Upload Selected Files').should('be.visible').click());
     cy.findByLabelText('Commit Selected Files').click();
 
-    cy.visit('/lineage/default/repos/TestRepo/branch/default')
+    cy.visit('/lineage/default/repos/TestRepo')
     cy.findByText('161.18 kB', {timeout: 30000});
   })
 

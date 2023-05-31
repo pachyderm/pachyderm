@@ -54,7 +54,7 @@ describe('PipelineInfo', () => {
     expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
-      `/lineage/${projectId}/repos/${pipelineId}/branch/default`,
+      `/lineage/${projectId}/repos/${pipelineId}`,
     );
 
     expect(
