@@ -27,6 +27,8 @@ class ClusterInfo(betterproto.Message):
     deployment_id: str = betterproto.string_field(2)
     version_warnings_ok: bool = betterproto.bool_field(3)
     version_warnings: List[str] = betterproto.string_field(4)
+    proxy_host: str = betterproto.string_field(5)
+    proxy_tls: bool = betterproto.bool_field(6)
 
 
 @dataclass(eq=False, repr=False)
