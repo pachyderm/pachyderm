@@ -35,8 +35,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -507,7 +507,7 @@ func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.Pipel
 	var errs error
 	for _, pod := range pods {
 		if err := cb(&pod); err != nil {
-			multierr.AppendInto(&errs, errors.Wrapf(err, "forEachWorker(%s)", pod.Name))
+			errors.JoinInto(&errs, errors.Wrapf(err, "forEachWorker(%s)", pod.Name))
 		}
 	}
 	return nil
@@ -588,7 +588,6 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 // 			//return collectProfile(ctx, tw, profile, prefix...)
 // 			return nil
 // 		}
-
 // 	}
 // }
 
@@ -619,7 +618,7 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (ret
 		select {
 		case <-ctx.Done():
 			t.Stop()
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		case <-t.C:
 			return nil
 		}
@@ -681,10 +680,10 @@ func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.
 	var errs error
 	for i, repoInfo := range repoInfos {
 		if err := validateRepoInfo(repoInfo); err != nil {
-			multierr.AppendInto(&errs, errors.Wrapf(err, "invalid repo info %d (%s) from ListRepo", i, repoInfo.String()))
+			errors.JoinInto(&errs, errors.Wrapf(err, "invalid repo info %d (%s) from ListRepo", i, repoInfo.String()))
 			continue
 		}
-		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
+		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				dir := filepath.Join(dir, repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				if err := s.collectCommits(ctx, pachClient, dir, repoInfo.Repo, limit); err != nil {
@@ -692,7 +691,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.
 				}
 				continue
 			}
-			multierr.AppendInto(&errs, errors.Wrapf(err, "inspectPipeline(%s)", repoInfo.GetRepo()))
+			errors.JoinInto(&errs, errors.Wrapf(err, "inspectPipeline(%s)", repoInfo.GetRepo()))
 		}
 		rp(ctx, i, len(repoInfos))
 	}
@@ -898,7 +897,7 @@ func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod strin
 			// Close the pipe when the context times out; bounding the time on the
 			// io.Copy operation below.
 			<-ctx.Done()
-			w.CloseWithError(errors.EnsureStack(ctx.Err()))
+			w.CloseWithError(errors.EnsureStack(context.Cause(ctx)))
 		}()
 		if _, err := io.Copy(output, r); err != nil {
 			return errors.EnsureStack(err)
@@ -1025,7 +1024,7 @@ func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, p *pps.
 	defer end(log.Errorp(&retErr))
 	var errs error
 	if err := collectDebugFileV2(dir, "spec.json", func(w io.Writer) error {
-		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListProjectPipelineHistory(p.Project.Name, p.Name, -1, true)
+		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListPipelineHistory(p.Project.Name, p.Name, -1, true)
 		if err != nil {
 			return err
 		}
@@ -1039,7 +1038,7 @@ func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, p *pps.
 	}); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
 	}
-	if err := s.collectCommits(ctx, s.env.GetPachClient(ctx), dir, client.NewProjectRepo(p.Project.GetName(), p.Name), limit); err != nil {
+	if err := s.collectCommits(ctx, s.env.GetPachClient(ctx), dir, client.NewRepo(p.Project.GetName(), p.Name), limit); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "collectCommits"))
 	}
 	if err := s.collectJobs(s.env.GetPachClient(ctx), dir, p, limit); err != nil {
@@ -1072,7 +1071,7 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, p *pps.Pipeline, cb
 	var errs error
 	for pod := range pods {
 		if err := cb(pod); err != nil {
-			multierr.AppendInto(&errs, errors.Wrapf(err, "forEachWorkersLoki(%s)", pod))
+			errors.JoinInto(&errs, errors.Wrapf(err, "forEachWorkersLoki(%s)", pod))
 		}
 	}
 	return errs
@@ -1237,7 +1236,7 @@ func (s *debugServer) collectJobs(pachClient *client.APIClient, dir string, pipe
 	if err := collectDebugFileV2(dir, "jobs.json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
-		return pachClient.ListProjectJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+		return pachClient.ListJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 			if count >= limit {
 				return errutil.ErrBreak
 			}
@@ -1322,7 +1321,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 	}); err != nil {
 		// We can still try to get the release JSON if the metadata doesn't marshal
 		// or write cleanly.
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect metadata", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect metadata", name))
 	}
 
 	// Get the text of the release and write it to release.json.
@@ -1361,7 +1360,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 		}
 		return nil
 	}); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect release", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect release", name))
 		// The next steps need the release JSON, so we have to give up if any of
 		// this failed.  Technically if the write fails, we could continue, but it
 		// doesn't seem worth the effort because the next writes are also likely to
@@ -1377,7 +1376,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 		Manifest string `json:"manifest"`
 	}
 	if err := json.Unmarshal(releaseJSON, &release); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", name))
 		return errs
 	}
 
@@ -1389,7 +1388,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 		}
 		return nil
 	}); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", name))
 		// We can try the next step if this fails.
 	}
 
@@ -1404,7 +1403,7 @@ func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) erro
 		}
 		return nil
 	}); err != nil {
-		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write values.yaml", name))
+		errors.JoinInto(&errs, errors.Wrapf(err, "%v: write values.yaml", name))
 	}
 	return errs
 }

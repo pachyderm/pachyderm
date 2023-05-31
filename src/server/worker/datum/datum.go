@@ -16,7 +16,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -37,7 +37,7 @@ const (
 )
 
 func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
-	commit := client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fileSetID)
+	commit := client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fileSetID)
 	pathRange := &pfs.PathRange{
 		Lower: basePathRange.Lower,
 	}
@@ -437,6 +437,9 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 			if i.Name == pathSplit[0] {
 				input = i
 			}
+		}
+		if input == nil {
+			return errors.Errorf("could not find input %q", pathSplit[0])
 		}
 		// Upload the local files if they are not using the empty or lazy files feature.
 		if !(input.EmptyFiles || input.Lazy) {

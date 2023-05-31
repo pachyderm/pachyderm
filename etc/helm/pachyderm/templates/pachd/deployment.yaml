@@ -410,6 +410,10 @@ spec:
         {{- end }}
         - name: GOCOVERDIR
           value: /tmp
+        - name: PACHYDERM_PUBLIC_HOST
+          value: {{ include "pachyderm.host" . }}
+        - name: PACHYDERM_PUBLIC_TLS
+          value: "{{ .Values.proxy.tls.enabled | ternary "true" "false" }}"
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret

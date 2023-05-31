@@ -21,9 +21,9 @@ import (
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -273,7 +273,7 @@ func pathnameToRepo(pathname string) *pfs.Repo {
 	for i := 0; i < len(reversedProjects); i++ {
 		projects[len(projects)-1-i] = reversedProjects[i]
 	}
-	return client.NewProjectRepo(path.Join(projects...), repoName)
+	return client.NewRepo(path.Join(projects...), repoName)
 }
 
 func (d *debugDump) listRepo(req *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) error {

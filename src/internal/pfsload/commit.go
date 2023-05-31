@@ -4,7 +4,7 @@ import (
 	"bytes"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -28,7 +28,7 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 	project := branch.Repo.Project.GetName()
 	repo := branch.Repo.Name
 	for i := 0; i < int(spec.Count); i++ {
-		commit, err := pachClient.StartProjectCommit(project, repo, branch.Name)
+		commit, err := pachClient.StartCommit(project, repo, branch.Name)
 		if err != nil {
 			return "", err
 		}
@@ -37,7 +37,7 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 				return "", err
 			}
 		}
-		if err := pachClient.FinishProjectCommit(project, repo, branch.Name, commit.ID); err != nil {
+		if err := pachClient.FinishCommit(project, repo, branch.Name, commit.ID); err != nil {
 			return "", err
 		}
 		validator := env.Validator()
@@ -85,7 +85,7 @@ func serializeState(pachClient *client.APIClient, state *State) (string, error) 
 }
 
 func deserializeState(pachClient *client.APIClient, stateID string) (*State, error) {
-	commit := client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", stateID)
+	commit := client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", stateID)
 	buf := &bytes.Buffer{}
 	if err := pachClient.GetFile(commit, stateFileName, buf); err != nil {
 		return nil, err

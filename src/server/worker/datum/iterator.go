@@ -2,7 +2,6 @@ package datum
 
 import (
 	"archive/tar"
-	"context"
 	"encoding/json"
 	"io"
 	"path"
@@ -10,9 +9,10 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -104,7 +104,7 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 		File:      commit.NewFile(path.Join("/", common.MetaFilePath("*"))),
 		PathRange: pathRange,
 	}
-	ctx, cancel := context.WithCancel(pachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(pachClient.Ctx())
 	defer cancel()
 	client, err := pachClient.PfsAPIClient.GetFileTAR(ctx, req)
 	if err != nil {
@@ -140,7 +140,7 @@ func migrateMetaInputsV2_6_0(meta *Meta) {
 
 // NewFileSetIterator creates a new fileset iterator.
 func NewFileSetIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
-	return NewCommitIterator(pachClient, client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
+	return NewCommitIterator(pachClient, client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
 }
 
 type fileSetMultiIterator struct {
@@ -152,7 +152,7 @@ type fileSetMultiIterator struct {
 func newFileSetMultiIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
 	return &fileSetMultiIterator{
 		pachClient: pachClient,
-		commit:     client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
+		commit:     client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
 		pathRange:  pathRange,
 	}
 }
@@ -162,7 +162,7 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 		File:      mi.commit.NewFile("/*"),
 		PathRange: mi.pathRange,
 	}
-	ctx, cancel := context.WithCancel(mi.pachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(mi.pachClient.Ctx())
 	defer cancel()
 	client, err := mi.pachClient.PfsAPIClient.GetFileTAR(ctx, req)
 	if err != nil {

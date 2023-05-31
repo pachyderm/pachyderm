@@ -37,7 +37,7 @@ func DoOrdered(ctx context.Context, doer Doer, inputs chan *types.Any, paralleli
 				return errors.EnsureStack(err)
 			}
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 	}
 }
@@ -71,7 +71,7 @@ func DoBatch(ctx context.Context, doer Doer, inputs []*types.Any, cb CollectFunc
 			select {
 			case inputChan <- input:
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 		}
 		close(inputChan)

@@ -4,6 +4,7 @@ FROM $GOVERSION
 LABEL maintainer="msteffen@pachyderm.io"
 
 ARG PROTO_COMPILER_VERSION=3.11.4
+ARG GOPATCH_VERSION=v0.2.0
 ARG TARGETPLATFORM
 
 RUN apt-get update -yq && apt-get install -yq unzip
@@ -29,6 +30,12 @@ RUN go mod init && go mod tidy && go build -o "${GOPATH}/bin/protoc-gen-pach"
 COPY protoc-gen-zap ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap
 RUN go build -mod=readonly -o "${GOPATH}/bin/protoc-gen-zap"
+
+# Install gopatch.
+RUN go install github.com/uber-go/gopatch@${GOPATCH_VERSION}
+
+# Copy over the proto modification patch.
+COPY proto.patch /proto.patch
 
 ADD run.sh /
 CMD ["/run.sh"]

@@ -185,7 +185,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 		Logger:             log.NewLogrus(ctx),
 	}
 
-	ctx, w.serverCancel = context.WithCancel(ctx)
+	ctx, w.serverCancel = pctx.WithCancel(ctx)
 	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

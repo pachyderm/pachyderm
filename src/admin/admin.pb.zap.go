@@ -22,6 +22,8 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("version_warnings", zapcore.ArrayMarshalerFunc(version_warningsArrMarshaller))
+	enc.AddString("proxy_host", x.ProxyHost)
+	enc.AddBool("proxy_tls", x.ProxyTls)
 	return nil
 }
 

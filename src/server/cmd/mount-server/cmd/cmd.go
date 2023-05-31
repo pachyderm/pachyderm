@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
@@ -23,7 +23,7 @@ func MountServerCmd() *cobra.Command {
 				MountDir: mountDir,
 			}
 			pfscmds.PrintWarning()
-			c, err := client.NewOnUserMachineContext(pctx.TODO(), "user", client.WithDialTimeout(5*time.Second))
+			c, err := client.NewOnUserMachine(pctx.TODO(), "user", client.WithDialTimeout(5*time.Second))
 			if err != nil {
 				return fuse.Server(serverOpts, nil)
 			}

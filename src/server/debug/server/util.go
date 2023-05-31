@@ -23,13 +23,9 @@ func join(names ...string) string {
 
 func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	gw := gzip.NewWriter(w)
-	defer func() {
-		multierr.AppendInto(&retErr, gw.Close())
-	}()
+	defer errors.Close(&retErr, gw, "close gzip writer")
 	tw := tar.NewWriter(gw)
-	defer func() {
-		multierr.AppendInto(&retErr, tw.Close())
-	}()
+	defer errors.Close(&retErr, tw, "close tar writer")
 	return cb(tw)
 }
 
@@ -139,9 +135,7 @@ func collectDebugStream(tw *tar.Writer, r io.Reader, prefix ...string) (retErr e
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer func() {
-		multierr.AppendInto(&retErr, gr.Close())
-	}()
+	defer errors.Close(&retErr, gr, "close gzip reader")
 	tr := tar.NewReader(gr)
 	return copyTar(tw, tr, prefix...)
 }

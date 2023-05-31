@@ -6,7 +6,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -308,7 +308,7 @@ func (env *TransactionEnv) waitReady(ctx context.Context) error {
 	case <-env.initDone:
 		return nil
 	case <-ctx.Done():
-		return errors.EnsureStack(ctx.Err())
+		return errors.EnsureStack(context.Cause(ctx))
 	}
 }
 

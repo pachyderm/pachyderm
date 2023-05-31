@@ -49,6 +49,10 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
+  run-python-sdk-jobs:
+    type: boolean
+    default: false
+
 executors:
   docker-go:
     docker:
@@ -109,7 +113,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: xlarge
+    resource_class: 2xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -234,7 +238,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: xlarge
+    resource_class: 2xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -322,7 +326,7 @@ jobs:
           when: always
       - run:
           name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
           when: always
       - run:
           name: Format code coverage
@@ -495,7 +499,7 @@ jobs:
           path: /tmp/debug-dump
           destination: debug-dump
   rootless:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -520,13 +524,16 @@ jobs:
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
       - run: mkdir ${TEST_RESULTS}
+      - wait-for-docker
+      - start-minikube
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
+      - run: etc/testing/circle/wait-minikube.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
           when: always
       - run:
           name: Format code coverage
@@ -546,7 +553,7 @@ jobs:
     parameters:
       resource_class:
         type: string
-        default: xlarge
+        default: 2xlarge
       arch:
         type: string
         default: amd64
@@ -621,7 +628,7 @@ jobs:
           when: always
       - run:
           name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl"
+          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
           when: always
       - run:
           name: Dump debugging info in case of failure
@@ -864,7 +871,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "Integration tests"
           command: |
@@ -894,7 +901,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - install-jupyter-test-deps
+      - install-python-test-deps
       - run:
           name: "e2e tests"
           command: |
@@ -918,8 +925,8 @@ jobs:
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
-            pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
-            pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
+            pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
+            pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
             pachctl list repo
 
             mkdir pfs
@@ -1387,6 +1394,35 @@ jobs:
           command: |
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
+  test-python-sdk:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Install Poetry
+          command: |
+            mkdir -p /home/circleci/.local/poetry/venv
+            export POETRY_HOME=/home/circleci/.local/poetry/venv
+            python3 -m venv $POETRY_HOME
+            $POETRY_HOME/bin/pip install poetry==1.4.1
+            $POETRY_HOME/bin/poetry --version
+            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+      - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
+          name: Install Python Dependencies with Poetry
+          command: poetry --no-ansi install
+      - install-python-test-deps
+
+      # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
+      # export export PACH_PYTHON_AUTH_TOKEN=iamroot
+      - run:
+          name: Run Tests
+          command: |
+            nohup pachctl port-forward &
+            poetry run pytest -vvv tests
 
 workflows:
   integration-tests:
@@ -1584,6 +1620,16 @@ workflows:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
+      - build-pachctl-bin:
+          version: $CIRCLE_SHA1
+  python-sdk:
+    when: << pipeline.parameters.run-python-sdk-jobs >>
+    jobs:
+      - test-python-sdk:
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+      - build-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
 
@@ -1877,7 +1923,7 @@ workflows:
             - aws-prerelease-testing
 
 commands:
-  install-jupyter-test-deps:
+  install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
           at: ./
@@ -1964,12 +2010,12 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12Gi --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
           background: true
   collect-test-results:
     steps:
       - run:
-          name: Store test results
+          name: Store test results for overtime reports
           when: always
           shell: /bin/sh # ignore fails without pipefail
-          command: go run -v etc/testing/circle/workloads/go-test-results/collector/main.go || true
+          command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
