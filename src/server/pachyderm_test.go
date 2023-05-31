@@ -11770,7 +11770,7 @@ func TestJQFilterInfiniteLoop(t *testing.T) {
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
-		require.NoError(t, mfc.PutFile(fmt.Sprintf("/test-file"), strings.NewReader("")))
+		require.NoError(t, mfc.PutFile("/test-file", strings.NewReader("")))
 		return nil
 	}))
 
