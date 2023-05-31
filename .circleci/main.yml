@@ -1591,11 +1591,11 @@ workflows:
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
-          resource_class: xlarge # amd64
+          resource_class: 2xlarge # amd64
           arch: amd64
       - deploy-tests:
           name: arm64 deploy tests
-          resource_class: arm.xlarge # arm64
+          resource_class: arm.2xlarge # arm64
           arch: arm64
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
