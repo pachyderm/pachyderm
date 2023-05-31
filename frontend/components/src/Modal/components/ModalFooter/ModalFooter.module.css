@@ -12,3 +12,10 @@
 .base[class$='modal-footer'] > * {
   margin: 0;
 }
+
+.footerLink {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  padding-left: 1rem;
+}

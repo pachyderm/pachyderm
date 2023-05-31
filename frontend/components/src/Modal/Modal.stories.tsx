@@ -103,6 +103,30 @@ export const Actionable = () => {
   );
 };
 
+export const NoConfirm = () => {
+  const {isOpen, openModal, closeModal} = useModal();
+
+  return (
+    <>
+      <Button onClick={openModal}>Open Modal</Button>
+      <BasicModal
+        show={isOpen}
+        onHide={closeModal}
+        headerContent="Actionable Modal without confirm button"
+        loading={false}
+        small={true}
+        actionable
+        hideConfirm
+        footerInfoLink="foo"
+      >
+        The actionable Modal without a confirm button is meant for Modals that
+        have asynchronously interactable elements within and not necessarily a
+        form.
+      </BasicModal>
+    </>
+  );
+};
+
 export const ErrorState = () => {
   const {isOpen, openModal, closeModal} = useModal();
 
