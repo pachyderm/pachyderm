@@ -81,7 +81,7 @@ func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *clien
 }
 
 // the returned taskPath gets deleted by the caller after its contents are streamed, and is the location of any associated error file
-type taskFunc func(ctx context.Context, dir string) (string, error)
+type taskFunc func(ctx context.Context, dir string) error
 type reportProgressFunc func(ctx context.Context, progress, total int)
 
 // TODO:
@@ -187,61 +187,63 @@ func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_Du
 func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Request, server debug.Debug_DumpV2Server) []taskFunc {
 	var ts []taskFunc
 	if request.InputRepos {
-		ts = append(ts, func(ctx context.Context, dir string) (string, error) {
-			name := "source-repos"
-			return s.collectInputRepos(ctx, s.env.GetPachClient(ctx), filepath.Join(dir, name), int64(0), sendProgressFunc(server, name))
+		ts = append(ts, func(ctx context.Context, dir string) error {
+			path := filepath.Join(dir, "source-repos")
+			return s.collectInputRepos(ctx, s.env.GetPachClient(ctx), path, int64(0), sendProgressFunc(server, "source-repos"))
 		})
 	}
 	if len(request.Pipelines) > 0 {
-		ts = append(ts, func(ctx context.Context, dir string) (string, error) {
+		ts = append(ts, func(ctx context.Context, dir string) error {
 			rp := recordProgress(server, "pipelines", len(request.Pipelines))
+			var errs error
 			for _, p := range request.Pipelines {
 				dir := filepath.Join(dir, pipelinePrefix, p.Project, p.Name)
 				pip := &pps.Pipeline{Name: p.Name, Project: &pfs.Project{Name: p.Project}}
 				if err := s.collectPipelineV2(ctx, dir, pip, 0); err != nil {
-					return filepath.Join(dir, pipelinePrefix), errors.Wrapf(err, "collect pipeline %q", pip)
+					errs = multierr.Append(errs, errors.Wrapf(err, "collect pipeline %q", pip))
 				}
 				rp(ctx)
 			}
-			return filepath.Join(dir, pipelinePrefix), nil
+			return errs
 		})
 	}
 	if sys := request.System; sys != nil {
 		if sys.Helm {
-			ts = append(ts, func(ctx context.Context, dir string) (string, error) {
+			ts = append(ts, func(ctx context.Context, dir string) error {
 				return s.collectHelm(ctx, dir, sendProgressFunc(server, "helm"))
 			})
 		}
 		if sys.Database {
-			ts = append(ts, func(ctx context.Context, dir string) (string, error) {
+			ts = append(ts, func(ctx context.Context, dir string) error {
 				return s.collectDatabaseDump(ctx, filepath.Join(dir, databasePrefix), sendProgressFunc(server, "database"))
 			})
 		}
 		if sys.Version {
-			ts = append(ts, func(ctx context.Context, dir string) (string, error) {
+			ts = append(ts, func(ctx context.Context, dir string) error {
 				return s.collectPachdVersion(ctx, s.env.GetPachClient(ctx), dir, sendProgressFunc(server, "version"))
 			})
 		}
 		if len(sys.Describes) > 0 {
-			rp := sendProgressFunc(server, "describe")
-			rp(ctx, 0, len(sys.Describes))
+			rp := recordProgress(server, "describes", len(sys.Logs))
 			for _, app := range sys.Describes {
-				ts = append(ts, func(ctx context.Context, dir string) (string, error) {
+				ts = append(ts, func(ctx context.Context, dir string) error {
+					var errs error
 					for _, pod := range app.Pods {
-						if _, err := s.collectDescribe(ctx, filepath.Join(dir, app.Name, pod.Name, "describe"), pod.Name, rp); err != nil {
-							return "", err
+						if _, err := s.collectDescribe(ctx, filepath.Join(dir, app.Name, pod.Name), pod.Name); err != nil {
+							errs = multierr.Append(errs, errors.Wrapf(err, "describe pod %q", pod.Name))
 						}
 					}
-					return filepath.Join(dir, app.Name), nil
+					rp(ctx)
+					return errs
 				})
 			}
 		}
 		if len(sys.Logs) > 0 {
 			rp := recordProgress(server, "logs", len(sys.Logs))
 			for _, app := range sys.Logs {
-				ts = append(ts, func(ctx context.Context, dir string) (string, error) {
+				ts = append(ts, func(ctx context.Context, dir string) error {
 					if len(app.Pods) == 0 {
-						return "", nil
+						return nil
 					}
 					var errs error
 					path := filepath.Join(dir, app.Name, "logs")
@@ -251,14 +253,14 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 						}
 					}
 					rp(ctx)
-					return path, errs
+					return errs
 				})
 			}
 		}
 		if len(sys.LokiLogs) > 0 {
 			rp := recordProgress(server, "loki-logs", len(sys.LokiLogs))
 			for _, app := range sys.LokiLogs {
-				ts = append(ts, func(ctx context.Context, dir string) (_ string, retErr error) {
+				ts = append(ts, func(ctx context.Context, dir string) (retErr error) {
 					var errs error
 					path := filepath.Join(dir, app.Name, "loki-logs")
 					for _, pod := range app.Pods {
@@ -267,12 +269,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 						}
 					}
 					rp(ctx)
-					return path, errs
+					return errs
 				})
 			}
 		}
 		if len(sys.Profiles) > 0 {
-			ts = append(ts, func(ctx context.Context, dir string) (_ string, retErr error) {
+			ts = append(ts, func(ctx context.Context, dir string) (retErr error) {
 				var errs error
 				for _, app := range sys.Profiles {
 					for _, pod := range app.Pods {
@@ -283,11 +285,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 						c, err := workerserver.NewClient(pod.Ip)
 						if err != nil {
 							errs = multierr.Append(errs, errors.Wrapf(err, "create worker client for IP %q", pod.Ip))
+							continue
 						}
 						for _, profile := range []string{"heap", "goroutine"} {
 							profileC, err := c.Profile(ctx, &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}})
 							if err != nil {
-								return "", errors.EnsureStack(err)
+								return errors.Wrapf(err, "collect profile %q", profile)
 							}
 							r := grpcutil.NewStreamingBytesReader(profileC, nil)
 							defer func() {
@@ -305,11 +308,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 						}
 					}
 				}
-				return "", nil
+				log.Error(ctx, "profiles error", zap.Error(errs))
+				return errs
 			})
 		}
 		if len(sys.Binaries) > 0 {
-			ts = append(ts, func(ctx context.Context, dir string) (_ string, retErr error) {
+			ts = append(ts, func(ctx context.Context, dir string) (retErr error) {
 				rp := recordProgress(server, "binaries", len(sys.Binaries))
 				var errs error
 				for _, app := range sys.Binaries {
@@ -320,11 +324,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 						}
 						c, err := workerserver.NewClient(pod.Ip)
 						if err != nil {
-							return "", errors.Wrapf(err, "create worker client for IP %q", pod.Ip)
+							errs = multierr.Append(errs, errors.Wrapf(err, "create worker client for IP %q", pod.Ip))
+							continue
 						}
 						binaryC, err := c.Binary(ctx, &debug.BinaryRequest{})
 						if err != nil {
-							return "", errors.Wrap(err, "binary client")
+							return errors.Wrap(err, "binary client")
 						}
 						r := grpcutil.NewStreamingBytesReader(binaryC, nil)
 						defer func() {
@@ -342,7 +347,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 					}
 					rp(ctx)
 				}
-				return "", errs
+				return errs
 			})
 		}
 	}
@@ -398,11 +403,7 @@ func sendProgressFunc(server debug.Debug_DumpV2Server, task string) reportProgre
 	}
 }
 
-func (s *debugServer) dump(
-	c *client.APIClient,
-	server debug.Debug_DumpV2Server,
-	tasks []taskFunc,
-) (retErr error) {
+func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server, tasks []taskFunc) (retErr error) {
 	ctx := c.Ctx() // this context has authorization credentials we need
 	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
 	if err := os.Mkdir(dumpRoot, os.ModeDir); err != nil {
@@ -427,39 +428,41 @@ func (s *debugServer) dump(
 	return grpcutil.WithStreamingBytesWriter(dumpContent, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
 			for _, f := range tasks {
-				eg.Go(func() (retErr error) {
-					taskCtx := ctx
-					defer func() {
-						if retErr != nil {
-							log.Error(taskCtx, fmt.Sprintf("failed dump task %q", "name"), zap.Error(retErr))
-							retErr = nil
+				func(f taskFunc) {
+					eg.Go(func() (retErr error) {
+						taskCtx := ctx
+						defer func() {
+							if retErr != nil {
+								log.Error(taskCtx, fmt.Sprintf("failed dump task %q", "name"), zap.Error(retErr))
+								retErr = nil
+							}
+						}()
+						taskDir := filepath.Join(dumpRoot, uuid.NewWithoutDashes())
+						if err := os.Mkdir(taskDir, os.ModeDir); err != nil {
+							return errors.Wrap(err, "create dump task sub-directory")
 						}
-					}()
-					outPath, err := f(ctx, dumpRoot)
-					if err != nil {
-						return errors.Wrapf(err, "run task")
-					}
-					if outPath == "" {
-						return
-					}
-					defer func() {
-						if err := os.RemoveAll(outPath); err != nil {
-							retErr = multierr.Append(retErr, err)
+						defer func() {
+							if err := os.RemoveAll(taskDir); err != nil {
+								retErr = multierr.Append(retErr, err)
+							}
+						}()
+						if err := f(ctx, taskDir); err != nil {
+							return errors.Wrapf(err, "run task")
 						}
-					}()
-					mu.Lock()
-					defer mu.Unlock()
-					return filepath.Walk(outPath, func(path string, fi fs.FileInfo, err error) error {
-						if err != nil {
-							return errors.Wrapf(err, "walk path %q", path)
-						}
-						if fi.IsDir() {
-							return nil
-						}
-						dest := strings.TrimPrefix(path, dumpRoot)
-						return errors.Wrapf(writeTarFileV2(tw, dest, path, fi), "write tar file %q", dest)
+						mu.Lock()
+						defer mu.Unlock()
+						return filepath.Walk(taskDir, func(path string, fi fs.FileInfo, err error) error {
+							if err != nil {
+								return errors.Wrapf(err, "walk path %q", path)
+							}
+							if fi.IsDir() {
+								return nil
+							}
+							dest := strings.TrimPrefix(path, taskDir)
+							return errors.Wrapf(writeTarFileV2(tw, dest, path, fi), "write tar file %q", dest)
+						})
 					})
-				})
+				}(f)
 			}
 			return errors.Wrap(eg.Wait(), "run dump tasks")
 		})
@@ -668,14 +671,13 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	return errors.New("Dump gRPC is deprecated in favor of DumpV2")
 }
 
-func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.APIClient, dir string, limit int64, rp reportProgressFunc) (_ string, retErr error) {
+func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.APIClient, dir string, limit int64, rp reportProgressFunc) (retErr error) {
 	if err := os.Mkdir(dir, os.ModeDir); err != nil {
-		return "", errors.Wrap(err, "make source-repos dir")
+		return errors.Wrap(err, "make source-repos dir")
 	}
-	rp(ctx, 0, 1)
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
-		return "", errors.Wrap(err, "list repo")
+		return errors.Wrap(err, "list repo")
 	}
 	var errs error
 	for i, repoInfo := range repoInfos {
@@ -696,9 +698,10 @@ func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.
 		rp(ctx, i, len(repoInfos))
 	}
 	rp(ctx, 1, 1)
-	return dir, errs
+	return errs
 }
 
+// TODO(acohen4): there's a bug in here when there's only one commit
 func (s *debugServer) collectCommits(rctx context.Context, pachClient *client.APIClient, dir string, repo *pfs.Repo, limit int64) error {
 	compacting := chart.ContinuousSeries{
 		Name: "compacting",
@@ -833,7 +836,7 @@ func collectGoInfo(dir string) error {
 	})
 }
 
-func (s *debugServer) collectPachdVersion(ctx context.Context, pachClient *client.APIClient, dir string, rp reportProgressFunc) (string, error) {
+func (s *debugServer) collectPachdVersion(ctx context.Context, pachClient *client.APIClient, dir string, rp reportProgressFunc) error {
 	rp(ctx, 0, 1)
 	defer rp(ctx, 1, 1)
 	err := collectDebugFileV2(dir, "version.txt", func(w io.Writer) (retErr error) {
@@ -844,15 +847,15 @@ func (s *debugServer) collectPachdVersion(ctx context.Context, pachClient *clien
 		_, err = io.Copy(w, strings.NewReader(version+"\n"))
 		return errors.EnsureStack(err)
 	})
-	return filepath.Join(dir, "version.txt"), err
+	return err
 }
 
-func (s *debugServer) collectHelm(ctx context.Context, dir string, rp reportProgressFunc) (string, error) {
+func (s *debugServer) collectHelm(ctx context.Context, dir string, rp reportProgressFunc) error {
 	secrets, err := s.env.GetKubeClient().CoreV1().Secrets(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "owner=helm",
 	})
 	if err != nil {
-		return filepath.Join(dir, "helm"), errors.EnsureStack(err)
+		return errors.Wrap(err, "list helm secrets")
 	}
 	var writeErrs error
 	for i, secret := range secrets.Items {
@@ -866,10 +869,10 @@ func (s *debugServer) collectHelm(ctx context.Context, dir string, rp reportProg
 		rp(ctx, i, len(secrets.Items))
 	}
 	rp(ctx, 100, 100)
-	return filepath.Join(dir, "helm"), writeErrs
+	return writeErrs
 }
 
-func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod string, rp reportProgressFunc) (string, error) {
+func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod string) (string, error) {
 	err := collectDebugFileV2(dir, "describe.txt", func(output io.Writer) (retErr error) {
 		// Gate the total time of "describe".
 		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
@@ -904,7 +907,6 @@ func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod strin
 		}
 		return nil
 	})
-	rp(ctx, 1, 1)
 	return filepath.Join(dir, "describe.txt"), err
 }
 
@@ -1276,7 +1278,7 @@ func (s *debugServer) collectJobs(pachClient *client.APIClient, dir string, pipe
 func (s *debugServer) collectWorkerDump(ctx context.Context, dir string, pod *v1.Pod, prefix ...string) (retErr error) {
 	defer log.Span(ctx, "collectWorkerDump")(log.Errorp(&retErr))
 	// Collect the worker describe output.
-	if _, err := s.collectDescribe(ctx, dir, pod.Name, func(_ context.Context, _, _ int) {}); err != nil {
+	if _, err := s.collectDescribe(ctx, dir, pod.Name); err != nil {
 		return err
 	}
 	// Collect the worker user and storage container logs.
