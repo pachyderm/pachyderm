@@ -41,7 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"c
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -955,22 +955,17 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	if request.Reverse {
 		opts.Order = col.SortAscend
 	}
+	var err error
 	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
-		if err != nil && err != errutil.ErrBreak {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return status.Error(codes.DeadlineExceeded, err.Error())
-			}
-			return errors.EnsureStack(err)
-		}
+		err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
 	} else {
-		err := jobs.List(jobInfo, opts, _f)
-		if err != nil && err != errutil.ErrBreak {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return status.Error(codes.DeadlineExceeded, err.Error())
-			}
-			return errors.EnsureStack(err)
+		err = jobs.List(jobInfo, opts, _f)
+	}
+	if err != nil && err != errutil.ErrBreak {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return status.Error(codes.DeadlineExceeded, err.Error())
 		}
+		return errors.EnsureStack(err)
 	}
 	return nil
 }
