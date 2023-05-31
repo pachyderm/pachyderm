@@ -22,7 +22,6 @@ def _Repo_from_uri(uri: str) -> Repo:
 
 def _Repo_as_uri(self: "Repo") -> str:
     project = "default"
-    print()
     if self.project and self.project.name:
         project = self.project.name
     return f"{project}/{self.name}"
