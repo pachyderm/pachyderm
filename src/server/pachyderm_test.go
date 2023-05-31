@@ -11766,14 +11766,11 @@ func TestJQFilterInfiniteLoop(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
 
-	dataRepo := tu.UniqueString("DatumBatching_data")
+	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	numFiles := 15
 	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, mfc.PutFile(fmt.Sprintf("/file-%02d", i), strings.NewReader("")))
-		}
+		require.NoError(t, mfc.PutFile(fmt.Sprintf("/test-file"), strings.NewReader("")))
 		return nil
 	}))
 
@@ -11797,7 +11794,7 @@ func TestJQFilterInfiniteLoop(t *testing.T) {
 				cp /pfs/%s/* /pfs/out/
 			done
 			`, dataRepo)
-	pipeline := tu.UniqueString("DatumBatchingBasic")
+	pipeline := tu.UniqueString("pipeline")
 	request := createPipelineRequest(pipeline, script)
 	filter := `{ source: ., output: "" } | until(.source == "quux"; {"foo": "bar"}) | .output`
 
