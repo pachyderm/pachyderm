@@ -6,10 +6,9 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 from .errors import ConfigError
-from .constants import CONFIG_PATH_LOCAL
 
 class ConfigFile:
-    def __init__(self, config_file: Union[Path, str]=CONFIG_PATH_LOCAL):
+    def __init__(self, config_file: Union[Path, str]):
         config_file = Path(os.path.expanduser(config_file)).resolve()
         self._config_file_data = json.loads(config_file.read_bytes())
 

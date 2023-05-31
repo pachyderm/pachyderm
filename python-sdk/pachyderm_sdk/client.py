@@ -219,7 +219,7 @@ class Client:
         ----------
         config_file : Union[Path, str]
             The path to a config json file.
-            If config_file is None, from_config searches for the local config.
+            If config_file is None, from_config defaults to the local config.
 
         Returns
         -------
