@@ -20,6 +20,8 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +30,19 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
+	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"c
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -53,18 +68,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
-	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
-	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
-	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
-	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 )
 
 const (
@@ -927,9 +930,18 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
 				return errors.EnsureStack(err)
 			}
-			iter := jqCode.Run(jobInterface)
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second) // assume no real filter will take more than 10 seconds to run
+			defer cancel()
+			iter := jqCode.RunWithContext(ctx, jobInterface)
 			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
+			v, ok := iter.Next()
+			if !ok {
+				return nil
+			}
+			if err, ok := v.(error); ok && err != nil {
+				return err
+			}
+			if v == false || v == nil {
 				return nil
 			}
 		}
@@ -946,11 +958,17 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	if pipeline != nil {
 		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
 		if err != nil && err != errutil.ErrBreak {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return status.Error(codes.DeadlineExceeded, err.Error())
+			}
 			return errors.EnsureStack(err)
 		}
 	} else {
 		err := jobs.List(jobInfo, opts, _f)
 		if err != nil && err != errutil.ErrBreak {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return status.Error(codes.DeadlineExceeded, err.Error())
+			}
 			return errors.EnsureStack(err)
 		}
 	}

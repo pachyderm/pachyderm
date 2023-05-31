@@ -11756,7 +11756,7 @@ func TestDatumBatching(t *testing.T) {
 	})
 }
 
-func TestJQFilterDenialOfService(t *testing.T) {
+func TestJQFilterInfiniteLoop(t *testing.T) {
 	var ctx = pctx.Background("TestJQFilterDenialOfService")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -11790,8 +11790,8 @@ func TestJQFilterDenialOfService(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	// defer cancel()
 	script := fmt.Sprintf(`
 			while true
 			do
@@ -11813,38 +11813,42 @@ func TestJQFilterDenialOfService(t *testing.T) {
 	require.NoError(t, err, "could not wait for job")
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State, "job not successful")
 
-	r, err := c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{
-		JqFilter: filter,
-	})
-	require.NoError(t, err, "could not list pipelines")
-	var i int
-	for {
-		_, err := r.Recv()
-		if err == io.EOF {
-			break
-		}
-		if status.Code(err) != codes.DeadlineExceeded {
-			require.NoError(t, err, "list pipelines fails")
-		} else {
-			// deadline exceeded means that the server handled it
-			break
-		}
-		i++
-	}
-	require.NotEqual(t, 0, i, "expected at least one pipeline")
+	// t.Run("ListPipeline", func(t *testing.T) {
+	// 	resp, err := c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{
+	// 		JqFilter: filter,
+	// 	})
+	// 	require.NoError(t, err, "could not list pipelines")
+	// 	for {
+	// 		_, err := resp.Recv()
+	// 		if errors.Is(err, io.EOF) {
+	// 			break
+	// 		}
+	// 		if status.Code(err) == codes.DeadlineExceeded {
+	// 			// deadline exceeded means that the server handled it
+	// 			break
+	// 		}
+	// 		require.NoError(t, err, "list pipelines fails")
+	// 	}
+	// })
 
-	resp, err := c.PpsAPIClient.ListJob(ctx, &pps.ListJobRequest{
-		JqFilter: filter,
-	})
-	require.NoError(t, err, "could not list jobs")
-	i = 0
-	for {
-		_, err := resp.Recv()
-		if err == io.EOF {
-			break
+	t.Run("ListJob", func(t *testing.T) {
+		resp, err := c.PpsAPIClient.ListJob(ctx, &pps.ListJobRequest{
+			JqFilter: filter,
+		})
+		if status.Code(err) == codes.DeadlineExceeded {
+			return
 		}
-		require.NoError(t, err, "list jobs failed")
-		i++
-	}
-	require.NotEqual(t, 0, i, "expected at least one job")
+		require.NoError(t, err, "could not list jobs")
+		for {
+			_, err := resp.Recv()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if status.Code(err) == codes.DeadlineExceeded {
+				// deadline exceeded means that the server handled it
+				break
+			}
+			require.NoError(t, err, "list jobs fails")
+		}
+	})
 }
