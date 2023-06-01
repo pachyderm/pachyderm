@@ -5,11 +5,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -266,6 +268,10 @@ func (e ErrOutputCommitNotFinished) Error() string {
 
 func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit)
+}
+
+func (e ErrCommitNotFinished) GRPCStatus() *status.Status {
+	return status.New(codes.Unavailable, e.Error())
 }
 
 func (e ErrBaseCommitNotFinished) Error() string {
