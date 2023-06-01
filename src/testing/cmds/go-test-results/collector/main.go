@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,10 +31,23 @@ const (
 	fileSuffix         = "go-test-results.jsonl"
 	commitRetryBackoff = 10 * time.Second
 	commitMaxRetries   = 30
+	defaultBranch      = "master"
 )
+
+type githubBranch struct {
+	Ref string `json:"ref"`
+}
+
+type githubPullRequest struct {
+	State    string       `json:"state"`
+	MergedAt time.Time    `json:"merged_at"`
+	Head     githubBranch `json:"head"`
+	Base     githubBranch `json:"base"`
+}
 
 var pachdAddress = findPachdAddress()
 var invalidCharacters = regexp.MustCompile("[^a-zA-Z0-9-_]+")
+var versionBranch = regexp.MustCompile("^(\\d*)\\.(\\d*)\\.x$")
 var repo = &pfs.Repo{
 	Name: repoName,
 	Type: pfs.UserRepoType,
@@ -73,6 +88,10 @@ func run(ctx context.Context) error {
 	resultsFolder := os.Getenv("TEST_RESULTS")
 	if len(resultsFolder) == 0 {
 		return errors.WithStack(fmt.Errorf("TEST_RESULTS needs to be populated to find the test results folder."))
+	}
+	githubApiToken := os.Getenv("GITHUB_TOKEN")
+	if len(githubApiToken) == 0 {
+		return errors.WithStack(fmt.Errorf("GITHUB_TOKEN needs to be populated to clean up results."))
 	}
 	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
 		return errors.WithStack(fmt.Errorf("The test result folder at %v does not exist. Exiting early.", resultsFolder))
@@ -115,6 +134,7 @@ func run(ctx context.Context) error {
 		return errors.Wrapf(err, "Problem uploading job info")
 	}
 	log.Info(ctx, "Successfully uploaded files.")
+	deleteBranchDataIfJustMerged(ctx, jobInfo, githubApiToken)
 	return nil
 }
 
@@ -198,6 +218,39 @@ func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder
 	destPath := findDestinationPath(path, basePath, resultsFolder)
 	if err = pachClient.PutFile(commit, destPath, file); err != nil {
 		return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetID())
+	}
+	return nil
+}
+
+func deleteBranchDataIfJustMerged(ctx context.Context, jobInfo gotestresults.JobInfo, githubApiToken string) error {
+	if jobInfo.Branch != defaultBranch && !versionBranch.Match([]byte(jobInfo.Branch)) {
+		return nil
+	}
+	pullRequestUrl := fmt.Sprintf("https://api.github.com/repos/pachyderm/pachyderm/commits/%s/pulls", jobInfo.Commit)
+	req, err := http.NewRequest("GET", pullRequestUrl, nil)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	req.Header = map[string][]string{
+		"authorization": {fmt.Sprintf("Bearer %s", githubApiToken)},
+		"accept":        {"application/vnd.github+json"},
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return errors.WithStack(fmt.Errorf("Request to github reutrned an unexpected status code of %v", resp.StatusCode))
+	}
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	prList := make([]githubPullRequest, 0)
+	json.Unmarshal(respBytes, &prList)
+	for _, pr := range prList {
+		fmt.Printf("PR Data: %#v", pr)
 	}
 	return nil
 }
