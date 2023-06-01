@@ -7,11 +7,8 @@ import (
 )
 
 func Migrate(state migrations.State) migrations.State {
-	return state.Apply("Migrate collections.projects to pfs.projects", func(ctx context.Context, env migrations.Env) error {
+	return state.Apply("Setup core.* tables", func(ctx context.Context, env migrations.Env) error {
 		if err := SetupCore(ctx, env.Tx); err != nil {
-			return err
-		}
-		if err := SetupProjectsTable(ctx, env.Tx); err != nil {
 			return err
 		}
 		return nil
