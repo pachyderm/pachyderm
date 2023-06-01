@@ -671,9 +671,9 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		var jobInfosFiltered []*pps.JobInfo
 		for _, ji := range jobInfos {
 			// filter jobs based on jq filter.
-			if keep, err := jqFilter(ji); err != nil {
+			if ok, err := jqFilter(ji); err != nil {
 				return nil, errors.Wrap(err, "error applying jq filter")
-			} else if !keep {
+			} else if !ok {
 				continue
 			}
 			// filter jobs based on project filter.
@@ -856,9 +856,9 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	}
 	keep := func(j *pps.JobInfo) (bool, error) {
 		// filter jobs based on jq filter.
-		if keep, err := jqFilter(j); err != nil {
+		if ok, err := jqFilter(j); err != nil {
 			return false, errors.Wrap(err, "error applying jq filter")
-		} else if !keep {
+		} else if !ok {
 			return false, nil
 		}
 		// filter jobs based on project.
@@ -2745,7 +2745,7 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	jqFilter, err := jqFilterFunc(ctx, request.GetJqFilter())
 	if err != nil {
-		return errors.Wrap(err, "error generating jq filter function")
+		return errors.Wrap(err, "error creating jq filter function")
 	}
 
 	// Helper func to filter out pipelines based on projects
