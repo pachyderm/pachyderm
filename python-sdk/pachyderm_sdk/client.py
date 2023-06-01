@@ -212,21 +212,20 @@ class Client:
         )
 
     @classmethod
-    def from_config(cls, config_file: Union[Path, str]) -> "Client":
+    def from_config(cls, config_file: Union[Path, str]=CONFIG_PATH_LOCAL) -> "Client":
         """Creates a Pachyderm client from a config file.
 
         Parameters
         ----------
         config_file : Union[Path, str]
             The path to a config json file.
+            config_file defaults to the local config.
 
         Returns
         -------
         Client
             A properly configured Client.
         """
-        # TODO: Should config_file be nullable?
-        #  If null should we search for the local config?
         config = ConfigFile(config_file)
         active_context = config.active_context
         client = cls.from_pachd_address(
