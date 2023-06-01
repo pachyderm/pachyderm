@@ -1,6 +1,5 @@
 import io
 import os
-import subprocess
 from contextlib import contextmanager
 from dataclasses import fields
 from pathlib import Path
@@ -26,7 +25,6 @@ from . import (
     DeleteFile,
 )
 from .file import PFSFile, PFSTarFile
-from .utils import check_pachctl
 
 if TYPE_CHECKING:
     from _typeshed import SupportsRead
@@ -700,76 +698,3 @@ class ApiStub(_GeneratedApiStub):
         """
         stream = self.get_file_tar(file=file)
         return PFSTarFile.open(fileobj=PFSFile(stream), mode="r|*")
-
-    def _mount(self, mount_dir: Union[str, Path], commit: "Commit") -> subprocess.Popen:
-        # TODO: Check SUDO (used in unmount).
-        check_pachctl(ensure_mount=True)
-        mount_dir = Path(mount_dir)
-        if mount_dir.is_file():
-            raise NotADirectoryError(mount_dir)
-
-        mount_dir.mkdir(parents=True, exist_ok=True)
-        if any(mount_dir.iterdir()):
-            raise RuntimeError(
-                f"{mount_dir} must be empty to mount (including hidden files)"
-            )
-
-        process = subprocess.Popen(
-            ["pachctl", "mount", str(mount_dir), "-r", commit.as_uri()],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT
-        )
-
-        # Ensure mount has finished
-        import time
-        for _ in range(4):
-            time.sleep(0.25)
-            if any(mount_dir.iterdir()):
-                return process
-        else:
-            self._unmount(mount_dir)
-            raise RuntimeError(
-                "mount failed to expose data after four read attempts (1.0s)"
-            )
-
-    def _unmount(self, mount_dir: Union[str, Path]) -> None:
-        check_pachctl(ensure_mount=True)
-        subprocess.run(["sudo", "pachctl", "unmount", mount_dir])
-
-    @contextmanager
-    def mounted(
-        self, commit: "Commit", mount_dir: Union[str, Path]
-    ) -> ContextManager[Path]:
-        """Mounts Pachyderm commits locally.
-
-        Parameters
-        ----------
-        commit : pfs.Commit
-            The commit to be mounted.
-        mount_dir : str
-            The directory to commit within.
-            This directory must be empty (including hidden files).
-
-        Notes
-        -----
-        Mounting uses FUSE, which causes some known issues on macOS. For the
-        best experience, we recommend using mount on Linux. We do not fully
-        support mounting on macOS 1.11 and later.
-
-        Yields
-        ------
-        The subdirectory where the commit was mounted.
-
-        Examples
-        --------
-        >>> from pachyderm_sdk import Client
-        >>> from pachyderm_sdk.api import pfs
-        >>> client: Client
-        >>> with client.pfs.mounted(pfs.Commit.from_uri("images@mount^2"), "/pfs") as mount:
-        >>>     print(list(mount.iterdir()))
-        """
-        _process = self._mount(mount_dir, commit)
-        mounted_commit = Path(mount_dir, commit.branch.repo.name)
-        assert mounted_commit.exists()
-        yield mounted_commit
-        self._unmount(mount_dir)
