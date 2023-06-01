@@ -3575,9 +3575,8 @@ func jqFilterFunc(ctx context.Context, filter string) (func(proto.Message) (bool
 		}, nil
 	}
 	var (
-		jqCode     *gojq.Code
-		jsonBuffer bytes.Buffer
-		enc        serde.Encoder
+		jqCode *gojq.Code
+		enc    serde.Encoder
 	)
 	jqQuery, err := gojq.Parse(filter)
 	if err != nil {
@@ -3587,10 +3586,10 @@ func jqFilterFunc(ctx context.Context, filter string) (func(proto.Message) (bool
 	if err != nil {
 		return nil, errors.Wrap(err, "error compiling jq filter")
 	}
-	// ensure field names and enum values match with --raw output
-	enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	return func(m proto.Message) (bool, error) {
-		jsonBuffer.Reset()
+		var jsonBuffer bytes.Buffer
+		// ensure field names and enum values match with --raw output
+		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 		if err := enc.EncodeProto(m); err != nil {
 			return false, err
 		}
