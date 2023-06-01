@@ -2,6 +2,9 @@ package pctx
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
@@ -12,6 +15,11 @@ import (
 // context in the near future.  It should not be used in new code.
 func TODO() context.Context {
 	return log.AddLogger(context.TODO())
+}
+
+// Interactive returns a context for use in interactive processes.
+func Interactive() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(Background(""), os.Interrupt, syscall.SIGTERM)
 }
 
 // Background returns a context for use in long-running background processes.  If the background

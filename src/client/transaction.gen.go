@@ -607,6 +607,10 @@ func (c *unsupportedPpsBuilderClient) SubscribeJob(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("SubscribeJob")
 }
 
+func (c *unsupportedPpsBuilderClient) TailLoki(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_TailLokiClient, error) {
+	return nil, unsupportedError("TailLoki")
+}
+
 func (c *unsupportedPpsBuilderClient) UpdateJobState(_ context.Context, _ *pps_v2.UpdateJobStateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("UpdateJobState")
 }

@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net/url"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +22,7 @@ import (
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
+	"golang.org/x/net/websocket"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -1378,6 +1382,155 @@ func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.A
 			Message: strings.TrimSuffix(line, "\n"),
 		}))
 	})
+}
+
+type lokiTailResponse struct {
+	Streams []lokiStream
+}
+
+type lokiStream struct {
+	Stream map[string]string
+	Values []lokiValue
+}
+
+type lokiValue struct {
+	Time     time.Time
+	Messages [][]byte
+}
+
+func (v *lokiValue) UnmarshalJSON(text []byte) error {
+	// Loki sends these values as an array, with the time in unix nanos encoded as a base 10
+	// string as the first "message".
+	var raw []string
+	if err := json.Unmarshal(text, &raw); err != nil {
+		return errors.Wrap(err, "unmarshal value part")
+	}
+	if len(raw) < 1 {
+		return errors.New("too short")
+	}
+	ts, err := strconv.ParseInt(string(raw[0]), 10, 64)
+	if err != nil {
+		return errors.Errorf("parse time: %w", err)
+	}
+	v.Time = time.Unix(0, int64(ts))
+	for _, m := range raw[1:] {
+		v.Messages = append(v.Messages, []byte(m))
+	}
+	return nil
+}
+
+func (a *apiServer) TailLoki(req *pps.LokiRequest, srv pps.API_TailLokiServer) (retErr error) {
+	ctx, done := log.SpanContext(srv.Context(), "TailLoki")
+	defer done(log.Errorp(&retErr))
+
+	if err := a.env.AuthServer.CheckClusterIsAuthorized(ctx, auth.Permission_CLUSTER_GET_LOKI_LOGS); err != nil {
+		return status.Errorf(codes.PermissionDenied, "check authorization: %v", err)
+	}
+
+	loki, err := a.env.GetLokiClient()
+	if err != nil {
+		return status.Errorf(codes.FailedPrecondition, "extract loki client: %v", err)
+	}
+	addr, err := url.Parse(loki.Address)
+	if err != nil {
+		return status.Errorf(codes.FailedPrecondition, "parse loki address: %v", err)
+	}
+
+	since, err := types.DurationFromProto(req.GetSince())
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "parse since: %v", err)
+	}
+
+	var connected bool
+	lastTime := time.Now().Add(-since)
+main:
+	for {
+		select {
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "main loop exiting")
+		default:
+		}
+
+		u := &url.URL{
+			Scheme: "ws",
+			Host:   addr.Host,
+			Path:   "/loki/api/v1/tail",
+		}
+		values := make(url.Values)
+		values.Add("query", req.GetQuery())
+		values.Add("start", strconv.FormatInt(lastTime.UnixNano(), 10))
+		u.RawQuery = values.Encode()
+
+		log.Debug(ctx, "connecting to loki tail endpoint", zap.String("url", u.String()))
+		ws, err := websocket.Dial(u.String(), "ws", "ws://loki")
+		if err != nil {
+			if !connected {
+				return status.Errorf(codes.Unknown, "dial loki: %v", err)
+			}
+			log.Info(ctx, "problem dialing loki", zap.Error(err), zap.String("url", u.String()))
+			if err := srv.Send(&pps.TailLokiResponse{
+				Response: &pps.TailLokiResponse_Warning{
+					Warning: fmt.Sprintf("dial loki (%v): %v", u.String(), err),
+				},
+			}); err != nil {
+				return status.Errorf(codes.Unknown, "send warning after failing to dial loki: %v", err)
+			}
+			time.Sleep(time.Second)
+			continue
+		}
+		connected = true
+		log.Debug(ctx, "connected to loki ok", zap.String("url", u.String()))
+
+		dec := json.NewDecoder(ws)
+		for {
+			var value lokiTailResponse
+			if err := dec.Decode(&value); err != nil {
+				if errors.Is(err, io.EOF) {
+					log.Debug(ctx, "EOF from loki; reconnecting", zap.Error(err))
+					time.Sleep(time.Second)
+					continue main
+				}
+				log.Info(ctx, "problem decoding loki response", zap.Error(err))
+				if err := srv.Send(&pps.TailLokiResponse{
+					Response: &pps.TailLokiResponse_Warning{
+						Warning: fmt.Sprintf("recv from loki: %v", err),
+					},
+				}); err != nil {
+					return status.Errorf(codes.Unknown, "send warning after failing to recv from loki: %v", err)
+				}
+				time.Sleep(time.Second)
+				continue main
+			}
+			for _, s := range value.Streams {
+				lvs := make([]*pps.LokiValue, len(s.Values))
+				for i, v := range s.Values {
+					t, err := types.TimestampProto(v.Time)
+					if err != nil {
+						t = nil
+					}
+					lvs[i] = &pps.LokiValue{
+						Time:     t,
+						Messages: v.Messages,
+					}
+				}
+				if err := srv.Send(&pps.TailLokiResponse{
+					Response: &pps.TailLokiResponse_Stream{
+						Stream: &pps.LokiStream{
+							Metadata: s.Stream,
+							Values:   lvs,
+						},
+					},
+				}); err != nil {
+					return status.Errorf(codes.Unknown, "send log message: %v", err)
+				}
+				for _, v := range s.Values {
+					if v.Time.After(lastTime) {
+						lastTime = v.Time
+					}
+				}
+			}
+		}
+	}
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {

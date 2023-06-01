@@ -14,6 +14,8 @@ import "pfs/pfs.proto";
 
 import "task/task.proto";
 
+import "protoextensions/log.proto";
+
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
@@ -851,6 +853,26 @@ message LokiLogMessage {
   string message = 1;
 }
 
+message TailLokiResponse {
+  oneof response {
+    LokiStream stream = 1;
+    string warning = 2;
+  }
+}
+
+// LokiStream is the format that Loki returns logs in.  A stream contains common/value metadata for
+// the contained values.
+message LokiStream {
+  map<string,string> metadata = 1;
+  repeated LokiValue values = 2;
+}
+
+// LokiValue is the format that Loki returns logs in.
+message LokiValue {
+  google.protobuf.Timestamp time = 1;
+  repeated bytes messages = 2 [(log.mask) = true];
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -907,4 +929,7 @@ service API {
 
   // QueryLoki returns a stream of loki log messages given a query string
   rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // TailLoki returns an infinite stream of log messages.
+  rpc TailLoki(LokiRequest) returns (stream TailLokiResponse) {}
 }

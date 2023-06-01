@@ -567,6 +567,10 @@ func (c *unsupportedPpsBuilderClient) QueryLoki(_ context.Context, _ *pps_v2.Lok
 	return nil, unsupportedError("QueryLoki")
 }
 
+func (c *unsupportedPpsBuilderClient) TailLoki(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_TailLokiClient, error) {
+	return nil, unsupportedError("TailLoki")
+}
+
 func (c *unsupportedPpsBuilderClient) RenderTemplate(_ context.Context, _ *pps_v2.RenderTemplateRequest, opts ...grpc.CallOption) (*pps_v2.RenderTemplateResponse, error) {
 	return nil, unsupportedError("RenderTemplate")
 }
