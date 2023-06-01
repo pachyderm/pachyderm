@@ -1415,7 +1415,7 @@ jobs:
           command: |
             nohup pachctl port-forward &
             poetry run pytest -vvv tests
-  
+
   python-sdk-test-publish:
     executor: python
     working_directory: ~/project/python-sdk
@@ -1979,7 +1979,7 @@ commands:
             $POETRY_HOME/bin/pip install poetry==1.4.1
             $POETRY_HOME/bin/poetry --version
             ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
-    
+
   install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
