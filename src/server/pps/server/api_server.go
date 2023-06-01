@@ -2715,11 +2715,6 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		return errors.Wrap(err, "error creating message filter function")
 	}
 
-	// A set of projects to filter by. If empty, don't filter by project.
-	projectsFilter := make(map[string]bool)
-	for _, project := range request.Projects {
-		projectsFilter[project.GetName()] = true
-	}
 	// Helper func to check whether a user is allowed to see the given pipeline in the result.
 	// Cache the project level access because it applies to every pipeline within the same project.
 	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
