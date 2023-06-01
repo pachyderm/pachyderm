@@ -85,6 +85,7 @@ message Pod {
   string name = 1;
   string ip = 2;
   repeated string containers = 3;
+  Pipeline pipeline = 4;  
 }
 
 message App {
