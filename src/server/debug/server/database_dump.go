@@ -19,23 +19,23 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func (s *debugServer) collectDatabaseDump(ctx context.Context, dir string, rp reportProgressFunc) (retErr error) {
+func (s *debugServer) collectDatabaseDump(ctx context.Context, dfs DumpFS, rp reportProgressFunc) (retErr error) {
 	defer log.Span(ctx, "collectDatabaseDump")(log.Errorp(&retErr))
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	rp(ctx, 0, 100)
 	var errs error
-	if err := s.collectDatabaseStats(ctxWithTimeout, dir); err != nil {
+	if err := s.collectDatabaseStats(ctxWithTimeout, dfs); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseStats"))
 	}
-	if err := s.collectDatabaseTables(ctxWithTimeout, filepath.Join(dir, "tables")); err != nil {
+	if err := s.collectDatabaseTables(ctxWithTimeout, dfs, "tables"); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseTables"))
 	}
 	rp(ctx, 100, 100)
 	return errs
 }
 
-func (s *debugServer) collectDatabaseStats(ctx context.Context, dir string) error {
+func (s *debugServer) collectDatabaseStats(ctx context.Context, dfs DumpFS) error {
 	queries := map[string]string{
 		"table-sizes": `
 			SELECT nspname AS "schemaname", relname, pg_total_relation_size(C.oid) AS "total_size"
@@ -54,7 +54,7 @@ func (s *debugServer) collectDatabaseStats(ctx context.Context, dir string) erro
 	}
 	var errs []error
 	for filename, query := range queries {
-		if err := collectDebugFile(dir, filename+".json", func(w io.Writer) error {
+		if err := dfs.Write(filename+".json", func(w io.Writer) error {
 			rows, err := s.database.QueryContext(ctx, query)
 			if err != nil {
 				return errors.EnsureStack(err)
@@ -70,7 +70,7 @@ func (s *debugServer) collectDatabaseStats(ctx context.Context, dir string) erro
 	return nil
 }
 
-func (s *debugServer) collectDatabaseTables(ctx context.Context, dir string) error {
+func (s *debugServer) collectDatabaseTables(ctx context.Context, dfs DumpFS, dir string) error {
 	tables, err := pachsql.ListTables(ctx, s.database)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -78,7 +78,7 @@ func (s *debugServer) collectDatabaseTables(ctx context.Context, dir string) err
 	for _, table := range tables {
 		dir := filepath.Join(dir, table.SchemaName)
 		file := table.TableName + ".json"
-		if err := collectDebugFile(dir, file, func(rawWriter io.Writer) error {
+		if err := dfs.Write(filepath.Join(dir, file), func(rawWriter io.Writer) error {
 			w := bufio.NewWriter(rawWriter)
 			if err := s.collectTable(ctx, w, &table); err != nil {
 				return errors.Wrapf(err, "collect table %s.%s", table.SchemaName, table.TableName)
