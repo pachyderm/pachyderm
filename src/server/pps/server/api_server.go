@@ -651,12 +651,9 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
-	// Prepare filter functions.
-	projectsFilter := make(map[string]bool, len(request.GetProjects()))
-	for _, project := range request.GetProjects() {
-		projectsFilter[project.GetName()] = true
-	}
-	jqFilterJobInfo, err := newMessageFilter(request.GetJqFilter())
+
+	// Create a filter function based on the request
+	filterJob, err := newMessageFilter(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating jq filter function")
 	}
@@ -702,13 +699,9 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		var jobInfosFiltered []*pps.JobInfo
 		for _, ji := range jobInfos {
 			// filter jobs based on jq filter.
-			if ok, err := jqFilterJobInfo(serv.Context(), ji); err != nil {
+			if ok, err := filterJob(serv.Context(), ji); err != nil {
 				return errors.Wrap(err, "error applying jq filter")
 			} else if !ok {
-				continue
-			}
-			// filter jobs based on project filter.
-			if len(projectsFilter) > 0 && !projectsFilter[ji.Job.Pipeline.Project.GetName()] {
 				continue
 			}
 			jobInfosFiltered = append(jobInfosFiltered, ji)
@@ -835,12 +828,8 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	// Prepare filter functions.
-	projectsFilter := make(map[string]bool, len(request.GetProjects()))
-	for _, project := range request.GetProjects() {
-		projectsFilter[project.GetName()] = true
-	}
-	filterJobInfo, err := newMessageFilter(request.GetJqFilter())
+	// Create a filter function based on the request
+	filterJob, err := newMessageFilter(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating jq filter function")
 	}
@@ -912,13 +901,9 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		}
 
 		// filter jobs based on jq filter.
-		if ok, err := filterJobInfo(ctx, jobInfo); err != nil {
+		if ok, err := filterJob(ctx, jobInfo); err != nil {
 			return errors.Wrap(err, "error applying jq filter")
 		} else if !ok {
-			return nil
-		}
-		// filter jobs based on project.
-		if len(projectsFilter) > 0 && !projectsFilter[jobInfo.Job.Pipeline.Project.GetName()] {
 			return nil
 		}
 
@@ -2725,7 +2710,7 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 }
 
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
-	jqFilterPipelineInfo, err := newMessageFilter(request.GetJqFilter())
+	filterPipeline, err := newMessageFilter(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating jq filter function")
 	}
@@ -2771,10 +2756,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		})
 	}
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if len(projectsFilter) > 0 && !projectsFilter[pi.Pipeline.Project.GetName()] {
-			return nil
-		}
-		if ok, err := jqFilterPipelineInfo(ctx, pi); err != nil {
+		if ok, err := filterPipeline(ctx, pi); err != nil {
 			return err
 		} else if !ok {
 			return nil
@@ -3539,8 +3521,12 @@ func ensurePipelineProject(p *pps.Pipeline) {
 	}
 }
 
-func newMessageFilter(filter string) (func(context.Context, proto.Message) (bool, error), error) {
-	if filter == "" {
+func newMessageFilter(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
+	projectsFilter := make(map[string]bool, len(projects))
+	for _, project := range projects {
+		projectsFilter[project.GetName()] = true
+	}
+	if jqFilter == "" {
 		return func(_ context.Context, _ proto.Message) (bool, error) {
 			return true, nil
 		}, nil
@@ -3549,7 +3535,7 @@ func newMessageFilter(filter string) (func(context.Context, proto.Message) (bool
 		jqCode *gojq.Code
 		enc    serde.Encoder
 	)
-	jqQuery, err := gojq.Parse(filter)
+	jqQuery, err := gojq.Parse(jqFilter)
 	if err != nil {
 		return nil, errors.Wrap(err, "error parsing jq filter")
 	}
@@ -3558,6 +3544,21 @@ func newMessageFilter(filter string) (func(context.Context, proto.Message) (bool
 		return nil, errors.Wrap(err, "error compiling jq filter")
 	}
 	return func(ctx context.Context, m proto.Message) (bool, error) {
+		// filter out pipelines/jobs that don't match the project filter
+		switch foo := m.(type) {
+		case *pps.PipelineInfo:
+			if len(projectsFilter) > 0 && !projectsFilter[foo.Pipeline.Project.GetName()] {
+				return false, nil
+			}
+		case *pps.JobInfo:
+			if len(projectsFilter) > 0 && !projectsFilter[foo.Job.Pipeline.Project.GetName()] {
+				return false, nil
+			}
+		default:
+			return false, errors.Errorf("unknown proto message type: %T", m)
+
+		}
+
 		var jsonBuffer bytes.Buffer
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
