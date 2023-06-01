@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/spf13/cobra"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
@@ -259,6 +260,132 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(testMigrations, "misc test-migrations"))
+
+	var fix bool
+	danglingCommitRefs := &cobra.Command{
+		Use:   "{{alias}} <postgres dsn>",
+		Short: "Detects dangling commit references in the database. If the --fix flag is provided, it will delete them.",
+		Long:  "Detects dangling commit references in the database. If the --fix flag is provided, it will delete them.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			parseRepo := func(key string) *pfs.Repo {
+				slashSplit := strings.Split(key, "/")
+				dotSplit := strings.Split(slashSplit[1], ".")
+				return &pfs.Repo{
+					Project: &pfs.Project{Name: slashSplit[0]},
+					Name:    dotSplit[0],
+					Type:    dotSplit[1],
+				}
+			}
+			parseBranch := func(key string) *pfs.Branch {
+				split := strings.Split(key, "@")
+				return &pfs.Branch{
+					Repo: parseRepo(split[0]),
+					Name: split[1],
+				}
+			}
+			repoKey := func(r *pfs.Repo) string {
+				return r.Project.Name + "/" + r.Name + "." + r.Type
+			}
+			branchKey := func(b *pfs.Branch) string {
+				return repoKey(b.Repo) + "@" + b.Name
+			}
+			commitKey_2_5 := func(c *pfs.Commit) string {
+				return branchKey(c.Branch) + "=" + c.ID
+			}
+			listRepoKeys := func(tx *sqlx.Tx) (map[string]struct{}, error) {
+				var keys []string
+				if err := tx.Select(&keys, `SELECT key FROM collections.repos`); err != nil {
+					return nil, errors.Wrap(err, "select keys from collections.repos")
+				}
+				rs := make(map[string]struct{})
+				for _, k := range keys {
+					rs[k] = struct{}{}
+				}
+				return rs, nil
+			}
+			parseCommit_2_5 := func(key string) (*pfs.Commit, error) {
+				split := strings.Split(key, "=")
+				if len(split) != 2 {
+					return nil, errors.Errorf("parsing commit key with 2.6.x+ structure %q", key)
+				}
+				b := parseBranch(split[0])
+				return &pfs.Commit{
+					Repo:   b.Repo,
+					Branch: b,
+					ID:     split[1],
+				}, nil
+			}
+			listReferencedCommits := func(sqlTx *sqlx.Tx) (map[string]*pfs.Commit, error) {
+				cs := make(map[string]*pfs.Commit)
+				var err error
+				var ids []string
+				if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
+					return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
+				}
+				for _, id := range ids {
+					cs[id], err = parseCommit_2_5(id)
+					if err != nil {
+						return nil, err
+					}
+				}
+				ids = make([]string, 0)
+				if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
+					return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
+				}
+				for _, id := range ids {
+					cs[id], err = parseCommit_2_5(id)
+					if err != nil {
+						return nil, err
+					}
+				}
+				return cs, nil
+			}
+			dsn := args[0]
+			db, err := sqlx.Open("pgx", dsn)
+			if err != nil {
+				return errors.Wrap(err, "connect to database")
+			}
+			defer db.Close()
+			tx, err := db.Beginx()
+			if err != nil {
+				return errors.Wrap(err, "start transaction")
+			}
+			defer func() {
+				if err := tx.Commit(); err != nil {
+					errors.JoinInto(&retErr, errors.Wrap(err, "commit transaction"))
+				}
+			}()
+			cs, err := listReferencedCommits(tx)
+			if err != nil {
+				return errors.Wrap(err, "list referenced commits")
+			}
+			rs, err := listRepoKeys(tx)
+			if err != nil {
+				return errors.Wrap(err, "list repos")
+			}
+			var dangCommitKeys []string
+			for _, c := range cs {
+				if _, ok := rs[repoKey(c.Repo)]; !ok {
+					dangCommitKeys = append(dangCommitKeys, commitKey_2_5(c))
+				}
+			}
+			fmt.Printf("commits with dangling references %v\n", dangCommitKeys)
+			if fix {
+				ctx := context.Background()
+				for _, id := range dangCommitKeys {
+					if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, id); err != nil {
+						return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", id)
+					}
+					if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, id); err != nil {
+						return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", id)
+					}
+				}
+			}
+			return nil
+		}),
+	}
+	danglingCommitRefs.Flags().BoolVar(&fix, "fix", false, "Whether to delete dangling references.")
+	commands = append(commands, cmdutil.CreateAlias(danglingCommitRefs, "misc dangling-commit-refs"))
 
 	misc := &cobra.Command{
 		Short:  "Miscellaneous utilities unrelated to Pachyderm itself.",
