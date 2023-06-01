@@ -9,8 +9,8 @@ from textwrap import dedent
 from typing import Optional, Union
 
 import python_pachyderm
-from python_pachyderm.experimental.proto.v2.pps_v2 import Pipeline
-from python_pachyderm.experimental.proto.v2.pfs_v2 import Project
+from python_pachyderm.proto.v2.pps.pps_pb2 import Pipeline
+from python_pachyderm.proto.v2.pfs.pfs_pb2 import Project
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
