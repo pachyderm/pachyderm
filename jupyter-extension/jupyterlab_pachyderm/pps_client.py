@@ -157,7 +157,10 @@ class PpsConfig:
             raise ValueError("field pipeline not set")
         pipeline = Pipeline(name=pipeline_data.get('name'))
         if 'project' in pipeline_data:
-            pipeline.project = Project(name=pipeline_data['project'].get('name'))
+            pipeline = Pipeline(
+                name=pipeline_data.get('name'),
+                project=Project(name=pipeline_data['project'].get('name')),
+            )
 
         image = config.get('image')
         if image is None:
