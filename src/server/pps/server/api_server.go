@@ -656,39 +656,9 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	for _, project := range request.GetProjects() {
 		projectsFilter[project.GetName()] = true
 	}
-	jqFilter, err := jqFilterFunc(serv.Context(), request.GetJqFilter())
+	jqFilterJobInfo, err := newMessageFilter(request.GetJqFilter())
 	if err != nil {
 		return errors.Wrap(err, "error creating jq filter function")
-	}
-	getJobSet := func(jobInfo *pps.JobInfo) (*pps.JobSetInfo, error) {
-		id := jobInfo.GetJob().GetID()
-		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
-		if err != nil {
-			return nil, err
-		}
-		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
-		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
-		var jobInfosFiltered []*pps.JobInfo
-		for _, ji := range jobInfos {
-			// filter jobs based on jq filter.
-			if ok, err := jqFilter(ji); err != nil {
-				return nil, errors.Wrap(err, "error applying jq filter")
-			} else if !ok {
-				continue
-			}
-			// filter jobs based on project filter.
-			if len(projectsFilter) > 0 && !projectsFilter[ji.Job.Pipeline.Project.GetName()] {
-				continue
-			}
-			jobInfosFiltered = append(jobInfosFiltered, ji)
-		}
-		if len(jobInfosFiltered) == 0 {
-			return nil, nil
-		}
-		return &pps.JobSetInfo{
-			JobSet: client.NewJobSet(id),
-			Jobs:   jobInfosFiltered,
-		}, nil
 	}
 
 	number := request.Number
@@ -723,16 +693,37 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 				return nil
 			}
 		}
-		jobset, err := getJobSet(jobInfo)
+		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
-			return errors.Wrap(err, "error filtering jobset")
+			return err
 		}
-		if jobset != nil {
-			if err := serv.Send(jobset); err != nil {
-				return errors.Wrap(err, "error sending jobset")
+		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
+		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
+		var jobInfosFiltered []*pps.JobInfo
+		for _, ji := range jobInfos {
+			// filter jobs based on jq filter.
+			if ok, err := jqFilterJobInfo(serv.Context(), ji); err != nil {
+				return errors.Wrap(err, "error applying jq filter")
+			} else if !ok {
+				continue
 			}
-			number--
+			// filter jobs based on project filter.
+			if len(projectsFilter) > 0 && !projectsFilter[ji.Job.Pipeline.Project.GetName()] {
+				continue
+			}
+			jobInfosFiltered = append(jobInfosFiltered, ji)
 		}
+		if len(jobInfosFiltered) == 0 {
+			return nil
+		}
+		if err := serv.Send(&pps.JobSetInfo{
+			JobSet: client.NewJobSet(id),
+			Jobs:   jobInfosFiltered,
+		}); err != nil {
+			return errors.Wrap(err, "error sending jobset")
+		}
+		number--
+
 		return nil
 	}); err != nil && err != errutil.ErrBreak {
 		return errors.EnsureStack(err)
@@ -845,29 +836,16 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	// Prepare filter functions.
-	projectFilter := make(map[string]bool, len(request.GetProjects()))
+	projectsFilter := make(map[string]bool, len(request.GetProjects()))
 	for _, project := range request.GetProjects() {
-		projectFilter[project.GetName()] = true
+		projectsFilter[project.GetName()] = true
 	}
-	ctx := resp.Context()
-	jqFilter, err := jqFilterFunc(ctx, request.GetJqFilter())
+	filterJobInfo, err := newMessageFilter(request.GetJqFilter())
 	if err != nil {
 		return errors.Wrap(err, "error creating jq filter function")
 	}
-	keep := func(j *pps.JobInfo) (bool, error) {
-		// filter jobs based on jq filter.
-		if ok, err := jqFilter(j); err != nil {
-			return false, errors.Wrap(err, "error applying jq filter")
-		} else if !ok {
-			return false, nil
-		}
-		// filter jobs based on project.
-		if len(projectFilter) > 0 && !projectFilter[j.Job.Pipeline.Project.GetName()] {
-			return false, nil
-		}
-		return true, nil
-	}
 
+	ctx := resp.Context()
 	pipeline := request.GetPipeline()
 	if pipeline != nil {
 		ensurePipelineProject(pipeline)
@@ -933,13 +911,17 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return nil
 		}
 
-		ok, err := keep(jobInfo)
-		if err != nil {
-			return errors.Wrap(err, "error filtering job")
-		}
-		if !ok {
+		// filter jobs based on jq filter.
+		if ok, err := filterJobInfo(ctx, jobInfo); err != nil {
+			return errors.Wrap(err, "error applying jq filter")
+		} else if !ok {
 			return nil
 		}
+		// filter jobs based on project.
+		if len(projectsFilter) > 0 && !projectsFilter[jobInfo.Job.Pipeline.Project.GetName()] {
+			return nil
+		}
+
 		if err := resp.Send(jobInfo); err != nil {
 			return errors.Wrap(err, "error sending job")
 		}
@@ -2743,30 +2725,16 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 }
 
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
-	jqFilter, err := jqFilterFunc(ctx, request.GetJqFilter())
+	jqFilterPipelineInfo, err := newMessageFilter(request.GetJqFilter())
 	if err != nil {
 		return errors.Wrap(err, "error creating jq filter function")
 	}
 
-	// Helper func to filter out pipelines based on projects
+	// A set of projects to filter by. If empty, don't filter by project.
 	projectsFilter := make(map[string]bool)
 	for _, project := range request.Projects {
 		projectsFilter[project.GetName()] = true
 	}
-	keep := func(pipelineInfo *pps.PipelineInfo) (bool, error) {
-		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.GetName()] {
-			return false, nil
-		}
-		ok, err := jqFilter(pipelineInfo)
-		if err != nil {
-			return false, err
-		}
-		if !ok {
-			return false, nil
-		}
-		return true, nil
-	}
-
 	// Helper func to check whether a user is allowed to see the given pipeline in the result.
 	// Cache the project level access because it applies to every pipeline within the same project.
 	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
@@ -2803,7 +2771,10 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		})
 	}
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if ok, err := keep(pi); err != nil {
+		if len(projectsFilter) > 0 && !projectsFilter[pi.Pipeline.Project.GetName()] {
+			return nil
+		}
+		if ok, err := jqFilterPipelineInfo(ctx, pi); err != nil {
 			return err
 		} else if !ok {
 			return nil
@@ -3568,9 +3539,9 @@ func ensurePipelineProject(p *pps.Pipeline) {
 	}
 }
 
-func jqFilterFunc(ctx context.Context, filter string) (func(proto.Message) (bool, error), error) {
+func newMessageFilter(filter string) (func(context.Context, proto.Message) (bool, error), error) {
 	if filter == "" {
-		return func(_ proto.Message) (bool, error) {
+		return func(_ context.Context, _ proto.Message) (bool, error) {
 			return true, nil
 		}, nil
 	}
@@ -3586,7 +3557,7 @@ func jqFilterFunc(ctx context.Context, filter string) (func(proto.Message) (bool
 	if err != nil {
 		return nil, errors.Wrap(err, "error compiling jq filter")
 	}
-	return func(m proto.Message) (bool, error) {
+	return func(ctx context.Context, m proto.Message) (bool, error) {
 		var jsonBuffer bytes.Buffer
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
