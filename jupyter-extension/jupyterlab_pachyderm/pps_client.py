@@ -9,8 +9,8 @@ from textwrap import dedent
 from typing import Optional, Union
 
 import python_pachyderm
-from python_pachyderm.experimental.proto.v2.pps_v2 import Pipeline
-from python_pachyderm.experimental.proto.v2.pfs_v2 import Project
+from python_pachyderm.proto.v2.pps.pps_pb2 import Pipeline
+from python_pachyderm.proto.v2.pfs.pfs_pb2 import Project
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
@@ -157,7 +157,10 @@ class PpsConfig:
             raise ValueError("field pipeline not set")
         pipeline = Pipeline(name=pipeline_data.get('name'))
         if 'project' in pipeline_data:
-            pipeline.project = Project(name=pipeline_data['project'].get('name'))
+            pipeline = Pipeline(
+                name=pipeline_data.get('name'),
+                project=Project(name=pipeline_data['project'].get('name')),
+            )
 
         image = config.get('image')
         if image is None:
