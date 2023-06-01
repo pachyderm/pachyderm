@@ -20,6 +20,8 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +30,19 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
+	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -53,18 +68,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
-	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
-	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
-	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
-	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 )
 
 const (
@@ -927,9 +930,18 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
 				return errors.EnsureStack(err)
 			}
-			iter := jqCode.Run(jobInterface)
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second) // assume no real filter will take more than 10 seconds to run
+			defer cancel()
+			iter := jqCode.RunWithContext(ctx, jobInterface)
 			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
+			v, ok := iter.Next()
+			if !ok {
+				return nil
+			}
+			if err, ok := v.(error); ok && err != nil {
+				return errors.Wrap(err, "error filtering jobs")
+			}
+			if v == false || v == nil {
 				return nil
 			}
 		}
@@ -943,16 +955,17 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	if request.Reverse {
 		opts.Order = col.SortAscend
 	}
+	var err error
 	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
-		if err != nil && err != errutil.ErrBreak {
-			return errors.EnsureStack(err)
-		}
+		err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
 	} else {
-		err := jobs.List(jobInfo, opts, _f)
-		if err != nil && err != errutil.ErrBreak {
-			return errors.EnsureStack(err)
+		err = jobs.List(jobInfo, opts, _f)
+	}
+	if err != nil && err != errutil.ErrBreak {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return status.Error(codes.DeadlineExceeded, err.Error())
 		}
+		return errors.EnsureStack(err)
 	}
 	return nil
 }
@@ -2757,9 +2770,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	for _, project := range request.Projects {
 		projectsFilter[project.GetName()] = true
 	}
-	keep := func(pipelineInfo *pps.PipelineInfo) bool {
+	keep := func(pipelineInfo *pps.PipelineInfo) (bool, error) {
 		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.GetName()] {
-			return false
+			return false, nil
 		}
 
 		if jqCode != nil {
@@ -2767,18 +2780,29 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			// convert pipelineInfo to a map[string]interface{} for use with gojq
 			if err := enc.EncodeProto(pipelineInfo); err != nil {
 				log.Error(ctx, "error encoding pipelineInfo to JSON", zap.Error(err))
+				return false, errors.Wrap(err, "error encoding pipelineInfo to JSON")
 			}
 			var pipelineInterface interface{}
 			if err := json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface); err != nil {
 				log.Error(ctx, "error parsing JSON encoded pipeline info", zap.Error(err))
+				return false, errors.Wrap(err, "error parsing JSON encoded pipeline info")
 			}
-			iter := jqCode.Run(pipelineInterface)
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second) // assume that no filter will ever take more than 10 seconds to run
+			defer cancel()
+			iter := jqCode.RunWithContext(ctx, pipelineInterface)
 			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
-				return false
+			v, ok := iter.Next()
+			if !ok {
+				return false, nil
+			}
+			if err, ok := v.(error); ok && err != nil {
+				return false, errors.Wrap(err, "error filtering pipelines")
+			}
+			if v == false || v == nil {
+				return false, nil
 			}
 		}
-		return true
+		return true, nil
 	}
 
 	// Helper func to check whether a user is allowed to see the given pipeline in the result.
@@ -2816,8 +2840,10 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			})
 		})
 	}
-	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if !keep(pi) {
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
+		if ok, err := keep(pi); err != nil {
+			return err
+		} else if !ok {
 			return nil
 		}
 		if err := checkAccess(ctx, pi.Pipeline); err != nil {
@@ -2840,7 +2866,13 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			}
 		}
 		return f(pi)
-	})
+	}); err != nil && err != errutil.ErrBreak {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return status.Error(codes.DeadlineExceeded, err.Error())
+		}
+		return errors.Wrap(err, "could not list pipeline info")
+	}
+	return nil
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
