@@ -2,9 +2,11 @@ package server_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -334,4 +336,19 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
+}
+
+func TestJqFilterInfLoop(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	filter, err := ppsserver.NewMessageFilterFunc(`{ source: ., output: "" } | until(.source == "quux"; {"foo": "bar"}) | .output`, nil)
+	require.NoError(t, err)
+	go func() {
+		_, err = filter(ctx, &pps.JobInfo{})
+		require.YesError(t, err)
+	}()
+	<-ctx.Done()
+	require.Equal(t, context.DeadlineExceeded, ctx.Err())
 }

@@ -653,9 +653,9 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	seen := map[string]struct{}{}
 
 	// Create a filter function based on the request
-	filterJob, err := newMessageFilter(request.GetJqFilter(), request.GetProjects())
+	filterJob, err := NewMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
-		return errors.Wrap(err, "error creating jq filter function")
+		return errors.Wrap(err, "error creating message filter function")
 	}
 
 	number := request.Number
@@ -829,9 +829,9 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	// Create a filter function based on the request
-	filterJob, err := newMessageFilter(request.GetJqFilter(), request.GetProjects())
+	filterJob, err := NewMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
-		return errors.Wrap(err, "error creating jq filter function")
+		return errors.Wrap(err, "error creating message filter function")
 	}
 
 	ctx := resp.Context()
@@ -2710,9 +2710,9 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 }
 
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
-	filterPipeline, err := newMessageFilter(request.GetJqFilter(), request.GetProjects())
+	filterPipeline, err := NewMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
-		return errors.Wrap(err, "error creating jq filter function")
+		return errors.Wrap(err, "error creating message filter function")
 	}
 
 	// A set of projects to filter by. If empty, don't filter by project.
@@ -3521,7 +3521,7 @@ func ensurePipelineProject(p *pps.Pipeline) {
 	}
 }
 
-func newMessageFilter(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
+func NewMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
 	projectsFilter := make(map[string]bool, len(projects))
 	for _, project := range projects {
 		projectsFilter[project.GetName()] = true
