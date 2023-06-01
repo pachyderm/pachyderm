@@ -30,19 +30,21 @@ func TestCurrentClusterState(t *testing.T) {
 		_, err := stmt.ExecContext(ctx, name)
 		require.NoError(t, err)
 	}
+
+	rowsInserted := 0
+	rows, err := db.QueryContext(ctx, `SELECT id, name, created_at, updated_at FROM core.projects ORDER BY id`)
+	require.NoError(t, err)
+	defer rows.Close()
 	var (
 		id                     int
 		name                   string
 		created_at, updated_at time.Time
 	)
-	rowsInserted := 0
-	rows, err := db.QueryContext(ctx, `SELECT id, name, created_at, updated_at FROM core.projects ORDER BY id`)
-	require.NoError(t, err)
-	defer rows.Close()
 	for rows.Next() {
 		require.NoError(t, rows.Scan(&id, &name, &created_at, &updated_at))
 		require.Equal(t, projectNames[id-1], name)
 		rowsInserted++
+		t.Log(id, name, created_at, updated_at)
 	}
 	require.Equal(t, 2, rowsInserted)
 }
