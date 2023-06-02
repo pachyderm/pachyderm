@@ -1,0 +1,25 @@
+local foo = import 'foo.jsonnetlib';
+
+{
+  "pipeline": {
+    "name": foo.bar("my-pipeline")
+  },
+  "transform": {
+    "image": "foo:v2.3.4",
+    "cmd": [
+      "command",
+      "/pfs/data",
+      "/pfs/out"
+    ]
+  },
+  "input": {
+    "pfs": {
+      "repo": "data",
+      "glob": "/*"
+    }
+  },
+  "resource_requests": {
+    "cpu": 0.5
+  },
+  "autoscaling": true
+}
