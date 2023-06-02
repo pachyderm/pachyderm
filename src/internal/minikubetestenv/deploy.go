@@ -386,9 +386,12 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 	require.NoError(t, backoff.RetryNotify(func() error {
+		client := http.Client{
+			Timeout: 15 * time.Second,
+		}
 		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v/ready", lokiHost, lokiPort), nil)
 		t.Logf("Attempting to connect to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			t.Logf("Failed to connect to loki at lokiHost %v and lokiPort %v. Error: %v", lokiHost, lokiPort, err)
 			return errors.Wrap(err, "loki not ready")
