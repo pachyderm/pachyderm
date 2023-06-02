@@ -396,7 +396,7 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 		t.Logf("Connected to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return errors.Errorf("loki not ready")
+			return errors.Errorf("loki not ready. http response code %v", resp.StatusCode)
 		}
 		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute), func(err error, d time.Duration) error {
