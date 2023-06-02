@@ -401,7 +401,7 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute), func(err error, d time.Duration) error {
 		t.Logf("Retrying connection to loki at lokiHost %v and lokiPort %v. Error: %v", lokiHost, lokiPort, err)
-		return err
+		return nil
 	}))
 }
 
