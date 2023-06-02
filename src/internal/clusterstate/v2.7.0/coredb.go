@@ -34,15 +34,15 @@ func SetupProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 			id bigserial PRIMARY KEY,
 			name text UNIQUE NOT NULL,
 			description text,
-			created_at timestamptz NOT NULL,
-			updated_at timestamptz NOT NULL
+			created_at timestamptz DEFAULT CURRENT_TIMESTAMP,
+			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP
 		);
 	`); err != nil {
 		return errors.Wrap(err, "error creating projects table")
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TRIGGER set_updated_at
-			BEFORE INSERT OR UPDATE ON core.projects
+			BEFORE UPDATE ON core.projects
 			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
 	`); err != nil {
 		return errors.Wrap(err, "error creating set_updated_at trigger")
