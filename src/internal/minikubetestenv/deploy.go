@@ -392,6 +392,10 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v/ready", lokiHost, lokiPort), nil)
 		t.Logf("Attempting to connect to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
 		resp, err := client.Do(req)
+		if os.IsTimeout(err) {
+			t.Logf("Timed out connecting to loki at lokiHost %v and lokiPort %v. Error: %v", lokiHost, lokiPort, err)
+			return errors.Wrap(err, "loki attempt to connect timed out")
+		}
 		if err != nil {
 			t.Logf("Failed to connect to loki at lokiHost %v and lokiPort %v. Error: %v", lokiHost, lokiPort, err)
 			return errors.Wrap(err, "loki not ready")
