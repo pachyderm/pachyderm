@@ -393,13 +393,10 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 		t.Logf("Attempting to connect to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
 		resp, err := client.Do(req)
 		if os.IsTimeout(err) {
-			t.Logf("Timed out connecting to loki at lokiHost %v and lokiPort %v. Error: %v", lokiHost, lokiPort, err)
-			t.FailNow() // DNJ TODO remove debug
-			//return errors.Wrap(err, "loki attempt to connect timed out")
+			return errors.Wrap(err, "loki attempt to connect timed out")
 		}
 		if err != nil {
-			t.Logf("Failed to connect to loki at lokiHost %v and lokiPort %v. Error: %v", lokiHost, lokiPort, err)
-			return errors.Wrap(err, "loki not ready")
+			return errors.Wrap(err, "loki not ready due to error")
 		}
 		t.Logf("Connected to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
 		defer resp.Body.Close()
