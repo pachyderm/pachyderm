@@ -33,7 +33,7 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2204:2022.10.1
+    default: ubuntu-2204:2023.04.2
   go-version:
     type: string
     default: "1.20.4"
@@ -644,6 +644,8 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/trace.out
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
