@@ -85,13 +85,13 @@ message Pod {
   string name = 1;
   string ip = 2;
   repeated string containers = 3;
-  Pipeline pipeline = 4;  
 }
 
 message App {
   string name = 1;
   repeated Pod pods = 2;
   int64 timeout = 3;
+  Pipeline pipeline = 4;  
 }
 
 message System {

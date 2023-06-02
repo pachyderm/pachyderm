@@ -44,7 +44,7 @@ func NewDumpFS(mountPath string) *dumpFS {
 
 func (dfs *dumpFS) Write(path string, cb func(io.Writer) error) (retErr error) {
 	fullPath := filepath.Join(dfs.hiddenDir, dfs.writePrefix, path)
-	realDir := filepath.Dir(path)
+	realDir := filepath.Dir(fullPath)
 	if err := os.MkdirAll(realDir, os.ModeDir); err != nil && !os.IsExist(err) {
 		return errors.Wrapf(err, "mkdir %q", realDir)
 	}

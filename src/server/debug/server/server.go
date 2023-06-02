@@ -83,8 +83,6 @@ func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *clien
 
 // the returned taskPath gets deleted by the caller after its contents are streamed, and is the location of any associated error file
 type taskFunc func(ctx context.Context, dfs DumpFS) error
-type WriteDump func(context.Context, io.Writer) error
-type reportProgressFunc func(ctx context.Context, progress, total int)
 
 func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetDumpV2TemplateRequest) (*debug.GetDumpV2TemplateResponse, error) {
 	var ps []*debug.Pipeline
@@ -104,8 +102,8 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	for _, app := range apps {
 		// Listing all the loki pods requires querying the logs which is too expensive to compute at template time.
 		// Since we don't actually know the pods, we only populate the App names.
-		lokiApps = append(lokiApps, &debug.App{Name: app.Name})
-		if app.Name == "pipeline" || app.Name == "pachd" {
+		lokiApps = append(lokiApps, &debug.App{Name: app.Name, Pipeline: app.Pipeline})
+		if app.Pipeline != nil || app.Name == "pachd" {
 			pachApps = append(pachApps, app)
 		}
 	}
@@ -127,6 +125,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	}, nil
 }
 
+// TODO: don't include pods in templates...?
 func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr error) {
 	ctx, end := log.SpanContext(ctx, "listApps")
 	defer end(log.Errorp(&retErr))
@@ -148,10 +147,17 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	}
 	apps := make(map[string]*debug.App)
 	for _, p := range pods.Items {
-		app, ok := apps[p.Labels["app"]]
+		var appName string
+		// pipelines are represented as their own apps here even though they all share the label app=pipeline
+		if p.Labels["app"] == "pipeline" {
+			appName = fmt.Sprintf("%s/%s", p.Labels["pipelineProject"], p.Labels["pipelineName"])
+		} else {
+			appName = p.Labels["app"]
+		}
+		app, ok := apps[appName]
 		if !ok {
-			app = &debug.App{Name: p.Labels["app"]}
-			apps[p.Labels["app"]] = app
+			app = &debug.App{Name: appName}
+			apps[appName] = app
 		}
 		var containers []string
 		for _, c := range p.Spec.Containers {
@@ -159,7 +165,7 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 		}
 		pod := &debug.Pod{Name: p.Name, Ip: p.Status.PodIP, Containers: containers}
 		if p.Labels["app"] == "pipeline" {
-			pod.Pipeline = &debug.Pipeline{Name: p.Labels["pipelineName"], Project: p.Labels["pipelineProject"]}
+			app.Pipeline = &debug.Pipeline{Name: p.Labels["pipelineName"], Project: p.Labels["pipelineProject"]}
 		}
 		app.Pods = append(app.Pods, pod)
 	}
@@ -171,8 +177,9 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 }
 
 // TODO
-// why ain't loki writing
+// remove pods from templates?
 // top level errors colliding
+// update tests
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
 	return s.dump(s.env.GetPachClient(server.Context()), server, s.makeTasks(server.Context(), request, server))
 }
@@ -181,57 +188,38 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 	var ts []taskFunc
 	if request.InputRepos {
 		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-			return s.collectInputRepos(ctx, dfs, s.env.GetPachClient(ctx), "source-repos", int64(0), sendProgressFunc(server, "source-repos"))
+			dfs.WritePrefix("source-repos")
+			return s.collectInputRepos(ctx, dfs, s.env.GetPachClient(ctx), int64(0), server)
 		})
 	}
 	if len(request.Pipelines) > 0 {
-		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-			dfs.WritePrefix(pipelinePrefix)
-			rp := recordProgress(server, "pipelines", len(request.Pipelines))
-			var errs error
-			for _, p := range request.Pipelines {
-				pip := &pps.Pipeline{Name: p.Name, Project: &pfs.Project{Name: p.Project}}
-				if err := s.collectPipeline(ctx, dfs, pip, 0); err != nil {
-					errors.JoinInto(&errs, errors.Wrapf(err, "collect pipeline %q", pip))
-				}
-				rp(ctx)
-			}
-			return errs
-		})
+		ts = append(ts, s.makePipelinesTask(server, request.Pipelines))
 	}
 	if sys := request.System; sys != nil {
 		if sys.Helm {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
 				dfs.WritePrefix("helm")
-				return s.collectHelm(ctx, dfs, sendProgressFunc(server, "helm"))
+				return s.collectHelm(ctx, dfs, server)
 			})
 		}
 		if sys.Database {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
 				dfs.WritePrefix(databasePrefix)
-				return s.collectDatabaseDump(ctx, dfs, sendProgressFunc(server, "database"))
+				return s.collectDatabaseDump(ctx, dfs, server)
 			})
 		}
 		if sys.Version {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				return s.collectPachdVersion(ctx, dfs, s.env.GetPachClient(ctx), sendProgressFunc(server, "version"))
+				rp := recordProgress(server, "version", 1)
+				defer rp(ctx)
+				return s.collectPachdVersion(ctx, dfs, s.env.GetPachClient(ctx))
 			})
 		}
 		if len(sys.Describes) > 0 {
 			rp := recordProgress(server, "describes", len(sys.Logs))
 			for _, app := range sys.Describes {
 				func(app *debug.App) {
-					ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-						var errs error
-						for _, pod := range app.Pods {
-							if err := s.collectDescribe(ctx, dfs, app, pod); err != nil {
-								errors.JoinInto(&errs, errors.Wrapf(err, "describe pod %q", pod.Name))
-							}
-						}
-						rp(ctx)
-						return errs
-
-					})
+					ts = append(ts, s.makeDescribesTask(app, rp))
 				}(app)
 			}
 		}
@@ -239,19 +227,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			rp := recordProgress(server, "logs", len(sys.Logs))
 			for _, app := range sys.Logs {
 				func(app *debug.App) {
-					ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-						defer rp(ctx)
-						if len(app.Pods) == 0 {
-							return nil
-						}
-						var errs error
-						for _, pod := range app.Pods {
-							if err := s.kubeLogs(ctx, dfs, app, pod); err != nil {
-								errors.JoinInto(&errs, errors.Wrapf(err, "collectLogs(%s)", pod.Name))
-							}
-						}
-						return errs
-					})
+					ts = append(ts, s.makeLogsTask(app, rp))
 				}(app)
 			}
 		}
@@ -259,113 +235,194 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			rp := recordProgress(server, "loki-logs", len(sys.LokiLogs))
 			for _, app := range sys.LokiLogs {
 				func(app *debug.App) {
-					ts = append(ts, func(ctx context.Context, dfs DumpFS) (retErr error) {
-						var errs error
-						// TODO: BUG - loki's got no pods
-						for _, pod := range app.Pods {
-							if err := s.lokiLogs(ctx, dfs, app, pod); err != nil {
-								errors.JoinInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s)", pod.Name))
-							}
-						}
-						rp(ctx)
-						return errs
-					})
+					ts = append(ts, s.makeLokiTask(app, rp))
 				}(app)
 			}
 		}
 		if len(sys.Profiles) > 0 {
-			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				var errs error
-				for _, app := range sys.Profiles {
-					for _, pod := range app.Pods {
-						for _, profile := range []string{"heap", "goroutine"} {
-							if err := dfs.Write(filepath.Join(appDir(app, pod), pod.Name, profile), func(w io.Writer) (retErr error) {
-								req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
-								if app.Name == "pachd" {
-									return errors.Wrap(writeProfile(ctx, w, req.Profile), "write profile")
-								}
-								c, err := workerserver.NewClient(pod.Ip)
-								if err != nil {
-									return errors.Wrapf(err, "worker client for %q at %q", pod.Name, pod.Ip)
-								}
-								prof, err := c.Profile(ctx, req)
-								if err != nil {
-									return errors.Wrapf(err, "collect profile %q for %q at %q", profile, pod.Name, pod.Ip)
-								}
-								r := grpcutil.NewStreamingBytesReader(prof, nil)
-								defer func() {
-									if err := r.Close(); err != nil {
-										errors.JoinInto(&retErr, errors.Wrapf(err, "close profile writer for pod %q; profile %q", pod.Name, profile))
-									}
-								}()
-								_, err = io.Copy(w, r)
-								return err
-							}); err != nil {
-								errors.JoinInto(&errs, err)
-							}
-						}
-					}
-				}
-				log.Error(ctx, "profile errors", zap.Error(errs))
-				return errs
-			})
+			ts = append(ts, makeProfilesTask(server, sys.Profiles))
 		}
 		if len(sys.Binaries) > 0 {
-			ts = append(ts, func(ctx context.Context, dfs DumpFS) (retErr error) {
-				rp := recordProgress(server, "binaries", len(sys.Binaries))
-				var errs error
-				for _, app := range sys.Binaries {
-					for _, pod := range app.Pods {
-						if pod.Ip == "" {
-							log.Info(ctx, "skipping debug profile for pod with empty IP", zap.String("pod", pod.Name))
-							continue
-						}
-						if err := dfs.Write(filepath.Join(appDir(app, pod), pod.Name, "binary"), func(w io.Writer) (retErr error) {
-							if app.Name == "pachd" {
-								f, err := os.Open(os.Args[0])
-								if err != nil {
-									return errors.Wrap(err, "open file")
-								}
-								defer func() {
-									if err := f.Close(); err != nil {
-										errors.JoinInto(&retErr, err)
-									}
-								}()
-								_, err = io.Copy(w, f)
-								return err
-							}
-							c, err := workerserver.NewClient(pod.Ip)
-							if err != nil {
-								return errors.Wrapf(err, "create worker client for IP %q", pod.Ip)
-							}
-							binaryC, err := c.Binary(ctx, &debug.BinaryRequest{})
-							if err != nil {
-								return errors.Wrap(err, "binary client")
-							}
-							r := grpcutil.NewStreamingBytesReader(binaryC, nil)
-							defer func() {
-								if err := r.Close(); err != nil {
-									errors.JoinInto(&retErr, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
-								}
-							}()
-							_, err = io.Copy(w, r)
-							return err
-						}); err != nil {
-							errors.JoinInto(&errs, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
-						}
-					}
-					rp(ctx)
-				}
-				return errs
-			})
+			ts = append(ts, makeBinariesTask(server, sys.Binaries))
 		}
 	}
 	return ts
 }
 
-func appDir(app *debug.App, pod *debug.Pod) string {
-	if app.Name == "pipeline" {
-		return filepath.Join("pipelines", pod.Pipeline.Project, pod.Pipeline.Name)
+func (s *debugServer) makePipelinesTask(server debug.Debug_DumpV2Server, pipelines []*debug.Pipeline) taskFunc {
+	return func(ctx context.Context, dfs DumpFS) error {
+		dfs.WritePrefix(pipelinePrefix)
+		rp := recordProgress(server, "pipelines", len(pipelines))
+		var errs error
+		for _, p := range pipelines {
+			pip := &pps.Pipeline{Name: p.Name, Project: &pfs.Project{Name: p.Project}}
+			if err := s.collectPipeline(ctx, dfs, pip, 0); err != nil {
+				errors.JoinInto(&errs, errors.Wrapf(err, "collect pipeline %q", pip))
+			}
+			rp(ctx)
+		}
+		return errs
+	}
+}
+
+func (s *debugServer) makeDescribesTask(app *debug.App, rp incProgressFunc) taskFunc {
+	return func(ctx context.Context, dfs DumpFS) error {
+		defer rp(ctx)
+		var errs error
+		for _, pod := range app.Pods {
+			if err := s.collectDescribe(ctx, dfs, app, pod); err != nil {
+				errors.JoinInto(&errs, errors.Wrapf(err, "describe pod %q", pod.Name))
+			}
+		}
+		return errs
+	}
+}
+
+func (s *debugServer) makeLogsTask(app *debug.App, rp incProgressFunc) taskFunc {
+	return func(ctx context.Context, dfs DumpFS) error {
+		defer rp(ctx)
+		if len(app.Pods) == 0 {
+			return nil
+		}
+		var errs error
+		for _, pod := range app.Pods {
+			if err := s.kubeLogs(ctx, dfs, app, pod); err != nil {
+				errors.JoinInto(&errs, errors.Wrapf(err, "collectLogs(%s)", pod.Name))
+			}
+		}
+		return errs
+	}
+}
+
+func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc {
+	return func(ctx context.Context, dfs DumpFS) (retErr error) {
+		if !s.hasLoki() {
+			return nil
+		}
+		ctx, end := log.SpanContext(ctx, "collectLokiLogs")
+		defer end(log.Errorp(&retErr))
+		defer rp(ctx)
+		var errs error
+		ctx, cf := context.WithTimeout(ctx, 10*time.Minute)
+		defer cf()
+		if app.Pipeline != nil {
+			if err := s.forEachWorkerLoki(ctx, client.NewPipeline(app.Pipeline.Project, app.Pipeline.Name), func(pod string) (retErr error) {
+				ctx, end := log.SpanContext(ctx, "forEachWorkerLoki.worker", zap.String("pod", pod))
+				defer end(log.Errorp(&retErr))
+				if err := s.collectLogsLoki(ctx, dfs, app, pod, client.PPSWorkerUserContainerName); err != nil {
+					return errors.Wrapf(err, "collect user container loki logs for pod %q", pod)
+				}
+				if err := s.collectLogsLoki(ctx, dfs, app, pod, client.PPSWorkerSidecarContainerName); err != nil {
+					return errors.Wrapf(err, "collect storage container loki logs for pod %q", pod)
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+		} else if app.Name == "pachd" {
+			if err := s.collectLogsLoki(ctx, dfs, app, s.name, "pachd"); err != nil {
+				return errors.Wrapf(err, "collect pachd container loki logs for pod %q", s.name)
+			}
+			return nil
+		}
+		return errs
+	}
+}
+
+func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
+	return func(ctx context.Context, dfs DumpFS) error {
+		var errs error
+		rp := recordProgress(server, "profiles", len(apps))
+		for _, app := range apps {
+			for _, pod := range app.Pods {
+				for _, profile := range []string{"heap", "goroutine"} {
+					if err := dfs.Write(filepath.Join(appDir(app), pod.Name, profile), func(w io.Writer) (retErr error) {
+						req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
+						if app.Name == "pachd" {
+							return errors.Wrap(writeProfile(ctx, w, req.Profile), "write profile")
+						}
+						c, err := workerserver.NewClient(pod.Ip)
+						if err != nil {
+							return errors.Wrapf(err, "worker client for %q at %q", pod.Name, pod.Ip)
+						}
+						prof, err := c.Profile(ctx, req)
+						if err != nil {
+							return errors.Wrapf(err, "collect profile %q for %q at %q", profile, pod.Name, pod.Ip)
+						}
+						r := grpcutil.NewStreamingBytesReader(prof, nil)
+						defer func() {
+							if err := r.Close(); err != nil {
+								errors.JoinInto(&retErr, errors.Wrapf(err, "close profile writer for pod %q; profile %q", pod.Name, profile))
+							}
+						}()
+						_, err = io.Copy(w, r)
+						return err
+					}); err != nil {
+						errors.JoinInto(&errs, err)
+					}
+				}
+			}
+			rp(ctx)
+		}
+		log.Error(ctx, "profile errors", zap.Error(errs))
+		return errs
+
+	}
+}
+
+func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
+	return func(ctx context.Context, dfs DumpFS) error {
+		var errs error
+		rp := recordProgress(server, "binaries", len(apps))
+		for _, app := range apps {
+			for _, pod := range app.Pods {
+				if pod.Ip == "" {
+					log.Info(ctx, "skipping debug profile for pod with empty IP", zap.String("pod", pod.Name))
+					continue
+				}
+				if err := dfs.Write(filepath.Join(appDir(app), pod.Name, "binary"), func(w io.Writer) (retErr error) {
+					if app.Name == "pachd" {
+						f, err := os.Open(os.Args[0])
+						if err != nil {
+							return errors.Wrap(err, "open file")
+						}
+						defer func() {
+							if err := f.Close(); err != nil {
+								errors.JoinInto(&retErr, err)
+							}
+						}()
+						_, err = io.Copy(w, f)
+						return err
+					}
+					c, err := workerserver.NewClient(pod.Ip)
+					if err != nil {
+						return errors.Wrapf(err, "create worker client for IP %q", pod.Ip)
+					}
+					binaryC, err := c.Binary(ctx, &debug.BinaryRequest{})
+					if err != nil {
+						return errors.Wrap(err, "binary client")
+					}
+					r := grpcutil.NewStreamingBytesReader(binaryC, nil)
+					defer func() {
+						if err := r.Close(); err != nil {
+							errors.JoinInto(&retErr, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
+						}
+					}()
+					_, err = io.Copy(w, r)
+					return err
+				}); err != nil {
+					errors.JoinInto(&errs, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
+				}
+			}
+			rp(ctx)
+		}
+		return errs
+	}
+}
+
+func appDir(app *debug.App) string {
+	if app.Pipeline != nil {
+		return filepath.Join("pipelines", app.Pipeline.Project, app.Pipeline.Name)
 	}
 	return app.Name
 }
@@ -380,7 +437,7 @@ func (dcs *dumpContentServer) Send(bytesValue *types.BytesValue) error {
 
 type incProgressFunc func(context.Context)
 
-// should this be sending in a goro?
+// TODO should this be sending in a goro?
 func recordProgress(server debug.Debug_DumpV2Server, task string, total int) incProgressFunc {
 	inc := 0
 	return func(ctx context.Context) {
@@ -401,24 +458,7 @@ func recordProgress(server debug.Debug_DumpV2Server, task string, total int) inc
 	}
 }
 
-func sendProgressFunc(server debug.Debug_DumpV2Server, task string) reportProgressFunc {
-	return func(ctx context.Context, progress, total int) {
-		if err := server.Send(
-			&debug.DumpChunk{
-				Chunk: &debug.DumpChunk_Progress{
-					Progress: &debug.DumpProgress{
-						Task:     task,
-						Progress: int64(progress),
-						Total:    int64(total),
-					},
-				},
-			},
-		); err != nil {
-			log.Error(ctx, fmt.Sprintf("error sending progress for task %q", task), zap.Error(err))
-		}
-	}
-}
-
+// TODO: sharpen timeouts
 func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server, tasks []taskFunc) (retErr error) {
 	ctx := c.Ctx() // this context has authorization credentials we need
 	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
@@ -462,9 +502,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 								errors.JoinInto(&retErr, err)
 							}
 						}()
-						dfs := NewDumpFS(taskDir)
-						// TODO(acohen4): how to best collect the individual errors????
-						if err := f(ctx, dfs); err != nil {
+						if err := f(ctx, NewDumpFS(taskDir)); err != nil {
 							if writeErr := writeErrorFile(taskDir, err); writeErr != nil {
 								log.Error(taskCtx, "write error", zap.Error(writeErr))
 							}
@@ -487,20 +525,6 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 			return errors.Wrap(eg.Wait(), "run dump tasks")
 		})
 	})
-}
-
-func (s *debugServer) lokiLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) (retErr error) {
-	ctx, end := log.SpanContext(ctx, "collectLokiLogs")
-	defer end(log.Errorp(&retErr))
-	ctx, cf := context.WithTimeout(ctx, 10*time.Minute)
-	defer cf()
-	var errs error
-	for _, c := range pod.Containers {
-		if err := s.collectLogsLoki(ctx, dfs, app, pod, c); err != nil {
-			errors.JoinInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, c))
-		}
-	}
-	return errs
 }
 
 func (s *debugServer) kubeLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) (retErr error) {
@@ -558,18 +582,6 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 		return nil, errors.EnsureStack(err)
 	}
 	return podList.Items, nil
-}
-
-func (s *debugServer) collectWorker(ctx context.Context, dir string, pod *v1.Pod) (retErr error) {
-	ctx, end := log.SpanContext(ctx, "collectWorker", zap.String("pod", pod.Name))
-	defer end(log.Errorp(&retErr))
-	workerDir := filepath.Join(dir, podPrefix, pod.Name)
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFile(workerDir, retErr)
-		}
-	}()
-	return nil
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
@@ -672,15 +684,16 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	return status.Error(codes.Unimplemented, "Dump gRPC is deprecated in favor of DumpV2")
 }
 
-func (s *debugServer) collectInputRepos(ctx context.Context, dfs DumpFS, pachClient *client.APIClient, dir string, limit int64, rp reportProgressFunc) (retErr error) {
+func (s *debugServer) collectInputRepos(ctx context.Context, dfs DumpFS, pachClient *client.APIClient, limit int64, dumpServer debug.Debug_DumpV2Server) (retErr error) {
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
 		return errors.Wrap(err, "list repo")
 	}
+	rp := recordProgress(dumpServer, "source-repos", len(repoInfos))
 	var errs error
 	for i, repoInfo := range repoInfos {
 		func() {
-			defer rp(ctx, i+1, len(repoInfos))
+			defer rp(ctx)
 			if err := validateRepoInfo(repoInfo); err != nil {
 				errors.JoinInto(&errs, errors.Wrapf(err, "invalid repo info %d (%s) from ListRepo", i, repoInfo.String()))
 				return
@@ -688,7 +701,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, dfs DumpFS, pachCli
 			if _, err := pachClient.InspectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 				if errutil.IsNotFoundError(err) {
 					if err := s.collectCommits(ctx, dfs, pachClient, repoInfo.Repo, limit); err != nil {
-						errors.JoinInto(&errs, errors.Wrapf(err, "collectCommits(%s:%s)", repoInfo.GetRepo(), dir))
+						errors.JoinInto(&errs, errors.Wrapf(err, "collectCommits(%s)", repoInfo.GetRepo()))
 					}
 					return
 				}
@@ -836,9 +849,7 @@ func collectGoInfo(dir string) error {
 	})
 }
 
-func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachClient *client.APIClient, rp reportProgressFunc) error {
-	rp(ctx, 0, 1)
-	defer rp(ctx, 1, 1)
+func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachClient *client.APIClient) error {
 	return dfs.Write("version.txt", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
@@ -849,30 +860,31 @@ func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachC
 	})
 }
 
-func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, rp reportProgressFunc) error {
+func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server) error {
 	secrets, err := s.env.GetKubeClient().CoreV1().Secrets(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "owner=helm",
 	})
 	if err != nil {
 		return errors.Wrap(err, "list helm secrets")
 	}
+	rp := recordProgress(server, "helm", len(secrets.Items))
 	var writeErrs error
-	for i, secret := range secrets.Items {
-		helmPath := filepath.Join("helm", secret.Name)
-		if err := handleHelmSecret(ctx, dfs, secret); err != nil {
-			if err := writeErrorFile(helmPath, err); err != nil {
-				errors.JoinInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
-				continue
+	for _, secret := range secrets.Items {
+		func() {
+			defer rp(ctx)
+			helmPath := filepath.Join("helm", secret.Name)
+			if err := handleHelmSecret(ctx, dfs, secret); err != nil {
+				if err := writeErrorFile(helmPath, err); err != nil {
+					errors.JoinInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
+				}
 			}
-		}
-		rp(ctx, i, len(secrets.Items))
+		}()
 	}
-	rp(ctx, 100, 100)
 	return writeErrs
 }
 
 func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) error {
-	return dfs.Write(filepath.Join(appDir(app, pod), pod.Name, "describe.txt"), func(output io.Writer) (retErr error) {
+	return dfs.Write(filepath.Join(appDir(app), pod.Name, "describe.txt"), func(output io.Writer) (retErr error) {
 		// Gate the total time of "describe".
 		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
 		defer c()
@@ -909,7 +921,7 @@ func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debu
 }
 
 func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container string) error {
-	if err := dfs.Write(filepath.Join(appDir(app, pod), pod.Name, container, "logs.txt"), func(w io.Writer) (retErr error) {
+	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, "logs.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
@@ -925,7 +937,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.Ap
 	}); err != nil {
 		return err
 	}
-	if err := dfs.Write(filepath.Join(appDir(app, pod), pod.Name, container, "logs-previous.txt"), func(w io.Writer) (retErr error) {
+	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, "logs-previous.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
@@ -949,13 +961,13 @@ func (s *debugServer) hasLoki() bool {
 	return err == nil
 }
 
-func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container string) error {
+func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debug.App, pod, container string) error {
 	if !s.hasLoki() {
 		return nil
 	}
-	return dfs.Write(filepath.Join(appDir(app, pod), pod.Name, container, "logs-loki.txt"), func(w io.Writer) (retErr error) {
-		defer log.Span(ctx, "collectLogsLoki", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
-		queryStr := `{pod="` + pod.Name
+	return dfs.Write(filepath.Join(appDir(app), "pods", pod, container, "logs-loki.txt"), func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectLogsLoki", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
+		queryStr := `{pod="` + pod
 		if container != "" {
 			queryStr += `", container="` + container
 		}
@@ -967,7 +979,7 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debu
 		var cursor *loki.LabelSet
 		for _, entry := range logs {
 			// Print the stream labels in %v format whenever they are different from the
-			// previous line.  The pointer comparison is a fast path to avoid
+			// previous line. The pointer comparison is a fast path to avoid
 			// reflect.DeepEqual when both log lines are from the same chunk of logs
 			// returned by Loki.
 			if cursor != entry.Labels && !reflect.DeepEqual(cursor, entry.Labels) {
@@ -986,9 +998,8 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debu
 }
 
 // collectDump is done on the pachd side, AND by the workers by them.
-func collectDump(ctx context.Context, dir string, rp reportProgressFunc) (_ string, retErr error) {
+func collectDump(ctx context.Context, dir string) (_ string, retErr error) {
 	defer log.Span(ctx, "collectDump", zap.String("path", dir))(log.Errorp(&retErr))
-	rp(ctx, 0, 100)
 	// Collect go info.
 	if err := collectGoInfo(dir); err != nil {
 		return dir, err
@@ -1001,7 +1012,6 @@ func collectDump(ctx context.Context, dir string, rp reportProgressFunc) (_ stri
 	if err := collectProfile(ctx, dir, &debug.Profile{Name: "heap"}); err != nil {
 		return dir, err
 	}
-	rp(ctx, 100, 100)
 	return dir, nil
 }
 

@@ -12,26 +12,27 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"go.uber.org/multierr"
 
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func (s *debugServer) collectDatabaseDump(ctx context.Context, dfs DumpFS, rp reportProgressFunc) (retErr error) {
+func (s *debugServer) collectDatabaseDump(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server) (retErr error) {
 	defer log.Span(ctx, "collectDatabaseDump")(log.Errorp(&retErr))
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
-	rp(ctx, 0, 100)
+	rp := recordProgress(server, "database", 2)
 	var errs error
 	if err := s.collectDatabaseStats(ctxWithTimeout, dfs); err != nil {
-		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseStats"))
+		errors.JoinInto(&errs, errors.Wrap(err, "collectDatabaseStats"))
 	}
+	rp(ctx)
 	if err := s.collectDatabaseTables(ctxWithTimeout, dfs, "tables"); err != nil {
-		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseTables"))
+		errors.JoinInto(&errs, errors.Wrap(err, "collectDatabaseTables"))
 	}
-	rp(ctx, 100, 100)
+	rp(ctx)
 	return errs
 }
 
