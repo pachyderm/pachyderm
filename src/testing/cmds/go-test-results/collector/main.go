@@ -55,7 +55,7 @@ var repo = &pfs.Repo{
 		Name: projectName,
 	},
 }
-var commit = &pfs.Commit{
+var newCommit = &pfs.Commit{
 	Branch: &pfs.Branch{
 		Name: "master",
 		Repo: repo,
@@ -117,7 +117,7 @@ func run(ctx context.Context) error {
 		}
 		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
 			eg.Go(func() error {
-				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, commit)
+				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, newCommit)
 			})
 		}
 		return nil
@@ -130,11 +130,11 @@ func run(ctx context.Context) error {
 		return errors.Wrapf(goRoutineErrs, "Problem putting files to pachyderm")
 	}
 	// do this last so the egress knows that we are done for this job/executor
-	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
+	if err = uploadJobInfo(basePath, jobInfo, pachClient, newCommit); err != nil {
 		return errors.Wrapf(err, "Problem uploading job info")
 	}
 	log.Info(ctx, "Successfully uploaded files.")
-	deleteBranchDataIfJustMerged(ctx, jobInfo, githubApiToken)
+	deleteBranchDataIfJustMerged(ctx, jobInfo, githubApiToken, pachClient)
 	return nil
 }
 
@@ -222,7 +222,7 @@ func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder
 	return nil
 }
 
-func deleteBranchDataIfJustMerged(ctx context.Context, jobInfo gotestresults.JobInfo, githubApiToken string) error {
+func deleteBranchDataIfJustMerged(ctx context.Context, jobInfo gotestresults.JobInfo, githubApiToken string, pachClient *client.APIClient) error {
 	if jobInfo.Branch != defaultBranch && !versionBranch.Match([]byte(jobInfo.Branch)) {
 		return nil
 	}
@@ -235,8 +235,8 @@ func deleteBranchDataIfJustMerged(ctx context.Context, jobInfo gotestresults.Job
 		"authorization": {fmt.Sprintf("Bearer %s", githubApiToken)},
 		"accept":        {"application/vnd.github+json"},
 	}
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -250,7 +250,17 @@ func deleteBranchDataIfJustMerged(ctx context.Context, jobInfo gotestresults.Job
 	prList := make([]githubPullRequest, 0)
 	json.Unmarshal(respBytes, &prList)
 	for _, pr := range prList {
-		fmt.Printf("PR Data: %#v", pr)
+		if !pr.MergedAt.IsZero() && pr.State == "closed" {
+			log.Info(ctx, "Deleting stale data for merged branch PR", zap.Any("PR info", pr))
+			branchJobInfo := jobInfo
+			branchJobInfo.Branch = pr.Head.Ref
+			path := findBasePath(branchJobInfo)
+			err := pachClient.DeleteFile(newCommit, path, client.WithRecursiveDeleteFile())
+			if err != nil {
+				return errors.Wrapf(err, "Deleting old branch data at %v ", path)
+			}
+			log.Info(ctx, "Deleted old branch data at path", zap.String("path", path))
+		}
 	}
 	return nil
 }
