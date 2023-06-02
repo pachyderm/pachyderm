@@ -339,7 +339,6 @@ type File {
   repoName: String!
   sizeBytes: Float!
   sizeDisplay: String!
-  downloadDisabled: Boolean
   type: FileType!
   commitAction: FileCommitState
 }

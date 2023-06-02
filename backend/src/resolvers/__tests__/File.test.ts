@@ -46,7 +46,6 @@ describe('File Resolver', () => {
       expect(files?.[0]?.download).toContain(
         '/download/undefined/images/master/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png', // TODO; mock server not implementing project route?
       );
-      expect(files?.[0]?.downloadDisabled).toBe(false);
       expect(files?.[0]?.hash).toBe(
         'P2fxZjakvux5dNsEfc0iCx1n3Kzo2QcDlzu9y3Ra1gc=',
       );
@@ -75,7 +74,7 @@ describe('File Resolver', () => {
       expect(files).toHaveLength(2);
       expect(files?.[0]?.path).toBe('/cats/kitten.png');
       expect(files?.[1]?.path).toBe('/cats/test.png');
-      expect(files?.[1]?.downloadDisabled).toBe(true);
+      expect(files?.[1]?.download).toBeNull();
     });
   });
 

@@ -261,7 +261,6 @@ export type File = {
   commitId: Scalars['String'];
   committed?: Maybe<Timestamp>;
   download?: Maybe<Scalars['String']>;
-  downloadDisabled?: Maybe<Scalars['Boolean']>;
   hash: Scalars['String'];
   path: Scalars['String'];
   repoName: Scalars['String'];
@@ -1542,11 +1541,6 @@ export type FileResolvers<
     ContextType
   >;
   download?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  downloadDisabled?: Resolver<
-    Maybe<ResolversTypes['Boolean']>,
-    ParentType,
-    ContextType
-  >;
   hash?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -3108,7 +3102,6 @@ export type GetFilesQuery = {
       sizeBytes: number;
       type: FileType;
       sizeDisplay: string;
-      downloadDisabled?: boolean | null;
       commitAction?: FileCommitState | null;
       committed?: {
         __typename?: 'Timestamp';

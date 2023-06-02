@@ -16,7 +16,6 @@ export const GET_FILES_QUERY = gql`
         sizeBytes
         type
         sizeDisplay
-        downloadDisabled
         commitAction
       }
       cursor

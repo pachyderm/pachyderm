@@ -1,3 +1,7 @@
+import {TextEncoder} from 'util';
+
+import {ApolloError} from 'apollo-server-errors';
+
 import {DEFAULT_FILE_LIMIT} from '@dash-backend/constants/limits';
 import {
   MutationResolvers,
@@ -14,7 +18,7 @@ import formatBytes from '@dash-backend/lib/formatBytes';
 import {formatDiffOnlyTotals} from '@dash-backend/lib/formatDiff';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
 import {zstdCompress} from '@dash-backend/lib/zstd';
-import {FileInfo, CommitState} from '@dash-backend/proto';
+import {FileInfo, CommitState, FileType} from '@dash-backend/proto';
 
 import {commitInfoToGQLCommit} from './builders/pfs';
 interface FileResolver {
@@ -123,9 +127,11 @@ const fileResolver: FileResolver = {
         files: files.map((file) => ({
           commitId: file.file?.commit?.id || '',
           committed: file.committed,
-          // TODO: This may eventually come from the S3 gateway or Pach's http server
-          download: getDownloadLink(file, host),
-          downloadDisabled: (file.sizeBytes || 0) > FILE_DOWNLOAD_LIMIT,
+          download:
+            file.fileType !== FileType.DIR &&
+            file.sizeBytes <= FILE_DOWNLOAD_LIMIT
+              ? getDownloadLink(file, host)
+              : undefined,
           hash: file.hash.toString() || '',
           path: file.file?.path || '/',
           repoName: file.file?.commit?.branch?.repo?.name || '',
@@ -173,7 +179,7 @@ const fileResolver: FileResolver = {
         return `/archive/${base64url}.zip`;
       } catch (error) {
         log.error({err: error}, 'Error generating archive URL');
-        throw error;
+        throw new ApolloError('Error generating archive URL');
       }
     },
   },
@@ -194,19 +200,25 @@ const fileResolver: FileResolver = {
     deleteFiles: async (
       _field,
       {args: {projectId, repo, branch, filePaths}},
-      {pachClient},
+      {pachClient, log},
     ) => {
-      const fileClient = await pachClient.pfs().fileSet();
-
-      const fileSetId = await fileClient.deleteFiles(filePaths).end();
-
-      const commit = await pachClient.pfs().startCommit({
+      const deleteCommit = await pachClient.pfs().startCommit({
         projectId,
         branch: {name: branch, repo: {name: repo}},
       });
-      await pachClient.pfs().addFileSet({projectId, fileSetId, commit});
-      await pachClient.pfs().finishCommit({projectId, commit});
-      return commit.id;
+
+      try {
+        const modifyFileClient = await pachClient.pfs().modifyFile();
+        await modifyFileClient
+          .setCommit(deleteCommit)
+          .deleteFiles(filePaths)
+          .end();
+      } catch (error) {
+        log.error({err: error}, 'Error deleting files');
+        throw new ApolloError('Error deleting files');
+      }
+      await pachClient.pfs().finishCommit({projectId, commit: deleteCommit});
+      return deleteCommit.id;
     },
   },
 };

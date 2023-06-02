@@ -1,68 +1,153 @@
 describe('FileBrowser', () => {
-  before(() => {
-    cy.exec('jq -r .pachReleaseCommit version.json')
-      .then(() => {
-        cy.exec('pachctl create repo images')
-          .exec(
-            'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
-          )
-          .exec(
-            'pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png',
-          )
-          .exec(
-            'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
-          )
-          .exec('pachctl delete file images@test:image1.png')
-          .exec(
-            'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
-          )
-          .exec(
-            'pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png',
-          );
-      })
-      .visit('/');
-  });
   beforeEach(() => {
     cy.visit('/');
   });
-  after(() => {
-    cy.deleteReposAndPipelines();
+
+  describe('Display and version history', () => {
+    before(() => {
+      cy.exec('pachctl create repo images')
+        .exec(
+          'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
+        )
+        .exec(
+          'pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png',
+        )
+        .exec(
+          'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
+        )
+        .exec('pachctl delete file images@test:image1.png')
+        .exec(
+          'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
+        )
+        .exec(
+          'pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png',
+        )
+        .visit('/');
+    });
+
+    after(() => {
+      cy.deleteReposAndPipelines();
+    });
+
+    it('should display commits for selected branch', () => {
+      cy.visit('/lineage/default/repos/images/branch/master/latest');
+      cy.findAllByTestId('CommitList__listItem').should('have.length', 2);
+      cy.findAllByTestId('DropdownButton__button').eq(1).click();
+      cy.findByText('test').click();
+      cy.findAllByTestId('CommitList__listItem').should('have.length', 4);
+    });
+
+    it('should display version history for selected file', () => {
+      cy.visit('/lineage/default/repos/images/branch/test/latest');
+      cy.findByText('image1.png').click();
+      cy.findByRole('button', {
+        name: 'Load older file versions',
+      }).click();
+      cy.findByRole('button', {
+        name: 'Load older file versions',
+      }).should('be.disabled');
+
+      cy.get(`[aria-label="file metadata"]`).findByText('80.59 kB');
+      cy.findByTestId('FileHistory__commitList')
+        .children()
+        .should(($links) => {
+          expect($links).to.have.length(4);
+          expect($links[0]).to.contain('Updated');
+          expect($links[0]).to.have.property('href');
+          expect($links[1]).to.contain('Added');
+          expect($links[1]).to.have.property('href');
+          expect($links[2]).to.contain('Deleted');
+          expect($links[2]).to.have.property('href', '');
+          expect($links[3]).to.contain('Added');
+          expect($links[3]).to.have.property('href');
+          $links[3].click();
+        });
+
+      cy.findByText('58.65 kB');
+    });
   });
 
-  it('should display commits for selected branch', () => {
-    cy.visit('/lineage/default/repos/images/branch/master/latest');
-    cy.findAllByTestId('CommitList__listItem').should('have.length', 2);
-    cy.findAllByTestId('DropdownButton__button').eq(1).click();
-    cy.findByText('test').click();
-    cy.findAllByTestId('CommitList__listItem').should('have.length', 4);
-  });
+  describe('Delete', () => {
+    beforeEach(() => {
+      cy.exec('pachctl create repo images')
+        .exec(
+          'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
+        )
+        .exec(
+          'pachctl put file images@master:image2.png -f cypress/fixtures/liberty.png',
+        )
+        .exec(
+          'pachctl put file images@master:image3.png -f cypress/fixtures/liberty.png',
+        )
+        .exec(
+          'pachctl put file images@master:image4.png -f cypress/fixtures/liberty.png',
+        );
+    });
 
-  it('should display version history for selected file', () => {
-    cy.visit('/lineage/default/repos/images/branch/test/latest');
-    cy.findByText('image1.png').click();
-    cy.findByRole('button', {
-      name: 'Load older file versions',
-    }).click();
-    cy.findByRole('button', {
-      name: 'Load older file versions',
-    }).should('be.disabled');
+    afterEach(() => {
+      cy.deleteReposAndPipelines();
+    });
 
-    cy.get(`[aria-label="file metadata"]`).findByText('80.59 kB');
-    cy.findByTestId('FileHistory__commitList')
-      .children()
-      .should(($links) => {
-        expect($links).to.have.length(4);
-        expect($links[0]).to.contain('Updated');
-        expect($links[0]).to.have.property('href');
-        expect($links[1]).to.contain('Added');
-        expect($links[1]).to.have.property('href');
-        expect($links[2]).to.contain('Deleted');
-        expect($links[2]).to.have.property('href', '');
-        expect($links[3]).to.contain('Added');
-        expect($links[3]).to.have.property('href');
-        $links[3].click();
+    it('should download and delete multiple files at once', () => {
+      cy.visit('/lineage/default/repos/images/branch/master/latest');
+
+      cy.findAllByTestId('FileTableRow__row', {timeout: 60000}).should(
+        ($rows) => {
+          expect($rows).to.have.length(4);
+          expect($rows[0]).to.contain('image1.png');
+          expect($rows[1]).to.contain('image2.png');
+          expect($rows[2]).to.contain('image3.png');
+          expect($rows[3]).to.contain('image4.png');
+          $rows[0].click();
+          $rows[1].click();
+          $rows[3].click();
+        },
+      );
+
+      cy.findByRole('button', {
+        name: /delete selected items/i,
+      }).click();
+
+      cy.findByRole('button', {
+        name: /delete/i,
+      }).click();
+
+      cy.findAllByTestId('FileTableRow__row', {timeout: 60000}).should(
+        ($rows) => {
+          expect($rows[0]).to.contain('image3.png');
+        },
+      );
+    });
+
+    // This test relies on REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST being set in the enviroment
+    it('should download multiple files', () => {
+      cy.on('window:before:load', (win) => {
+        cy.stub(win, 'open').callsFake(cy.stub().as('open'));
       });
 
-    cy.findByText('58.65 kB');
+      cy.visit('/lineage/default/repos/images/branch/master/latest');
+
+      cy.findAllByTestId('FileTableRow__row', {timeout: 60000}).should(
+        ($rows) => {
+          expect($rows).to.have.length(4);
+          expect($rows[0]).to.contain('image1.png');
+          expect($rows[1]).to.contain('image2.png');
+          expect($rows[2]).to.contain('image3.png');
+          expect($rows[3]).to.contain('image4.png');
+          $rows[0].click();
+          $rows[1].click();
+          $rows[3].click();
+        },
+      );
+
+      cy.findByRole('button', {
+        name: /download selected items/i,
+      }).click();
+
+      cy.get('@open').should(
+        'have.been.calledOnceWithExactly',
+        'http://localhost/archive/ASi1L_0gZXUBACQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOjEucG5nADI0LnBuZwMAYBRFsUKG2QQ.zip',
+      );
+    });
   });
 });

@@ -17,7 +17,6 @@ import {
 
 import {default as LeftPanelComponent} from '../components/LeftPanel';
 import FileBrowserComponent from '../FileBrowser';
-
 const FileBrowser = withContextProviders(() => {
   return <FileBrowserComponent />;
 });
@@ -25,6 +24,8 @@ const FileBrowser = withContextProviders(() => {
 const LeftPanel = withContextProviders(() => {
   return <LeftPanelComponent />;
 });
+
+window.open = jest.fn();
 
 describe('File Browser', () => {
   describe('Left Panel', () => {
@@ -231,21 +232,6 @@ describe('File Browser', () => {
       );
     });
 
-    it('should navigate to dir on button link', async () => {
-      render(<FileBrowser />);
-
-      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
-
-      const dirLink = await screen.findByRole('link', {
-        name: 'navigate to /cats/',
-      });
-      await click(dirLink);
-
-      expect(window.location.pathname).toBe(
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F/',
-      );
-    });
-
     it('should navigate up a folder on back button click', async () => {
       window.history.replaceState(
         {},
@@ -325,6 +311,58 @@ describe('File Browser', () => {
       );
     });
 
+    it('should delete multiple files on action click', async () => {
+      render(<FileBrowser />);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      expect(
+        mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab']['/'],
+      ).toHaveLength(20);
+
+      const deleteButton = screen.getByRole('button', {
+        name: /delete selected items/i,
+      });
+
+      expect(deleteButton).toBeDisabled();
+
+      await click(
+        screen.getByRole('cell', {
+          name: /at-at\.png/i,
+        }),
+      );
+      await click(
+        screen.getByRole('cell', {
+          name: /cats/i,
+        }),
+      );
+      await click(
+        screen.getByRole('cell', {
+          name: /json_nested_arrays\.json/i,
+        }),
+      );
+
+      expect(deleteButton).toBeEnabled();
+      await click(deleteButton);
+
+      const modal = await screen.findByRole('dialog');
+      expect(await within(modal).findByRole('list')).toHaveTextContent(
+        '/AT-AT.png/cats//json_nested_arrays.json',
+      );
+      const deleteConfirm = await within(modal).findByRole('button', {
+        name: /delete/i,
+      });
+      await click(deleteConfirm);
+
+      await waitFor(() =>
+        expect(
+          mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab'][
+            '/'
+          ],
+        ).toHaveLength(17),
+      );
+    });
+
     it('should not allow file deletion for outputRepos', async () => {
       window.history.replaceState(
         {},
@@ -337,25 +375,6 @@ describe('File Browser', () => {
 
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
       expect(screen.queryByText('Delete')).not.toBeInTheDocument();
-    });
-
-    it('should not allow download for large files', async () => {
-      render(<FileBrowser />);
-
-      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
-
-      const pager = screen.getByTestId('Pager__pager');
-      expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
-      await click(within(pager).getByTestId('Pager__forward'));
-
-      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
-
-      await click((await screen.findAllByTestId('DropdownButton__button'))[3]);
-
-      const downloadButton = await screen.findByText(
-        'Download (File too large to download)',
-      );
-      expect(downloadButton.closest('button')).toBeDisabled();
     });
 
     it('should allow users to navigate through paged files', async () => {
@@ -505,7 +524,7 @@ describe('File Browser', () => {
       expect(screen.queryByText('Delete')).not.toBeInTheDocument();
     });
 
-    it('should display message when download is disabled', async () => {
+    it('should display message when file is too large to preview', async () => {
       window.history.replaceState(
         {},
         '',
@@ -578,6 +597,179 @@ describe('File Browser', () => {
           name: 'Load older file versions',
         }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('Download', () => {
+    beforeEach(() => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
+      );
+    });
+    afterAll(() => {
+      process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = 'localhost';
+      process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = 'false';
+    });
+
+    describe('Port Forward', () => {
+      beforeAll(() => {
+        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = '';
+      });
+
+      it('should disable multi file download', async () => {
+        render(<FileBrowser />);
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        const downloadButton = screen.getByRole('button', {
+          name: /download selected items/i,
+        });
+
+        expect(downloadButton).toBeDisabled();
+
+        await click(
+          screen.getByRole('cell', {
+            name: /at-at\.png/i,
+          }),
+        );
+        await click(
+          screen.getByRole('cell', {
+            name: /cats/i,
+          }),
+        );
+        await click(
+          screen.getByRole('cell', {
+            name: /json_nested_arrays\.json/i,
+          }),
+        );
+        expect(downloadButton).toBeDisabled();
+      });
+
+      it('should disable single file download for large files', async () => {
+        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = '';
+
+        render(<FileBrowser />);
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        const pager = screen.getByTestId('Pager__pager');
+        expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
+        await click(within(pager).getByTestId('Pager__forward'));
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        await click(
+          (
+            await screen.findAllByTestId('DropdownButton__button')
+          )[3],
+        );
+
+        const downloadButton = await screen.findByText(
+          'Download (File too large to download)',
+        );
+        expect(downloadButton.closest('button')).toBeDisabled();
+      });
+    });
+
+    describe('Proxy', () => {
+      beforeEach(() => {
+        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = 'localhost';
+        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = '';
+      });
+
+      it('should download multiple files on action click', async () => {
+        const spy = jest.spyOn(window, 'open');
+
+        render(<FileBrowser />);
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        const downloadButton = screen.getByRole('button', {
+          name: /download selected items/i,
+        });
+
+        expect(downloadButton).toBeDisabled();
+
+        await click(
+          screen.getByRole('cell', {
+            name: /at-at\.png/i,
+          }),
+        );
+        await click(
+          screen.getByRole('cell', {
+            name: /cats/i,
+          }),
+        );
+        await click(
+          screen.getByRole('cell', {
+            name: /json_nested_arrays\.json/i,
+          }),
+        );
+        expect(downloadButton).toBeEnabled();
+        await click(downloadButton);
+        await waitFor(() =>
+          expect(spy).toHaveBeenLastCalledWith(
+            'http://localhost/archive/ASi1L_1gCACFAwASxxgccGkVzh2qIdHkwu39OEmhIn2LktaaoJvq_79nA5Hlg8jGu--4nXKjE1k-SM6348UFshpdDRqkJ6mlVWoVxpJdFFsEv1Mc064CDIAQuRtih5ALqvgu7X2PD_p5g_YyGKF9yIkCAEkFqhViaDgD.zip?authn-token=1',
+          ),
+        );
+      });
+      it('should allow download for large files using zip', async () => {
+        const spy = jest.spyOn(window, 'open');
+
+        render(<FileBrowser />);
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        const pager = screen.getByTestId('Pager__pager');
+        expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
+        await click(within(pager).getByTestId('Pager__forward'));
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        await click(
+          (
+            await screen.findAllByTestId('DropdownButton__button')
+          )[3],
+        );
+
+        await click(await screen.findByText('Download Zip'));
+        await waitFor(() =>
+          expect(spy).toHaveBeenLastCalledWith(
+            'http://localhost/archive/ASi1L_0gYd0CABLGFRtwaxMeIippme3f279RC021H2IiEQ5BAlRVTwTZHsDZOpOqk9YbjpTtQQjICVroiFeUSr6gWgZ2ozTMMgqYQIGhuxDlTDVc8xe3Z0wRZ8eH2z80cetURQA.zip?authn-token=1',
+          ),
+        );
+      });
+
+      it('should generate a download link with TLS enabled', async () => {
+        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = 'true';
+
+        const spy = jest.spyOn(window, 'open');
+
+        render(<FileBrowser />);
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        const pager = screen.getByTestId('Pager__pager');
+        expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
+        await click(within(pager).getByTestId('Pager__forward'));
+
+        await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+        await click(
+          (
+            await screen.findAllByTestId('DropdownButton__button')
+          )[3],
+        );
+
+        await click(await screen.findByText('Download Zip'));
+        await waitFor(() =>
+          expect(spy).toHaveBeenLastCalledWith(
+            'https://localhost/archive/ASi1L_0gYd0CABLGFRtwaxMeIippme3f279RC021H2IiEQ5BAlRVTwTZHsDZOpOqk9YbjpTtQQjICVroiFeUSr6gWgZ2ozTMMgqYQIGhuxDlTDVc8xe3Z0wRZ8eH2z80cetURQA.zip?authn-token=1',
+          ),
+        );
+      });
     });
   });
 });

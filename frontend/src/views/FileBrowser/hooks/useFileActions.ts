@@ -4,9 +4,11 @@ import {useHistory} from 'react-router';
 
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {getProxyEnabled} from '@dash-frontend/lib/runtimeVariables';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {DropdownItem} from '@pachyderm/components';
 
+import useArchiveDownload from './useArchiveDownload';
 import useFileDisplay from './useFileDisplay';
 
 const useFileActions = (
@@ -28,9 +30,6 @@ const useFileActions = (
   const {loading: repoLoading, repo} = useCurrentRepo();
   const {repoId, branchId, projectId, commitId} = useUrlState();
 
-  const download =
-    !file.downloadDisabled && file.download ? file.download : undefined;
-
   const deleteDisabled = Boolean(repo?.linkedPipeline) || repoLoading;
 
   const handleBackNav = () => {
@@ -48,6 +47,8 @@ const useFileActions = (
     );
   };
 
+  const {archiveDownload} = useArchiveDownload();
+
   const onMenuSelect = (id: string) => {
     switch (id) {
       case 'preview-file':
@@ -55,7 +56,9 @@ const useFileActions = (
       case 'copy-path':
         return copy();
       case 'download':
-        return download ? window.open(download) : null;
+        return file.download
+          ? window.open(file.download)
+          : archiveDownload([file.path]);
       case 'delete':
         return openDeleteModal();
       default:
@@ -65,6 +68,16 @@ const useFileActions = (
 
   const toggleViewSource = () => setViewSource(!viewSource);
 
+  const proxyEnabled = getProxyEnabled();
+
+  let downloadText = 'Download';
+
+  if (!file.download) {
+    downloadText = proxyEnabled
+      ? 'Download Zip'
+      : 'Download (File too large to download)';
+  }
+
   let iconItems: DropdownItem[] = [
     {
       id: 'copy-path',
@@ -73,11 +86,9 @@ const useFileActions = (
     },
     {
       id: 'download',
-      content: file.downloadDisabled
-        ? 'Download (File too large to download)'
-        : 'Download',
+      content: downloadText,
       closeOnClick: true,
-      disabled: !!file.downloadDisabled,
+      disabled: !file.download && !proxyEnabled,
     },
   ];
 

@@ -46,3 +46,43 @@ export const getDisableTelemetry = () => {
 
   return disableTelemetry === 'true';
 };
+
+export const getProxyHostName = () => {
+  let proxyHost = '';
+  if (
+    window.pachDashConfig &&
+    window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST
+  ) {
+    proxyHost = window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST;
+  } else if (process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST) {
+    proxyHost = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST;
+  } else {
+    proxyHost =
+      process.env.pachDashConfig?.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST || '';
+  }
+
+  return proxyHost;
+};
+
+export const getProxyEnabled = () => {
+  return getProxyHostName() !== '';
+};
+
+export const getTlsEnabled = () => {
+  let tlsEnabled = false;
+  if (
+    window.pachDashConfig &&
+    window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS
+  ) {
+    tlsEnabled =
+      window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS === 'true';
+  } else if (process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS) {
+    tlsEnabled = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS === 'true';
+  } else {
+    tlsEnabled =
+      process.env.pachDashConfig?.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS ===
+        'true' || false;
+  }
+
+  return tlsEnabled;
+};

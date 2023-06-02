@@ -158,14 +158,14 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
           </div>
         ) : null}
       </div>
-      {!file.downloadDisabled && file.download && previewSupported ? (
+      {file.download && previewSupported ? (
         getPreviewElement(file.download)
       ) : (
         <EmptyState
           error
           title="Unable to preview this file"
           message={
-            file.downloadDisabled
+            !file.download
               ? 'This file is too large to preview'
               : 'This file format is not supported for file previews'
           }

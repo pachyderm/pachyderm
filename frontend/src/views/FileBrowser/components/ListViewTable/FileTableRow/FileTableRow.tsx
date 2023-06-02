@@ -5,9 +5,7 @@ import React from 'react';
 import {
   Table,
   Icon,
-  ArrowRightSVG,
   FolderSVG,
-  Button,
   Group,
   BasicModal,
   Link,
@@ -15,8 +13,6 @@ import {
 
 import useFileActions from '../../../hooks/useFileActions';
 import useFileDelete from '../../../hooks/useFileDelete';
-
-import styles from './FileTableRow.module.css';
 
 type FileTableRowProps = {
   selectedFiles: string[];
@@ -40,17 +36,17 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
   const {fileName, filePath, onMenuSelect, iconItems} = useFileActions(
     file,
     openDeleteModal,
-    true,
+    file.type === FileType.FILE,
   );
 
   return (
     <Table.Row
       data-testid="FileTableRow__row"
-      overflowMenuItems={file.type === FileType.FILE ? iconItems : undefined}
+      overflowMenuItems={iconItems}
       dropdownOnSelect={onMenuSelect}
-      // onClick={() => addSelection(file.path)}
-      // isSelected={selectedFiles.includes(file.path)}
-      // hasCheckbox
+      onClick={() => addSelection(file.path)}
+      isSelected={selectedFiles.includes(file.path)}
+      hasCheckbox
     >
       <Table.DataCell>
         <Link to={filePath}>
@@ -66,16 +62,6 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
       </Table.DataCell>
       <Table.DataCell>{capitalize(file.commitAction || '-')}</Table.DataCell>
       <Table.DataCell>{file.sizeDisplay}</Table.DataCell>
-      {file.type === FileType.DIR && (
-        <Table.DataCell className={styles.dirArrow}>
-          <Button
-            to={filePath}
-            buttonType="ghost"
-            IconSVG={ArrowRightSVG}
-            aria-label={`navigate to ${file.path}`}
-          />
-        </Table.DataCell>
-      )}
       {deleteModalOpen && (
         <BasicModal
           show={deleteModalOpen}

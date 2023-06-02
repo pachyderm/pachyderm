@@ -1628,7 +1628,6 @@ export const GetFilesDocument = gql`
         sizeBytes
         type
         sizeDisplay
-        downloadDisabled
         commitAction
       }
       cursor
