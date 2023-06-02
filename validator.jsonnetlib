@@ -1,0 +1,6 @@
+{
+  resource_requests: super.resource_requests + {
+    //"cpu": if super.cpu <= 0.5 then super.cpu else error 'request cpu %f exceeds cpu limit %f' % [super.cpu, 0.5]
+    "cpu": if super.cpu <= 0.5 then super.cpu else 0.5
+  }
+}
