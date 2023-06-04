@@ -460,10 +460,6 @@ func traverseToEdges(startCommit *v2_5_0.CommitInfo, skipSet map[string]*v2_5_0.
 //
 // 3) commit keys can now be substituted from <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>
 func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
-	// enforce known DB invariants
-	if err := deleteDanglingCommitRefs(ctx, tx); err != nil {
-		return errors.Wrap(err, "delete dangling commit references")
-	}
 	// 1) handle deferred branches
 	var cis []*pfs.CommitInfo
 	var err error
