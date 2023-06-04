@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"go.uber.org/multierr"
 )
 
 func join(names ...string) string {
@@ -78,7 +77,7 @@ func collectDebugFile(dir string, name string, cb func(io.Writer) error) (retErr
 	}
 	defer func() {
 		closeErr := errors.Wrapf(f.Close(), "close file %q", path)
-		retErr = multierr.Append(retErr, closeErr)
+		errors.JoinInto(&retErr, closeErr)
 	}()
 	w := bufio.NewWriter(f)
 	if err := cb(w); err != nil {

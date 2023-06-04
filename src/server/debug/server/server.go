@@ -178,7 +178,7 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 
 // TODO
 // remove pods from templates?
-// top level errors colliding
+// top level errors colliding?
 // update tests
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
 	return s.dump(s.env.GetPachClient(server.Context()), server, s.makeTasks(server.Context(), request, server))

@@ -2,13 +2,13 @@ package cmds
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -105,7 +105,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			bytes, err := json.MarshalIndent(r.Request, "", "    ")
+			bytes, err := serde.EncodeYAML(r.Request)
 			if err != nil {
 				return err
 			}
