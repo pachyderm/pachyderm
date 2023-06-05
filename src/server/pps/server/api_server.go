@@ -827,7 +827,6 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	// Create a filter function based on the request
 	filterJob, err := newMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating message filter function")
