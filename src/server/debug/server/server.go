@@ -91,7 +91,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 		return nil, errors.Wrap(err, "list pipelines")
 	}
 	for _, pi := range pis {
-		ps = append(ps, &debug.Pipeline{Name: pi.Pipeline.Name})
+		ps = append(ps, &debug.Pipeline{Name: pi.Pipeline.Name, Project: pi.Pipeline.Project.Name})
 	}
 	apps, err := s.listApps(ctx)
 	if err != nil {
@@ -100,11 +100,14 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	var lokiApps []*debug.App
 	var pachApps []*debug.App
 	for _, app := range apps {
-		// Listing all the loki pods requires querying the logs which is too expensive to compute at template time.
-		// Since we don't actually know the pods, we only populate the App names.
 		lokiApps = append(lokiApps, &debug.App{Name: app.Name, Pipeline: app.Pipeline})
 		if app.Pipeline != nil || app.Name == "pachd" {
+			// Listing all the loki pods requires querying the logs which is too expensive to compute at template time.
+			// Since we don't actually know the pods, we only populate the App names.
 			pachApps = append(pachApps, app)
+			lokiApps = append(lokiApps, &debug.App{Name: app.Name, Pipeline: app.Pipeline})
+		} else {
+			lokiApps = append(lokiApps, app)
 		}
 	}
 	return &debug.GetDumpV2TemplateResponse{
@@ -324,6 +327,15 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 				return errors.Wrapf(err, "collect pachd container loki logs for pod %q", s.name)
 			}
 			return nil
+		} else {
+			for _, pod := range app.Pods {
+				for _, c := range pod.Containers {
+					if err := s.collectLogsLoki(ctx, dfs, app, pod.Name, c); err != nil {
+						return errors.Wrapf(err, "collect pachd container loki logs for pod %q", s.name)
+					}
+				}
+			}
+			return nil
 		}
 		return errs
 	}
@@ -335,30 +347,32 @@ func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 		rp := recordProgress(server, "profiles", len(apps))
 		for _, app := range apps {
 			for _, pod := range app.Pods {
-				for _, profile := range []string{"heap", "goroutine"} {
-					if err := dfs.Write(filepath.Join(appDir(app), pod.Name, profile), func(w io.Writer) (retErr error) {
-						req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
-						if app.Name == "pachd" {
-							return errors.Wrap(writeProfile(ctx, w, req.Profile), "write profile")
-						}
-						c, err := workerserver.NewClient(pod.Ip)
-						if err != nil {
-							return errors.Wrapf(err, "worker client for %q at %q", pod.Name, pod.Ip)
-						}
-						prof, err := c.Profile(ctx, req)
-						if err != nil {
-							return errors.Wrapf(err, "collect profile %q for %q at %q", profile, pod.Name, pod.Ip)
-						}
-						r := grpcutil.NewStreamingBytesReader(prof, nil)
-						defer func() {
-							if err := r.Close(); err != nil {
-								errors.JoinInto(&retErr, errors.Wrapf(err, "close profile writer for pod %q; profile %q", pod.Name, profile))
+				for _, c := range pod.Containers {
+					for _, profile := range []string{"heap", "goroutine"} {
+						if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, c, profile), func(w io.Writer) (retErr error) {
+							req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
+							if app.Name == "pachd" {
+								return errors.Wrap(writeProfile(ctx, w, req.Profile), "write profile")
 							}
-						}()
-						_, err = io.Copy(w, r)
-						return err
-					}); err != nil {
-						errors.JoinInto(&errs, err)
+							c, err := workerserver.NewClient(pod.Ip)
+							if err != nil {
+								return errors.Wrapf(err, "worker client for %q at %q", pod.Name, pod.Ip)
+							}
+							prof, err := c.Profile(ctx, req)
+							if err != nil {
+								return errors.Wrapf(err, "collect profile %q for %q at %q", profile, pod.Name, pod.Ip)
+							}
+							r := grpcutil.NewStreamingBytesReader(prof, nil)
+							defer func() {
+								if err := r.Close(); err != nil {
+									errors.JoinInto(&retErr, errors.Wrapf(err, "close profile writer for pod %q; profile %q", pod.Name, profile))
+								}
+							}()
+							_, err = io.Copy(w, r)
+							return err
+						}); err != nil {
+							errors.JoinInto(&errs, err)
+						}
 					}
 				}
 			}
@@ -380,7 +394,7 @@ func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 					log.Info(ctx, "skipping debug profile for pod with empty IP", zap.String("pod", pod.Name))
 					continue
 				}
-				if err := dfs.Write(filepath.Join(appDir(app), pod.Name, "binary"), func(w io.Writer) (retErr error) {
+				if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "binary"), func(w io.Writer) (retErr error) {
 					if app.Name == "pachd" {
 						f, err := os.Open(os.Args[0])
 						if err != nil {
@@ -736,7 +750,6 @@ func (s *debugServer) collectCommits(rctx context.Context, dfs DumpFS, pachClien
 		},
 	}
 	if err := dfs.Write(filepath.Join(repo.Project.Name, repo.Name, "commits.json"), func(w io.Writer) error {
-		//	if err := collectDebugFile(dir, "commits.json", func(w io.Writer) error {
 		ctx, cancel := context.WithCancel(rctx)
 		defer cancel()
 		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
@@ -850,7 +863,7 @@ func collectGoInfo(dir string) error {
 }
 
 func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachClient *client.APIClient) error {
-	return dfs.Write("version.txt", func(w io.Writer) error {
+	return dfs.Write("/pachd/version.txt", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -884,7 +897,7 @@ func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, server debug.
 }
 
 func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) error {
-	return dfs.Write(filepath.Join(appDir(app), pod.Name, "describe.txt"), func(output io.Writer) (retErr error) {
+	return dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "describe.txt"), func(output io.Writer) (retErr error) {
 		// Gate the total time of "describe".
 		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
 		defer c()
@@ -1019,7 +1032,7 @@ func (s *debugServer) collectPipeline(ctx context.Context, dfs DumpFS, p *pps.Pi
 	ctx, end := log.SpanContext(ctx, "collectPipelineDump", zap.Stringer("pipeline", p))
 	defer end(log.Errorp(&retErr))
 	var errs error
-	if err := dfs.Write(filepath.Join(pipelinePrefix, p.Project.Name, p.Name, "spec.json"), func(w io.Writer) error {
+	if err := dfs.Write(filepath.Join(p.Project.Name, p.Name, "spec.json"), func(w io.Writer) error {
 		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListPipelineHistory(p.Project.Name, p.Name, -1, true)
 		if err != nil {
 			return err
