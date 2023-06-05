@@ -652,7 +652,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
-	// Create a filter function based on the request
 	filterJob, err := NewMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating message filter function")
@@ -713,7 +712,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			JobSet: client.NewJobSet(id),
 			Jobs:   jobInfosFiltered,
 		}); err != nil {
-			return errors.Wrap(err, "error sending jobset")
+			return errors.Wrap(err, "error sending JobSet")
 		}
 		number--
 
@@ -3540,17 +3539,17 @@ func NewMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	}
 	return func(ctx context.Context, m proto.Message) (bool, error) {
 		// filter out pipelines/jobs that don't match the project filter
-		switch foo := m.(type) {
+		switch v := m.(type) {
 		case *pps.PipelineInfo:
-			if len(projectsFilter) > 0 && !projectsFilter[foo.Pipeline.Project.GetName()] {
+			if len(projectsFilter) > 0 && !projectsFilter[v.Pipeline.Project.GetName()] {
 				return false, nil
 			}
 		case *pps.JobInfo:
-			if len(projectsFilter) > 0 && !projectsFilter[foo.Job.Pipeline.Project.GetName()] {
+			if len(projectsFilter) > 0 && !projectsFilter[v.Job.Pipeline.Project.GetName()] {
 				return false, nil
 			}
 		default:
-			return false, errors.Errorf("unknown proto message type: %T", m)
+			return false, errors.Errorf("unknown proto message type: %T\n", v)
 
 		}
 
