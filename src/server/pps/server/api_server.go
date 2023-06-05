@@ -697,9 +697,8 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
 		var jobInfosFiltered []*pps.JobInfo
 		for _, ji := range jobInfos {
-			// filter jobs based on jq filter.
 			if ok, err := filterJob(serv.Context(), ji); err != nil {
-				return errors.Wrap(err, "error applying jq filter")
+				return errors.Wrap(err, "error filtering job")
 			} else if !ok {
 				continue
 			}
@@ -898,9 +897,8 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return nil
 		}
 
-		// filter jobs based on jq filter.
 		if ok, err := filterJob(ctx, jobInfo); err != nil {
-			return errors.Wrap(err, "error applying jq filter")
+			return errors.Wrap(err, "error filtering job")
 		} else if !ok {
 			return nil
 		}
@@ -2750,7 +2748,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	}
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
 		if ok, err := filterPipeline(ctx, pi); err != nil {
-			return err
+			return errors.Wrap(err, "error filtering pipeline")
 		} else if !ok {
 			return nil
 		}
@@ -3519,61 +3517,61 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	for _, project := range projects {
 		projectsFilter[project.GetName()] = true
 	}
-	if jqFilter == "" {
-		return func(_ context.Context, _ proto.Message) (bool, error) {
-			return true, nil
-		}, nil
-	}
 	var (
 		jqCode *gojq.Code
 		enc    serde.Encoder
 	)
-	jqQuery, err := gojq.Parse(jqFilter)
-	if err != nil {
-		return nil, errors.Wrap(err, "error parsing jq filter")
-	}
-	jqCode, err = gojq.Compile(jqQuery)
-	if err != nil {
-		return nil, errors.Wrap(err, "error compiling jq filter")
+	if jqFilter != "" {
+		jqQuery, err := gojq.Parse(jqFilter)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing jq filter")
+		}
+		jqCode, err = gojq.Compile(jqQuery)
+		if err != nil {
+			return nil, errors.Wrap(err, "error compiling jq filter")
+		}
 	}
 	return func(ctx context.Context, m proto.Message) (bool, error) {
 		// filter out pipelines/jobs that don't match the project filter
-		switch v := m.(type) {
-		case *pps.PipelineInfo:
-			if len(projectsFilter) > 0 && !projectsFilter[v.Pipeline.Project.GetName()] {
+		if len(projectsFilter) > 0 {
+			switch v := m.(type) {
+			case *pps.PipelineInfo:
+				if !projectsFilter[v.Pipeline.Project.GetName()] {
+					return false, nil
+				}
+			case *pps.JobInfo:
+				if !projectsFilter[v.Job.Pipeline.Project.GetName()] {
+					return false, nil
+				}
+			default:
+				return false, errors.Errorf("unknown proto message type: %T\n", v)
+			}
+		}
+
+		if jqFilter != "" {
+			var jsonBuffer bytes.Buffer
+			// ensure field names and enum values match with --raw output
+			enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
+			if err := enc.EncodeProto(m); err != nil {
+				return false, err
+			}
+			var v any
+			if err := json.Unmarshal(jsonBuffer.Bytes(), &v); err != nil {
+				return false, errors.Wrap(err, "error unmarshalling proto message")
+			}
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second) // assume that no filter will ever take more than 10 seconds to run
+			defer cancel()
+			iter := jqCode.RunWithContext(ctx, v)
+			v, ok := iter.Next()
+			if !ok {
 				return false, nil
 			}
-		case *pps.JobInfo:
-			if len(projectsFilter) > 0 && !projectsFilter[v.Job.Pipeline.Project.GetName()] {
+			if err, ok := v.(error); ok && err != nil {
+				return false, errors.Wrap(err, "error applying jq filter on proto message")
+			}
+			if v == false || v == nil {
 				return false, nil
 			}
-		default:
-			return false, errors.Errorf("unknown proto message type: %T\n", v)
-
-		}
-
-		var jsonBuffer bytes.Buffer
-		// ensure field names and enum values match with --raw output
-		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
-		if err := enc.EncodeProto(m); err != nil {
-			return false, err
-		}
-		var v any
-		if err := json.Unmarshal(jsonBuffer.Bytes(), &v); err != nil {
-			return false, errors.Wrap(err, "error unmarshalling proto message")
-		}
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		iter := jqCode.RunWithContext(ctx, v)
-		v, ok := iter.Next()
-		if !ok {
-			return false, nil
-		}
-		if err, ok := v.(error); ok && err != nil {
-			return false, errors.Wrap(err, "error applying jq filter on proto message")
-		}
-		if v == false || v == nil {
-			return false, nil
 		}
 		return true, nil
 	}, nil
