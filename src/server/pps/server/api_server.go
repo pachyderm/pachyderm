@@ -693,8 +693,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if err != nil {
 			return err
 		}
-		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
-		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
+		// jobInfos can contain jobs that belong in the same project or different projects due to commit sets.
 		var jobInfosFiltered []*pps.JobInfo
 		for _, ji := range jobInfos {
 			if ok, err := filterJob(serv.Context(), ji); err != nil {
@@ -714,7 +713,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			return errors.Wrap(err, "error sending JobSet")
 		}
 		number--
-
 		return nil
 	}); err != nil && err != errutil.ErrBreak {
 		return errors.EnsureStack(err)
@@ -3512,6 +3510,7 @@ func ensurePipelineProject(p *pps.Pipeline) {
 	}
 }
 
+// newMessageFilterFunc returns a function that filters out messages that don't satisify either jq filter or projects filter.
 func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
 	projectsFilter := make(map[string]bool, len(projects))
 	for _, project := range projects {
@@ -3532,7 +3531,7 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 		}
 	}
 	return func(ctx context.Context, m proto.Message) (bool, error) {
-		// filter out pipelines/jobs that don't match the project filter
+		// Assume that empty projectsFilter means no filter.
 		if len(projectsFilter) > 0 {
 			switch v := m.(type) {
 			case *pps.PipelineInfo:
