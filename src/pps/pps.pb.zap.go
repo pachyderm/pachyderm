@@ -575,6 +575,7 @@ func (x *ListJobSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	protoextensions.AddTimestamp(enc, "paginationMarker", x.PaginationMarker)
 	enc.AddInt64("number", x.Number)
 	enc.AddBool("reverse", x.Reverse)
+	enc.AddString("jqFilter", x.JqFilter)
 	return nil
 }
 
