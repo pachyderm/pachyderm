@@ -652,7 +652,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
-	filterJob, err := NewMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
+	filterJob, err := newMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating message filter function")
 	}
@@ -828,7 +828,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	// Create a filter function based on the request
-	filterJob, err := NewMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
+	filterJob, err := newMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating message filter function")
 	}
@@ -2709,7 +2709,7 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 }
 
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
-	filterPipeline, err := NewMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
+	filterPipeline, err := newMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
 	if err != nil {
 		return errors.Wrap(err, "error creating message filter function")
 	}
@@ -3515,7 +3515,7 @@ func ensurePipelineProject(p *pps.Pipeline) {
 	}
 }
 
-func NewMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
+func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
 	projectsFilter := make(map[string]bool, len(projects))
 	for _, project := range projects {
 		projectsFilter[project.GetName()] = true
