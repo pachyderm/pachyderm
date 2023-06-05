@@ -462,7 +462,7 @@ func recordProgress(server debug.Debug_DumpV2Server, task string, total int) inc
 func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server, tasks []taskFunc) (retErr error) {
 	ctx := c.Ctx() // this context has authorization credentials we need
 	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
-	if err := os.Mkdir(dumpRoot, os.ModeDir); err != nil {
+	if err := os.Mkdir(dumpRoot, 0744); err != nil {
 		return errors.Wrap(err, "create dump root directory")
 	}
 	defer func() {
@@ -494,7 +494,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 							}
 						}()
 						taskDir := filepath.Join(dumpRoot, uuid.NewWithoutDashes())
-						if err := os.Mkdir(taskDir, os.ModeDir); err != nil {
+						if err := os.Mkdir(taskDir, 0744); err != nil {
 							return errors.Wrap(err, "create dump task sub-directory")
 						}
 						defer func() {
