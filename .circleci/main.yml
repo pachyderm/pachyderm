@@ -499,7 +499,7 @@ jobs:
           path: /tmp/debug-dump
           destination: debug-dump
   rootless:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -524,9 +524,12 @@ jobs:
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
       - run: mkdir ${TEST_RESULTS}
+      - wait-for-docker
+      - start-minikube
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
+      - run: etc/testing/circle/wait-minikube.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Format test results for upload
@@ -922,8 +925,8 @@ jobs:
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
-            pachctl put file images@master:liberty.png -f https://free-images.com/md/57ee/statue_liberty_usa_new.jpg
-            pachctl put file images@branch:branch.png -f https://free-images.com/md/57ee/statue_liberty_usa_new.jpg
+            pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
+            pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
             pachctl list repo
 
             mkdir pfs
@@ -2007,7 +2010,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12Gi --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
           background: true
   collect-test-results:
     steps:
