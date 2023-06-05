@@ -119,9 +119,24 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
 });
 
 Cypress.Commands.add('deleteReposAndPipelines', () => {
-  return cy
-    .exec('pachctl delete pipeline --all --force')
-    .exec('pachctl delete repo --all --force');
+  return (
+    cy
+      .exec('pachctl delete pipeline --all --force')
+      .exec('pachctl delete repo --all --force')
+      // Remove all projects except for default
+      .exec('pachctl list projects')
+      .then((res) => {
+        const regex = /(\w*)\s*\[/g;
+        const projects = [...res.stdout.matchAll(regex)]
+          .map((el) => el[1])
+          .filter((el) => el.toLowerCase() !== 'default');
+        if (projects.length !== 0) cy.log('Deleting projects', projects);
+        else cy.log('No projects to delete (ignoring default).');
+        projects.forEach((project) => {
+          cy.exec(`echo y | pachctl delete project ${project}`);
+        });
+      })
+  );
 });
 
 Cypress.Commands.add('isInViewport', (element) => {
