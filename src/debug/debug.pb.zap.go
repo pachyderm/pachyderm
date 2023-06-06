@@ -118,27 +118,12 @@ func (x *GetDumpV2TemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	return nil
 }
 
-func (x *WorkerDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddObject("pod", x.Pod)
-	return nil
-}
-
 func (x *Pipeline) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddString("project", x.Project)
 	enc.AddString("name", x.Name)
-	workersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Workers {
-			enc.AppendObject(v)
-		}
-		return nil
-	}
-	enc.AddArray("workers", zapcore.ArrayMarshalerFunc(workersArrMarshaller))
 	return nil
 }
 

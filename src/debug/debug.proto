@@ -71,14 +71,9 @@ message GetDumpV2TemplateResponse {
  DumpV2Request request = 1;
 }
 
-message WorkerDump {
-  Pod pod = 1;
-}
-
 message Pipeline {
   string project = 1;
   string name = 2;
-  repeated WorkerDump workers = 3;
 }
 
 message Pod {
