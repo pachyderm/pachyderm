@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func SetupCore(ctx context.Context, tx *pachsql.Tx) error {
+func setupAll(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS core;`); err != nil {
 		return errors.Wrap(err, "error creating core schema")
 	}
@@ -22,13 +22,13 @@ func SetupCore(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "error creating set_updated_at_to_now trigger function")
 	}
 
-	if err := SetupProjectsTable(ctx, tx); err != nil {
+	if err := createProjectsTable(ctx, tx); err != nil {
 		return errors.Wrap(err, "error creating projects table")
 	}
 	return nil
 }
 
-func SetupProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
+func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS core.projects (
 			id bigserial PRIMARY KEY,
