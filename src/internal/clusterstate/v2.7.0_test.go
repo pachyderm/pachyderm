@@ -11,16 +11,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
 
-func TestCurrentClusterState(t *testing.T) {
+func Test_v2_7_0_ClusterState(t *testing.T) {
+	if DesiredClusterState.Number() > state_2_7_0.Number() {
+		t.Skip("skipping test because desired state is newer than this migration")
+	}
 	ctx := pctx.TestContext(t)
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, t)
 	defer db.Close()
-	etcd := testetcd.NewEnv(ctx, t).EtcdClient
-	migrationEnv := migrations.Env{EtcdClient: etcd}
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 
 	// apply the migration
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, DesiredClusterState))
-	require.NoError(t, migrations.BlockUntil(ctx, db, DesiredClusterState))
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_7_0))
+	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_7_0))
 
 	// make some assertions
 	projectNames := []string{"project1", "project2"}
