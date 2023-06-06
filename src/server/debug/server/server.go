@@ -518,6 +518,31 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 	})
 }
 
+func writeTar(ctx context.Context, w io.Writer, f func(ctx context.Context, dfs DumpFS) error) (retErr error) {
+	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
+	if err := os.Mkdir(dumpRoot, 0744); err != nil {
+		return errors.Wrap(err, "create dump root directory")
+	}
+	defer func() {
+		errors.JoinInto(&retErr, os.RemoveAll(dumpRoot))
+	}()
+	return withDebugWriter(w, func(tw *tar.Writer) error {
+		if err := f(ctx, NewDumpFS(dumpRoot)); err != nil {
+			return errors.Wrap(err, "write dfs to tar")
+		}
+		return filepath.Walk(dumpRoot, func(path string, fi fs.FileInfo, err error) error {
+			if err != nil {
+				return errors.Wrapf(err, "walk path %q", path)
+			}
+			if fi.IsDir() {
+				return nil
+			}
+			dest := strings.TrimPrefix(path, dumpRoot)
+			return errors.Wrapf(writeTarFile(tw, dest, path, fi), "write tar file %q", dest)
+		})
+	})
+}
+
 func (s *debugServer) kubeLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) (retErr error) {
 	ctx, end := log.SpanContext(ctx, "collectKubeLogs")
 	defer end(log.Errorp(&retErr))
@@ -577,7 +602,9 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
-		return writeProfile(server.Context(), w, request.Profile)
+		return errors.Wrap(writeTar(server.Context(), w, func(ctx context.Context, dfs DumpFS) error {
+			return writeProfile(ctx, dfs, request.Profile)
+		}), "collect profile")
 	})
 }
 
@@ -598,10 +625,7 @@ func collectProfle(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.P
 			}); err != nil {
 				return errors.Wrap(err, "go info")
 			}
-			if profile == "cover" {
-				return errors.Wrap(collectProfileCover(ctx, dfs), "collect profile cover")
-			}
-			return errors.Wrap(writeProfile(ctx, w, req.Profile), "write profile")
+			return errors.Wrap(writeProfile(ctx, dfs.WithPrefix(filepath.Join(appDir(app), "pods", pod.Name, container)), req.Profile), "write profile")
 		}
 		c, err := workerserver.NewClient(pod.Ip)
 		if err != nil {
@@ -625,67 +649,75 @@ func collectProfle(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.P
 	return nil
 }
 
-func collectProfileCover(ctx context.Context, dfs DumpFS) error {
-	var errs error
-	// "go tool covdata" relies on these files being named the same as what is
-	// written out automatically. See go/src/runtime/coverage/emit.go.
-	// (covcounters.<16 byte hex-encoded hash that nothing checks>.<pid>.<unix
-	// nanos>, covmeta.<same hash>.)
-	hash := [16]byte{}
-	if _, err := rand.Read(hash[:]); err != nil {
-		return errors.Wrap(err, "generate random coverage id")
-	}
-	if err := dfs.Write(fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), func(w io.Writer) error {
-		return errors.Wrap(coverage.WriteCounters(w), "counters")
-	}); err != nil {
-		errors.JoinInto(&errs, err)
-	}
-	if err := dfs.Write(fmt.Sprintf("cover/covmeta.%x", hash), func(w io.Writer) error {
-		return errors.Wrap(coverage.WriteMeta(w), "meta")
-	}); err != nil {
-		errors.JoinInto(&errs, err)
-	}
-	if errs == nil {
-		log.Debug(ctx, "clearing coverage counters")
-		if err := coverage.ClearCounters(); err != nil {
-			log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
-		}
-	}
-	return errs
-}
-
-func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (retErr error) {
+func writeProfile(ctx context.Context, dfs DumpFS, profile *debug.Profile) (retErr error) {
 	defer log.Span(ctx, "writeProfile", zap.String("profile", profile.GetName()))(log.Errorp(&retErr))
 	switch profile.GetName() {
-	case "cpu":
-		if err := pprof.StartCPUProfile(w); err != nil {
-			return errors.EnsureStack(err)
+	case "cover":
+		var errs error
+		// "go tool covdata" relies on these files being named the same as what is
+		// written out automatically. See go/src/runtime/coverage/emit.go.
+		// (covcounters.<16 byte hex-encoded hash that nothing checks>.<pid>.<unix
+		// nanos>, covmeta.<same hash>.)
+		hash := [16]byte{}
+		if _, err := rand.Read(hash[:]); err != nil {
+			return errors.Wrap(err, "generate random coverage id")
 		}
-		defer pprof.StopCPUProfile()
-		duration := defaultDuration
-		if profile.Duration != nil {
-			var err error
-			duration, err = types.DurationFromProto(profile.Duration)
-			if err != nil {
-				return errors.EnsureStack(err)
+		if err := dfs.Write(fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), func(w io.Writer) error {
+			return errors.Wrap(coverage.WriteCounters(w), "counters")
+		}); err != nil {
+			errors.JoinInto(&errs, err)
+		}
+		if err := dfs.Write(fmt.Sprintf("cover/covmeta.%x", hash), func(w io.Writer) error {
+			return errors.Wrap(coverage.WriteMeta(w), "meta")
+		}); err != nil {
+			errors.JoinInto(&errs, err)
+		}
+		if errs == nil {
+			log.Debug(ctx, "clearing coverage counters")
+			if err := coverage.ClearCounters(); err != nil {
+				log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
 			}
 		}
-		// Wait for either the defined duration, or until the context is
-		// done.
-		t := time.NewTimer(duration)
-		select {
-		case <-ctx.Done():
-			t.Stop()
-			return errors.EnsureStack(context.Cause(ctx))
-		case <-t.C:
-			return nil
+		if errs == nil {
+			log.Debug(ctx, "clearing coverage counters")
+			if err := coverage.ClearCounters(); err != nil {
+				log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
+			}
 		}
+		return errs
+	case "cpu":
+		return dfs.Write("", func(w io.Writer) error {
+			if err := pprof.StartCPUProfile(w); err != nil {
+				return errors.EnsureStack(err)
+			}
+			defer pprof.StopCPUProfile()
+			duration := defaultDuration
+			if profile.Duration != nil {
+				var err error
+				duration, err = types.DurationFromProto(profile.Duration)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			// Wait for either the defined duration, or until the context is
+			// done.
+			t := time.NewTimer(duration)
+			select {
+			case <-ctx.Done():
+				t.Stop()
+				return errors.EnsureStack(context.Cause(ctx))
+			case <-t.C:
+				return nil
+			}
+		})
 	default:
-		p := pprof.Lookup(profile.Name)
-		if p == nil {
-			return errors.Errorf("unable to find profile %q", profile.Name)
-		}
-		return errors.EnsureStack(p.WriteTo(w, 0))
+		return dfs.Write("", func(w io.Writer) error {
+			p := pprof.Lookup(profile.Name)
+			if p == nil {
+				return errors.Errorf("unable to find profile %q", profile.Name)
+			}
+			return errors.EnsureStack(p.WriteTo(w, 0))
+		})
 	}
 }
 
