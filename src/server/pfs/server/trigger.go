@@ -70,8 +70,8 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 			result = result || cond
 		}
 	}
-	if t.Size_ != "" {
-		size, err := units.FromHumanSize(t.Size_)
+	if t.Size != "" {
+		size, err := units.FromHumanSize(t.Size)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
@@ -138,7 +138,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger cron spec")
 	}
-	if _, err := units.FromHumanSize(trigger.Size_); trigger.Size_ != "" && err != nil {
+	if _, err := units.FromHumanSize(trigger.Size); trigger.Size != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger size")
 	}
 	if trigger.Commits < 0 {

@@ -954,7 +954,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if len(provenance) != 0 && trigger.Branch != "" {
 				return errors.Errorf("cannot use provenance and triggers on the same branch")
 			}
-			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) && trigger.Branch == "" {
+			if (trigger.CronSpec != "" || trigger.Size != "" || trigger.Commits != 0) && trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
 			if proto.Equal(trigger, &pfs.Trigger{}) {
@@ -998,7 +998,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "Specify the branch name that triggers this branch.")
 	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "Set a cron spec interval as a condition for the trigger.")
-	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "Set data size as a condition for the trigger.")
+	createBranch.Flags().StringVar(&trigger.Size, "trigger-size", "", "Set data size as a condition for the trigger.")
 	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "Set the number of commits as a condition for the trigger.")
 	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Specify that all set conditions must be met for the trigger.")
 	createBranch.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo for this branch is located.")

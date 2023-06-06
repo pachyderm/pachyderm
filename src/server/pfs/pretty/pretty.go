@@ -103,8 +103,8 @@ func printTrigger(trigger *pfs.Trigger) string {
 	if trigger.CronSpec != "" {
 		conds = append(conds, fmt.Sprintf("Cron(%s)", trigger.CronSpec))
 	}
-	if trigger.Size_ != "" {
-		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size_))
+	if trigger.Size != "" {
+		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size))
 	}
 	if trigger.Commits != 0 {
 		conds = append(conds, fmt.Sprintf("Commits(%d)", trigger.Commits))
