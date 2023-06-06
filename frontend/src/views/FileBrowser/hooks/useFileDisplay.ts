@@ -23,6 +23,7 @@ const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
   'xml',
   'htm',
   'txt',
+  'yaml',
   'yml',
   'md',
   'mkd',
