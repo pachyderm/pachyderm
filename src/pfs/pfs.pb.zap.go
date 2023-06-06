@@ -126,7 +126,7 @@ func (x *Trigger) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("branch", x.Branch)
 	enc.AddBool("all", x.All)
 	enc.AddString("cron_spec", x.CronSpec)
-	enc.AddString("size", x.Size_)
+	enc.AddString("size", x.Size)
 	enc.AddInt64("commits", x.Commits)
 	return nil
 }
