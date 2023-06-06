@@ -17,8 +17,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Our modifications are to marshal types.BytesValue by marshaling them as a prefix and length
-// instead of the full value, and to support gogo.customname.
+// Our modifications are to marshal BytesValue by marshaling them as a prefix and length
+// instead of the full value.
 package main
 
 import (
@@ -26,7 +26,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/gogoproto"
 	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/protoextensions"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -230,17 +229,6 @@ func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
 	g.P("}")
 	for _, f := range m.Fields {
 		opts := f.Desc.Options().(*descriptorpb.FieldOptions)
-		if opts != nil {
-			if customName := proto.GetExtension(opts, gogoproto.E_Customname).(string); customName != "" {
-				f.GoName = customName
-			}
-		}
-		if f.Desc.Name() == "size" && f.Desc.ContainingMessage().FullName() == "pfs_v2.Trigger" {
-			// For some reason, this field gets generated as Size_ instead of Size.
-			// It's because there is code in the package that implements a Size method,
-			// but it's unclear to me how the proto compiler can know this.
-			f.GoName = "Size_"
-		}
 		if proto.GetExtension(opts, protoextensions.E_Mask).(bool) {
 			g.P("enc.AddString(\"", f.Desc.Name(), "\", \"[MASKED]\")")
 		} else if f.Desc.IsList() {
