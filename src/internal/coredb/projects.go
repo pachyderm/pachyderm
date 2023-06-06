@@ -14,14 +14,14 @@ import (
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
 	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description) VALUES ($1, $2);", project.Project.Name, project.Description)
 	//todo: insert project.authInfo into auth table.
-	return errors.EnsureStack(err)
+	return errors.Wrap(err, "failed to create project")
 }
 
 // DeleteProject deletes an entry in the core.projects table.
 func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) error {
 	_, err := tx.ExecContext(ctx, "DELETE FROM core.projects WHERE name = $1;", projectName)
 	//todo: delete corresponding project.authInfo auth table.
-	return errors.EnsureStack(err)
+	return errors.Wrap(err, "failed to delete project")
 }
 
 // GetProject retrieves an entry from the core.projects table by project name.
@@ -40,11 +40,11 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	var createdAt time.Time
 	var err error
 	if err = row.Scan(&project.Project.Name, &project.Description, &createdAt); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "failed scanning project row")
 	}
 	project.CreatedAt, err = types.TimestampProto(createdAt)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "failed converting project proto timestamp")
 	}
 	return project, nil
 }
@@ -64,11 +64,11 @@ func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 	res, err := tx.ExecContext(ctx, fmt.Sprintf("UPDATE core.projects SET name = $1, description = $2 WHERE %s = $3;", where),
 		project.Project.Name, project.Description, whereVal)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return errors.Wrap(err, "failed to update project")
 	}
 	numRows, err := res.RowsAffected()
 	if err != nil {
-		return errors.EnsureStack(err)
+		return errors.Wrap(err, "failed to get affected rows")
 	}
 	if numRows == 0 {
 		if upsert {
@@ -76,5 +76,5 @@ func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 		}
 		return errors.New(fmt.Sprintf("%s not found in core.projects", project.Project.Name))
 	}
-	return errors.EnsureStack(err)
+	return nil
 }

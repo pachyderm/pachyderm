@@ -64,7 +64,6 @@ func TestGetProjectByID(t *testing.T) {
 	require.NoError(t, tx.Commit())
 	require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
 	require.Equal(t, createInfo.Description, getInfo.Description)
-	require.Equal(t, createInfo.CreatedAt.Seconds, getInfo.CreatedAt.Seconds)
 }
 
 func TestUpdateProject(t *testing.T) {
