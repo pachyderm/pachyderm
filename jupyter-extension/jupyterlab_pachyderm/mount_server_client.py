@@ -105,6 +105,11 @@ class MountServerClient(MountInterface):
         await self._ensure_mount_server()
         response = await self.client.fetch(f"{self.address}/mounts")
         return response.body
+
+    async def list_projects(self):
+        await self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/projects")
+        return response.body
         
     async def mount(self, body):
         await self._ensure_mount_server()
