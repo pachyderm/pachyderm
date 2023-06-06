@@ -93,10 +93,10 @@ beforeAll(async () => {
   process.env.REACT_APP_RUNTIME_ISSUER_URI = `http://localhost:${authPort}`;
   process.env.REACT_APP_BACKEND_PREFIX = `http://localhost:${graphqlPort}/`;
   process.env.REACT_APP_BACKEND_GRAPHQL_PREFIX = `http://localhost:${graphqlPort}/graphql`;
+  process.env.PACHD_ADDRESS = `localhost:${grpcPort}`;
   process.env.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX = `:${graphqlPort}/graphql`;
   process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = 'localhost';
   process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = 'false';
-  process.env.PACHD_ADDRESS = `localhost:${grpcPort}`;
 });
 
 beforeEach(() => {

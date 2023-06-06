@@ -189,13 +189,14 @@ const port = process.env.REACT_APP_PORT;
 
 ### Client runtime variables
 
-Any variables with the `REACT_APP_RUNTIME` prefix will be added to a window object
+Any variables with the `REACT_APP_RUNTIME` prefix should be retrieved and accessed in the frontend from [runtimeVariables.ts](./frontend/src/lib/runtimeVariables.ts). If we are building for production the variables will be added to a window object
 called `pachDashConfig` with can be accessed in the client code:
 
 ```bash
 // client-side code
-const port = process.env.pachDashConfig.REACT_APP_RUNTIME_PORT;
+const port = window.pachDashConfig.REACT_APP_RUNTIME_PORT;
 ```
+In any other environment they are loaded like other environment variables on `process.env`.
 
 These variables can also be accessed in the node runtime (on the server, and during test execution), but not via the `pachDashConfig` object. The reason for this, is that
 the node runtime does not support maps as environment variables.

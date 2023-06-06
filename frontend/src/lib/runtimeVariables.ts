@@ -5,10 +5,8 @@ export const getIssuerUri = () => {
   let issuerUri = '';
   if (window.pachDashConfig) {
     issuerUri = window.pachDashConfig.REACT_APP_RUNTIME_ISSUER_URI;
-  } else if (process.env.REACT_APP_RUNTIME_ISSUER_URI) {
-    issuerUri = process.env.REACT_APP_RUNTIME_ISSUER_URI;
   } else {
-    issuerUri = process.env.pachDashConfig.REACT_APP_RUNTIME_ISSUER_URI || '';
+    issuerUri = process.env.REACT_APP_RUNTIME_ISSUER_URI || '';
   }
 
   return issuerUri;
@@ -16,14 +14,12 @@ export const getIssuerUri = () => {
 
 export const getSubscriptionsPrefix = () => {
   let subscriptionsPrefix = '';
-  if (window.pachDashConfig?.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX) {
+  if (window.pachDashConfig) {
     subscriptionsPrefix =
-      window.pachDashConfig.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX;
-  } else if (process.env.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX) {
-    subscriptionsPrefix = process.env.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX;
+      window.pachDashConfig.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX || '';
   } else {
     subscriptionsPrefix =
-      process.env.pachDashConfig.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX || '';
+      process.env.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX || '';
   }
 
   return subscriptionsPrefix;
@@ -31,17 +27,11 @@ export const getSubscriptionsPrefix = () => {
 
 export const getDisableTelemetry = () => {
   let disableTelemetry = '';
-  if (
-    window.pachDashConfig &&
-    window.pachDashConfig.REACT_APP_RUNTIME_DISABLE_TELEMETRY
-  ) {
+  if (window.pachDashConfig) {
     disableTelemetry =
-      window.pachDashConfig.REACT_APP_RUNTIME_DISABLE_TELEMETRY;
-  } else if (process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY) {
-    disableTelemetry = process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY;
+      window.pachDashConfig.REACT_APP_RUNTIME_DISABLE_TELEMETRY || '';
   } else {
-    disableTelemetry =
-      process.env.pachDashConfig.REACT_APP_RUNTIME_DISABLE_TELEMETRY || '';
+    disableTelemetry = process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY || '';
   }
 
   return disableTelemetry === 'true';
@@ -49,16 +39,11 @@ export const getDisableTelemetry = () => {
 
 export const getProxyHostName = () => {
   let proxyHost = '';
-  if (
-    window.pachDashConfig &&
-    window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST
-  ) {
-    proxyHost = window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST;
-  } else if (process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST) {
-    proxyHost = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST;
-  } else {
+  if (window.pachDashConfig) {
     proxyHost =
-      process.env.pachDashConfig?.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST || '';
+      window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST || '';
+  } else {
+    proxyHost = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST || '';
   }
 
   return proxyHost;
@@ -70,18 +55,11 @@ export const getProxyEnabled = () => {
 
 export const getTlsEnabled = () => {
   let tlsEnabled = false;
-  if (
-    window.pachDashConfig &&
-    window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS
-  ) {
+  if (window.pachDashConfig) {
     tlsEnabled =
       window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS === 'true';
-  } else if (process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS) {
-    tlsEnabled = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS === 'true';
   } else {
-    tlsEnabled =
-      process.env.pachDashConfig?.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS ===
-        'true' || false;
+    tlsEnabled = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS === 'true';
   }
 
   return tlsEnabled;

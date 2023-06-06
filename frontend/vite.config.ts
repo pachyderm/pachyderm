@@ -17,10 +17,8 @@ const env = Object.keys(process.env)
   .filter((key) => key.startsWith('REACT_APP') || key === 'NODE_ENV')
   .reduce(
     (env: Record<string, any>, key) => {
-      if (key.startsWith('REACT_APP_RUNTIME')) {
-        env.pachDashConfig[key] = isProd
-          ? `window.pachDashConfig['${key}']`
-          : process.env[key] || '';
+      if (key.startsWith('REACT_APP_RUNTIME') && isProd) {
+        env.pachDashConfig[key] = `window.pachDashConfig['${key}']`;
       } else {
         env[key] = process.env[key] || '';
       }
