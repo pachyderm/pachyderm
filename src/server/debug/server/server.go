@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/coverage"
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
@@ -97,6 +99,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	if err != nil {
 		return nil, err
 	}
+	// App could have oneof label selector or list of specifics
 	var lokiApps []*debug.App
 	var pachApps []*debug.App
 	for _, app := range apps {
@@ -113,9 +116,9 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	return &debug.GetDumpV2TemplateResponse{
 		Request: &debug.DumpV2Request{
 			System: &debug.System{
-				Version:   true,
 				Helm:      true,
 				Database:  true,
+				Versions:  pachApps,
 				Describes: apps,
 				Logs:      apps,
 				LokiLogs:  lokiApps,
@@ -191,8 +194,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 	var ts []taskFunc
 	if request.InputRepos {
 		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-			dfs.WritePrefix("source-repos")
-			return s.collectInputRepos(ctx, dfs, s.env.GetPachClient(ctx), int64(0), server)
+			return s.collectInputRepos(ctx, dfs.WithPrefix("source-repos"), s.env.GetPachClient(ctx), int64(0), server)
 		})
 	}
 	if len(request.Pipelines) > 0 {
@@ -201,22 +203,28 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 	if sys := request.System; sys != nil {
 		if sys.Helm {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				dfs.WritePrefix("helm")
-				return s.collectHelm(ctx, dfs, server)
+				return s.collectHelm(ctx, dfs.WithPrefix("helm"), server)
 			})
 		}
 		if sys.Database {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				dfs.WritePrefix(databasePrefix)
-				return s.collectDatabaseDump(ctx, dfs, server)
+				return s.collectDatabaseDump(ctx, dfs.WithPrefix(databasePrefix), server)
 			})
 		}
-		if sys.Version {
-			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				rp := recordProgress(server, "version", 1)
-				defer rp(ctx)
-				return s.collectPachdVersion(ctx, dfs, s.env.GetPachClient(ctx))
-			})
+		if len(sys.Versions) > 0 {
+			// this section needs some work to work for more than just this pachd
+			rp := recordProgress(server, "version", len(sys.Versions))
+			for _, app := range sys.Versions {
+				for _, pod := range app.Pods {
+					if app.Name == "pachd" {
+						func(app *debug.App) {
+							ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
+								return s.collectPachdVersion(ctx, dfs.WithPrefix(fmt.Sprintf("/pachd/%s/pachd", pod.Name)), s.env.GetPachClient(ctx), rp)
+							})
+						}(app)
+					}
+				}
+			}
 		}
 		if len(sys.Describes) > 0 {
 			rp := recordProgress(server, "describes", len(sys.Logs))
@@ -254,12 +262,11 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 
 func (s *debugServer) makePipelinesTask(server debug.Debug_DumpV2Server, pipelines []*debug.Pipeline) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
-		dfs.WritePrefix(pipelinePrefix)
 		rp := recordProgress(server, "pipelines", len(pipelines))
 		var errs error
 		for _, p := range pipelines {
 			pip := &pps.Pipeline{Name: p.Name, Project: &pfs.Project{Name: p.Project}}
-			if err := s.collectPipeline(ctx, dfs, pip, 0); err != nil {
+			if err := s.collectPipeline(ctx, dfs.WithPrefix(pipelinePrefix), pip, 0); err != nil {
 				errors.JoinInto(&errs, errors.Wrapf(err, "collect pipeline %q", pip))
 			}
 			rp(ctx)
@@ -349,28 +356,7 @@ func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 			for _, pod := range app.Pods {
 				for _, c := range pod.Containers {
 					for _, profile := range []string{"heap", "goroutine"} {
-						if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, c, profile), func(w io.Writer) (retErr error) {
-							req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
-							if app.Name == "pachd" {
-								return errors.Wrap(writeProfile(ctx, w, req.Profile), "write profile")
-							}
-							c, err := workerserver.NewClient(pod.Ip)
-							if err != nil {
-								return errors.Wrapf(err, "worker client for %q at %q", pod.Name, pod.Ip)
-							}
-							prof, err := c.Profile(ctx, req)
-							if err != nil {
-								return errors.Wrapf(err, "collect profile %q for %q at %q", profile, pod.Name, pod.Ip)
-							}
-							r := grpcutil.NewStreamingBytesReader(prof, nil)
-							defer func() {
-								if err := r.Close(); err != nil {
-									errors.JoinInto(&retErr, errors.Wrapf(err, "close profile writer for pod %q; profile %q", pod.Name, profile))
-								}
-							}()
-							_, err = io.Copy(w, r)
-							return err
-						}); err != nil {
+						if err := collectProfle(ctx, dfs, app, pod, c, profile); err != nil {
 							errors.JoinInto(&errs, err)
 						}
 					}
@@ -391,7 +377,7 @@ func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 		for _, app := range apps {
 			for _, pod := range app.Pods {
 				if pod.Ip == "" {
-					log.Info(ctx, "skipping debug profile for pod with empty IP", zap.String("pod", pod.Name))
+					log.Info(ctx, "skipping debug bindary for pod with empty IP", zap.String("pod", pod.Name))
 					continue
 				}
 				if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "binary"), func(w io.Writer) (retErr error) {
@@ -542,7 +528,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 }
 
 func (s *debugServer) kubeLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) (retErr error) {
-	ctx, end := log.SpanContext(ctx, "collectLokiLogs")
+	ctx, end := log.SpanContext(ctx, "collectKubeLogs")
 	defer end(log.Errorp(&retErr))
 	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
 	defer c()
@@ -604,49 +590,83 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 	})
 }
 
-// TODO: merge this with writeProfile()
-// func collectProfileFunc(profile *debug.Profile) {
-// 	func(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
-// 		switch profile.GetName() {
-// 		case "cover":
-// 			var errs error
-// 			// "go tool covdata" relies on these files being named the same as what is
-// 			// written out automatically.  See go/src/runtime/coverage/emit.go.
-// 			// (covcounters.<16 byte hex-encoded hash that nothing checks>.<pid>.<unix
-// 			// nanos>, covmeta.<same hash>.)
-// 			hash := [16]byte{}
-// 			if _, err := rand.Read(hash[:]); err != nil {
-// 				return errors.Wrap(err, "generate random coverage id")
-// 			}
-// 			if err := collectDebugFile(tw, fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), "", coverage.WriteCounters, prefix...); err != nil {
-// 				multierr.AppendInto(&errs, errors.Wrap(err, "counters"))
-// 			}
-// 			if err := collectDebugFile(tw, fmt.Sprintf("cover/covmeta.%x", hash), "", coverage.WriteMeta, prefix...); err != nil {
-// 				multierr.AppendInto(&errs, errors.Wrap(err, "meta"))
-// 			}
-// 			if errs == nil {
-// 				log.Debug(ctx, "clearing coverage counters")
-// 				if err := coverage.ClearCounters(); err != nil {
-// 					log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
-// 				}
-// 			}
-// 			return errs
-// 		default:
-// 			//return collectProfile(ctx, tw, profile, prefix...)
-// 			return nil
-// 		}
-// 	}
-// }
+func collectProfle(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container, profile string) error {
+	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, profile), func(w io.Writer) (retErr error) {
+		req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
+		if app.Name == "pachd" {
+			if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, "go_info.txt"), func(w io.Writer) error {
+				fmt.Fprintf(w, "build info: ")
+				info, ok := runtimedebug.ReadBuildInfo()
+				if ok {
+					fmt.Fprintf(w, "%s", info.String())
+				} else {
+					fmt.Fprint(w, "<no build info>")
+				}
+				fmt.Fprintf(w, "GOOS: %v\nGOARCH: %v\nGOMAXPROCS: %v\nNumCPU: %v\n", runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), runtime.NumCPU())
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "go info")
+			}
+			if profile == "cover" {
+				return errors.Wrap(collectProfileCover(ctx, dfs), "collect profile cover")
+			}
+			return errors.Wrap(writeProfile(ctx, w, req.Profile), "write profile")
+		}
+		c, err := workerserver.NewClient(pod.Ip)
+		if err != nil {
+			return errors.Wrapf(err, "worker client for %q at %q", pod.Name, pod.Ip)
+		}
+		prof, err := c.Profile(ctx, req)
+		if err != nil {
+			return errors.Wrapf(err, "collect profile %q for %q at %q", profile, pod.Name, pod.Ip)
+		}
+		r := grpcutil.NewStreamingBytesReader(prof, nil)
+		defer func() {
+			if err := r.Close(); err != nil {
+				errors.JoinInto(&retErr, errors.Wrapf(err, "close profile writer for pod %q; profile %q", pod.Name, profile))
+			}
+		}()
+		_, err = io.Copy(w, r)
+		return err
+	}); err != nil {
+		return errors.Wrapf(err, "collect profile %q", profile)
+	}
+	return nil
+}
 
-func collectProfile(ctx context.Context, dir string, profile *debug.Profile) error {
-	return collectDebugFile(dir, profile.Name, func(w io.Writer) error {
-		return writeProfile(ctx, w, profile)
-	})
+func collectProfileCover(ctx context.Context, dfs DumpFS) error {
+	var errs error
+	// "go tool covdata" relies on these files being named the same as what is
+	// written out automatically. See go/src/runtime/coverage/emit.go.
+	// (covcounters.<16 byte hex-encoded hash that nothing checks>.<pid>.<unix
+	// nanos>, covmeta.<same hash>.)
+	hash := [16]byte{}
+	if _, err := rand.Read(hash[:]); err != nil {
+		return errors.Wrap(err, "generate random coverage id")
+	}
+	if err := dfs.Write(fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), func(w io.Writer) error {
+		return errors.Wrap(coverage.WriteCounters(w), "counters")
+	}); err != nil {
+		errors.JoinInto(&errs, err)
+	}
+	if err := dfs.Write(fmt.Sprintf("cover/covmeta.%x", hash), func(w io.Writer) error {
+		return errors.Wrap(coverage.WriteMeta(w), "meta")
+	}); err != nil {
+		errors.JoinInto(&errs, err)
+	}
+	if errs == nil {
+		log.Debug(ctx, "clearing coverage counters")
+		if err := coverage.ClearCounters(); err != nil {
+			log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
+		}
+	}
+	return errs
 }
 
 func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (retErr error) {
 	defer log.Span(ctx, "writeProfile", zap.String("profile", profile.GetName()))(log.Errorp(&retErr))
-	if profile.Name == "cpu" {
+	switch profile.GetName() {
+	case "cpu":
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -669,12 +689,13 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (ret
 		case <-t.C:
 			return nil
 		}
+	default:
+		p := pprof.Lookup(profile.Name)
+		if p == nil {
+			return errors.Errorf("unable to find profile %q", profile.Name)
+		}
+		return errors.EnsureStack(p.WriteTo(w, 0))
 	}
-	p := pprof.Lookup(profile.Name)
-	if p == nil {
-		return errors.Errorf("unable to find profile %q", profile.Name)
-	}
-	return errors.EnsureStack(p.WriteTo(w, 0))
 }
 
 func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_BinaryServer) (retErr error) {
@@ -848,22 +869,9 @@ func collectGraph(dfs DumpFS, path, XAxisName string, series []chart.Series, pre
 	})
 }
 
-func collectGoInfo(dir string) error {
-	return collectDebugFile(dir, "go_info.txt", func(w io.Writer) error {
-		fmt.Fprintf(w, "build info: ")
-		info, ok := runtimedebug.ReadBuildInfo()
-		if ok {
-			fmt.Fprintf(w, "%s", info.String())
-		} else {
-			fmt.Fprint(w, "<no build info>")
-		}
-		fmt.Fprintf(w, "GOOS: %v\nGOARCH: %v\nGOMAXPROCS: %v\nNumCPU: %v\n", runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), runtime.NumCPU())
-		return nil
-	})
-}
-
-func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachClient *client.APIClient) error {
-	return dfs.Write("/pachd/version.txt", func(w io.Writer) error {
+func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachClient *client.APIClient, rp incProgressFunc) error {
+	defer rp(ctx)
+	return dfs.Write("/version.txt", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -1008,24 +1016,6 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debu
 		}
 		return nil
 	})
-}
-
-// collectDump is done on the pachd side, AND by the workers by them.
-func collectDump(ctx context.Context, dir string) (_ string, retErr error) {
-	defer log.Span(ctx, "collectDump", zap.String("path", dir))(log.Errorp(&retErr))
-	// Collect go info.
-	if err := collectGoInfo(dir); err != nil {
-		return dir, err
-	}
-	// Goroutine profile.
-	if err := collectProfile(ctx, dir, &debug.Profile{Name: "goroutine"}); err != nil {
-		return dir, err
-	}
-	// Heap profile.
-	if err := collectProfile(ctx, dir, &debug.Profile{Name: "heap"}); err != nil {
-		return dir, err
-	}
-	return dir, nil
 }
 
 func (s *debugServer) collectPipeline(ctx context.Context, dfs DumpFS, p *pps.Pipeline, limit int64) (retErr error) {

@@ -2,7 +2,6 @@ package server
 
 import (
 	"archive/tar"
-	"bufio"
 	"compress/gzip"
 	"io"
 	"os"
@@ -29,12 +28,12 @@ func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 
 type DumpFS interface {
 	Write(string, func(io.Writer) error) error
-	WritePrefix(string)
+	WithPrefix(string) DumpFS
 }
 
 type dumpFS struct {
-	hiddenDir   string
-	writePrefix string
+	hiddenDir string
+	prefix    string
 }
 
 func NewDumpFS(mountPath string) *dumpFS {
@@ -42,7 +41,7 @@ func NewDumpFS(mountPath string) *dumpFS {
 }
 
 func (dfs *dumpFS) Write(path string, cb func(io.Writer) error) (retErr error) {
-	fullPath := filepath.Join(dfs.hiddenDir, dfs.writePrefix, path)
+	fullPath := filepath.Join(dfs.hiddenDir, dfs.prefix, path)
 	realDir := filepath.Dir(fullPath)
 	if err := os.MkdirAll(realDir, 0744); err != nil && !os.IsExist(err) {
 		return errors.Wrapf(err, "mkdir %q", realDir)
@@ -55,35 +54,11 @@ func (dfs *dumpFS) Write(path string, cb func(io.Writer) error) (retErr error) {
 		closeErr := errors.Wrapf(f.Close(), "close file %q", fullPath)
 		errors.JoinInto(&retErr, closeErr)
 	}()
-	w := bufio.NewWriter(f)
-	if err := cb(w); err != nil {
-		return errors.Wrapf(err, "write to file %q", fullPath)
-	}
-	return errors.Wrapf(w.Flush(), "flush file %q", fullPath)
+	return errors.Wrapf(cb(f), "write to file %q", fullPath)
 }
 
-func (dfs *dumpFS) WritePrefix(prefix string) {
-	dfs.writePrefix = prefix
-}
-
-func collectDebugFile(dir string, name string, cb func(io.Writer) error) (retErr error) {
-	if err := os.MkdirAll(dir, 0744); err != nil && !os.IsExist(err) {
-		return errors.Wrapf(err, "mkdir %q", dir)
-	}
-	path := filepath.Join(dir, name)
-	f, err := os.Create(path)
-	if err != nil {
-		return errors.Wrapf(err, "create file %q", path)
-	}
-	defer func() {
-		closeErr := errors.Wrapf(f.Close(), "close file %q", path)
-		errors.JoinInto(&retErr, closeErr)
-	}()
-	w := bufio.NewWriter(f)
-	if err := cb(w); err != nil {
-		return errors.Wrapf(err, "write to file %q", path)
-	}
-	return errors.Wrapf(w.Flush(), "flush file %q", path)
+func (dfs *dumpFS) WithPrefix(prefix string) DumpFS {
+	return &dumpFS{hiddenDir: dfs.hiddenDir, prefix: prefix}
 }
 
 func writeErrorFile(dir string, err error) error {

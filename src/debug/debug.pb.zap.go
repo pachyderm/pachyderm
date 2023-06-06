@@ -179,9 +179,15 @@ func (x *System) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddBool("version", x.Version)
 	enc.AddBool("helm", x.Helm)
 	enc.AddBool("database", x.Database)
+	versionsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Versions {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("versions", zapcore.ArrayMarshalerFunc(versionsArrMarshaller))
 	describesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Describes {
 			enc.AppendObject(v)

@@ -95,9 +95,9 @@ message App {
 }
 
 message System {
-  bool version = 1;
-  bool helm = 2;
-  bool database = 3;
+  bool helm = 1;
+  bool database = 2;
+  repeated App versions = 3;
   repeated App describes = 4;
   repeated App logs = 5;  
   repeated App loki_logs = 6;
