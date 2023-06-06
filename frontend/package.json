@@ -151,7 +151,7 @@
     "ts-node": "10.9.1",
     "tsconfig-paths": "4.1.1",
     "typescript": "4.6.2",
-    "vite": "4.3.4",
+    "vite": "4.3.9",
     "vite-dts": "^1.0.4",
     "vite-plugin-ejs": "1.6.4",
     "vite-plugin-environment": "1.1.3",
