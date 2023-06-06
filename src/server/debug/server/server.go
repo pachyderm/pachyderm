@@ -118,7 +118,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 			System: &debug.System{
 				Helm:      true,
 				Database:  true,
-				Versions:  pachApps,
+				Version:   true,
 				Describes: apps,
 				Logs:      apps,
 				LokiLogs:  lokiApps,
@@ -185,7 +185,6 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 // TODO
 // remove pods from templates?
 // top level errors colliding?
-// update tests
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
 	return s.dump(s.env.GetPachClient(server.Context()), server, s.makeTasks(server.Context(), request, server))
 }
@@ -211,20 +210,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 				return s.collectDatabaseDump(ctx, dfs.WithPrefix(databasePrefix), server)
 			})
 		}
-		if len(sys.Versions) > 0 {
+		if sys.Version {
 			// this section needs some work to work for more than just this pachd
-			rp := recordProgress(server, "version", len(sys.Versions))
-			for _, app := range sys.Versions {
-				for _, pod := range app.Pods {
-					if app.Name == "pachd" {
-						func(app *debug.App) {
-							ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-								return s.collectPachdVersion(ctx, dfs.WithPrefix(fmt.Sprintf("/pachd/%s/pachd", pod.Name)), s.env.GetPachClient(ctx), rp)
-							})
-						}(app)
-					}
-				}
-			}
+			rp := recordProgress(server, "version", 1)
+			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
+				return s.collectPachdVersion(ctx, dfs.WithPrefix(fmt.Sprintf("/pachd/%s/pachd", s.name)), s.env.GetPachClient(ctx), rp)
+			})
 		}
 		if len(sys.Describes) > 0 {
 			rp := recordProgress(server, "describes", len(sys.Logs))
