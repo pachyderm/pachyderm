@@ -16,6 +16,9 @@
   "[json]": {
     "editor.tabSize": 2
   },
+  "[graphql]": {
+    "editor.tabSize": 2
+  },
   "editor.detectIndentation": false,
   "editor.insertSpaces": true,
 
