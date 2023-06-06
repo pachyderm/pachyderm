@@ -375,7 +375,10 @@ workflows:
             - docker-manifest
           filters:
             branches:
-              ignore: master
+              ignore:
+                - master
+                # Match against 2.6.x, 2.7.x, etc
+                - /\d\.\d\.x/
       - test-docker-console-can-render:
           requires:
             - docker-manifest
