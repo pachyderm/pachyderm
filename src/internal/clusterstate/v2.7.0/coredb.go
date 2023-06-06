@@ -34,8 +34,8 @@ func SetupProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 			id bigserial PRIMARY KEY,
 			name text UNIQUE NOT NULL,
 			description text,
-			created_at timestamptz DEFAULT CURRENT_TIMESTAMP,
-			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP
+			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL
 		);
 	`); err != nil {
 		return errors.Wrap(err, "error creating projects table")
