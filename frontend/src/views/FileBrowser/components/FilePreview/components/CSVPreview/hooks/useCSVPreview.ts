@@ -1,5 +1,7 @@
 import {dsvFormat} from 'd3-dsv';
 import {text} from 'd3-fetch';
+import range from 'lodash/range';
+import zipObject from 'lodash/zipObject';
 import {useState, useEffect, useMemo} from 'react';
 
 const DELIMITERS = [',', '\t', ';', '|'];
@@ -14,6 +16,12 @@ interface Occurrences {
 }
 const guessBestDelimiter = (text: string) => {
   const lines = text.split('\n');
+
+  // Handle a file without newlines
+  if (lines.length === 1) {
+    lines.push('');
+  }
+
   const occurrencesByLine = lines
     .slice(0, Math.min(lines.length - 1, 10))
     .reduce((memo: Occurrences, line, index) => {
@@ -73,6 +81,19 @@ const useCSVPreview = ({downloadLink}: FilePreviewProps) => {
   useEffect(() => {
     const format = dsvFormat(delimiter);
     const parsedData = format.parse(rawData);
+
+    // Handle a single line csv file
+    if (
+      parsedData &&
+      parsedData.length === 0 &&
+      parsedData.columns.length > 0
+    ) {
+      parsedData.push(
+        // Use the array index + 1 as the column header and object key
+        zipObject(range(1, parsedData.columns.length + 1), parsedData.columns),
+      );
+    }
+
     parsedData && setData(parsedData);
   }, [rawData, delimiter]);
 
