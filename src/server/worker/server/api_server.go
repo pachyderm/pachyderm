@@ -20,6 +20,8 @@ type WorkerInterface interface {
 
 // APIServer implements the worker API
 type APIServer struct {
+	workerapi.UnimplementedWorkerServer
+
 	driver          driver.Driver
 	workerInterface WorkerInterface
 	workerName      string // The k8s pod name of this worker

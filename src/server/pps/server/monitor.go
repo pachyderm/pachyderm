@@ -9,10 +9,6 @@ import (
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -25,6 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // startMonitor starts a new goroutine running monitorPipeline for
@@ -387,8 +385,6 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 		// get cron start time to compare if previous start time was updated
 		startTime := in.Cron.Start.AsTime()
 		// return latest time from filename if start time cannot be determined
-
-		//nolint:wrapcheck
 
 		if latestTime.After(startTime) {
 			return latestTime, nil

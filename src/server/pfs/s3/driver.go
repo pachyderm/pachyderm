@@ -1,7 +1,5 @@
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
-//
-//nolint:wrapcheck
 package s3
 
 import (
@@ -17,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/s2"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Bucket represents an S3 bucket

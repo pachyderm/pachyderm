@@ -4,7 +4,6 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -91,10 +90,10 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 		var oldTime, newTime time.Time
 		if oldHead != nil && oldHead.Finishing != nil {
-			oldTime := oldHead.Finishing.AsTime()
+			oldTime = oldHead.Finishing.AsTime()
 		}
 		if newHead.Finishing != nil {
-			newTime := newHead.Finishing.AsTime()
+			newTime = newHead.Finishing.AsTime()
 		}
 		merge(schedule.Next(oldTime).Before(newTime))
 	}

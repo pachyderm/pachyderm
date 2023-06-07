@@ -14,7 +14,6 @@ import (
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {

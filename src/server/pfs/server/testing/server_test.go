@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -5975,7 +5974,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		ri, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
-		created := timestamppb.New(ri.Created)
+		created := ri.Created.AsTime()
 		desc := "foo"
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(
 			env.PachClient.Ctx(),
@@ -6570,7 +6569,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "test"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "test", "master", "", "", &pfs.Trigger{
 				Branch: "staging",
-				Size_:  "1B",
+				Size:   "1B",
 			}))
 			require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "test", "staging", ""), "file", strings.NewReader("small")))
 		})
@@ -6579,7 +6578,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "in"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
-				Size_:  "1K",
+				Size:   "1K",
 			}))
 			inCommit := client.NewCommit(pfs.DefaultProjectName, "in", "master", "")
 			bis, err := c.ListBranch(pfs.DefaultProjectName, "in")
@@ -6591,7 +6590,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "out", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
-				Size_:  "1K",
+				Size:   "1K",
 			}))
 			// Write a small file, too small to trigger
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader("small")))
@@ -6742,7 +6741,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "or", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *",
-				Size_:    "100",
+				Size:     "100",
 				Commits:  3,
 			}))
 			orCommit := client.NewCommit(pfs.DefaultProjectName, "or", "master", "")
@@ -6817,7 +6816,7 @@ func TestPFS(suite *testing.T) {
 				Branch:   "master",
 				All:      true,
 				CronSpec: "* * * * *",
-				Size_:    "100",
+				Size:     "100",
 				Commits:  3,
 			}))
 			andCommit := client.NewCommit(pfs.DefaultProjectName, "and", "master", "")
@@ -6890,11 +6889,11 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "chain"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "chain", "b", "", "", &pfs.Trigger{
 				Branch: "a",
-				Size_:  "100",
+				Size:   "100",
 			}))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "chain", "c", "", "", &pfs.Trigger{
 				Branch: "b",
-				Size_:  "200",
+				Size:   "200",
 			}))
 			aCommit := client.NewCommit(pfs.DefaultProjectName, "chain", "a", "")
 			// Triggers nothing
@@ -6972,7 +6971,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "branch-movement"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",
-				Size_:  "100",
+				Size:   "100",
 			}))
 			moveCommit := client.NewCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
 
@@ -7018,17 +7017,17 @@ func TestPFS(suite *testing.T) {
 		// Must specify a branch
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "master", "", "", &pfs.Trigger{
 			Branch: "",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// Can't trigger a branch on itself
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "master", "", "", &pfs.Trigger{
 			Branch: "master",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// Size doesn't parse
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "trigger", "", "", &pfs.Trigger{
 			Branch: "master",
-			Size_:  "this is not a size",
+			Size:   "this is not a size",
 		}))
 		// Can't have negative commit count
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "trigger", "", "", &pfs.Trigger{
@@ -7039,12 +7038,12 @@ func TestPFS(suite *testing.T) {
 		// a -> b (valid, sets up the next test)
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "b", "", "", &pfs.Trigger{
 			Branch: "a",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// Can't have circular triggers
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "a", "", "", &pfs.Trigger{
 			Branch: "b",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// CronSpec doesn't parse
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "trigger", "", "", &pfs.Trigger{
@@ -7058,7 +7057,7 @@ func TestPFS(suite *testing.T) {
 				Branch: client.NewBranch(pfs.DefaultProjectName, "repo", "master"),
 				Trigger: &pfs.Trigger{
 					Branch: "master",
-					Size_:  "1K",
+					Size:   "1K",
 				},
 				Provenance: []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")},
 			})

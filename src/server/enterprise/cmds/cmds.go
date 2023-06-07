@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func getIsActiveContextEnterpriseServer() (bool, error) {

@@ -3,7 +3,6 @@ package datum
 import (
 	"archive/tar"
 	"io"
-	"io/ioutil"
 	"path"
 	"strings"
 
@@ -122,7 +121,7 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			return errors.Wrap(err, "next")
 		}
 		meta := &Meta{}
-		content, err := ioutil.ReadAll(tr)
+		content, err := io.ReadAll(tr)
 		if err != nil {
 			return errors.Wrapf(err, "read file %v", hdr.Name)
 		}

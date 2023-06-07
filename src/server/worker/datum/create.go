@@ -419,7 +419,7 @@ func deserializeKeyTaskResult(taskAny *anypb.Any) (*KeyTaskResult, error) {
 }
 
 func serializeMergeTask(task *MergeTask) (*anypb.Any, error) {
-	return anypb.New()
+	return anypb.New(task)
 }
 
 func deserializeMergeTaskResult(taskAny *anypb.Any) (*MergeTaskResult, error) {

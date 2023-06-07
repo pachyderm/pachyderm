@@ -790,7 +790,14 @@ func (s *debugServer) collectCommits(rctx context.Context, dfs DumpFS, pachClien
 				finishing.XValues = append(finishing.XValues, float64(len(finishing.XValues)+1))
 				finishing.YValues = append(finishing.YValues, float64(finishingDuration))
 			}
-			return errors.EnsureStack(s.marshaller.Marshal(w, ci))
+			b, err := s.marshaller.Marshal(ci)
+			if err != nil {
+				return errors.Wrap(err, "marshal")
+			}
+			if _, err := w.Write(b); err != nil {
+				return errors.Wrap(err, "write")
+			}
+			return nil
 		})
 	}); err != nil {
 		return err
@@ -1019,8 +1026,12 @@ func (s *debugServer) collectPipeline(ctx context.Context, dfs DumpFS, p *pps.Pi
 		}
 		var pipelineErrs error
 		for _, fullPipelineInfo := range fullPipelineInfos {
-			if err := s.marshaller.Marshal(w, fullPipelineInfo); err != nil {
+			bs, err := s.marshaller.Marshal(fullPipelineInfo)
+			if err != nil {
 				errors.JoinInto(&pipelineErrs, errors.Wrapf(err, "marshalFullPipelineInfo(%s)", fullPipelineInfo.GetPipeline()))
+			}
+			if _, err := w.Write(bs); err != nil {
+				errors.JoinInto(&pipelineErrs, errors.Wrapf(err, "marshalFullPipelineInfo(%s).Write", fullPipelineInfo.GetPipeline()))
 			}
 		}
 		return nil
@@ -1225,7 +1236,14 @@ func (s *debugServer) collectJobs(dfs DumpFS, pachClient *client.APIClient, pipe
 				upload.XValues = append(upload.XValues, float64(len(upload.XValues)+1))
 				upload.YValues = append(upload.YValues, float64(uploadDuration))
 			}
-			return errors.EnsureStack(s.marshaller.Marshal(w, ji))
+			b, err := s.marshaller.Marshal(ji)
+			if err != nil {
+				return errors.Wrap(err, "marshal")
+			}
+			if _, err := w.Write(b); err != nil {
+				return errors.Wrap(err, "write")
+			}
+			return nil
 		})
 	}); err != nil {
 		return err

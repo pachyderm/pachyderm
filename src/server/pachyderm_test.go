@@ -10184,7 +10184,7 @@ func TestTrigger(t *testing.T) {
 		},
 		client.NewPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 			Branch: "master",
-			Size_:  "1K",
+			Size:   "1K",
 		}),
 		"",
 		false,
@@ -10200,7 +10200,7 @@ func TestTrigger(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Size_: "2K",
+			Size: "2K",
 		}),
 		"",
 		false,
@@ -10266,7 +10266,7 @@ func TestTrigger(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Size_: "3K",
+			Size: "3K",
 		}),
 		"",
 		true,

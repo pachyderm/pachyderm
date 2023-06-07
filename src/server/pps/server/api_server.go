@@ -1902,12 +1902,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.OutputBranch == "" {
 		return errors.New("pipeline needs to specify an output branch")
 	}
-	if pipelineInfo.Details.JobTimeout != nil {
-		_ := pipelineInfo.Details.JobTimeout.AsDuration()
-	}
-	if pipelineInfo.Details.DatumTimeout != nil {
-		_ := pipelineInfo.Details.DatumTimeout.AsDuration()
-	}
 	if pipelineInfo.Details.PodSpec != "" && !json.Valid([]byte(pipelineInfo.Details.PodSpec)) {
 		return errors.Errorf("malformed PodSpec")
 	}
@@ -2491,7 +2485,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	pps.SortInput(input)
-	now := time.Now()
 	nCreatedBranches := make(map[string]int)
 	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {

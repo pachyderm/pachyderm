@@ -96,12 +96,12 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		for _, c := range connectors {
 			if oc, ok := oldCons[c.Id]; ok {
 				c.ConfigVersion = oc.ConfigVersion + 1
-				if _, err := a.updateIDPConnector(ctx, &identity.UpdateIDPConnectorRequest{Connector: &c}); err != nil {
+				if _, err := a.updateIDPConnector(ctx, &identity.UpdateIDPConnectorRequest{Connector: c}); err != nil {
 					return errors.Wrapf(err, "update connector with ID: %q", c.Id)
 				}
 				delete(oldCons, c.Id)
 			} else {
-				if _, err := a.createIDPConnector(ctx, &identity.CreateIDPConnectorRequest{Connector: &c}); err != nil {
+				if _, err := a.createIDPConnector(ctx, &identity.CreateIDPConnectorRequest{Connector: c}); err != nil {
 					return errors.Wrapf(err, "create connector with ID: %q", c.Id)
 				}
 			}
