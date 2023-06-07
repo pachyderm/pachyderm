@@ -2,12 +2,16 @@ package v2_7_0
 
 import (
 	"context"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func setupAll(ctx context.Context, tx *pachsql.Tx) error {
+func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS core;`); err != nil {
 		return errors.Wrap(err, "error creating core schema")
 	}
@@ -46,6 +50,34 @@ func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
 	`); err != nil {
 		return errors.Wrap(err, "error creating set_updated_at trigger")
+	}
+	return nil
+}
+
+func migrateProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
+	selectTimestampsStmt, err := tx.Preparex("SELECT createdat, updatedat FROM collections.projects WHERE key = $1")
+	if err != nil {
+		return errors.Wrap(err, "error preparing select timestamps statement")
+	}
+	insertStmt, err := tx.Preparex("INSERT INTO core.projects(name, description, created_at, updated_at) VALUES($1, $2, $3, $4)")
+	if err != nil {
+		return errors.Wrap(err, "error preparing insert projects statement")
+	}
+	defer insertStmt.Close()
+
+	projects := pfsdb.Projects(nil, nil).ReadWrite(tx)
+	projectInfo := &pfs.ProjectInfo{}
+	if err := projects.List(projectInfo, &collection.Options{Target: collection.SortByCreateRevision, Order: collection.SortAscend}, func(string) error {
+		var createdAt, updatedAt time.Time
+		if err := selectTimestampsStmt.QueryRowContext(ctx, projectInfo.Project.Name).Scan(&createdAt, &updatedAt); err != nil {
+			return errors.Wrap(err, "error scanning timestamps")
+		}
+		if _, err := insertStmt.ExecContext(ctx, projectInfo.Project.Name, projectInfo.Description, createdAt, updatedAt); err != nil {
+			return errors.Wrap(err, "error inserting project")
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "error listing projects")
 	}
 	return nil
 }
