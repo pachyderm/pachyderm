@@ -38,6 +38,7 @@ type mockInspectCluster struct{ handler inspectClusterFunc }
 func (mock *mockInspectCluster) Use(cb inspectClusterFunc) { mock.handler = cb }
 
 type adminServerAPI struct {
+	admin.UnimplementedAPIServer
 	mock *mockAdminServer
 }
 
@@ -268,6 +269,7 @@ func (mock *mockGetPermissionsInTransaction) Use(cb getPermissionsInTransactionF
 }
 
 type authServerAPI struct {
+	auth.UnimplementedAPIServer
 	mock *mockAuthServer
 }
 
@@ -631,6 +633,7 @@ func (mock *mockHeartbeatLicense) Use(cb heartbeatLicenseFunc)                 {
 func (mock *mockListUserClusters) Use(cb listUserClustersFunc)                 { mock.handler = cb }
 
 type licenseServerAPI struct {
+	license.UnimplementedAPIServer
 	mock *mockLicenseServer
 }
 
@@ -754,6 +757,7 @@ func (mock *mockDeleteOIDCClient) Use(cb deleteOIDCClientFunc)               { m
 func (mock *mockDeleteAll) Use(cb deleteAllFunc)                             { mock.handler = cb }
 
 type identityServerAPI struct {
+	identity.UnimplementedAPIServer
 	mock *mockIdentityServer
 }
 
@@ -884,6 +888,7 @@ func (mock *mockPauseStatus) Use(cb pauseStatusFunc)                   { mock.ha
 func (mock *mockUnpause) Use(cb unpauseFunc)                           { mock.handler = cb }
 
 type enterpriseServerAPI struct {
+	enterprise.UnimplementedAPIServer
 	mock *mockEnterpriseServer
 }
 
@@ -1101,6 +1106,7 @@ func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handle
 func (mock *mockEgress) Use(cb egressFunc)                         { mock.handler = cb }
 
 type pfsServerAPI struct {
+	pfs.UnimplementedAPIServer
 	mock *mockPFSServer
 }
 
@@ -1557,6 +1563,7 @@ func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.
 func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.handler = cb }
 
 type ppsServerAPI struct {
+	pps.UnimplementedAPIServer
 	mock *mockPPSServer
 }
 
@@ -1823,6 +1830,7 @@ func (mock *mockFinishTransaction) Use(cb finishTransactionFunc)       { mock.ha
 func (mock *mockDeleteAllTransaction) Use(cb deleteAllTransactionFunc) { mock.handler = cb }
 
 type transactionServerAPI struct {
+	transaction.UnimplementedAPIServer
 	mock *mockTransactionServer
 }
 
@@ -1889,6 +1897,7 @@ type mockGetVersion struct{ handler getVersionFunc }
 func (mock *mockGetVersion) Use(cb getVersionFunc) { mock.handler = cb }
 
 type versionServerAPI struct {
+	version.UnimplementedAPIServer
 	mock *mockVersionServer
 }
 
@@ -1913,6 +1922,7 @@ type mockListen struct{ handler listenFunc }
 func (mock *mockListen) Use(cb listenFunc) { mock.handler = cb }
 
 type proxyServerAPI struct {
+	proxy.UnimplementedAPIServer
 	mock *mockProxyServer
 }
 

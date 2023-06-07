@@ -100,6 +100,8 @@ var (
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
+	pps.UnimplementedAPIServer
+
 	etcdPrefix            string
 	env                   Env
 	txnEnv                *txnenv.TransactionEnv

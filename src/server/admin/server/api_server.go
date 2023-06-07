@@ -53,6 +53,7 @@ func NewAPIServer(env Env) APIServer {
 }
 
 type apiServer struct {
+	admin.UnimplementedAPIServer
 	clusterInfo *admin.ClusterInfo
 }
 

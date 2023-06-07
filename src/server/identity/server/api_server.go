@@ -22,6 +22,7 @@ const (
 )
 
 type apiServer struct {
+	identity.UnimplementedAPIServer
 	env Env
 	api *dexAPI
 }

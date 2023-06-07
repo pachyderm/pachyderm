@@ -12,6 +12,8 @@ import (
 )
 
 type apiServer struct {
+	transaction.UnimplementedAPIServer
+
 	driver *driver
 }
 

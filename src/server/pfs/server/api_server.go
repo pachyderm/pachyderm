@@ -42,6 +42,7 @@ import (
 // occur in the 'driver' code, and this layer serves to translate the protobuf
 // request structures into normal function calls.
 type apiServer struct {
+	pfs.UnimplementedAPIServer
 	env    Env
 	driver *driver
 }

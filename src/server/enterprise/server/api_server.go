@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -47,6 +48,8 @@ const (
 )
 
 type apiServer struct {
+	enterprise.UnimplementedAPIServer
+
 	env *Env
 
 	enterpriseTokenCache *keycache.Cache

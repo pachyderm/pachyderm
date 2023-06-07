@@ -26,8 +26,9 @@ const (
 )
 
 type apiServer struct {
-	env *Env
+	lc.UnimplementedAPIServer
 
+	env *Env
 	// license is the database record where we store the active enterprise license
 	license col.PostgresCollection
 }

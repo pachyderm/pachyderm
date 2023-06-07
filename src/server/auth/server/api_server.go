@@ -12,7 +12,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.uber.org/zap"
 
@@ -58,6 +57,8 @@ var DefaultOIDCConfig = auth.OIDCConfig{}
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
+	auth.UnimplementedAPIServer
+
 	env Env
 
 	configCache             *keycache.Cache
