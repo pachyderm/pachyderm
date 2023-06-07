@@ -5,9 +5,12 @@ package pfs
 import (
 	"testing"
 
+	"google.golang.org/grpc/status"
+
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func TestErrorMatching(t *testing.T) {
@@ -24,3 +27,7 @@ func TestErrorMatching(t *testing.T) {
 	require.False(t, IsCommitFinishedErr(ErrCommitDeleted{c}))
 	require.True(t, IsCommitFinishedErr(ErrCommitFinished{c}))
 }
+
+type grpcStatus interface{ GRPCStatus() *status.Status }
+
+var _ grpcStatus = ErrCommitNotFinished{}

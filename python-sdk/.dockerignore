@@ -1,0 +1,5 @@
+# Ignore everything
+*
+
+# Allow specified files and directories.
+!entrypoint.sh
