@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -183,9 +184,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		}
 	}
 
-	cloned := proto.Clone(cachedConfig).(*Config)
-	// In the case of an empty map, `proto.Clone` clones `Contexts` as nil. This
-	// fixes the issue.
+	cloned := protoutil.Clone(cachedConfig)
 	if cloned.V2.Contexts == nil {
 		cloned.V2.Contexts = map[string]*Context{}
 	}
