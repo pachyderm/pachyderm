@@ -40,7 +40,7 @@ func NewDumpFS(mountPath string) *dumpFS {
 	return &dumpFS{hiddenDir: mountPath}
 }
 
-func (dfs *dumpFS) Write(path string, cb func(io.Writer) error) (retErr error) {
+func (dfs *dumpFS) Write(path string, cb func(io.Writer) error) error {
 	fullPath := filepath.Join(dfs.hiddenDir, dfs.prefix, path)
 	realDir := filepath.Dir(fullPath)
 	if err := os.MkdirAll(realDir, 0744); err != nil && !os.IsExist(err) {
@@ -50,22 +50,32 @@ func (dfs *dumpFS) Write(path string, cb func(io.Writer) error) (retErr error) {
 	if err != nil {
 		return errors.Wrapf(err, "create file %q", fullPath)
 	}
-	defer func() {
-		closeErr := errors.Wrapf(f.Close(), "close file %q", fullPath)
-		errors.JoinInto(&retErr, closeErr)
+	return func() (retErr error) {
+		defer func() {
+			closeErr := errors.Wrapf(f.Close(), "close file %q", fullPath)
+			errors.JoinInto(&retErr, closeErr)
+			if retErr != nil {
+				rmErr := errors.Wrapf(os.Remove(fullPath), "cleanup file %q", fullPath)
+				errors.JoinInto(&retErr, rmErr)
+			}
+		}()
+		return cb(f)
 	}()
-	return errors.Wrapf(cb(f), "write to file %q", fullPath)
 }
 
 func (dfs *dumpFS) WithPrefix(prefix string) DumpFS {
 	return &dumpFS{hiddenDir: dfs.hiddenDir, prefix: prefix}
 }
 
-func writeErrorFile(dir string, err error) error {
+func writeErrorFile(dfs DumpFS, err error, prefix string) error {
+	path := filepath.Join(prefix, "error.txt")
 	return errors.Wrapf(
-		os.WriteFile(filepath.Join(dir, "error.txt"), []byte(err.Error()+"\n"), 0666),
+		dfs.Write(path, func(w io.Writer) error {
+			_, err := w.Write([]byte(err.Error() + "\n"))
+			return err
+		}),
 		"failed to upload error file %q with message %q",
-		filepath.Join(dir, "error.txt"),
+		path,
 		err.Error(),
 	)
 }

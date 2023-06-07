@@ -202,7 +202,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 	if sys := request.System; sys != nil {
 		if sys.Helm {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				return s.collectHelm(ctx, dfs.WithPrefix("helm"), server)
+				return s.collectHelm(ctx, dfs, server)
 			})
 		}
 		if sys.Database {
@@ -430,6 +430,9 @@ type incProgressFunc func(context.Context)
 
 // TODO should this be sending in a goro?
 func recordProgress(server debug.Debug_DumpV2Server, task string, total int) incProgressFunc {
+	if server == nil {
+		return func(ctx context.Context) {}
+	}
 	inc := 0
 	return func(ctx context.Context) {
 		inc++
@@ -493,8 +496,9 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 								errors.JoinInto(&retErr, err)
 							}
 						}()
-						if err := f(ctx, NewDumpFS(taskDir)); err != nil {
-							if writeErr := writeErrorFile(taskDir, err); writeErr != nil {
+						dfs := NewDumpFS(taskDir)
+						if err := f(ctx, dfs); err != nil {
+							if writeErr := writeErrorFile(dfs, err, ""); writeErr != nil {
 								log.Error(taskCtx, "write error", zap.Error(writeErr))
 							}
 						}
@@ -519,28 +523,34 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 }
 
 func writeTar(ctx context.Context, w io.Writer, f func(ctx context.Context, dfs DumpFS) error) (retErr error) {
-	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
+	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes()) + string(filepath.Separator)
 	if err := os.Mkdir(dumpRoot, 0744); err != nil {
 		return errors.Wrap(err, "create dump root directory")
 	}
 	defer func() {
 		errors.JoinInto(&retErr, os.RemoveAll(dumpRoot))
 	}()
-	return withDebugWriter(w, func(tw *tar.Writer) error {
-		if err := f(ctx, NewDumpFS(dumpRoot)); err != nil {
-			return errors.Wrap(err, "write dfs to tar")
+	tw := tar.NewWriter(w)
+	defer errors.Close(&retErr, tw, "close tar writer")
+	if err := f(ctx, NewDumpFS(dumpRoot)); err != nil {
+		return errors.Wrap(err, "write dfs to tar")
+	}
+	return filepath.Walk(dumpRoot, func(path string, fi fs.FileInfo, err error) error {
+		if err != nil {
+			return errors.Wrapf(err, "walk path %q", path)
 		}
-		return filepath.Walk(dumpRoot, func(path string, fi fs.FileInfo, err error) error {
-			if err != nil {
-				return errors.Wrapf(err, "walk path %q", path)
-			}
-			if fi.IsDir() {
-				return nil
-			}
-			dest := strings.TrimPrefix(path, dumpRoot)
-			return errors.Wrapf(writeTarFile(tw, dest, path, fi), "write tar file %q", dest)
-		})
+		if fi.IsDir() {
+			return nil
+		}
+		dest := strings.TrimPrefix(path, dumpRoot)
+		return errors.Wrapf(writeTarFile(tw, dest, path, fi), "write tar file %q", dest)
 	})
+}
+
+func writeTarGz(ctx context.Context, w io.Writer, f func(ctx context.Context, dfs DumpFS) error) (retErr error) {
+	gw := gzip.NewWriter(w)
+	defer errors.Close(&retErr, gw, "close gzip writer")
+	return writeTar(ctx, w, f)
 }
 
 func (s *debugServer) kubeLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) (retErr error) {
@@ -602,7 +612,7 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
-		return errors.Wrap(writeTar(server.Context(), w, func(ctx context.Context, dfs DumpFS) error {
+		return errors.Wrap(writeTarGz(server.Context(), w, func(ctx context.Context, dfs DumpFS) error {
 			return writeProfile(ctx, dfs, request.Profile)
 		}), "collect profile")
 	})
@@ -894,7 +904,7 @@ func collectGraph(dfs DumpFS, path, XAxisName string, series []chart.Series, pre
 
 func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachClient *client.APIClient, rp incProgressFunc) error {
 	defer rp(ctx)
-	return dfs.Write("/version.txt", func(w io.Writer) error {
+	return dfs.Write("version.txt", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -916,11 +926,8 @@ func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, server debug.
 	for _, secret := range secrets.Items {
 		func() {
 			defer rp(ctx)
-			helmPath := filepath.Join("helm", secret.Name)
-			if err := handleHelmSecret(ctx, dfs, secret); err != nil {
-				if err := writeErrorFile(helmPath, err); err != nil {
-					errors.JoinInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
-				}
+			if err := handleHelmSecret(ctx, dfs.WithPrefix(filepath.Join("helm", secret.Name)), secret); err != nil {
+				errors.JoinInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
 			}
 		}()
 	}
@@ -1284,7 +1291,11 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 	// path := filepath.Join("helm", secret.Name)
 	name := secret.Name
 	if got, want := string(secret.Type), "helm.sh/release.v1"; got != want {
-		return errors.Errorf("helm-owned secret of unknown version; got %v want %v", got, want)
+		err := errors.Errorf("helm-owned secret of unknown version; got %v want %v", got, want)
+		if err := writeErrorFile(dfs, err, ""); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect secret", secret.Name))
+		}
+		return errs
 	}
 	if secret.Data == nil {
 		log.Info(ctx, "skipping helm secret with no data", zap.String("secretName", name))
@@ -1297,7 +1308,7 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 	}
 	// There are a few labels that helm adds that are interesting (the "release
 	// status").  Grab those and write to metadata.json.
-	if err := dfs.Write(filepath.Join(secret.Name, "metadata.json"), func(w io.Writer) error {
+	if err := dfs.Write("metadata.json", func(w io.Writer) error {
 		text, err := json.Marshal(secret.ObjectMeta)
 		if err != nil {
 			return errors.Wrap(err, "marshal ObjectMeta")
@@ -1309,12 +1320,13 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 	}); err != nil {
 		// We can still try to get the release JSON if the metadata doesn't marshal
 		// or write cleanly.
-		errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect metadata", name))
+		if err := writeErrorFile(dfs, err, ""); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect metadata", secret.Name))
+		}
 	}
-
 	// Get the text of the release and write it to release.json.
 	var releaseJSON []byte
-	if err := dfs.Write(filepath.Join(secret.Name, "release.json"), func(w io.Writer) error {
+	if err := dfs.Write("release.json", func(w io.Writer) error {
 		// The helm release data is base64-encoded gzipped JSON-marshalled protobuf.
 		// The base64 encoding is IN ADDITION to the base64 encoding that k8s does
 		// when serving secrets through the API; client-go removes that for us.
@@ -1324,7 +1336,6 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 			releaseJSON = nil
 			return errors.Wrap(err, "decode base64")
 		}
-
 		// Older versions of helm do not compress the data; this check is for the
 		// gzip header; if deteced, decompress.
 		if len(releaseJSON) > 3 && bytes.Equal(releaseJSON[0:3], []byte{0x1f, 0x8b, 0x08}) {
@@ -1348,7 +1359,9 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 		}
 		return nil
 	}); err != nil {
-		errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect release", name))
+		if err := writeErrorFile(dfs, err, "release"); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v: collect release", secret.Name))
+		}
 		// The next steps need the release JSON, so we have to give up if any of
 		// this failed.  Technically if the write fails, we could continue, but it
 		// doesn't seem worth the effort because the next writes are also likely to
@@ -1364,23 +1377,26 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 		Manifest string `json:"manifest"`
 	}
 	if err := json.Unmarshal(releaseJSON, &release); err != nil {
-		errors.JoinInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", name))
+		if err := writeErrorFile(dfs, err, ""); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", secret.Name))
+		}
 		return errs
 	}
-
 	// Write the manifest YAML.
-	if err := dfs.Write(filepath.Join(secret.Name, "manifest.yaml"), func(w io.Writer) error {
+	if err := dfs.Write("manifest.yaml", func(w io.Writer) error {
 		// Helm adds a newline at the end of the manifest.
 		if _, err := fmt.Fprintf(w, "%s", release.Manifest); err != nil {
 			return errors.Wrap(err, "print manifest")
 		}
 		return nil
 	}); err != nil {
-		errors.JoinInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", name))
+		if err := writeErrorFile(dfs, err, "manifest"); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", secret.Name))
+		}
 		// We can try the next step if this fails.
 	}
 	// Write values.yaml.
-	if err := dfs.Write(filepath.Join(secret.Name, "values.yaml"), func(w io.Writer) error {
+	if err := dfs.Write("values.yaml", func(w io.Writer) error {
 		b, err := yaml.Marshal(release.Config)
 		if err != nil {
 			return errors.Wrap(err, "marshal values to yaml")
@@ -1390,7 +1406,9 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 		}
 		return nil
 	}); err != nil {
-		errors.JoinInto(&errs, errors.Wrapf(err, "%v: write values.yaml", name))
+		if err := writeErrorFile(dfs, err, "values"); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v: write values.yaml", secret.Name))
+		}
 	}
 	return errs
 }
