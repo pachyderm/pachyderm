@@ -40,7 +40,7 @@ func DebugFiles(t testing.TB, projectName, repoName string) (map[string]*globlib
 		expectedFiles[pattern] = g
 		for _, container := range []string{"user", "storage"} {
 			for _, file := range []string{"logs.txt", "logs-previous**", "logs-loki.txt", "goroutine", "heap"} {
-				pattern := path.Join("/pipelines", projectName, pipeline, "pods", "*", container, file)
+				pattern := path.Join("pipelines", projectName, pipeline, "pods", "*", container, file)
 				g, err := globlib.Compile(pattern, '/')
 				require.NoError(t, err)
 				expectedFiles[pattern] = g
