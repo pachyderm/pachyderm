@@ -5,18 +5,11 @@ import (
 	"compress/gzip"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
-
-func join(names ...string) string {
-	return strings.TrimPrefix(path.Join(names...), "/")
-}
 
 func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	gw := gzip.NewWriter(w)
@@ -126,29 +119,6 @@ func validateRepoInfo(ri *pfs.RepoInfo) error {
 	}
 	if err := validateRepo(ri.Repo); err != nil {
 		return errors.Wrap(err, "invalid repo:")
-	}
-	return nil
-}
-
-func validatePipeline(p *pps.Pipeline) error {
-	if p == nil {
-		return errors.Errorf("nil pipeline")
-	}
-	if p.Name == "" {
-		return errors.Errorf("empty pipeline name")
-	}
-	if err := validateProject(p.Project); err != nil {
-		return errors.Wrapf(err, "invalid project in pipeline %q", p.Name)
-	}
-	return nil
-}
-
-func validatePipelineInfo(pi *pps.PipelineInfo) error {
-	if pi == nil {
-		return errors.Errorf("nil pipeline info")
-	}
-	if err := validatePipeline(pi.Pipeline); err != nil {
-		return errors.Wrap(err, "invalid pipeline:")
 	}
 	return nil
 }

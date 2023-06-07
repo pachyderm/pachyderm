@@ -400,7 +400,7 @@ func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 						}
 					}()
 					_, err = io.Copy(w, r)
-					return err
+					return errors.Wrap(err, "write binary")
 				}); err != nil {
 					errors.JoinInto(&errs, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
 				}
@@ -504,7 +504,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 						}
 						mu.Lock()
 						defer mu.Unlock()
-						return filepath.Walk(taskDir, func(path string, fi fs.FileInfo, err error) error {
+						err := filepath.Walk(taskDir, func(path string, fi fs.FileInfo, err error) error {
 							if err != nil {
 								return errors.Wrapf(err, "walk path %q", path)
 							}
@@ -514,6 +514,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 							dest := strings.TrimPrefix(path, taskDir)
 							return errors.Wrapf(writeTarFile(tw, dest, path, fi), "write tar file %q", dest)
 						})
+						return errors.Wrapf(err, "walk task directory %q", taskDir)
 					})
 				}(f)
 			}
@@ -535,7 +536,7 @@ func writeTar(ctx context.Context, w io.Writer, f func(ctx context.Context, dfs 
 	if err := f(ctx, NewDumpFS(dumpRoot)); err != nil {
 		return errors.Wrap(err, "write dfs to tar")
 	}
-	return filepath.Walk(dumpRoot, func(path string, fi fs.FileInfo, err error) error {
+	err := filepath.Walk(dumpRoot, func(path string, fi fs.FileInfo, err error) error {
 		if err != nil {
 			return errors.Wrapf(err, "walk path %q", path)
 		}
@@ -545,6 +546,7 @@ func writeTar(ctx context.Context, w io.Writer, f func(ctx context.Context, dfs 
 		dest := strings.TrimPrefix(path, dumpRoot)
 		return errors.Wrapf(writeTarFile(tw, dest, path, fi), "write tar file %q", dest)
 	})
+	return errors.Wrapf(err, "walk dump directory %q", dumpRoot)
 }
 
 func writeTarGz(ctx context.Context, w io.Writer, f func(ctx context.Context, dfs DumpFS) error) (retErr error) {
@@ -565,49 +567,6 @@ func (s *debugServer) kubeLogs(ctx context.Context, dfs DumpFS, app *debug.App, 
 		}
 	}
 	return nil
-}
-
-func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
-	pods, err := s.getWorkerPods(ctx, pipelineInfo)
-	if err != nil {
-		return err
-	}
-	if len(pods) == 0 {
-		return errors.Errorf("no worker pods found for pipeline %s", pipelineInfo.GetPipeline())
-	}
-	var errs error
-	for _, pod := range pods {
-		if err := cb(&pod); err != nil {
-			errors.JoinInto(&errs, errors.Wrapf(err, "forEachWorker(%s)", pod.Name))
-		}
-	}
-	return nil
-}
-
-func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
-	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
-		ctx,
-		metav1.ListOptions{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ListOptions",
-				APIVersion: "v1",
-			},
-			LabelSelector: metav1.FormatLabelSelector(
-				metav1.SetAsLabelSelector(
-					map[string]string{
-						"app":             "pipeline",
-						"pipelineProject": pipelineInfo.Pipeline.Project.Name,
-						"pipelineName":    pipelineInfo.Pipeline.Name,
-						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
-					},
-				),
-			),
-		},
-	)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return podList.Items, nil
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
@@ -652,7 +611,7 @@ func collectProfle(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.P
 			}
 		}()
 		_, err = io.Copy(w, r)
-		return err
+		return errors.Wrap(err, "write profile")
 	}); err != nil {
 		return errors.Wrapf(err, "collect profile %q", profile)
 	}
