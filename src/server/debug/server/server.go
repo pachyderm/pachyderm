@@ -462,14 +462,16 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 	defer func() {
 		errors.JoinInto(&retErr, os.RemoveAll(dumpRoot))
 	}()
-	timeout := 25 * time.Minute // If no client-side deadline set, use 25 minutes.
 	if deadline, ok := server.Context().Deadline(); ok {
 		d := time.Until(deadline)
 		// Time out our own operations at ~90% of the client-set deadline. (22 minutes of
 		// server-side processing for every 25 minutes of debug dumping.)
-		timeout = time.Duration(22) * d / time.Duration(25)
 		var cf context.CancelFunc
-		ctx, cf = context.WithTimeout(ctx, timeout)
+		ctx, cf = context.WithTimeout(ctx, time.Duration(22)*d/time.Duration(25))
+		defer cf()
+	} else {
+		var cf context.CancelFunc
+		ctx, cf = context.WithTimeout(ctx, 25*time.Minute) // If no client-side deadline set, use 25 minutes.
 		defer cf()
 	}
 	eg, ctx := errgroup.WithContext(ctx)
