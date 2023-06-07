@@ -186,7 +186,7 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 		var meta Meta
 		// kind of an abuse of the field, just stick this to key off of
 		meta.Hash = hdr.Name
-		decoder := protoutil.NewProtoJSONDecoder(tr)
+		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
 		for {
 			input := new(common.Input)
 			if err := decoder.UnmarshalNext(input); err != nil {
