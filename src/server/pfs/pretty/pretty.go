@@ -168,7 +168,7 @@ func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo, currentProject 
 func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
 		`Name: {{.Branch.Repo.Name}}@{{.Branch.Name}}{{if .Head}}
-Head Commit: {{ .Head.Branch.Repo.Name}}@{{.Head.ID}} {{end}}{{if .Provenance}}
+Head Commit: {{ .Head.Branch.Repo.Name}}@{{.Head.Id}} {{end}}{{if .Provenance}}
 Provenance: {{range .Provenance}} {{.Repo.Name}}@{{.Name}} {{end}} {{end}}{{if .Trigger}}
 Trigger: {{printTrigger .Trigger}} {{end}}
 `)
@@ -336,10 +336,10 @@ func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(w io.Writer, commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		`Commit: {{.Commit.Branch.Repo.Name}}@{{.Commit.ID}}
+		`Commit: {{.Commit.Branch.Repo.Name}}@{{.Commit.Id}}
 Original Branch: {{.Commit.Branch.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
-Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
+Parent: {{.ParentCommit.Id}}{{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}

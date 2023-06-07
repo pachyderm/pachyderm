@@ -251,7 +251,7 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo, full bool) *PrintableJobInfo {
 // PrintDetailedJobInfo pretty-prints detailed job info.
 func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
-		`ID: {{.Job.ID}}
+		`ID: {{.Job.Id}}
 Pipeline: {{.Job.Pipeline.Name}}
 Project: {{.Job.Pipeline.Project.Name}}{{if .FullTimestamps}}
 Started: {{jobStarted .Started}}{{else}}
@@ -295,7 +295,7 @@ ParallelismSpec: {{.Details.ParallelismSpec}}
 {{jobInput .}}
 Transform:
 {{prettyTransform .Details.Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
+Output Commit: {{.OutputCommit.Id}} {{end}}{{ if .Details.Egress }}
 Egress: {{egress .Details.Egress}} {{end}}
 `)
 	if err != nil {

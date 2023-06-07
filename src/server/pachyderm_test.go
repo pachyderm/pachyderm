@@ -11931,7 +11931,7 @@ func TestJQFilterInfiniteLoop(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
 	require.NoError(t, err, "could not inspect commit")
 
-	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.Id, false)
 	require.NoError(t, err, "could not wait for job")
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State, "job not successful")
 
