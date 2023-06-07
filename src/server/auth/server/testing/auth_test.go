@@ -2562,26 +2562,26 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 
 	tests := map[string]struct {
 		client         *client.APIClient
-		resource       auth.Resource
+		resource       *auth.Resource
 		expectedErrMsg string
 	}{
-		"ClusterAdminCanModifyCluster":               {clusterAdmin, clusterResource, ""},
-		"ClusterAdminCanModifyProject":               {clusterAdmin, aliceProject, ""},
-		"ClusterAdminCanModifyRepo":                  {clusterAdmin, aliceRepoInAliceProject, ""},
-		"ProjectOwnerCanModifyProject":               {aliceClient, aliceProject, ""},
-		"ProjectOwnerCanModifyAnyRepoWithinProject":  {aliceClient, bobRepoInAliceProject, ""},
-		"RepoOwnerCanModifyRepo":                     {bobClient, bobRepoInAliceProject, ""},
-		"ProjectOwnerCannotModifyProjectTheyDontOwn": {aliceClient, bobProject, "needs permissions [PROJECT_MODIFY_BINDINGS]"},
-		"ProjectOwnerCannotModifyCluster":            {aliceClient, clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
-		"RepoOwnerCannotModifyCluster":               {aliceClient, clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
-		"RepoOwnerCannotModifyRepoTheyDontOwn":       {bobClient, aliceRepoInAliceProject, "needs permissions [REPO_MODIFY_BINDINGS]"},
+		"ClusterAdminCanModifyCluster":               {clusterAdmin, &clusterResource, ""},
+		"ClusterAdminCanModifyProject":               {clusterAdmin, &aliceProject, ""},
+		"ClusterAdminCanModifyRepo":                  {clusterAdmin, &aliceRepoInAliceProject, ""},
+		"ProjectOwnerCanModifyProject":               {aliceClient, &aliceProject, ""},
+		"ProjectOwnerCanModifyAnyRepoWithinProject":  {aliceClient, &bobRepoInAliceProject, ""},
+		"RepoOwnerCanModifyRepo":                     {bobClient, &bobRepoInAliceProject, ""},
+		"ProjectOwnerCannotModifyProjectTheyDontOwn": {aliceClient, &bobProject, "needs permissions [PROJECT_MODIFY_BINDINGS]"},
+		"ProjectOwnerCannotModifyCluster":            {aliceClient, &clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
+		"RepoOwnerCannotModifyCluster":               {aliceClient, &clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
+		"RepoOwnerCannotModifyRepoTheyDontOwn":       {bobClient, &aliceRepoInAliceProject, "needs permissions [REPO_MODIFY_BINDINGS]"},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			_, err := tc.client.ModifyRoleBinding(tc.client.Ctx(), &auth.ModifyRoleBindingRequest{
 				Principal: tu.Robot("marvin"),
 				Roles:     []string{},
-				Resource:  &tc.resource,
+				Resource:  tc.resource,
 			})
 			if tc.expectedErrMsg == "" {
 				require.NoError(t, err)

@@ -4,6 +4,7 @@ package protoutil
 import (
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -32,4 +33,9 @@ func MustTimestampFromPointer(ts *time.Time) *timestamppb.Timestamp {
 		return nil
 	}
 	return timestamppb.New(*ts)
+}
+
+// Clone clones a proto in a type-safe manner.
+func Clone[T proto.Message](x T) T {
+	return proto.Clone(x).(T)
 }

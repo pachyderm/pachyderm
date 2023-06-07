@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -173,9 +174,9 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, fileset.Clean(srcPath, true))
 	})
 	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
-		idx2 := *idx
+		idx2 := protoutil.Clone(idx)
 		idx2.Path = pathTransform(idx2.Path)
-		return &idx2
+		return idx2
 	})
 	return uw.Copy(ctx, fs, tag, appendFile, index.WithPrefix(srcPath), index.WithDatum(src.Datum))
 }
