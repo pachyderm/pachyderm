@@ -46,13 +46,3 @@ updates:
     open-pull-requests-limit: 1
     pull-request-branch-name:
       separator: "-"
-  - package-ecosystem: "npm"
-    directory: "/load-tests"
-    schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
-      timezone: "America/Los_Angeles"
-    open-pull-requests-limit: 1
-    pull-request-branch-name:
-      separator: "-"
