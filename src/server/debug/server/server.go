@@ -383,7 +383,7 @@ func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 							}
 						}()
 						_, err = io.Copy(w, f)
-						return err
+						return errors.Wrap(err, "write local binary")
 					}
 					c, err := workerserver.NewClient(pod.Ip)
 					if err != nil {
@@ -487,7 +487,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 								retErr = nil
 							}
 						}()
-						taskDir := filepath.Join(dumpRoot, uuid.NewWithoutDashes())
+						taskDir := filepath.Join(dumpRoot, uuid.NewWithoutDashes()) + string(filepath.Separator)
 						if err := os.Mkdir(taskDir, 0744); err != nil {
 							return errors.Wrap(err, "create dump task sub-directory")
 						}

@@ -65,7 +65,7 @@ func writeErrorFile(dfs DumpFS, err error, prefix string) error {
 	return errors.Wrapf(
 		dfs.Write(path, func(w io.Writer) error {
 			_, err := w.Write([]byte(err.Error() + "\n"))
-			return err
+			return errors.Wrapf(err, "write error file %q", path)
 		}),
 		"failed to upload error file %q with message %q",
 		path,
