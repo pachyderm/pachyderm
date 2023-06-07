@@ -568,7 +568,7 @@ func (s *debugServer) kubeLogs(ctx context.Context, dfs DumpFS, app *debug.App, 
 			errors.JoinInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, c))
 		}
 	}
-	return nil
+	return errs
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
@@ -810,7 +810,13 @@ func (s *debugServer) collectCommits(rctx context.Context, dfs DumpFS, pachClien
 	// TODO: It would probably be better to support listing jobs in reverse order.
 	reverseContinuousSeries(compacting, validating, finishing)
 	graphPath := filepath.Join(repo.Project.Name, repo.Name, "commits-chart.png")
-	return collectGraph(dfs, graphPath, "number of commits", []chart.Series{compacting, validating, finishing})
+	if err := collectGraph(dfs, graphPath, "number of commits", []chart.Series{compacting, validating, finishing}); err != nil {
+		if writeErr := writeErrorFile(dfs, err, filepath.Join(repo.Project.Name, repo.Name, "commits-chart")); writeErr != nil {
+			errors.JoinInto(&err, writeErr)
+			return err
+		}
+	}
+	return nil
 }
 
 func reverseContinuousSeries(series ...chart.ContinuousSeries) {
@@ -821,7 +827,7 @@ func reverseContinuousSeries(series ...chart.ContinuousSeries) {
 	}
 }
 
-func collectGraph(dfs DumpFS, path, XAxisName string, series []chart.Series, prefix ...string) error {
+func collectGraph(dfs DumpFS, path, XAxisName string, series []chart.Series) error {
 	return dfs.Write(path, func(w io.Writer) error {
 		graph := chart.Chart{
 			Title: filepath.Base(path),
@@ -932,16 +938,17 @@ func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debu
 	})
 }
 
-func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container string) error {
-	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, "logs.txt"), func(w io.Writer) (retErr error) {
+func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container string) (retErr error) {
+	dir := filepath.Join(appDir(app), "pods", pod.Name, container)
+	if err := dfs.Write(filepath.Join(dir, "logs.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		defer func() {
-			if err := stream.Close(); retErr == nil {
-				retErr = err
+			if err := stream.Close(); err != nil {
+				errors.JoinInto(&retErr, err)
 			}
 		}()
 		_, err = io.Copy(w, stream)
@@ -949,21 +956,24 @@ func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.Ap
 	}); err != nil {
 		return err
 	}
-	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, "logs-previous.txt"), func(w io.Writer) (retErr error) {
+	if err := dfs.Write(filepath.Join(dir, "logs-previous.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		defer func() {
-			if err := stream.Close(); retErr == nil {
-				retErr = err
+			if err := stream.Close(); err != nil {
+				errors.JoinInto(&retErr, err)
 			}
 		}()
 		_, err = io.Copy(w, stream)
 		return errors.EnsureStack(err)
 	}); err != nil {
-		return err
+		if writeErr := writeErrorFile(dfs, err, filepath.Join(dir, "logs-previous")); writeErr != nil {
+			errors.JoinInto(&err, writeErr)
+			return err
+		}
 	}
 	return nil
 }
@@ -1185,7 +1195,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) (retResult
 	return result, nil
 }
 
-func (s *debugServer) collectJobs(dfs DumpFS, pachClient *client.APIClient, pipeline *pps.Pipeline, limit int64, prefix ...string) error {
+func (s *debugServer) collectJobs(dfs DumpFS, pachClient *client.APIClient, pipeline *pps.Pipeline, limit int64) error {
 	download := chart.ContinuousSeries{
 		Name: "download",
 		Style: chart.Style{
@@ -1244,7 +1254,13 @@ func (s *debugServer) collectJobs(dfs DumpFS, pachClient *client.APIClient, pipe
 	// TODO: It would probably be better to support listing jobs in reverse order.
 	reverseContinuousSeries(download, process, upload)
 	path := filepath.Join(pipeline.Project.Name, pipeline.Name, "jobs-chart.png")
-	return collectGraph(dfs, path, "number of jobs", []chart.Series{download, process, upload}, prefix...)
+	if err := collectGraph(dfs, path, "number of jobs", []chart.Series{download, process, upload}); err != nil {
+		if writeErr := writeErrorFile(dfs, err, filepath.Join(pipeline.Project.Name, pipeline.Name, "jobs-chart")); writeErr != nil {
+			errors.JoinInto(&err, writeErr)
+			return err
+		}
+	}
+	return nil
 }
 
 func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
