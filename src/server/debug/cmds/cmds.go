@@ -3,17 +3,21 @@ package cmds
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/spf13/cobra"
 )
@@ -87,9 +91,32 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	binary.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the binary from the given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(binary, "debug binary"))
 
-	var limit int64
-	var timeout time.Duration
-	dump := &cobra.Command{
+	dumpV2Template := &cobra.Command{
+		Use:   "{{alias}} <file>",
+		Short: "Collect a standard set of debugging information.",
+		Long:  "Collect a standard set of debugging information.",
+		Run: cmdutil.Run(func(args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			r, err := client.GetDumpV2Template(mainCtx, &debug.GetDumpV2TemplateRequest{})
+			if err != nil {
+				return err
+			}
+			bytes, err := serde.EncodeYAML(r.Request)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(bytes))
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(dumpV2Template, "debug template"))
+
+	var template string
+	dumpV2 := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
 		Long:  "Collect a standard set of debugging information.",
@@ -99,27 +126,51 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 			defer client.Close()
-			filter, err := createFilter(pachd, database, pipeline, worker)
+			var req *debug.DumpV2Request
+			if template == "" {
+				r, err := client.DebugClient.GetDumpV2Template(mainCtx, &debug.GetDumpV2TemplateRequest{})
+				if err != nil {
+					return errors.Wrap(err, "get dump template")
+				}
+				req = r.Request
+			} else {
+				f, err := os.Open(template)
+				if err != nil {
+					return errors.Wrap(err, "open template file")
+				}
+				req = &debug.DumpV2Request{}
+				if err := jsonpb.Unmarshal(f, req); err != nil {
+					return errors.Wrap(err, "unmarhsal template to DumpV2Request")
+				}
+			}
+			ctx, cf := context.WithCancel(mainCtx)
+			defer cf()
+			c, err := client.DebugClient.DumpV2(ctx, req)
 			if err != nil {
 				return err
 			}
 			return withFile(args[0], func(f *os.File) error {
-				if timeout != 0 {
-					ctx, c := context.WithTimeout(client.Ctx(), timeout)
-					client = client.WithCtx(ctx)
-					defer c()
+				var d *debug.DumpChunk
+				for d, err = c.Recv(); !errors.Is(err, io.EOF); d, err = c.Recv() {
+					if err != nil {
+						return err
+					}
+					if content := d.GetContent(); content != nil {
+						if _, err = f.Write(content.Content); err != nil {
+							return errors.Wrap(err, "write dump contents")
+						}
+					}
+					// erroring here should not stop the dump from working
+					if prgs := d.GetProgress(); prgs != nil {
+						progress.WriteProgress(prgs.Task, prgs.Progress, prgs.Total)
+					}
 				}
-				return client.Dump(filter, limit, f)
+				return nil
 			})
 		}),
 	}
-	dump.Flags().BoolVar(&pachd, "pachd", false, "Only collect the dump from pachd.")
-	dump.Flags().BoolVar(&database, "database", false, "Only collect the dump from pachd's database.")
-	dump.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the dump from the worker pods for the given pipeline.")
-	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
-	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
-	dump.Flags().DurationVar(&timeout, "timeout", 30*time.Minute, "Set an absolute timeout on the debug dump operation.")
-	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
+	dumpV2.Flags().StringVarP(&template, "template", "t", "", "A template to customize the output of the debug dump operation.")
+	commands = append(commands, cmdutil.CreateAlias(dumpV2, "debug dump"))
 
 	var serverPort int
 	analyze := &cobra.Command{
