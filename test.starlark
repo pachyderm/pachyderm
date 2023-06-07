@@ -1,0 +1,7 @@
+def validate(object):
+  if not object['pipeline']['name']:
+    error('name is empty')
+  if 'autoscaling' in object and object['autoscaling']:
+    error('autoscaling must be disabled')
+  if object['description'] == None or object['description'] == "":
+    error('description may not be missing')

@@ -1,0 +1,2 @@
+request.autoscaling == nil or request.autoscaling == false
+request.description != nil and request.description != ""
