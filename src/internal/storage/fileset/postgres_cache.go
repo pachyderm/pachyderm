@@ -3,13 +3,13 @@ package fileset
 import (
 	"context"
 
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 

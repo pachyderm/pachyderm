@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -23,6 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/api/core/v1"
@@ -173,7 +173,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
 				err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
-					LastHeartbeat:   types.TimestampNow(),
+					LastHeartbeat:   timestamppb.Now(),
 					HeartbeatFailed: true,
 				})
 				return errors.EnsureStack(err)
@@ -186,7 +186,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 	_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		e := a.enterpriseTokenCol.ReadWrite(stm)
 		err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
-			LastHeartbeat:   types.TimestampNow(),
+			LastHeartbeat:   timestamppb.Now(),
 			License:         resp.License,
 			HeartbeatFailed: false,
 		})
@@ -342,10 +342,7 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 		}, nil
 	}
 
-	expiration, err := types.TimestampFromProto(record.License.Expires)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse expiration timestamp")
-	}
+	expiration := record.License.Expires.AsTime()
 	resp := &ec.GetActivationCodeResponse{
 		Info: &ec.TokenInfo{
 			Expires: record.License.Expires,

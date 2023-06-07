@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/types/known/durationpb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -57,7 +57,7 @@ func TestSetLogLevel(t *testing.T) {
 				Level: &debug.SetLogLevelRequest_Pachyderm{
 					Pachyderm: debug.SetLogLevelRequest_DEBUG,
 				},
-				Duration: types.DurationProto(time.Minute),
+				Duration: durationpb.New(time.Minute),
 			},
 			wantResponse: &debug.SetLogLevelResponse{
 				AffectedPods: []string{
@@ -72,7 +72,7 @@ func TestSetLogLevel(t *testing.T) {
 				Level: &debug.SetLogLevelRequest_Grpc{
 					Grpc: debug.SetLogLevelRequest_DEBUG,
 				},
-				Duration: types.DurationProto(time.Minute),
+				Duration: durationpb.New(time.Minute),
 			},
 			wantResponse: &debug.SetLogLevelResponse{
 				AffectedPods: []string{
@@ -87,7 +87,7 @@ func TestSetLogLevel(t *testing.T) {
 				Level: &debug.SetLogLevelRequest_Pachyderm{
 					Pachyderm: debug.SetLogLevelRequest_DEBUG,
 				},
-				Duration: types.DurationProto(time.Minute),
+				Duration: durationpb.New(time.Minute),
 				Recurse:  true,
 			},
 			wantResponse: &debug.SetLogLevelResponse{

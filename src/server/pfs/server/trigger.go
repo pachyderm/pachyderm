@@ -4,7 +4,7 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -91,16 +91,10 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 		var oldTime, newTime time.Time
 		if oldHead != nil && oldHead.Finishing != nil {
-			oldTime, err = types.TimestampFromProto(oldHead.Finishing)
-			if err != nil {
-				return false, errors.EnsureStack(err)
-			}
+			oldTime := oldHead.Finishing.AsTime()
 		}
 		if newHead.Finishing != nil {
-			newTime, err = types.TimestampFromProto(newHead.Finishing)
-			if err != nil {
-				return false, errors.EnsureStack(err)
-			}
+			newTime := newHead.Finishing.AsTime()
 		}
 		merge(schedule.Next(oldTime).Before(newTime))
 	}

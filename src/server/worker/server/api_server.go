@@ -3,12 +3,11 @@ package server
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerapi "github.com/pachyderm/pachyderm/v2/src/worker"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // WorkerInterface is an interface for getting or canceling the
@@ -36,7 +35,7 @@ func NewAPIServer(driver driver.Driver, workerInterface WorkerInterface, workerN
 }
 
 // Status returns the status of the current worker task.
-func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
+func (a *APIServer) Status(ctx context.Context, _ *emptypb.Empty) (*pps.WorkerStatus, error) {
 	status, err := a.workerInterface.GetStatus()
 	if err != nil {
 		return nil, errors.EnsureStack(err)

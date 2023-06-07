@@ -22,13 +22,15 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -1499,28 +1501,20 @@ func TestPFS(suite *testing.T) {
 
 		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
 		require.NoError(t, err)
-
-		tStarted, err := types.TimestampFromProto(commitInfo.Started)
-		require.NoError(t, err)
-
+		tStarted := commitInfo.Started.AsTime()
 		require.Equal(t, commit, commitInfo.Commit)
 		require.Nil(t, commitInfo.Finished)
 		require.Equal(t, &pfs.CommitInfo_Details{}, commitInfo.Details) // no details for an unfinished commit
 		require.True(t, started.Before(tStarted))
 		require.Nil(t, commitInfo.Finished)
-
 		finished := time.Now()
+
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		commitInfo, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
 		require.NoError(t, err)
-
-		tStarted, err = types.TimestampFromProto(commitInfo.Started)
-		require.NoError(t, err)
-
-		tFinished, err := types.TimestampFromProto(commitInfo.Finished)
-		require.NoError(t, err)
-
+		tStarted = commitInfo.Started.AsTime()
+		tFinished := commitInfo.Finished.AsTime()
 		require.Equal(t, commit, commitInfo.Commit)
 		require.NotNil(t, commitInfo.Finished)
 		require.Equal(t, len(fileContent), int(commitInfo.Details.SizeBytes))
@@ -5981,8 +5975,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		ri, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
-		created, err := types.TimestampFromProto(ri.Created)
-		require.NoError(t, err)
+		created := timestamppb.New(ri.Created)
 		desc := "foo"
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(
 			env.PachClient.Ctx(),
@@ -5995,8 +5988,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		ri, err = env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
-		newCreated, err := types.TimestampFromProto(ri.Created)
-		require.NoError(t, err)
+		newCreated := ri.Created.AsTime()
 		require.Equal(t, created, newCreated)
 		require.Equal(t, desc, ri.Description)
 	})
@@ -6343,7 +6335,7 @@ func TestPFS(suite *testing.T) {
 		t.Log("Random seed is", seed)
 		r := rand.New(rand.NewSource(seed))
 
-		_, err := env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		_, err := env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
 		nOps := 300
 		opShares := []int{
@@ -6502,7 +6494,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.FsckFastExit())
 		}
 		// make sure we can delete at the end
-		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
 	})
 
@@ -7150,7 +7142,7 @@ func TestPFS(suite *testing.T) {
 						AddFile: &pfs.AddFile{
 							Path: file,
 							Source: &pfs.AddFile_Raw{
-								Raw: &types.BytesValue{},
+								Raw: &wrapperspb.BytesValue{},
 							},
 						},
 					},
@@ -7184,7 +7176,7 @@ func TestPFS(suite *testing.T) {
 					AddFile: &pfs.AddFile{
 						Path: filePath,
 						Source: &pfs.AddFile_Raw{
-							Raw: &types.BytesValue{Value: []byte(fileContent)},
+							Raw: wrapperspb.Bytes([]byte(fileContent)),
 						},
 					},
 				},

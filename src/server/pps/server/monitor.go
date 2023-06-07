@@ -8,10 +8,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -385,11 +385,11 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 			return latestTime, err //nolint:wrapcheck
 		}
 		// get cron start time to compare if previous start time was updated
-		startTime, err := types.TimestampFromProto(in.Cron.Start)
+		startTime := in.Cron.Start.AsTime()
 		// return latest time from filename if start time cannot be determined
-		if err != nil {
-			return latestTime, err //nolint:wrapcheck
-		}
+
+		//nolint:wrapcheck
+
 		if latestTime.After(startTime) {
 			return latestTime, nil
 		} else {
@@ -397,9 +397,6 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 		}
 	}
 	// otherwise return cron start time since there are no files in cron repo
-	startTime, err := types.TimestampFromProto(in.Cron.Start)
-	if err != nil {
-		return startTime, err //nolint:wrapcheck
-	}
+	startTime := in.Cron.Start.AsTime()
 	return startTime, nil
 }

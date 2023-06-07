@@ -18,10 +18,10 @@ import (
 	"time"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -2135,7 +2135,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				}
 			}()
 			if len(args) == 0 {
-				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}

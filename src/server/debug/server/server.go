@@ -24,19 +24,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/wcharczuk/go-chart"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	describe "k8s.io/kubectl/pkg/describe"
-
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -65,7 +64,7 @@ type debugServer struct {
 	env                 serviceenv.ServiceEnv
 	name                string
 	sidecarClient       *client.APIClient
-	marshaller          *jsonpb.Marshaler
+	marshaller          *protojson.MarshalOptions
 	database            *pachsql.DB
 	logLevel, grpcLevel log.LevelChanger
 }
@@ -76,7 +75,7 @@ func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *clien
 		env:           env,
 		name:          name,
 		sidecarClient: sidecarClient,
-		marshaller:    &jsonpb.Marshaler{Indent: "  "},
+		marshaller:    &protojson.MarshalOptions{Indent: "  "},
 		database:      db,
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
@@ -777,26 +776,14 @@ func (s *debugServer) collectCommits(rctx context.Context, dfs DumpFS, pachClien
 		}
 		return grpcutil.ForEach[*pfs.CommitInfo](client, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
-				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
+				compactingDuration := ci.Details.CompactingTime.AsDuration()
 				compacting.XValues = append(compacting.XValues, float64(len(compacting.XValues)+1))
 				compacting.YValues = append(compacting.YValues, float64(compactingDuration))
-				validatingDuration, err := types.DurationFromProto(ci.Details.ValidatingTime)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
+				validatingDuration := ci.Details.ValidatingTime.AsDuration()
 				validating.XValues = append(validating.XValues, float64(len(validating.XValues)+1))
 				validating.YValues = append(validating.YValues, float64(validatingDuration))
-				finishingTime, err := types.TimestampFromProto(ci.Finishing)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
-				finishedTime, err := types.TimestampFromProto(ci.Finished)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
+				finishingTime := ci.Finishing.AsTime()
+				finishedTime := ci.Finished.AsTime()
 				finishingDuration := finishedTime.Sub(finishingTime)
 				finishing.XValues = append(finishing.XValues, float64(len(finishing.XValues)+1))
 				finishing.YValues = append(finishing.YValues, float64(finishingDuration))
@@ -1226,18 +1213,9 @@ func (s *debugServer) collectJobs(dfs DumpFS, pachClient *client.APIClient, pipe
 			}
 			count++
 			if ji.Stats.DownloadTime != nil && ji.Stats.ProcessTime != nil && ji.Stats.UploadTime != nil {
-				downloadDuration, err := types.DurationFromProto(ji.Stats.DownloadTime)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
-				processDuration, err := types.DurationFromProto(ji.Stats.ProcessTime)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
-				uploadDuration, err := types.DurationFromProto(ji.Stats.UploadTime)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
+				downloadDuration := ji.Stats.DownloadTime.AsDuration()
+				processDuration := ji.Stats.ProcessTime.AsDuration()
+				uploadDuration := ji.Stats.UploadTime.AsDuration()
 				download.XValues = append(download.XValues, float64(len(download.XValues)+1))
 				download.YValues = append(download.YValues, float64(downloadDuration))
 				process.XValues = append(process.XValues, float64(len(process.XValues)+1))

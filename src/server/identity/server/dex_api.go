@@ -1,13 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"strconv"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -264,11 +263,10 @@ func storageClientToPach(c dex_storage.Client) *identity.OIDCClient {
 }
 
 func dexConnectorToPach(c dex_storage.Connector) (*identity.IDPConnector, error) {
-	config := &types.Struct{}
+	config := &structpb.Struct{}
 	if c.Config != nil && len(c.Config) != 0 {
-		err := jsonpb.Unmarshal(bytes.NewBuffer(c.Config), config)
-		if err != nil {
-			return nil, errors.EnsureStack(err)
+		if err := protojson.Unmarshal(c.Config, config); err != nil {
+			return nil, errors.Wrap(err, "unmarshal dex connector into a structpb.Struct")
 		}
 	}
 	// If the version isn't an int, set it to zero

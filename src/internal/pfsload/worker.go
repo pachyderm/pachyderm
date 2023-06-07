@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -69,12 +68,5 @@ func deserializePutFileTask(taskAny *anypb.Any) (*PutFileTask, error) {
 }
 
 func serializePutFileTaskResult(task *PutFileTaskResult) (*anypb.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &anypb.Any{
-		TypeUrl: task.GetTypeUrl(), // XXX
-		Value:   data,
-	}, nil
+	return anypb.New(task)
 }

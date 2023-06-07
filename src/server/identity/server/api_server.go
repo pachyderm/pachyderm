@@ -1,13 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 
 	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -82,8 +81,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "convert IdentityConnectors from YAML to JSON: %q", a.env.Config.IdentityConfig)
 		}
-		err = jsonpb.Unmarshal(bytes.NewReader(jsonBytes), &connectors)
-		if err != nil {
+		if err := json.Unmarshal(jsonBytes, &connectors); err != nil {
 			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config.IdentityConfig)
 		}
 		existing, err := a.ListIDPConnectors(ctx, &identity.ListIDPConnectorsRequest{})

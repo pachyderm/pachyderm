@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -18,6 +17,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,10 +37,7 @@ func propagateMetadata(ctx context.Context) context.Context {
 
 func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelRequest) (*debug.SetLogLevelResponse, error) {
 	result := new(debug.SetLogLevelResponse)
-	d, err := types.DurationFromProto(req.GetDuration())
-	if err != nil {
-		return result, status.Errorf(codes.InvalidArgument, "invalid duration: %v", err)
-	}
+	d := req.GetDuration().AsDuration()
 	switch x := req.GetLevel().(type) {
 	case nil:
 		return result, status.Error(codes.InvalidArgument, "no level provided")

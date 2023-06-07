@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -23,6 +22,7 @@ import (
 	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/s2"
 )
@@ -133,10 +133,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 			return errutil.ErrBreak
 		}
 
-		timestamp, err := types.TimestampFromProto(fileInfo.Committed)
-		if err != nil {
-			return err
-		}
+		timestamp := fileInfo.Committed.AsTime()
 
 		result.Uploads = append(result.Uploads, &s2.Upload{
 			Key:          key,

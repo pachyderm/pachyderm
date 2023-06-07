@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -109,15 +109,12 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 	// Allow request to override expiration in the activation code, for testing
 	if req.Expires != nil {
-		customExpiration, err := types.TimestampFromProto(req.Expires)
+		customExpiration := req.Expires.AsTime()
 		if err == nil && expiration.After(customExpiration) {
 			expiration = customExpiration
 		}
 	}
-	expirationProto, err := types.TimestampProto(expiration)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not convert expiration time \"%s\" to proto", expiration.String())
-	}
+	expirationProto := timestamppb.New(expiration)
 
 	newRecord := &ec.LicenseRecord{
 		ActivationCode: req.ActivationCode,
@@ -151,10 +148,7 @@ func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCode
 		return nil, errors.EnsureStack(err)
 	}
 
-	expiration, err := types.TimestampFromProto(record.Expires)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse expiration timestamp")
-	}
+	expiration := record.Expires.AsTime()
 	resp := &lc.GetActivationCodeResponse{
 		Info: &ec.TokenInfo{
 			Expires: record.Expires,
