@@ -657,7 +657,7 @@ func writeProfile(ctx context.Context, dfs DumpFS, profile *debug.Profile) (retE
 		}
 		return errs
 	case "cpu":
-		return dfs.Write("", func(w io.Writer) error {
+		return dfs.Write(profile.Name, func(w io.Writer) error {
 			if err := pprof.StartCPUProfile(w); err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -682,7 +682,7 @@ func writeProfile(ctx context.Context, dfs DumpFS, profile *debug.Profile) (retE
 			}
 		})
 	default:
-		return dfs.Write("", func(w io.Writer) error {
+		return dfs.Write(profile.Name, func(w io.Writer) error {
 			p := pprof.Lookup(profile.Name)
 			if p == nil {
 				return errors.Errorf("unable to find profile %q", profile.Name)
