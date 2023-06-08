@@ -18,8 +18,9 @@ import (
 type PipelineManifestReader struct {
 	// Do first round of parsing (yaml -> holder) here (not serde), in case of
 	// multi-pipeline document
-	decoder *yaml.Decoder
-	next    func() (*ppsclient.CreatePipelineRequest, error)
+	decoder    *yaml.Decoder
+	next       func() (*ppsclient.CreatePipelineRequest, error)
+	noValidate bool
 }
 
 // NewPipelineManifestReader creates a new manifest reader which reads manifests
@@ -30,38 +31,50 @@ func NewPipelineManifestReader(r io.Reader) (result *PipelineManifestReader, ret
 	}, nil
 }
 
+// DisableValidation disables pipeline validation.
+//
+// TODO(INT-1006): this exists only because the implementation of the /_mount_datums
+// endpoint in the FUSE server parses its PUT body as a full pipeline spec.
+func (r *PipelineManifestReader) DisableValidation() *PipelineManifestReader {
+	r.noValidate = true
+	return r
+}
+
 type unvalidatedCreatePipelineRequest ppsclient.CreatePipelineRequest
 
-func convertRequest(request interface{}) (*ppsclient.CreatePipelineRequest, error) {
+func (r *PipelineManifestReader) convertRequest(request interface{}) (*ppsclient.CreatePipelineRequest, error) {
 	var result unvalidatedCreatePipelineRequest
 	if err := serde.RoundTrip(request, &result); err != nil {
 		return nil, errors.Wrapf(err, "malformed pipeline spec")
 	}
-	return validateRequest(&result)
+	if r.noValidate {
+		return (*ppsclient.CreatePipelineRequest)(&result), nil
+	}
+	return r.validateRequest(&result)
 }
 
-func validateRequest(r *unvalidatedCreatePipelineRequest) (*ppsclient.CreatePipelineRequest, error) {
-	if r.Pipeline == nil {
+func (r *PipelineManifestReader) validateRequest(req *unvalidatedCreatePipelineRequest) (*ppsclient.CreatePipelineRequest, error) {
+	if req.Pipeline == nil {
 		return nil, errors.New("no `pipeline` specified")
 	}
-	if r.Pipeline.Name == "" {
+	if req.Pipeline.Name == "" {
 		return nil, errors.New("no pipeline `name` specified")
 	}
 
-	if r.Transform != nil && r.Transform.Image != "" {
-		if !strings.Contains(r.Transform.Image, ":") {
+	if req.Transform != nil && req.Transform.Image != "" {
+		if !strings.Contains(req.Transform.Image, ":") {
 			fmt.Fprintf(os.Stderr,
 				"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
 					"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
 					"reproducibility of your pipelines.\n\n")
-		} else if strings.HasSuffix(r.Transform.Image, ":latest") {
+		} else if strings.HasSuffix(req.Transform.Image, ":latest") {
 			fmt.Fprintf(os.Stderr,
 				"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
 					"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
 					"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
 		}
 	}
-	return (*ppsclient.CreatePipelineRequest)(r), nil
+	return (*ppsclient.CreatePipelineRequest)(req), nil
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.
@@ -97,11 +110,11 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 			if index >= len(document) {
 				r.next = nil // last request in the list--reset r.next
 			}
-			return convertRequest(document[index-1])
+			return r.convertRequest(document[index-1])
 		}
 		return r.NextCreatePipelineRequest() // Just load first result from next()
 	default:
 		// doc is a single request
-		return convertRequest(document)
+		return r.convertRequest(document)
 	}
 }

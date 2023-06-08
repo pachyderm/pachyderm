@@ -613,6 +613,10 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		// TODO(INT-1006): This is a bit of a hack: the body is a tagged
+		// pipeline input spec, not a full pipeline.  In order for
+		// parsing to succeed, the next line disables spec validation.
+		pipelineReader.DisableValidation()
 		pipelineReq, err := pipelineReader.NextCreatePipelineRequest()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
