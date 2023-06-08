@@ -1506,7 +1506,7 @@ func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, 
 	}
 	templateBytes, err := io.ReadAll(r)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not read Jsonnet file %q", jsonnetPath)
 	}
 	args, err := pachtmpl.ParseArgs(jsonnetArgs)
 	if err != nil {
