@@ -1468,7 +1468,6 @@ jobs:
           command: |
             sleep 20
             kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
-            pachctl version
       - run:
           name: Run Tests
           command: PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 poetry run pytest -vvv tests
