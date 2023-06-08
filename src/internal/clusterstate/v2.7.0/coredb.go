@@ -4,12 +4,19 @@ import (
 	"context"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	proto "github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
+
+// CollectionRecord is a record in a collections table.
+type CollectionRecord struct {
+	Key       string    `db:"key"`
+	Proto     []byte    `db:"proto"`
+	CreatedAt time.Time `db:"createdat"`
+	UpdatedAt time.Time `db:"updatedat"`
+}
 
 func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS core;`); err != nil {
@@ -55,29 +62,28 @@ func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 func migrateProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
-	selectTimestampsStmt, err := tx.Preparex("SELECT createdat, updatedat FROM collections.projects WHERE key = $1")
-	if err != nil {
-		return errors.Wrap(err, "error preparing select timestamps statement")
-	}
 	insertStmt, err := tx.Preparex("INSERT INTO core.projects(name, description, created_at, updated_at) VALUES($1, $2, $3, $4)")
 	if err != nil {
 		return errors.Wrap(err, "error preparing insert projects statement")
 	}
 	defer insertStmt.Close()
 
-	projects := pfsdb.Projects(nil, nil).ReadWrite(tx)
-	projectInfo := &pfs.ProjectInfo{}
-	if err := projects.List(projectInfo, &collection.Options{Target: collection.SortByCreateRevision, Order: collection.SortAscend}, func(string) error {
-		var createdAt, updatedAt time.Time
-		if err := selectTimestampsStmt.QueryRowContext(ctx, projectInfo.Project.Name).Scan(&createdAt, &updatedAt); err != nil {
-			return errors.Wrap(err, "error scanning timestamps")
+	projectColRows := []CollectionRecord{}
+	if err := tx.SelectContext(ctx, &projectColRows, "SELECT key, proto, createdat, updatedat FROM collections.projects ORDER BY createdat ASC"); err != nil {
+		return errors.Wrap(err, "error listing from collections.projects")
+	}
+	projectInfos := []ProjectInfo{}
+	for _, project := range projectColRows {
+		projectInfo := ProjectInfo{}
+		if err := proto.Unmarshal(project.Proto, &projectInfo); err != nil {
+			return errors.Wrap(err, "error unmarshalling project")
 		}
-		if _, err := insertStmt.ExecContext(ctx, projectInfo.Project.Name, projectInfo.Description, createdAt, updatedAt); err != nil {
+		projectInfos = append(projectInfos, projectInfo)
+	}
+	for i := 0; i < len(projectColRows); i++ {
+		if _, err := insertStmt.ExecContext(ctx, projectInfos[i].Project.Name, projectInfos[i].Description, projectColRows[i].CreatedAt, projectColRows[i].UpdatedAt); err != nil {
 			return errors.Wrap(err, "error inserting project")
 		}
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "error listing projects")
 	}
 	return nil
 }
