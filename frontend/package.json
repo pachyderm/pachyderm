@@ -28,7 +28,7 @@
     "@codemirror/lang-markdown": "6.1.1",
     "@codemirror/language": "6.6.0",
     "@codemirror/legacy-modes": "6.3.2",
-    "@codemirror/state": "6.2.0",
+    "@codemirror/state": "6.2.1",
     "@sentry/browser": "7.13.0",
     "@sentry/react": "6.18.2",
     "@sentry/tracing": "7.13.0",
