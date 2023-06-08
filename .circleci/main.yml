@@ -1461,8 +1461,8 @@ jobs:
           name: Install pach
           command: |
             helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1}
-            kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/examples/enterprise-dev.yaml --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.httpPort=${ENTERPRISE_PORT},pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
+            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
+            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.httpPort=${ENTERPRISE_PORT},pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
