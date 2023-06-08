@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // MakeChunkOptions returns the chunk storage options for the config.
-func makeChunkOptions(conf *serviceenv.StorageConfiguration) ([]chunk.StorageOption, error) {
+func makeChunkOptions(conf *pachconfig.StorageConfiguration) ([]chunk.StorageOption, error) {
 	var opts []chunk.StorageOption
 	if conf.StorageUploadConcurrencyLimit > 0 {
 		opts = append(opts, chunk.WithMaxConcurrentObjects(0, conf.StorageUploadConcurrencyLimit))
@@ -28,7 +28,7 @@ func makeChunkOptions(conf *serviceenv.StorageConfiguration) ([]chunk.StorageOpt
 	return opts, nil
 }
 
-func makeFilesetOptions(conf *serviceenv.StorageConfiguration) []fileset.StorageOption {
+func makeFilesetOptions(conf *pachconfig.StorageConfiguration) []fileset.StorageOption {
 	var opts []fileset.StorageOption
 	if conf.StorageMemoryThreshold > 0 {
 		opts = append(opts, fileset.WithMemoryThreshold(conf.StorageMemoryThreshold))
