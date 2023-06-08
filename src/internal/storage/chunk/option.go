@@ -1,13 +1,6 @@
 package chunk
 
-import (
-	"os"
-	"path/filepath"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-)
+import "github.com/pachyderm/pachyderm/v2/src/internal/obj"
 
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
@@ -39,23 +32,6 @@ func WithCompression(algo CompressionAlgo) StorageOption {
 	return func(s *Storage) {
 		s.createOpts.Compression = algo
 	}
-}
-
-// StorageOptions returns the chunk storage options for the config.
-func StorageOptions(conf *pachconfig.StorageConfiguration) ([]StorageOption, error) {
-	var opts []StorageOption
-	if conf.StorageUploadConcurrencyLimit > 0 {
-		opts = append(opts, WithMaxConcurrentObjects(0, conf.StorageUploadConcurrencyLimit))
-	}
-	if conf.StorageDiskCacheSize > 0 {
-		diskCache, err := obj.NewLocalClient(filepath.Join(os.TempDir(), "pfs-cache", uuid.NewWithoutDashes()))
-		if err != nil {
-			return nil, err
-		}
-		diskCache = obj.TracingObjClient("DiskCache", diskCache)
-		opts = append(opts, WithObjectCache(diskCache, conf.StorageDiskCacheSize))
-	}
-	return opts, nil
 }
 
 type BatcherOption func(b *Batcher)
