@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -29,7 +30,7 @@ type Env struct {
 	GetPpsServer        func() pps.APIServer
 
 	BackgroundContext context.Context
-	Config            serviceenv.Configuration
+	Config            pachconfig.Configuration
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) Env {

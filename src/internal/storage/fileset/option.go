@@ -3,9 +3,8 @@ package fileset
 import (
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"golang.org/x/sync/semaphore"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
 
 // StorageOption configures a storage.
@@ -96,7 +95,7 @@ func WithTTL(ttl time.Duration) WriterOption {
 }
 
 // StorageOptions returns the fileset storage options for the config.
-func StorageOptions(conf *serviceenv.StorageConfiguration) []StorageOption {
+func StorageOptions(conf *pachconfig.StorageConfiguration) []StorageOption {
 	var opts []StorageOption
 	if conf.StorageMemoryThreshold > 0 {
 		opts = append(opts, WithMemoryThreshold(conf.StorageMemoryThreshold))

@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
@@ -11,7 +12,7 @@ import (
 type Env struct {
 	DB               *pachsql.DB
 	Listener         collection.PostgresListener
-	Config           *serviceenv.Configuration
+	Config           *pachconfig.Configuration
 	EnterpriseServer enterprise.APIServer
 }
 

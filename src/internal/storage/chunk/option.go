@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -42,7 +42,7 @@ func WithCompression(algo CompressionAlgo) StorageOption {
 }
 
 // StorageOptions returns the chunk storage options for the config.
-func StorageOptions(conf *serviceenv.StorageConfiguration) ([]StorageOption, error) {
+func StorageOptions(conf *pachconfig.StorageConfiguration) ([]StorageOption, error) {
 	var opts []StorageOption
 	if conf.StorageUploadConcurrencyLimit > 0 {
 		opts = append(opts, WithMaxConcurrentObjects(0, conf.StorageUploadConcurrencyLimit))
