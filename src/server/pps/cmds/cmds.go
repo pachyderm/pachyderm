@@ -1543,6 +1543,9 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			return err
 		}
 		pipelineReader, err = ppsutil.NewPipelineManifestReader(r)
+		if err != nil {
+			return err
+		}
 
 	} else if jsonnetPath != "" {
 		pipelineBytes, err := evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
@@ -1550,9 +1553,9 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			return err
 		}
 		pipelineReader, err = ppsutil.NewPipelineManifestReader(bytes.NewReader(pipelineBytes))
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
