@@ -1510,20 +1510,21 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	}
 	defer pc.Close()
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
-	var r io.Reader
+	var pipelineReader *ppsutil.PipelineManifestReader
 	if pipelinePath != "" {
-		r, err = fileIndicatorToReader(pipelinePath)
+		r, err := fileIndicatorToReader(pipelinePath)
 		if err != nil {
 			return err
 		}
+		pipelineReader, err = ppsutil.NewPipelineManifestReader(r)
+
 	} else if jsonnetPath != "" {
 		pipelineBytes, err := evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
 		if err != nil {
 			return err
 		}
-		r = bytes.NewReader(pipelineBytes)
+		pipelineReader, err = ppsutil.NewPipelineManifestReader(bytes.NewReader(pipelineBytes))
 	}
-	pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 	if err != nil {
 		return err
 	}
@@ -1533,13 +1534,6 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			break
 		} else if err != nil {
 			return err
-		}
-
-		if request.Pipeline == nil {
-			return errors.New("no `pipeline` specified")
-		}
-		if request.Pipeline.Name == "" {
-			return errors.New("no pipeline `name` specified")
 		}
 
 		// Add trace if env var is set
@@ -1563,22 +1557,10 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			}
 		}
 
-		if request.Transform != nil && request.Transform.Image != "" {
-			if !strings.Contains(request.Transform.Image, ":") {
-				fmt.Fprintf(os.Stderr,
-					"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
-						"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
-						"reproducibility of your pipelines.\n\n")
-			} else if strings.HasSuffix(request.Transform.Image, ":latest") {
-				fmt.Fprintf(os.Stderr,
-					"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
-						"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
-						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
-			}
-		}
 		if request.Pipeline.Project.GetName() == "" {
 			request.Pipeline.Project = &pfs.Project{Name: project}
 		}
+
 		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
 			_, err := txClient.PpsAPIClient.CreatePipeline(
 				txClient.Ctx(),

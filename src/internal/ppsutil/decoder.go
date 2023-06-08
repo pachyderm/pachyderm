@@ -1,7 +1,10 @@
 package ppsutil
 
 import (
+	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -27,12 +30,38 @@ func NewPipelineManifestReader(r io.Reader) (result *PipelineManifestReader, ret
 	}, nil
 }
 
+type unvalidatedCreatePipelineRequest ppsclient.CreatePipelineRequest
+
 func convertRequest(request interface{}) (*ppsclient.CreatePipelineRequest, error) {
-	var result ppsclient.CreatePipelineRequest
+	var result unvalidatedCreatePipelineRequest
 	if err := serde.RoundTrip(request, &result); err != nil {
 		return nil, errors.Wrapf(err, "malformed pipeline spec")
 	}
-	return &result, nil
+	return validateRequest(&result)
+}
+
+func validateRequest(r *unvalidatedCreatePipelineRequest) (*ppsclient.CreatePipelineRequest, error) {
+	if r.Pipeline == nil {
+		return nil, errors.New("no `pipeline` specified")
+	}
+	if r.Pipeline.Name == "" {
+		return nil, errors.New("no pipeline `name` specified")
+	}
+
+	if r.Transform != nil && r.Transform.Image != "" {
+		if !strings.Contains(r.Transform.Image, ":") {
+			fmt.Fprintf(os.Stderr,
+				"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
+					"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
+					"reproducibility of your pipelines.\n\n")
+		} else if strings.HasSuffix(r.Transform.Image, ":latest") {
+			fmt.Fprintf(os.Stderr,
+				"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
+					"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
+					"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
+		}
+	}
+	return (*ppsclient.CreatePipelineRequest)(r), nil
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.
