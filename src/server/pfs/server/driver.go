@@ -112,7 +112,7 @@ func newDriver(env Env) (*driver, error) {
 		projects:   projects,
 	}
 	// Setup tracker and chunk / fileset storage.
-	storageSrv, err := storage.New(storage.Env{DB: env.DB}, env.StorageConfig)
+	storageSrv, err := storage.New(storage.Env{DB: env.DB, ObjectStore: env.ObjectClient}, env.StorageConfig)
 	if err != nil {
 		return nil, err
 	}
