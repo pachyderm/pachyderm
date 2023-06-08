@@ -1466,7 +1466,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	validatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
-	commands = append(commands, cmdutil.CreateAlias(validatePipeline, "validate pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(validatePipeline, "validate pipeline", pipelines))
 
 	return commands
 }
