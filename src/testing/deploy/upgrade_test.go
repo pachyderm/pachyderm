@@ -76,7 +76,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
+	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
@@ -276,7 +276,7 @@ validator:
     count: 1
 `
 	var stateID string
-	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
+	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			t.Log("before upgrade: starting load test")
