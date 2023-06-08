@@ -1,7 +1,6 @@
 package ppsutil
 
 import (
-	"bytes"
 	"io"
 
 	"gopkg.in/yaml.v3"
@@ -20,10 +19,11 @@ type PipelineManifestReader struct {
 	next    func() (*ppsclient.CreatePipelineRequest, error)
 }
 
-// NewPipelineManifestReader creates a new manifest reader from a path.
-func NewPipelineManifestReader(pipelineBytes []byte) (result *PipelineManifestReader, retErr error) {
+// NewPipelineManifestReader creates a new manifest reader which reads manifests
+// from an io.Reader.
+func NewPipelineManifestReader(r io.Reader) (result *PipelineManifestReader, retErr error) {
 	return &PipelineManifestReader{
-		decoder: yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
+		decoder: yaml.NewDecoder(r),
 	}, nil
 }
 

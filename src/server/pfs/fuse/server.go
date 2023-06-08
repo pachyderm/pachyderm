@@ -608,12 +608,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		defer req.Body.Close()
-		pipelineBytes, err := io.ReadAll(req.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
+		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

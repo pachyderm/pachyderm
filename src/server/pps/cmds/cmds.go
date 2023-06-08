@@ -509,11 +509,11 @@ each datum.`,
 			if pipelineInputPath != "" && len(args) == 1 {
 				return errors.Errorf("can't specify both a job and a pipeline spec")
 			} else if pipelineInputPath != "" {
-				pipelineBytes, err := readPipelineBytes(pipelineInputPath)
+				r, err := fileIndicatorToReader(pipelineInputPath)
 				if err != nil {
 					return err
 				}
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
+				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 				if err != nil {
 					return err
 				}
@@ -951,11 +951,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editorArgs...); err != nil {
 				return err
 			}
-			pipelineBytes, err := readPipelineBytes(f.Name())
+			r, err := fileIndicatorToReader(f.Name())
 			if err != nil {
 				return err
 			}
-			pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
+			pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 			if err != nil {
 				return err
 			}
@@ -1445,47 +1445,40 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	return commands
 }
 
-// readPipelineBytes reads the pipeline spec at 'pipelinePath' (which may be
-// '-' for stdin, a local path, or a remote URL) and returns the bytes stored
-// there.
+// fileIndicatorToReader returns an IO reader for a file based on an indicator
+// (which may be a local path, a remote URL or "-" for stdin).
 //
 // TODO(msteffen) This is very similar to readConfigBytes in
 // s/s/identity/cmds/cmds.go (which differs only in not supporting URLs),
 // so the two could perhaps be refactored.
-func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error) {
-	if pipelinePath == "-" {
+func fileIndicatorToReader(indicator string) (io.Reader, error) {
+	if indicator == "-" {
 		cmdutil.PrintStdinReminder()
-		var err error
-		pipelineBytes, err = io.ReadAll(os.Stdin)
+		return os.Stdin, nil
+	} else if u, err := url.Parse(indicator); err == nil && u.Scheme != "" {
+		resp, err := http.Get(u.String())
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, errors.Wrapf(err, "could not retrieve URL %v", u)
 		}
-	} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
-		resp, err := http.Get(url.String())
-		if err != nil {
-			return nil, errors.EnsureStack(err)
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Wrapf(err, "cannot handle HTTP status code %s (%d)", resp.Status, resp.StatusCode)
 		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		pipelineBytes, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-	} else {
-		var err error
-		pipelineBytes, err = os.ReadFile(pipelinePath)
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
+		defer resp.Body.Close()
+		return resp.Body, nil
 	}
-	return pipelineBytes, nil
+	f, err := os.Open(indicator)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not open path %q", indicator)
+	}
+	return f, nil
 }
 
 func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
-	templateBytes, err := readPipelineBytes(jsonnetPath)
+	r, err := fileIndicatorToReader(jsonnetPath)
+	if err != nil {
+		return nil, err
+	}
+	templateBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -1517,16 +1510,20 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	}
 	defer pc.Close()
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
-	var pipelineBytes []byte
+	var r io.Reader
 	if pipelinePath != "" {
-		pipelineBytes, err = readPipelineBytes(pipelinePath)
+		r, err = fileIndicatorToReader(pipelinePath)
+		if err != nil {
+			return err
+		}
 	} else if jsonnetPath != "" {
-		pipelineBytes, err = evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
+		pipelineBytes, err := evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
+		if err != nil {
+			return err
+		}
+		r = bytes.NewReader(pipelineBytes)
 	}
-	if err != nil {
-		return err
-	}
-	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
+	pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 	if err != nil {
 		return err
 	}
