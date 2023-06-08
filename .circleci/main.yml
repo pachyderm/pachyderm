@@ -644,8 +644,6 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
-      - store_artifacts:
-          path: /tmp/trace.out
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
