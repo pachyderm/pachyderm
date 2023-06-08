@@ -1460,7 +1460,7 @@ jobs:
       - run:
           name: Install pach
           command: |
-            helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1}
+            helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=LoadBalancer
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.httpPort=81,pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
       - run:
