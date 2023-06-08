@@ -698,7 +698,7 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) error {
 		return &pfs.Commit{
 			Repo:   b.Repo,
 			Branch: b,
-			ID:     split[1],
+			Id:     split[1],
 		}, nil
 	}
 	listReferencedCommits := func(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
