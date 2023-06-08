@@ -1442,6 +1442,32 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	nextDatum.Flags().StringVar(&errStr, "error", "", "A string representation of an error that occurred while processing the current datum.")
 	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
 
+	validatePipeline := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Validate pipeline spec.",
+		Long:  "Validate a pipeline spec.  Client-side only; does not check that repos, images &c. exist on the server.",
+		Run: cmdutil.RunFixedArgs(0, func(_ []string) error {
+			r, err := fileIndicatorToReader(pipelinePath)
+			if err != nil {
+				return err
+			}
+			pr, err := ppsutil.NewPipelineManifestReader(r)
+			if err != nil {
+				return err
+			}
+			for {
+				_, err := pr.NextCreatePipelineRequest()
+				if errors.Is(err, io.EOF) {
+					return nil
+				} else if err != nil {
+					return err
+				}
+			}
+		}),
+	}
+	validatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	commands = append(commands, cmdutil.CreateAlias(validatePipeline, "validate pipeline"))
+
 	return commands
 }
 
