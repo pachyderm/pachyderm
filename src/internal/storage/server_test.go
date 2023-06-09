@@ -28,7 +28,7 @@ func TestServer(t *testing.T) {
 	require.NoError(t, err)
 
 	w := s.Filesets.NewWriter(ctx)
-	w.Add("test.txt", "", strings.NewReader("hello world"))
+	require.NoError(t, w.Add("test.txt", "", strings.NewReader("hello world")))
 	id, err := w.Close()
 	require.NoError(t, err)
 	t.Log(id)
