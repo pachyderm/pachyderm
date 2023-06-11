@@ -49,9 +49,6 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	`); err != nil {
 		return errors.Wrap(err, "error creating set_updated_at trigger")
 	}
-	return nil
-}
-
-func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
+	// TODO create notify trigger function
 	return nil
 }
