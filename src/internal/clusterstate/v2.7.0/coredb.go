@@ -61,7 +61,7 @@ func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
-func migrateProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
+func migrateProjects(ctx context.Context, tx *pachsql.Tx) error {
 	insertStmt, err := tx.Preparex("INSERT INTO core.projects(name, description, created_at, updated_at) VALUES($1, $2, $3, $4)")
 	if err != nil {
 		return errors.Wrap(err, "error preparing insert projects statement")

@@ -16,7 +16,7 @@ func Migrate(state migrations.State) migrations.State {
 			return nil
 		}).
 		Apply("Migrate collections.projects to core.projects", func(ctx context.Context, env migrations.Env) error {
-			if err := migrateProjectsTable(ctx, env.Tx); err != nil {
+			if err := migrateProjects(ctx, env.Tx); err != nil {
 				return errors.Wrap(err, "error migrating projects table")
 			}
 			return nil
