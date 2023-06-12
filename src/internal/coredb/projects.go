@@ -37,6 +37,10 @@ func (iter *ProjectIterator) Next() (*pfs.ProjectInfo, error) {
 	return nil, io.EOF
 }
 
+func (iter *ProjectIterator) Close() error {
+	return iter.Rows.Close()
+}
+
 // QueryExecer defines an interface for functions shared across sqlx.Tx and sqlx.DB types.
 // Functions that take a querier support both running inside a transaction and outside it.
 type QueryExecer interface {
