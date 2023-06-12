@@ -61,7 +61,9 @@ func TestGetProjectByID(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
 	require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
-	getInfo, err := GetProjectByID(ctx, tx, 1)
+	// the 'default' project is ID 1.
+	getInfo, err := GetProjectByID(ctx, tx, 2)
+	fmt.Printf("%q %q\n", createInfo, getInfo)
 	require.NoError(t, err, "should be able to get a project")
 	require.NoError(t, tx.Commit())
 	require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
@@ -119,5 +121,6 @@ func TestUpdateProjectByID(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
 	require.NoError(t, CreateProject(ctx, tx, projInfo), "should be able to create project")
-	require.NoError(t, UpdateProjectByID(ctx, tx, 1, projInfo), "should be able to update project")
+	// the 'default' project ID is 2
+	require.NoError(t, UpdateProjectByID(ctx, tx, 2, projInfo), "should be able to update project")
 }
