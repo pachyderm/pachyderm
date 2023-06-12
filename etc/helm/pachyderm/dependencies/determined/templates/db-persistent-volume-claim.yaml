@@ -1,0 +1,20 @@
+{{- if or .Values.db.hostAddress .Values.db.disablePVC }}
+{{ else }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: determined-db-pvc-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: determined-db-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ required  "A valid Values.db.storageSize entry is required!" .Values.db.storageSize }}
+  {{- if .Values.db.storageClassName }}
+  storageClassName: {{ .Values.db.storageClassName }}
+  {{ end }}
+{{ end }}

@@ -1,0 +1,71 @@
+{{- if .Values.defaultScheduler}}
+{{- $schedulerType := .Values.defaultScheduler | trim}}
+{{- if or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption")}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $schedulerType }}
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $schedulerType }}-pod-permissions
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $schedulerType }}-pod-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ $schedulerType }}
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: {{ $schedulerType }}-pod-permissions
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $schedulerType }}-extention-apiserver
+  namespace: kube-system
+subjects:
+- kind: ServiceAccount
+  name: {{ $schedulerType }}
+roleRef:
+  kind: Role
+  name: extension-apiserver-authentication-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $schedulerType }}-as-kube-scheduler
+subjects:
+- kind: ServiceAccount
+  name: {{ $schedulerType }}
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: system:kube-scheduler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $schedulerType }}-as-volume-scheduler
+subjects:
+- kind: ServiceAccount
+  name: {{ $schedulerType }}
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: system:volume-scheduler
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+{{- end }}

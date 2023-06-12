@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: determined-master-deployment-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: determined-master-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: determined-master-{{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: determined-master-{{ .Release.Name }}
+        determined-system: master
+      annotations:
+        # This is added so that the master deployment restarts when an upgrade occurs that
+        # changes the master-config.yaml.
+        checksum/config: {{ include (print $.Template.BasePath "/master-config.yaml") . | sha256sum }}
+    spec:
+      priorityClassName: determined-system-priority
+      serviceAccount: determined-master-{{ .Release.Name }}
+      containers:
+      - name: determined-master-{{ .Release.Name }}
+        {{ $image := "determined-master" }}
+        {{- if .Values.enterpriseEdition -}}
+          {{ $image = "hpe-mlde-master" }}
+        {{- end -}}
+        {{ $tag := (required "A valid Chart.AppVersion entry required!" .Chart.AppVersion) }}
+        {{- /* detVersion is used for CI to override the appVersion. */ -}}
+        {{- if .Values.detVersion -}}
+          {{ $tag = .Values.detVersion }}
+        {{- end -}}
+        image: {{ .Values.imageRegistry }}/{{ $image }}:{{ $tag }}
+        imagePullPolicy: "Always"
+        {{- if .Values.enterpriseEdition }}
+        {{- if .Values.oidc }}
+        env:
+          - name: DETERMINED_OIDC_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "A valid client secret name is required!" .Values.oidc.clientSecretName }}
+                key: {{ required "A valid client secret filename is required!" .Values.oidc.clientSecretKey }}
+                optional: false
+        {{- end }}
+        {{- end }}
+        volumeMounts:
+          - name: master-config
+            mountPath: /etc/determined/
+            readOnly: true
+          {{- if .Values.tlsSecret }}
+          - name: tls-secret
+            mountPath: {{ include "determined.secretPath" . }}
+            readOnly: true
+          {{ end }}
+          {{- if .Values.db.certResourceName }}
+          - name: database-cert
+            mountPath: {{ include "determined.secretPath" . }}
+            readOnly: true
+          {{ end }}
+        resources:
+          requests:
+            {{- if .Values.masterCpuRequest }}
+            cpu: {{ .Values.masterCpuRequest  | quote }}
+            {{- end }}
+            {{- if .Values.masterMemRequest }}
+            memory: {{ .Values.masterMemRequest  | quote }}
+            {{- end}}
+
+          {{- if or .Values.masterCpuLimit .Values.masterMemLimit }}
+          limits:
+            {{- if .Values.masterCpuLimit }}
+            cpu: {{ .Values.masterCpuLimit  | quote }}
+            {{- end }}
+            {{- if .Values.masterMemLimit }}
+            memory: {{ .Values.masterMemLimit  | quote }}
+            {{- end}}
+          {{- end}}
+      {{- if .Values.imagePullSecretName}}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecretName }}
+      {{- end}}
+      volumes:
+        - name: master-config
+          configMap:
+            name: determined-master-config-{{ .Release.Name }}
+        {{- if .Values.tlsSecret }}
+        - name: tls-secret
+          secret:
+            secretName: {{ .Values.tlsSecret }}
+        {{ end }}
+        {{- if .Values.db.sslMode }}
+        - name: database-cert
+          {{- $resourceType := (required "A valid .Values.db.resourceType entry required!" .Values.db.resourceType | trim)}}
+          {{- if eq $resourceType "configMap"}}
+          configMap:
+            name: {{ required  "A valid Values.db.certResourceName entry is required!" .Values.db.certResourceName }}
+          {{- else }}
+          secret:
+            secretName: {{ required  "A valid Values.db.certResourceName entry is required!" .Values.db.certResourceName }}
+          {{- end }}
+        {{ end }}
