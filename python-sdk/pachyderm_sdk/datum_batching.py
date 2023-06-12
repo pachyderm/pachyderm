@@ -32,6 +32,9 @@ def batch_all_datums(user_code: PIPELINE_FUNC) -> PIPELINE_FUNC:
     >>>   #   entering your datum processing function
     >>>   #   i.e. initializing a model.
     >>>   pipeline()
+
+    Check the following link for a more substatial example:
+        github.com/pachyderm/examples/tree/master/object-detection
     """
 
     @wraps(user_code)
