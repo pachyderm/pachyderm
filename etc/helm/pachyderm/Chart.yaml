@@ -64,3 +64,7 @@ dependencies:
     version: "2.8.1"
     repository: "https://grafana.github.io/helm-charts"
     condition: pachd.lokiDeploy
+  - name: determined
+    version: "0.23.0"
+    repository: "file://./dependencies/determined"
+    condition: determined.enabled

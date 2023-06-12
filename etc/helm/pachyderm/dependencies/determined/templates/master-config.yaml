@@ -1,0 +1,238 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   name: determined-master-config-{{ .Release.Name }}
+   namespace: {{ .Release.Namespace }}
+   labels:
+     app: determined-master-{{ .Release.Name }}
+     release: {{ .Release.Name }}
+data:
+  master.yaml: |
+    checkpoint_storage:
+      type: {{ required "A valid Values.checkpointStorage.type entry is required!" .Values.checkpointStorage.type | quote}}
+      {{- if eq .Values.checkpointStorage.type "shared_fs" }}
+      host_path: {{ required "A valid Values.checkpointStorage.hostPath entry is required!" .Values.checkpointStorage.hostPath | quote }}
+      {{- else if eq .Values.checkpointStorage.type "gcs" }}
+      bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.checkpointStorage.bucket }}
+      prefix: {{ .Values.checkpointStorage.prefix | quote }}
+      {{- else if eq .Values.checkpointStorage.type "s3" }}
+      bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.checkpointStorage.bucket }}
+      access_key: {{ .Values.checkpointStorage.accessKey | quote }}
+      secret_key: {{ .Values.checkpointStorage.secretKey | quote }}
+      endpoint_url: {{ .Values.checkpointStorage.endpointUrl | quote }}
+      prefix: {{ .Values.checkpointStorage.prefix | quote }}
+      {{- else if eq .Values.checkpointStorage.type "azure" }}
+      {{- if and .Values.checkpointStorage.connection_string .Values.checkpointStorage.account_url }}
+      {{ required "Exactly one of .Values.checkpointStorage.connection_string or .Values.checkpointStorage.account_url must be specified!" "" }}
+      {{- else if and .Values.checkpointStorage.connection_string .Values.checkpointStorage.credential }}
+      {{ required ".Values.checkpointStorage.connection_string and .Values.checkpointStorage.credential must not both be specified!" "" }}
+      {{- else }}
+      container: {{ required "A valid Values.checkpointStorage.container entry is required!" .Values.checkpointStorage.container }}
+      connection_string: {{ .Values.checkpointStorage.connection_string }}
+      account_url: {{ .Values.checkpointStorage.account_url }}
+      credential: {{ .Values.checkpointStorage.credential }}
+      {{- end }}
+      {{- end }}
+      save_experiment_best: {{ .Values.checkpointStorage.saveExperimentBest | default 0 }}
+      save_trial_best: {{ .Values.checkpointStorage.saveTrialBest | default 1 }}
+      save_trial_latest: {{ .Values.checkpointStorage.saveTrialLatest | default 1 }}
+
+    db:
+      user: {{ required "A valid Values.db.user entry required!" .Values.db.user | quote }}
+      password: {{ required "A valid Values.db.password entry required!" .Values.db.password | quote }}
+      {{- if .Values.db.hostAddress }}
+      host: {{ .Values.db.hostAddress }}
+      {{- else }}
+      host: determined-db-service-{{ .Release.Name }}
+      {{- end  }}
+      port: {{ .Values.db.port }}
+      name: {{ .Values.db.name | quote }}
+      {{- if .Values.db.sslMode }}
+      ssl_mode: {{ .Values.db.sslMode }}
+      {{- $rootCert := (required "A valid .Values.db.sslRootCert entry required!" .Values.db.sslRootCert )}}
+      ssl_root_cert: {{ include "determined.secretPath" . }}{{ $rootCert }}
+      {{- end }}
+
+    security:
+      {{- if .Values.tlsSecret }}
+      tls:
+        cert: {{ include "determined.secretPath" . }}tls.crt
+        key: {{ include "determined.secretPath" . }}tls.key
+      {{- end }}
+      {{- if .Values.security }}
+      {{- if .Values.security.defaultTask }}
+      default_task:
+        user: {{ .Values.security.defaultTask.user }}
+        uid: {{ .Values.security.defaultTask.uid }}
+        group: {{ .Values.security.defaultTask.group }}
+        gid: {{ .Values.security.defaultTask.gid }}
+      {{- end }}
+      {{- if .Values.security.authz }}
+      authz:
+        {{- toYaml .Values.security.authz | nindent 8}}
+      {{- end }}
+      {{- end }}
+    port: {{ include "determined.masterPort" . }}
+
+    {{- if .Values.enterpriseEdition }}
+    {{- if .Values.oidc }}
+    oidc:
+      enabled: {{ .Values.oidc.enabled | default true }}
+      provider: {{ required "A valid provider entry is required!" .Values.oidc.provider}}
+      idp_recipient_url: {{ required "A valid recipient url is required!" .Values.oidc.idpRecipientUrl }}
+      idp_sso_url: {{ required "A valid sso url is required!" .Values.oidc.idpSsoUrl }}
+      client_id: {{ required "A valid client ID is required!" .Values.oidc.clientId }}
+      {{- if .Values.oidc.authenticationClaim }}
+      authentication_claim: {{ .Values.oidc.authenticationClaim }}
+      {{- end }}
+      {{- if .Values.oidc.scimAuthenticationAttribute }}
+      scim_authentication_attribute: {{ .Values.oidc.scimAuthenticationAttribute }}
+      {{- end }}
+    {{- end }}
+
+    {{- if .Values.scim }}
+    scim:
+      enabled: {{ .Values.scim.enabled | default true }}
+      auth:
+        type: {{ required "A valid authentication type is required!" .Values.scim.auth.type }}
+        {{- if eq .Values.scim.auth.type "basic" }}
+        username: {{ required "A valid username is required!" .Values.scim.auth.username }}
+        password: {{ required "A valid password type is required!" .Values.scim.auth.password }}
+        {{- end }}
+    {{- end }}
+    {{- end }}
+
+    resource_manager:
+      type: "kubernetes"
+      namespace: {{ .Release.Namespace }}
+      max_slots_per_pod: {{ required "A valid Values.maxSlotsPerPod entry is required!" .Values.maxSlotsPerPod }}
+      master_service_name: determined-master-service-{{ .Release.Name }}
+      {{- if .Values.defaultScheduler}}
+      {{- $schedulerType := .Values.defaultScheduler | trim}}
+      {{- if or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption")}}
+      default_scheduler: {{ $schedulerType }}
+      {{- end }}
+      {{- end }}
+      {{- if (ne (default "gpu" .Values.slotType) "gpu") }}
+      slot_type: {{ .Values.slotType }}
+      slot_resource_requests:
+        cpu: {{ .Values.slotResourceRequests.cpu }}
+      {{- end }}
+      {{- if .Values.fluent }}
+      fluent:
+        {{- toYaml .Values.fluent | nindent 8}}
+      {{- end }}
+
+      default_aux_resource_pool: {{.Values.defaultAuxResourcePool}}
+      default_compute_resource_pool: {{.Values.defaultComputeResourcePool}}
+
+    {{- if .Values.resourcePools}}
+    resource_pools:
+      {{- toYaml .Values.resourcePools | nindent 6}}
+    {{- end }}
+
+    {{$cpuImage := (split "/" "determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-6eceaca")._1}}
+    {{- $gpuImage := (split "/" "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-6eceaca")._1 -}}
+    {{ if .Values.taskContainerDefaults -}}
+    task_container_defaults:
+      {{- if .Values.taskContainerDefaults.networkMode }}
+      network_mode: {{ .Values.taskContainerDefaults.networkMode }}
+      {{- end }}
+      {{- if .Values.taskContainerDefaults.dtrainNetworkInterface }}
+      dtrain_network_interface: {{ .Values.taskContainerDefaults.dtrainNetworkInterface }}
+      {{- end }}
+      {{- if .Values.taskContainerDefaults.cpuPodSpec }}
+      cpu_pod_spec: {{ .Values.taskContainerDefaults.cpuPodSpec | toJson }}
+      {{- end }}
+      {{- if .Values.taskContainerDefaults.gpuPodSpec }}
+      gpu_pod_spec: {{ .Values.taskContainerDefaults.gpuPodSpec | toJson }}
+      {{- end }}
+      {{- if and .Values.taskContainerDefaults.cpuImage .Values.taskContainerDefaults.gpuImage }}
+      image:
+         cpu: {{ .Values.taskContainerDefaults.cpuImage | quote }}
+         gpu: {{ .Values.taskContainerDefaults.gpuImage | quote }}
+      {{- else if .Values.imageRegistry }}
+      image:
+         cpu: {{ .Values.imageRegistry }}/{{ $cpuImage }}
+         gpu: {{ .Values.imageRegistry }}/{{ $gpuImage }}
+      {{- if or .Values.taskContainerDefaults.cpuImage .Values.taskContainerDefaults.gpuImage }}
+        {{ required "A valid .Values.taskContainerDefaults.cpuImage entry is required if setting .Values.taskContainerDefaults.gpuImage!" .Values.taskContainerDefaults.cpuImage }}
+        {{ required "A valid .Values.taskContainerDefaults.gpuImage entry is required if setting .Values.taskContainerDefaults.cpuImage!" .Values.taskContainerDefaults.gpuImage }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.taskContainerDefaults.forcePullImage }}
+      force_pull_image: {{ .Values.taskContainerDefaults.forcePullImage }}
+      {{- end }}
+    {{ else if .Values.imageRegistry }}
+    task_container_defaults:
+      image:
+         cpu: {{ .Values.imageRegistry }}/{{ $cpuImage }}
+         gpu: {{ .Values.imageRegistry }}/{{ $gpuImage }}
+    {{ end }}
+
+    {{- if .Values.telemetry }}
+    telemetry:
+      enabled: {{ .Values.telemetry.enabled }}
+    {{- end }}
+
+    {{- if .Values.observability }}
+    observability:
+      enable_prometheus: {{ required "A valid .Values.observability.enable_prometheus must be provided if setting .Values.observability!" .Values.observability.enable_prometheus }}
+    {{- end }}
+
+    {{- if .Values.clusterName }}
+    cluster_name: {{ .Values.clusterName }}
+    {{- end }}
+
+    {{- if .Values.tensorboardTimeout }}
+    tensorboard_timeout: {{ .Values.tensorboardTimeout }}
+    {{- end }}
+
+    {{- if .Values.notebookTimeout }}
+    notebook_timeout: {{ .Values.notebookTimeout }}
+    {{- end }}
+
+    {{- if .Values.logging }}
+    logging:
+      {{- if .Values.logging.type }}
+      type: {{ .Values.logging.type }}
+      {{- end }}
+
+      {{- if (eq (default "" .Values.logging.type) "elastic") }}
+      host: {{ required "A valid host must be provided if logging to Elasticsearch!" .Values.logging.host }}
+      port: {{ required "A valid port must be provided if logging to Elasticsearch!" .Values.logging.port }}
+      {{- if .Values.logging.security }}
+      security:
+        {{- if .Values.logging.security.username }}
+        username: {{ .Values.logging.security.username }}
+        {{- end }}
+        {{- if .Values.logging.security.password }}
+        password: {{ .Values.logging.security.password }}
+        {{- end }}
+        {{- if .Values.logging.security.tls }}
+        tls:
+          {{- if .Values.logging.security.tls.enabled }}
+          enabled: {{ .Values.logging.security.tls.enabled }}
+          {{- end }}
+          {{- if .Values.logging.security.tls.skipVerify }}
+          skip_verify: {{ .Values.logging.security.tls.skipVerify }}
+          {{- end }}
+          {{- if .Values.logging.security.tls.certificate }}
+          certificate: /etc/determined/elastic.crt
+          {{- end }}
+          {{- if .Values.logging.security.tls.certificateName }}
+          certificate_name: {{ .Values.logging.security.tls.certificateName }}
+          {{- end }}
+        {{- end}}
+      {{- end }}
+      {{- end }}
+    {{- end}}
+  {{- if .Values.logging }}
+  {{- if .Values.logging.security }}
+  {{- if .Values.logging.security.tls }}
+  {{- if .Values.logging.security.tls.certificate }}
+  elastic.crt: |{{ nindent 4 .Values.logging.security.tls.certificate }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
