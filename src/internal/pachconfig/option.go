@@ -1,4 +1,4 @@
-package serviceenv
+package pachconfig
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"

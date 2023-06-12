@@ -10,9 +10,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -30,7 +30,7 @@ func PGBouncerHost() string {
 	return postgresHost()
 }
 
-func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
+func NewTestDBConfig(t testing.TB) pachconfig.ConfigOption {
 	var (
 		ctx     = context.Background()
 		dbName  = testutil.GenerateEphemeralDBName(t)
@@ -48,7 +48,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	)
 	testutil.CreateEphemeralDB(t, db, dbName)
 	testutil.CreateEphemeralDB(t, db, dexName)
-	return func(c *serviceenv.Configuration) {
+	return func(c *pachconfig.Configuration) {
 		// common
 		c.PostgresDBName = dbName
 		c.IdentityServerDatabase = dexName

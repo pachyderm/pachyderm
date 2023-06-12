@@ -17,6 +17,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
@@ -493,8 +494,8 @@ metadata:
 					Type: "helm.sh/release.v2",
 				},
 			),
-			Configuration: &serviceenv.Configuration{
-				GlobalConfiguration: &serviceenv.GlobalConfiguration{
+			Configuration: &pachconfig.Configuration{
+				GlobalConfiguration: &pachconfig.GlobalConfiguration{
 					Namespace: "default",
 				},
 			},

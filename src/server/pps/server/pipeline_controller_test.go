@@ -8,9 +8,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -37,7 +37,7 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 		GetPachClient: func(ctx context.Context) *client.APIClient {
 			return mockEnv.PachClient.WithCtx(ctx)
 		},
-		Config:      *serviceenv.ConfigFromOptions(),
+		Config:      *pachconfig.ConfigFromOptions(),
 		TaskService: nil,
 		DB:          nil,
 		KubeClient:  nil,
