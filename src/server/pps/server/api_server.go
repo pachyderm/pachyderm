@@ -2221,7 +2221,9 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if pipelineInfo.Details.Determined == nil {
 		pipelineInfo.Details.Determined = &pps.Determined{}
 	}
-	pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
+	if request.Determined != nil {
+		pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
+	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
 	}
