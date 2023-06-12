@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -24,7 +25,7 @@ import (
 // TestServiceEnv is a simple implementation of ServiceEnv that can be constructed with
 // existing clients.
 type TestServiceEnv struct {
-	Configuration            *Configuration
+	Configuration            *pachconfig.Configuration
 	PachClient               *client.APIClient
 	EtcdClient               *etcd.Client
 	KubeClient               kube.Interface
@@ -55,7 +56,7 @@ type TestServiceEnv struct {
 	Ready chan interface{}
 }
 
-func (s *TestServiceEnv) Config() *Configuration {
+func (s *TestServiceEnv) Config() *pachconfig.Configuration {
 	return s.Configuration
 }
 

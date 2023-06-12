@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -35,7 +36,7 @@ type Env struct {
 	GetPachClient func(ctx context.Context) *client.APIClient
 
 	BackgroundContext context.Context
-	StorageConfig     serviceenv.StorageConfiguration
+	StorageConfig     pachconfig.StorageConfiguration
 	PachwInSidecar    bool
 }
 
