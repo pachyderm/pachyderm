@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
@@ -42,12 +43,24 @@ func (c APIClient) Dump(filter *debug.Filter, limit int64, w io.Writer) (retErr 
 	}()
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
-	dumpC, err := c.DebugClient.Dump(ctx, &debug.DumpRequest{
-		Filter: filter,
-		Limit:  limit,
-	})
+	tpl, err := c.DebugClient.GetDumpV2Template(ctx, &debug.GetDumpV2TemplateRequest{})
 	if err != nil {
 		return err
 	}
-	return grpcutil.WriteFromStreamingBytesClient(dumpC, w)
+	dumpC, err := c.DebugClient.DumpV2(ctx, tpl.Request)
+	if err != nil {
+		return err
+	}
+	var d *debug.DumpChunk
+	for d, err = dumpC.Recv(); !errors.Is(err, io.EOF); d, err = dumpC.Recv() {
+		if err != nil {
+			return err
+		}
+		if content := d.GetContent(); content != nil {
+			if _, err = w.Write(content.Content); err != nil {
+				return errors.Wrap(err, "write dump contents")
+			}
+		}
+	}
+	return nil
 }

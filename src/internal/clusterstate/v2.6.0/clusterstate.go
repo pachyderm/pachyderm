@@ -53,6 +53,10 @@ func Migrate(state migrations.State) migrations.State {
 			return removeAliasCommits(ctx, env.Tx)
 		}).
 		Apply("Remove branch from the Commit key", func(ctx context.Context, env migrations.Env) error {
+			// enforce known DB invariants
+			if err := deleteDanglingCommitRefs(ctx, env.Tx); err != nil {
+				return errors.Wrap(err, "delete dangling commit references")
+			}
 			if err := branchlessCommitsPFS(ctx, env.Tx); err != nil {
 				return err
 			}
