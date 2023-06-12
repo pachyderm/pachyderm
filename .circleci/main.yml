@@ -33,10 +33,10 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2204:2022.10.1
+    default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.20.4"
+    default: "1.20.5"
   go-releaser-version:
     type: string
     default: "1.17.1"
