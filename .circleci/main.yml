@@ -1410,6 +1410,9 @@ jobs:
      - run:
          name: docker build
          command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 .
+     - run:
+         name: docker push
+         command: docker push pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1
   test-python-sdk:
     resource_class: xlarge
     machine:
