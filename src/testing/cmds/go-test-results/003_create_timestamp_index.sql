@@ -1,0 +1,1 @@
+CREATE INDEX ci_job_timestamp_index ON public.ci_jobs(job_timestamp);
