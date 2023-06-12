@@ -1,14 +1,17 @@
 package coredb
 
 import (
+	"fmt"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"io"
 	"testing"
 )
 
@@ -63,6 +66,31 @@ func TestGetProjectByID(t *testing.T) {
 	require.NoError(t, tx.Commit())
 	require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
 	require.Equal(t, createInfo.Description, getInfo.Description)
+}
+
+func TestListProject(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewTestDB(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	expectedInfos := make([]*pfs.ProjectInfo, 100)
+	for i := 0; i < 100; i++ {
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		expectedInfos[i] = createInfo
+		require.NoError(t, CreateProject(ctx, db, createInfo), "should be able to create project")
+	}
+	iter, err := ListProject(ctx, db)
+	require.NoError(t, err, "should be able to list projects")
+	i := 0
+	for proj, err := iter.Next(); err == nil || !errors.Is(err, io.EOF); proj, err = iter.Next() {
+		if err != nil {
+			require.NoError(t, err, "should be able to iterate over projects")
+		}
+		require.Equal(t, expectedInfos[i].Project.Name, proj.Project.Name)
+		require.Equal(t, expectedInfos[i].Description, proj.Description)
+		require.Equal(t, expectedInfos[i].CreatedAt.Seconds, proj.CreatedAt.Seconds)
+		i++
+	}
 }
 
 func TestUpdateProject(t *testing.T) {
