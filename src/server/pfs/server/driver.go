@@ -792,7 +792,8 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 	if err != nil {
 		return errors.Wrap(err, "could not list projects")
 	}
-	for projectInfo, err := projIter.Next(); err != nil && !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
+	defer projIter.Close()
+	for projectInfo, err := projIter.Next(); !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
 		if authIsActive {
 			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
 			if err != nil {
@@ -819,7 +820,8 @@ func (d *driver) listProjectInTransaction(txnCtx *txncontext.TransactionContext,
 	if err != nil {
 		return errors.Wrap(err, "failed to list projects")
 	}
-	for proj, err := projIter.Next(); err != nil && !errors.Is(err, io.EOF); proj, err = projIter.Next() {
+	defer projIter.Close()
+	for proj, err := projIter.Next(); !errors.Is(err, io.EOF); proj, err = projIter.Next() {
 		if err := cb(proj); err != nil {
 			return errors.Wrapf(err, "failed to execute callback on project %q", proj)
 		}
