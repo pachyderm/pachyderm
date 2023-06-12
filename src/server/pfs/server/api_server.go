@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"io"
 	"time"
 
@@ -71,8 +72,12 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	var projectInfo pfs.ProjectInfo
-	if err := a.driver.projects.ReadWrite(txnCtx.SqlTx).List(&projectInfo, col.DefaultOptions(), func(string) error {
+	// todo(fahad): replace with a transactional list()
+	projIter, err := coredb.ListProject(txnCtx.Context(), a.env.DB)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list projects")
+	}
+	for projectInfo, err := projIter.Next(); err != nil && !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
 		var principal string
 		var roleSlice []string
 		if projectInfo.Project.Name == pfs.DefaultProjectName {
@@ -80,14 +85,10 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 			principal = auth.AllClusterUsersSubject
 			roleSlice = []string{auth.ProjectWriterRole}
 		}
-
 		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectInfo.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
-			return errors.EnsureStack(err)
+			return nil, errors.EnsureStack(err)
 		}
-		return nil
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
 	}
 	// Create role bindings for repos created before auth activation
 	var repoInfo pfs.RepoInfo
