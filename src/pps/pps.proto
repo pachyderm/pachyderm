@@ -719,6 +719,7 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
+  Determined determined = 36;
 }
 
 message InspectPipelineRequest {

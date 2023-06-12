@@ -2217,7 +2217,11 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Tolerations:             request.Tolerations,
 		},
 	}
-
+	// TODO: revisit this structure
+	if pipelineInfo.Details.Determined == nil {
+		pipelineInfo.Details.Determined = &pps.Determined{}
+	}
+	pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
 	}
@@ -2235,6 +2239,9 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		}
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
+		}
+		if oldPipelineInfo.Details.Determined != nil {
+			pipelineInfo.Details.Determined.Password = oldPipelineInfo.Details.Determined.Password
 		}
 	}
 
@@ -2386,6 +2393,11 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		return err
 	}
 
+	// handle determined hook.
+	// TODO: should this be done before the start of the txn?
+	if err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo); err != nil {
+		return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
+	}
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
 		return errors.EnsureStack(err)
