@@ -20,6 +20,7 @@ from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
 from .api.transaction.extension import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
+from .api.worker.extension import WorkerStub as _WorkerStub
 from .config import ConfigFile
 from .constants import (
     AUTH_TOKEN_ENV,
@@ -29,6 +30,7 @@ from .constants import (
     OIDC_TOKEN_ENV,
     PACHD_SERVICE_HOST_ENV,
     PACHD_SERVICE_PORT_ENV,
+    WORKER_PORT_ENV,
 )
 from .errors import AuthServiceNotActivated, BadClusterDeploymentID, ConfigError
 from .interceptor import MetadataClientInterceptor, MetadataType
@@ -99,6 +101,8 @@ class Client:
 
         # See implementation for api layout.
         self._init_api()
+        # Worker stub is loaded when accessed through the worker property.
+        self._worker = None
 
         if not auth_token and (oidc_token := os.environ.get(OIDC_TOKEN_ENV)):
             self.auth_token = self.auth.authenticate(id_token=oidc_token)
@@ -118,6 +122,7 @@ class Client:
             set_transaction_id=lambda value: setattr(self, "transaction_id", value),
         )
         self._version_api = _VersionStub(self._channel)
+        self._worker: Optional[_WorkerStub]
 
     @classmethod
     def new_in_cluster(
@@ -277,6 +282,29 @@ class Client:
             metadata=self._metadata,
         )
         self._init_api()
+
+    @property
+    def worker(self) -> _WorkerStub:
+        """Access the worker API stub.
+
+        This is dynamically loaded in order to provide a helpful error message
+        to the user if they try to interact the worker API from outside a worker.
+        """
+        if self._worker is None:
+            port = os.environ.get(WORKER_PORT_ENV)
+            if port is None:
+                raise ConnectionError(
+                    f"Cannot connect to the worker since {WORKER_PORT_ENV} is not set. "
+                    "Are you running inside a pipeline?"
+                )
+            # Note: This channel does not go through the metadata interceptor.
+            channel = _create_channel(
+                address=f"localhost:{port}",
+                root_certs=None,
+                options=GRPC_CHANNEL_OPTIONS
+            )
+            self._worker = _WorkerStub(channel)
+        return self._worker
 
     def _build_metadata(self):
         metadata = []
