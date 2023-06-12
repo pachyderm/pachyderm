@@ -41,11 +41,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -7085,7 +7085,7 @@ func TestPFS(suite *testing.T) {
 	suite.Run("Compaction", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, func(config *serviceenv.Configuration) {
+		env := realenv.NewRealEnv(ctx, t, func(config *pachconfig.Configuration) {
 			config.StorageCompactionMaxFanIn = 10
 		}, dockertestenv.NewTestDBConfig(t))
 

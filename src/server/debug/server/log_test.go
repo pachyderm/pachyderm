@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
@@ -133,8 +134,8 @@ func TestSetLogLevel(t *testing.T) {
 							},
 						},
 					),
-					Configuration: &serviceenv.Configuration{
-						GlobalConfiguration: &serviceenv.GlobalConfiguration{
+					Configuration: &pachconfig.Configuration{
+						GlobalConfiguration: &pachconfig.GlobalConfiguration{
 							Port:     1650,
 							PeerPort: 1653,
 						},
