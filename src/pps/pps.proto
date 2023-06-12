@@ -56,6 +56,11 @@ message Egress {
   }
 }
 
+message Determined {
+  repeated string workspaces = 1;
+  string password = 2; 
+}
+
 message Job {
   Pipeline pipeline = 1;
   string id = 2 [(gogoproto.customname) = "ID"];
@@ -457,6 +462,7 @@ message PipelineInfo {
     bool autoscaling = 33;
     repeated Toleration tolerations = 34;
     ResourceSpec sidecar_resource_requests = 35;
+    Determined determined = 36;
   }
   Details details = 12;
 }

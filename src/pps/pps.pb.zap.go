@@ -108,6 +108,21 @@ func (x *Egress) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *Determined) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	workspacesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Workspaces {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("workspaces", zapcore.ArrayMarshalerFunc(workspacesArrMarshaller))
+	enc.AddString("password", x.Password)
+	return nil
+}
+
 func (x *Job) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -525,6 +540,7 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
 	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
+	enc.AddObject("determined", x.Determined)
 	return nil
 }
 
