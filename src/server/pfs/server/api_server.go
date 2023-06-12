@@ -77,7 +77,8 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}
-	for projectInfo, err := projIter.Next(); err != nil && !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
+	defer projIter.Close()
+	for projectInfo, err := projIter.Next(); !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
 		var principal string
 		var roleSlice []string
 		if projectInfo.Project.Name == pfs.DefaultProjectName {

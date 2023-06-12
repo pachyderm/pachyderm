@@ -75,6 +75,7 @@ func TestListProject(t *testing.T) {
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	require.NoError(t, DeleteProject(ctx, db, "default"))
 	expectedInfos := make([]*pfs.ProjectInfo, 100)
 	for i := 0; i < 100; i++ {
 		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
@@ -82,9 +83,10 @@ func TestListProject(t *testing.T) {
 		require.NoError(t, CreateProject(ctx, db, createInfo), "should be able to create project")
 	}
 	iter, err := ListProject(ctx, db)
+	defer iter.Close()
 	require.NoError(t, err, "should be able to list projects")
 	i := 0
-	for proj, err := iter.Next(); err == nil || !errors.Is(err, io.EOF); proj, err = iter.Next() {
+	for proj, err := iter.Next(); !errors.Is(err, io.EOF); proj, err = iter.Next() {
 		if err != nil {
 			require.NoError(t, err, "should be able to iterate over projects")
 		}
