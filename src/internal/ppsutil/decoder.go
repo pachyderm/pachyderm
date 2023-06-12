@@ -42,6 +42,21 @@ func (r *PipelineManifestReader) DisableValidation() *PipelineManifestReader {
 
 type unvalidatedCreatePipelineRequest ppsclient.CreatePipelineRequest
 
+// Reset implements proto.Message.
+func (ucpr *unvalidatedCreatePipelineRequest) Reset() {
+	(*ppsclient.CreatePipelineRequest)(ucpr).Reset()
+}
+
+// String implements proto.Message.
+func (ucpr *unvalidatedCreatePipelineRequest) String() string {
+	return (*ppsclient.CreatePipelineRequest)(ucpr).String()
+}
+
+// ProtoMessage implements proto.Message.
+func (ucpr *unvalidatedCreatePipelineRequest) ProtoMessage() {
+	(*ppsclient.CreatePipelineRequest)(ucpr).ProtoMessage()
+}
+
 func (r *PipelineManifestReader) convertRequest(request interface{}) (*ppsclient.CreatePipelineRequest, error) {
 	var result unvalidatedCreatePipelineRequest
 	if err := serde.RoundTrip(request, &result); err != nil {
