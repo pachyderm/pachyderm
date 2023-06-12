@@ -1,3 +1,8 @@
 config:
   aws:region: us-west-2
-  core:pachdVersion: 2.4.4
+  core:eksNodeInstanceType: m5.2xlarge
+  core:pachdVersion: 2.6.1
+  core:pgBouncerDefaultPoolSize: "100"
+  core:pgBouncerMaxConnections: "1500"
+  core:rdsPGDBPassword:
+    secure: AAABAF7x+mBrVyybaeW0s3+w1+jYrwOR4HDgh/Vj/5Kis+vDCoy23gginbmLgMmgnge1dHbmf2APvj4=
