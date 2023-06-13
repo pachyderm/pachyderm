@@ -818,6 +818,7 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 					if err := cb(projectInfo); err != nil {
 						return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
 					}
+					continue
 				}
 				return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
 			}
