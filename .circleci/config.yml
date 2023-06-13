@@ -13,6 +13,14 @@ orbs:
   gh: circleci/github-cli@2.1.1
   jq: circleci/jq@2.2.0
 
+parameters:
+  working-pachyderm-version:
+    type: string
+    default: "2.6.0"
+  run_nightly_tag:
+    type: boolean
+    default: false
+
 executors:
   small-node:
     resource_class: small
@@ -327,12 +335,36 @@ jobs:
       - store_artifacts:
           path: /tmp/cypress-videos
 
+  create-nightly-tag:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "21:6b:bd:d2:06:57:1f:fa:79:33:e3:dd:1a:63:5e:ed"
+      - run:
+          name: setup pachydermbuildbot git
+          command: |
+            git config --global user.email "buildbot@pachyderm.io"
+            git config --global user.name "pachydermbuildbot"
+      - run:
+          name: create nightly tag
+          command: |
+            TIMESTAMP=$(date +'%Y%m%d')
+            WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
+            NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
+            git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
+            git push origin ${NIGHTLY}
+
 workflows:
   version: 2
   test:
     when:
-      not:
-        equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+      and:
+        - not:
+            equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+        - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - lint-backend
       - lint-frontend
@@ -347,6 +379,9 @@ workflows:
       - test-e2e-mock
 
   storybook-release:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - components-storybook-release:
           filters:
@@ -355,11 +390,21 @@ workflows:
 
   load-test:
     when:
-      equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
+        - equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
       - load-test
 
+  create-nightly-tag:
+    when: << pipeline.parameters.run_nightly_tag >>
+    jobs:
+      - create-nightly-tag
+
   docker-build:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - docker-build:
           matrix:
