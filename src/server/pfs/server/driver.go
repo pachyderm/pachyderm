@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"io"
 	"math"
 	"os"
 	"sort"
@@ -80,7 +82,6 @@ type driver struct {
 	repos    col.PostgresCollection
 	commits  col.PostgresCollection
 	branches col.PostgresCollection
-	projects col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -102,7 +103,6 @@ func newDriver(env Env) (*driver, error) {
 	repos := pfsdb.Repos(env.DB, env.Listener)
 	commits := pfsdb.Commits(env.DB, env.Listener)
 	branches := pfsdb.Branches(env.DB, env.Listener)
-	projects := pfsdb.Projects(env.DB, env.Listener)
 
 	// Setup driver struct.
 	d := &driver{
@@ -113,7 +113,6 @@ func newDriver(env Env) (*driver, error) {
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
-		projects:   projects,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
@@ -151,8 +150,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	// Check that the repo’s project exists; if not, return an error.
-	var project pfs.ProjectInfo
-	if err := d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+	if _, err := coredb.GetProject(txnCtx.Context(), txnCtx.SqlTx, repo.Project.Name); err != nil {
 		return errors.Wrapf(err, "cannot find project %q", repo.Project)
 	}
 
@@ -633,13 +631,10 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 	if err := req.Project.ValidateName(); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
-	projects := d.projects.ReadWrite(txnCtx.SqlTx)
-	projectInfo := &pfs.ProjectInfo{}
 	if req.Update {
-		return errors.EnsureStack(projects.Update(pfsdb.ProjectKey(req.Project), projectInfo, func() error {
-			projectInfo.Description = req.Description
-			return nil
-		}))
+		return errors.Wrapf(coredb.UpdateProject(txnCtx.Context(), txnCtx.SqlTx,
+			&pfs.ProjectInfo{Project: req.Project, Description: req.Description}, false),
+			"failed to update project %s", req.Project.Name)
 	}
 	// If auth is active, make caller the owner of this new project.
 	if whoAmI, err := txnCtx.WhoAmI(); err == nil {
@@ -654,7 +649,7 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 	} else if !errors.Is(err, auth.ErrNotActivated) {
 		return errors.Wrap(err, "could not get caller's username")
 	}
-	if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+	if err := coredb.CreateProject(txnCtx.Context(), txnCtx.SqlTx, &pfs.ProjectInfo{
 		Project:     req.Project,
 		Description: req.Description,
 		CreatedAt:   types.TimestampNow(),
@@ -670,16 +665,16 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 }
 
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
-	pi := &pfs.ProjectInfo{}
-	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
-		return nil, errors.EnsureStack(err)
+	pi, err := coredb.GetProject(ctx, d.env.DB, pfsdb.ProjectKey(project))
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting project %q", project)
 	}
 	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
 	if err != nil {
 		if errors.Is(err, auth.ErrNotActivated) {
 			return pi, nil
 		}
-		return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
+		return nil, errors.Wrapf(err, "error getting permissions for project %q", project)
 	}
 	pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	return pi, nil
@@ -807,8 +802,12 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
-	projectInfo := &pfs.ProjectInfo{}
-	return errors.Wrap(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+	projIter, err := coredb.ListProject(ctx, d.env.DB)
+	if err != nil {
+		return errors.Wrap(err, "could not list projects")
+	}
+	defer projIter.Close()
+	for projectInfo, err := projIter.Next(); !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
 		if authIsActive {
 			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
 			if err != nil {
@@ -821,16 +820,27 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 			}
 			projectInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 		}
-		return cb(projectInfo)
-	}), "could not list projects")
+		if err := cb(projectInfo); err != nil {
+			return errors.Wrapf(err, "could not execute callback on project %s", projectInfo.Project.Name)
+		}
+	}
+	return nil
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProjectInTransaction(txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
-	projectInfo := &pfs.ProjectInfo{}
-	return errors.EnsureStack(d.projects.ReadWrite(txnCtx.SqlTx).List(projectInfo, col.DefaultOptions(), func(string) error {
-		return cb(projectInfo)
-	}))
+	//todo (fahad): replace with transactional list
+	projIter, err := coredb.ListProject(txnCtx.Context(), d.env.DB)
+	if err != nil {
+		return errors.Wrap(err, "failed to list projects")
+	}
+	defer projIter.Close()
+	for proj, err := projIter.Next(); !errors.Is(err, io.EOF); proj, err = projIter.Next() {
+		if err := cb(proj); err != nil {
+			return errors.Wrapf(err, "failed to execute callback on project %q", proj)
+		}
+	}
+	return nil
 }
 
 // TODO: delete all repos and pipelines within project
@@ -851,8 +861,7 @@ func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *p
 	if errs != nil {
 		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
-
-	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
+	if err := coredb.DeleteProject(txnCtx.Context(), txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {
 		return errors.Wrapf(err, "delete project %q", project)
 	}
 	if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, project.AuthResource()); err != nil {
