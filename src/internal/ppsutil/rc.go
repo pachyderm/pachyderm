@@ -34,7 +34,7 @@ const (
 	PipelineVersionLabel         = "pipelineVersion"
 	Suite                        = "pachyderm"
 	PipelineProjectAnnotation    = "pipelineProject"
-	pipelineNameAnnotation       = "pipelineName"
+	PipelineNameAnnotation       = "pipelineName"
 	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
@@ -266,7 +266,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 	}
 
 	annotations := map[string]string{
-		pipelineNameAnnotation:       pipelineName,
+		PipelineNameAnnotation:       pipelineName,
 		pachVersionAnnotation:        version.PrettyVersion(),
 		pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 		pipelineSpecCommitAnnotation: pi.SpecCommit.ID,

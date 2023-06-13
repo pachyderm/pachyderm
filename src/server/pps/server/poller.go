@@ -220,7 +220,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 				}
 				crashPipeline := func(reason string) error {
 					projectName := pod.ObjectMeta.Annotations[ppsutil.PipelineProjectAnnotation]
-					pipelineName := pod.ObjectMeta.Annotations[pipelineNameAnnotation]
+					pipelineName := pod.ObjectMeta.Annotations[ppsutil.PipelineNameAnnotation]
 					pipelineVersion, versionErr := strconv.Atoi(pod.ObjectMeta.Annotations["pipelineVersion"])
 					if versionErr != nil {
 						return errors.Wrapf(err, "couldn't find pipeline rc version")
