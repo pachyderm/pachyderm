@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -1837,78 +1836,6 @@ func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) erro
 	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
 }
 
-func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Pipeline == nil {
-		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
-	}
-	if pipelineInfo.Pipeline.Name == "" {
-		return errors.New("invalid pipeline spec: Pipeline.Name cannot be empty")
-	}
-	if err := ancestry.ValidateName(pipelineInfo.Pipeline.Name); err != nil {
-		return errors.Wrapf(err, "invalid pipeline name")
-	}
-	first := rune(pipelineInfo.Pipeline.Name[0])
-	if !unicode.IsLetter(first) && !unicode.IsDigit(first) {
-		return errors.Errorf("pipeline names must start with an alphanumeric character")
-	}
-	if len(pipelineInfo.Pipeline.Name) > 63 {
-		return errors.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
-			len(pipelineInfo.Pipeline.Name), pipelineInfo.Pipeline.Name)
-	}
-	if err := validateTransform(pipelineInfo.Details.Transform); err != nil {
-		return errors.Wrapf(err, "invalid transform")
-	}
-	if err := a.validateInput(pipelineInfo.Pipeline, pipelineInfo.Details.Input); err != nil {
-		return err
-	}
-	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
-		return err
-	}
-	if pipelineInfo.Details.ParallelismSpec != nil {
-		if pipelineInfo.Details.Service != nil && pipelineInfo.Details.ParallelismSpec.Constant != 1 {
-			return errors.New("services can only be run with a constant parallelism of 1")
-		}
-	}
-	if pipelineInfo.Details.OutputBranch == "" {
-		return errors.New("pipeline needs to specify an output branch")
-	}
-	if pipelineInfo.Details.JobTimeout != nil {
-		_, err := types.DurationFromProto(pipelineInfo.Details.JobTimeout)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
-	if pipelineInfo.Details.DatumTimeout != nil {
-		_, err := types.DurationFromProto(pipelineInfo.Details.DatumTimeout)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
-	if pipelineInfo.Details.PodSpec != "" && !json.Valid([]byte(pipelineInfo.Details.PodSpec)) {
-		return errors.Errorf("malformed PodSpec")
-	}
-	if pipelineInfo.Details.PodPatch != "" && !json.Valid([]byte(pipelineInfo.Details.PodPatch)) {
-		return errors.Errorf("malformed PodPatch")
-	}
-	if pipelineInfo.Details.Service != nil {
-		validServiceTypes := map[v1.ServiceType]bool{
-			v1.ServiceTypeClusterIP:    true,
-			v1.ServiceTypeLoadBalancer: true,
-			v1.ServiceTypeNodePort:     true,
-		}
-
-		if !validServiceTypes[v1.ServiceType(pipelineInfo.Details.Service.Type)] {
-			return errors.Errorf("the following service type %s is not allowed", pipelineInfo.Details.Service.Type)
-		}
-	}
-	if pipelineInfo.Details.Spout != nil {
-		if pipelineInfo.Details.Spout.Service == nil && pipelineInfo.Details.Input != nil {
-			return errors.Errorf("spout pipelines (without a service) must not have an input")
-		}
-	}
-	return nil
-}
-
 func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
 	var result []*pfs.Branch
 	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
@@ -2176,7 +2103,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		return nil, err
 	}
 	// Validate final PipelineInfo (now that defaults have been populated)
-	if err := a.validatePipeline(pipelineInfo); err != nil {
+	if err := ppsutil.ValidatePipelineInfo(pipelineInfo); err != nil {
 		return nil, err
 	}
 
@@ -3396,35 +3323,6 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 		})
 	}
 	return pp, nil
-}
-
-// FIXME: remove
-func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
-	labels := map[string]string{
-		ppsutil.AppLabel:             "pipeline",
-		ppsutil.PipelineNameLabel:    pipelineName,
-		ppsutil.PipelineVersionLabel: fmt.Sprint(pipelineVersion),
-		"suite":                      ppsutil.Suite,
-		"component":                  "worker",
-	}
-	if projectName != "" {
-		labels[ppsutil.PipelineProjectLabel] = projectName
-	}
-	return labels
-}
-
-// FIXME: remove
-func spoutLabels(pipeline *pps.Pipeline) map[string]string {
-	m := map[string]string{
-		ppsutil.AppLabel:          "spout",
-		ppsutil.PipelineNameLabel: pipeline.Name,
-		"suite":                   ppsutil.Suite,
-		"component":               "worker",
-	}
-	if projectName := pipeline.Project.GetName(); projectName != "" {
-		m[ppsutil.PipelineProjectLabel] = projectName
-	}
-	return m
 }
 
 func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
