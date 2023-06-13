@@ -2,6 +2,9 @@
 
 set -Eex
 
+# If ts command is not present.
+alias ts="$(which ts &>/dev/null && echo 'ts' || echo 'echo')"
+
 # Try to connect for three minutes
 for _ in $(seq 36); do
     if kubectl version &>/dev/null; then
