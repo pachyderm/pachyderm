@@ -37,7 +37,7 @@ const (
 	PipelineNameAnnotation       = "pipelineName"
 	PachVersionAnnotation        = "pachVersion"
 	PipelineVersionAnnotation    = "pipelineVersion"
-	pipelineSpecCommitAnnotation = "specCommit"
+	PipelineSpecCommitAnnotation = "specCommit"
 	hashedAuthTokenAnnotation    = "authTokenHash"
 	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
 	// what service account to assign to new worker RCs, for the purpose of
@@ -269,7 +269,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 		PipelineNameAnnotation:       pipelineName,
 		PachVersionAnnotation:        version.PrettyVersion(),
 		PipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
-		pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
+		PipelineSpecCommitAnnotation: pi.SpecCommit.ID,
 		hashedAuthTokenAnnotation:    HashedAuthToken(pi.AuthToken),
 	}
 	if projectName != "" {
