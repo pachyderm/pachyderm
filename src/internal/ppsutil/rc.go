@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	appLabel                     = "app"
+	AppLabel                     = "app"
 	pipelineProjectLabel         = "pipelineProject"
 	pipelineNameLabel            = "pipelineName"
 	pipelineVersionLabel         = "pipelineVersion"
@@ -119,7 +119,7 @@ type workerOptions struct {
 
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
-		appLabel:             "pipeline",
+		AppLabel:             "pipeline",
 		pipelineNameLabel:    pipelineName,
 		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
 		"suite":              suite,
@@ -902,7 +902,7 @@ func workerPachctlSecret(pipelineInfo *pps.PipelineInfo) (*v1.Secret, error) {
 }
 func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 	m := map[string]string{
-		appLabel:          "spout",
+		AppLabel:          "spout",
 		pipelineNameLabel: pipeline.Name,
 		"suite":           suite,
 		"component":       "worker",

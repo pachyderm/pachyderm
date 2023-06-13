@@ -341,7 +341,7 @@ func (a *apiServer) validateKube(ctx context.Context) {
 		}
 	}
 	name := uuid.NewWithoutDashes()
-	labels := map[string]string{appLabel: name}
+	labels := map[string]string{ppsutil.AppLabel: name}
 	rc := &v1.ReplicationController{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ReplicationController",
@@ -3373,12 +3373,12 @@ func (a *apiServer) listPods(ctx context.Context, labels labels.Set) ([]v1.Pod, 
 }
 
 func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
-	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
+	return a.listPods(ctx, map[string]string{ppsutil.AppLabel: "pachd"})
 }
 
 func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod, error) {
 	labels := map[string]string{
-		appLabel:             "pipeline",
+		ppsutil.AppLabel:     "pipeline",
 		pipelineNameLabel:    pi.Pipeline.Name,
 		pipelineVersionLabel: fmt.Sprint(pi.Version),
 	}
@@ -3394,7 +3394,7 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 		// This long name could exceed 63 characters, which is why 2.4
 		// and later use separate labels for each component.
 		return a.listPods(ctx, map[string]string{
-			appLabel: ppsutil.PipelineRcName(pi),
+			ppsutil.AppLabel: ppsutil.PipelineRcName(pi),
 		})
 	}
 	return pp, nil
@@ -3403,7 +3403,7 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 // FIXME: remove
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
-		appLabel:             "pipeline",
+		ppsutil.AppLabel:     "pipeline",
 		pipelineNameLabel:    pipelineName,
 		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
 		"suite":              suite,
@@ -3418,7 +3418,7 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 // FIXME: remove
 func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 	m := map[string]string{
-		appLabel:          "spout",
+		ppsutil.AppLabel:  "spout",
 		pipelineNameLabel: pipeline.Name,
 		"suite":           suite,
 		"component":       "worker",
