@@ -1,4 +1,5 @@
 import io
+import os
 from typing import Callable
 
 from tests.fixtures import *
@@ -6,7 +7,7 @@ from tests.utils import count
 
 from pachyderm_sdk.api import pfs, pps
 
-IMAGE_NAME = "bonenfan5ben/datum_batching:0037"  # TODO: Don't do this.
+IMAGE_NAME = os.environ.get("PYTHON_SDK_TESTING_IMAGE")
 
 
 def generate_stdin(func: Callable[[], None]):
