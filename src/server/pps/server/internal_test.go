@@ -16,7 +16,6 @@ import (
 
 func TestAPIServer_validatePipelineRequest(t *testing.T) {
 	var (
-		a       = new(apiServer)
 		request = &pps.CreatePipelineRequest{
 			Pipeline: &pps.Pipeline{
 				Project: &pfs.Project{
