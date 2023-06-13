@@ -63,16 +63,16 @@ func (ve validationEnv) WorkerUsesRoot() bool                { return false }
 func validateSpec(spec any) error {
 	b, err := yaml.Marshal(spec)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not marshal spec to YAML")
 	}
 	rr, err := kubeval.Validate(b, kubeval.NewDefaultConfig())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not validate spec YAML")
 	}
 	for _, r := range rr {
 		for _, e := range r.Errors {
 			errors.JoinInto(&err, errors.New(e.String()))
 		}
 	}
-	return err
+	return errors.Wrap(err, "YAML validation failure")
 }

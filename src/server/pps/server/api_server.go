@@ -54,7 +54,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -1031,7 +1030,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 }
 
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
-	setInputDefaults("", input)
+	ppsutil.SetInputDefaults("", input)
 	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			pachClient := a.env.GetPachClient(ctx)
@@ -1567,15 +1566,6 @@ func (s podSlice) Less(i, j int) bool {
 	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
 }
 
-// FIXME: remove
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
-}
-
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
 	if _, err := a.inspectPipeline(ctx, req.Pipeline, false); err == nil {
 		// Pipeline already exists so we allow people to update it even if
@@ -2097,77 +2087,6 @@ func pipelineTypeFromInfo(pipelineInfo *pps.PipelineInfo) pps.PipelineInfo_Pipel
 		return pps.PipelineInfo_PIPELINE_TYPE_SERVICE
 	}
 	return pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM
-}
-
-// setPipelineDefaults sets the default values for a pipeline info
-//
-// FIXME: remove
-func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Details.Transform.Image == "" {
-		pipelineInfo.Details.Transform.Image = ppsutil.DefaultUserImage
-	}
-	setInputDefaults(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input)
-	if pipelineInfo.Details.OutputBranch == "" {
-		// Output branches default to master
-		pipelineInfo.Details.OutputBranch = "master"
-	}
-	if pipelineInfo.Details.DatumTries == 0 {
-		pipelineInfo.Details.DatumTries = DefaultDatumTries
-	}
-	if pipelineInfo.Details.Service != nil {
-		if pipelineInfo.Details.Service.Type == "" {
-			pipelineInfo.Details.Service.Type = string(v1.ServiceTypeNodePort)
-		}
-	}
-	if pipelineInfo.Details.Spout != nil && pipelineInfo.Details.Spout.Service != nil && pipelineInfo.Details.Spout.Service.Type == "" {
-		pipelineInfo.Details.Spout.Service.Type = string(v1.ServiceTypeNodePort)
-	}
-	if pipelineInfo.Details.ReprocessSpec == "" {
-		pipelineInfo.Details.ReprocessSpec = client.ReprocessSpecUntilSuccess
-	}
-	return nil
-}
-
-// FIXME: remove
-func setInputDefaults(pipelineName string, input *pps.Input) {
-	pps.SortInput(input)
-	now := time.Now()
-	nCreatedBranches := make(map[string]int)
-	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
-		if input.Pfs != nil {
-			if input.Pfs.Branch == "" {
-				if input.Pfs.Trigger != nil {
-					// We start counting trigger branches at 1
-					nCreatedBranches[input.Pfs.Repo]++
-					input.Pfs.Branch = fmt.Sprintf("%s-trigger-%d", pipelineName, nCreatedBranches[input.Pfs.Repo])
-					if input.Pfs.Trigger.Branch == "" {
-						input.Pfs.Trigger.Branch = "master"
-					}
-				} else {
-					input.Pfs.Branch = "master"
-				}
-			}
-			if input.Pfs.Name == "" {
-				input.Pfs.Name = input.Pfs.Repo
-			}
-			if input.Pfs.RepoType == "" {
-				input.Pfs.RepoType = pfs.UserRepoType
-			}
-			if input.Pfs.Glob != "" {
-				input.Pfs.Glob = pfsfile.CleanPath(input.Pfs.Glob)
-			}
-		}
-		if input.Cron != nil {
-			if input.Cron.Start == nil {
-				start, _ := types.TimestampProto(now)
-				input.Cron.Start = start
-			}
-			if input.Cron.Repo == "" {
-				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
-			}
-		}
-		return nil
-	})
 }
 
 func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline, reason string) error {

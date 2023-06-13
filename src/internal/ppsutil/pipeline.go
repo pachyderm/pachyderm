@@ -88,7 +88,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.Transform.Image == "" {
 		pipelineInfo.Details.Transform.Image = DefaultUserImage
 	}
-	setInputDefaults(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input)
+	SetInputDefaults(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input)
 	if pipelineInfo.Details.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.Details.OutputBranch = "master"
@@ -110,7 +110,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	return nil
 }
 
-func setInputDefaults(pipelineName string, input *pps.Input) {
+func SetInputDefaults(pipelineName string, input *pps.Input) {
 	pps.SortInput(input)
 	now := time.Now()
 	nCreatedBranches := make(map[string]int)

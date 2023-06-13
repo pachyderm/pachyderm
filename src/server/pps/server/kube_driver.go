@@ -255,7 +255,7 @@ func (kd *kubeDriver) LokiHost() string         { return kd.config.LokiHost }
 func (kd *kubeDriver) LokiPort() (uint16, error) {
 	i, err := strconv.ParseUint(kd.config.LokiPort, 10, 16)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrapf(err, "invalid Loki port %q in config", kd.config.LokiPort)
 	}
 	return uint16(i), nil
 }

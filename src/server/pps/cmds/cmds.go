@@ -1498,7 +1498,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 						return errors.Wrap(err, "invalid service")
 					}
 				}
-				return nil
 			}
 		}),
 	}
