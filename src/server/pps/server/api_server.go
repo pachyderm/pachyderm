@@ -2183,7 +2183,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
 	}
-
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline: request.Pipeline,
 		Version:  1,
@@ -2218,10 +2217,10 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		},
 	}
 	// TODO: revisit this structure
-	if pipelineInfo.Details.Determined == nil {
-		pipelineInfo.Details.Determined = &pps.Determined{}
-	}
 	if request.Determined != nil {
+		if pipelineInfo.Details.Determined == nil {
+			pipelineInfo.Details.Determined = &pps.Determined{}
+		}
 		pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
@@ -2231,7 +2230,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if err := a.validatePipeline(pipelineInfo); err != nil {
 		return nil, err
 	}
-
 	if oldPipelineInfo != nil {
 		// Modify pipelineInfo (increment Version, and *preserve Stopped* so
 		// that updating a pipeline doesn't restart it)
@@ -2260,13 +2258,11 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		// silently ignore pipeline not found, old info will be nil
 		return err
 	}
-
 	if oldPipelineInfo != nil && !request.Update {
 		return ppsServer.ErrPipelineAlreadyExists{
 			Pipeline: request.Pipeline,
 		}
 	}
-
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
 	if err != nil {
 		return err
@@ -2299,7 +2295,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}); visitErr != nil {
 		return visitErr
 	}
-
 	update := request.Update && oldPipelineInfo != nil
 	// Authorize pipeline creation
 	operation := pipelineOpCreate
@@ -2378,7 +2373,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			return errors.EnsureStack(err)
 		}
 	}
-
 	// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 	if err := func() error {
 		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline)
@@ -2389,16 +2383,16 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			return errors.EnsureStack(err)
 		}
 		newPipelineInfo.AuthToken = token
-
 		return nil
 	}(); err != nil {
 		return err
 	}
-
 	// handle determined hook.
 	// TODO: should this be done before the start of the txn?
-	if err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo); err != nil {
-		return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
+	if newPipelineInfo.Details.Determined != nil {
+		if err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo); err != nil {
+			return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
+		}
 	}
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {

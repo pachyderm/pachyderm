@@ -253,6 +253,7 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Inp
 func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
 	var det *pps.Determined
 	if pipelineInfo.Details.Determined != nil {
+		// avoid copying Determined.Password
 		det = &pps.Determined{Workspaces: pipelineInfo.Details.Determined.Workspaces}
 	}
 	return &pps.CreatePipelineRequest{
