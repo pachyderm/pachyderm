@@ -509,8 +509,8 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 	case rcName != expectedName:
 		log.Info(ctx, "pipeline has an unexpected (likely stale) name", zap.String("old", rcName), zap.String("new", expectedName))
 		return false
-	case rcAuthTokenHash != hashAuthToken(pi.AuthToken):
-		log.Info(ctx, "pipeline auth token is stale", zap.String("old", rcAuthTokenHash), zap.String("new", hashAuthToken(pi.AuthToken)))
+	case rcAuthTokenHash != ppsutil.HashedAuthToken(pi.AuthToken):
+		log.Info(ctx, "pipeline auth token is stale", zap.String("old", rcAuthTokenHash), zap.String("new", ppsutil.HashedAuthToken(pi.AuthToken)))
 		return false
 	}
 	return true

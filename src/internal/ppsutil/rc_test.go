@@ -1,25 +1,22 @@
-package server
+package ppsutil
 
 import (
+	"context"
 	"regexp"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func mergeDefaultOptions(project, name string, add *workerOptions) *workerOptions {
 	base := &workerOptions{
-		rcName: ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: project}, Name: name}}),
+		rcName: PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: project}, Name: name}}),
 		labels: map[string]string{
 			"app":             "pipeline",
 			"component":       "worker",
@@ -29,7 +26,7 @@ func mergeDefaultOptions(project, name string, add *workerOptions) *workerOption
 			"suite":           "pachyderm",
 		},
 		annotations: map[string]string{
-			"authTokenHash":   hashAuthToken(""),
+			"authTokenHash":   HashedAuthToken(""),
 			"pachVersion":     "0.0.0",
 			"pipelineName":    name,
 			"pipelineProject": project,
@@ -230,56 +227,51 @@ func TestGetWorkerOptions(t *testing.T) {
 		},
 	}
 
-	// Build a fake kubedriver.
-	kd := &kubeDriver{
-		namespace: "test",
-		config: pachconfig.Configuration{
-			// Some of these values end up in mergeDefaultOptions above.
-			GlobalConfiguration: &pachconfig.GlobalConfiguration{
-				PipelineDefaultCPURequest:     resource.MustParse("1"),
-				PipelineDefaultMemoryRequest:  resource.MustParse("100M"),
-				PipelineDefaultStorageRequest: resource.MustParse("100M"),
-			},
-			PachdSpecificConfiguration: &pachconfig.PachdSpecificConfiguration{
-				PachdPodName: "pachd",
-			},
-			WorkerSpecificConfiguration:     &pachconfig.WorkerSpecificConfiguration{},
-			EnterpriseSpecificConfiguration: &pachconfig.EnterpriseSpecificConfiguration{},
-		},
-		kubeClient: fake.NewSimpleClientset(&v1.Pod{
-			// Minimal pachd pod for some introspection that happens.
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pachd",
-				Namespace: "test",
-			},
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
-					{
-						Name: "pachd",
-						Env: []v1.EnvVar{
-							{
-								Name: "POSTGRES_PASSWORD",
-								ValueFrom: &v1.EnvVarSource{
-									SecretKeyRef: &v1.SecretKeySelector{
-										Key: "key",
-										LocalObjectReference: v1.LocalObjectReference{
-											Name: "secret",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}),
-	}
+	// // Build a fake kubedriver.
+	// kd := &kubeDriver{
+
+	// 		},
+	// 		PachdSpecificConfiguration: &pachconfig.PachdSpecificConfiguration{
+	// 			PachdPodName: "pachd",
+	// 		},
+	// 		WorkerSpecificConfiguration:     &pachconfig.WorkerSpecificConfiguration{},
+	// 		EnterpriseSpecificConfiguration: &pachconfig.EnterpriseSpecificConfiguration{},
+	// 	},
+	// 	kubeClient: fake.NewSimpleClientset(&v1.Pod{
+	// 		// Minimal pachd pod for some introspection that happens.
+	// 		ObjectMeta: metav1.ObjectMeta{
+	// 			Name:      "pachd",
+	// 			Namespace: "test",
+	// 		},
+	// 		Spec: v1.PodSpec{
+	// 			Containers: []v1.Container{
+	// 				{
+	// 					Name: "pachd",
+	// 					Env: []v1.EnvVar{
+	// 						{
+	// 							Name: "POSTGRES_PASSWORD",
+	// 							ValueFrom: &v1.EnvVarSource{
+	// 								SecretKeyRef: &v1.SecretKeySelector{
+	// 									Key: "key",
+	// 									LocalObjectReference: v1.LocalObjectReference{
+	// 										Name: "secret",
+	// 									},
+	// 								},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}),
+	// }
+	var env testK8sEnv
 
 	// Test starts here.
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := pctx.TestContext(t)
-			got, err := kd.getWorkerOptions(ctx, test.pipeline)
+			got, err := getWorkerOptions(ctx, env, test.pipeline)
 			if err != nil && test.wantError == nil {
 				t.Fatalf("unexpected error: %v", err)
 			} else if err == nil && test.wantError != nil {
@@ -298,3 +290,47 @@ func TestGetWorkerOptions(t *testing.T) {
 		})
 	}
 }
+
+type testK8sEnv struct{}
+
+func (env testK8sEnv) DefaultCPURequest() resource.Quantity     { return resource.MustParse("1") }
+func (env testK8sEnv) DefaultMemoryRequest() resource.Quantity  { return resource.MustParse("100M") }
+func (env testK8sEnv) DefaultStorageRequest() resource.Quantity { return resource.MustParse("100M") }
+func (env testK8sEnv) ImagePullSecrets() []string               { return []string{} }
+func (env testK8sEnv) S3GatewayPort() uint16                    { return 1234 }
+func (env testK8sEnv) PostgresSecretRef(context.Context) (*v1.SecretKeySelector, error) {
+	return &v1.SecretKeySelector{
+		Key: "key",
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: "secret",
+		},
+	}, nil
+}
+func (env testK8sEnv) ImagePullPolicy() string       { return "" }
+func (env testK8sEnv) WorkerImage() string           { return "foo" }
+func (env testK8sEnv) SidecarImage() string          { return "bar" }
+func (env testK8sEnv) StorageRoot() string           { return "/" }
+func (env testK8sEnv) Namespace() string             { return "test" }
+func (env testK8sEnv) StorageBackend() string        { return "testbackend" }
+func (env testK8sEnv) PostgresUser() string          { return "user" }
+func (env testK8sEnv) PostgresDatabase() string      { return "db" }
+func (env testK8sEnv) PGBouncerHost() string         { return "localhost" }
+func (env testK8sEnv) PGBouncerPort() uint16         { return 1235 }
+func (env testK8sEnv) PeerPort() uint16              { return 1236 }
+func (env testK8sEnv) LokiHost() string              { return "localhost" }
+func (env testK8sEnv) LokiPort() (uint16, error)     { return 1237, nil }
+func (env testK8sEnv) SidecarPort() uint16           { return 1238 }
+func (env testK8sEnv) InSidecars() bool              { return false }
+func (env testK8sEnv) GarbageCollectionPercent() int { return 0 }
+func (env testK8sEnv) SidecarEnvVars(pi *pps.PipelineInfo, vars []v1.EnvVar) []v1.EnvVar {
+	return vars
+}
+func (env testK8sEnv) EtcdPrefix() string                  { return "etcd-baz" }
+func (env testK8sEnv) PPSWorkerPort() uint16               { return 1239 }
+func (env testK8sEnv) CommitProgressCounterDisabled() bool { return false }
+func (env testK8sEnv) LokiLoggingEnabled() bool            { return false }
+func (env testK8sEnv) GoogleCloudProfilerProject() string  { return "" }
+func (env testK8sEnv) StorageHostPath() string             { return "/tmp/quux" }
+func (env testK8sEnv) TLSSecretName() string               { return "" }
+func (env testK8sEnv) WorkerSecurityContextsEnabled() bool { return false }
+func (env testK8sEnv) WorkerUsesRoot() bool                { return false }

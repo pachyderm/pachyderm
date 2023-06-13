@@ -9,17 +9,47 @@ import (
 	"os"
 	"strconv"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	workerstats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/version"
+)
+
+const (
+	appLabel                     = "app"
+	pipelineProjectLabel         = "pipelineProject"
+	pipelineNameLabel            = "pipelineName"
+	pipelineVersionLabel         = "pipelineVersion"
+	suite                        = "pachyderm"
+	pipelineProjectAnnotation    = "pipelineProject"
+	pipelineNameAnnotation       = "pipelineName"
+	pachVersionAnnotation        = "pachVersion"
+	pipelineVersionAnnotation    = "pipelineVersion"
+	pipelineSpecCommitAnnotation = "specCommit"
+	hashedAuthTokenAnnotation    = "authTokenHash"
+	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
+	// what service account to assign to new worker RCs, for the purpose of
+	// creating S3 gateway services.
+	WorkerServiceAccountEnvVar = "WORKER_SERVICE_ACCOUNT"
+	// DefaultWorkerServiceAccountName is the default value to use if WorkerServiceAccountEnvVar is
+	// undefined (for compatibility purposes)
+	DefaultWorkerServiceAccountName = "pachyderm-worker"
+	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
+	// EnvVar defined in src/internal/serviceenv/config.go
+
+	DefaultUserImage = "ubuntu:20.04"
 )
 
 type K8sEnv interface {
@@ -41,7 +71,7 @@ type K8sEnv interface {
 	PGBouncerPort() uint16
 	PeerPort() uint16
 	LokiHost() string
-	LokiPort() uint16
+	LokiPort() (uint16, error)
 	SidecarPort() uint16
 	InSidecars() bool
 	GarbageCollectionPercent() int
@@ -86,31 +116,6 @@ type workerOptions struct {
 	service          *pps.Service
 	tolerations      []v1.Toleration
 }
-
-const (
-	appLabel                     = "app"
-	pipelineProjectLabel         = "pipelineProject"
-	pipelineNameLabel            = "pipelineName"
-	pipelineVersionLabel         = "pipelineVersion"
-	suite                        = "pachyderm"
-	pipelineProjectAnnotation    = "pipelineProject"
-	pipelineNameAnnotation       = "pipelineName"
-	pachVersionAnnotation        = "pachVersion"
-	pipelineVersionAnnotation    = "pipelineVersion"
-	pipelineSpecCommitAnnotation = "specCommit"
-	hashedAuthTokenAnnotation    = "authTokenHash"
-	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
-	// what service account to assign to new worker RCs, for the purpose of
-	// creating S3 gateway services.
-	WorkerServiceAccountEnvVar = "WORKER_SERVICE_ACCOUNT"
-	// DefaultWorkerServiceAccountName is the default value to use if WorkerServiceAccountEnvVar is
-	// undefined (for compatibility purposes)
-	DefaultWorkerServiceAccountName = "pachyderm-worker"
-	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
-	// EnvVar defined in src/internal/serviceenv/config.go
-
-	DefaultUserImage = "ubuntu:20.04"
-)
 
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
@@ -265,7 +270,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 		pachVersionAnnotation:        version.PrettyVersion(),
 		pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 		pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
-		hashedAuthTokenAnnotation:    hashAuthToken(pi.AuthToken),
+		hashedAuthTokenAnnotation:    HashedAuthToken(pi.AuthToken),
 	}
 	if projectName != "" {
 		annotations[pipelineProjectAnnotation] = projectName
@@ -322,6 +327,9 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 	postgresSecretRef, err := env.PostgresSecretRef(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get PostgresSQL secret reference")
+	}
+	if postgresSecretRef == nil {
+		return nil, errors.New("did not get a PostgresSQL secret reference")
 	}
 
 	// Setup tolerations
@@ -403,7 +411,7 @@ func transformToleration(in *pps.Toleration) (v1.Toleration, error) {
 // this to detect if an auth token has been added/changed
 // Note: ptr.AuthToken is a pachyderm-generated UUID, and wouldn't appear in any
 // rainbow tables
-func hashAuthToken(token string) string {
+func HashedAuthToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
@@ -415,6 +423,10 @@ func workerPodSpec(ctx context.Context, env K8sEnv, options *workerOptions, pipe
 	}
 
 	// Environment variables that are shared between both containers
+	lokiPort, err := env.LokiPort()
+	if err != nil {
+		return v1.PodSpec{}, errors.Wrap(err, "could not get Loki port from k8s env")
+	}
 	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
 		Value: env.StorageRoot(),
@@ -458,7 +470,7 @@ func workerPodSpec(ctx context.Context, env K8sEnv, options *workerOptions, pipe
 		Value: env.LokiHost(),
 	}, {
 		Name:  "LOKI_SERVICE_PORT",
-		Value: strconv.FormatUint(uint64(env.LokiPort()), 10),
+		Value: strconv.FormatUint(uint64(lokiPort), 10),
 	}, {
 		Name:  "GOCOVERDIR",
 		Value: "/tmp",
@@ -473,6 +485,7 @@ func workerPodSpec(ctx context.Context, env K8sEnv, options *workerOptions, pipe
 		},
 	}
 	commonEnv = append(commonEnv, log.WorkerLogConfig.AsKubernetesEnvironment()...)
+	fmt.Println("QQQ commonEnv", commonEnv)
 
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
@@ -842,16 +855,166 @@ func workerPodSpec(ctx context.Context, env K8sEnv, options *workerOptions, pipe
 	return podSpec, nil
 }
 
-func SpecFromPipelineInfo(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (v1.PodSpec, error) {
+type PipelineSpecs struct {
+	Secret                *v1.Secret
+	ReplicationController *v1.ReplicationController
+	Services              []*v1.Service
+}
+
+func workerPachctlSecret(pipelineInfo *pps.PipelineInfo) (*v1.Secret, error) {
+	var cfg config.Config
+	err := cfg.InitV2()
+	if err != nil {
+		return nil, errors.Wrapf(err, "error initializing V2 for config")
+	}
+	_, context, err := cfg.ActiveContext(true)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting the active context")
+	}
+	context.SessionToken = pipelineInfo.AuthToken
+	context.PachdAddress = "localhost:1653"
+
+	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return nil, errors.Wrapf(err, "error marshaling the config")
+	}
+	s := &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   spoutSecretName(pipelineInfo.Pipeline),
+			Labels: spoutLabels(pipelineInfo.Pipeline),
+		},
+		Data: map[string][]byte{
+			"config.json": rawConfig,
+		},
+	}
+	labels := s.GetLabels()
+	if projectName := pipelineInfo.Pipeline.Project.GetName(); projectName != "" {
+		labels[pipelineProjectLabel] = projectName
+	}
+	labels[pipelineNameLabel] = pipelineInfo.Pipeline.Name
+	s.SetLabels(labels)
+
+	return s, nil
+}
+func spoutLabels(pipeline *pps.Pipeline) map[string]string {
+	m := map[string]string{
+		appLabel:          "spout",
+		pipelineNameLabel: pipeline.Name,
+		"suite":           suite,
+		"component":       "worker",
+	}
+	if projectName := pipeline.Project.GetName(); projectName != "" {
+		m[pipelineProjectLabel] = projectName
+	}
+	return m
+}
+
+func SpecsFromPipelineInfo(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (PipelineSpecs, error) {
+	var specs PipelineSpecs
 	options, err := getWorkerOptions(ctx, env, pi)
 	if err != nil {
-		return v1.PodSpec{}, noValidOptionsErr{err}
+		return specs, NoValidOptionsErr{err}
 	}
+
+	if pi.Details.Spout != nil {
+		if specs.Secret, err = workerPachctlSecret(pi); err != nil {
+			return specs, errors.Wrap(err, "")
+		}
+	}
+
 	podSpec, err := workerPodSpec(ctx, env, options, pi)
 	if err != nil {
-		return v1.PodSpec{}, err
+		return specs, errors.Wrap(err, "could not generate worker pod spec")
 	}
-	return podSpec, nil
+
+	specs.ReplicationController = &v1.ReplicationController{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        options.rcName,
+			Labels:      options.labels,
+			Annotations: options.annotations,
+		},
+		Spec: v1.ReplicationControllerSpec{
+			Selector: options.labels,
+			Replicas: &options.parallelism,
+			Template: &v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        options.rcName,
+					Labels:      options.labels,
+					Annotations: options.annotations,
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	serviceAnnotations := map[string]string{
+		"prometheus.io/scrape": "true",
+		"prometheus.io/port":   strconv.Itoa(workerstats.PrometheusPort),
+	}
+
+	specs.Services = append(specs.Services, &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        options.rcName,
+			Labels:      options.labels,
+			Annotations: serviceAnnotations,
+		},
+		Spec: v1.ServiceSpec{
+			Selector:  options.labels,
+			ClusterIP: "None", // headless, so as not to consume an IP address in the cluster
+			Ports: []v1.ServicePort{
+				{
+					Port: int32(env.PPSWorkerPort()),
+					Name: "grpc-port",
+				},
+				{
+					Port: workerstats.PrometheusPort,
+					Name: "prom-metrics",
+				},
+			},
+		},
+	})
+
+	if options.service != nil {
+		var servicePort = []v1.ServicePort{
+			{
+				Port:       options.service.ExternalPort,
+				TargetPort: intstr.FromInt(int(options.service.InternalPort)),
+				Name:       "user-port",
+			},
+		}
+		var serviceType = v1.ServiceType(options.service.Type)
+		if serviceType == v1.ServiceTypeNodePort {
+			servicePort[0].NodePort = options.service.ExternalPort
+		}
+		specs.Services = append(specs.Services, &v1.Service{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Service",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        options.rcName + "-user",
+				Labels:      options.labels,
+				Annotations: options.annotations,
+			},
+			Spec: v1.ServiceSpec{
+				Selector: options.labels,
+				Type:     serviceType,
+				Ports:    servicePort,
+			},
+		})
+	}
+	return specs, nil
 }
 
 // noValidOptions error may be returned by createWorkerSvcAndRc to indicate that
@@ -860,7 +1023,7 @@ func SpecFromPipelineInfo(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo)
 // its caller not to retry.
 //
 // FIXME: wrap?
-type noValidOptionsErr struct {
+type NoValidOptionsErr struct {
 	error
 }
 

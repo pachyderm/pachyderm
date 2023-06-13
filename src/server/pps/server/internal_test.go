@@ -26,13 +26,13 @@ func TestAPIServer_validatePipelineRequest(t *testing.T) {
 			},
 		}
 	)
-	err := a.validatePipelineRequest(request)
+	err := ppsutil.ValidatePipelineRequest(request)
 	require.YesError(t, err)
 	require.ErrorContains(t, err, fmt.Sprintf("is %d characters longer than the %d max", len(request.Pipeline.Name)-maxPipelineNameLength, maxPipelineNameLength))
 
 	request.Pipeline.Name = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY"
 	k8sName := ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: request.Pipeline.GetProject().GetName()}, Name: request.Pipeline.Name}, Version: 99})
-	err = a.validatePipelineRequest(request)
+	err = ppsutil.ValidatePipelineRequest(request)
 	require.YesError(t, err)
 	require.ErrorContains(t, err, fmt.Sprintf("is %d characters longer than the %d max", len(k8sName)-dnsLabelLimit, dnsLabelLimit))
 }

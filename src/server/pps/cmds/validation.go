@@ -3,9 +3,12 @@ package cmds
 import (
 	"context"
 
+	"github.com/instrumenta/kubeval/kubeval"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/yaml"
 )
 
 type validationEnv struct{}
@@ -40,7 +43,7 @@ func (ve validationEnv) PGBouncerHost() string         { return "localhost" }
 func (ve validationEnv) PGBouncerPort() uint16         { return 5432 }
 func (ve validationEnv) PeerPort() uint16              { return 1235 }
 func (ve validationEnv) LokiHost() string              { return "localhost" }
-func (ve validationEnv) LokiPort() uint16              { return 12346 }
+func (ve validationEnv) LokiPort() (uint16, error)     { return 12346, nil }
 func (ve validationEnv) SidecarPort() uint16           { return 1237 }
 func (ve validationEnv) InSidecars() bool              { return false }
 func (ve validationEnv) GarbageCollectionPercent() int { return 75 }
@@ -56,3 +59,20 @@ func (ve validationEnv) StorageHostPath() string             { return "/tmp/abcd
 func (ve validationEnv) TLSSecretName() string               { return "" }
 func (ve validationEnv) WorkerSecurityContextsEnabled() bool { return false }
 func (ve validationEnv) WorkerUsesRoot() bool                { return false }
+
+func validateSpec(spec any) error {
+	b, err := yaml.Marshal(spec)
+	if err != nil {
+		return err
+	}
+	rr, err := kubeval.Validate(b, kubeval.NewDefaultConfig())
+	if err != nil {
+		return err
+	}
+	for _, r := range rr {
+		for _, e := range r.Errors {
+			errors.JoinInto(&err, errors.New(e.String()))
+		}
+	}
+	return err
+}

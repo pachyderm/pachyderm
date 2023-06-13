@@ -1768,58 +1768,6 @@ func now() *types.Timestamp {
 	return t
 }
 
-// FIXME: remove
-func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
-	if request.Pipeline == nil {
-		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
-	}
-	if request.Pipeline.Name == "" {
-		return errors.New("invalid pipeline spec: request.Pipeline.Name cannot be empty")
-	}
-	if err := ancestry.ValidateName(request.Pipeline.Name); err != nil {
-		return errors.Wrapf(err, "invalid pipeline name")
-	}
-	if len(request.Pipeline.Name) > maxPipelineNameLength {
-		return errors.Errorf("pipeline name %q is %d characters longer than the %d max",
-			request.Pipeline.Name, len(request.Pipeline.Name)-maxPipelineNameLength, maxPipelineNameLength)
-	}
-	// TODO(CORE-1489): Remove dependency of name length on Kubernetes
-	// resource naming convention.
-	if k8sName := ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: request.Pipeline.GetProject().GetName()}, Name: request.Pipeline.Name}, Version: 99}); len(k8sName) > dnsLabelLimit {
-		return errors.Errorf("Kubernetes name %q is %d characters longer than the %d max", k8sName, len(k8sName)-dnsLabelLimit, dnsLabelLimit)
-	}
-	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
-	// currently TFJob isn't supported
-	if request.TFJob != nil {
-		return errors.New("embedding TFJobs in pipelines is not supported yet")
-	}
-	if request.S3Out && ((request.Service != nil) || (request.Spout != nil)) {
-		return errors.New("s3 output is not supported in spouts or services")
-	}
-	if request.Transform == nil {
-		return errors.Errorf("pipeline must specify a transform")
-	}
-	if request.ReprocessSpec != "" &&
-		request.ReprocessSpec != client.ReprocessSpecUntilSuccess &&
-		request.ReprocessSpec != client.ReprocessSpecEveryJob {
-		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of '%s' or '%s'",
-			client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
-	}
-	if request.Spout != nil && request.Autoscaling {
-		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
-	}
-	var tolErrs error
-	for i, t := range request.GetTolerations() {
-		if _, err := transformToleration(t); err != nil {
-			errors.JoinInto(&tolErrs, errors.Errorf("toleration %d/%d: %v", i+1, len(request.GetTolerations()), err))
-		}
-	}
-	if tolErrs != nil {
-		return tolErrs
-	}
-	return nil
-}
-
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
 	if _, err := a.inspectPipeline(ctx, req.Pipeline, false); err == nil {
 		// Pipeline already exists so we allow people to update it even if
@@ -2184,7 +2132,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
-	if err := a.validatePipelineRequest(request); err != nil {
+	if err := ppsutil.ValidatePipelineRequest(request); err != nil {
 		return nil, err
 	}
 	// Reprocess overrides the salt in the request
@@ -2265,8 +2213,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			Pipeline: request.Pipeline,
 		}
 	}
-
-	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
+	newPipelineInfo, err := ppsutil.PipelineInfoFromCreatePipelineRequest(request, oldPipelineInfo)
 	if err != nil {
 		return err
 	}
@@ -3468,6 +3415,7 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 	return labels
 }
 
+// FIXME: remove
 func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 	m := map[string]string{
 		appLabel:          "spout",

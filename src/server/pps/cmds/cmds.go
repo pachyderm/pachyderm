@@ -19,11 +19,9 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/instrumenta/kubeval/kubeval"
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -1465,6 +1463,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				} else if err != nil {
 					return err
 				}
+				// setting a resource request prevents an annoying log message
 				req.ResourceRequests = &pps.ResourceSpec{
 					Cpu:    .5,
 					Memory: "1G",
@@ -1484,30 +1483,22 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					},
 					ID: "validation-spec-id",
 				}
-				ps, err := ppsutil.SpecFromPipelineInfo(ctx, validationEnv{}, pi)
+				specs, err := ppsutil.SpecsFromPipelineInfo(ctx, validationEnv{}, pi)
 				if err != nil {
 					return err
 				}
-				var b bytes.Buffer
-				fmt.Fprintf(&b, "apiVersion: v1\nkind: Pod\n")
-				e := yaml.NewEncoder(&b)
-				if err := e.Encode(ps); err != nil {
-					return err
+				if err := validateSpec(specs.Secret); err != nil {
+					return errors.Wrap(err, "invalid secret")
 				}
-				rr, err := kubeval.Validate(b.Bytes(), kubeval.NewDefaultConfig())
-				if err != nil {
-					return err
+				if err := validateSpec(specs.ReplicationController); err != nil {
+					return errors.Wrap(err, "invalid replication controller")
 				}
-				var foundError bool
-				for _, r := range rr {
-					for _, err := range r.Errors {
-						foundError = true
-						fmt.Fprintln(os.Stderr, err)
+				for _, svc := range specs.Services {
+					if err := validateSpec(svc); err != nil {
+						return errors.Wrap(err, "invalid service")
 					}
 				}
-				if foundError {
-					os.Exit(1)
-				}
+				return nil
 			}
 		}),
 	}

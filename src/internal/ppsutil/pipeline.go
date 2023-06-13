@@ -32,7 +32,7 @@ const (
 	DefaultDatumTries = 3
 )
 
-func validatePipelineRequest(request *pps.CreatePipelineRequest) error {
+func ValidatePipelineRequest(request *pps.CreatePipelineRequest) error {
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -418,7 +418,7 @@ func now() *types.Timestamp {
 }
 
 func PipelineInfoFromCreatePipelineRequest(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
-	if err := validatePipelineRequest(request); err != nil {
+	if err := ValidatePipelineRequest(request); err != nil {
 		return nil, err
 	}
 	// Reprocess overrides the salt in the request
