@@ -407,6 +407,11 @@ jobs:
       - run:
           name: package pre-release helm chart
           command: |
+            if [[ "$CIRCLE_TAG" =~ ^v\d+\.\d+\.\d+-(nightly)+(\.[0-9A-Za-z-]+)*?$ ]]
+            then
+              export CONSOLE_VERSION=${CIRCLE_TAG:1}
+              yq e -i '.console.image.tag=env(CONSOLE_VERSION)' etc/helm/pachyderm/values.yaml
+            fi
             helm package -d cr-release-packages/preview --version ${CIRCLE_TAG:1}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
