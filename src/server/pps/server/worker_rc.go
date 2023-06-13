@@ -15,14 +15,6 @@ import (
 )
 
 const (
-	// FIXME: remove, or pull from ppsutil
-	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
-	// what service account to assign to new worker RCs, for the purpose of
-	// creating S3 gateway services.
-	WorkerServiceAccountEnvVar = "WORKER_SERVICE_ACCOUNT"
-	// DefaultWorkerServiceAccountName is the default value to use if WorkerServiceAccountEnvVar is
-	// undefined (for compatibility purposes)
-	DefaultWorkerServiceAccountName = "pachyderm-worker"
 	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
 	// EnvVar defined in src/internal/serviceenv/config.go
 	UploadConcurrencyLimitEnvVar               = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
@@ -92,9 +84,4 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 	}
 
 	return nil
-}
-
-// FIXME: remove
-func int64Ptr(x int64) *int64 {
-	return &x
 }
