@@ -424,11 +424,11 @@ spec:
         - name: SIDECAR_DEFAULT_STORAGE_REQUEST
           value: {{ .Values.pachd.defaultSidecarStorageRequest | quote }}
         {{- end }}
-        {{ -if ne .Values.pachd.determined.credentialsSecretName "" }}
+        {{- if ne .Values.pachd.determined.credentialsSecretName "" }}
         - name: DETERMINED_CREDENTIALS_SECRET
           value: {{ .Values.pachd.determined.credentialsSecretName | quote }}
         {{- end }}
-        {{ -if ne .Values.pachd.determined.apiEndpoint "" }}
+        {{- if ne .Values.pachd.determined.apiEndpoint "" }}
         - name: DETERMINED_API_URL
           value: {{ .Values.pachd.determined.apiEndpoint | quote }}
         {{- end }}

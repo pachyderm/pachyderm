@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -63,20 +63,19 @@ func (a *apiServer) mintDeterminedToken(ctx context.Context) (string, error) {
 		return "", errors.Wrap(err, "login as determined user")
 	}
 	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
-
 	var respObj detLoginResponse
 	if err := json.Unmarshal(data, &respObj); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "unmarshal determined token")
 	}
-	return respObj.token, nil
+	return respObj.Token, nil
 }
 
 type detLoginResponse struct {
-	token string `json:"token"`
+	Token string `json:"token"`
 }
 
 func (a *apiServer) determinedCredentials(ctx context.Context) (string, string, error) {
