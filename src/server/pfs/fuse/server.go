@@ -44,6 +44,8 @@ type ServerOptions struct {
 	// Unmount is a channel that will be closed when the filesystem has been
 	// unmounted. It can be nil in which case it's ignored.
 	Unmount chan struct{}
+	// True if allow-other option is to be specified
+	AllowOther bool
 }
 
 type ConfigRequest struct {
@@ -321,7 +323,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	}, nil
 }
 
-func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
+func CreateMount(c *client.APIClient, mountDir string, allowOther bool) (*MountManager, error) {
 	mountOpts := &Options{
 		Write: true,
 		Fuse: &fs.Options{
@@ -329,7 +331,7 @@ func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
 				Debug:      false,
 				FsName:     "pfs",
 				Name:       "pfs",
-				AllowOther: true,
+				AllowOther: allowOther,
 			},
 		},
 		RepoOptions: make(map[string]*RepoOptions),
@@ -391,7 +393,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	var mm *MountManager = &MountManager{}
 	if existingClient != nil {
 		var err error
-		mm, err = CreateMount(existingClient, sopts.MountDir)
+		mm, err = CreateMount(existingClient, sopts.MountDir, sopts.AllowOther)
 		if err != nil {
 			return err
 		}
@@ -825,7 +827,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				mm.Client.Close()
 			}
 			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
-			if mm, err = CreateMount(newClient, sopts.MountDir); err != nil {
+			if mm, err = CreateMount(newClient, sopts.MountDir, sopts.AllowOther); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
