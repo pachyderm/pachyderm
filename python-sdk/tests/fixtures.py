@@ -41,7 +41,10 @@ class TestClient(_Client):
         Args:
             nodeid: The pytest nodeid used to label resources (in their descriptions)
         """
+
         super().__init__(*args, **kwargs)
+        address = os.environ.get('PACH_PYTHON_TEST_ADDRESS')
+        self = super().from_pachd_address(address)
         self.id = nodeid
         self.projects = []
         self.repos = []

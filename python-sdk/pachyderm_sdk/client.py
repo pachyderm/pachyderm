@@ -49,7 +49,7 @@ class Client:
     def __init__(
         self,
         host: str = 'localhost',
-        port: int = 80,
+        port: int = 30650,
         auth_token: Optional[str] = None,
         root_certs: Optional[bytes] = None,
         transaction_id: str = None,
