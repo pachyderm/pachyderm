@@ -38,7 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -674,7 +674,7 @@ func TestInspectWaitJob(t *testing.T) {
 		"pipeline1", pipeline1,
 		"project", project,
 	).Run())
-	jobs, err := c.ListProjectJob(project, pipeline1, nil, -1, false)
+	jobs, err := c.ListJob(project, pipeline1, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 

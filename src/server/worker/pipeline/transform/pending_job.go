@@ -5,7 +5,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -102,7 +102,7 @@ func (pj *pendingJob) load() error {
 			return errors.EnsureStack(err)
 		}
 		if metaCI.Origin.Kind == pfs.OriginKind_AUTO {
-			outputCI, err := pachClient.InspectProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+			outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -119,7 +119,7 @@ func (pj *pendingJob) load() error {
 		pj.logger.Logf("base meta commit for job %q not selected", pj.ji.Job.String())
 	}
 	// Load the job info.
-	pj.ji, err = pachClient.InspectProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
+	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 		if pj.baseMetaCommit != nil {
 			// Upload the datums from the base job into the datum file set format.
 			if err := pj.logger.LogStep("creating full base job datum file set", func() error {
-				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
+				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
 				if err != nil {
 					return err
 				}
@@ -184,7 +184,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 }
 
 func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job) (string, error) {
-	jobInfo, err := pachClient.InspectProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+	jobInfo, err := pachClient.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 	if err != nil {
 		return "", err
 	}
@@ -273,7 +273,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 		return datum.CreateEmptyFileSet(pachClient)
 	}
 	// Wait for the base job to finish.
-	ci, err := pachClient.WaitProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+	ci, err := pachClient.WaitCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 	if err != nil {
 		return "", err
 	}

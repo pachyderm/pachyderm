@@ -3,7 +3,7 @@ package pfsload
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -35,7 +35,7 @@ func (pc *pachClient) AddFileSet(ctx context.Context, commit *pfs.Commit, filese
 	project := commit.Repo.Project.GetName()
 	repo := commit.Repo.Name
 	branch := commit.Branch.Name
-	return pc.client.WithCtx(ctx).AddProjectFileSet(project, repo, branch, commit.ID, filesetID)
+	return pc.client.WithCtx(ctx).AddFileSet(project, repo, branch, commit.ID, filesetID)
 }
 
 func (pc *pachClient) GlobFile(ctx context.Context, commit *pfs.Commit, pattern string, cb func(*pfs.FileInfo) error) error {

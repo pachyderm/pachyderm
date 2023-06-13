@@ -18,9 +18,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,9 +29,22 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
+	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -54,18 +68,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
-	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
-	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
-	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
-	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 )
 
 const (
@@ -463,7 +465,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: client.NewProjectRepo(projectName, outputName),
+				Repo: client.NewRepo(projectName, outputName),
 			}); errutil.IsNotFoundError(err) {
 				// special case: the pipeline output repo has been deleted (so the
 				// pipeline is now invalid). It should be possible to delete the pipeline.
@@ -650,6 +652,11 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
+	filterJob, err := newMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
+	if err != nil {
+		return errors.Wrap(err, "error creating message filter function")
+	}
+
 	number := request.Number
 	if number < 0 {
 		return errors.Errorf("number must be non-negative")
@@ -658,12 +665,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		number = math.MaxInt64
 	}
 	paginationMarker := request.PaginationMarker
-
-	// For quickly filtering out jobs based on project
-	projectsFilter := make(map[string]bool, len(request.GetProjects()))
-	for _, project := range request.GetProjects() {
-		projectsFilter[project.GetName()] = true
-	}
 
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
@@ -692,18 +693,15 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if err != nil {
 			return err
 		}
-		// Filter jobs based on projects.
-		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
-		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
+		// jobInfos can contain jobs that belong in the same project or different projects due to commit sets.
 		var jobInfosFiltered []*pps.JobInfo
-		if len(projectsFilter) == 0 {
-			jobInfosFiltered = jobInfos
-		} else {
-			for _, ji := range jobInfos {
-				if projectsFilter[ji.Job.Pipeline.Project.GetName()] {
-					jobInfosFiltered = append(jobInfosFiltered, ji)
-				}
+		for _, ji := range jobInfos {
+			if ok, err := filterJob(serv.Context(), ji); err != nil {
+				return errors.Wrap(err, "error filtering job")
+			} else if !ok {
+				continue
 			}
+			jobInfosFiltered = append(jobInfosFiltered, ji)
 		}
 		if len(jobInfosFiltered) == 0 {
 			return nil
@@ -712,7 +710,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			JobSet: client.NewJobSet(id),
 			Jobs:   jobInfosFiltered,
 		}); err != nil {
-			return err
+			return errors.Wrap(err, "error sending JobSet")
 		}
 		number--
 		return nil
@@ -826,15 +824,9 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	filter := make(map[string]bool, len(request.GetProjects()))
-	for _, project := range request.GetProjects() {
-		filter[project.GetName()] = true
-	}
-	keep := func(j *pps.JobInfo) error {
-		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
-			return errors.Wrap(resp.Send(j), "could not send filtered job")
-		}
-		return nil
+	filterJob, err := newMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
+	if err != nil {
+		return errors.Wrap(err, "error creating message filter function")
 	}
 
 	ctx := resp.Context()
@@ -851,21 +843,6 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: pipeline.Project, Name: pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 			return errors.EnsureStack(err)
 		}
-	}
-	var jqCode *gojq.Code
-	var enc serde.Encoder
-	var jsonBuffer bytes.Buffer
-	if request.GetJqFilter() != "" {
-		jqQuery, err := gojq.Parse(request.GetJqFilter())
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		jqCode, err = gojq.Compile(jqQuery)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		// ensure field names and enum values match with --raw output
-		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
 
 	number := request.Number
@@ -918,24 +895,14 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return nil
 		}
 
-		if jqCode != nil {
-			jsonBuffer.Reset()
-			// convert jobInfo to a map[string]interface{} for use with gojq
-			if err := enc.EncodeProto(jobInfo); err != nil {
-				return errors.EnsureStack(err)
-			}
-			var jobInterface interface{}
-			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
-				return errors.EnsureStack(err)
-			}
-			iter := jqCode.Run(jobInterface)
-			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
-				return nil
-			}
+		if ok, err := filterJob(ctx, jobInfo); err != nil {
+			return errors.Wrap(err, "error filtering job")
+		} else if !ok {
+			return nil
 		}
-		if err := keep(jobInfo); err != nil {
-			return err
+
+		if err := resp.Send(jobInfo); err != nil {
+			return errors.Wrap(err, "error sending job")
 		}
 		number--
 		return nil
@@ -945,15 +912,15 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		opts.Order = col.SortAscend
 	}
 	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
-		if err != nil && err != errutil.ErrBreak {
-			return errors.EnsureStack(err)
-		}
+		err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
 	} else {
-		err := jobs.List(jobInfo, opts, _f)
-		if err != nil && err != errutil.ErrBreak {
-			return errors.EnsureStack(err)
+		err = jobs.List(jobInfo, opts, _f)
+	}
+	if err != nil && err != errutil.ErrBreak {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return status.Error(codes.DeadlineExceeded, err.Error())
 		}
+		return errors.EnsureStack(err)
 	}
 	return nil
 }
@@ -1256,7 +1223,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			pachClient := a.env.GetPachClient(ctx)
-			ci, err := pachClient.InspectProjectCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
+			ci, err := pachClient.InspectCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
 			if err != nil {
 				return err
 			}
@@ -1808,12 +1775,12 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if len(request.Pipeline.Name) > maxPipelineNameLength {
 		return errors.Errorf("pipeline name %q is %d characters longer than the %d max",
-			request.Pipeline.Name, maxPipelineNameLength-len(request.Pipeline.Name), maxPipelineNameLength)
+			request.Pipeline.Name, len(request.Pipeline.Name)-maxPipelineNameLength, maxPipelineNameLength)
 	}
 	// TODO(CORE-1489): Remove dependency of name length on Kubernetes
 	// resource naming convention.
 	if k8sName := ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: request.Pipeline.GetProject().GetName()}, Name: request.Pipeline.Name}, Version: 99}); len(k8sName) > dnsLabelLimit {
-		return errors.Errorf("Kubernetes name %q is %d characters longer than the %d max", k8sName, dnsLabelLimit-len(k8sName), dnsLabelLimit)
+		return errors.Errorf("Kubernetes name %q is %d characters longer than the %d max", k8sName, len(k8sName)-dnsLabelLimit, dnsLabelLimit)
 	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
@@ -1838,7 +1805,7 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	var tolErrs error
 	for i, t := range request.GetTolerations() {
 		if _, err := transformToleration(t); err != nil {
-			multierr.AppendInto(&tolErrs, errors.Errorf("toleration %d/%d: %v", i+1, len(request.GetTolerations()), err))
+			errors.JoinInto(&tolErrs, errors.Errorf("toleration %d/%d: %v", i+1, len(request.GetTolerations()), err))
 		}
 	}
 	if tolErrs != nil {
@@ -1996,14 +1963,14 @@ func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
 			if projectName == "" {
 				projectName = project.GetName()
 			}
-			result = append(result, client.NewProjectBranch(projectName, input.Pfs.Repo, input.Pfs.Branch))
+			result = append(result, client.NewBranch(projectName, input.Pfs.Repo, input.Pfs.Branch))
 		}
 		if input.Cron != nil {
 			var projectName = input.Cron.Project
 			if projectName == "" {
 				projectName = project.GetName()
 			}
-			result = append(result, client.NewProjectBranch(projectName, input.Cron.Repo, "master"))
+			result = append(result, client.NewBranch(projectName, input.Cron.Repo, "master"))
 		}
 		return nil
 	})
@@ -2303,7 +2270,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}
 			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
-					Repo: client.NewSystemProjectRepo(input.Pfs.Project, input.Pfs.Repo, input.Pfs.RepoType),
+					Repo: client.NewSystemRepo(input.Pfs.Project, input.Pfs.Repo, input.Pfs.RepoType),
 				},
 			); err != nil {
 				return errors.EnsureStack(err)
@@ -2312,7 +2279,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Cron != nil {
 			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
-					Repo:        client.NewProjectRepo(projectName, input.Cron.Repo),
+					Repo:        client.NewRepo(projectName, input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline),
 				},
 			); err != nil && !errutil.IsAlreadyExistError(err) {
@@ -2337,9 +2304,9 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	var (
 		// provenance for the pipeline's output branch (includes the spec branch)
 		provenance = append(branchProvenance(newPipelineInfo.Pipeline.Project, newPipelineInfo.Details.Input),
-			client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"))
-		outputBranch = client.NewProjectBranch(projectName, pipelineName, newPipelineInfo.Details.OutputBranch)
-		metaBranch   = client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
+			client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"))
+		outputBranch = client.NewBranch(projectName, pipelineName, newPipelineInfo.Details.OutputBranch)
+		metaBranch   = client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
 	)
 
 	// Get the expected number of workers for this pipeline
@@ -2356,7 +2323,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		// Create output and spec repos
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
-				Repo:        client.NewProjectRepo(projectName, pipelineName),
+				Repo:        client.NewRepo(projectName, pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline),
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
@@ -2365,7 +2332,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		}
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
-				Repo:        client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType),
+				Repo:        client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType),
 				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline),
 				Update:      true,
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
@@ -2391,7 +2358,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	} else {
 		// create an empty spec commit to mark the update
 		newPipelineInfo.SpecCommit, err = a.env.PFSServer.StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
-			Branch: client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"),
+			Branch: client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"),
 		})
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -2470,7 +2437,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
 			var prevHead *pfs.Commit
 			if branchInfo, err := a.env.PFSServer.InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
-				Branch: client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
+				Branch: client.NewBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
 			}); err != nil {
 				if !errutil.IsNotFoundError(err) {
 					return errors.EnsureStack(err)
@@ -2480,7 +2447,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}
 
 			err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:  client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
+				Branch:  client.NewBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
 				Head:    prevHead,
 				Trigger: input.Pfs.Trigger,
 			})
@@ -2737,49 +2704,9 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 }
 
 func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
-	var jqCode *gojq.Code
-	var enc serde.Encoder
-	var jsonBuffer bytes.Buffer
-	if request.JqFilter != "" {
-		jqQuery, err := gojq.Parse(request.JqFilter)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		jqCode, err = gojq.Compile(jqQuery)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		// ensure field names and enum values match with --raw output
-		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
-	}
-
-	// Helper func to filter out pipelines based on projects
-	projectsFilter := make(map[string]bool)
-	for _, project := range request.Projects {
-		projectsFilter[project.GetName()] = true
-	}
-	keep := func(pipelineInfo *pps.PipelineInfo) bool {
-		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.GetName()] {
-			return false
-		}
-
-		if jqCode != nil {
-			jsonBuffer.Reset()
-			// convert pipelineInfo to a map[string]interface{} for use with gojq
-			if err := enc.EncodeProto(pipelineInfo); err != nil {
-				log.Error(ctx, "error encoding pipelineInfo to JSON", zap.Error(err))
-			}
-			var pipelineInterface interface{}
-			if err := json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface); err != nil {
-				log.Error(ctx, "error parsing JSON encoded pipeline info", zap.Error(err))
-			}
-			iter := jqCode.Run(pipelineInterface)
-			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
-				return false
-			}
-		}
-		return true
+	filterPipeline, err := newMessageFilterFunc(request.GetJqFilter(), request.GetProjects())
+	if err != nil {
+		return errors.Wrap(err, "error creating message filter function")
 	}
 
 	// Helper func to check whether a user is allowed to see the given pipeline in the result.
@@ -2817,8 +2744,10 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			})
 		})
 	}
-	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if !keep(pi) {
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
+		if ok, err := filterPipeline(ctx, pi); err != nil {
+			return errors.Wrap(err, "error filtering pipeline")
+		} else if !ok {
 			return nil
 		}
 		if err := checkAccess(ctx, pi.Pipeline); err != nil {
@@ -2841,7 +2770,13 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			}
 		}
 		return f(pi)
-	})
+	}); err != nil && err != errutil.ErrBreak {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return status.Error(codes.DeadlineExceeded, err.Error())
+		}
+		return errors.Wrap(err, "could not list pipeline info")
+	}
+	return nil
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
@@ -2923,7 +2858,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
 	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-		Repo: client.NewProjectRepo(projectName, pipelineName)}); err != nil && !auth.IsErrNoRoleBinding(err) {
+		Repo: client.NewRepo(projectName, pipelineName)}); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return nil, errors.EnsureStack(err)
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline
@@ -2967,26 +2902,26 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 	if !request.KeepRepo {
 		// delete the pipeline's output repo
-		deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, pipelineName))
+		deleteRepos = append(deleteRepos, client.NewRepo(projectName, pipelineName))
 	} else {
 		// Remove branch provenance from output and then delete meta and spec repos
 		// this leaves the repo as a source repo, eliminating pipeline metadata
 		// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
 		if pipelineInfo.Details != nil {
 			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch: client.NewProjectBranch(projectName, pipelineName, pipelineInfo.Details.OutputBranch),
+				Branch: client.NewBranch(projectName, pipelineName, pipelineInfo.Details.OutputBranch),
 			}); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
 		}
 	}
-	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType)}); err == nil {
-		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType))
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType)}); err == nil {
+		deleteRepos = append(deleteRepos, client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType))
 	} else if !errutil.IsNotFoundError(err) {
 		return nil, errors.Wrapf(err, "inspect spec repo for pipeline %q", pipelineName)
 	}
-	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType)}); err == nil {
-		deleteRepos = append(deleteRepos, client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType))
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType)}); err == nil {
+		deleteRepos = append(deleteRepos, client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType))
 	} else if !errutil.IsNotFoundError(err) {
 		return nil, errors.Wrapf(err, "inspect meta repo for pipeline %q", pipelineName)
 	}
@@ -2995,7 +2930,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if pipelineInfo.Details != nil {
 		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
 			if input.Cron != nil {
-				deleteRepos = append(deleteRepos, client.NewProjectRepo(projectName, input.Cron.Repo))
+				deleteRepos = append(deleteRepos, client.NewRepo(projectName, input.Cron.Repo))
 			}
 			return nil
 		}); err != nil {
@@ -3080,9 +3015,9 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 		// Restore branch provenance, which may create a new output commit/job
 		provenance := append(branchProvenance(pipelineInfo.Pipeline.Project, pipelineInfo.Details.Input),
-			client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
+			client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
 		if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewProjectBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+			Branch:     client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
 			Provenance: provenance,
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -3090,7 +3025,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		// restore same provenance to meta repo
 		if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
 			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
 				Provenance: provenance,
 			}); err != nil {
 				return errors.EnsureStack(err)
@@ -3125,14 +3060,14 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 
 			// Remove branch provenance to prevent new output and meta commits from being created
 			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewProjectBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+				Branch:     client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
 				Provenance: nil,
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
 			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
 				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-					Branch:     client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
 					Provenance: nil,
 				}); err != nil {
 					return errors.EnsureStack(err)
@@ -3234,7 +3169,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			continue
 		}
 		// Check if there is an existing job for the output commit
-		job := client.NewProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
+		job := client.NewJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.JobInfo{}
 		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it
@@ -3573,4 +3508,70 @@ func ensurePipelineProject(p *pps.Pipeline) {
 	if p.Project.GetName() == "" {
 		p.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
+}
+
+// newMessageFilterFunc returns a function that filters out messages that don't satisify either jq filter or projects filter.
+func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
+	projectsFilter := make(map[string]bool, len(projects))
+	for _, project := range projects {
+		projectsFilter[project.GetName()] = true
+	}
+	var (
+		jqCode *gojq.Code
+		enc    serde.Encoder
+	)
+	if jqFilter != "" {
+		jqQuery, err := gojq.Parse(jqFilter)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing jq filter")
+		}
+		jqCode, err = gojq.Compile(jqQuery)
+		if err != nil {
+			return nil, errors.Wrap(err, "error compiling jq filter")
+		}
+	}
+	return func(ctx context.Context, m proto.Message) (bool, error) {
+		// Assume that empty projectsFilter means no filter.
+		if len(projectsFilter) > 0 {
+			switch v := m.(type) {
+			case *pps.PipelineInfo:
+				if !projectsFilter[v.Pipeline.Project.GetName()] {
+					return false, nil
+				}
+			case *pps.JobInfo:
+				if !projectsFilter[v.Job.Pipeline.Project.GetName()] {
+					return false, nil
+				}
+			default:
+				return false, errors.Errorf("unknown proto message type: %T\n", v)
+			}
+		}
+
+		if jqFilter != "" {
+			var jsonBuffer bytes.Buffer
+			// ensure field names and enum values match with --raw output
+			enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
+			if err := enc.EncodeProto(m); err != nil {
+				return false, err
+			}
+			var v any
+			if err := json.Unmarshal(jsonBuffer.Bytes(), &v); err != nil {
+				return false, errors.Wrap(err, "error unmarshalling proto message")
+			}
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second) // assume that no filter will ever take more than 10 seconds to run
+			defer cancel()
+			iter := jqCode.RunWithContext(ctx, v)
+			v, ok := iter.Next()
+			if !ok {
+				return false, nil
+			}
+			if err, ok := v.(error); ok && err != nil {
+				return false, errors.Wrap(err, "error applying jq filter on proto message")
+			}
+			if v == false || v == nil {
+				return false, nil
+			}
+		}
+		return true, nil
+	}, nil
 }

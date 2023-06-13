@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -55,7 +55,7 @@ var (
 
 func getPachClient() *client.APIClient {
 	pachClientOnce.Do(func() {
-		c, err := client.NewOnUserMachineContext(pctx.TODO(), "user-completion")
+		c, err := client.NewOnUserMachine(pctx.TODO(), "user-completion")
 		if err != nil {
 			Fatal(err)
 		}
@@ -302,7 +302,7 @@ func jobDesc(ji *pps.JobInfo) string {
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListProjectJobF("", "", nil, 0, false, func(ji *pps.JobInfo) error {
+	if err := c.ListJobF("", "", nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {

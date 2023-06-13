@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pachyderm/pachyderm/v2/src/client/limit"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/limit"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
 type kubeDriver struct {
@@ -24,11 +26,11 @@ type kubeDriver struct {
 	// the limiter intends to guard the k8s API server from being overwhelmed by many concurrent requests
 	// that could arise from many concurrent pipelineController goros.
 	limiter    limit.ConcurrencyLimiter
-	config     serviceenv.Configuration
+	config     pachconfig.Configuration
 	etcdPrefix string
 }
 
-func newKubeDriver(kubeClient kubernetes.Interface, config serviceenv.Configuration) InfraDriver {
+func newKubeDriver(kubeClient kubernetes.Interface, config pachconfig.Configuration) InfraDriver {
 	return &kubeDriver{
 		kubeClient: kubeClient,
 		namespace:  config.Namespace,

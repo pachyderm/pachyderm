@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
@@ -42,7 +43,7 @@ func main() {
 
 	switch {
 	case readiness:
-		cmdutil.Main(ctx, doReadinessCheck, &serviceenv.GlobalConfiguration{})
+		cmdutil.Main(ctx, doReadinessCheck, &pachconfig.GlobalConfiguration{})
 	case mode == "full", mode == "", mode == "$(MODE)":
 		// Because of the way Kubernetes environment substitution works,
 		// a reference to an unset variable is not replaced with the
@@ -50,18 +51,18 @@ func main() {
 		// because of this, '$(MODE)' should be recognized as an unset —
 		// i.e., default — mode.
 		logMode("full")
-		cmdutil.Main(ctx, pachd.FullMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, pachd.FullMode, &pachconfig.PachdFullConfiguration{})
 	case mode == "enterprise":
 		logMode("enterprise")
-		cmdutil.Main(ctx, pachd.EnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
+		cmdutil.Main(ctx, pachd.EnterpriseMode, &pachconfig.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
 		logMode("sidecar")
-		cmdutil.Main(ctx, pachd.SidecarMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, pachd.SidecarMode, &pachconfig.PachdFullConfiguration{})
 	case mode == "pachw":
-		cmdutil.Main(ctx, pachd.PachwMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, pachd.PachwMode, &pachconfig.PachdFullConfiguration{})
 	case mode == "paused":
 		logMode("paused")
-		cmdutil.Main(ctx, pachd.PausedMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, pachd.PausedMode, &pachconfig.PachdFullConfiguration{})
 	default:
 		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))
 		fmt.Printf("unrecognized mode: %s\n", mode)
@@ -69,6 +70,6 @@ func main() {
 }
 
 func doReadinessCheck(ctx context.Context, config interface{}) error {
-	env := serviceenv.InitPachOnlyEnv(ctx, serviceenv.NewConfiguration(config))
+	env := serviceenv.InitPachOnlyEnv(ctx, pachconfig.NewConfiguration(config))
 	return env.GetPachClient(ctx).Health()
 }

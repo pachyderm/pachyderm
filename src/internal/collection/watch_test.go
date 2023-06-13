@@ -11,6 +11,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -166,7 +167,7 @@ func NewWatchShim(ctx context.Context, t *testing.T, doWatch func(context.Contex
 	watchChan := make(chan *watch.Event)
 
 	done := false
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		// There is no way to test ErrBreak behavior unless we know the set of
@@ -224,7 +225,7 @@ func watchTests(
 	watchAllTests := func(suite *testing.T, makeWatcher func(context.Context, *testing.T, ReadCallback) watch.Watcher) {
 		suite.Run("InterruptionAfterInitial", func(t *testing.T) {
 			t.Parallel()
-			ctx, cancel := context.WithCancel(rctx)
+			ctx, cancel := pctx.WithCancel(rctx)
 			defer cancel()
 			reader, writer := newCollection(rctx, t)
 			row := makeProto(makeID(4))
@@ -243,7 +244,7 @@ func watchTests(
 
 		suite.Run("InterruptionDuringBackfill", func(t *testing.T) {
 			t.Parallel()
-			ctx, cancel := context.WithCancel(rctx)
+			ctx, cancel := pctx.WithCancel(rctx)
 			defer cancel()
 			reader, writer := newCollection(rctx, t)
 			for i := 0; i < 10; i++ {
@@ -426,7 +427,7 @@ func watchTests(
 
 		suite.Run("InterruptionAfterInitial", func(t *testing.T) {
 			t.Parallel()
-			ctx, cancel := context.WithCancel(rctx)
+			ctx, cancel := pctx.WithCancel(rctx)
 			defer cancel()
 			reader, writer := newCollection(rctx, t)
 			row := makeProto(makeID(4))
@@ -585,7 +586,7 @@ func watchTests(
 	watchByIndexTests := func(suite *testing.T, makeWatcher func(context.Context, *testing.T, ReadCallback, string) watch.Watcher) {
 		suite.Run("InterruptionAfterInitial", func(t *testing.T) {
 			t.Parallel()
-			ctx, cancel := context.WithCancel(rctx)
+			ctx, cancel := pctx.WithCancel(rctx)
 			defer cancel()
 			reader, writer := newCollection(rctx, t)
 			row := makeProto(makeID(4), originalValue)

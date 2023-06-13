@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -40,14 +40,14 @@ func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadClose
 	if c, ok := cc.get(key); ok {
 		return cc.APIClient.GetFileTAR(c, path)
 	}
-	id, err := cc.APIClient.GetProjectFileSet(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.ID)
+	id, err := cc.APIClient.GetFileSet(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.ID)
 	if err != nil {
 		return nil, err
 	}
 	if err := cc.renewer.Add(cc.APIClient.Ctx(), id); err != nil {
 		return nil, err
 	}
-	commit = client.NewProjectCommit(commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
+	commit = client.NewCommit(commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
 	cc.put(key, commit)
 	return cc.APIClient.GetFileTAR(commit, path)
 }
@@ -94,14 +94,14 @@ func (ccfsc *cacheCreateFileSetClient) CopyFile(dst string, src *pfs.File, opts 
 		newSrc.Commit = c
 		return errors.EnsureStack(ccfsc.ModifyFile.CopyFile(dst, newSrc, opts...))
 	}
-	id, err := ccfsc.APIClient.GetProjectFileSet(src.Commit.Repo.Project.GetName(), src.Commit.Repo.Name, src.Commit.Branch.Name, src.Commit.ID)
+	id, err := ccfsc.APIClient.GetFileSet(src.Commit.Repo.Project.GetName(), src.Commit.Repo.Name, src.Commit.Branch.Name, src.Commit.ID)
 	if err != nil {
 		return err
 	}
 	if err := ccfsc.CacheClient.renewer.Add(ccfsc.APIClient.Ctx(), id); err != nil {
 		return err
 	}
-	newSrc.Commit = client.NewProjectCommit(src.Commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
+	newSrc.Commit = client.NewCommit(src.Commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
 	ccfsc.put(key, newSrc.Commit)
 	return errors.EnsureStack(ccfsc.ModifyFile.CopyFile(dst, newSrc, opts...))
 }

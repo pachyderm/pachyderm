@@ -5,7 +5,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
@@ -28,7 +30,7 @@ type Env struct {
 	GetPpsServer        func() pps.APIServer
 
 	BackgroundContext context.Context
-	Config            serviceenv.Configuration
+	Config            pachconfig.Configuration
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) Env {
@@ -43,7 +45,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		GetPfsServer:        senv.PfsServer,
 		GetPpsServer:        senv.PpsServer,
 
-		BackgroundContext: senv.Context(),
+		BackgroundContext: pctx.Child(senv.Context(), "auth"),
 		Config:            *senv.Config(),
 	}
 }

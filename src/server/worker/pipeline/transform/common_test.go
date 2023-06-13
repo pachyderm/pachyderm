@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -23,7 +23,7 @@ import (
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, name),
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, name),
 		Details: &pps.PipelineInfo_Details{
 			OutputBranch: "master",
 			Transform: &pps.Transform{
@@ -133,7 +133,7 @@ func newTestEnv(ctx context.Context, t *testing.T, pipelineInfo *pps.PipelineInf
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(realEnv.PachClient.Ctx())
 	t.Cleanup(cancel)
 	driver = driver.WithContext(ctx)
 

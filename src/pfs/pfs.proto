@@ -18,14 +18,12 @@ import "task/task.proto";
 ////  PFS Data structures (stored in etcd)
 
 message Repo {
-  option (gogoproto.goproto_stringer) = false;
   string name = 1;
   string type = 2;
   Project project = 3;
 }
 
 message Branch {
-  option (gogoproto.goproto_stringer) = false;
   Repo repo = 1;
   string name = 2;
 }
@@ -112,7 +110,6 @@ message CommitOrigin {
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
 message Commit {
-  option (gogoproto.goproto_stringer) = false;
   Repo repo = 3;
   string id = 2 [(gogoproto.customname) = "ID"];
   // only used by the client
@@ -168,7 +165,6 @@ message FileInfo {
 }
 
 message Project {
-  option (gogoproto.goproto_stringer) = false;
   string name = 1;
 }
 

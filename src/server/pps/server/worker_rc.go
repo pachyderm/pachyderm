@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -19,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
-	client "github.com/pachyderm/pachyderm/v2/src/client"
+	client "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -847,7 +846,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	for i, in := range pipelineInfo.GetDetails().GetTolerations() {
 		out, err := transformToleration(in)
 		if err != nil {
-			multierr.AppendInto(&tolErr, errors.Errorf("toleration %d/%d: %v", i+1, len(pipelineInfo.GetDetails().GetTolerations()), err))
+			errors.JoinInto(&tolErr, errors.Errorf("toleration %d/%d: %v", i+1, len(pipelineInfo.GetDetails().GetTolerations()), err))
 			continue
 		}
 		tolerations = append(tolerations, out)

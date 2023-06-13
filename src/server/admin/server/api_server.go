@@ -8,6 +8,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -17,7 +18,7 @@ import (
 // Env is the set of dependencies required by an APIServer
 type Env struct {
 	ClusterID string
-	Config    *serviceenv.Configuration
+	Config    *pachconfig.Configuration
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
@@ -34,11 +35,19 @@ type APIServer interface {
 
 // NewAPIServer returns a new admin.APIServer
 func NewAPIServer(env Env) APIServer {
+	var host string
+	var tls bool
+	if pachd := env.Config.PachdSpecificConfiguration; pachd != nil {
+		host = pachd.ProxyHost
+		tls = pachd.ProxyTLS
+	}
 	return &apiServer{
 		clusterInfo: &admin.ClusterInfo{
 			ID:                env.ClusterID,
 			DeploymentID:      env.Config.DeploymentID,
 			VersionWarningsOk: true,
+			ProxyHost:         host,
+			ProxyTls:          tls,
 		},
 	}
 }

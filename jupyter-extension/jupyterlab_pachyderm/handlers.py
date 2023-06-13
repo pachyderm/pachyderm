@@ -58,6 +58,20 @@ class MountsHandler(BaseHandler):
             )
 
 
+class ProjectsHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def get(self):
+        try:
+            response = await self.mount_client.list_projects()
+            get_logger().debug(f"Projects: {response}")
+            self.finish(response)
+        except Exception as e:
+            get_logger().error("Error listing projects.", exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=getattr(e, "code", 500), reason=f"Error listing projects: {e}."
+            )
+
+
 class MountHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
@@ -313,6 +327,7 @@ def setup_handlers(web_app):
     _handlers = [
         ("/repos", ReposHandler),
         ("/mounts", MountsHandler),
+        ("/projects", ProjectsHandler),
         ("/_mount", MountHandler),
         ("/_unmount", UnmountHandler),
         ("/_commit", CommitHandler),

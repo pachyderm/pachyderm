@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -106,7 +106,7 @@ func (jf *JobFinisher) Run() error {
 			if commitInfo.Commit.Repo.Type != pfs.UserRepoType {
 				continue
 			}
-			jobKey := ppsdb.JobKey(client.NewProjectJob(commitInfo.Commit.Repo.Project.GetName(), commitInfo.Commit.Repo.Name, commitInfo.Commit.ID))
+			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Repo.Project.GetName(), commitInfo.Commit.Repo.Name, commitInfo.Commit.ID))
 			jobInfo := &pps.JobInfo{}
 			if err := jobs.Get(jobKey, jobInfo); err != nil {
 				// Commits in source repos will not have a job associated with them.

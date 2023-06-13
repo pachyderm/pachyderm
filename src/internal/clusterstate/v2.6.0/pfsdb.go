@@ -3,6 +3,7 @@ package v2_6_0
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -82,26 +83,16 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 		}
 		duplicates[commitBranchlessKey(ci.Commit)][oldCommitKey(ci.Commit)] = ci
 	}
-	// the only duplicate commits we allow and handle in the migration are two commits with a parent/child relationship
-	// for any set of commits with the same ID on a repo, we expect the following:
-	// 1. all commits has a non-nil Parent.
-	// 2. exactly one commit is not an ALIAS commit
-	// 3. the commits are in an ancestry chain
-	//
-	// TODO(provenance): this is all quite complicated and potentially needs to be revisted
+	// the only duplicate commits we allow and handle in the migration are those connected through direct ancestry.
+	// the allowed duplicate commits are expected to arise from branch triggers / deferred processing.
 	var badCommitSets []string
 	for _, dups := range duplicates {
 		if len(dups) <= 1 {
 			continue
 		}
 		seen := make(map[string]struct{})
-		aliasCount := 0
 		var commitSet string
 		for _, d := range dups {
-			// before 2.6, pfs.OriginKind_ALIAS = 4
-			if d.Origin.Kind == 4 {
-				aliasCount++
-			}
 			commitSet = d.Commit.ID
 			if d.ParentCommit != nil {
 				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
@@ -109,7 +100,7 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 				}
 			}
 		}
-		if len(dups)-len(seen) > 1 || len(dups)-aliasCount != 1 {
+		if len(dups)-len(seen) > 1 {
 			badCommitSets = append(badCommitSets, commitSet)
 		}
 	}
@@ -329,6 +320,11 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 	if err != nil {
 		return false, err
 	}
+	if md1 == nil || md2 == nil {
+		// the semantics here are a little odd - if either commit doesn't have a fileset yet,
+		// we assume that they aren't different and are therefore the same.
+		return true, nil
+	}
 	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
 		ser1, err := proto.Marshal(md1.GetPrimitive())
 		if err != nil {
@@ -359,6 +355,9 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 func getFileSetMd(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) (*fileset.Metadata, error) {
 	var mdData []byte
 	if err := tx.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets JOIN pfs.commit_totals ON id = fileset_id WHERE commit_id = $1`, oldCommitKey(c)); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, errors.EnsureStack(err)
 	}
 	md := &fileset.Metadata{}
@@ -651,4 +650,97 @@ func addCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance(from_id, to_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, fromId, toId)
 	return errors.EnsureStack(err)
+}
+
+func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) error {
+	parseRepo := func(key string) *pfs.Repo {
+		slashSplit := strings.Split(key, "/")
+		dotSplit := strings.Split(slashSplit[1], ".")
+		return &pfs.Repo{
+			Project: &pfs.Project{Name: slashSplit[0]},
+			Name:    dotSplit[0],
+			Type:    dotSplit[1],
+		}
+	}
+	parseBranch := func(key string) *pfs.Branch {
+		split := strings.Split(key, "@")
+		return &pfs.Branch{
+			Repo: parseRepo(split[0]),
+			Name: split[1],
+		}
+	}
+	listRepoKeys := func(tx *pachsql.Tx) (map[string]struct{}, error) {
+		var keys []string
+		if err := tx.Select(&keys, `SELECT key FROM collections.repos`); err != nil {
+			return nil, errors.Wrap(err, "select keys from collections.repos")
+		}
+		rs := make(map[string]struct{})
+		for _, k := range keys {
+			rs[k] = struct{}{}
+		}
+		return rs, nil
+	}
+	parseCommit_2_5 := func(key string) (*pfs.Commit, error) {
+		split := strings.Split(key, "=")
+		if len(split) != 2 {
+			return nil, errors.Errorf("parsing commit key with 2.6.x+ structure %q", key)
+		}
+		b := parseBranch(split[0])
+		return &pfs.Commit{
+			Repo:   b.Repo,
+			Branch: b,
+			ID:     split[1],
+		}, nil
+	}
+	listReferencedCommits := func(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
+		cs := make(map[string]*pfs.Commit)
+		var err error
+		var ids []string
+		if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
+			return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
+		}
+		for _, id := range ids {
+			cs[id], err = parseCommit_2_5(id)
+			if err != nil {
+				return nil, err
+			}
+		}
+		ids = make([]string, 0)
+		if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
+			return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
+		}
+		for _, id := range ids {
+			cs[id], err = parseCommit_2_5(id)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return cs, nil
+	}
+	cs, err := listReferencedCommits(tx)
+	if err != nil {
+		return errors.Wrap(err, "list referenced commits")
+	}
+	rs, err := listRepoKeys(tx)
+	if err != nil {
+		return errors.Wrap(err, "list repos")
+	}
+	var dangCommitKeys []string
+	for _, c := range cs {
+		if _, ok := rs[repoKey(c.Repo)]; !ok {
+			dangCommitKeys = append(dangCommitKeys, oldCommitKey(c))
+		}
+	}
+	if len(dangCommitKeys) > 0 {
+		log.Info(ctx, "detected dangling commit references", zap.Any("references", dangCommitKeys))
+	}
+	for _, id := range dangCommitKeys {
+		if _, err := tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, id); err != nil {
+			return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", id)
+		}
+		if _, err := tx.Exec(`DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, id); err != nil {
+			return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", id)
+		}
+	}
+	return nil
 }

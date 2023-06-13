@@ -60,7 +60,7 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 	numTasks := 10
 	numWorkers := 5
 	// Set up workers.
-	workerCtx, workerCancel := context.WithCancel(ctx)
+	workerCtx, workerCancel := pctx.WithCancel(ctx)
 	defer workerCancel()
 	workerEg, errCtx := errgroup.WithContext(workerCtx)
 	for i := 0; i < numWorkers; i++ {
@@ -68,7 +68,7 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 			src := s.NewSource("")
 			for {
 				if err := func() error {
-					ctx, cancel := context.WithCancel(errCtx)
+					ctx, cancel := pctx.WithCancel(errCtx)
 					defer cancel()
 					err := src.Iterate(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
 						if rand.Float64() < workerFailProb {
@@ -84,14 +84,14 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 						}
 						return serializeTestTask(testTask)
 					})
-					if errors.Is(ctx.Err(), context.Canceled) {
+					if errors.Is(context.Cause(ctx), context.Canceled) {
 						return nil
 					}
 					return errors.EnsureStack(err)
 				}(); err != nil {
 					return err
 				}
-				if errors.Is(workerCtx.Err(), context.Canceled) {
+				if errors.Is(context.Cause(workerCtx), context.Canceled) {
 					return nil
 				}
 			}
@@ -117,7 +117,7 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 				inputs = append(inputs, input)
 				created[i][j] = true
 			}
-			ctx, cancel := context.WithCancel(errCtx)
+			ctx, cancel := pctx.WithCancel(errCtx)
 			defer cancel()
 			d := s.NewDoer("", strconv.Itoa(i), nil)
 			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
@@ -139,7 +139,7 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 				}
 				collected[i][j] = true
 				return nil
-			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+			}); err != nil && !errors.Is(context.Cause(ctx), context.Canceled) {
 				return err
 			}
 			return nil
@@ -278,7 +278,7 @@ func TestListTask(t *testing.T) {
 	}
 
 	var groupEg errgroup.Group
-	workerCtx, workerCancel := context.WithCancel(rctx)
+	workerCtx, workerCancel := pctx.WithCancel(rctx)
 	defer workerCancel()
 	workerEg, errCtx := errgroup.WithContext(pctx.Child(workerCtx, "worker"))
 	for g := 0; g < numGroups; g++ {
@@ -292,7 +292,7 @@ func TestListTask(t *testing.T) {
 				}
 				inputs = append(inputs, input)
 			}
-			ctx, cancel := context.WithCancel(errCtx)
+			ctx, cancel := pctx.WithCancel(errCtx)
 			defer cancel()
 			d := s.NewDoer(testNamespace, strconv.Itoa(g), nil)
 			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
@@ -307,7 +307,7 @@ func TestListTask(t *testing.T) {
 					}
 				}
 				return nil
-			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+			}); err != nil && !errors.Is(context.Cause(ctx), context.Canceled) {
 				return err
 			}
 			return nil
@@ -322,7 +322,7 @@ func TestListTask(t *testing.T) {
 			src := s.NewSource("")
 			for {
 				if err := func() error {
-					ctx, cancel := context.WithCancel(errCtx)
+					ctx, cancel := pctx.WithCancel(errCtx)
 					defer cancel()
 					err := src.Iterate(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
 						testTask, err := deserializeTestTask(input)
@@ -337,14 +337,14 @@ func TestListTask(t *testing.T) {
 						}
 						return serializeTestTask(testTask)
 					})
-					if errors.Is(ctx.Err(), context.Canceled) {
+					if errors.Is(context.Cause(ctx), context.Canceled) {
 						return nil
 					}
 					return errors.EnsureStack(err)
 				}(); err != nil {
 					return err
 				}
-				if errors.Is(workerCtx.Err(), context.Canceled) {
+				if errors.Is(context.Cause(workerCtx), context.Canceled) {
 					return nil
 				}
 			}
