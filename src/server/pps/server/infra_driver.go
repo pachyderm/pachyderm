@@ -132,7 +132,7 @@ func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController
 				ppsutil.HashedAuthTokenAnnotation:    ppsutil.HashedAuthToken(pi.AuthToken),
 				ppsutil.PachVersionAnnotation:        version.PrettyVersion(),
 			},
-			Labels: pipelineLabels(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version),
+			Labels: ppsutil.PipelineLabels(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version),
 		},
 	}
 }

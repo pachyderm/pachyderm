@@ -117,7 +117,7 @@ type workerOptions struct {
 	tolerations      []v1.Toleration
 }
 
-func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
+func PipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
 		AppLabel:             "pipeline",
 		PipelineNameLabel:    pipelineName,
@@ -184,7 +184,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 	}
 
 	transform := pi.Details.Transform
-	labels := pipelineLabels(projectName, pipelineName, pipelineVersion)
+	labels := PipelineLabels(projectName, pipelineName, pipelineVersion)
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
