@@ -31,9 +31,9 @@ func TestPipelineRcName(t *testing.T) {
 func Test_PipelineManifestReader(t *testing.T) {
 	// NOTE: the spec below uses a string value for the parallelism spec
 	// constant.  This follows the Protobuf JSON mapping spec[1], which
-	// indicates that for uint64 the “JSON value will be a decimal
-	// string. Either numbers or strings are accepted.”  This test ensures
-	// that decoding properly handles this mapping.
+	// indicates that for uint64 the “JSON value will be a decimal string.
+	// Either numbers or strings are accepted.”  This test ensures that
+	// decoding properly handles this mapping.
 	//
 	// [1] https://protobuf.dev/programming-guides/proto3/#json
 	r, err := ppsutil.NewPipelineManifestReader(strings.NewReader(`{
