@@ -2,7 +2,11 @@ package coredb
 
 import (
 	"fmt"
+	"io"
+	"testing"
+
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -11,8 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"io"
-	"testing"
 )
 
 const (
@@ -83,8 +85,8 @@ func TestListProject(t *testing.T) {
 		require.NoError(t, CreateProject(ctx, db, createInfo), "should be able to create project")
 	}
 	iter, err := ListProject(ctx, db)
-	defer iter.Close()
 	require.NoError(t, err, "should be able to list projects")
+	defer iter.Close()
 	i := 0
 	for proj, err := iter.Next(); !errors.Is(err, io.EOF); proj, err = iter.Next() {
 		if err != nil {
@@ -95,6 +97,19 @@ func TestListProject(t *testing.T) {
 		require.Equal(t, expectedInfos[i].CreatedAt.Seconds, proj.CreatedAt.Seconds)
 		i++
 	}
+	pageIter, err := ListProject(ctx, db, ListProjectOption{PageSize: 10, PageNum: 2})
+	require.NoError(t, err, "should be able to list projects")
+	i = 20
+	for proj, err := pageIter.Next(); !errors.Is(err, io.EOF); proj, err = pageIter.Next() {
+		if err != nil {
+			require.NoError(t, err, "should be able to iterate over projects")
+		}
+		require.Equal(t, expectedInfos[i].Project.Name, proj.Project.Name)
+		require.Equal(t, expectedInfos[i].Description, proj.Description)
+		require.Equal(t, expectedInfos[i].CreatedAt.Seconds, proj.CreatedAt.Seconds)
+		i++
+	}
+	defer iter.Close()
 }
 
 func TestUpdateProject(t *testing.T) {

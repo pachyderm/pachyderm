@@ -3,17 +3,27 @@ package coredb
 import (
 	"context"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"io"
-	"time"
 )
 
 type ProjectIterator struct {
 	*sqlx.Rows
+}
+
+// ListProjectOption contains optional parameters that support pagination.
+// PageSize and PageNum are converted as-is into an SQL LIMIT and OFFSET.
+// Thus, PageNum begins at 0.
+type ListProjectOption struct {
+	PageSize int
+	PageNum  int
 }
 
 // Next advances the iterator by one row.
@@ -38,7 +48,7 @@ func (iter *ProjectIterator) Next() (*pfs.ProjectInfo, error) {
 }
 
 func (iter *ProjectIterator) Close() error {
-	return iter.Rows.Close()
+	return errors.Wrap(iter.Rows.Close(), "error closing iterator")
 }
 
 // QueryExecer defines an interface for functions shared across sqlx.Tx and sqlx.DB types.
@@ -87,8 +97,15 @@ func getProject(ctx context.Context, queryExecer QueryExecer, where string, wher
 	return project, nil
 }
 
-func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) {
-	rows, err := db.QueryxContext(ctx, "SELECT name, description, created_at FROM core.projects")
+func ListProject(ctx context.Context, db *pachsql.DB, option ...ListProjectOption) (*ProjectIterator, error) {
+	pageSize := 100
+	pageNum := 0
+	if option != nil {
+		opt := option[0]
+		pageSize = opt.PageSize
+		pageNum = opt.PageNum
+	}
+	rows, err := db.QueryxContext(ctx, "SELECT name, description, created_at FROM core.projects ORDER BY id LIMIT $1 OFFSET $2", pageSize, pageSize*pageNum)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}
@@ -97,6 +114,9 @@ func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) 
 	}
 	return iter, nil
 }
+
+//func ListProjectInTransaction(ctx context.Context, tx *pachsql.Tx, option ...ListProjectOption) ([]*pfs.ProjectInfo, error) {
+//}
 
 // UpdateProject updates all fields of an existing project entry in the core.projects table by name. If 'upsert' is set to true, UpdateProject()
 // will attempt to call CreateProject() if the entry does not exist.
