@@ -219,7 +219,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 					log.Info(ctx, "worker pod failed", zap.String("podName", pod.Name), zap.Any("podStatus", pod.Status))
 				}
 				crashPipeline := func(reason string) error {
-					projectName := pod.ObjectMeta.Annotations[pipelineProjectAnnotation]
+					projectName := pod.ObjectMeta.Annotations[ppsutil.PipelineProjectAnnotation]
 					pipelineName := pod.ObjectMeta.Annotations[pipelineNameAnnotation]
 					pipelineVersion, versionErr := strconv.Atoi(pod.ObjectMeta.Annotations["pipelineVersion"])
 					if versionErr != nil {

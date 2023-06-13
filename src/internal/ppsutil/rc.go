@@ -33,7 +33,7 @@ const (
 	PipelineNameLabel            = "pipelineName"
 	PipelineVersionLabel         = "pipelineVersion"
 	suite                        = "pachyderm"
-	pipelineProjectAnnotation    = "pipelineProject"
+	PipelineProjectAnnotation    = "pipelineProject"
 	pipelineNameAnnotation       = "pipelineName"
 	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
@@ -273,7 +273,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 		hashedAuthTokenAnnotation:    HashedAuthToken(pi.AuthToken),
 	}
 	if projectName != "" {
-		annotations[pipelineProjectAnnotation] = projectName
+		annotations[PipelineProjectAnnotation] = projectName
 	}
 
 	// add the user's custom metadata (annotations and labels).
