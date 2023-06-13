@@ -19,9 +19,11 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/instrumenta/kubeval/kubeval"
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -1447,6 +1449,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Validate pipeline spec.",
 		Long:  "Validate a pipeline spec.  Client-side only; does not check that repos, images &c. exist on the server.",
 		Run: cmdutil.RunFixedArgs(0, func(_ []string) error {
+			ctx := pctx.Background("pachctl")
 			r, err := fileIndicatorToReader(pipelinePath)
 			if err != nil {
 				return err
@@ -1456,11 +1459,54 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			for {
-				_, err := pr.NextCreatePipelineRequest()
+				req, err := pr.NextCreatePipelineRequest()
 				if errors.Is(err, io.EOF) {
 					return nil
 				} else if err != nil {
 					return err
+				}
+				req.ResourceRequests = &pps.ResourceSpec{
+					Cpu:    .5,
+					Memory: "1G",
+					Disk:   "1G",
+				}
+				pi, err := ppsutil.PipelineInfoFromCreatePipelineRequest(req, nil)
+				if err != nil {
+					return err
+				}
+				// fake spec commit
+				pi.SpecCommit = &pfs.Commit{
+					Repo: &pfs.Repo{
+						Project: &pfs.Project{
+							Name: "default",
+						},
+						Name: "validation-repo",
+					},
+					ID: "validation-spec-id",
+				}
+				ps, err := ppsutil.SpecFromPipelineInfo(ctx, validationEnv{}, pi)
+				if err != nil {
+					return err
+				}
+				var b bytes.Buffer
+				fmt.Fprintf(&b, "apiVersion: v1\nkind: Pod\n")
+				e := yaml.NewEncoder(&b)
+				if err := e.Encode(ps); err != nil {
+					return err
+				}
+				rr, err := kubeval.Validate(b.Bytes(), kubeval.NewDefaultConfig())
+				if err != nil {
+					return err
+				}
+				var foundError bool
+				for _, r := range rr {
+					for _, err := range r.Errors {
+						foundError = true
+						fmt.Fprintln(os.Stderr, err)
+					}
+				}
+				if foundError {
+					os.Exit(1)
 				}
 			}
 		}),

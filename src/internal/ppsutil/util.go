@@ -373,7 +373,9 @@ func MetaCommit(commit *pfs.Commit) *pfs.Commit {
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
-// 'S3' set to true. Any pipelines with s3 inputs lj
+// 'S3' set to true. Any pipelines with s3 inputs lj.
+//
+// FIXME: unexport?
 func ContainsS3Inputs(in *pps.Input) bool {
 	var found bool
 	pps.VisitInput(in, func(in *pps.Input) error { //nolint:errcheck

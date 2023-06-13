@@ -73,6 +73,8 @@ import (
 const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
+	//
+	// FIXME: remove
 	DefaultUserImage = "ubuntu:20.04"
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
@@ -91,9 +93,7 @@ const (
 	// dnsLabelLimit is the maximum length of a ReplicationController
 	// or Service name.
 	dnsLabelLimit = 63
-)
 
-var (
 	suite = "pachyderm"
 )
 
@@ -122,12 +122,14 @@ type apiServer struct {
 	jobs      col.PostgresCollection
 }
 
+// FIXME: remove
 func merge(from, to map[string]bool) {
 	for s := range from {
 		to[s] = true
 	}
 }
 
+// FIXME: remove
 func validateNames(names map[string]bool, input *pps.Input) error {
 	switch {
 	case input == nil:
@@ -183,6 +185,7 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	return nil
 }
 
+// FIXME: remove
 func validateName(name string) error {
 	if name == "" {
 		return errors.Errorf("input must specify a name")
@@ -291,6 +294,7 @@ func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) erro
 	})
 }
 
+// FIXME: remove
 func validateTransform(transform *pps.Transform) error {
 	if transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
@@ -1755,6 +1759,7 @@ func (s podSlice) Less(i, j int) bool {
 	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
 }
 
+// FIXME: remove
 func now() *types.Timestamp {
 	t, err := types.TimestampProto(time.Now())
 	if err != nil {
@@ -1763,6 +1768,7 @@ func now() *types.Timestamp {
 	return t
 }
 
+// FIXME: remove
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
@@ -1876,6 +1882,8 @@ func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineR
 }
 
 // validateEgress validates the egress field.
+//
+// FIXME: remove
 func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
 	if egress == nil {
 		return nil
@@ -2485,6 +2493,8 @@ func pipelineTypeFromInfo(pipelineInfo *pps.PipelineInfo) pps.PipelineInfo_Pipel
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
+//
+// FIXME: remove
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Details.Transform.Image == "" {
 		pipelineInfo.Details.Transform.Image = DefaultUserImage
@@ -2511,6 +2521,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	return nil
 }
 
+// FIXME: remove
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	pps.SortInput(input)
 	now := time.Now()
@@ -3442,6 +3453,7 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 	return pp, nil
 }
 
+// FIXME: remove
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
 		appLabel:             "pipeline",

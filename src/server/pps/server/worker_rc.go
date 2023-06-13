@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	// FIXME: remove, or pull from ppsutil
 	appLabel                     = "app"
 	pipelineProjectLabel         = "pipelineProject"
 	pipelineNameLabel            = "pipelineName"
@@ -93,6 +94,8 @@ type workerOptions struct {
 
 // getPachctlSecretVolumeAndMount returns a Volume and
 // VolumeMount object configured for the pachctl secret (currently used in spout pipelines).
+//
+// FIXME: remove
 func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: client.PachctlSecretName,
@@ -109,6 +112,8 @@ func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 
 // getTLSCertSecretVolumeAndMount returns a Volume and VolumeMount object
 // configured for the pach-tls secret to be stored in pipeline side-cars.
+//
+// FIXME: remove
 func getTLSCertSecretVolumeAndMount(secret, mountPath string) (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: secret,
@@ -638,6 +643,8 @@ func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v
 // this to detect if an auth token has been added/changed
 // Note: ptr.AuthToken is a pachyderm-generated UUID, and wouldn't appear in any
 // rainbow tables
+//
+// FIXME: remove
 func hashAuthToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return base64.RawURLEncoding.EncodeToString(h[:])
@@ -885,6 +892,8 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 // the RC, and at pipeline submission to validate the provided tolerations before saving the
 // pipeline.  It's in here and not in src/pps/pps.go so that the protobuf library doesn't depend on
 // k8s.
+//
+// FIXME: remove
 func transformToleration(in *pps.Toleration) (v1.Toleration, error) {
 	var out v1.Toleration
 	out.Key = in.GetKey()
@@ -959,6 +968,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 	return nil
 }
 
+// FIXME: remove
 func spoutSecretName(p *pps.Pipeline) string {
 	if projectName := p.Project.GetName(); projectName != "" {
 		return fmt.Sprintf("spout-pachctl-secret-%s-%s", projectName, p.Name)
@@ -1103,6 +1113,8 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 
 // GetBackendSecretVolumeAndMount returns a properly configured Volume and
 // VolumeMount object
+//
+// FIXME: remove
 func GetBackendSecretVolumeAndMount() (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: client.StorageSecretName,
@@ -1117,6 +1129,7 @@ func GetBackendSecretVolumeAndMount() (v1.Volume, v1.VolumeMount) {
 		}
 }
 
+// FIXME: remove
 func int64Ptr(x int64) *int64 {
 	return &x
 }
