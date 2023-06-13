@@ -109,7 +109,7 @@ func TestListProject(t *testing.T) {
 		require.Equal(t, expectedInfos[i].CreatedAt.Seconds, proj.CreatedAt.Seconds)
 		i++
 	}
-	defer iter.Close()
+	defer pageIter.Close()
 }
 
 func TestUpdateProject(t *testing.T) {
