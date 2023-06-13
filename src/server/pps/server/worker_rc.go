@@ -16,7 +16,6 @@ import (
 
 const (
 	// FIXME: remove, or pull from ppsutil
-	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
 	hashedAuthTokenAnnotation    = "authTokenHash"
 	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd

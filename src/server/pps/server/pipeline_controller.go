@@ -494,7 +494,7 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 	rcName := rc.ObjectMeta.Name
 	rcPachVersion := rc.ObjectMeta.Annotations[ppsutil.PachVersionAnnotation]
 	rcAuthTokenHash := rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
-	rcPipelineVersion := rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
+	rcPipelineVersion := rc.ObjectMeta.Annotations[ppsutil.PipelineVersionAnnotation]
 	rcSpecCommit := rc.ObjectMeta.Annotations[pipelineSpecCommitAnnotation]
 	switch {
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):

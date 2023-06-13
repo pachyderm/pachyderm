@@ -36,7 +36,7 @@ const (
 	PipelineProjectAnnotation    = "pipelineProject"
 	PipelineNameAnnotation       = "pipelineName"
 	PachVersionAnnotation        = "pachVersion"
-	pipelineVersionAnnotation    = "pipelineVersion"
+	PipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
 	hashedAuthTokenAnnotation    = "authTokenHash"
 	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
@@ -268,7 +268,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 	annotations := map[string]string{
 		PipelineNameAnnotation:       pipelineName,
 		PachVersionAnnotation:        version.PrettyVersion(),
-		pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
+		PipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 		pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
 		hashedAuthTokenAnnotation:    HashedAuthToken(pi.AuthToken),
 	}
