@@ -35,7 +35,7 @@ const (
 	Suite                        = "pachyderm"
 	PipelineProjectAnnotation    = "pipelineProject"
 	PipelineNameAnnotation       = "pipelineName"
-	pachVersionAnnotation        = "pachVersion"
+	PachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
 	hashedAuthTokenAnnotation    = "authTokenHash"
@@ -267,7 +267,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 
 	annotations := map[string]string{
 		PipelineNameAnnotation:       pipelineName,
-		pachVersionAnnotation:        version.PrettyVersion(),
+		PachVersionAnnotation:        version.PrettyVersion(),
 		pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 		pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
 		hashedAuthTokenAnnotation:    HashedAuthToken(pi.AuthToken),

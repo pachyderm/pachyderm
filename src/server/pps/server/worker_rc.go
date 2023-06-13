@@ -16,8 +16,6 @@ import (
 
 const (
 	// FIXME: remove, or pull from ppsutil
-	pipelineNameAnnotation       = "pipelineName"
-	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
 	hashedAuthTokenAnnotation    = "authTokenHash"

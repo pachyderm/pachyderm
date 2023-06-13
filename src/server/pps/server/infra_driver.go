@@ -127,10 +127,10 @@ func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ppsutil.PipelineRcName(pi),
 			Annotations: map[string]string{
-				pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
-				pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
-				hashedAuthTokenAnnotation:    ppsutil.HashedAuthToken(pi.AuthToken),
-				pachVersionAnnotation:        version.PrettyVersion(),
+				pipelineVersionAnnotation:     strconv.FormatUint(pi.Version, 10),
+				pipelineSpecCommitAnnotation:  pi.SpecCommit.ID,
+				hashedAuthTokenAnnotation:     ppsutil.HashedAuthToken(pi.AuthToken),
+				ppsutil.PachVersionAnnotation: version.PrettyVersion(),
 			},
 			Labels: pipelineLabels(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version),
 		},

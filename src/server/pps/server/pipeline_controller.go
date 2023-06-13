@@ -492,7 +492,7 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 	expectedName := ppsutil.PipelineRcName(pi)
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
-	rcPachVersion := rc.ObjectMeta.Annotations[pachVersionAnnotation]
+	rcPachVersion := rc.ObjectMeta.Annotations[ppsutil.PachVersionAnnotation]
 	rcAuthTokenHash := rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
 	rcPipelineVersion := rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
 	rcSpecCommit := rc.ObjectMeta.Annotations[pipelineSpecCommitAnnotation]
