@@ -31,7 +31,7 @@ const (
 	AppLabel                     = "app"
 	PipelineProjectLabel         = "pipelineProject"
 	PipelineNameLabel            = "pipelineName"
-	pipelineVersionLabel         = "pipelineVersion"
+	PipelineVersionLabel         = "pipelineVersion"
 	suite                        = "pachyderm"
 	pipelineProjectAnnotation    = "pipelineProject"
 	pipelineNameAnnotation       = "pipelineName"
@@ -121,7 +121,7 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 	labels := map[string]string{
 		AppLabel:             "pipeline",
 		PipelineNameLabel:    pipelineName,
-		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		PipelineVersionLabel: fmt.Sprint(pipelineVersion),
 		"suite":              suite,
 		"component":          "worker",
 	}

@@ -222,11 +222,11 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 	selectorlabels := map[string]string{
 		// NOTE: this used to be ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)
-		ppsutil.AppLabel:          "pipeline",
-		ppsutil.PipelineNameLabel: jobInfo.Job.Pipeline.Name,
-		pipelineVersionLabel:      fmt.Sprint(jobInfo.PipelineVersion),
-		"suite":                   "pachyderm",
-		"component":               "worker",
+		ppsutil.AppLabel:             "pipeline",
+		ppsutil.PipelineNameLabel:    jobInfo.Job.Pipeline.Name,
+		ppsutil.PipelineVersionLabel: fmt.Sprint(jobInfo.PipelineVersion),
+		"suite":                      "pachyderm",
+		"component":                  "worker",
 	}
 	if projectName := jobInfo.Job.Pipeline.Project.GetName(); projectName != "" {
 		selectorlabels[ppsutil.PipelineProjectLabel] = projectName

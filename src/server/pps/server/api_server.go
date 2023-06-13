@@ -3378,9 +3378,9 @@ func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
 
 func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod, error) {
 	labels := map[string]string{
-		ppsutil.AppLabel:          "pipeline",
-		ppsutil.PipelineNameLabel: pi.Pipeline.Name,
-		pipelineVersionLabel:      fmt.Sprint(pi.Version),
+		ppsutil.AppLabel:             "pipeline",
+		ppsutil.PipelineNameLabel:    pi.Pipeline.Name,
+		ppsutil.PipelineVersionLabel: fmt.Sprint(pi.Version),
 	}
 	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
 		labels[ppsutil.PipelineProjectLabel] = projectName
@@ -3403,11 +3403,11 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 // FIXME: remove
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
-		ppsutil.AppLabel:          "pipeline",
-		ppsutil.PipelineNameLabel: pipelineName,
-		pipelineVersionLabel:      fmt.Sprint(pipelineVersion),
-		"suite":                   suite,
-		"component":               "worker",
+		ppsutil.AppLabel:             "pipeline",
+		ppsutil.PipelineNameLabel:    pipelineName,
+		ppsutil.PipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		"suite":                      suite,
+		"component":                  "worker",
 	}
 	if projectName != "" {
 		labels[ppsutil.PipelineProjectLabel] = projectName
