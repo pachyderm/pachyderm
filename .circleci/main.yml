@@ -1463,6 +1463,10 @@ jobs:
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.httpPort=8080,pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
       - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+      - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
             sleep 20
