@@ -30,7 +30,7 @@ import (
 const (
 	AppLabel                     = "app"
 	PipelineProjectLabel         = "pipelineProject"
-	pipelineNameLabel            = "pipelineName"
+	PipelineNameLabel            = "pipelineName"
 	pipelineVersionLabel         = "pipelineVersion"
 	suite                        = "pachyderm"
 	pipelineProjectAnnotation    = "pipelineProject"
@@ -120,7 +120,7 @@ type workerOptions struct {
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
 		AppLabel:             "pipeline",
-		pipelineNameLabel:    pipelineName,
+		PipelineNameLabel:    pipelineName,
 		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
 		"suite":              suite,
 		"component":          "worker",
@@ -895,7 +895,7 @@ func workerPachctlSecret(pipelineInfo *pps.PipelineInfo) (*v1.Secret, error) {
 	if projectName := pipelineInfo.Pipeline.Project.GetName(); projectName != "" {
 		labels[PipelineProjectLabel] = projectName
 	}
-	labels[pipelineNameLabel] = pipelineInfo.Pipeline.Name
+	labels[PipelineNameLabel] = pipelineInfo.Pipeline.Name
 	s.SetLabels(labels)
 
 	return s, nil
@@ -903,7 +903,7 @@ func workerPachctlSecret(pipelineInfo *pps.PipelineInfo) (*v1.Secret, error) {
 func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 	m := map[string]string{
 		AppLabel:          "spout",
-		pipelineNameLabel: pipeline.Name,
+		PipelineNameLabel: pipeline.Name,
 		"suite":           suite,
 		"component":       "worker",
 	}

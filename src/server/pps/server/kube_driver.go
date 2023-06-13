@@ -63,7 +63,7 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 }
 
 func pipelineLabelSelector(p *pps.Pipeline) string {
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, p.Name)
+	selector := fmt.Sprintf("%s=%s", ppsutil.PipelineNameLabel, p.Name)
 	if projectName := p.Project.GetName(); projectName != "" {
 		selector = fmt.Sprintf("%s,%s=%s", selector, ppsutil.PipelineProjectLabel, projectName)
 	} else {

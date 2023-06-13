@@ -90,7 +90,7 @@ func (d *mockInfraDriver) UpdateReplicationController(ctx context.Context, old *
 	rc := old.DeepCopy()
 	if update(rc) {
 		projectName := rc.ObjectMeta.Labels[ppsutil.PipelineProjectLabel]
-		pipelineName := rc.ObjectMeta.Labels[pipelineNameLabel]
+		pipelineName := rc.ObjectMeta.Labels[ppsutil.PipelineNameLabel]
 		key := toKey(newPipeline(projectName, pipelineName))
 		d.scaleHistory[key] = append(d.scaleHistory[key], *rc.Spec.Replicas)
 		d.writeRC(rc)
@@ -139,7 +139,7 @@ func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController
 
 func (d *mockInfraDriver) writeRC(rc *v1.ReplicationController) {
 	projectName := rc.ObjectMeta.Labels[ppsutil.PipelineProjectLabel]
-	pipelineName := rc.ObjectMeta.Labels[pipelineNameLabel]
+	pipelineName := rc.ObjectMeta.Labels[ppsutil.PipelineNameLabel]
 	d.rcs[toKey(newPipeline(projectName, pipelineName))] = *rc
 }
 

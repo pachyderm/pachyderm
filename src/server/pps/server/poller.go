@@ -121,7 +121,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			if rcs != nil {
 				for _, rc := range rcs.Items {
 					projectName := rc.Labels[ppsutil.PipelineProjectLabel]
-					pipelineName, ok := rc.Labels[pipelineNameLabel]
+					pipelineName, ok := rc.Labels[ppsutil.PipelineNameLabel]
 					if !ok {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}

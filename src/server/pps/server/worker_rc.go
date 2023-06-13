@@ -16,7 +16,6 @@ import (
 
 const (
 	// FIXME: remove, or pull from ppsutil
-	pipelineNameLabel            = "pipelineName"
 	pipelineVersionLabel         = "pipelineVersion"
 	pipelineProjectAnnotation    = "pipelineProject"
 	pipelineNameAnnotation       = "pipelineName"
