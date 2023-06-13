@@ -46,9 +46,9 @@ const (
 	// DefaultWorkerServiceAccountName is the default value to use if WorkerServiceAccountEnvVar is
 	// undefined (for compatibility purposes)
 	DefaultWorkerServiceAccountName = "pachyderm-worker"
-	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
-	// EnvVar defined in src/internal/serviceenv/config.go
 
+	// DefaultUserImage is the image used for jobs when the user does not specify
+	// an image.
 	DefaultUserImage = "ubuntu:20.04"
 )
 

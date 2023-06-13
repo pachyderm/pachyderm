@@ -14,20 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-const (
-	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
-	// EnvVar defined in src/internal/serviceenv/config.go
-	UploadConcurrencyLimitEnvVar               = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
-	StorageCompactionShardSizeThresholdEnvVar  = "STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD"
-	StorageCompactionShardCountThresholdEnvVar = "STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD"
-	StorageMemoryThresholdEnvVar               = "STORAGE_MEMORY_THRESHOLD"
-	StorageLevelFactorEnvVar                   = "STORAGE_LEVEL_FACTOR"
-	StorageMaxFanInEnvVar                      = "STORAGE_COMPACTION_MAX_FANIN"
-	StorageMaxOpenFileSetsEnvVar               = "STORAGE_FILESETS_MAX_OPEN"
-	StorageDiskCacheSizeEnvVar                 = "STORAGE_DISK_CACHE_SIZE"
-	StorageMemoryCacheSizeEnvVar               = "STORAGE_MEMORY_CACHE_SIZE"
-)
-
 func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	result := []v1.EnvVar{}
 	egress := pipelineInfo.Details.Egress
