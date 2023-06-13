@@ -16,7 +16,6 @@ import (
 
 const (
 	// FIXME: remove, or pull from ppsutil
-	hashedAuthTokenAnnotation = "authTokenHash"
 	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
 	// what service account to assign to new worker RCs, for the purpose of
 	// creating S3 gateway services.

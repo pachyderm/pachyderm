@@ -38,7 +38,7 @@ const (
 	PachVersionAnnotation        = "pachVersion"
 	PipelineVersionAnnotation    = "pipelineVersion"
 	PipelineSpecCommitAnnotation = "specCommit"
-	hashedAuthTokenAnnotation    = "authTokenHash"
+	HashedAuthTokenAnnotation    = "authTokenHash"
 	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
 	// what service account to assign to new worker RCs, for the purpose of
 	// creating S3 gateway services.
@@ -270,7 +270,7 @@ func getWorkerOptions(ctx context.Context, env K8sEnv, pi *pps.PipelineInfo) (*w
 		PachVersionAnnotation:        version.PrettyVersion(),
 		PipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 		PipelineSpecCommitAnnotation: pi.SpecCommit.ID,
-		hashedAuthTokenAnnotation:    HashedAuthToken(pi.AuthToken),
+		HashedAuthTokenAnnotation:    HashedAuthToken(pi.AuthToken),
 	}
 	if projectName != "" {
 		annotations[PipelineProjectAnnotation] = projectName
