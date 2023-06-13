@@ -1465,7 +1465,7 @@ jobs:
       - run:
           name: Install pachctl
           command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+            sudo mv ../dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
