@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -119,7 +120,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// 3. Generate a delete event for orphaned RCs
 			if rcs != nil {
 				for _, rc := range rcs.Items {
-					projectName := rc.Labels[pipelineProjectLabel]
+					projectName := rc.Labels[ppsutil.PipelineProjectLabel]
 					pipelineName, ok := rc.Labels[pipelineNameLabel]
 					if !ok {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)

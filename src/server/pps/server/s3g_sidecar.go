@@ -229,7 +229,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		"component":          "worker",
 	}
 	if projectName := jobInfo.Job.Pipeline.Project.GetName(); projectName != "" {
-		selectorlabels[pipelineProjectLabel] = projectName
+		selectorlabels[ppsutil.PipelineProjectLabel] = projectName
 	}
 	svcLabels := copyMap(selectorlabels)
 	svcLabels["job"] = jobInfo.Job.ID // for reference, we also want to leave info about the job in the service definition

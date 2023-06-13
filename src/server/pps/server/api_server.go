@@ -3383,7 +3383,7 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 		pipelineVersionLabel: fmt.Sprint(pi.Version),
 	}
 	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
-		labels[pipelineProjectLabel] = projectName
+		labels[ppsutil.PipelineProjectLabel] = projectName
 	}
 	pp, err := a.listPods(ctx, labels)
 	if err != nil {
@@ -3410,7 +3410,7 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 		"component":          "worker",
 	}
 	if projectName != "" {
-		labels[pipelineProjectLabel] = projectName
+		labels[ppsutil.PipelineProjectLabel] = projectName
 	}
 	return labels
 }
@@ -3424,7 +3424,7 @@ func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 		"component":       "worker",
 	}
 	if projectName := pipeline.Project.GetName(); projectName != "" {
-		m[pipelineProjectLabel] = projectName
+		m[ppsutil.PipelineProjectLabel] = projectName
 	}
 	return m
 }

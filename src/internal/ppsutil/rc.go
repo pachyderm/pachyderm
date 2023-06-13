@@ -29,7 +29,7 @@ import (
 
 const (
 	AppLabel                     = "app"
-	pipelineProjectLabel         = "pipelineProject"
+	PipelineProjectLabel         = "pipelineProject"
 	pipelineNameLabel            = "pipelineName"
 	pipelineVersionLabel         = "pipelineVersion"
 	suite                        = "pachyderm"
@@ -126,7 +126,7 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 		"component":          "worker",
 	}
 	if projectName != "" {
-		labels[pipelineProjectLabel] = projectName
+		labels[PipelineProjectLabel] = projectName
 	}
 	return labels
 }
@@ -893,7 +893,7 @@ func workerPachctlSecret(pipelineInfo *pps.PipelineInfo) (*v1.Secret, error) {
 	}
 	labels := s.GetLabels()
 	if projectName := pipelineInfo.Pipeline.Project.GetName(); projectName != "" {
-		labels[pipelineProjectLabel] = projectName
+		labels[PipelineProjectLabel] = projectName
 	}
 	labels[pipelineNameLabel] = pipelineInfo.Pipeline.Name
 	s.SetLabels(labels)
@@ -908,7 +908,7 @@ func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 		"component":       "worker",
 	}
 	if projectName := pipeline.Project.GetName(); projectName != "" {
-		m[pipelineProjectLabel] = projectName
+		m[PipelineProjectLabel] = projectName
 	}
 	return m
 }
