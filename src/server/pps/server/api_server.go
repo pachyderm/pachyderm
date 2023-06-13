@@ -93,8 +93,6 @@ const (
 	// dnsLabelLimit is the maximum length of a ReplicationController
 	// or Service name.
 	dnsLabelLimit = 63
-
-	suite = "pachyderm"
 )
 
 // apiServer implements the public interface of the Pachyderm Pipeline System,
@@ -3406,7 +3404,7 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 		ppsutil.AppLabel:             "pipeline",
 		ppsutil.PipelineNameLabel:    pipelineName,
 		ppsutil.PipelineVersionLabel: fmt.Sprint(pipelineVersion),
-		"suite":                      suite,
+		"suite":                      ppsutil.Suite,
 		"component":                  "worker",
 	}
 	if projectName != "" {
@@ -3420,7 +3418,7 @@ func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 	m := map[string]string{
 		ppsutil.AppLabel:          "spout",
 		ppsutil.PipelineNameLabel: pipeline.Name,
-		"suite":                   suite,
+		"suite":                   ppsutil.Suite,
 		"component":               "worker",
 	}
 	if projectName := pipeline.Project.GetName(); projectName != "" {

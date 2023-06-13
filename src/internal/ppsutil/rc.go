@@ -32,7 +32,7 @@ const (
 	PipelineProjectLabel         = "pipelineProject"
 	PipelineNameLabel            = "pipelineName"
 	PipelineVersionLabel         = "pipelineVersion"
-	suite                        = "pachyderm"
+	Suite                        = "pachyderm"
 	PipelineProjectAnnotation    = "pipelineProject"
 	pipelineNameAnnotation       = "pipelineName"
 	pachVersionAnnotation        = "pachVersion"
@@ -122,7 +122,7 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 		AppLabel:             "pipeline",
 		PipelineNameLabel:    pipelineName,
 		PipelineVersionLabel: fmt.Sprint(pipelineVersion),
-		"suite":              suite,
+		"suite":              Suite,
 		"component":          "worker",
 	}
 	if projectName != "" {
@@ -904,7 +904,7 @@ func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 	m := map[string]string{
 		AppLabel:          "spout",
 		PipelineNameLabel: pipeline.Name,
-		"suite":           suite,
+		"suite":           Suite,
 		"component":       "worker",
 	}
 	if projectName := pipeline.Project.GetName(); projectName != "" {
