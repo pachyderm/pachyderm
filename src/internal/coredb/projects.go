@@ -67,9 +67,18 @@ func CreateProject(ctx context.Context, queryExecer QueryExecer, project *pfs.Pr
 
 // DeleteProject deletes an entry in the core.projects table.
 func DeleteProject(ctx context.Context, queryExecer QueryExecer, projectName string) error {
-	_, err := queryExecer.ExecContext(ctx, "DELETE FROM core.projects WHERE name = $1;", projectName)
-	//todo: delete corresponding project.authInfo auth table.
-	return errors.Wrap(err, "failed to delete project")
+	result, err := queryExecer.ExecContext(ctx, "DELETE FROM core.projects WHERE name = $1;", projectName)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete project")
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "could not get affected rows")
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("project %s does not exist", projectName)
+	}
+	return nil
 }
 
 // GetProject retrieves an entry from the core.projects table by project name.

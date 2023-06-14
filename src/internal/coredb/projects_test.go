@@ -51,6 +51,7 @@ func TestDeleteProject(t *testing.T) {
 	require.NoError(t, DeleteProject(ctx, tx, createInfo.Project.Name), "should be able to delete project")
 	_, err = GetProject(ctx, tx, testProj)
 	require.YesError(t, err, "get project should not find row")
+	require.YesError(t, DeleteProject(ctx, tx, createInfo.Project.Name), "double delete should be an error")
 }
 
 func TestGetProjectByID(t *testing.T) {
