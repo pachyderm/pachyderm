@@ -59,10 +59,6 @@ global:
   securityContexts:
     enabled: true
 
-determined:
-  enabled: true
-  maxSlotsPerPod: 1
-
 console:
   # enabled controls whether the console manifests are created or not.
   enabled: true

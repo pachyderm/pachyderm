@@ -1,7 +1,0 @@
-apiVersion: v1
-appVersion: 0.23.0
-description: A Helm chart for Determined
-home: https://github.com/determined-ai/determined.git
-icon: https://github.com/determined-ai/determined/blob/master/determined-logo.png?raw=true
-name: determined
-version: 0.23.0
