@@ -15,69 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (a *apiServer) hookDeterminedPipeline(ctx context.Context, pi *pps.PipelineInfo) error {
-	var errs error
-	for _, w := range pi.Details.Determined.Workspaces {
-		if err := a.validateWorkspacePermissions(ctx, w); err != nil {
-			errors.JoinInto(&errs, errors.Wrapf(err, "validate permissions on workspace %q", w))
-		}
-	}
-	if errs != nil {
-		return errs
-	}
-	if pi.Details.Determined.Password == "" {
-		pi.Details.Determined.Password = uuid.NewWithoutDashes()
-	}
-	tok, err := a.mintDeterminedToken(ctx)
-	if err != nil {
-		return errors.Wrap(err, "mint determined token")
-	}
-	userId, err := a.provisionDeterminedPipelineUser(ctx, pi, tok)
-	if err != nil {
-		return err
-	}
-	if err := a.assignDeterminedPipelineRole(ctx, pi, tok, userId); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *apiServer) mintDeterminedToken(ctx context.Context) (string, error) {
-	u, p, err := a.determinedCredentials(ctx)
-	if err != nil {
-		return "", err
-	}
-	client := &http.Client{Timeout: 10 * time.Second}
-	m := map[string]interface{}{
-		"username": u,
-		"password": p,
-	}
-	body := new(bytes.Buffer)
-	if err := json.NewEncoder(body).Encode(m); err != nil {
-		return "", errors.Wrapf(err, "encode to json: %v", m)
-	}
-	req, err := http.NewRequestWithContext(ctx, "POST", a.env.Config.DeterminedURL+"/api/v1/auth/login", body)
-	if err != nil {
-		return "", errors.Wrap(err, "create request to login as determined user")
-	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", errors.Wrap(err, "login as determined user")
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", errors.Wrap(err, "read login response body")
-	}
-	var respObj detLoginResponse
-	if err := json.Unmarshal(data, &respObj); err != nil {
-		return "", errors.Wrap(err, "unmarshal determined token")
-	}
-	return respObj.Token, nil
-}
-
 type detLoginResponse struct {
 	Token string `json:"token"`
 }
@@ -88,6 +25,159 @@ type detPostUserResponse struct {
 
 type detUser struct {
 	Id int `json:"id"`
+}
+
+type detWorkspace struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type detRole struct {
+	Id          int             `json:"id"`
+	Permissions []detPermission `json:"permissions"`
+}
+
+type detPermission struct {
+	Id string `json:"id"`
+}
+
+type detPermissionsSummaryResponse struct {
+	Roles       []detRole       `json:"roles"`
+	Assignments []detAssignment `json:"assignments"`
+}
+
+type detAssignment struct {
+	RoleId            int   `json:"roleId"`
+	ScopeWorkspaceIds []int `json:"scopeWorkspaceIds"`
+	ScopeCluster      bool  `json:"scopeCluster"`
+}
+
+type detUserRoleAssignmentsRequest struct {
+	UserRoleAssignments []detUserRoleAssignment `json:"userRoleAssignments"`
+}
+
+type detUserRoleAssignment struct {
+	UserId         int               `json:"userId"`
+	RoleAssignment detRoleAssignment `json:"roleAssignment"`
+}
+
+type detRoleAssignment struct {
+	Role             detRoleAssignmentRole `json:"role"`
+	ScopeWorkspaceId int                   `json:"scopeWorkspaceId"`
+}
+
+type detRoleAssignmentRole struct {
+	RoleId int `json:"roleId"`
+}
+
+type detSearchRoleResponse struct {
+	Roles []detSearchRole `json:"roles"`
+}
+
+type detSearchRole struct {
+	RoleId int    `json:"roleId"`
+	Name   string `json:"name"`
+}
+
+func (a *apiServer) hookDeterminedPipeline(ctx context.Context, pi *pps.PipelineInfo) error {
+	tok, err := a.mintDeterminedToken(ctx)
+	if err != nil {
+		return errors.Wrap(err, "mint determined token")
+	}
+	detWorkspaces, err := a.resolveDeterminedWorkspaces(ctx, tok, pi.Details.Determined.Workspaces)
+	if err != nil {
+		return err
+	}
+	if err := a.validateWorkspacePermissions(ctx, tok, detWorkspaces); err != nil {
+		return err
+	}
+	if pi.Details.Determined.Password == "" {
+		pi.Details.Determined.Password = uuid.NewWithoutDashes()
+	}
+	// TODO: if user already exists, do we want to still run role assignment for them?
+	// this would involve a querying for the user's id
+	userId, err := a.provisionDeterminedPipelineUser(ctx, pi, tok)
+	if err != nil {
+		return err
+	}
+	roleId, err := a.workspaceEditorRoleId(ctx, tok)
+	if err != nil {
+		return err
+	}
+	if err := a.assignDeterminedPipelineRole(ctx, tok, userId, roleId, detWorkspaces); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *apiServer) workspaceEditorRoleId(ctx context.Context, token string) (int, error) {
+	data, err := a.determinedHttpRequest(ctx, "POST", "/api/v1/roles/search", token, map[string]interface{}{
+		"offset": 0,
+		"limit":  0,
+	})
+	if err != nil {
+		return 0, errors.Wrap(err, "search determined roles")
+	}
+	var roleResponse detSearchRoleResponse
+	if err := json.Unmarshal(data, &roleResponse); err != nil {
+		return 0, errors.Wrap(err, "unmarshal search determined roles response")
+	}
+	for _, r := range roleResponse.Roles {
+		if r.Name == "Editor" {
+			return r.RoleId, nil
+		}
+	}
+	return 0, errors.Errorf("workspaceEditor role not found")
+}
+
+func (a *apiServer) resolveDeterminedWorkspaces(ctx context.Context, token string, workspaces []string) ([]detWorkspace, error) {
+	data, err := a.determinedHttpRequest(ctx, "GET", "/api/v1/workspaces", token, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "list determined workspaces")
+	}
+	var detWorkspaces []detWorkspace
+	if err := json.Unmarshal(data, &detWorkspaces); err != nil {
+		return nil, errors.Wrap(err, "unmarshal determined workspaces")
+	}
+	workspaceSet := make(map[string]struct{})
+	for _, w := range workspaces {
+		workspaceSet[w] = struct{}{}
+	}
+	res := make([]detWorkspace, len(workspaces))
+	for _, dw := range detWorkspaces {
+		if _, ok := workspaceSet[dw.Name]; ok {
+			res = append(res, dw)
+			delete(workspaceSet, dw.Name)
+		}
+	}
+	if len(workspaceSet) > 0 {
+		var errWorkspaces []string
+		for w := range workspaceSet {
+			errWorkspaces = append(errWorkspaces, w)
+		}
+		return nil, errors.Errorf("requested workspaces not found: %v", errWorkspaces)
+	}
+	return res, nil
+}
+
+func (a *apiServer) mintDeterminedToken(ctx context.Context) (string, error) {
+	u, p, err := a.determinedCredentials(ctx)
+	if err != nil {
+		return "", err
+	}
+	m := map[string]interface{}{
+		"username": u,
+		"password": p,
+	}
+	data, err := a.determinedHttpRequest(ctx, "POST", "/api/v1/auth/login", "", m)
+	if err != nil {
+		return "", errors.Wrap(err, "login as determined user")
+	}
+	var respObj detLoginResponse
+	if err := json.Unmarshal(data, &respObj); err != nil {
+		return "", errors.Wrap(err, "unmarshal determined token")
+	}
+	return respObj.Token, nil
 }
 
 func (a *apiServer) determinedCredentials(ctx context.Context) (string, string, error) {
@@ -111,67 +201,118 @@ func (a *apiServer) determinedCredentials(ctx context.Context) (string, string, 
 	return username, password, nil
 }
 
-// validate the system determined user has Editor Permissions on all of the workspaces
-func (a *apiServer) validateWorkspacePermissions(ctx context.Context, workspaces string) error {
-	return nil
-}
-
-// TODO: grant user workspace editor role
-// returns user ID
-func (a *apiServer) provisionDeterminedPipelineUser(ctx context.Context, pi *pps.PipelineInfo, bearerToken string) (int, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
-	body, err := provisionUserRequestBody(pi)
+func (a *apiServer) validateWorkspacePermissions(ctx context.Context, token string, dws []detWorkspace) error {
+	data, err := a.determinedHttpRequest(ctx, "GET", "/api/v1/permissions/summary", token, nil)
 	if err != nil {
-		return 0, err
+		return errors.Wrap(err, "list determined user permissions")
 	}
-	determinedURI := a.env.Config.DeterminedURL
-	req, err := http.NewRequestWithContext(ctx, "POST", determinedURI+"/api/v1/users", body)
-	// TODO: handle existing existing user
-	if err != nil {
-		return 0, errors.Wrap(err, "create request to provision determined user")
+	var resp detPermissionsSummaryResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return errors.Wrap(err, "unmarshal determined permissions summary response")
 	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+bearerToken)
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, errors.Wrap(err, "provision determined user")
+	assignRoleIds := make(map[int]struct{})
+	for _, r := range resp.Roles {
+		for _, p := range r.Permissions {
+			if p.Id == "PERMISSION_TYPE_ASSIGN_ROLES" {
+				assignRoleIds[r.Id] = struct{}{}
+				break
+			}
+		}
 	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, errors.Wrap(err, "read provision response body")
+	dwMap := make(map[int]detWorkspace)
+	for _, dw := range dwMap {
+		dwMap[dw.Id] = dw
 	}
-	var respObj detPostUserResponse
-	if err := json.Unmarshal(data, &respObj); err != nil {
-		return 0, errors.Wrap(err, "unmarshal determined provision user response")
+	for _, a := range resp.Assignments {
+		if _, ok := assignRoleIds[a.RoleId]; ok {
+			if a.ScopeCluster {
+				return nil
+			}
+			for _, id := range a.ScopeWorkspaceIds {
+				delete(dwMap, id)
+			}
+		}
 	}
-	return respObj.User.Id, nil
-}
-
-func (a *apiServer) assignDeterminedPipelineRole(ctx context.Context, pi *pps.PipelineInfo, bearerToken string, userId int) error {
-	client := &http.Client{Timeout: 10 * time.Second}
-	determinedURI := a.env.Config.DeterminedURL
-	req, err := http.NewRequestWithContext(ctx, "POST", determinedURI+"/api/v1/roles/add-assignments", nil)
-	if err != nil {
-		return errors.Wrap(err, "create request to add determined role assignment")
-	}
-	if _, err := client.Do(req); err != nil {
-		return errors.Wrap(err, "add determined role assignment")
+	if len(dwMap) > 0 {
+		var workspaces []string
+		for _, dw := range dwMap {
+			workspaces = append(workspaces, dw.Name)
+		}
+		return errors.Errorf("requested workspaces don't exist: %v", workspaces)
 	}
 	return nil
 }
 
-func provisionUserRequestBody(pi *pps.PipelineInfo) (*bytes.Buffer, error) {
+func (a *apiServer) provisionDeterminedPipelineUser(ctx context.Context, pi *pps.PipelineInfo, token string) (int, error) {
 	m := map[string]interface{}{
 		"username": pipelineUserName(pi.Pipeline),
 		"password": pi.Details.Determined.Password,
 	}
-	b := new(bytes.Buffer)
-	if err := json.NewEncoder(b).Encode(m); err != nil {
-		return nil, errors.Wrapf(err, "encode to json: %v", m)
+	// TODO: handle existing existing user
+	data, err := a.determinedHttpRequest(ctx, "POST", "/api/v1/users", token, m)
+	if err != nil {
+		return 0, errors.Wrap(err, "provision determined user")
 	}
-	return b, nil
+	var resp detPostUserResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return 0, errors.Wrap(err, "unmarshal determined provision user response")
+	}
+	return resp.User.Id, nil
+}
+
+func (a *apiServer) assignDeterminedPipelineRole(ctx context.Context, token string, userId int, roleId int, workspaces []detWorkspace) error {
+	var roleAssignments []detUserRoleAssignment
+	for _, w := range workspaces {
+		roleAssignments = append(roleAssignments,
+			detUserRoleAssignment{
+				UserId: userId,
+				RoleAssignment: detRoleAssignment{
+					Role: detRoleAssignmentRole{
+						RoleId: roleId,
+					},
+					ScopeWorkspaceId: w.Id,
+				},
+			},
+		)
+	}
+	body := detUserRoleAssignmentsRequest{UserRoleAssignments: roleAssignments}
+	// craft request with workspace IDs
+	_, err := a.determinedHttpRequest(ctx, "POST", "/api/v1/roles/add-assignments", token, body)
+	if err != nil {
+		return errors.Wrap(err, "assign pipeline's determined user editor role")
+	}
+	return nil
+}
+
+func (a *apiServer) determinedHttpRequest(ctx context.Context, method, endpoint, token string, body any) ([]byte, error) {
+	var b *bytes.Buffer
+	if body != nil {
+		b = new(bytes.Buffer)
+		if err := json.NewEncoder(b).Encode(body); err != nil {
+			return nil, errors.Wrapf(err, "encode to json: %v", body)
+		}
+	}
+	req, err := http.NewRequestWithContext(ctx, method, a.env.Config.DeterminedURL+endpoint, b)
+	if err != nil {
+		return nil, errors.Wrap(err, "create determined http request")
+	}
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+token)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "execute determined http request")
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
+		defer resp.Body.Close()
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "read determined http response body")
+		}
+		return data, nil
+	}
+	return nil, errors.New(resp.Status)
 }
 
 func pipelineUserName(p *pps.Pipeline) string {
