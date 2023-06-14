@@ -207,6 +207,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			t.Log("before upgrade: wait is done")
 			require.NoError(t, err)
 
+			require.Equal(t, 5, len(commitInfos))
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
 				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
@@ -219,19 +220,27 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
+			require.NoError(t, err)
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+			defer cancel()
+			t.Log("before upgrade: waiting for montage commit")
+			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			require.Equal(t, 5, len(commitInfos))
+
 			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://docs.pachyderm.com/images/opencv/kitten.jpg", false))
 			}))
 
-			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 			t.Log("after upgrade: waiting for montage commit")
-			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			commitInfos, err = c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
 			t.Log("after upgrade: wait is done")
 			require.NoError(t, err)
-
+			require.Equal(t, 5, len(commitInfos))
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
 				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
