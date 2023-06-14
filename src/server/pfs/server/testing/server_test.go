@@ -6646,33 +6646,31 @@ func TestPFS(suite *testing.T) {
 				Branch:   "master",
 				CronSpec: "* * * * *", // every minute
 			}))
-			cronCommit := client.NewCommit(pfs.DefaultProjectName, "cron", "master", "")
-			// The first commit should always trigger a cron
-			require.NoError(t, c.PutFile(cronCommit, "file1", strings.NewReader("foo")))
-			_, err := c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
+			// Create initial commit.
+			commit := client.NewCommit(pfs.DefaultProjectName, "cron", "master", "")
+			require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "cron", "master")
 			require.NoError(t, err)
-			bi, err := c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
-			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
 			head := bi.Head.ID
-
-			// Second commit should not trigger the cron because less than a
-			// minute has passed
-			require.NoError(t, c.PutFile(cronCommit, "file2", strings.NewReader("bar")))
-			_, err = c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
-			require.NoError(t, err)
+			// Ensure that the trigger fired after a minute.
+			time.Sleep(time.Minute)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
-
+			// Ensure that the trigger branch remains unchanged after another minute (no new commmit).
 			time.Sleep(time.Minute)
-			// Third commit should trigger the cron because a minute has passed
-			require.NoError(t, c.PutFile(cronCommit, "file3", strings.NewReader("fizz")))
-			_, err = c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
-			require.NoError(t, err)
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.ID)
+			require.Equal(t, head, bi.Head.ID)
+			// Ensure that the trigger still works after another commmit.
+			require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "master")
+			require.NoError(t, err)
+			head = bi.Head.ID
+			time.Sleep(time.Minute)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.ID)
 		})
 
 		t.Run("Count", func(t *testing.T) {
@@ -6735,10 +6733,10 @@ func TestPFS(suite *testing.T) {
 		t.Run("Or", func(t *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "or"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "or", "trigger", "", "", &pfs.Trigger{
-				Branch:   "master",
-				CronSpec: "* * * * *",
-				Size_:    "100",
-				Commits:  3,
+				Branch:        "master",
+				RateLimitSpec: "* * * * *",
+				Size_:         "100",
+				Commits:       3,
 			}))
 			orCommit := client.NewCommit(pfs.DefaultProjectName, "or", "master", "")
 			// This triggers, because the cron is satisfied
@@ -6809,11 +6807,11 @@ func TestPFS(suite *testing.T) {
 		t.Run("And", func(t *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "and"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "and", "trigger", "", "", &pfs.Trigger{
-				Branch:   "master",
-				All:      true,
-				CronSpec: "* * * * *",
-				Size_:    "100",
-				Commits:  3,
+				Branch:        "master",
+				All:           true,
+				RateLimitSpec: "* * * * *",
+				Size_:         "100",
+				Commits:       3,
 			}))
 			andCommit := client.NewCommit(pfs.DefaultProjectName, "and", "master", "")
 			// Doesn't trigger because all 3 conditions must be met
