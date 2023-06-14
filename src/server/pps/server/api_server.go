@@ -2387,8 +2387,10 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}(); err != nil {
 		return err
 	}
-	// handle determined hook.
-	// TODO: should this be done before the start of the txn?
+	// TODO:
+	// - should this be done before the start of the txn?
+	// - should this be done in a retry?
+	// handle determined hook
 	if newPipelineInfo.Details.Determined != nil {
 		if err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo); err != nil {
 			return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
