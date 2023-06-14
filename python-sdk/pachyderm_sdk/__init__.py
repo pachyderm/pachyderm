@@ -14,6 +14,9 @@ except (FileNotFoundError, ModuleNotFoundError):
 
 from .api.pfs import _additions as __pfs_additions
 from .client import Client
+from .datum_batching import batch_all_datums
+
 __all__ = [
     "Client",
+    "batch_all_datums",
 ]
