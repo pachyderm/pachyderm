@@ -341,6 +341,7 @@ func TestPFS(suite *testing.T) {
 
 		c := env.PachClient
 		badFormatErr := "only alphanumeric characters"
+		uniqueConstraintErr := "duplicate key value violates unique constraint \"projects_name_key\" (SQLSTATE 23505)"
 		testCases := []struct {
 			projectName string
 			errMatch    string // "" means no error
@@ -352,7 +353,7 @@ func TestPFS(suite *testing.T) {
 			{tu.UniqueString("lenny-123"), ""},
 			// {tu.UniqueString("_project"), badFormatErr}, // Require CORE-1343
 			// {tu.UniqueString("project-"), badFormatErr},
-			{pfs.DefaultProjectName, "already exists"},
+			{pfs.DefaultProjectName, uniqueConstraintErr},
 			{tu.UniqueString("/repo"), badFormatErr},
 			{tu.UniqueString("lenny.123"), badFormatErr},
 			{tu.UniqueString("lenny:"), badFormatErr},
@@ -373,11 +374,12 @@ func TestPFS(suite *testing.T) {
 			{tu.UniqueString("project."), badFormatErr},
 		}
 		for _, tc := range testCases {
+			fmt.Println(tc.projectName)
 			t.Run(tc.projectName, func(t *testing.T) {
 				err := c.CreateProject(tc.projectName)
 				if tc.errMatch != "" {
 					require.YesError(t, err)
-					require.Matches(t, tc.errMatch, err.Error())
+					require.ErrorContains(t, err, tc.errMatch)
 				} else {
 					require.NoError(t, err)
 				}
