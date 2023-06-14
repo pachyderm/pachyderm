@@ -129,6 +129,14 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			return err
 		}
 	}
+	var repoInfos []*pfs.RepoInfo
+	if repoInfos, err = listCollectionProtos(ctx, tx, "repos", &pfs.RepoInfo{}); err != nil {
+		return errors.Wrap(err, "list collections.repos table")
+	}
+	repos := make(map[string]struct{})
+	for _, ri := range repoInfos {
+		repos[repoKey(ri.Repo)] = struct{}{}
+	}
 	deleteCommits := make(map[string]*v2_5_0.CommitInfo)
 	for _, ci := range oldCIs {
 		log.Info(ctx, "branch provenance for commit",
@@ -140,6 +148,11 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 				zap.String("from", oldCommitKey(ci.Commit)),
 				zap.String("to", oldCommitKey(b.NewCommit(ci.Commit.ID))),
 			)
+			// if the provenant commit's repo was deleted, it's reference may
+			// still exist in the old provenance, so we skip mapping it over to the new model
+			if _, ok := repos[repoKey(b.Repo)]; !ok {
+				continue
+			}
 			if err := addCommitProvenance(ctx, tx, ci.Commit, b.NewCommit(ci.Commit.ID)); err != nil {
 				return errors.Wrapf(err, "add commit provenance from %q to %q",
 					oldCommitKey(ci.Commit),
