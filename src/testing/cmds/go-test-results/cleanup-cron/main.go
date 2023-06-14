@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var retentionPeriod = time.Now().Add(-time.Hour * 24 * 365 * 3)
+var retentionPeriod = time.Now().UTC().Add(-time.Minute * 10) //-time.Hour * 24 * 365 * 3)
 
 // This is built and runs in a pachyderm cron pipeline to clean up stale data
 func main() {
