@@ -144,7 +144,7 @@ func (d *driver) manageRepos(ctx context.Context) error {
 								return nil
 							})
 						})
-						return eg.Wait()
+						return errors.EnsureStack(eg.Wait())
 					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 						log.Error(ctx, "error managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 						return nil
@@ -192,7 +192,7 @@ func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
 		ctx, cancel := pctx.WithCancel(ctx)
 		cronTriggers[key] = cancel
 		go func() {
-			backoff.RetryUntilCancel(ctx, func() error {
+			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 				return d.runCronTrigger(ctx, branchInfo)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Error(ctx, "error running cron trigger", zap.String("branch", key), zap.Error(err), zap.Duration("retryAfter", d))
@@ -216,7 +216,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branchInfo *pfs.BranchInfo)
 	}
 	prev, err := types.TimestampFromProto(ci.Started)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for {
 		next := schedule.Next(prev)
