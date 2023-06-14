@@ -1402,18 +1402,7 @@ jobs:
           path: ~/project
       - setup_remote_docker:
           version: 19.03.13
-      - run:
-          name: Install Poetry
-          command: |
-            mkdir -p /home/circleci/.local/poetry/venv
-            export POETRY_HOME=/home/circleci/.local/poetry/venv
-            python3 -m venv $POETRY_HOME
-            $POETRY_HOME/bin/pip install poetry==1.4.1
-            $POETRY_HOME/bin/poetry --version
-            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
-      - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
-          name: Install Python Dependencies with Poetry
-          command: poetry --no-ansi install
+      - install-poetry
       - run:
           name: build
           command: poetry build
@@ -1436,7 +1425,7 @@ jobs:
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: docker build
-          command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 .
+          command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
       - run:
           name: docker push
           command: docker push pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1
@@ -1448,18 +1437,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: Install Poetry
-          command: |
-            mkdir -p /home/circleci/.local/poetry/venv
-            export POETRY_HOME=/home/circleci/.local/poetry/venv
-            python3 -m venv $POETRY_HOME
-            $POETRY_HOME/bin/pip install poetry==1.4.1
-            $POETRY_HOME/bin/poetry --version
-            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
-      - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
-          name: Install Python Dependencies with Poetry
-          command: poetry --no-ansi install
+      - install-poetry
       - install-python-test-deps
 
       # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
@@ -2070,3 +2048,14 @@ commands:
           when: always
           shell: /bin/sh # ignore fails without pipefail
           command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
+  install-poetry:
+    steps:
+      - run:
+          name: Install Poetry
+          command: |
+            mkdir -p /home/circleci/.local/poetry/venv
+            export POETRY_HOME=/home/circleci/.local/poetry/venv
+            python3 -m venv $POETRY_HOME
+            $POETRY_HOME/bin/pip install poetry==1.4.1
+            $POETRY_HOME/bin/poetry --version
+            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
