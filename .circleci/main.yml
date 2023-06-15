@@ -36,7 +36,10 @@ parameters:
     default: ubuntu-2204:2022.10.1
   go-version:
     type: string
-    default: "1.19"
+    default: "1.20.5"
+  go-releaser-version:
+    type: string
+    default: "1.17.1"
   run_load_tests:
     type: boolean
     default: false
