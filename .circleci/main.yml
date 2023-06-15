@@ -1411,6 +1411,9 @@ jobs:
           paths:
             - dist/*
   python-sdk-testing-docker-build:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
     executor: python
     working_directory: ~/project/python-sdk
     steps:
