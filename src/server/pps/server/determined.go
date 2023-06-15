@@ -23,8 +23,7 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, pi *pps.Pipeline
 	ctx, cf = context.WithTimeout(ctx, 60*time.Second)
 	defer cf()
 	return backoff.RetryUntilCancel(ctx, func() error {
-		var opts []grpc.DialOption
-		conn, err := grpc.Dial(a.env.Config.DeterminedURL, opts)
+		conn, err := grpc.Dial(a.env.Config.DeterminedURL)
 		if err != nil {
 			return err
 		}
@@ -166,7 +165,7 @@ func assignDeterminedPipelineRole(ctx context.Context, dc det.DeterminedClient, 
 	var roleAssignments []*rbacv1.UserRoleAssignment
 	for _, w := range workspaces {
 		roleAssignments = append(roleAssignments,
-			&*rbacv1.UserRoleAssignment{
+			&rbacv1.UserRoleAssignment{
 				UserId: userId,
 				RoleAssignment: &rbacv1.RoleAssignment{
 					Role: &rbacv1.Role{
