@@ -1026,7 +1026,6 @@ func TestProjects(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&projectData))
 		require.Equal(t, len(projectData), 3)
-		// todo(fahad): I had to reverse the order of these, is that okay?
 		require.Equal(t, projectData[0].Project.Name, pfs.DefaultProjectName)
 		require.Equal(t, projectData[1].Project.Name, projectName)
 		require.Equal(t, projectData[2].Project.Name, emptyProjectName)

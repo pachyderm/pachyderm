@@ -18,14 +18,6 @@ type ProjectIterator struct {
 	*sqlx.Rows
 }
 
-// ListProjectOption contains optional parameters that support pagination.
-// PageSize and PageNum are converted as-is into an SQL LIMIT and OFFSET.
-// Thus, PageNum begins at 0.
-type ListProjectOption struct {
-	PageSize int
-	PageNum  int
-}
-
 // Next advances the iterator by one row.
 func (iter *ProjectIterator) Next() (*pfs.ProjectInfo, error) {
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
@@ -106,15 +98,8 @@ func getProject(ctx context.Context, queryExecer QueryExecer, where string, wher
 	return project, nil
 }
 
-func ListProject(ctx context.Context, db *pachsql.DB, option ...ListProjectOption) (*ProjectIterator, error) {
-	pageSize := 100
-	pageNum := 0
-	if option != nil {
-		opt := option[0]
-		pageSize = opt.PageSize
-		pageNum = opt.PageNum
-	}
-	rows, err := db.QueryxContext(ctx, "SELECT name, description, created_at FROM core.projects ORDER BY id LIMIT $1 OFFSET $2", pageSize, pageSize*pageNum)
+func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) {
+	rows, err := db.QueryxContext(ctx, "SELECT name, description, created_at FROM core.projects")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}

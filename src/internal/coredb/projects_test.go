@@ -100,19 +100,6 @@ func TestListProject(t *testing.T) {
 		require.Equal(t, expectedInfos[i].CreatedAt.Seconds, proj.CreatedAt.Seconds)
 		i++
 	}
-	pageIter, err := ListProject(ctx, db, ListProjectOption{PageSize: 10, PageNum: 2})
-	require.NoError(t, err, "should be able to list projects")
-	i = 20
-	for proj, err := pageIter.Next(); !errors.Is(err, io.EOF); proj, err = pageIter.Next() {
-		if err != nil {
-			require.NoError(t, err, "should be able to iterate over projects")
-		}
-		require.Equal(t, expectedInfos[i].Project.Name, proj.Project.Name)
-		require.Equal(t, expectedInfos[i].Description, proj.Description)
-		require.Equal(t, expectedInfos[i].CreatedAt.Seconds, proj.CreatedAt.Seconds)
-		i++
-	}
-	defer pageIter.Close()
 }
 
 func TestUpdateProject(t *testing.T) {
