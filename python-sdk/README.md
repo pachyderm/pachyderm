@@ -31,5 +31,5 @@ TODO:
 Running Tests:
 
 ```
-make test
+pytest -vvv tests
 ```
