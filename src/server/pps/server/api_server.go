@@ -2389,7 +2389,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 	// TODO:
 	// - should this be done before the start of the txn?
-	// - should this be done in a retry?
 	// handle determined hook
 	if newPipelineInfo.Details.Determined != nil {
 		if err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo); err != nil {

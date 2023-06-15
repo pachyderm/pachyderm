@@ -13,6 +13,7 @@ import "gogoproto/gogo.proto";
 import "pfs/pfs.proto";
 
 import "task/task.proto";
+import "protoextensions/log.proto";
 
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
@@ -58,7 +59,7 @@ message Egress {
 
 message Determined {
   repeated string workspaces = 1;
-  string password = 2; 
+  string password = 2 [(log.mask) = true]; 
 }
 
 message Job {

@@ -14,6 +14,7 @@ require (
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/determined-ai/determined/proto v0.0.0-20230615001349-d3aff5bab560
 	github.com/dexidp/dex v0.0.0-20210629090108-0780edbcbe43
 	github.com/dexidp/dex/api/v2 v2.1.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
