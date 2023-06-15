@@ -1,4 +1,5 @@
 import io
+import os
 from typing import Callable
 
 from tests.fixtures import *
@@ -6,7 +7,13 @@ from tests.utils import count
 
 from pachyderm_sdk.api import pfs, pps
 
-IMAGE_NAME = "bonenfan5ben/datum_batching:0037"  # TODO: Don't do this.
+"""
+This image is built from Dockerfile.datum-batching-test. The datum batching
+tests require python-sdk to be installed in order to run. To run tests locally,
+run `make test` from the python-sdk directory to build the image locally and
+run tests on it. The same Dockerfile is used to build the image in CI.
+"""
+IMAGE_NAME = os.environ.get("PYTHON_SDK_TESTING_IMAGE")
 
 
 def generate_stdin(func: Callable[[], None]):
