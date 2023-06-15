@@ -6,7 +6,7 @@ function(version, pghost, pguser)
     "input": {
         "cron": {
             "name": "cleanup-tick",
-            "spec": "@every 5m",
+            "spec": "@daily",
             "overwrite": true
         }
     },

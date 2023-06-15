@@ -12,8 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var retentionPeriod = time.Now().UTC().Add(-time.Hour * 24 * 365 * 3)
-
 // This is built and runs in a pachyderm cron pipeline to clean up stale data
 func main() {
 	log.InitPachctlLogger()
@@ -26,6 +24,7 @@ func main() {
 
 func run(ctx context.Context) error {
 	log.Info(ctx, "Running DB Cleanup")
+	cutoff := time.Now().UTC().Add(-time.Hour * 24 * 365 * 3)
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(gotestresults.PostgresqlHost, 5432),
 		dbutil.WithDBName("ci_metrics"),
@@ -34,16 +33,22 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "Opening db connection")
 	}
-	log.Info(ctx, "Deleting logs before cutoff time", zap.String("cutoff time", retentionPeriod.String()))
-	_, err = db.Exec(`
+	log.Info(ctx, "Deleting logs before cutoff time", zap.String("cutoff", cutoff.String()))
+	result, err := db.Query(`
 		DELETE FROM public.test_results 
 		USING ci_jobs 
 		WHERE public.ci_jobs.job_timestamp < $1
-		AND ci_jobs.workflow_id=test_results.workflow_id AND ci_jobs.job_id=test_results.job_id AND ci_jobs.job_executor=test_results.job_executor`,
-		retentionPeriod,
+		AND ci_jobs.workflow_id=test_results.workflow_id AND ci_jobs.job_id=test_results.job_id AND ci_jobs.job_executor=test_results.job_executor
+		RETURNING *`,
+		cutoff,
 	)
 	if err != nil {
 		return errors.Wrapf(err, "Deleting old records")
 	}
+	count := 0
+	for result.Next() {
+		count++
+	}
+	log.Info(ctx, "Successfully deleted rows before cutoff. ", zap.Time("cutoff", cutoff), zap.Any("count of deleted rows", count))
 	return nil
 }
