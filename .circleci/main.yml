@@ -393,7 +393,7 @@ jobs:
       - run:
           name: package release helm chart
           command: |
-            if [[ "$CIRCLE_TAG" =~ ^v\d+\.\d+\.\d+-(nightly)+(\.[0-9A-Za-z-]+)*?$ ]]
+            if [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
             then
               export CONSOLE_VERSION=${CIRCLE_TAG:1}
               yq e -i '.console.image.tag=env(CONSOLE_VERSION)' etc/helm/pachyderm/values.yaml
@@ -411,7 +411,7 @@ jobs:
       - run:
           name: package pre-release helm chart
           command: |
-            if [[ "$CIRCLE_TAG" =~ ^v\d+\.\d+\.\d+-(nightly)+(\.[0-9A-Za-z-]+)*?$ ]]
+            if [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
             then
               export CONSOLE_VERSION=${CIRCLE_TAG:1}
               yq e -i '.console.image.tag=env(CONSOLE_VERSION)' etc/helm/pachyderm/values.yaml
