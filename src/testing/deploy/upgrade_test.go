@@ -311,7 +311,7 @@ validator:
 			require.Equal(t, "", resp.Error)
 			stateID = resp.StateId
 		},
-		func(t *testing.T, c *client.APIClient) {
+		func(t *testing.T, c *client.APIClient, _ string) {
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
 			t.Log("after upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
