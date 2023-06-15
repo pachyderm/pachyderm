@@ -13,9 +13,11 @@ export CIRCLE_NODE_TOTAL=1
 export CIRCLE_NODE_INDEX=0
 export OPS_PACHD_ADDRESS='grpc://localhost:30650'
 
+export PIPELINES_VERSION='0.0.10'
+
 pachctl create project ci-metrics
 pachctl create repo go-test-results-raw --project ci-metrics
-pachctl create pipeline --jsonnet src/testing/cmds/go-test-results/egress/pipeline.jsonnet --arg version=0.0.9 --arg pghost=postgres --arg pguser=pachyderm --project ci-metrics
-pachctl create pipeline --jsonnet src/testing/cmds/go-test-results/cleanup-cron/pipeline.jsonnet --arg version=0.0.9 --arg pghost=postgres --arg pguser=pachyderm --project ci-metrics
+pachctl create pipeline --jsonnet src/testing/cmds/go-test-results/egress/pipeline.jsonnet --arg version="$PIPELINES_VERSION" --arg pghost=postgres --arg pguser=pachyderm --project ci-metrics
+pachctl create pipeline --jsonnet src/testing/cmds/go-test-results/cleanup-cron/pipeline.jsonnet --arg version="$PIPELINES_VERSION" --arg pghost=postgres --arg pguser=pachyderm --project ci-metrics
 
 go run -v src/testing/cmds/go-test-results/collector/main.go
