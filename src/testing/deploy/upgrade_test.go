@@ -32,7 +32,7 @@ const (
 var skip bool
 
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
+func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient, string), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
 		from := from // suite.Run runs in a background goroutine if parallelOK is true
@@ -52,7 +52,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 					DisableLoki:    true,
 					PortOffset:     portOffset,
 					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5"},
-				}))
+				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
@@ -77,7 +77,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
-		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
+		func(t *testing.T, c *client.APIClient, _ string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
 			pipeline2 := "TestTrigger2"
@@ -163,11 +163,14 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		// "2.4.6",
 		"2.5.0",
 	}
-	// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
-	// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
-	montage := montageRepo
 	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
-		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
+		func(t *testing.T, c *client.APIClient, version string) { /* preUpgrade */
+			montage := montageRepo
+			if version < "2.5.0" {
+				// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
+				// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
+				montage += "01234567890123456789012345678901234567890"
+			}
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))
 			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -288,7 +291,7 @@ validator:
 `
 	var stateID string
 	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
-		func(t *testing.T, c *client.APIClient) {
+		func(t *testing.T, c *client.APIClient, _ string) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			t.Log("before upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
