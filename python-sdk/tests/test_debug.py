@@ -6,7 +6,6 @@ from pachyderm_sdk.api import debug
 
 
 def test_dump(client: TestClient):
-    pipeline = debug.Pipeline(project="default", name="pipeline")
     message = next(client.debug.dump_v2())
     assert isinstance(message.content.content, bytes)
     assert len(message.content.content) > 0
