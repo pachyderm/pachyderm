@@ -224,11 +224,11 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
 			// check provenance migration
-			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
 			require.NoError(t, err)
 			require.Equal(t, 3, len(commitInfo.DirectProvenance))
 			for _, p := range commitInfo.DirectProvenance {
-				if p.Repo.Name == "montage" { // spec commit should be in a different commit set
+				if p.Repo.Name == "montage.spec" { // spec commit should be in a different commit set
 					require.NotEqual(t, commitInfo.Commit.ID, p.ID)
 				} else {
 					require.Equal(t, commitInfo.Commit.ID, p.ID)
@@ -238,7 +238,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://docs.pachyderm.com/images/opencv/kitten.jpg", false))
 			}))
-			commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -248,7 +248,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, err)
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montageRepo)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
