@@ -159,8 +159,9 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{
-		"2.3.9",
-		"2.4.6",
+		// "2.3.9",
+		// "2.4.6",
+		"2.5.0",
 	}
 	// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
 	// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
@@ -221,6 +222,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
 			// check provenance migration
 			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
+			require.NoError(t, err)
 			require.Equal(t, 3, len(commitInfo.DirectProvenance))
 			for _, p := range commitInfo.DirectProvenance {
 				if p.Repo.Name == "montage" { // spec commit should be in a different commit set
