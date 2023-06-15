@@ -4,6 +4,7 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
@@ -136,7 +137,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 		return err
 	}
 	if _, err := cronutil.ParseCronExpression(trigger.RateLimitSpec); trigger.RateLimitSpec != "" && err != nil {
-		return errors.Wrapf(err, "invalid trigger rate limit spec (expected cron expression)")
+		return errors.Wrapf(err, "invalid trigger rate limit spec")
 	}
 	if _, err := units.FromHumanSize(trigger.Size_); trigger.Size_ != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger size")
@@ -145,12 +146,12 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 		return errors.Errorf("can't trigger on a negative number of commits")
 	}
 	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
-		return errors.Wrapf(err, "invalid trigger cron spec (expected cron expression)")
+		return errors.Wrapf(err, "invalid trigger cron spec")
 	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
 	if err := d.listBranchInTransaction(txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
-		biMaps[bi.Branch.Name] = bi
+		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {
 		return err

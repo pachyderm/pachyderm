@@ -160,10 +160,14 @@ func (d *driver) manageRepos(ctx context.Context) error {
 func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	cronTriggers := make(map[string]context.CancelFunc)
+	type cronTrigger struct {
+		cancel context.CancelFunc
+		spec   string
+	}
+	cronTriggers := make(map[string]*cronTrigger)
 	defer func() {
-		for _, cancel := range cronTriggers {
-			cancel()
+		for _, ct := range cronTriggers {
+			ct.cancel()
 		}
 	}()
 	return d.branches.ReadOnly(ctx).WatchByIndexF(pfsdb.BranchesRepoIndex, repoKey, func(ev *watch.Event) error {
@@ -172,8 +176,8 @@ func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
 		}
 		key := string(ev.Key)
 		if ev.Type == watch.EventDelete {
-			if cancel, ok := cronTriggers[key]; ok {
-				cancel()
+			if ct, ok := cronTriggers[key]; ok {
+				ct.cancel()
 			}
 			delete(cronTriggers, key)
 			return nil
@@ -185,15 +189,22 @@ func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
 		if branchInfo.Trigger == nil || branchInfo.Trigger.CronSpec == "" {
 			return nil
 		}
-		// TODO: Handle trigger change.
-		if _, ok := cronTriggers[key]; ok {
-			return nil
+		// Only create a new goroutine if one doesn't already exist or the spec changed.
+		if ct, ok := cronTriggers[key]; ok {
+			if ct.spec == branchInfo.Trigger.CronSpec {
+				return nil
+			}
+			ct.cancel()
+			delete(cronTriggers, key)
 		}
 		ctx, cancel := pctx.WithCancel(ctx)
-		cronTriggers[key] = cancel
+		cronTriggers[key] = &cronTrigger{
+			cancel: cancel,
+			spec:   branchInfo.Trigger.CronSpec,
+		}
 		go func() {
 			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-				return d.runCronTrigger(ctx, branchInfo)
+				return d.runCronTrigger(ctx, branchInfo.Branch)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Error(ctx, "error running cron trigger", zap.String("branch", key), zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
@@ -203,7 +214,15 @@ func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
 	})
 }
 
-func (d *driver) runCronTrigger(ctx context.Context, branchInfo *pfs.BranchInfo) error {
+func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
+	branchInfo, err := d.inspectBranch(ctx, branch)
+	if err != nil {
+		if pfsserver.IsBranchNotFoundErr(err) {
+			log.Info(ctx, "branch no longer exists; exiting cron trigger", zap.String("branch", pfsdb.BranchKey(branch)))
+			return nil
+		}
+		return err
+	}
 	schedule, err := cronutil.ParseCronExpression(branchInfo.Trigger.CronSpec)
 	if err != nil {
 		return err
