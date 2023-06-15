@@ -1411,9 +1411,6 @@ jobs:
           paths:
             - dist/*
   python-sdk-testing-docker-build:
-    resource_class: xlarge
-    machine:
-      image: ubuntu-2004:202107-02
     executor: python
     working_directory: ~/project/python-sdk
     steps:
@@ -1422,7 +1419,7 @@ jobs:
       - attach_workspace:
           at: .
       - setup_remote_docker:
-          version: 19.03.13
+          version: 23.0.1
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
