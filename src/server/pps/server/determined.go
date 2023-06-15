@@ -25,11 +25,11 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, pi *pps.Pipeline
 	return backoff.RetryUntilCancel(ctx, func() error {
 		conn, err := grpc.Dial(a.env.Config.DeterminedURL)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "dialing determined at %q", a.env.Config.DeterminedURL)
 		}
 		defer conn.Close()
 		dc := det.NewDeterminedClient(conn)
-		tok, err := a.mintDeterminedToken(ctx, dc)
+		tok, err := mintDeterminedToken(ctx, dc, a.env.Config.DeterminedUsername, a.env.Config.DeterminedPassword)
 		if err != nil {
 			return errors.Wrap(err, "mint determined token")
 		}
@@ -100,10 +100,10 @@ func resolveDeterminedWorkspaces(ctx context.Context, dc det.DeterminedClient, w
 	return res, nil
 }
 
-func (a *apiServer) mintDeterminedToken(ctx context.Context, dc det.DeterminedClient) (string, error) {
+func mintDeterminedToken(ctx context.Context, dc det.DeterminedClient, username, password string) (string, error) {
 	loginResp, err := dc.Login(ctx, &det.LoginRequest{
-		Username: a.env.Config.DeterminedUsername,
-		Password: a.env.Config.DeterminedPassword,
+		Username: username,
+		Password: password,
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "login as determined user")
