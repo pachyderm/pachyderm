@@ -219,11 +219,21 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
+			// check provenance migration
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
+			require.Equal(t, 3, len(commitInfo.DirectProvenance))
+			for _, p := range commitInfo.DirectProvenance {
+				if p.Repo.Name == "montage" { // spec commit should be in a different commit set
+					require.NotEqual(t, commitInfo.Commit.ID, p.ID)
+				} else {
+					require.Equal(t, commitInfo.Commit.ID, p.ID)
+				}
+			}
+			// check DAG still works with new commits
 			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://docs.pachyderm.com/images/opencv/kitten.jpg", false))
 			}))
-
-			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -231,7 +241,6 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
 			t.Log("after upgrade: wait is done")
 			require.NoError(t, err)
-
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
 				if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, montage)) {
