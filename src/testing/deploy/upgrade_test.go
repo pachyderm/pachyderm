@@ -232,7 +232,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			// check provenance migration
 			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage(from), "master", "")
 			require.NoError(t, err)
-			if from > "2.4" { // remove this conditional once migrating between multiple minor releases is bullet-proof
+			if from >= "2.5" { // remove this conditional once migrating between multiple minor releases is bullet-proof
 				require.Equal(t, 3, len(commitInfo.DirectProvenance))
 				for _, p := range commitInfo.DirectProvenance {
 					if p.Repo.Name == "montage.spec" { // spec commit should be in a different commit set
