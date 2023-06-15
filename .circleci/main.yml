@@ -1419,7 +1419,7 @@ jobs:
       - attach_workspace:
           at: .
       - setup_remote_docker:
-          version: 23.0.1
+          version: 20.10.18
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
