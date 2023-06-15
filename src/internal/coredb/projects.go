@@ -76,7 +76,7 @@ func DeleteProject(ctx context.Context, queryExecer QueryExecer, projectName str
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("project %s does not exist", projectName)
+		return errors.Wrap(fmt.Errorf("project %s does not exist", projectName), "failed to delete project")
 	}
 	return nil
 }
