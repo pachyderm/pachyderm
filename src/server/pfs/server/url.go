@@ -188,7 +188,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	})
 	var bytesWritten int64
 	eg.Go(func() error {
-		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			fsID, err := d.getFileSet(ctx, file.Commit)
 			if err != nil {
 				return err

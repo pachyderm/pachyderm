@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"database/sql"
 	"fmt"
 	"math"
 	"os"
@@ -20,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -35,9 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -82,14 +79,13 @@ type driver struct {
 	branches col.PostgresCollection
 	projects col.PostgresCollection
 
-	storage     *fileset.Storage
+	storage     *storage.Server
 	commitStore commitStore
 
 	cache *fileset.Cache
 }
 
 func newDriver(env Env) (*driver, error) {
-	storageConfig := env.StorageConfig
 	objClient := env.ObjectClient
 	// test object storage.
 	if err := func() error {
@@ -115,24 +111,14 @@ func newDriver(env Env) (*driver, error) {
 		branches:   branches,
 		projects:   projects,
 	}
-	// Setup tracker and chunk / fileset storage.
-	tracker := track.NewPostgresTracker(env.DB)
-	chunkStorageOpts, err := chunk.StorageOptions(&storageConfig)
+	storageSrv, err := storage.New(storage.Env{DB: env.DB, ObjectStore: env.ObjectClient}, env.StorageConfig)
 	if err != nil {
 		return nil, err
 	}
-	memCache := storageConfig.ChunkMemoryCache()
-	keyStore := chunk.NewPostgresKeyStore(env.DB)
-	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
-	if err != nil {
-		return nil, err
-	}
-	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
-	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
-	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
+	d.storage = storageSrv
+	d.commitStore = newPostgresCommitStore(env.DB, storageSrv.Tracker, storageSrv.Filesets)
 	// TODO: Make the cache max size configurable.
-	d.cache = fileset.NewCache(env.DB, tracker, 10000)
+	d.cache = fileset.NewCache(env.DB, storageSrv.Tracker, 10000)
 	return d, nil
 }
 
@@ -746,7 +732,7 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 	if err != nil {
 		return false, err
 	}
-	diffFileSet, err := d.storage.Open(ctx, []fileset.ID{*diffID})
+	diffFileSet, err := d.storage.Filesets.Open(ctx, []fileset.ID{*diffID})
 	if err != nil {
 		return false, err
 	}
@@ -786,15 +772,15 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	isCompacted, err := d.storage.IsCompacted(ctx, *diff)
+	isCompacted, err := d.storage.Filesets.IsCompacted(ctx, *diff)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	if isCompacted {
 		return diff, nil
 	}
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-		compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
 		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, nil)
 		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
@@ -2111,7 +2097,7 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *
 		commitInfo.Finishing = txnCtx.Timestamp
 		commitInfo.Finished = txnCtx.Timestamp
 		commitInfo.Details = &pfs.CommitInfo_Details{}
-		total, err := d.storage.ComposeTx(txnCtx.SqlTx, nil, defaultTTL)
+		total, err := d.storage.Filesets.ComposeTx(txnCtx.SqlTx, nil, defaultTTL)
 		if err != nil {
 			return nil, err
 		}
@@ -2196,21 +2182,4 @@ func same(bs []*pfs.Branch, branches []*pfs.Branch) bool {
 		}
 	}
 	return true
-}
-
-func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) ([]byte, error) {
-	secret, err := keyStore.Get(ctx, name)
-	if !errors.Is(err, sql.ErrNoRows) {
-		return secret, errors.EnsureStack(err)
-	}
-	secret = make([]byte, 32)
-	if _, err := rand.Read(secret); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	log.Info(ctx, "generated new secret", zap.String("name", name))
-	if err := keyStore.Create(ctx, name, secret); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	res, err := keyStore.Get(ctx, name)
-	return res, errors.EnsureStack(err)
 }

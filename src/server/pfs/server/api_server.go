@@ -787,7 +787,7 @@ func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetR
 }
 
 func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
-	chunks := a.driver.storage.ChunkStorage()
+	chunks := a.driver.storage.Chunks
 	count, err := chunks.Check(ctx, req.ChunkBegin, req.ChunkEnd, req.ReadChunkData)
 	if err != nil {
 		return nil, err
