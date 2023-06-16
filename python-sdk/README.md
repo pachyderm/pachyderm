@@ -28,6 +28,11 @@ TODO:
 
 ## Developer Guide
 
+Generate python APIs from protobuf:
+```
+./generate-protos.sh
+```
+
 Running Tests:
 
 ```
