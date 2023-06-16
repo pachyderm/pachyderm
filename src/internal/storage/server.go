@@ -37,14 +37,13 @@ func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	memCache := makeChunkMemoryCache(&config)
 	keyStore := chunk.NewPostgresKeyStore(env.DB)
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
 		return nil, err
 	}
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
-	chunkStorage := chunk.NewStorage(env.ObjectStore, memCache, env.DB, tracker, chunkStorageOpts...)
+	chunkStorage := chunk.NewStorage(env.ObjectStore, env.DB, tracker, chunkStorageOpts...)
 	filesetStorage := fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, makeFilesetOptions(&config)...)
 
 	return &Server{

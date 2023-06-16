@@ -48,8 +48,9 @@ func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioC
 func (c *minioClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
 	opts := minio.PutObjectOptions{
-		ContentType: "application/octet-stream",
-		PartSize:    uint64(8 * 1024 * 1024),
+		ContentType:      "application/octet-stream",
+		PartSize:         uint64(8 * 1024 * 1024),
+		DisableMultipart: true,
 	}
 	_, err := c.Client.PutObjectWithContext(ctx, c.bucket, name, r, -1, opts)
 	return errors.EnsureStack(err)

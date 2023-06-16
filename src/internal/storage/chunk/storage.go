@@ -3,11 +3,14 @@ package chunk
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
@@ -32,7 +35,7 @@ type Storage struct {
 	db            *pachsql.DB
 	tracker       track.Tracker
 	store         kv.Store
-	memCache      kv.GetPut
+	memCache      *memoryCache
 	deduper       *miscutil.WorkDeduper[pachhash.Output]
 	prefetchLimit int
 
@@ -40,12 +43,12 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(objC obj.Client, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient:     objC,
 		db:            db,
 		tracker:       tracker,
-		memCache:      memCache,
+		memCache:      newMemoryCache(50),
 		deduper:       &miscutil.WorkDeduper[pachhash.Output]{},
 		prefetchLimit: DefaultPrefetchLimit,
 		createOpts: CreateOptions{
@@ -55,7 +58,7 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker tra
 	for _, opt := range opts {
 		opt(s)
 	}
-	s.store = kv.NewFromObjectClient(s.objClient)
+	s.store = kv.NewFromObjectClient(objC)
 	s.objClient = nil
 	return s
 }
@@ -64,12 +67,12 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker tra
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	client := NewClient(s.store, s.db, s.tracker, nil)
 	defaultOpts := []ReaderOption{WithPrefetchLimit(s.prefetchLimit)}
-	return newReader(ctx, client, s.memCache, s.deduper, dataRefs, append(defaultOpts, opts...)...)
+	return newReader(ctx, s, client, dataRefs, append(defaultOpts, opts...)...)
 }
 
 func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {
 	client := NewClient(s.store, s.db, s.tracker, nil)
-	return newDataReader(ctx, client, s.memCache, s.deduper, dataRef, 0)
+	return newDataReader(ctx, s, client, dataRef, 0)
 }
 
 func (s *Storage) PrefetchData(ctx context.Context, dataRef *DataRef) error {
@@ -107,15 +110,33 @@ func (s *Storage) Check(ctx context.Context, begin, end []byte, readChunks bool)
 		if len(end) > 0 && bytes.Compare(last, end) > 0 {
 			break
 		}
-		first = keyAfter(last)
+		first = kv.KeyAfter(last)
 	}
 	return count, nil
 }
 
-// keyAfter returns a byte slice ordered immediately after x lexicographically
-// the motivating use case is iteration.
-func keyAfter(x []byte) []byte {
-	y := append([]byte{}, x...)
-	y = append(y, 0x00)
-	return y
+type memoryCache = lru.Cache[pachhash.Output, []byte]
+
+func newMemoryCache(size int) *memoryCache {
+	c, err := lru.New[pachhash.Output, []byte](size)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func getFromCache(cache *memoryCache, ref *Ref) ([]byte, error) {
+	key := ref.Key()
+	chunkData, ok := cache.Get(key)
+	if !ok {
+		return nil, pacherr.NewNotExist("chunk-memory", hex.EncodeToString(key[:]))
+	}
+	return chunkData, nil
+}
+
+// putInCache takes data and inserts it into the cache.
+// putInCache consumes data, and data must not be modified after passing it to putInCache.
+func putInCache(cache *memoryCache, ref *Ref, data []byte) {
+	key := ref.Key()
+	cache.Add(key, data)
 }
