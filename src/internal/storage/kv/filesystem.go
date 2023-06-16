@@ -7,32 +7,34 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 )
 
 var _ Store = &FSStore{}
 
 type FSStore struct {
-	dir      string
-	initOnce sync.Once
+	dir string
+	// initDone is true after the store has been initialized
+	initDone atomic.Bool
+	initSem  *semaphore.Weighted
 }
 
 func NewFSStore(dir string) *FSStore {
 	return &FSStore{
-		dir: dir,
+		dir:     dir,
+		initSem: semaphore.NewWeighted(1),
 	}
 }
 
 func (s *FSStore) Put(ctx context.Context, key, value []byte) (retErr error) {
-	log.Debug(ctx, "put", zap.ByteString("key", key), zap.Int("value_len", len(value)))
 	if err := s.ensureInit(ctx); err != nil {
 		return err
 	}
@@ -56,7 +58,6 @@ func (s *FSStore) Get(ctx context.Context, key, buf []byte) (_ int, retErr error
 		n2, err := f.Read(buf[n:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				n += n2
 				break
 			}
 			return 0, s.transformError(err, key)
@@ -137,10 +138,21 @@ func (it *fsIterator) Next(ctx context.Context, dst *[]byte) error {
 }
 
 func (s *FSStore) ensureInit(ctx context.Context) (err error) {
-	s.initOnce.Do(func() {
-		err = s.init(ctx)
-	})
-	return err
+	if s.initDone.Load() {
+		return nil
+	}
+	if err := s.initSem.Acquire(ctx, 1); err != nil {
+		return err
+	}
+	defer s.initSem.Release(1)
+	if s.initDone.Load() {
+		return nil
+	}
+	if err := s.init(ctx); err != nil {
+		return err
+	}
+	s.initDone.Store(true)
+	return nil
 }
 
 func (s *FSStore) init(ctx context.Context) error {
@@ -153,7 +165,7 @@ func (s *FSStore) init(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Join(s.dir, "objects"), 0755); err != nil {
 		return errors.EnsureStack(err)
 	}
-	log.Info(pctx.TODO(), "successfully initialized fs-backed object store", zap.String("root", s.dir))
+	log.Info(ctx, "successfully initialized fs-backed object store", zap.String("root", s.dir))
 	return nil
 }
 

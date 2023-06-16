@@ -41,7 +41,7 @@ func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 		return nil, err
 	}
 	store := kv.NewFromObjectClient(env.ObjectStore)
-	store = addDiskCache(&config, store)
+	store = wrapStore(&config, store)
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(store, env.DB, tracker, chunkStorageOpts...)
 	filesetStorage := fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, makeFilesetOptions(&config)...)

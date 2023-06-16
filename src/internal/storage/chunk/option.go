@@ -3,19 +3,10 @@ package chunk
 import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
 
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
-
-// WithMaxConcurrentObjects sets the maximum number of object writers (upload)
-// and readers (download) that can be open at a time.
-func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
-	return func(s *Storage) {
-		s.store = kv.NewSemaphored(s.store, maxDownload, maxUpload)
-	}
-}
 
 // WithMemoryCacheSize sets the number of decrypted, uncompressed chunks that will be stored in memory.
 func WithMemoryCacheSize(size int) StorageOption {

@@ -13,9 +13,6 @@ import (
 
 // MakeChunkOptions returns the chunk storage options for the config.
 func makeChunkOptions(conf *pachconfig.StorageConfiguration) (opts []chunk.StorageOption) {
-	if conf.StorageUploadConcurrencyLimit > 0 {
-		opts = append(opts, chunk.WithMaxConcurrentObjects(0, conf.StorageUploadConcurrencyLimit))
-	}
 	if conf.StorageMemoryCacheSize > 0 {
 		opts = append(opts, chunk.WithMemoryCacheSize(conf.StorageMemoryCacheSize))
 	}
@@ -38,14 +35,19 @@ func makeFilesetOptions(conf *pachconfig.StorageConfiguration) (opts []fileset.S
 	return opts
 }
 
-// addDiskCache adds a disk cache based on the storage configuration.
+// wrapStore adds layers around the store based on the storage configuration.
+// This includes:
+// - DiskCache
+// - Upload/Download concurrency limits
 // this is done below the chunk layer.
-func addDiskCache(conf *pachconfig.StorageConfiguration, store kv.Store) kv.Store {
+func wrapStore(conf *pachconfig.StorageConfiguration, store kv.Store) kv.Store {
+	if conf.StorageUploadConcurrencyLimit > 0 || conf.StorageDownloadConcurrencyLimit > 0 {
+		store = kv.NewSemaphored(store, conf.StorageDownloadConcurrencyLimit, conf.StorageUploadConcurrencyLimit)
+	}
 	if conf.StorageDiskCacheSize > 0 {
 		p := filepath.Join(os.TempDir(), "pss-cache", uuid.NewWithoutDashes())
 		diskCache := kv.NewFSStore(p)
 		return kv.NewLRUCache(store, diskCache, conf.StorageDiskCacheSize)
-	} else {
-		return store
 	}
+	return store
 }
