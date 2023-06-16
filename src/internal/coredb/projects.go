@@ -14,34 +14,80 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+const (
+	pageSize = 100
+)
+
+// ProjectIterator batches a page of projectRow entries. Entries can be retrieved using iter.Next().
 type ProjectIterator struct {
-	*sqlx.Rows
+	pageNum int
+	page    []projectRow
+	index   int
+	db      *pachsql.DB
 }
 
-// Next advances the iterator by one row.
-func (iter *ProjectIterator) Next() (*pfs.ProjectInfo, error) {
-	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
-	var createdAt time.Time
-	if iter.Rows.Next() {
-		if err := iter.Rows.Scan(&project.Project.Name, &project.Description, &createdAt); err != nil {
-			return nil, errors.Wrap(err, "failed to scan row")
-		}
-		projectTimestamp, err := types.TimestampProto(createdAt)
+type projectRow struct {
+	Name        string    `db:"name"`
+	Description string    `db:"description"`
+	CreatedAt   time.Time `db:"created_at"`
+}
+
+// Next advances the iterator by one row. It returns an io.EOF when there are no more entries.
+func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo) error {
+	var err error
+	if iter.index >= len(iter.page) {
+		iter.index = 0
+		iter.pageNum++
+		iter.page, err = listProjectPage(ctx, iter.db, iter.pageNum)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert time.Time to proto timestamp")
+			return errors.Wrap(err, "failed to list project page")
 		}
-		project.CreatedAt = projectTimestamp
-		return project, nil
 	}
-	if iter.Rows.Err() != nil {
-		return nil, errors.Wrap(iter.Rows.Err(), "failed iterating")
+	row := iter.page[iter.index]
+	projectTimestamp, err := types.TimestampProto(row.CreatedAt)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert time.Time to proto timestamp")
 	}
-	return nil, io.EOF
+	*project = pfs.ProjectInfo{
+		Project:     &pfs.Project{Name: row.Name},
+		Description: row.Description,
+		CreatedAt:   projectTimestamp}
+	iter.index++
+	return nil
 }
 
-func (iter *ProjectIterator) Close() error {
-	return errors.Wrap(iter.Rows.Close(), "error closing iterator")
+// ListProject returns a ProjectIterator that exposes a Next() function for retrieving *pfs.ProjectInfo references.
+func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) {
+	page, err := listProjectPage(ctx, db, 0)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list projects")
+	}
+	iter := &ProjectIterator{
+		page: page,
+		db:   db,
+	}
+	return iter, nil
 }
+
+func listProjectPage(ctx context.Context, db *pachsql.DB, pageNum int) ([]projectRow, error) {
+	rows, err := db.QueryxContext(ctx, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2", pageSize, pageSize*pageNum)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list projects")
+	}
+	defer rows.Close()
+	page := make([]projectRow, 0)
+	if err := sqlx.StructScan(rows, &page); err != nil {
+		return nil, errors.Wrap(err, "failed to scan row results for projects")
+	}
+	if len(page) == 0 {
+		return nil, io.EOF
+	}
+	return page, nil
+}
+
+// todo(fahad): implement
+//func ListProjectTx(tx *pachsql.Tx, option ...ListProjectOption) ([]*pfs.ProjectInfo, error) {
+//}
 
 // QueryExecer defines an interface for functions shared across sqlx.Tx and sqlx.DB types.
 // Functions that take a querier support both running inside a transaction and outside it.
@@ -97,20 +143,6 @@ func getProject(ctx context.Context, queryExecer QueryExecer, where string, wher
 	}
 	return project, nil
 }
-
-func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) {
-	rows, err := db.QueryxContext(ctx, "SELECT name, description, created_at FROM core.projects")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to list projects")
-	}
-	iter := &ProjectIterator{
-		Rows: rows,
-	}
-	return iter, nil
-}
-
-//func ListProjectInTransaction(ctx context.Context, tx *pachsql.Tx, option ...ListProjectOption) ([]*pfs.ProjectInfo, error) {
-//}
 
 // UpdateProject updates all fields of an existing project entry in the core.projects table by name. If 'upsert' is set to true, UpdateProject()
 // will attempt to call CreateProject() if the entry does not exist.

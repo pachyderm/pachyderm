@@ -807,25 +807,25 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 	if err != nil {
 		return errors.Wrap(err, "could not list projects")
 	}
-	defer projIter.Close()
-	for projectInfo, err := projIter.Next(); !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
+	projInfo := &pfs.ProjectInfo{}
+	for err := projIter.Next(ctx, projInfo); !errors.Is(err, io.EOF); err = projIter.Next(ctx, projInfo) {
 		if authIsActive {
-			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
+			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projInfo.GetProject().AuthResource()})
 			if err != nil {
 				if errors.Is(err, auth.ErrNotActivated) {
 					// Avoid unnecessary subsequent Auth API calls.
 					authIsActive = false
-					if err := cb(projectInfo); err != nil {
-						return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
+					if err := cb(projInfo); err != nil {
+						return errors.Wrapf(err, "error getting permissions for project %s", projInfo.Project)
 					}
 					continue
 				}
-				return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
+				return errors.Wrapf(err, "error getting permissions for project %s", projInfo.Project)
 			}
-			projectInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+			projInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 		}
-		if err := cb(projectInfo); err != nil {
-			return errors.Wrapf(err, "could not execute callback on project %s", projectInfo.Project.Name)
+		if err := cb(projInfo); err != nil {
+			return errors.Wrapf(err, "could not execute callback on project %s", projInfo.Project.Name)
 		}
 	}
 	return nil
@@ -838,10 +838,10 @@ func (d *driver) listProjectInTransaction(txnCtx *txncontext.TransactionContext,
 	if err != nil {
 		return errors.Wrap(err, "failed to list projects")
 	}
-	defer projIter.Close()
-	for proj, err := projIter.Next(); !errors.Is(err, io.EOF); proj, err = projIter.Next() {
-		if err := cb(proj); err != nil {
-			return errors.Wrapf(err, "failed to execute callback on project %q", proj)
+	projInfo := &pfs.ProjectInfo{}
+	for err := projIter.Next(txnCtx.Context(), projInfo); !errors.Is(err, io.EOF); err = projIter.Next(txnCtx.Context(), projInfo) {
+		if err := cb(projInfo); err != nil {
+			return errors.Wrapf(err, "failed to execute callback on project %q", projInfo)
 		}
 	}
 	return nil
