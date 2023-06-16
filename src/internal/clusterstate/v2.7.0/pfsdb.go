@@ -21,12 +21,8 @@ func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
 
 func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `
-		CREATE TYPE pfs.repo_type AS ENUM (
-			'unknown',
-			'user',
-			'meta',
-			'spec'
-		);
+		DROP TYPE IF EXISTS pfs.repo_type;
+		CREATE TYPE pfs.repo_type AS ENUM ('unknown', 'user', 'meta', 'spec');
 	`); err != nil {
 		return errors.Wrap(err, "error creating repo_type enum")
 	}
@@ -37,7 +33,8 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 			type pfs.repo_type NOT NULL,
 			project_id bigint NOT NULL REFERENCES core.projects(id),
 			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
-			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL
+			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			UNIQUE (name, project_id)
 		);
 	`); err != nil {
 		return errors.Wrap(err, "error creating pfs.repos table")
@@ -49,6 +46,43 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	`); err != nil {
 		return errors.Wrap(err, "error creating set_updated_at trigger")
 	}
-	// TODO create notify trigger function
+	// Create a trigger that notifies on changes to pfs.repos
+	// This is used by the PPS API to watch for changes to repos
+	if _, err := tx.ExecContext(ctx, `
+		CREATE OR REPLACE FUNCTION pfs.notify_repos() RETURNS TRIGGER AS $$
+		DECLARE
+			row record;
+			base_channel text;
+			payload text;
+			key text;
+		BEGIN
+			IF TG_OP = 'DELETE' THEN
+				row := OLD;
+			ELSE
+				row := NEW;
+			END IF;
+
+			SELECT project.name || '/' || row.name INTO key
+			FROM core.projects project
+			WHERE project.id = row.project_id;
+
+			base_channel := 'pfs.repos';
+			payload := TG_OP || ' ' || row.id::text || ' ' || key;
+
+			PERFORM pg_notify(base_channel, payload);
+			return row;
+		END;
+		$$ LANGUAGE plpgsql;
+
+	`); err != nil {
+		return errors.Wrap(err, "error creating notify trigger on pfs.repos")
+	}
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TRIGGER notify
+			AFTER INSERT OR UPDATE OR DELETE ON pfs.repos
+			FOR EACH ROW EXECUTE PROCEDURE pfs.notify_repos();
+	`); err != nil {
+		return errors.Wrap(err, "error creating notify trigger on pfs.repos")
+	}
 	return nil
 }
