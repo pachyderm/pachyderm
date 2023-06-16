@@ -25,6 +25,9 @@ func makeChunkOptions(conf *pachconfig.StorageConfiguration) ([]chunk.StorageOpt
 		}
 		opts = append(opts, chunk.WithObjectCache(diskCache, conf.StorageDiskCacheSize))
 	}
+	if conf.StorageMemoryCacheSize > 0 {
+		opts = append(opts, chunk.WithMemoryCacheSize(conf.StorageMemoryCacheSize))
+	}
 	return opts, nil
 }
 
