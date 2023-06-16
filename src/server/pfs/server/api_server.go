@@ -72,7 +72,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	// todo(fahad): replace with a transactional list()
 	projIter, err := coredb.ListProject(txnCtx.Context(), a.env.DB)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")

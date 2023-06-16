@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -14,16 +15,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-const (
-	pageSize = 100
-)
-
 // ProjectIterator batches a page of projectRow entries. Entries can be retrieved using iter.Next().
 type ProjectIterator struct {
-	pageNum int
-	page    []projectRow
-	index   int
-	db      *pachsql.DB
+	lock     sync.Mutex
+	pageNum  int
+	projects []projectRow
+	index    int
+	db       *pachsql.DB
 }
 
 type projectRow struct {
@@ -34,16 +32,23 @@ type projectRow struct {
 
 // Next advances the iterator by one row. It returns an io.EOF when there are no more entries.
 func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo) error {
+	if project == nil {
+		return errors.Wrap(fmt.Errorf("project is nil"), "failed to get next project")
+	}
 	var err error
-	if iter.index >= len(iter.page) {
+	iter.lock.Lock()
+	if iter.index >= len(iter.projects) {
 		iter.index = 0
 		iter.pageNum++
-		iter.page, err = listProjectPage(ctx, iter.db, iter.pageNum)
+		iter.projects, err = listProjectPage(ctx, iter.db, 100, iter.pageNum)
 		if err != nil {
 			return errors.Wrap(err, "failed to list project page")
 		}
+		if len(iter.projects) == 0 {
+			return io.EOF
+		}
 	}
-	row := iter.page[iter.index]
+	row := iter.projects[iter.index]
 	projectTimestamp, err := types.TimestampProto(row.CreatedAt)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert time.Time to proto timestamp")
@@ -53,41 +58,28 @@ func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo)
 		Description: row.Description,
 		CreatedAt:   projectTimestamp}
 	iter.index++
+	iter.lock.Unlock()
 	return nil
 }
 
 // ListProject returns a ProjectIterator that exposes a Next() function for retrieving *pfs.ProjectInfo references.
 func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) {
-	page, err := listProjectPage(ctx, db, 0)
+	page, err := listProjectPage(ctx, db, 100, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}
 	iter := &ProjectIterator{
-		page: page,
-		db:   db,
+		projects: page,
+		db:       db,
 	}
 	return iter, nil
 }
 
-func listProjectPage(ctx context.Context, db *pachsql.DB, pageNum int) ([]projectRow, error) {
-	rows, err := db.QueryxContext(ctx, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2", pageSize, pageSize*pageNum)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to list projects")
-	}
-	defer rows.Close()
-	page := make([]projectRow, 0)
-	if err := sqlx.StructScan(rows, &page); err != nil {
-		return nil, errors.Wrap(err, "failed to scan row results for projects")
-	}
-	if len(page) == 0 {
-		return nil, io.EOF
-	}
-	return page, nil
+func listProjectPage(ctx context.Context, db *pachsql.DB, pageSize, pageNum int) ([]projectRow, error) {
+	var page []projectRow
+	err := db.SelectContext(ctx, &page, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2", pageSize, pageSize*pageNum)
+	return page, errors.Wrap(err, "could not get project page")
 }
-
-// todo(fahad): implement
-//func ListProjectTx(tx *pachsql.Tx, option ...ListProjectOption) ([]*pfs.ProjectInfo, error) {
-//}
 
 // QueryExecer defines an interface for functions shared across sqlx.Tx and sqlx.DB types.
 // Functions that take a querier support both running inside a transaction and outside it.
@@ -117,6 +109,11 @@ func DeleteProject(ctx context.Context, queryExecer QueryExecer, projectName str
 		return errors.Wrap(fmt.Errorf("project %s does not exist", projectName), "failed to delete project")
 	}
 	return nil
+}
+
+func DeleteAllProjects(ctx context.Context, queryExecer QueryExecer) error {
+	_, err := queryExecer.ExecContext(ctx, "TRUNCATE core.projects CASCADE;")
+	return errors.Wrap(err, "could not delete all project rows")
 }
 
 // GetProject retrieves an entry from the core.projects table by project name.

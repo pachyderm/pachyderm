@@ -81,7 +81,7 @@ func TestListProject(t *testing.T) {
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, DeleteProject(ctx, db, "default"))
-	size := 10
+	size := 210
 	expectedInfos := make([]*pfs.ProjectInfo, size)
 	for i := 0; i < size; i++ {
 		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
@@ -100,6 +100,24 @@ func TestListProject(t *testing.T) {
 		require.Equal(t, expectedInfos[i].Description, projectInfo.Description)
 		i++
 	}
+}
+
+func TestDeleteAllProjects(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewTestDB(t)
+	tx, err := db.BeginTxx(ctx, nil)
+	require.NoError(t, err, "should be able to create a tx")
+	defer tx.Rollback()
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	size := 3
+	for i := 0; i < size; i++ {
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
+	}
+	require.NoError(t, DeleteAllProjects(ctx, tx))
+	_, err = GetProjectByID(ctx, tx, 1)
+	require.YesError(t, err, "should not have any project entries")
 }
 
 func TestUpdateProject(t *testing.T) {
@@ -128,6 +146,6 @@ func TestUpdateProjectByID(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
 	require.NoError(t, CreateProject(ctx, tx, projInfo), "should be able to create project")
-	// the 'default' project ID is 2
+	// the 'default' project ID is 1
 	require.NoError(t, UpdateProjectByID(ctx, tx, 2, projInfo), "should be able to update project")
 }
