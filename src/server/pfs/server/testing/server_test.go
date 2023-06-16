@@ -353,7 +353,7 @@ func TestPFS(suite *testing.T) {
 			{tu.UniqueString("lenny-123"), ""},
 			// {tu.UniqueString("_project"), badFormatErr}, // Require CORE-1343
 			// {tu.UniqueString("project-"), badFormatErr},
-			{pfs.DefaultProjectName, "already exists"},
+			{pfs.DefaultProjectName, "duplicate key value violates unique constraint \"projects_name_key\" (SQLSTATE 23505)"},
 			{tu.UniqueString("/repo"), badFormatErr},
 			{tu.UniqueString("lenny.123"), badFormatErr},
 			{tu.UniqueString("lenny:"), badFormatErr},
@@ -378,7 +378,8 @@ func TestPFS(suite *testing.T) {
 				err := c.CreateProject(tc.projectName)
 				if tc.errMatch != "" {
 					require.YesError(t, err)
-					require.Matches(t, tc.errMatch, err.Error())
+
+					require.ErrorContains(t, err, tc.errMatch)
 				} else {
 					require.NoError(t, err)
 				}

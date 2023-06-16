@@ -1,8 +1,14 @@
+//go:build unit_test
+
 package coredb
 
 import (
 	"fmt"
+	"io"
+	"testing"
+
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -11,8 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"io"
-	"testing"
 )
 
 const (
@@ -49,6 +53,7 @@ func TestDeleteProject(t *testing.T) {
 	require.NoError(t, DeleteProject(ctx, tx, createInfo.Project.Name), "should be able to delete project")
 	_, err = GetProject(ctx, tx, testProj)
 	require.YesError(t, err, "get project should not find row")
+	require.YesError(t, DeleteProject(ctx, tx, createInfo.Project.Name), "double delete should be an error")
 }
 
 func TestGetProjectByID(t *testing.T) {
@@ -83,8 +88,8 @@ func TestListProject(t *testing.T) {
 		require.NoError(t, CreateProject(ctx, db, createInfo), "should be able to create project")
 	}
 	iter, err := ListProject(ctx, db)
-	defer iter.Close()
 	require.NoError(t, err, "should be able to list projects")
+	defer iter.Close()
 	i := 0
 	for proj, err := iter.Next(); !errors.Is(err, io.EOF); proj, err = iter.Next() {
 		if err != nil {
