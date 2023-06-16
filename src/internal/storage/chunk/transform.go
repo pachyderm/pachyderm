@@ -43,7 +43,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 }
 
 // Get calls client.Get to retrieve a chunk, then verifies, decrypts, and decompresses the data.
-// cb is called with the uncompressed plaintext
+// the uncompressed plaintext, is returned.
 func Get(ctx context.Context, client Client, ref *Ref) ([]byte, error) {
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
 		return nil, errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
