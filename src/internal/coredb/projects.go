@@ -46,7 +46,7 @@ func (iter *ProjectIterator) Next(ctx context.Context, dst **pfs.ProjectInfo) er
 			return errors.Wrap(err, "failed to list project page")
 		}
 		if len(iter.projects) == 0 {
-			return stream.EOS
+			return stream.EOS()
 		}
 	}
 	row := iter.projects[iter.index]
