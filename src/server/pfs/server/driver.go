@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"io"
 	"math"
 	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -814,7 +815,10 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 				if errors.Is(err, auth.ErrNotActivated) {
 					// Avoid unnecessary subsequent Auth API calls.
 					authIsActive = false
-					return cb(projectInfo)
+					if err := cb(projectInfo); err != nil {
+						return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
+					}
+					continue
 				}
 				return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
 			}
