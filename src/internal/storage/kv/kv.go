@@ -23,3 +23,10 @@ type Store interface {
 	Exists(ctx context.Context, key []byte) (bool, error)
 	Walk(ctx context.Context, prefix []byte, cb func(key []byte) error) error
 }
+
+// KeyAfter returns the key immediately after x
+func KeyAfter(x []byte) []byte {
+	ret := append([]byte{}, x...)
+	ret = append(ret, 0x00)
+	return ret
+}
