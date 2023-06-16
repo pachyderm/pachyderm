@@ -32,6 +32,7 @@ func NewFSStore(dir string) *FSStore {
 }
 
 func (s *FSStore) Put(ctx context.Context, key, value []byte) (retErr error) {
+	log.Debug(ctx, "put", zap.ByteString("key", key), zap.Int("value_len", len(value)))
 	if err := s.ensureInit(ctx); err != nil {
 		return err
 	}
@@ -47,7 +48,7 @@ func (s *FSStore) Put(ctx context.Context, key, value []byte) (retErr error) {
 func (s *FSStore) Get(ctx context.Context, key, buf []byte) (_ int, retErr error) {
 	f, err := os.Open(s.finalPathFor(key))
 	if err != nil {
-		return 0, err
+		return 0, s.transformError(err, key)
 	}
 	defer s.closeFile(ctx, &retErr, f)
 	var n int

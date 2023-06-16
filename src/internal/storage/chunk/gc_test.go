@@ -22,7 +22,7 @@ func TestGC(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tracker := track.NewTestTracker(t, db)
-	oc, s := NewTestStorage(ctx, t, db, tracker)
+	oc, s := NewTestStorage(t, db, tracker)
 
 	writeRandom(t, s)
 	count, err := countObjects(ctx, oc)

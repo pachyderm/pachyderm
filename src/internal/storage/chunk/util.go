@@ -14,7 +14,7 @@ import (
 
 // NewTestStorage creates a local storage instance for testing during the lifetime of
 // the callback.
-func NewTestStorage(ctx context.Context, t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) (kv.Store, *Storage) {
+func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) (kv.Store, *Storage) {
 	p := filepath.Join(t.TempDir(), "obj-store")
 	store := kv.NewFSStore(p)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)

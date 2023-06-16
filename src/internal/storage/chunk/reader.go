@@ -138,7 +138,6 @@ func (dr *DataReader) fetchData() error {
 		return nil
 	}, b, func(err error, _ time.Duration) error {
 		if !pacherr.IsNotExist(err) {
-			panic(err)
 			return err
 		}
 		return dr.deduper.Do(dr.ctx, ref.Key(), func() error {
