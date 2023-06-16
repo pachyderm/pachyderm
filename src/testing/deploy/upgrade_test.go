@@ -31,8 +31,10 @@ const (
 
 var skip bool
 
+type upgradeFunc func(t *testing.T, c *client.APIClient, fromVersion string)
+
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
+func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVersions []string, preUpgrade upgradeFunc, postUpgrade upgradeFunc) {
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
 		from := from // suite.Run runs in a background goroutine if parallelOK is true
@@ -51,7 +53,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 					Version:     from,
 					DisableLoki: true,
 					PortOffset:  portOffset,
-				}))
+				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
@@ -59,7 +61,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 				k,
 				&minikubetestenv.DeployOpts{
 					PortOffset: portOffset,
-				}))
+				}), from)
 			t.Logf("postUpgrade done")
 		})
 	}
@@ -76,7 +78,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
-		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
+		func(t *testing.T, c *client.APIClient, _ string) { /* preUpgrade */
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
 			pipeline2 := "TestTrigger2"
@@ -121,7 +123,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			_, err = c.WaitCommitSetAll(ci.Commit.ID)
 			require.NoError(t, err)
 		},
-		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
+		func(t *testing.T, c *client.APIClient, _ string) { /* postUpgrade */
 			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
@@ -160,12 +162,20 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 	fromVersions := []string{
 		"2.3.9",
 		"2.4.6",
+		"2.5.0",
 	}
-	// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
-	// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
-	montage := montageRepo + "01234567890123456789012345678901234567890"
+	montage := func(fromVersion string) string {
+		repo := montageRepo
+		if fromVersion < "2.5.0" {
+			// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
+			// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
+			repo += "01234567890123456789012345678901234567890"
+		}
+		return repo
+
+	}
 	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
-		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
+		func(t *testing.T, c *client.APIClient, from string) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
 			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -180,7 +190,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			))
 			require.NoError(t,
 				c.CreateProjectPipeline(pfs.DefaultProjectName,
-					montage,
+					montage(from),
 					"dpokidov/imagemagick:7.1.0-23",
 					[]string{"sh"}, /* cmd */
 					[]string{fmt.Sprintf("montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L /pfs/%s /pfs/%s -type f | sort) /pfs/out/montage.png", imagesRepo, edgesRepo)}, /* stdin */
@@ -197,7 +207,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "https://free-images.com/md/57ee/statue_liberty_usa_new.jpg", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage(from), "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
@@ -208,21 +218,34 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage(from))) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
 		},
-		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
+		func(t *testing.T, c *client.APIClient, from string) { /* postUpgrade */
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
+			// check provenance migration
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage(from), "master", "")
+			require.NoError(t, err)
+			if from >= "2.5" { // remove this conditional once migrating between multiple minor releases is bullet-proof
+				require.Equal(t, 3, len(commitInfo.DirectProvenance))
+				for _, p := range commitInfo.DirectProvenance {
+					if p.Repo.Name == "montage.spec" { // spec commit should be in a different commit set
+						require.NotEqual(t, commitInfo.Commit.ID, p.ID)
+					} else {
+						require.Equal(t, commitInfo.Commit.ID, p.ID)
+					}
+				}
+			}
+			// check DAG still works with new commits
 			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://free-images.com/md/b7da/kitten_bengal_kitten_pet_0.jpg", false))
+				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://docs.pachyderm.com/images/opencv/kitten.jpg", false))
 			}))
-
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
+			commitInfo, err = c.InspectProjectCommit(pfs.DefaultProjectName, montage(from), "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -230,10 +253,9 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
 			t.Log("after upgrade: wait is done")
 			require.NoError(t, err)
-
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage(from))) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
@@ -276,7 +298,7 @@ validator:
 `
 	var stateID string
 	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
-		func(t *testing.T, c *client.APIClient) {
+		func(t *testing.T, c *client.APIClient, _ string) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			t.Log("before upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
@@ -288,7 +310,7 @@ validator:
 			require.Equal(t, "", resp.Error)
 			stateID = resp.StateId
 		},
-		func(t *testing.T, c *client.APIClient) {
+		func(t *testing.T, c *client.APIClient, _ string) {
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
 			t.Log("after upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
