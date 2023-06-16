@@ -51,7 +51,7 @@ func (d *driver) master(ctx context.Context) {
 						log.Error(ctx, "error unlocking in pfs master (storage gc)", zap.Error(err))
 					}
 				}()
-				gc := d.storage.NewGC(trackerPeriod)
+				gc := d.storage.Filesets.NewGC(trackerPeriod)
 				return gc.RunForever(pctx.Child(ctx, "storage-gc"))
 			})
 		}
@@ -71,7 +71,7 @@ func (d *driver) master(ctx context.Context) {
 						log.Error(ctx, "error unlocking in pfs master (chunk gc)", zap.Error(err))
 					}
 				}()
-				gc := chunk.NewGC(d.storage.ChunkStorage(), chunkPeriod)
+				gc := chunk.NewGC(d.storage.Chunks, chunkPeriod)
 				return gc.RunForever(pctx.Child(ctx, "chunk-gc"))
 			})
 		}
@@ -172,9 +172,9 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 				if commitInfo.Error != "" {
 					return d.finalizeCommit(ctx, commit, "", nil, nil)
 				}
-				compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+				compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
 				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, cache)
-				return errors.EnsureStack(d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+				return errors.EnsureStack(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 					start := time.Now()
 					// Compacting the diff before getting the total allows us to compose the
 					// total file set so that it includes the compacted diff.
