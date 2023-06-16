@@ -79,7 +79,7 @@ type driver struct {
 	branches col.PostgresCollection
 	projects col.PostgresCollection
 
-	storage     storage.Server
+	storage     *storage.Server
 	commitStore commitStore
 
 	cache *fileset.Cache
@@ -111,12 +111,11 @@ func newDriver(env Env) (*driver, error) {
 		branches:   branches,
 		projects:   projects,
 	}
-	// Setup tracker and chunk / fileset storage.
 	storageSrv, err := storage.New(storage.Env{DB: env.DB, ObjectStore: env.ObjectClient}, env.StorageConfig)
 	if err != nil {
 		return nil, err
 	}
-	d.storage = *storageSrv
+	d.storage = storageSrv
 	d.commitStore = newPostgresCommitStore(env.DB, storageSrv.Tracker, storageSrv.Filesets)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, storageSrv.Tracker, 10000)
