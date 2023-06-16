@@ -256,7 +256,11 @@ message Groups {
 message Role {
   string name = 1;
   repeated Permission permissions = 2;
-  repeated ResourceType resource_types = 3;
+  // Resources this role can be applied to (for example, you can't apply ClusterAdmin to a repo.)
+  repeated ResourceType scopes = 3;
+  // Resources this role is relevant to. This is used when returning a list of roles that apply to a
+  // certain resource for a certain principal.
+  repeated ResourceType affects = 4;
 }
 
 //// Authorization API

@@ -249,13 +249,20 @@ func (x *Role) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("permissions", zapcore.ArrayMarshalerFunc(permissionsArrMarshaller))
-	resource_typesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.ResourceTypes {
+	scopesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Scopes {
 			enc.AppendString(v.String())
 		}
 		return nil
 	}
-	enc.AddArray("resource_types", zapcore.ArrayMarshalerFunc(resource_typesArrMarshaller))
+	enc.AddArray("scopes", zapcore.ArrayMarshalerFunc(scopesArrMarshaller))
+	affectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Affects {
+			enc.AppendString(v.String())
+		}
+		return nil
+	}
+	enc.AddArray("affects", zapcore.ArrayMarshalerFunc(affectsArrMarshaller))
 	return nil
 }
 
