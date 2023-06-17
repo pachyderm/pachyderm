@@ -44,12 +44,15 @@ type Storage struct {
 // NewStorage creates a new Storage.
 func NewStorage(store kv.Store, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
-		db:            db,
-		store:         store,
-		tracker:       tracker,
-		memCache:      newMemoryCache(50),
-		deduper:       &miscutil.WorkDeduper[pachhash.Output]{},
-		pool:          kv.NewPool(DefaultMaxChunkSize),
+		db:       db,
+		store:    store,
+		tracker:  tracker,
+		memCache: newMemoryCache(50),
+		deduper:  &miscutil.WorkDeduper[pachhash.Output]{},
+		// TODO: there appears to be something violating the maximum chunk size.
+		// Remove the `2 *` to reproduce.
+		// TestStableHash in the fileset package was failing.
+		pool:          kv.NewPool(2 * DefaultMaxChunkSize),
 		prefetchLimit: DefaultPrefetchLimit,
 		createOpts: CreateOptions{
 			Compression: CompressionAlgo_GZIP_BEST_SPEED,

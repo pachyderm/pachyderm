@@ -26,24 +26,26 @@ type Client interface {
 // trackedClient allows manipulation of individual chunks, by maintaining consistency between
 // a tracker and an kv.Store
 type trackedClient struct {
-	store   kv.Store
-	pool    *kv.Pool
-	db      *pachsql.DB
-	tracker track.Tracker
-	renewer *Renewer
-	ttl     time.Duration
+	store        kv.Store
+	pool         *kv.Pool
+	db           *pachsql.DB
+	tracker      track.Tracker
+	maxChunkSize int
+	renewer      *Renewer
+	ttl          time.Duration
 }
 
 // NewClient returns a client which will write to objc, mdstore, and tracker.  Name is used
 // for the set of temporary objects
 func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewer, pool *kv.Pool) Client {
 	return &trackedClient{
-		store:   store,
-		pool:    pool,
-		db:      db,
-		tracker: tr,
-		renewer: renewer,
-		ttl:     defaultChunkTTL,
+		store:        store,
+		pool:         pool,
+		db:           db,
+		tracker:      tr,
+		maxChunkSize: DefaultMaxChunkSize,
+		renewer:      renewer,
+		ttl:          defaultChunkTTL,
 	}
 }
 
@@ -52,6 +54,9 @@ func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewe
 func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
 	if c.renewer == nil {
 		panic("client must have a renewer to create chunks")
+	}
+	if len(chunkData) > c.maxChunkSize {
+		return nil, fmt.Errorf("data len=%d exceeds max chunk size %d", len(chunkData), c.maxChunkSize)
 	}
 	chunkID := Hash(chunkData)
 	needUpload, gen, err := c.beforeUpload(ctx, chunkID, md)

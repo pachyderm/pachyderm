@@ -3,6 +3,7 @@ package miscutil
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
@@ -99,4 +100,21 @@ func CacheFunc[K comparable, V any](f func(K) V, size int) func(K) V {
 		cache.Add(a, v)
 		return v
 	}
+}
+
+// ReadInto reads into dst until it encounters io.EOF.
+func ReadInto(dst []byte, r io.Reader) (int, error) {
+	var n int
+	for n < len(dst) {
+		n2, err := r.Read(dst[n:])
+		if errors.Is(err, io.EOF) || n2 == 0 {
+			n += n2
+			return n, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		n += n2
+	}
+	return n, fmt.Errorf("%w len(dst)=%d", io.ErrShortBuffer, len(dst))
 }

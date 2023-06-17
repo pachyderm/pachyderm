@@ -9,6 +9,8 @@ import (
 )
 
 // ValueCallback is the type of functions used to access values
+// It is never ok for the callback to retain the data.
+// If it were ok, then the callee would just return the data.
 type ValueCallback = func([]byte) error
 
 type Getter interface {

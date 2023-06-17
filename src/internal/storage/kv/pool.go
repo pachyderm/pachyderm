@@ -6,11 +6,13 @@ import (
 )
 
 type Pool struct {
-	pool sync.Pool
+	maxBufferSize int
+	pool          sync.Pool
 }
 
 func NewPool(maxBufferSize int) *Pool {
 	return &Pool{
+		maxBufferSize: maxBufferSize,
 		pool: sync.Pool{
 			New: func() any {
 				return make([]byte, maxBufferSize)

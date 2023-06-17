@@ -3,7 +3,6 @@ package kv
 import (
 	"context"
 	"encoding/hex"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -53,18 +53,7 @@ func (s *FSStore) Get(ctx context.Context, key, buf []byte) (_ int, retErr error
 		return 0, s.transformError(err, key)
 	}
 	defer s.closeFile(ctx, &retErr, f)
-	var n int
-	for {
-		n2, err := f.Read(buf[n:])
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return 0, s.transformError(err, key)
-		}
-		n += n2
-	}
-	return n, nil
+	return miscutil.ReadInto(buf, f)
 }
 
 func (s *FSStore) Exists(ctx context.Context, key []byte) (bool, error) {
