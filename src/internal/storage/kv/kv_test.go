@@ -16,7 +16,7 @@ func TestMemStore(t *testing.T) {
 func TestFSStore(t *testing.T) {
 	TestStore(t, func(t testing.TB) Store {
 		dir := t.TempDir()
-		return NewFSStore(dir)
+		return NewFSStore(dir, 1024, 1<<20)
 	})
 }
 

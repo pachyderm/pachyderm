@@ -116,5 +116,8 @@ func ReadInto(dst []byte, r io.Reader) (int, error) {
 		}
 		n += n2
 	}
+	if n2, err := r.Read(dst[n:]); errors.Is(err, io.EOF) && n2 == 0 {
+		return n, nil
+	}
 	return n, fmt.Errorf("%w len(dst)=%d", io.ErrShortBuffer, len(dst))
 }

@@ -16,7 +16,7 @@ import (
 // the callback.
 func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) (kv.Store, *Storage) {
 	p := filepath.Join(t.TempDir(), "obj-store")
-	store := kv.NewFSStore(p)
+	store := kv.NewFSStore(p, 512, DefaultMaxChunkSize)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
 	return store, NewStorage(store, db, tr, opts...)

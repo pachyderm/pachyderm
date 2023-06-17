@@ -3,6 +3,7 @@ package kv
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,20 +22,31 @@ import (
 var _ Store = &FSStore{}
 
 type FSStore struct {
-	dir string
+	dir          string
+	maxKeySize   int
+	maxValueSize int
+
 	// initDone is true after the store has been initialized
 	initDone atomic.Bool
 	initSem  *semaphore.Weighted
 }
 
-func NewFSStore(dir string) *FSStore {
+func NewFSStore(dir string, maxKeySize, maxValueSize int) *FSStore {
 	return &FSStore{
-		dir:     dir,
-		initSem: semaphore.NewWeighted(1),
+		dir:          dir,
+		maxKeySize:   maxKeySize,
+		maxValueSize: maxValueSize,
+		initSem:      semaphore.NewWeighted(1),
 	}
 }
 
 func (s *FSStore) Put(ctx context.Context, key, value []byte) (retErr error) {
+	if len(key) > s.maxKeySize {
+		return fmt.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
+	}
+	if len(value) > s.maxValueSize {
+		return fmt.Errorf("max value size %d exceeded. len(value)=%d", s.maxKeySize, len(value))
+	}
 	if err := s.ensureInit(ctx); err != nil {
 		return err
 	}
