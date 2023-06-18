@@ -3,7 +3,6 @@ package fileset
 import (
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -92,22 +91,4 @@ func WithTTL(ttl time.Duration) WriterOption {
 	return func(w *Writer) {
 		w.ttl = ttl
 	}
-}
-
-// StorageOptions returns the fileset storage options for the config.
-func StorageOptions(conf *pachconfig.StorageConfiguration) []StorageOption {
-	var opts []StorageOption
-	if conf.StorageMemoryThreshold > 0 {
-		opts = append(opts, WithMemoryThreshold(conf.StorageMemoryThreshold))
-	}
-	if conf.StorageCompactionShardSizeThreshold > 0 {
-		opts = append(opts, WithShardSizeThreshold(conf.StorageCompactionShardSizeThreshold))
-	}
-	if conf.StorageCompactionShardCountThreshold > 0 {
-		opts = append(opts, WithShardCountThreshold(conf.StorageCompactionShardCountThreshold))
-	}
-	if conf.StorageLevelFactor > 0 {
-		opts = append(opts, WithLevelFactor(conf.StorageLevelFactor))
-	}
-	return opts
 }

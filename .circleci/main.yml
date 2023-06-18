@@ -393,6 +393,11 @@ jobs:
       - run:
           name: package release helm chart
           command: |
+            if [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
+            then
+              export CONSOLE_VERSION=${CIRCLE_TAG:1}
+              yq e -i '.console.image.tag=env(CONSOLE_VERSION)' etc/helm/pachyderm/values.yaml
+            fi
             helm package -d cr-release-packages/official --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
       - run:
           name: generate dd template
@@ -406,6 +411,11 @@ jobs:
       - run:
           name: package pre-release helm chart
           command: |
+            if [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
+            then
+              export CONSOLE_VERSION=${CIRCLE_TAG:1}
+              yq e -i '.console.image.tag=env(CONSOLE_VERSION)' etc/helm/pachyderm/values.yaml
+            fi
             helm package -d cr-release-packages/preview --version ${CIRCLE_TAG:1}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
@@ -1297,6 +1307,7 @@ jobs:
               fi
             git clone https://github.com/pachyderm/haberdashery.git haberdashery
             cd haberdashery
+            git fetch --all
             git checkout -b release-${CIRCLE_TAG:1} ${parentBranch}
             tmp=$(mktemp)
             jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
@@ -1306,14 +1317,13 @@ jobs:
             git commit -m "bump pachyderm version"
             git push origin release-${CIRCLE_TAG:1}
             PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
-            gh pr review ${PR} --approve --repo pachyderm/haberdashery
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
             PR_STATE=$(gh pr status --json mergeStateStatus --jq .currentBranch.mergeStateStatus --repo pachyderm/haberdashery)
             if [[ "$PR_STATE" != "CLEAN" ]]; then
               echo "review console PR ${PR} for failures. PR Checks failed."
               exit 1
             fi
-            gh pr merge ${PR} --repo pachyderm/haberdashery
+            gh pr merge ${PR} --admin --repo pachyderm/haberdashery
             sleep 2 # give it quick sec to merge, make sure we get right state.
             IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
             if [[ "${IS_MERGED}" != "MERGED" ]]; then
@@ -1394,6 +1404,41 @@ jobs:
           command: |
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
+  python-sdk-build:
+    executor: python
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - setup_remote_docker:
+          version: 19.03.13
+      - install-poetry
+      - run:
+          name: build
+          command: poetry build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/*
+  python-sdk-testing-docker-build:
+    executor: python
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - setup_remote_docker:
+          version: 20.10.18
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: docker build
+          command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
+      - run:
+          name: docker push
+          command: docker push pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1
   test-python-sdk:
     resource_class: xlarge
     machine:
@@ -1402,15 +1447,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: Install Poetry
-          command: |
-            mkdir -p /home/circleci/.local/poetry/venv
-            export POETRY_HOME=/home/circleci/.local/poetry/venv
-            python3 -m venv $POETRY_HOME
-            $POETRY_HOME/bin/pip install poetry==1.4.1
-            $POETRY_HOME/bin/poetry --version
-            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+      - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
@@ -1422,7 +1459,7 @@ jobs:
           name: Run Tests
           command: |
             nohup pachctl port-forward &
-            poetry run pytest -vvv tests
+            PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 poetry run pytest -vvv tests
 
 workflows:
   integration-tests:
@@ -1629,7 +1666,12 @@ workflows:
           requires:
             - build-docker-images
             - build-pachctl-bin
+            - python-sdk-testing-docker-build
       - build-docker-images
+      - python-sdk-build
+      - python-sdk-testing-docker-build:
+          requires:
+            - python-sdk-build
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
 
@@ -2019,3 +2061,14 @@ commands:
           when: always
           shell: /bin/sh # ignore fails without pipefail
           command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
+  install-poetry:
+    steps:
+      - run:
+          name: Install Poetry
+          command: |
+            mkdir -p /home/circleci/.local/poetry/venv
+            export POETRY_HOME=/home/circleci/.local/poetry/venv
+            python3 -m venv $POETRY_HOME
+            $POETRY_HOME/bin/pip install poetry==1.4.1
+            $POETRY_HOME/bin/poetry --version
+            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
