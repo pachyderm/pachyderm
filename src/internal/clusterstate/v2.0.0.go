@@ -2,6 +2,7 @@ package clusterstate
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -17,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/identity"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 // DO NOT MODIFY THIS STATE
@@ -48,7 +48,7 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 		return errors.EnsureStack(err)
 	}).
 	Apply("pfs commit store v0", func(ctx context.Context, env migrations.Env) error {
-		return pfsserver.SetupPostgresCommitStoreV0(ctx, env.Tx)
+		return SetupPostgresCommitStoreV0(ctx, env.Tx)
 	}).
 	Apply("create identity schema", func(ctx context.Context, env migrations.Env) error {
 		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA identity`)
@@ -98,5 +98,27 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 	Apply("add rotation_token_expiry to identity.config table", func(ctx context.Context, env migrations.Env) error {
 		return identity.AddRotationTokenExpiryConfig(ctx, env.Tx)
 	})
-	// DO NOT MODIFY THIS STATE
-	// IT HAS ALREADY SHIPPED IN A RELEASE
+
+// DO NOT MODIFY THIS STATE
+// IT HAS ALREADY SHIPPED IN A RELEASE
+
+// SetupPostgresCommitStoreV0 runs SQL to setup the commit store.
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func SetupPostgresCommitStoreV0(ctx context.Context, tx *pachsql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+		CREATE TABLE pfs.commit_diffs (
+			commit_id TEXT NOT NULL,
+			num BIGSERIAL NOT NULL,
+			fileset_id UUID NOT NULL,
+			PRIMARY KEY(commit_id, num)
+		);
+
+		CREATE TABLE pfs.commit_totals (
+			commit_id TEXT NOT NULL,
+			fileset_id UUID NOT NULL,
+			PRIMARY KEY(commit_id)
+		);
+	`)
+	return errors.EnsureStack(err)
+}

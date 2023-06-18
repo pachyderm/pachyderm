@@ -1,8 +1,8 @@
 describe('mount', () => {
   beforeEach(() => {
-    cy.unmountAllRepos();
     cy.resetApp();
     cy.isAppReady();
+    cy.unmountAllRepos();
     cy.openMountPlugin();
     cy.findAllByText('Mount');
   });

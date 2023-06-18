@@ -3,14 +3,44 @@ package coredb
 import (
 	"context"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"time"
 )
 
 type ProjectIterator struct {
+	*sqlx.Rows
+}
+
+// Next advances the iterator by one row.
+func (iter *ProjectIterator) Next() (*pfs.ProjectInfo, error) {
+	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
+	var createdAt time.Time
+	if iter.Rows.Next() {
+		if err := iter.Rows.Scan(&project.Project.Name, &project.Description, &createdAt); err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		projectTimestamp, err := types.TimestampProto(createdAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert time.Time to proto timestamp")
+		}
+		project.CreatedAt = projectTimestamp
+		return project, nil
+	}
+	if iter.Rows.Err() != nil {
+		return nil, errors.Wrap(iter.Rows.Err(), "failed iterating")
+	}
+	return nil, io.EOF
+}
+
+func (iter *ProjectIterator) Close() error {
+	return errors.Wrap(iter.Rows.Close(), "error closing iterator")
 }
 
 // QueryExecer defines an interface for functions shared across sqlx.Tx and sqlx.DB types.
@@ -29,9 +59,18 @@ func CreateProject(ctx context.Context, queryExecer QueryExecer, project *pfs.Pr
 
 // DeleteProject deletes an entry in the core.projects table.
 func DeleteProject(ctx context.Context, queryExecer QueryExecer, projectName string) error {
-	_, err := queryExecer.ExecContext(ctx, "DELETE FROM core.projects WHERE name = $1;", projectName)
-	//todo: delete corresponding project.authInfo auth table.
-	return errors.Wrap(err, "failed to delete project")
+	result, err := queryExecer.ExecContext(ctx, "DELETE FROM core.projects WHERE name = $1;", projectName)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete project")
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "could not get affected rows")
+	}
+	if rowsAffected == 0 {
+		return errors.Wrap(fmt.Errorf("project %s does not exist", projectName), "failed to delete project")
+	}
+	return nil
 }
 
 // GetProject retrieves an entry from the core.projects table by project name.
@@ -58,6 +97,20 @@ func getProject(ctx context.Context, queryExecer QueryExecer, where string, wher
 	}
 	return project, nil
 }
+
+func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) {
+	rows, err := db.QueryxContext(ctx, "SELECT name, description, created_at FROM core.projects")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list projects")
+	}
+	iter := &ProjectIterator{
+		Rows: rows,
+	}
+	return iter, nil
+}
+
+//func ListProjectInTransaction(ctx context.Context, tx *pachsql.Tx, option ...ListProjectOption) ([]*pfs.ProjectInfo, error) {
+//}
 
 // UpdateProject updates all fields of an existing project entry in the core.projects table by name. If 'upsert' is set to true, UpdateProject()
 // will attempt to call CreateProject() if the entry does not exist.

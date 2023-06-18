@@ -67,10 +67,12 @@ var authHandlers = map[string]authHandler{
 	// Debug API
 	//
 
-	"/debug_v2.Debug/Profile":     authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
-	"/debug_v2.Debug/Binary":      authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
-	"/debug_v2.Debug/Dump":        authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
-	"/debug_v2.Debug/SetLogLevel": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Profile":           authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Binary":            authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Dump":              authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/GetDumpV2Template": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/DumpV2":            authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/SetLogLevel":       authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 
 	//
 	// Enterprise API

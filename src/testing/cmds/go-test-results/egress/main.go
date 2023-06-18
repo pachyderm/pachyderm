@@ -27,10 +27,6 @@ import (
 	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
 )
 
-var postgresqlUser = os.Getenv("POSTGRESQL_USER")
-var postgresqlPassword = os.Getenv("POSTGRESQL_PASSWORD")
-var postgresqlHost = os.Getenv("POSTGRESQL_HOST")
-
 const (
 	jobInfoFileName string = "JobInfo.json"
 )
@@ -62,13 +58,12 @@ func run(ctx context.Context) error {
 	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
 	inputFolder := os.Args[1]
 	db, err := dbutil.NewDB(
-		dbutil.WithHostPort(postgresqlHost, 5432),
+		dbutil.WithHostPort(gotestresults.PostgresqlHost, 5432),
 		dbutil.WithDBName("ci_metrics"),
-		dbutil.WithUserPassword(postgresqlUser, postgresqlPassword),
+		dbutil.WithUserPassword(gotestresults.PostgresqlUser, gotestresults.PostgresqlPassword),
 	)
-
 	if err != nil {
-		return errors.Wrapf(err, "Failed opening db connection %v")
+		return errors.Wrapf(err, "Failed opening db connection")
 	}
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)

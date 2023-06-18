@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -31,7 +32,7 @@ func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 		DBClient:      dockertestenv.NewTestDB(t),
 		DexDB:         dex_memory.New(log.NewLogrus(ctx)),
 		EtcdClient:    testetcd.NewEnv(ctx, t).EtcdClient,
-		Configuration: serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{}),
+		Configuration: pachconfig.NewConfiguration(&pachconfig.PachdFullConfiguration{}),
 		Ctx:           ctx,
 	}
 	require.NoError(t, migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState))

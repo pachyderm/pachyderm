@@ -29,6 +29,7 @@ import (
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -66,7 +67,7 @@ type envBootstrapper interface {
 
 // builder provides the base daemon builder structure.
 type builder struct {
-	config *serviceenv.Configuration
+	config *pachconfig.Configuration
 	name   string
 
 	env                serviceenv.ServiceEnv
@@ -95,7 +96,7 @@ func (b *builder) apply(ctx context.Context, ff ...func(ctx context.Context) err
 
 func newBuilder(config any, name string) (b builder) {
 	b.name = name
-	b.config = serviceenv.NewConfiguration(config)
+	b.config = pachconfig.NewConfiguration(config)
 	b.txnEnv = transactionenv.New()
 	return
 }
@@ -401,7 +402,7 @@ func (b *builder) initPachwController(ctx context.Context) error {
 // setupMemoryLimit sets GOMEMLIMIT.  If not already set through the environment, set GOMEMLIMIT to
 // the container memory request, or if not set, the container memory limit minus some accounting for
 // the runtime (100MiB).
-func setupMemoryLimit(ctx context.Context, config serviceenv.GlobalConfiguration) {
+func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration) {
 	if memLimit := debug.SetMemoryLimit(-1); memLimit != math.MaxInt64 {
 		log.Info(ctx, "memlimit: using configured GOMEMLIMIT", zap.String("limit", humanize.IBytes(uint64(memLimit))))
 		return

@@ -628,6 +628,9 @@ class ListJobSetRequest(betterproto.Message):
     reverse: bool = betterproto.bool_field(5)
     """if true, return results in reverse order"""
 
+    jq_filter: str = betterproto.string_field(6)
+    """A jq program string for additional result filtering"""
+
 
 @dataclass(eq=False, repr=False)
 class InspectJobRequest(betterproto.Message):
@@ -1344,7 +1347,8 @@ class ApiStub:
         projects: Optional[List["_pfs__.Project"]] = None,
         pagination_marker: datetime = None,
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
+        jq_filter: str = ""
     ) -> Iterator["JobSetInfo"]:
         projects = projects or []
 
@@ -1356,6 +1360,7 @@ class ApiStub:
             request.pagination_marker = pagination_marker
         request.number = number
         request.reverse = reverse
+        request.jq_filter = jq_filter
 
         for response in self.__rpc_list_job_set(request):
             yield response
@@ -1849,6 +1854,7 @@ class ApiBase:
         pagination_marker: datetime,
         number: int,
         reverse: bool,
+        jq_filter: str,
         context: "grpc.ServicerContext",
     ) -> Iterator["JobSetInfo"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
