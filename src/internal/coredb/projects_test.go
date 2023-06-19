@@ -81,25 +81,43 @@ func TestListProject(t *testing.T) {
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, DeleteProject(ctx, db, "default"))
-	expectedInfos := make([]*pfs.ProjectInfo, 100)
-	for i := 0; i < 100; i++ {
+	size := 210
+	expectedInfos := make([]*pfs.ProjectInfo, size)
+	for i := 0; i < size; i++ {
 		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
 		expectedInfos[i] = createInfo
 		require.NoError(t, CreateProject(ctx, db, createInfo), "should be able to create project")
 	}
 	iter, err := ListProject(ctx, db)
 	require.NoError(t, err, "should be able to list projects")
-	defer iter.Close()
 	i := 0
-	for proj, err := iter.Next(); !errors.Is(err, io.EOF); proj, err = iter.Next() {
+	projectInfo := &pfs.ProjectInfo{}
+	for err := iter.Next(ctx, projectInfo); !errors.Is(err, io.EOF); err = iter.Next(ctx, projectInfo) {
 		if err != nil {
 			require.NoError(t, err, "should be able to iterate over projects")
 		}
-		require.Equal(t, expectedInfos[i].Project.Name, proj.Project.Name)
-		require.Equal(t, expectedInfos[i].Description, proj.Description)
-		require.Equal(t, expectedInfos[i].CreatedAt.Seconds, proj.CreatedAt.Seconds)
+		require.Equal(t, expectedInfos[i].Project.Name, projectInfo.Project.Name)
+		require.Equal(t, expectedInfos[i].Description, projectInfo.Description)
 		i++
 	}
+}
+
+func TestDeleteAllProjects(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewTestDB(t)
+	tx, err := db.BeginTxx(ctx, nil)
+	require.NoError(t, err, "should be able to create a tx")
+	defer tx.Rollback()
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	size := 3
+	for i := 0; i < size; i++ {
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
+	}
+	require.NoError(t, DeleteAllProjects(ctx, tx))
+	_, err = GetProjectByID(ctx, tx, 1)
+	require.YesError(t, err, "should not have any project entries")
 }
 
 func TestUpdateProject(t *testing.T) {
@@ -128,6 +146,6 @@ func TestUpdateProjectByID(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
 	require.NoError(t, CreateProject(ctx, tx, projInfo), "should be able to create project")
-	// the 'default' project ID is 2
+	// the 'default' project ID is 1
 	require.NoError(t, UpdateProjectByID(ctx, tx, 2, projInfo), "should be able to update project")
 }
