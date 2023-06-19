@@ -831,6 +831,21 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 	return nil
 }
 
+// The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
+func (d *driver) listProjectInTransaction(txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
+	projectInfo := &pfs.ProjectInfo{}
+	projIter, err := coredb.ListProject(txnCtx.Context(), d.env.DB)
+	if err != nil {
+		return errors.Wrap(err, "could not list project")
+	}
+	for !errors.Is(projIter.Next(txnCtx.Context(), projectInfo), io.EOF) {
+		if err := cb(projectInfo); err != nil {
+			return errors.Wrap(err, "could not execute cb on project")
+		}
+	}
+	return nil
+}
+
 // TODO: delete all repos and pipelines within project
 func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
 	if err := project.ValidateName(); err != nil {
@@ -2075,10 +2090,11 @@ func (d *driver) deleteAll(ctx context.Context) error {
 		if _, err := d.deleteReposInTransaction(txnCtx, nil); err != nil {
 			return errors.Wrap(err, "could not delete all repos")
 		}
-		if err := coredb.DeleteAllProjects(ctx, txnCtx.SqlTx); err != nil {
-			return errors.Wrap(err, "could not delete all projects")
-		}
-		// now that the cluster is empty, recreate the default project
+		if err := d.listProjectInTransaction(txnCtx, func(pi *pfs.ProjectInfo) error {
+			return errors.Wrapf(d.deleteProject(txnCtx, pi.Project, true), "delete project %q", pi.Project.String())
+		}); err != nil {
+			return err
+		} // now that the cluster is empty, recreate the default project
 		return d.createProjectInTransaction(txnCtx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
 	})
 }
