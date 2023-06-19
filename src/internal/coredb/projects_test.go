@@ -90,7 +90,6 @@ func TestListProject(t *testing.T) {
 	iter, err := ListProject(ctx, db)
 	require.NoError(t, err, "should be able to list projects")
 	i := 0
-
 	require.NoError(t, stream.ForEach[*pfs.ProjectInfo](ctx, iter, func(proj *pfs.ProjectInfo) error {
 		if err != nil {
 			require.NoError(t, err, "should be able to iterate over projects")
