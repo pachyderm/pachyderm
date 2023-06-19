@@ -72,21 +72,20 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	// todo(fahad): replace with a transactional list()
 	projIter, err := coredb.ListProject(txnCtx.Context(), a.env.DB)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}
-	defer projIter.Close()
-	for projectInfo, err := projIter.Next(); !errors.Is(err, io.EOF); projectInfo, err = projIter.Next() {
+	projInfo := &pfs.ProjectInfo{}
+	for !errors.Is(projIter.Next(txnCtx.Context(), projInfo), io.EOF) {
 		var principal string
 		var roleSlice []string
-		if projectInfo.Project.Name == pfs.DefaultProjectName {
+		if projInfo.Project.Name == pfs.DefaultProjectName {
 			// Grant all users ProjectWriter role for default project.
 			principal = auth.AllClusterUsersSubject
 			roleSlice = []string{auth.ProjectWriterRole}
 		}
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectInfo.Project.Name})
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projInfo.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
 			return nil, errors.EnsureStack(err)
 		}
