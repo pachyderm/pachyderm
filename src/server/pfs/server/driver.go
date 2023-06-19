@@ -808,7 +808,7 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 		return errors.Wrap(err, "could not list projects")
 	}
 	projInfo := &pfs.ProjectInfo{}
-	for err := projIter.Next(ctx, projInfo); !errors.Is(err, io.EOF); err = projIter.Next(ctx, projInfo) {
+	for !errors.Is(projIter.Next(ctx, projInfo), io.EOF) {
 		if authIsActive {
 			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projInfo.GetProject().AuthResource()})
 			if err != nil {

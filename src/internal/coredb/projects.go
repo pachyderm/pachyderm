@@ -37,6 +37,7 @@ func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo)
 	}
 	var err error
 	iter.lock.Lock()
+	defer iter.lock.Unlock()
 	if iter.index >= len(iter.projects) {
 		iter.index = 0
 		iter.pageNum++
@@ -58,7 +59,6 @@ func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo)
 		Description: row.Description,
 		CreatedAt:   projectTimestamp}
 	iter.index++
-	iter.lock.Unlock()
 	return nil
 }
 
@@ -77,8 +77,12 @@ func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) 
 
 func listProjectPage(ctx context.Context, db *pachsql.DB, pageSize, pageNum int) ([]projectRow, error) {
 	var page []projectRow
-	err := db.SelectContext(ctx, &page, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2", pageSize, pageSize*pageNum)
-	return page, errors.Wrap(err, "could not get project page")
+	if err := db.SelectContext(ctx, &page, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2",
+		pageSize, pageSize*pageNum); err != nil {
+		return nil, errors.Wrap(err, "could not get project page")
+
+	}
+	return page, nil
 }
 
 // QueryExecer defines an interface for functions shared across sqlx.Tx and sqlx.DB types.
@@ -112,7 +116,7 @@ func DeleteProject(ctx context.Context, queryExecer QueryExecer, projectName str
 }
 
 func DeleteAllProjects(ctx context.Context, queryExecer QueryExecer) error {
-	_, err := queryExecer.ExecContext(ctx, "TRUNCATE core.projects CASCADE;")
+	_, err := queryExecer.ExecContext(ctx, "TRUNCATE core.projects;")
 	return errors.Wrap(err, "could not delete all project rows")
 }
 
