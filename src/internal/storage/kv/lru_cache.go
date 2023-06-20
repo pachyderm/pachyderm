@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"go.uber.org/zap"
@@ -15,7 +15,7 @@ var _ Store = &LRUCache{}
 type LRUCache struct {
 	slow, fast Store
 	mu         sync.RWMutex
-	cache      simplelru.LRU
+	cache      simplelru.LRU[string, struct{}]
 
 	ctx context.Context
 }
@@ -25,7 +25,7 @@ func NewLRUCache(slow, fast Store, size int) *LRUCache {
 		slow: slow,
 		fast: fast,
 	}
-	cache, err := simplelru.NewLRU(size, c.onEvict)
+	cache, err := simplelru.NewLRU[string, struct{}](size, c.onEvict)
 	if err != nil {
 		panic(err)
 	}
@@ -71,9 +71,7 @@ func (c *LRUCache) Delete(ctx context.Context, key []byte) error {
 	if err := c.slow.Delete(ctx, key); err != nil {
 		return err
 	}
-	if err := c.fast.Delete(ctx, key); err != nil {
-		return err
-	}
+	c.deleteFast(ctx, key)
 	return nil
 }
 
@@ -89,13 +87,21 @@ func (c *LRUCache) putFast(ctx context.Context, key, value []byte) error {
 	if err := c.fast.Put(ctx, key, value); err != nil {
 		return err
 	}
-	c.cache.Add(string(key), nil)
+	c.cache.Add(string(key), struct{}{})
 	return nil
 }
 
-func (c *LRUCache) onEvict(key, value interface{}) {
-	k := []byte(key.(string))
-	if err := c.Delete(c.ctx, k); err != nil {
+func (c *LRUCache) deleteFast(ctx context.Context, key []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.ctx = ctx
+	defer func() { c.ctx = nil }()
+	c.cache.Remove(string(key))
+}
+
+func (c *LRUCache) onEvict(key string, value struct{}) {
+	ctx := c.ctx
+	if err := c.fast.Delete(ctx, []byte(key)); err != nil {
 		log.Error(c.ctx, "deleting from cache", zap.Any("err", err))
 	}
 }
