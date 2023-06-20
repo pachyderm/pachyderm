@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -10,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	det "github.com/determined-ai/determined/proto/pkg/apiv1"
@@ -18,11 +20,11 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/workspacev1"
 )
 
-func (a *apiServer) hookDeterminedPipeline(ctx context.Context, pi *pps.PipelineInfo) error {
+func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline, workspaces []string, password string) (string, error) {
 	var cf context.CancelFunc
 	ctx, cf = context.WithTimeout(ctx, 60*time.Second)
 	defer cf()
-	return backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, func() error {
 		conn, err := grpc.Dial(a.env.Config.DeterminedURL)
 		if err != nil {
 			return errors.Wrapf(err, "dialing determined at %q", a.env.Config.DeterminedURL)
@@ -34,19 +36,17 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, pi *pps.Pipeline
 			return errors.Wrap(err, "mint determined token")
 		}
 		ctx = metadata.AppendToOutgoingContext(ctx, "x-user-token", fmt.Sprintf("Bearer %s", tok))
-		detWorkspaces, err := resolveDeterminedWorkspaces(ctx, dc, pi.Details.Determined.Workspaces)
+		detWorkspaces, err := resolveDeterminedWorkspaces(ctx, dc, workspaces)
 		if err != nil {
 			return err
 		}
 		if err := validateWorkspacePermissions(ctx, dc, detWorkspaces); err != nil {
 			return err
 		}
-		if pi.Details.Determined.Password == "" {
-			pi.Details.Determined.Password = uuid.NewWithoutDashes()
+		if password == "" {
+			password = uuid.NewWithoutDashes()
 		}
-		// TODO: if user already exists, do we want to still run role assignment for them?
-		// this would involve a querying for the user's id
-		userId, err := provisionDeterminedPipelineUser(ctx, dc, pi)
+		userId, err := provisionDeterminedPipelineUser(ctx, dc, p, password)
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,10 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, pi *pps.Pipeline
 			return err
 		}
 		return nil
-	}, &backoff.ZeroBackOff{}, nil)
+	}, &backoff.ZeroBackOff{}, nil); err != nil {
+		return "", err
+	}
+	return password, nil
 }
 
 func workspaceEditorRoleId(ctx context.Context, dc det.DeterminedClient) (int32, error) {
@@ -149,13 +152,22 @@ func validateWorkspacePermissions(ctx context.Context, dc det.DeterminedClient, 
 	return nil
 }
 
-func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClient, pi *pps.PipelineInfo) (int32, error) {
+func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClient, p *pps.Pipeline, password string) (int32, error) {
 	resp, err := dc.PostUser(ctx, &det.PostUserRequest{
-		User:     &userv1.User{Username: pipelineUserName(pi.Pipeline)},
-		Password: pi.Details.Determined.Password,
+		User:     &userv1.User{Username: pipelineUserName(p)},
+		Password: password,
 	})
-	// TODO: handle existing existing user
 	if err != nil {
+		if grpc.Code(err) == codes.InvalidArgument && strings.Contains(err.Error(), "user already exists") {
+			usersResp, err := dc.GetUsers(ctx, &det.GetUsersRequest{Name: pipelineUserName(p)})
+			if err != nil {
+				return 0, errors.Wrapf(err, "get determined user %q", pipelineUserName(p))
+			}
+			if len(usersResp.Users) == 0 {
+				return 0, errors.Wrapf(err, "no determined users return for user %q", pipelineUserName(p))
+			}
+			return usersResp.Users[0].Id, nil
+		}
 		return 0, errors.Wrap(err, "provision determined user")
 	}
 	return resp.User.Id, nil

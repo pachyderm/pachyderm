@@ -2387,13 +2387,14 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}(); err != nil {
 		return err
 	}
-	// TODO:
-	// - should this be done before the start of the txn?
+	// TODO: should this be done before the start of the txn?
 	// handle determined hook
 	if newPipelineInfo.Details.Determined != nil {
-		if err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo); err != nil {
+		password, err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo.Pipeline, newPipelineInfo.Details.Determined.Workspaces, newPipelineInfo.Details.Determined.Password)
+		if err != nil {
 			return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
 		}
+		newPipelineInfo.Details.Determined.Password = password
 	}
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
