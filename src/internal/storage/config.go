@@ -11,6 +11,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
+// maxKeySize is the maximum size of keys in key-value stores.
+const (
+	maxKeySize = 512
+)
+
 // MakeChunkOptions returns the chunk storage options for the config.
 func makeChunkOptions(conf *pachconfig.StorageConfiguration) (opts []chunk.StorageOption) {
 	if conf.StorageMemoryCacheSize > 0 {
@@ -46,7 +51,7 @@ func wrapStore(conf *pachconfig.StorageConfiguration, store kv.Store) kv.Store {
 	}
 	if conf.StorageDiskCacheSize > 0 {
 		p := filepath.Join(os.TempDir(), "pss-cache", uuid.NewWithoutDashes())
-		diskCache := kv.NewFSStore(p, 512, chunk.DefaultMaxChunkSize)
+		diskCache := kv.NewFSStore(p, maxKeySize, chunk.DefaultMaxChunkSize)
 		return kv.NewLRUCache(store, diskCache, conf.StorageDiskCacheSize)
 	}
 	return store

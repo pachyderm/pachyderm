@@ -3,6 +3,7 @@ package kv
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -16,18 +17,27 @@ import (
 )
 
 type objectAdapter struct {
-	objC obj.Client
+	objC                     obj.Client
+	maxKeySize, maxValueSize int
 }
 
 // NewFromObjectClient converts an object client into a key value store.
 // This can provide more natural interface for small values, but it will read the entire object into memory
-func NewFromObjectClient(objC obj.Client) Store {
+func NewFromObjectClient(objC obj.Client, maxKeySize, maxValueSize int) Store {
 	return &objectAdapter{
-		objC: objC,
+		objC:         objC,
+		maxKeySize:   maxKeySize,
+		maxValueSize: maxValueSize,
 	}
 }
 
 func (s *objectAdapter) Put(ctx context.Context, key, value []byte) error {
+	if len(key) > s.maxKeySize {
+		return fmt.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
+	}
+	if len(value) > s.maxValueSize {
+		return fmt.Errorf("max value size %d exceeded. len(value)=%d", s.maxKeySize, len(value))
+	}
 	return s.retry(ctx, func() error {
 		return errors.EnsureStack(s.objC.Put(ctx, string(key), bytes.NewReader(value)))
 	})

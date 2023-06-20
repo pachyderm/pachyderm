@@ -40,7 +40,7 @@ func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	store := kv.NewFromObjectClient(env.ObjectStore)
+	store := kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
 	store = wrapStore(&config, store)
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(store, env.DB, tracker, chunkStorageOpts...)

@@ -30,6 +30,6 @@ func TestObjectClient(t *testing.T) {
 	TestStore(t, func(t testing.TB) Store {
 		c, err := obj.NewLocalClient(t.TempDir())
 		require.NoError(t, err)
-		return NewFromObjectClient(c)
+		return NewFromObjectClient(c, 1024, 1<<20)
 	})
 }
