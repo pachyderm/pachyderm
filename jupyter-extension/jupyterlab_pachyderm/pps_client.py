@@ -133,6 +133,7 @@ class PpsConfig:
     pipeline: Pipeline
     image: str
     requirements: Optional[str]
+    port: str
     input_spec: dict  # We may be able to use the pachyderm SDK to parse and validate.
 
     @classmethod
@@ -172,13 +173,16 @@ class PpsConfig:
         if input_spec_str is None:
             raise ValueError("field input_spec not set")
         input_spec = yaml.safe_load(input_spec_str)
+        
+        port = config.get('port')
 
         return cls(
             notebook_path=notebook_path,
             pipeline=pipeline,
             image=image,
             requirements=requirements,
-            input_spec=input_spec
+            input_spec=input_spec,
+            port=port
         )
 
     def to_dict(self):
@@ -205,17 +209,26 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
     pipeline = dict(name=config.pipeline.name)
     if config.pipeline.project and config.pipeline.project.name:
         pipeline['project'] = dict(name=config.pipeline.project.name)
-    return dict(
+    piplineSpec =  dict(
         pipeline=pipeline,
         description="Auto-generated from notebook",
         transform=dict(
             cmd=["python3", f"/pfs/{companion_repo}/entrypoint.py"],
             image=config.image
         ),
+
         input=input_spec,
         update=True,
         reprocess=True,
     )
+    if config.port:
+        piplineSpec['service'] = dict(
+            external_port=config.port,
+            internal_port=config.port,
+            type="LoadBalancer"
+        )
+
+    return piplineSpec
 
 
 def upload_environment(
