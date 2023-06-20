@@ -1468,8 +1468,6 @@ jobs:
           command: |
             sleep 20
             kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            echo "PACH_PYTHON_TEST_ADDRESS=$(minikube service pachyderm-proxy --url)" >> "$BASH_ENV"
-            echo "PACH_PYTHON_TEST_ADDRESS_ENTERPRISE=$(minikube --namespace enterprise service pachyderm-proxy --url)" >> "$BASH_ENV"
       - run:
           name: Run Tests
           command: PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 poetry run pytest -vvv tests
