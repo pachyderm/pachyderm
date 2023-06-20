@@ -1,6 +1,7 @@
 import os
 import random
 from typing import Tuple
+from urllib.parse import urlparse
 
 import pytest
 
@@ -21,7 +22,11 @@ def default_project(request) -> bool:
 
 @pytest.fixture
 def client(request) -> "TestClient":
-    client = TestClient(nodeid=request.node.nodeid)
+    address = os.environ.get('PACH_PYTHON_TEST_ADDRESS')
+    if address:
+        client = TestClient.from_pachd_address(address, nodeid=request.node.nodeid)
+    else:
+        client = TestClient(nodeid=request.node.nodeid)
     yield client
     client.tear_down()
 
@@ -43,12 +48,16 @@ class TestClient(_Client):
         """
 
         super().__init__(*args, **kwargs)
-        address = os.environ.get('PACH_PYTHON_TEST_ADDRESS')
-        self = super().from_pachd_address(address)
         self.id = nodeid
         self.projects = []
         self.repos = []
         self.pipelines = []
+
+    # noinspection PyMethodOverriding
+    @classmethod
+    def from_pachd_address(cls, address: str, nodeid: str, **kwargs) -> "TestClient":
+        url = urlparse(address)
+        return cls(host=url.hostname, port=url.port, nodeid=nodeid, **kwargs)
 
     def new_project(self) -> pfs.Project:
         project = pfs.Project(name=f"proj{random.randint(100, 999)}")
