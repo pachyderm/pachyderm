@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // CollectionRecord is a record in a collections table.
@@ -20,7 +21,7 @@ type CollectionRecord struct {
 
 func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS core;`); err != nil {
-		return errors.Wrap(err, "error creating core schema")
+		return errors.Wrap(err, "creating core schema")
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE OR REPLACE FUNCTION core.set_updated_at_to_now() RETURNS TRIGGER AS $$
@@ -30,11 +31,11 @@ func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 		END;
 		$$ language 'plpgsql';
 	`); err != nil {
-		return errors.Wrap(err, "error creating set_updated_at_to_now trigger function")
+		return errors.Wrap(err, "creating set_updated_at_to_now trigger function")
 	}
 
 	if err := createProjectsTable(ctx, tx); err != nil {
-		return errors.Wrap(err, "error creating projects table")
+		return errors.Wrap(err, "creating projects table")
 	}
 	return nil
 }
@@ -44,45 +45,47 @@ func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 		CREATE TABLE IF NOT EXISTS core.projects (
 			id bigserial PRIMARY KEY,
 			name text UNIQUE NOT NULL,
-			description text,
+			description text NOT NULL,
 			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL
 		);
 	`); err != nil {
-		return errors.Wrap(err, "error creating projects table")
+		return errors.Wrap(err, "creating projects table")
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TRIGGER set_updated_at
 			BEFORE UPDATE ON core.projects
 			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
 	`); err != nil {
-		return errors.Wrap(err, "error creating set_updated_at trigger")
+		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
 	return nil
 }
 
 func migrateProjects(ctx context.Context, tx *pachsql.Tx) error {
-	insertStmt, err := tx.Preparex("INSERT INTO core.projects(name, description, created_at, updated_at) VALUES($1, $2, $3, $4)")
+	insertStmt, err := tx.PreparexContext(ctx, "INSERT INTO core.projects(name, description, created_at, updated_at) VALUES($1, $2, $3, $4)")
 	if err != nil {
-		return errors.Wrap(err, "error preparing insert projects statement")
+		return errors.Wrap(err, "preparing insert projects statement")
 	}
 	defer insertStmt.Close()
 
-	projectColRows := []CollectionRecord{}
+	var projectColRows []CollectionRecord
 	if err := tx.SelectContext(ctx, &projectColRows, "SELECT key, proto, createdat, updatedat FROM collections.projects ORDER BY createdat ASC"); err != nil {
-		return errors.Wrap(err, "error listing from collections.projects")
+		return errors.Wrap(err, "listing from collections.projects")
 	}
-	projectInfos := []ProjectInfo{}
+	var projectInfos []pfs.ProjectInfo
 	for _, project := range projectColRows {
-		projectInfo := ProjectInfo{}
+		projectInfo := pfs.ProjectInfo{}
 		if err := proto.Unmarshal(project.Proto, &projectInfo); err != nil {
-			return errors.Wrap(err, "error unmarshalling project")
+			return errors.Wrap(err, "unmarshalling project")
 		}
 		projectInfos = append(projectInfos, projectInfo)
 	}
-	for i := 0; i < len(projectColRows); i++ {
+	// Note that although it is more efficient to batch insert multiple rows in a single statement,
+	// we don't need it here because this is a one-time migration, and we don't expect users to have a large number of projects.
+	for i := range projectColRows {
 		if _, err := insertStmt.ExecContext(ctx, projectInfos[i].Project.Name, projectInfos[i].Description, projectColRows[i].CreatedAt, projectColRows[i].UpdatedAt); err != nil {
-			return errors.Wrap(err, "error inserting project")
+			return errors.Wrap(err, "inserting project")
 		}
 	}
 	return nil
