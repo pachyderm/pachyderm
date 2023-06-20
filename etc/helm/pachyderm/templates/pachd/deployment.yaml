@@ -425,7 +425,7 @@ spec:
           value: {{ .Values.pachd.defaultSidecarStorageRequest | quote }}
         {{- end }}
         {{- if ne .Values.pachd.determined.credentialsSecretName "" }}
-        - name: DETERMINED_USER
+        - name: DETERMINED_USERNAME
           valueFrom:          
             secretKeyRef:
               name: {{ .Values.pachd.determined.credentialsSecretName }}
