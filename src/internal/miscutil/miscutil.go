@@ -3,7 +3,6 @@ package miscutil
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
@@ -119,5 +118,5 @@ func ReadInto(dst []byte, r io.Reader) (int, error) {
 	if n2, err := r.Read(dst[n:]); errors.Is(err, io.EOF) && n2 == 0 {
 		return n, nil
 	}
-	return n, fmt.Errorf("%w len(dst)=%d", io.ErrShortBuffer, len(dst))
+	return n, errors.Errorf("%w len(dst)=%d", io.ErrShortBuffer, len(dst))
 }

@@ -118,7 +118,7 @@ func (it *fsIterator) Next(ctx context.Context, dst *[]byte) error {
 		for i := range dirEnts {
 			key, err := hex.DecodeString(dirEnts[i].Name())
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			keys = append(keys, key)
 		}

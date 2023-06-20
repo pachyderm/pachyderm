@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"golang.org/x/sync/semaphore"
 )
@@ -29,7 +30,7 @@ func NewSemaphored(inner Store, download, upload int) *Semaphored {
 
 func (s *Semaphored) Put(ctx context.Context, key, value []byte) error {
 	if err := s.upload.Acquire(ctx, 1); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer s.upload.Release(1)
 	return s.inner.Put(ctx, key, value)
@@ -37,7 +38,7 @@ func (s *Semaphored) Put(ctx context.Context, key, value []byte) error {
 
 func (s *Semaphored) Get(ctx context.Context, key, buf []byte) (int, error) {
 	if err := s.download.Acquire(ctx, 1); err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	defer s.download.Release(1)
 	return s.inner.Get(ctx, key, buf)
