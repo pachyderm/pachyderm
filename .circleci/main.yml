@@ -1461,18 +1461,18 @@ jobs:
           command: |
             helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.httpPort=8765,pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
+            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,proxy.service.httpNodePort=8765,pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
             sleep 20
             kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            until poetry run python -c "import pachyderm_sdk; pachyderm_sdk.Client(\"$(minikube ip)\", 80).get_version()"; do sleep 5; done
+            until poetry run python -c "import pachyderm_sdk; pachyderm_sdk.Client(\"$(minikube ip)\", 30080).get_version()"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
             PACH_PYTHON_TEST_HOST="$(minikube ip)" \
-            PACH_PYTHON_TEST_PORT="80" \
+            PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="8080" \
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
