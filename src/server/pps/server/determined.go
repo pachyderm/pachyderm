@@ -8,10 +8,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
 	det "github.com/determined-ai/determined/proto/pkg/apiv1"
@@ -24,8 +27,9 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 	var cf context.CancelFunc
 	ctx, cf = context.WithTimeout(ctx, 60*time.Second)
 	defer cf()
+	errCnt := 0
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		conn, err := grpc.Dial(a.env.Config.DeterminedURL)
+		conn, err := grpc.DialContext(ctx, a.env.Config.DeterminedURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return errors.Wrapf(err, "dialing determined at %q", a.env.Config.DeterminedURL)
 		}
@@ -33,7 +37,7 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 		dc := det.NewDeterminedClient(conn)
 		tok, err := mintDeterminedToken(ctx, dc, a.env.Config.DeterminedUsername, a.env.Config.DeterminedPassword)
 		if err != nil {
-			return errors.Wrap(err, "mint determined token")
+			return err
 		}
 		ctx = metadata.AppendToOutgoingContext(ctx, "x-user-token", fmt.Sprintf("Bearer %s", tok))
 		detWorkspaces, err := resolveDeterminedWorkspaces(ctx, dc, workspaces)
@@ -58,7 +62,14 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 			return err
 		}
 		return nil
-	}, &backoff.ZeroBackOff{}, nil); err != nil {
+	}, &backoff.ZeroBackOff{}, func(err error, _ time.Duration) error {
+		log.Info(ctx, "determined hook error", zap.Error(err))
+		errCnt++
+		if errCnt >= 3 {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return "", err
 	}
 	return password, nil
