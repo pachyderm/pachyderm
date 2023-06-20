@@ -171,6 +171,8 @@ type EnterpriseSpecificConfiguration struct {
 	TrustedPeers              string `env:"TRUSTED_PEERS,default="`
 	ConsoleOAuthID            string `env:"CONSOLE_OAUTH_ID,default="`
 	ConsoleOAuthSecret        string `env:"CONSOLE_OAUTH_SECRET,default="`
+	DeterminedOAuthID         string `env:"DETERMINED_OAUTH_ID,default="`
+	DeterminedOAuthSecret     string `env:"DETERMINED_OAUTH_SECRET,default="`
 }
 
 // StorageConfiguration contains the storage configuration.

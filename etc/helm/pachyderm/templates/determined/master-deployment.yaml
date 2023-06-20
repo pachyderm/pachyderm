@@ -42,8 +42,8 @@ spec:
           - name: DETERMINED_OIDC_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
-                name: {{ required "A valid client secret name is required!" .Values.determined.oidc.clientSecretName }}
-                key: {{ required "A valid client secret filename is required!" .Values.determined.oidc.clientSecretKey }}
+                name: {{ default .Values.determined.oidc.clientSecretName "det-oidc-client-secret" }}
+                key: {{ default .Values.determined.oidc.clientSecretKey "oidc-client-secret" }}
                 optional: false
         {{- end }}
         {{- end }}

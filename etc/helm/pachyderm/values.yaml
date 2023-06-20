@@ -60,6 +60,7 @@ global:
     enabled: true
 
 determined:
+  enabled: false
   # The image registry to use. Defaults to the determinedai repository in DockerHub.
   imageRegistry: determinedai
 
