@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/status"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -169,7 +170,7 @@ func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClien
 		Password: password,
 	})
 	if err != nil {
-		if grpc.Code(err) == codes.InvalidArgument && strings.Contains(err.Error(), "user already exists") {
+		if status.Code(err) == codes.InvalidArgument && strings.Contains(err.Error(), "user already exists") {
 			usersResp, err := dc.GetUsers(ctx, &det.GetUsersRequest{Name: pipelineUserName(p)})
 			if err != nil {
 				return 0, errors.Wrapf(err, "get determined user %q", pipelineUserName(p))
