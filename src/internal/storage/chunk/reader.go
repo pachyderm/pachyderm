@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -124,24 +126,31 @@ func (dr *DataReader) fetchData() error {
 		return nil
 	}
 	ref := dr.dataRef.Ref
-
-	chunkData, err := getFromCache(dr.memCache, ref)
-	if pacherr.IsNotExist(err) {
-		if err := dr.deduper.Do(dr.ctx, ref.Key(), func() error {
-			var err error
-			chunkData, err = Get(dr.ctx, dr.client, ref)
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Millisecond
+	var data []byte
+	if err := backoff.RetryUntilCancel(dr.ctx, func() error {
+		chunkData, err := getFromCache(dr.memCache, ref)
+		if err != nil {
+			return err
+		}
+		data = chunkData[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
+		return nil
+	}, b, func(err error, _ time.Duration) error {
+		if !pacherr.IsNotExist(err) {
+			return err
+		}
+		return dr.deduper.Do(dr.ctx, ref.Key(), func() error {
+			data, err := Get(dr.ctx, dr.client, ref)
 			if err != nil {
 				return err
 			}
-			putInCache(dr.memCache, ref, chunkData)
+			putInCache(dr.memCache, ref, data)
 			return nil
-		}); err != nil {
-			return err
-		}
-	} else if err != nil {
+		})
+	}); err != nil {
 		return err
 	}
-	data := chunkData[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
 	dr.r = bytes.NewReader(data)
 	return nil
 }
