@@ -205,8 +205,8 @@ workflows:
           # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
           # Note: The regex is prepended with ^ and appended with $ by the orb
           mapping: |
-            ([^/]+|(.circleci|src|etc|examples|goreleaser|licenses|dex-assets)/.*) run-core-jobs true
-            ((.circleci|jupyter-extension)/.*) run-jupyter-jobs true
+            ([^/]+|(.circleci|src|etc|examples|goreleaser|licenses|dex-assets)/.*) run-core-jobs false
+            ((.circleci|jupyter-extension)/.*) run-jupyter-jobs false
             ((.circleci|python-sdk)/.*) run-python-sdk-jobs true
           base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
           config-path: .circleci/main.yml
