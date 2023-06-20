@@ -8,6 +8,8 @@ metadata:
      release: {{ .Release.Name }}
 data:
   master.yaml: |
+    log:
+      level: debug
     checkpoint_storage:
       type: {{ required "A valid Values.checkpointStorage.type entry is required!" .Values.determined.checkpointStorage.type | quote}}
       {{- if eq .Values.determined.checkpointStorage.type "shared_fs" }}
@@ -78,10 +80,10 @@ data:
     {{- if .Values.determined.oidc }}
     oidc:
       enabled: {{ .Values.determined.oidc.enabled | default true }}
-      provider: {{ required "A valid provider entry is required!" .Values.determined.oidc.provider}}
+      provider: {{ default .Values.determined.oidc.provider "dex"}}
       idp_recipient_url: {{ required "A valid recipient url is required!" .Values.determined.oidc.idpRecipientUrl }}
-      idp_sso_url: {{ required "A valid sso url is required!" .Values.determined.oidc.idpSsoUrl }}
-      client_id: {{ required "A valid client ID is required!" .Values.determined.oidc.clientId }}
+      idp_sso_url: {{ default .Values.determined.oidc.idpSsoUrl (include "pachyderm.issuerURI" . | quote) }}
+      client_id: {{ default .Values.determined.oidc.clientId "determined" }}
       {{- if .Values.determined.oidc.authenticationClaim }}
       authentication_claim: {{ .Values.determined.oidc.authenticationClaim }}
       {{- end }}
