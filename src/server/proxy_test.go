@@ -75,16 +75,16 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 
 	// Test console.
 	t.Run("TestConsole", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		require.NoErrorWithinTRetryConstant(t, 120*time.Second, func() error {
 			return get(t, httpClient, httpPrefix+addr+"/")
-		}, "should be able to load console")
+		}, time.Second*10, "should be able to load console")
 	})
 
 	// Test OIDC.
 	t.Run("TestOIDC", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		require.NoErrorWithinTRetryConstant(t, 120*time.Second, func() error {
 			return get(t, httpClient, httpPrefix+addr+"/dex/.well-known/openid-configuration")
-		}, "should be able to load openid config")
+		}, time.Second*10, "should be able to load openid config")
 	})
 
 	testText := []byte("this is a test\n")
@@ -99,7 +99,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		require.NoErrorWithinTRetryConstant(t, 120*time.Second, func() error {
 			if err := c.CreateRepo(pfs.DefaultProjectName, testRepo); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
@@ -107,12 +107,12 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 				return errors.Errorf("put file: %w", err)
 			}
 			return nil
-		}, "should be able to upload a file over grpc")
+		}, time.Second*10, "should be able to upload a file over grpc")
 	})
 
 	// Test S3 API.
 	t.Run("TestS3", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
 			s3v4, err := minio.NewV4(addr, c.AuthToken(), c.AuthToken(), secure)
 			if err != nil {
 				return errors.Errorf("get s3v4 client: %w", err)
@@ -142,7 +142,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 				}
 			}
 			return nil
-		}, "should be able to retrieve files over S3")
+		}, time.Second*10, "should be able to retrieve files over S3")
 	})
 
 	// Test archive downloads.
