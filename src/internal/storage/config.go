@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -25,6 +24,9 @@ func makeChunkOptions(conf *pachconfig.StorageConfiguration) ([]chunk.StorageOpt
 			return nil, err
 		}
 		opts = append(opts, chunk.WithObjectCache(diskCache, conf.StorageDiskCacheSize))
+	}
+	if conf.StorageMemoryCacheSize > 0 {
+		opts = append(opts, chunk.WithMemoryCacheSize(conf.StorageMemoryCacheSize))
 	}
 	return opts, nil
 }
@@ -44,13 +46,4 @@ func makeFilesetOptions(conf *pachconfig.StorageConfiguration) []fileset.Storage
 		opts = append(opts, fileset.WithLevelFactor(conf.StorageLevelFactor))
 	}
 	return opts
-}
-
-// ChunkMemoryCache returns the in memory cache for chunks, pre-configured to the desired size
-func makeChunkMemoryCache(conf *pachconfig.StorageConfiguration) kv.GetPut {
-	size := conf.StorageMemoryCacheSize
-	if size < 1 {
-		size = 1
-	}
-	return kv.NewMemCache(size)
 }
