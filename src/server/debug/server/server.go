@@ -24,6 +24,9 @@ import (
 	"sync"
 	"time"
 
+	yamlToJson "github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/wcharczuk/go-chart"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -34,9 +37,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	describe "k8s.io/kubectl/pkg/describe"
-
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -273,6 +273,11 @@ func (s *debugServer) makeDescribesTask(app *debug.App, rp incProgressFunc) task
 		for _, pod := range app.Pods {
 			if err := s.collectDescribe(ctx, dfs, app, pod); err != nil {
 				errors.JoinInto(&errs, errors.Wrapf(err, "describe pod %q", pod.Name))
+			}
+		}
+		if app.Pipeline != nil {
+			if err := s.collectDescribePipeline(ctx, dfs, app); err != nil {
+				errors.JoinInto(&errs, errors.Wrapf(err, "describe pipeline %q", app.Pipeline.Project+"/"+app.Pipeline.Name))
 			}
 		}
 		return errs
@@ -901,12 +906,54 @@ func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, server debug.
 	return writeErrs
 }
 
-func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) error {
-	return dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "describe.txt"), func(output io.Writer) (retErr error) {
+func (s *debugServer) collectDescribePipeline(ctx context.Context, dfs DumpFS, app *debug.App) error {
+	return dfs.Write(filepath.Join(appDir(app), "describe.json"), func(output io.Writer) (retErr error) {
 		// Gate the total time of "describe".
 		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
 		defer c()
-		defer log.Span(ctx, "collectDescribe")(log.Errorp(&retErr))
+		defer log.Span(ctx, "collectReplicationControllerDescribe")(log.Errorp(&retErr))
+		r, w := io.Pipe()
+		go func() {
+			defer log.Span(ctx, "collectDescribe.backgroundDescribe")()
+			// Do the "describe" in the background, because the k8s client doesn't take
+			// a context here, and we want the ability to abandon the request.  We leak
+			// memory if this runs forever but we return, but that's better than a debug
+			// dump that doesn't return.
+			rcd := describe.ReplicationControllerDescriber{
+				Interface: s.env.GetKubeClient(),
+			}
+			output, err := rcd.Describe(s.env.Config().Namespace, app.Name, describe.DescriberSettings{ShowEvents: true})
+			if err != nil {
+				w.CloseWithError(errors.EnsureStack(err))
+				return
+			}
+			outputBytes, err := yamlToJson.YAMLToJSON([]byte(output))
+			if err != nil {
+				w.CloseWithError(errors.Wrapf(err, "converting yaml to json: %v", output))
+				return
+			}
+			_, err = w.Write(outputBytes)
+			w.CloseWithError(errors.EnsureStack(err))
+		}()
+		go func() {
+			// Close the pipe when the context times out; bounding the time on the
+			// io.Copy operation below.
+			<-ctx.Done()
+			w.CloseWithError(errors.EnsureStack(context.Cause(ctx)))
+		}()
+		if _, err := io.Copy(output, r); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	})
+}
+
+func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod) error {
+	return dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "describe.json"), func(output io.Writer) (retErr error) {
+		// Gate the total time of "describe".
+		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
+		defer c()
+		defer log.Span(ctx, "collectPodDescribe")(log.Errorp(&retErr))
 		r, w := io.Pipe()
 		go func() {
 			defer log.Span(ctx, "collectDescribe.backgroundDescribe")()
@@ -922,7 +969,12 @@ func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debu
 				w.CloseWithError(errors.EnsureStack(err))
 				return
 			}
-			_, err = w.Write([]byte(output))
+			outputBytes, err := yamlToJson.YAMLToJSON([]byte(output))
+			if err != nil {
+				w.CloseWithError(errors.Wrapf(err, "converting yaml to json: %v", output))
+				return
+			}
+			_, err = w.Write(outputBytes)
 			w.CloseWithError(errors.EnsureStack(err))
 		}()
 		go func() {
