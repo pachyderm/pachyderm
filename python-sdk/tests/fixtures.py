@@ -45,7 +45,6 @@ class TestClient(_Client):
         Args:
             nodeid: The pytest nodeid used to label resources (in their descriptions)
         """
-
         super().__init__(*args, **kwargs)
         self.id = nodeid
         self.projects = []
