@@ -3,7 +3,6 @@ package kv
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,10 +41,10 @@ func NewFSStore(dir string, maxKeySize, maxValueSize int) *FSStore {
 
 func (s *FSStore) Put(ctx context.Context, key, value []byte) (retErr error) {
 	if len(key) > s.maxKeySize {
-		return fmt.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
+		return errors.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
 	}
 	if len(value) > s.maxValueSize {
-		return fmt.Errorf("max value size %d exceeded. len(value)=%d", s.maxKeySize, len(value))
+		return errors.Errorf("max value size %d exceeded. len(value)=%d", s.maxKeySize, len(value))
 	}
 	if err := s.ensureInit(ctx); err != nil {
 		return err
@@ -56,7 +55,7 @@ func (s *FSStore) Put(ctx context.Context, key, value []byte) (retErr error) {
 	if err := os.WriteFile(staging, value, 0o644); err != nil {
 		return s.transformError(err, key)
 	}
-	return os.Rename(staging, final)
+	return errors.EnsureStack(os.Rename(staging, final))
 }
 
 func (s *FSStore) Get(ctx context.Context, key, buf []byte) (_ int, retErr error) {
@@ -113,7 +112,7 @@ func (it *fsIterator) Next(ctx context.Context, dst *[]byte) error {
 	if it.keys == nil {
 		dirEnts, err := os.ReadDir(filepath.Join(it.s.dir, "objects"))
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		var keys [][]byte
 		for i := range dirEnts {
@@ -143,7 +142,7 @@ func (s *FSStore) ensureInit(ctx context.Context) (err error) {
 		return nil
 	}
 	if err := s.initSem.Acquire(ctx, 1); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer s.initSem.Release(1)
 	if s.initDone.Load() {

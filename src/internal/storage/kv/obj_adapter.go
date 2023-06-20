@@ -3,7 +3,6 @@ package kv
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -28,10 +27,10 @@ func NewFromObjectClient(objC obj.Client, maxKeySize, maxValueSize int) Store {
 
 func (s *objectAdapter) Put(ctx context.Context, key, value []byte) error {
 	if len(key) > s.maxKeySize {
-		return fmt.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
+		return errors.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
 	}
 	if len(value) > s.maxValueSize {
-		return fmt.Errorf("max value size %d exceeded. len(value)=%d", s.maxKeySize, len(value))
+		return errors.Errorf("max value size %d exceeded. len(value)=%d", s.maxKeySize, len(value))
 	}
 	err := s.objC.Put(ctx, string(key), bytes.NewReader(value))
 	return errors.EnsureStack(err)

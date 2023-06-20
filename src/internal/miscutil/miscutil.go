@@ -112,7 +112,7 @@ func ReadInto(dst []byte, r io.Reader) (int, error) {
 			return n, nil
 		}
 		if err != nil {
-			return 0, err
+			return 0, errors.EnsureStack(err)
 		}
 		n += n2
 	}

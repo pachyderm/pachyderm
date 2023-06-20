@@ -56,7 +56,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 		panic("client must have a renewer to create chunks")
 	}
 	if len(chunkData) > c.maxChunkSize {
-		return nil, fmt.Errorf("data len=%d exceeds max chunk size %d", len(chunkData), c.maxChunkSize)
+		return nil, errors.Errorf("data len=%d exceeds max chunk size %d", len(chunkData), c.maxChunkSize)
 	}
 	chunkID := Hash(chunkData)
 	needUpload, gen, err := c.beforeUpload(ctx, chunkID, md)
