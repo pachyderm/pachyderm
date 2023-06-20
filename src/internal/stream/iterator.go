@@ -172,3 +172,7 @@ func appendNext[T any](ctx context.Context, it Iterator[T], s *[]T) error {
 	}
 	return nil
 }
+
+func DefaultCopy[T any](dst, src *T) {
+	*dst = *src
+}
