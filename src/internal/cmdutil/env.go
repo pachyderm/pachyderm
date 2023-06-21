@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -38,7 +39,10 @@ func Main(ctx context.Context, do func(context.Context, interface{}) error, appE
 }
 
 func mainError(err error) {
-	ErrorAndExitf("%v\n", err)
+	if s, ok := status.FromError(err); ok {
+		errorAndExitf("%s", s.Message())
+	}
+	errorAndExitf("%s", err.Error())
 }
 
 const (

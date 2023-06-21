@@ -26,7 +26,7 @@ func Encoder(format string, w io.Writer) serde.Encoder {
 		serde.WithOrigName(true),
 	)
 	if err != nil {
-		ErrorAndExitf("%s", err.Error())
+		errorAndExitf("%s", err.Error())
 	}
 	return e
 }
