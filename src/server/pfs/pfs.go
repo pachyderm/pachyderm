@@ -273,14 +273,10 @@ func (e ErrCommitNotFinished) Error() string {
 }
 
 func (err ErrCommitNotFinished) GRPCStatus() *status.Status {
-	s, sErr := status.New(codes.FailedPrecondition, fmt.Sprintf("commit %v not finished", err.Commit)).WithDetails(&epb.PreconditionFailure{
-		Violations: []*epb.PreconditionFailure_Violation{
-			{
-				Type:        "pfs:commitNotFinished",
-				Subject:     err.Commit.String(),
-				Description: "commit not finished",
-			},
-		},
+	s, sErr := status.New(codes.Unavailable, fmt.Sprintf("commit %v not finished", err.Commit)).WithDetails(&epb.ResourceInfo{
+		ResourceType: "pfs:commit",
+		ResourceName: err.Commit.ID,
+		Description:  "commit not finished",
 	})
 	if sErr != nil {
 		_, filename, line, _ := runtime.Caller(0)
