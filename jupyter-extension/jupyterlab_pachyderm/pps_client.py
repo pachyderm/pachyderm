@@ -209,7 +209,7 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
         pipeline=pipeline,
         description="Auto-generated from notebook",
         transform=dict(
-            cmd=["python3", f"/pfs/{companion_repo}/entrypoint.py"],
+            cmd=["python3", "-u", f"/pfs/{companion_repo}/entrypoint.py"],
             image=config.image
         ),
         input=input_spec,
