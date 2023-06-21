@@ -76,10 +76,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
-		Long: `Repos, short for repository, are the top level data objects in Pachyderm.
-
-Repos contain version-controlled directories and files. Files can be of any size
-or type (e.g. csv, binary, images, etc).`,
+		Long: "A repo (repository) is a collection of files, directories, and commits that are versioned-controlled and exist under a Project. Files stored in an input repo can be of any type or size. " +
+			"After you create a repo using `pachctl create repo`, you can put files into it using `pachctl put file` or `pachctl put file url`. " +
+			"To transform the files in a repo, you can create a pipeline using `pachctl create pipeline` and pass in a specification that includes the repo's name (for example, `input.pfs.repo`) and reference to your user code attributes found in the `transform` key. " +
+			"See the Pipeline Specification documentation for more information: https://docs.pachyderm.com/latest/build-dags/pipeline-spec/",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
@@ -88,8 +88,11 @@ or type (e.g. csv, binary, images, etc).`,
 	project := pachCtx.Project
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
-		Short: "Create a new repo.",
-		Long:  "Create a new repo.",
+		Short: "Create a new repo in your active project.",
+		Long: "By default, this command creates a repo in the project that is set to your active context (initially the `default` project). You can choose other projects to create the repo in by passing in the `--project` flag. " +
+			"For example, `pachctl create repo --project=foo bar` creates a repo named `bar` in the `foo` project. You can also set a different project to your active context " +
+			"by running `pachctl config update context --project foo` so that repos are created in the foo project by default.",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -117,7 +120,8 @@ or type (e.g. csv, binary, images, etc).`,
 	updateRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Update a repo.",
-		Long:  "Update a repo.",
+		Long: "This command enables you to update the description of a repo by passing the `-d` flag. For example, `pachctl update repo foo -d 'new description'. " +
+			"If you are looking to update the pipelines in your repo, see `pachctl update pipeline` instead.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -147,7 +151,9 @@ or type (e.g. csv, binary, images, etc).`,
 	inspectRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return info about a repo.",
-		Long:  "Return info about a repo.",
+		Long: "This command returns details of your repo such as: `Name`, `Description`, `Created`, and `Size of HEAD on Master`. " +
+			"If you have multiple repos with the same name in different projects, you can specify the project with the `--project` flag. " +
+			"For example, `pachctl inspect repo bar --project=foo ` returns information about the repo named `bar` in the `foo` project. ",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -183,7 +189,9 @@ or type (e.g. csv, binary, images, etc).`,
 	var repoType string
 	listRepo := &cobra.Command{
 		Short: "Return a list of repos.",
-		Long:  "Return a list of repos. By default, hide system repos like pipeline metadata",
+		Long: "This command returns a list of repos. By default, it does not show system repos like pipeline metadata. " +
+			"To view all input repos across projects, use `-A` flag. For example, `pachctl list repos -A`. " +
+			"To view all repos, including system repos, use the `--all` flag. For example, `pachctl list repos --all`. ",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -239,7 +247,8 @@ or type (e.g. csv, binary, images, etc).`,
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
-		Long:  "Delete a repo.",
+		Long: "This command deletes a repo. You can force delete a repo with the `--force` flag. For example, `pachctl delete repo foo --force`. " +
+			"To delete all repos across all projects, use the `--all` flag. For example, `pachctl delete repo --all`. ",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
