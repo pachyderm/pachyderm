@@ -110,7 +110,7 @@ func TestSpoutPachctl(t *testing.T) {
 					Stdin: []string{
 						"while [ : ]",
 						"do",
-						"sleep 0.1",
+						// "sleep 0.1",
 						"pachctl auth whoami &> whoami",
 						basicPutFile("./whoami*"),
 						"done"},
@@ -120,7 +120,7 @@ func TestSpoutPachctl(t *testing.T) {
 		require.NoError(t, err)
 
 		// get 6 successive commits
-		countBreakFunc := newCountBreakFunc(6)
+		countBreakFunc := newCountBreakFunc(80)
 		count := 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
@@ -154,7 +154,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}, "should be able to drop the latest commit")
 
 		// get 6 successive commits
-		countBreakFunc = newCountBreakFunc(6)
+		countBreakFunc = newCountBreakFunc(80)
 		count = 0
 		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
@@ -180,7 +180,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// Make sure the pipeline is still running
 		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 		require.NoError(t, err)
-
+		c.DeleteAll()
 		require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 	})
 
