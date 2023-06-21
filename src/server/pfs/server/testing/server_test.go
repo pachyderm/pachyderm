@@ -4591,20 +4591,17 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 		s, ok := status.FromError(err)
 		require.True(t, ok, "returned error must be a gRPC status")
-		dd := s.Details()
-		require.Len(t, dd, 1, "returned error must have a single detail")
-		for _, d := range dd {
+		var sawResourceInfo bool
+		for _, d := range s.Details() {
 			switch d := d.(type) {
-			case *errdetails.PreconditionFailure:
-				require.Len(t, d.Violations, 1, "there must be a single violation")
-				for _, v := range d.Violations {
-					require.Equal(t, v.Type, "pfs:commitNotFinished")
-					require.Equal(t, v.Subject, commit1.String())
-				}
-			default:
-				t.Fatalf("expected *errdetails.PreconditionFailure, not %T", d)
+			case *errdetails.ResourceInfo:
+				require.Equal(t, d.ResourceType, "pfs:commit")
+				require.Equal(t, d.ResourceName, commit1.ID)
+				require.Equal(t, d.Description, "commit not finished")
+				sawResourceInfo = true
 			}
 		}
+		require.True(t, sawResourceInfo, "must have seen resource info in error details")
 	})
 
 	suite.Run("CopyFile", func(t *testing.T) {
