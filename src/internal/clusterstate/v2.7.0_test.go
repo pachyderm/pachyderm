@@ -6,6 +6,7 @@ import (
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
 
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -13,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
@@ -24,9 +26,6 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 		UpdatedAt   time.Time `db:"updated_at"`
 	}
 
-	if DesiredClusterState.Number() > state_2_7_0.Number() {
-		t.Skip("skipping test because desired state is newer than this migration")
-	}
 	ctx := pctx.TestContext(t)
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, t)
 	defer db.Close()
@@ -40,7 +39,7 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 	defer tx.Rollback()
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("project%d", i)
-		projectInfo := v2_7_0.ProjectInfo{Project: &v2_7_0.Project{Name: name}, Description: "test " + name}
+		projectInfo := pfs.ProjectInfo{Project: &pfs.Project{Name: name}, Description: "test " + name}
 		b, err := proto.Marshal(&projectInfo)
 		require.NoError(t, err)
 		_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, name, b)
@@ -49,28 +48,24 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 	require.NoError(t, tx.Commit())
 
 	// Get all existing projects in collections.projects including the default project
-	expectedProjects := make(map[string]project)
-	collectionRecords := []v2_7_0.CollectionRecord{}
-	require.NoError(t, db.SelectContext(ctx, &collectionRecords, `SELECT key, proto, createdat, updatedat FROM collections.projects`))
-	for _, row := range collectionRecords {
-		projectInfo := v2_7_0.ProjectInfo{}
+	var expectedProjects []project
+	var collectionRecords []v2_7_0.CollectionRecord
+	require.NoError(t, db.SelectContext(ctx, &collectionRecords, `SELECT key, proto, createdat, updatedat FROM collections.projects ORDER BY createdat`))
+	for i, row := range collectionRecords {
+		projectInfo := pfs.ProjectInfo{}
 		require.NoError(t, proto.Unmarshal(row.Proto, &projectInfo))
-		expectedProjects[projectInfo.Project.Name] = project{Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+		expectedProjects = append(expectedProjects, project{ID: i + 1, Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
 	}
 
 	// Apply the migration of interest
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_7_0))
 	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_7_0))
 
-	// Check whether all the data is migrated to core.gotProjects table
-	gotProjects := []project{}
-	require.NoError(t, db.SelectContext(ctx, &gotProjects, `SELECT id, name, description, created_at, updated_at FROM core.projects ORDER BY id`))
+	// Check whether all the data is migrated to core.projects table
+	var gotProjects []project
+	require.NoError(t, db.SelectContext(ctx, &gotProjects, `SELECT id, name, description, created_at, updated_at FROM core.projects ORDER BY created_at`))
 	require.Equal(t, len(expectedProjects), len(gotProjects))
-	for i, p := range gotProjects {
-		require.Equal(t, i+1, p.ID)
-		require.Equal(t, expectedProjects[p.Name].Name, p.Name)
-		require.Equal(t, expectedProjects[p.Name].Description, p.Description)
-		require.Equal(t, expectedProjects[p.Name].CreatedAt, p.CreatedAt)
-		require.Equal(t, expectedProjects[p.Name].UpdatedAt, p.UpdatedAt)
+	if diff := cmp.Diff(expectedProjects, gotProjects); diff != "" {
+		t.Errorf("projects differ: (-want +got)\n%s", diff)
 	}
 }
