@@ -688,6 +688,9 @@ type Trigger struct {
 	Commits int64 `protobuf:"varint,5,opt,name=commits,proto3" json:"commits,omitempty"`
 	// Creates a background process which fires the trigger on the schedule
 	// provided by the cron spec.
+	// This condition is mutually exclusive with respect to the others, so
+	// setting this will result with the trigger only firing based on the cron
+	// schedule.
 	CronSpec             string   `protobuf:"bytes,6,opt,name=cron_spec,json=cronSpec,proto3" json:"cron_spec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

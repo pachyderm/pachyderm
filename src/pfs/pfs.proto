@@ -95,6 +95,9 @@ message Trigger {
   int64 commits = 5;
   // Creates a background process which fires the trigger on the schedule
   // provided by the cron spec.
+  // This condition is mutually exclusive with respect to the others, so
+  // setting this will result with the trigger only firing based on the cron
+  // schedule.
   string cron_spec = 6;
 }
 
