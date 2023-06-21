@@ -41,7 +41,7 @@ func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS core.projects (
 			id bigserial PRIMARY KEY,
-			name text UNIQUE NOT NULL,
+			name varchar(51) UNIQUE NOT NULL,
 			description text NOT NULL,
 			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL
