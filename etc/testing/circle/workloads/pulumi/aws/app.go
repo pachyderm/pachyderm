@@ -24,6 +24,10 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if enterpriseKey == "" {
 		return errors.WithStack(fmt.Errorf("need to supply env var ENT_ACT_CODE"))
 	}
+	detdockerconfigjson := os.Getenv("DOCKERCONFIGJSON")
+	if detdockerconfigjson == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var DOCKERCONFIGJSON"))
+	}
 	awsSAkey := os.Getenv("AWS_ACCESS_KEY_ID")
 	awsSAsecret := os.Getenv("AWS_SECRET_ACCESS_KEY")
 	metricCreds := os.Getenv("BIGQUERY_AUTH_JSON")
@@ -94,7 +98,6 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	}
 	namespace, err := corev1.NewNamespace(ctx, "test-ns", &corev1.NamespaceArgs{},
 		pulumi.Provider(k8sProvider))
-
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("error occurred while attempting to create test-ns: %w", err))
 	}
@@ -111,7 +114,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("error creating metric secret: %w", err))
 	}
-	_, err = secret.NewSecret(ctx, " transfer-config", &secret.SecretArgs{
+	_, err = secret.NewSecret(ctx, "transfer-config", &secret.SecretArgs{
 		Metadata: &metav1.ObjectMetaArgs{
 			Name:      pulumi.String("transfer-config"),
 			Namespace: namespace.Metadata.Elem().Name(),
@@ -125,6 +128,19 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	}, pulumi.Provider(k8sProvider))
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("error creating metric secret: %w", err))
+	}
+	_, err = corev1.NewSecret(ctx, "det-ee", &corev1.SecretArgs{
+		Metadata: &metav1.ObjectMetaArgs{
+			Name:      pulumi.String("det-ee"),
+			Namespace: namespace.Metadata.Elem().Name(),
+		},
+		Type: pulumi.String("kubernetes.io/dockerconfigjson"),
+		Data: pulumi.StringMap{
+			".dockerconfigjson": pulumi.String(detdockerconfigjson),
+		},
+	}, pulumi.Provider(k8sProvider))
+	if err != nil {
+		return errors.WithStack(fmt.Errorf("error creating det-ee: %w", err))
 	}
 	_, err = secret.NewSecret(ctx, "workspace-wildcard", &secret.SecretArgs{
 		Metadata: &metav1.ObjectMetaArgs{
@@ -141,8 +157,24 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 		return errors.WithStack(fmt.Errorf("error creating tls secret: %w", err))
 	}
 	redirectURI := fmt.Sprintf("https://%s.workspace.pachyderm.com/dex/callback", ctx.Stack())
+	determinedRedirectURI := fmt.Sprintf("https://%s.det.workspace.pachyderm.com:8080", ctx.Stack())
 	host := fmt.Sprintf("%s.workspace.pachyderm.com", ctx.Stack())
 	values := pulumi.Map{
+		"determined": pulumi.Map{
+			"enabled":             pulumi.Bool(true),
+			"tlsSecret":           pulumi.String("workspace-wildcard"),
+			"detVersion":          pulumi.String("7171979aaae64cd8ea16b0001a0ca21ebedc0695"),
+			"enterpriseEdition":   pulumi.Bool(true),
+			"imagePullSecretName": pulumi.String("det-ee"),
+			"maxSlotsPerPod":      pulumi.Int(1),
+			"oidc": pulumi.Map{
+				"clientID":        pulumi.String(clientID),
+				"enabled":         pulumi.Bool(true),
+				"idpRecipientUrl": pulumi.String(determinedRedirectURI),
+				"idpSsoUrl":       pulumi.String(issuerURI),
+				"provider":        pulumi.String("auth0"),
+			},
+		},
 		"proxy": pulumi.Map{
 			"host":    pulumi.String(host),
 			"enabled": pulumi.Bool(true),
