@@ -21,7 +21,11 @@ def default_project(request) -> bool:
 
 @pytest.fixture
 def client(request) -> "TestClient":
-    client = TestClient(nodeid=request.node.nodeid)
+    client = TestClient(
+        nodeid=request.node.nodeid,
+        host=os.environ.get('PACH_PYTHON_TEST_HOST'),
+        port=os.environ.get('PACH_PYTHON_TEST_PORT'),
+    )
     yield client
     client.tear_down()
 
