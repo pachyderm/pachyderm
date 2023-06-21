@@ -1,4 +1,7 @@
-package serviceenv
+// Package pachconfig contains the configuration models for Pachyderm.
+// The various models are parsed from environment variables when pachd starts.
+// This package should be at the bottom of the dependency graph.
+package pachconfig
 
 import "k8s.io/apimachinery/pkg/api/resource"
 

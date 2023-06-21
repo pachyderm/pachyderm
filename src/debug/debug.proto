@@ -63,9 +63,72 @@ message SetLogLevelResponse {
     repeated string errored_pods = 2;
 }
 
+message GetDumpV2TemplateRequest {
+ repeated string filters = 1;
+}
+
+message GetDumpV2TemplateResponse {
+ DumpV2Request request = 1;
+}
+
+message Pipeline {
+  string project = 1;
+  string name = 2;
+}
+
+message Pod {
+  string name = 1;
+  string ip = 2;
+  repeated string containers = 3;
+}
+
+message App {
+  string name = 1;
+  repeated Pod pods = 2;
+  int64 timeout = 3;
+  Pipeline pipeline = 4;  
+}
+
+message System {
+  bool helm = 1;
+  bool database = 2;
+  bool version = 3;
+  repeated App describes = 4;
+  repeated App logs = 5;  
+  repeated App loki_logs = 6;
+  repeated App binaries = 7;
+  repeated App profiles = 8;
+}
+
+message DumpV2Request {
+  System system = 1;
+  repeated Pipeline pipelines = 2;
+  bool input_repos = 3;
+  int64 timeout = 4;
+}
+
+message DumpContent {
+  bytes content = 1;
+}
+
+message DumpProgress {
+  string task = 1;
+  int64 total = 2;
+  int64 progress = 3;
+}
+
+message DumpChunk {
+  oneof chunk {
+    DumpContent content = 1;
+    DumpProgress progress = 2;
+  }
+}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
+  rpc GetDumpV2Template(GetDumpV2TemplateRequest) returns (GetDumpV2TemplateResponse) {}
+  rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
 }

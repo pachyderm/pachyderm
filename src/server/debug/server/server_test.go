@@ -1,7 +1,6 @@
 package server
 
 import (
-	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -18,6 +17,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
@@ -494,8 +494,8 @@ metadata:
 					Type: "helm.sh/release.v2",
 				},
 			),
-			Configuration: &serviceenv.Configuration{
-				GlobalConfiguration: &serviceenv.GlobalConfiguration{
+			Configuration: &pachconfig.Configuration{
+				GlobalConfiguration: &pachconfig.GlobalConfiguration{
 					Namespace: "default",
 				},
 			},
@@ -504,11 +504,11 @@ metadata:
 
 	// Build the debug dump .tar file with just helm release data.
 	got := new(bytes.Buffer)
-	w := tar.NewWriter(got)
-	if err := s.helmReleases(ctx, w); err != nil {
+	if err := writeTar(ctx, got, func(ctx context.Context, dfs DumpFS) error {
+		return s.collectHelm(ctx, dfs, nil)
+	}); err != nil {
 		t.Fatalf("helmRealses: %v", err)
 	}
-
 	// Iterate over the debug dump, comparing the content of generated files with the reference.
 	wantFiles := map[string]any{
 		"helm/some-mistagged-secret/metadata.json": map[string]any{
@@ -520,7 +520,6 @@ metadata:
 			},
 		},
 		"helm/some-mistagged-secret/release/error.txt": "decode base64: illegal base64 data at input byte 4\n",
-		"helm/some-mistagged-secret/error.txt":         "some-mistagged-secret: unmarshal release json: unexpected end of JSON input\n",
 		"helm/sh.helm.release.v1.pachyderm.v9/metadata.json": map[string]any{
 			"name":              "sh.helm.release.v1.pachyderm.v9",
 			"namespace":         "default",

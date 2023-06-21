@@ -385,18 +385,29 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 }
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
-	require.NoError(t, backoff.Retry(func() error {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v/ready", lokiHost, lokiPort), nil)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return errors.Wrap(err, "loki not ready")
+	require.NoError(t, backoff.RetryNotify(func() error {
+		client := http.Client{
+			Timeout: 15 * time.Second,
 		}
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v/ready", lokiHost, lokiPort), nil)
+		t.Logf("Attempting to connect to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
+		resp, err := client.Do(req)
+		if os.IsTimeout(err) {
+			return errors.Wrap(err, "loki attempt to connect timed out")
+		}
+		if err != nil {
+			return errors.Wrap(err, "loki not ready due to error")
+		}
+		t.Logf("Connected to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return errors.Errorf("loki not ready")
+			return errors.Errorf("loki not ready. http response code %v", resp.StatusCode)
 		}
 		return nil
-	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute), func(err error, d time.Duration) error {
+		t.Logf("Retrying connection to loki at lokiHost %v and lokiPort %v. Error: %v", lokiHost, lokiPort, err)
+		return nil
+	}))
 }
 
 func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {

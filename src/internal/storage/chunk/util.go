@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
@@ -19,7 +18,7 @@ func NewTestStorage(ctx context.Context, t testing.TB, db *pachsql.DB, tr track.
 	objC := dockertestenv.NewTestObjClient(ctx, t)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
-	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)
+	return objC, NewStorage(objC, db, tr, opts...)
 }
 
 // FullRef creates a data reference for the full chunk referenced by a data reference.

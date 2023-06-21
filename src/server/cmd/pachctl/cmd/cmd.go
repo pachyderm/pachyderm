@@ -843,6 +843,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(nextDocs, "next"))
 
+	validateDocs := &cobra.Command{
+		Short: "Validate the specification of a Pachyderm resource.",
+		Long:  "Validate the specification of a Pachyderm resource.  Client-side only.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(validateDocs, "validate"))
+
 	subcommands = append(subcommands, pfscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, ppscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, authcmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
@@ -909,7 +915,8 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"start",
 			"stop",
 			"subscribe",
-			"update":
+			"update",
+			"validate":
 			actions = append(actions, subcmd)
 		case
 			"extract",

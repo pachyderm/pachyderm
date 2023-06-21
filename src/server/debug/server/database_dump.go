@@ -1,38 +1,42 @@
 package server
 
 import (
-	"archive/tar"
 	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func (s *debugServer) collectDatabaseDump(ctx context.Context, tw *tar.Writer, prefix ...string) (retErr error) {
+func (s *debugServer) collectDatabaseDump(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server) (retErr error) {
 	defer log.Span(ctx, "collectDatabaseDump")(log.Errorp(&retErr))
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
+	rp := recordProgress(server, "database", 2)
 	var errs error
-	if err := s.collectDatabaseStats(ctxWithTimeout, tw, prefix...); err != nil {
+	if err := s.collectDatabaseStats(ctxWithTimeout, dfs); err != nil {
 		errors.JoinInto(&errs, errors.Wrap(err, "collectDatabaseStats"))
 	}
-	if err := s.collectDatabaseTables(ctxWithTimeout, tw, prefix...); err != nil {
+	rp(ctx)
+	if err := s.collectDatabaseTables(ctxWithTimeout, dfs, "tables"); err != nil {
 		errors.JoinInto(&errs, errors.Wrap(err, "collectDatabaseTables"))
 	}
+	rp(ctx)
 	return errs
 }
 
-func (s *debugServer) collectDatabaseStats(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+func (s *debugServer) collectDatabaseStats(ctx context.Context, dfs DumpFS) error {
 	queries := map[string]string{
 		"table-sizes": `
 			SELECT nspname AS "schemaname", relname, pg_total_relation_size(C.oid) AS "total_size"
@@ -51,13 +55,13 @@ func (s *debugServer) collectDatabaseStats(ctx context.Context, tw *tar.Writer, 
 	}
 	var errs []error
 	for filename, query := range queries {
-		if err := collectDebugFile(tw, filename, "json", func(w io.Writer) error {
+		if err := dfs.Write(filename+".json", func(w io.Writer) error {
 			rows, err := s.database.QueryContext(ctx, query)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
 			return s.writeRowsToJSON(rows, w)
-		}, prefix...); err != nil {
+		}); err != nil {
 			errs = append(errs, errors.Wrapf(err, "execute query %v", filename))
 		}
 	}
@@ -67,14 +71,15 @@ func (s *debugServer) collectDatabaseStats(ctx context.Context, tw *tar.Writer, 
 	return nil
 }
 
-func (s *debugServer) collectDatabaseTables(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+func (s *debugServer) collectDatabaseTables(ctx context.Context, dfs DumpFS, dir string) error {
 	tables, err := pachsql.ListTables(ctx, s.database)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	for _, table := range tables {
-		fullPrefix := strings.Join(append(append([]string{}, prefix...), "tables", table.SchemaName), "/")
-		if err := collectDebugFile(tw, table.TableName, "json", func(rawWriter io.Writer) error {
+		dir := filepath.Join(dir, table.SchemaName)
+		file := table.TableName + ".json"
+		if err := dfs.Write(filepath.Join(dir, file), func(rawWriter io.Writer) error {
 			w := bufio.NewWriter(rawWriter)
 			if err := s.collectTable(ctx, w, &table); err != nil {
 				return errors.Wrapf(err, "collect table %s.%s", table.SchemaName, table.TableName)
@@ -83,7 +88,7 @@ func (s *debugServer) collectDatabaseTables(ctx context.Context, tw *tar.Writer,
 				return errors.Wrap(err, "flush buffer")
 			}
 			return nil
-		}, fullPrefix); err != nil {
+		}); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
