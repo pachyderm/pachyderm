@@ -2013,7 +2013,7 @@ commands:
             curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.30.1/minikube-linux-${ARCH} && \
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
-  
+
   install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
