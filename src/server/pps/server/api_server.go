@@ -2395,6 +2395,24 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
 		}
 		newPipelineInfo.Details.Determined.Password = password
+		// create det secret for pipeline
+		secretName := newPipelineInfo.Pipeline.Project.Name + "-" + newPipelineInfo.Pipeline.Name + "-det"
+		s := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: a.namespace,
+			},
+			Data: map[string][]byte{
+				"password": []byte(password),
+			},
+		}
+		s.SetLabels(map[string]string{
+			"suite": "pachyderm",
+		})
+		if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(txnCtx.Context(), s, metav1.CreateOptions{}); err != nil {
+			return errors.Wrapf(err, "failed to create pipeline's determined secret")
+		}
+
 	}
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {

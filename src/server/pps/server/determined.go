@@ -36,6 +36,7 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 		}
 		defer conn.Close()
 		dc := det.NewDeterminedClient(conn)
+		// TODO: add check to verify calling subject has Editor Permissions on each workspace
 		tok, err := mintDeterminedToken(ctx, dc, a.env.Config.DeterminedUsername, a.env.Config.DeterminedPassword)
 		if err != nil {
 			return err
