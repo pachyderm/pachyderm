@@ -85,6 +85,7 @@ func NewEphemeralPostgresDB(ctx context.Context, t testing.TB) (*pachsql.DB, str
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
 	testutil.CreateEphemeralDB(t, db, name)
+	// We call OpenDB twice because the 2nd call is for the generated DB name
 	return testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),

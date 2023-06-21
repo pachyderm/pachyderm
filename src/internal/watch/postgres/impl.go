@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -91,6 +92,7 @@ func (w *watcher) send(event *Event) {
 	default:
 		// Sending is blocked
 		go func() {
+			fmt.Println("qqq send is blocked, unregister watcher")
 			w.listener.Unregister(w) //nolint:errcheck
 
 			select {
