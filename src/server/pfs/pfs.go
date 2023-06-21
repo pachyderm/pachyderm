@@ -3,8 +3,10 @@ package pfs
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
 
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -270,8 +272,21 @@ func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit)
 }
 
-func (e ErrCommitNotFinished) GRPCStatus() *status.Status {
-	return status.New(codes.Unavailable, e.Error())
+func (err ErrCommitNotFinished) GRPCStatus() *status.Status {
+	s, sErr := status.New(codes.FailedPrecondition, fmt.Sprintf("commit %v not finished", err.Commit)).WithDetails(&epb.PreconditionFailure{
+		Violations: []*epb.PreconditionFailure_Violation{
+			{
+				Type:        "pfs:commitNotFinished",
+				Subject:     err.Commit.String(),
+				Description: "commit not finished",
+			},
+		},
+	})
+	if sErr != nil {
+		_, filename, line, _ := runtime.Caller(0)
+		return status.New(codes.Internal, fmt.Sprintf("internal server error in %s:%d: %v", filename, line, sErr))
+	}
+	return s
 }
 
 func (e ErrBaseCommitNotFinished) Error() string {
