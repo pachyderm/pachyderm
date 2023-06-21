@@ -182,43 +182,93 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	return res, nil
 }
 
+func NewServerSender(s debug.Debug_DumpV2Server) (ContentSender, ProgressSender) {
+	var mu sync.Mutex
+	return &contentSender{
+			s:  s,
+			mu: &mu,
+		}, &progressSender{
+			s:  s,
+			mu: &mu,
+		}
+}
+
+type ProgressSender interface {
+	Send(progress *debug.DumpProgress) error
+}
+
+type ContentSender interface {
+	Send(content *debug.DumpContent) error
+}
+type progressSender struct {
+	s  debug.Debug_DumpV2Server
+	mu *sync.Mutex
+}
+
+func (ps *progressSender) Send(progress *debug.DumpProgress) error {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	return ps.s.Send(
+		&debug.DumpChunk{
+			Chunk: &debug.DumpChunk_Progress{Progress: progress},
+		},
+	)
+}
+
+type contentSender struct {
+	s  debug.Debug_DumpV2Server
+	mu *sync.Mutex
+}
+
+func (cs *contentSender) Send(content *debug.DumpContent) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	return cs.s.Send(
+		&debug.DumpChunk{
+			Chunk: &debug.DumpChunk_Content{Content: content},
+		},
+	)
+}
+
 // TODO
 // remove pods from templates?
 // top level errors colliding?
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
-	return s.dump(s.env.GetPachClient(server.Context()), server, s.makeTasks(server.Context(), request, server))
+	ctx := server.Context()
+	cs, ps := NewServerSender(server)
+	return s.dump(s.env.GetPachClient(ctx), cs, s.makeTasks(ctx, request, ps))
 }
 
-func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Request, server debug.Debug_DumpV2Server) []taskFunc {
+func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Request, ps ProgressSender) []taskFunc {
 	var ts []taskFunc
 	if request.InputRepos {
 		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-			return s.collectInputRepos(ctx, dfs.WithPrefix("source-repos"), s.env.GetPachClient(ctx), int64(0), server)
+			return s.collectInputRepos(ctx, dfs.WithPrefix("source-repos"), s.env.GetPachClient(ctx), int64(0), ps)
 		})
 	}
 	if len(request.Pipelines) > 0 {
-		ts = append(ts, s.makePipelinesTask(server, request.Pipelines))
+		ts = append(ts, s.makePipelinesTask(ps, request.Pipelines))
 	}
 	if sys := request.System; sys != nil {
 		if sys.Helm {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				return s.collectHelm(ctx, dfs, server)
+				return s.collectHelm(ctx, dfs, ps)
 			})
 		}
 		if sys.Database {
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				return s.collectDatabaseDump(ctx, dfs.WithPrefix(databasePrefix), server)
+				return s.collectDatabaseDump(ctx, dfs.WithPrefix(databasePrefix), ps)
 			})
 		}
 		if sys.Version {
 			// this section needs some work to work for more than just this pachd
-			rp := recordProgress(server, "version", 1)
+			rp := recordProgress(ps, "version", 1)
 			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
 				return s.collectPachdVersion(ctx, dfs.WithPrefix(fmt.Sprintf("/pachd/%s/pachd", s.name)), s.env.GetPachClient(ctx), rp)
 			})
 		}
 		if len(sys.Describes) > 0 {
-			rp := recordProgress(server, "describes", len(sys.Logs))
+			rp := recordProgress(ps, "describes", len(sys.Logs))
 			for _, app := range sys.Describes {
 				func(app *debug.App) {
 					ts = append(ts, s.makeDescribesTask(app, rp))
@@ -226,7 +276,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			}
 		}
 		if len(sys.Logs) > 0 {
-			rp := recordProgress(server, "logs", len(sys.Logs))
+			rp := recordProgress(ps, "logs", len(sys.Logs))
 			for _, app := range sys.Logs {
 				func(app *debug.App) {
 					ts = append(ts, s.makeLogsTask(app, rp))
@@ -234,7 +284,7 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			}
 		}
 		if len(sys.LokiLogs) > 0 {
-			rp := recordProgress(server, "loki-logs", len(sys.LokiLogs))
+			rp := recordProgress(ps, "loki-logs", len(sys.LokiLogs))
 			for _, app := range sys.LokiLogs {
 				func(app *debug.App) {
 					ts = append(ts, s.makeLokiTask(app, rp))
@@ -242,18 +292,18 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			}
 		}
 		if len(sys.Profiles) > 0 {
-			ts = append(ts, makeProfilesTask(server, sys.Profiles))
+			ts = append(ts, makeProfilesTask(ps, sys.Profiles))
 		}
 		if len(sys.Binaries) > 0 {
-			ts = append(ts, makeBinariesTask(server, sys.Binaries))
+			ts = append(ts, makeBinariesTask(ps, sys.Binaries))
 		}
 	}
 	return ts
 }
 
-func (s *debugServer) makePipelinesTask(server debug.Debug_DumpV2Server, pipelines []*debug.Pipeline) taskFunc {
+func (s *debugServer) makePipelinesTask(ps ProgressSender, pipelines []*debug.Pipeline) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
-		rp := recordProgress(server, "pipelines", len(pipelines))
+		rp := recordProgress(ps, "pipelines", len(pipelines))
 		var errs error
 		for _, p := range pipelines {
 			pip := &pps.Pipeline{Name: p.Name, Project: &pfs.Project{Name: p.Project}}
@@ -339,10 +389,10 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 	}
 }
 
-func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
+func makeProfilesTask(ps ProgressSender, apps []*debug.App) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
 		var errs error
-		rp := recordProgress(server, "profiles", len(apps))
+		rp := recordProgress(ps, "profiles", len(apps))
 		for _, app := range apps {
 			for _, pod := range app.Pods {
 				for _, c := range pod.Containers {
@@ -361,10 +411,10 @@ func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 	}
 }
 
-func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
+func makeBinariesTask(ps ProgressSender, apps []*debug.App) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
 		var errs error
-		rp := recordProgress(server, "binaries", len(apps))
+		rp := recordProgress(ps, "binaries", len(apps))
 		for _, app := range apps {
 			for _, pod := range app.Pods {
 				if pod.Ip == "" {
@@ -419,32 +469,28 @@ func appDir(app *debug.App) string {
 }
 
 type dumpContentServer struct {
-	server debug.Debug_DumpV2Server
+	cs ContentSender
 }
 
 func (dcs *dumpContentServer) Send(bytesValue *types.BytesValue) error {
-	return dcs.server.Send(&debug.DumpChunk{Chunk: &debug.DumpChunk_Content{Content: &debug.DumpContent{Content: bytesValue.Value}}})
+	return dcs.cs.Send(&debug.DumpContent{Content: bytesValue.Value})
 }
 
 type incProgressFunc func(context.Context)
 
 // TODO should this be sending in a goro?
-func recordProgress(server debug.Debug_DumpV2Server, task string, total int) incProgressFunc {
-	if server == nil {
+func recordProgress(ps ProgressSender, task string, total int) incProgressFunc {
+	if ps == nil {
 		return func(ctx context.Context) {}
 	}
 	inc := 0
 	return func(ctx context.Context) {
 		inc++
-		if err := server.Send(
-			&debug.DumpChunk{
-				Chunk: &debug.DumpChunk_Progress{
-					Progress: &debug.DumpProgress{
-						Task:     task,
-						Progress: int64(inc),
-						Total:    int64(total),
-					},
-				},
+		if err := ps.Send(
+			&debug.DumpProgress{
+				Task:     task,
+				Progress: int64(inc),
+				Total:    int64(total),
 			},
 		); err != nil {
 			log.Error(ctx, fmt.Sprintf("error sending progress for task %q", task), zap.Error(err))
@@ -453,7 +499,7 @@ func recordProgress(server debug.Debug_DumpV2Server, task string, total int) inc
 }
 
 // TODO: sharpen timeouts
-func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server, tasks []taskFunc) (retErr error) {
+func (s *debugServer) dump(c *client.APIClient, cs ContentSender, tasks []taskFunc) (retErr error) {
 	ctx := c.Ctx() // this context has authorization credentials we need
 	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
 	if err := os.Mkdir(dumpRoot, 0744); err != nil {
@@ -462,7 +508,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 	defer func() {
 		errors.JoinInto(&retErr, os.RemoveAll(dumpRoot))
 	}()
-	if deadline, ok := server.Context().Deadline(); ok {
+	if deadline, ok := ctx.Deadline(); ok {
 		d := time.Until(deadline)
 		// Time out our own operations at ~90% of the client-set deadline. (22 minutes of
 		// server-side processing for every 25 minutes of debug dumping.)
@@ -476,7 +522,7 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 	}
 	eg, ctx := errgroup.WithContext(ctx)
 	var mu sync.Mutex // to synchronize writes to the tar stream
-	dumpContent := &dumpContentServer{server: server}
+	dumpContent := &dumpContentServer{cs: cs}
 	return grpcutil.WithStreamingBytesWriter(dumpContent, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
 			for _, f := range tasks {
@@ -713,12 +759,12 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	return status.Error(codes.Unimplemented, "Dump gRPC is deprecated in favor of DumpV2")
 }
 
-func (s *debugServer) collectInputRepos(ctx context.Context, dfs DumpFS, pachClient *client.APIClient, limit int64, dumpServer debug.Debug_DumpV2Server) (retErr error) {
+func (s *debugServer) collectInputRepos(ctx context.Context, dfs DumpFS, pachClient *client.APIClient, limit int64, ps ProgressSender) (retErr error) {
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
 		return errors.Wrap(err, "list repo")
 	}
-	rp := recordProgress(dumpServer, "source-repos", len(repoInfos))
+	rp := recordProgress(ps, "source-repos", len(repoInfos))
 	var errs error
 	for i, repoInfo := range repoInfos {
 		func() {
@@ -881,14 +927,14 @@ func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachC
 	})
 }
 
-func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server) error {
+func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, ps ProgressSender) error {
 	secrets, err := s.env.GetKubeClient().CoreV1().Secrets(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "owner=helm",
 	})
 	if err != nil {
 		return errors.Wrap(err, "list helm secrets")
 	}
-	rp := recordProgress(server, "helm", len(secrets.Items))
+	rp := recordProgress(ps, "helm", len(secrets.Items))
 	var writeErrs error
 	for _, secret := range secrets.Items {
 		func() {

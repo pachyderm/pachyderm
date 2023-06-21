@@ -13,17 +13,16 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func (s *debugServer) collectDatabaseDump(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server) (retErr error) {
+func (s *debugServer) collectDatabaseDump(ctx context.Context, dfs DumpFS, ps ProgressSender) (retErr error) {
 	defer log.Span(ctx, "collectDatabaseDump")(log.Errorp(&retErr))
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
-	rp := recordProgress(server, "database", 2)
+	rp := recordProgress(ps, "database", 2)
 	var errs error
 	if err := s.collectDatabaseStats(ctxWithTimeout, dfs); err != nil {
 		errors.JoinInto(&errs, errors.Wrap(err, "collectDatabaseStats"))
