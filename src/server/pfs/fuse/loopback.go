@@ -615,11 +615,12 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	if err != nil {
 		return err
 	}
+	if commit == "" {
+		log.Info(ctx, "Download failed because commit does not exist for", zap.String("origPath", origPath))
+		return errors.Errorf("[download] - no commit cound be found for %s", origPath)
+	}
 	// log the commit
 	log.Info(ctx, "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commit)))
-	if commit == "" {
-		return nil
-	}
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
