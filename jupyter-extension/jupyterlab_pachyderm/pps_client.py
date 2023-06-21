@@ -259,7 +259,9 @@ def upload_environment(
         reqs = Path(__file__).parent.joinpath("requirements.txt")
         if reqs.exists():
             run(["pip", "--disable-pip-version-check", "install", "-r", reqs.as_posix()])
-
+            print("Finished installing requirements")
+        
+        print("running user code")
         import user_code  # This runs the user's code.
 
     entrypoint_script = (
