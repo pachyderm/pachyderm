@@ -1,10 +1,12 @@
-import React from 'react';
+import {ReposWithCommitQuery} from '@graphqlTypes';
+import React, {useMemo} from 'react';
 
 import {
   TableViewFilters,
   TableViewLoadingDots,
 } from '@dash-frontend/components/TableView';
 import usePipelines from '@dash-frontend/hooks/usePipelines';
+import useRepos from '@dash-frontend/hooks/useRepos';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form} from '@pachyderm/components';
 
@@ -20,8 +22,23 @@ const PipelineStepsTable: React.FC<PipelineStepsTableProps> = ({
 }) => {
   const {projectId} = useUrlState();
   const {pipelines, loading, error} = usePipelines({projectIds: [projectId]});
+  const {
+    repos,
+    loading: reposLoading,
+    error: reposError,
+  } = useRepos({projectId});
   const {sortedPipelines, formCtx, staticFilterKeys, clearableFiltersMap} =
     usePipelineFilters({pipelines});
+
+  const pipelineRepoMap = useMemo(() => {
+    const obj: Record<string, ReposWithCommitQuery['repos'][0]> = {};
+    repos?.forEach((repo) => {
+      if (repo?.linkedPipeline?.id) {
+        obj[repo?.linkedPipeline?.id] = repo;
+      }
+    });
+    return obj;
+  }, [repos]);
 
   return (
     <Form formContext={formCtx}>
@@ -33,14 +50,15 @@ const PipelineStepsTable: React.FC<PipelineStepsTableProps> = ({
         staticFilterKeys={staticFilterKeys}
       />
 
-      {loading ? (
+      {loading || reposLoading ? (
         <TableViewLoadingDots data-testid="PipelineStepsTable__loadingDots" />
       ) : (
         <PipelineStepsList
           loading={loading}
-          error={error}
+          error={error || reposError}
           pipelines={sortedPipelines}
           totalPipelinesLength={pipelines?.length || 0}
+          pipelineRepoMap={pipelineRepoMap}
         />
       )}
     </Form>

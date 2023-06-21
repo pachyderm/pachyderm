@@ -102,7 +102,7 @@ describe('Repos', () => {
     cy.setupProject().visit('/');
     cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
     cy.findByText('Repositories').click();
-    cy.findAllByTestId('RepositoriesList__row', {timeout: 30000}).should('have.length', 3)
+    cy.findAllByTestId('RepoListRow__row', {timeout: 30000}).should('have.length', 3)
 
     cy.findByText('images').click();
     cy.findByText('Detailed info for images');

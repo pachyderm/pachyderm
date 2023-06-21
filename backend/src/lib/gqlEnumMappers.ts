@@ -8,6 +8,7 @@ import {
   DatumState,
   State,
   ResourceType,
+  Permission,
 } from '@dash-backend/proto';
 import {
   FileType as GQLFileType,
@@ -18,6 +19,7 @@ import {
   DatumFilter as GQLDatumFilter,
   EnterpriseState as GQLEnterpriseState,
   ResourceType as GQLResourceType,
+  Permission as GQLPermission,
 } from '@graphqlTypes';
 
 /*
@@ -176,17 +178,303 @@ export const toGQLEnterpriseState = (state: State) => {
 
 export const toProtoResourceType = (resourceType: GQLResourceType) => {
   switch (resourceType) {
-    case 'RESOURCE_TYPE_UNKNOWN':
+    case GQLResourceType.RESOURCE_TYPE_UNKNOWN:
       return ResourceType.RESOURCE_TYPE_UNKNOWN;
-    case 'CLUSTER':
+    case GQLResourceType.CLUSTER:
       return ResourceType.CLUSTER;
-    case 'REPO':
+    case GQLResourceType.REPO:
       return ResourceType.REPO;
-    case 'SPEC_REPO':
+    case GQLResourceType.SPEC_REPO:
       return ResourceType.SPEC_REPO;
-    case 'PROJECT':
+    case GQLResourceType.PROJECT:
       return ResourceType.PROJECT;
     default:
       throw new ApolloError(`Unknown resource type ${resourceType}`);
+  }
+};
+
+export const toProtoPermissionType = (permission: GQLPermission) => {
+  switch (permission) {
+    case GQLPermission.PERMISSION_UNKNOWN:
+      return Permission.PERMISSION_UNKNOWN;
+    case GQLPermission.CLUSTER_MODIFY_BINDINGS:
+      return Permission.CLUSTER_MODIFY_BINDINGS;
+    case GQLPermission.CLUSTER_GET_BINDINGS:
+      return Permission.CLUSTER_GET_BINDINGS;
+    case GQLPermission.CLUSTER_GET_PACHD_LOGS:
+      return Permission.CLUSTER_GET_PACHD_LOGS;
+    case GQLPermission.CLUSTER_AUTH_ACTIVATE:
+      return Permission.CLUSTER_AUTH_ACTIVATE;
+    case GQLPermission.CLUSTER_AUTH_DEACTIVATE:
+      return Permission.CLUSTER_AUTH_DEACTIVATE;
+    case GQLPermission.CLUSTER_AUTH_GET_CONFIG:
+      return Permission.CLUSTER_AUTH_GET_CONFIG;
+    case GQLPermission.CLUSTER_AUTH_SET_CONFIG:
+      return Permission.CLUSTER_AUTH_SET_CONFIG;
+    case GQLPermission.CLUSTER_AUTH_GET_ROBOT_TOKEN:
+      return Permission.CLUSTER_AUTH_GET_ROBOT_TOKEN;
+    case GQLPermission.CLUSTER_AUTH_MODIFY_GROUP_MEMBERS:
+      return Permission.CLUSTER_AUTH_MODIFY_GROUP_MEMBERS;
+    case GQLPermission.CLUSTER_AUTH_GET_GROUPS:
+      return Permission.CLUSTER_AUTH_GET_GROUPS;
+    case GQLPermission.CLUSTER_AUTH_GET_GROUP_USERS:
+      return Permission.CLUSTER_AUTH_GET_GROUP_USERS;
+    case GQLPermission.CLUSTER_AUTH_EXTRACT_TOKENS:
+      return Permission.CLUSTER_AUTH_EXTRACT_TOKENS;
+    case GQLPermission.CLUSTER_AUTH_RESTORE_TOKEN:
+      return Permission.CLUSTER_AUTH_RESTORE_TOKEN;
+    case GQLPermission.CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL:
+      return Permission.CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL;
+    case GQLPermission.CLUSTER_AUTH_DELETE_EXPIRED_TOKENS:
+      return Permission.CLUSTER_AUTH_DELETE_EXPIRED_TOKENS;
+    case GQLPermission.CLUSTER_AUTH_REVOKE_USER_TOKENS:
+      return Permission.CLUSTER_AUTH_REVOKE_USER_TOKENS;
+    case GQLPermission.CLUSTER_AUTH_ROTATE_ROOT_TOKEN:
+      return Permission.CLUSTER_AUTH_ROTATE_ROOT_TOKEN;
+    case GQLPermission.CLUSTER_ENTERPRISE_ACTIVATE:
+      return Permission.CLUSTER_ENTERPRISE_ACTIVATE;
+    case GQLPermission.CLUSTER_ENTERPRISE_HEARTBEAT:
+      return Permission.CLUSTER_ENTERPRISE_HEARTBEAT;
+    case GQLPermission.CLUSTER_ENTERPRISE_GET_CODE:
+      return Permission.CLUSTER_ENTERPRISE_GET_CODE;
+    case GQLPermission.CLUSTER_ENTERPRISE_DEACTIVATE:
+      return Permission.CLUSTER_ENTERPRISE_DEACTIVATE;
+    case GQLPermission.CLUSTER_ENTERPRISE_PAUSE:
+      return Permission.CLUSTER_ENTERPRISE_PAUSE;
+    case GQLPermission.CLUSTER_IDENTITY_SET_CONFIG:
+      return Permission.CLUSTER_IDENTITY_SET_CONFIG;
+    case GQLPermission.CLUSTER_IDENTITY_GET_CONFIG:
+      return Permission.CLUSTER_IDENTITY_GET_CONFIG;
+    case GQLPermission.CLUSTER_IDENTITY_CREATE_IDP:
+      return Permission.CLUSTER_IDENTITY_CREATE_IDP;
+    case GQLPermission.CLUSTER_IDENTITY_UPDATE_IDP:
+      return Permission.CLUSTER_IDENTITY_UPDATE_IDP;
+    case GQLPermission.CLUSTER_IDENTITY_LIST_IDPS:
+      return Permission.CLUSTER_IDENTITY_LIST_IDPS;
+    case GQLPermission.CLUSTER_IDENTITY_GET_IDP:
+      return Permission.CLUSTER_IDENTITY_GET_IDP;
+    case GQLPermission.CLUSTER_IDENTITY_DELETE_IDP:
+      return Permission.CLUSTER_IDENTITY_DELETE_IDP;
+    case GQLPermission.CLUSTER_IDENTITY_CREATE_OIDC_CLIENT:
+      return Permission.CLUSTER_IDENTITY_CREATE_OIDC_CLIENT;
+    case GQLPermission.CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT:
+      return Permission.CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT;
+    case GQLPermission.CLUSTER_IDENTITY_LIST_OIDC_CLIENTS:
+      return Permission.CLUSTER_IDENTITY_LIST_OIDC_CLIENTS;
+    case GQLPermission.CLUSTER_IDENTITY_GET_OIDC_CLIENT:
+      return Permission.CLUSTER_IDENTITY_GET_OIDC_CLIENT;
+    case GQLPermission.CLUSTER_IDENTITY_DELETE_OIDC_CLIENT:
+      return Permission.CLUSTER_IDENTITY_DELETE_OIDC_CLIENT;
+    case GQLPermission.CLUSTER_DEBUG_DUMP:
+      return Permission.CLUSTER_DEBUG_DUMP;
+    case GQLPermission.CLUSTER_LICENSE_ACTIVATE:
+      return Permission.CLUSTER_LICENSE_ACTIVATE;
+    case GQLPermission.CLUSTER_LICENSE_GET_CODE:
+      return Permission.CLUSTER_LICENSE_GET_CODE;
+    case GQLPermission.CLUSTER_LICENSE_ADD_CLUSTER:
+      return Permission.CLUSTER_LICENSE_ADD_CLUSTER;
+    case GQLPermission.CLUSTER_LICENSE_UPDATE_CLUSTER:
+      return Permission.CLUSTER_LICENSE_UPDATE_CLUSTER;
+    case GQLPermission.CLUSTER_LICENSE_DELETE_CLUSTER:
+      return Permission.CLUSTER_LICENSE_DELETE_CLUSTER;
+    case GQLPermission.CLUSTER_LICENSE_LIST_CLUSTERS:
+      return Permission.CLUSTER_LICENSE_LIST_CLUSTERS;
+    case GQLPermission.CLUSTER_CREATE_SECRET:
+      return Permission.CLUSTER_CREATE_SECRET;
+    case GQLPermission.CLUSTER_LIST_SECRETS:
+      return Permission.CLUSTER_LIST_SECRETS;
+    case GQLPermission.SECRET_DELETE:
+      return Permission.SECRET_DELETE;
+    case GQLPermission.SECRET_INSPECT:
+      return Permission.SECRET_INSPECT;
+    case GQLPermission.CLUSTER_DELETE_ALL:
+      return Permission.CLUSTER_DELETE_ALL;
+    case GQLPermission.REPO_READ:
+      return Permission.REPO_READ;
+    case GQLPermission.REPO_WRITE:
+      return Permission.REPO_WRITE;
+    case GQLPermission.REPO_MODIFY_BINDINGS:
+      return Permission.REPO_MODIFY_BINDINGS;
+    case GQLPermission.REPO_DELETE:
+      return Permission.REPO_DELETE;
+    case GQLPermission.REPO_INSPECT_COMMIT:
+      return Permission.REPO_INSPECT_COMMIT;
+    case GQLPermission.REPO_LIST_COMMIT:
+      return Permission.REPO_LIST_COMMIT;
+    case GQLPermission.REPO_DELETE_COMMIT:
+      return Permission.REPO_DELETE_COMMIT;
+    case GQLPermission.REPO_CREATE_BRANCH:
+      return Permission.REPO_CREATE_BRANCH;
+    case GQLPermission.REPO_LIST_BRANCH:
+      return Permission.REPO_LIST_BRANCH;
+    case GQLPermission.REPO_DELETE_BRANCH:
+      return Permission.REPO_DELETE_BRANCH;
+    case GQLPermission.REPO_INSPECT_FILE:
+      return Permission.REPO_INSPECT_FILE;
+    case GQLPermission.REPO_LIST_FILE:
+      return Permission.REPO_LIST_FILE;
+    case GQLPermission.REPO_ADD_PIPELINE_READER:
+      return Permission.REPO_ADD_PIPELINE_READER;
+    case GQLPermission.REPO_REMOVE_PIPELINE_READER:
+      return Permission.REPO_REMOVE_PIPELINE_READER;
+    case GQLPermission.REPO_ADD_PIPELINE_WRITER:
+      return Permission.REPO_ADD_PIPELINE_WRITER;
+    case GQLPermission.PIPELINE_LIST_JOB:
+      return Permission.PIPELINE_LIST_JOB;
+    case GQLPermission.PROJECT_CREATE:
+      return Permission.PROJECT_CREATE;
+    case GQLPermission.PROJECT_DELETE:
+      return Permission.PROJECT_DELETE;
+    case GQLPermission.PROJECT_LIST_REPO:
+      return Permission.PROJECT_LIST_REPO;
+    case GQLPermission.PROJECT_CREATE_REPO:
+      return Permission.PROJECT_CREATE_REPO;
+    case GQLPermission.PROJECT_MODIFY_BINDINGS:
+      return Permission.PROJECT_MODIFY_BINDINGS;
+    default:
+      throw new ApolloError(`Unknown GQL Permission ${permission}`);
+  }
+};
+
+export const toGQLPermissionType = (permission: Permission) => {
+  switch (permission) {
+    case Permission.PERMISSION_UNKNOWN:
+      return GQLPermission.PERMISSION_UNKNOWN;
+    case Permission.CLUSTER_MODIFY_BINDINGS:
+      return GQLPermission.CLUSTER_MODIFY_BINDINGS;
+    case Permission.CLUSTER_GET_BINDINGS:
+      return GQLPermission.CLUSTER_GET_BINDINGS;
+    case Permission.CLUSTER_GET_PACHD_LOGS:
+      return GQLPermission.CLUSTER_GET_PACHD_LOGS;
+    case Permission.CLUSTER_AUTH_ACTIVATE:
+      return GQLPermission.CLUSTER_AUTH_ACTIVATE;
+    case Permission.CLUSTER_AUTH_DEACTIVATE:
+      return GQLPermission.CLUSTER_AUTH_DEACTIVATE;
+    case Permission.CLUSTER_AUTH_GET_CONFIG:
+      return GQLPermission.CLUSTER_AUTH_GET_CONFIG;
+    case Permission.CLUSTER_AUTH_SET_CONFIG:
+      return GQLPermission.CLUSTER_AUTH_SET_CONFIG;
+    case Permission.CLUSTER_AUTH_GET_ROBOT_TOKEN:
+      return GQLPermission.CLUSTER_AUTH_GET_ROBOT_TOKEN;
+    case Permission.CLUSTER_AUTH_MODIFY_GROUP_MEMBERS:
+      return GQLPermission.CLUSTER_AUTH_MODIFY_GROUP_MEMBERS;
+    case Permission.CLUSTER_AUTH_GET_GROUPS:
+      return GQLPermission.CLUSTER_AUTH_GET_GROUPS;
+    case Permission.CLUSTER_AUTH_GET_GROUP_USERS:
+      return GQLPermission.CLUSTER_AUTH_GET_GROUP_USERS;
+    case Permission.CLUSTER_AUTH_EXTRACT_TOKENS:
+      return GQLPermission.CLUSTER_AUTH_EXTRACT_TOKENS;
+    case Permission.CLUSTER_AUTH_RESTORE_TOKEN:
+      return GQLPermission.CLUSTER_AUTH_RESTORE_TOKEN;
+    case Permission.CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL:
+      return GQLPermission.CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL;
+    case Permission.CLUSTER_AUTH_DELETE_EXPIRED_TOKENS:
+      return GQLPermission.CLUSTER_AUTH_DELETE_EXPIRED_TOKENS;
+    case Permission.CLUSTER_AUTH_REVOKE_USER_TOKENS:
+      return GQLPermission.CLUSTER_AUTH_REVOKE_USER_TOKENS;
+    case Permission.CLUSTER_AUTH_ROTATE_ROOT_TOKEN:
+      return GQLPermission.CLUSTER_AUTH_ROTATE_ROOT_TOKEN;
+    case Permission.CLUSTER_ENTERPRISE_ACTIVATE:
+      return GQLPermission.CLUSTER_ENTERPRISE_ACTIVATE;
+    case Permission.CLUSTER_ENTERPRISE_HEARTBEAT:
+      return GQLPermission.CLUSTER_ENTERPRISE_HEARTBEAT;
+    case Permission.CLUSTER_ENTERPRISE_GET_CODE:
+      return GQLPermission.CLUSTER_ENTERPRISE_GET_CODE;
+    case Permission.CLUSTER_ENTERPRISE_DEACTIVATE:
+      return GQLPermission.CLUSTER_ENTERPRISE_DEACTIVATE;
+    case Permission.CLUSTER_ENTERPRISE_PAUSE:
+      return GQLPermission.CLUSTER_ENTERPRISE_PAUSE;
+    case Permission.CLUSTER_IDENTITY_SET_CONFIG:
+      return GQLPermission.CLUSTER_IDENTITY_SET_CONFIG;
+    case Permission.CLUSTER_IDENTITY_GET_CONFIG:
+      return GQLPermission.CLUSTER_IDENTITY_GET_CONFIG;
+    case Permission.CLUSTER_IDENTITY_CREATE_IDP:
+      return GQLPermission.CLUSTER_IDENTITY_CREATE_IDP;
+    case Permission.CLUSTER_IDENTITY_UPDATE_IDP:
+      return GQLPermission.CLUSTER_IDENTITY_UPDATE_IDP;
+    case Permission.CLUSTER_IDENTITY_LIST_IDPS:
+      return GQLPermission.CLUSTER_IDENTITY_LIST_IDPS;
+    case Permission.CLUSTER_IDENTITY_GET_IDP:
+      return GQLPermission.CLUSTER_IDENTITY_GET_IDP;
+    case Permission.CLUSTER_IDENTITY_DELETE_IDP:
+      return GQLPermission.CLUSTER_IDENTITY_DELETE_IDP;
+    case Permission.CLUSTER_IDENTITY_CREATE_OIDC_CLIENT:
+      return GQLPermission.CLUSTER_IDENTITY_CREATE_OIDC_CLIENT;
+    case Permission.CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT:
+      return GQLPermission.CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT;
+    case Permission.CLUSTER_IDENTITY_LIST_OIDC_CLIENTS:
+      return GQLPermission.CLUSTER_IDENTITY_LIST_OIDC_CLIENTS;
+    case Permission.CLUSTER_IDENTITY_GET_OIDC_CLIENT:
+      return GQLPermission.CLUSTER_IDENTITY_GET_OIDC_CLIENT;
+    case Permission.CLUSTER_IDENTITY_DELETE_OIDC_CLIENT:
+      return GQLPermission.CLUSTER_IDENTITY_DELETE_OIDC_CLIENT;
+    case Permission.CLUSTER_DEBUG_DUMP:
+      return GQLPermission.CLUSTER_DEBUG_DUMP;
+    case Permission.CLUSTER_LICENSE_ACTIVATE:
+      return GQLPermission.CLUSTER_LICENSE_ACTIVATE;
+    case Permission.CLUSTER_LICENSE_GET_CODE:
+      return GQLPermission.CLUSTER_LICENSE_GET_CODE;
+    case Permission.CLUSTER_LICENSE_ADD_CLUSTER:
+      return GQLPermission.CLUSTER_LICENSE_ADD_CLUSTER;
+    case Permission.CLUSTER_LICENSE_UPDATE_CLUSTER:
+      return GQLPermission.CLUSTER_LICENSE_UPDATE_CLUSTER;
+    case Permission.CLUSTER_LICENSE_DELETE_CLUSTER:
+      return GQLPermission.CLUSTER_LICENSE_DELETE_CLUSTER;
+    case Permission.CLUSTER_LICENSE_LIST_CLUSTERS:
+      return GQLPermission.CLUSTER_LICENSE_LIST_CLUSTERS;
+    case Permission.CLUSTER_CREATE_SECRET:
+      return GQLPermission.CLUSTER_CREATE_SECRET;
+    case Permission.CLUSTER_LIST_SECRETS:
+      return GQLPermission.CLUSTER_LIST_SECRETS;
+    case Permission.SECRET_DELETE:
+      return GQLPermission.SECRET_DELETE;
+    case Permission.SECRET_INSPECT:
+      return GQLPermission.SECRET_INSPECT;
+    case Permission.CLUSTER_DELETE_ALL:
+      return GQLPermission.CLUSTER_DELETE_ALL;
+    case Permission.REPO_READ:
+      return GQLPermission.REPO_READ;
+    case Permission.REPO_WRITE:
+      return GQLPermission.REPO_WRITE;
+    case Permission.REPO_MODIFY_BINDINGS:
+      return GQLPermission.REPO_MODIFY_BINDINGS;
+    case Permission.REPO_DELETE:
+      return GQLPermission.REPO_DELETE;
+    case Permission.REPO_INSPECT_COMMIT:
+      return GQLPermission.REPO_INSPECT_COMMIT;
+    case Permission.REPO_LIST_COMMIT:
+      return GQLPermission.REPO_LIST_COMMIT;
+    case Permission.REPO_DELETE_COMMIT:
+      return GQLPermission.REPO_DELETE_COMMIT;
+    case Permission.REPO_CREATE_BRANCH:
+      return GQLPermission.REPO_CREATE_BRANCH;
+    case Permission.REPO_LIST_BRANCH:
+      return GQLPermission.REPO_LIST_BRANCH;
+    case Permission.REPO_DELETE_BRANCH:
+      return GQLPermission.REPO_DELETE_BRANCH;
+    case Permission.REPO_INSPECT_FILE:
+      return GQLPermission.REPO_INSPECT_FILE;
+    case Permission.REPO_LIST_FILE:
+      return GQLPermission.REPO_LIST_FILE;
+    case Permission.REPO_ADD_PIPELINE_READER:
+      return GQLPermission.REPO_ADD_PIPELINE_READER;
+    case Permission.REPO_REMOVE_PIPELINE_READER:
+      return GQLPermission.REPO_REMOVE_PIPELINE_READER;
+    case Permission.REPO_ADD_PIPELINE_WRITER:
+      return GQLPermission.REPO_ADD_PIPELINE_WRITER;
+    case Permission.PIPELINE_LIST_JOB:
+      return GQLPermission.PIPELINE_LIST_JOB;
+    case Permission.PROJECT_CREATE:
+      return GQLPermission.PROJECT_CREATE;
+    case Permission.PROJECT_DELETE:
+      return GQLPermission.PROJECT_DELETE;
+    case Permission.PROJECT_LIST_REPO:
+      return GQLPermission.PROJECT_LIST_REPO;
+    case Permission.PROJECT_CREATE_REPO:
+      return GQLPermission.PROJECT_CREATE_REPO;
+    case Permission.PROJECT_MODIFY_BINDINGS:
+      return GQLPermission.PROJECT_MODIFY_BINDINGS;
+    default:
+      throw new ApolloError(`Unknown Proto Permission ${permission}`);
   }
 };

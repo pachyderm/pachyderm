@@ -37,6 +37,7 @@ export * from './PachctlConnectDetails';
 export * from './Page';
 export * from './Pager';
 export * from './RadioButton';
+export * from './RoleBindingChip';
 export * from './Search';
 export * from './Select';
 export * from './SideNav';

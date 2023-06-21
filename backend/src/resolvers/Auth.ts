@@ -1,14 +1,24 @@
 import {AuthenticationError} from 'apollo-server-express';
 
 import {getOIDCClient, getTokenIssuer} from '@dash-backend/lib/auth';
+import {
+  toGQLPermissionType,
+  toProtoResourceType,
+} from '@dash-backend/lib/gqlEnumMappers';
 import {UnauthenticatedContext} from '@dash-backend/lib/types';
 import {AuthConfig, MutationResolvers, QueryResolvers} from '@graphqlTypes';
 interface AuthResolver {
   Query: Required<
-    Pick<QueryResolvers, 'account' | 'getPermissions'> &
+    Pick<
+      QueryResolvers,
+      'account' | 'getPermissions' | 'getRoles' | 'getAuthorize'
+    > &
       Pick<QueryResolvers<UnauthenticatedContext>, 'authConfig'>
   >;
-  Mutation: Pick<MutationResolvers<UnauthenticatedContext>, 'exchangeCode'>;
+  Mutation: Pick<
+    MutationResolvers<UnauthenticatedContext>,
+    'exchangeCode' | 'modifyRoles'
+  >;
 }
 
 const authResolver: AuthResolver = {
@@ -63,6 +73,52 @@ const authResolver: AuthResolver = {
     getPermissions: async (_field, {args: {resource}}, {pachClient}) => {
       return await pachClient.auth().getPermissions({resource});
     },
+    getRoles: async (_field, {args: {resource}}, {pachClient}) => {
+      const roleBindings = await pachClient.auth().getRoleBinding({
+        resource: {
+          name: resource.name,
+          type: toProtoResourceType(resource.type),
+        },
+      });
+      return {
+        roleBindings: roleBindings.binding?.entriesMap.map(
+          ([name, rolesMap]) => {
+            return {
+              principal: name,
+              roles: rolesMap.rolesMap.map(([role]) => role),
+            };
+          },
+        ),
+      };
+    },
+    getAuthorize: async (
+      _field,
+      {args: {permissionsList, resource}},
+      {pachClient},
+    ) => {
+      try {
+        const res = await pachClient.auth().authorize({
+          permissionsList,
+          resource,
+        });
+
+        const satisfiedList = res.satisfiedList.map((el) =>
+          toGQLPermissionType(el),
+        );
+        const missingList = res.missingList.map((el) =>
+          toGQLPermissionType(el),
+        );
+        const gqlSafeRes = {...res, satisfiedList, missingList};
+        return gqlSafeRes;
+      } catch {
+        return {
+          satisfiedList: [],
+          missingList: [],
+          principal: '',
+          authorized: null,
+        };
+      }
+    },
   },
   Mutation: {
     exchangeCode: async (_field, {code}, {pachClient, log}) => {
@@ -114,6 +170,22 @@ const authResolver: AuthResolver = {
       } catch (e) {
         throw new AuthenticationError(String(e));
       }
+    },
+    modifyRoles: async (
+      _field,
+      {args: {resource, principal, rolesList}},
+      {pachClient},
+    ) => {
+      await pachClient.auth().modifyRoleBinding({
+        resource: {
+          name: resource.name,
+          type: toProtoResourceType(resource.type),
+        },
+        principal,
+        rolesList,
+      });
+
+      return true;
     },
   },
 };

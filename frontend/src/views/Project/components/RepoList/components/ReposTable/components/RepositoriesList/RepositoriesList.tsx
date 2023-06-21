@@ -5,14 +5,9 @@ import React from 'react';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {Table, LoadingDots} from '@pachyderm/components';
 
-import useRepositoriesList from './hooks/useRepositoriesList';
-
-const NO_ACCESS_TOOLTIP =
-  "You currently don't have permission to view this pipeline. To change your permission level, contact your admin.";
+import RepoListRow from './components/RepoListRow';
 
 type RepositoriesListProps = {
   error?: ApolloError;
@@ -27,21 +22,6 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
   loading,
   error,
 }) => {
-  const {generateIconItems, onOverflowMenuSelect} = useRepositoriesList();
-  const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
-
-  const addSelection = (value: string) => {
-    if (searchParams.selectedRepos && searchParams.selectedRepos[0] === value) {
-      updateSearchParamsAndGo({
-        selectedRepos: [],
-      });
-    } else {
-      updateSearchParamsAndGo({
-        selectedRepos: [value],
-      });
-    }
-  };
-
   if (loading) {
     return <LoadingDots />;
   }
@@ -76,23 +56,6 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
       />
     );
   }
-  const getLastCommitTimestamp = (
-    repo: ReposWithCommitQuery['repos'][number],
-  ) => {
-    if (!repo || !repo.lastCommit) return 'N/A';
-
-    const lastCommitDate =
-      repo?.lastCommit?.finished && repo?.lastCommit?.finished > 0
-        ? getStandardDate(repo?.lastCommit?.finished)
-        : null;
-    const lastCommitId = `${repo.lastCommit.id.slice(0, 6)}...`;
-
-    let formatString = '';
-    if (lastCommitDate) formatString += `${lastCommitDate}; `;
-    formatString += lastCommitId;
-
-    return formatString;
-  };
 
   return (
     <TableViewWrapper>
@@ -104,35 +67,16 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
             <Table.HeaderCell>Created</Table.HeaderCell>
             <Table.HeaderCell>Last Commit</Table.HeaderCell>
             <Table.HeaderCell>Description</Table.HeaderCell>
+            {repos?.[0]?.authInfo?.rolesList && (
+              <Table.HeaderCell>Roles</Table.HeaderCell>
+            )}
             <Table.HeaderCell />
           </Table.Row>
         </Table.Head>
 
         <Table.Body>
           {repos.map((repo) => (
-            <Table.Row
-              key={repo?.id}
-              data-testid="RepositoriesList__row"
-              onClick={
-                repo?.access ? () => addSelection(repo?.id || '') : undefined
-              }
-              isSelected={searchParams.selectedRepos?.includes(repo?.id || '')}
-              hasRadio={repo?.access}
-              hasLock={!repo?.access}
-              lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}
-              overflowMenuItems={generateIconItems(repo?.lastCommit?.id)}
-              dropdownOnSelect={onOverflowMenuSelect(repo)}
-            >
-              <Table.DataCell>{repo?.name}</Table.DataCell>
-              <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>
-              <Table.DataCell>
-                {repo?.createdAt && repo?.createdAt > 0
-                  ? getStandardDate(repo?.createdAt)
-                  : '-'}
-              </Table.DataCell>
-              <Table.DataCell>{getLastCommitTimestamp(repo)}</Table.DataCell>
-              <Table.DataCell>{repo?.description}</Table.DataCell>
-            </Table.Row>
+            <RepoListRow key={repo?.id} repo={repo} />
           ))}
         </Table.Body>
       </Table>

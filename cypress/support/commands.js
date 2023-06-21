@@ -27,17 +27,49 @@ import 'cypress-wait-until';
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 
-Cypress.Commands.add('login', (email = 'admin', password = 'password') => {
-  cy.visit('/', {timeout: 12000});
-  cy.findByRole('textbox', {timeout: 12000}).type(email);
-  cy.findByLabelText('Password').type(password);
+Cypress.Commands.add(
+  'login',
+  (route = '/', email = 'admin', password = 'password') => {
+    cy.visit('/', {timeout: 12000});
+    cy.findByRole('textbox', {timeout: 12000}).type(email);
+    cy.findByLabelText('Password').type(password);
 
-  return cy.findByRole('button', {name: /login/i, timeout: 12000}).click();
-});
+    cy.findByRole('button', {name: /login/i, timeout: 12000}).click();
+
+    cy.window().then((win) => {
+      cy.waitUntil(() => Boolean(win.localStorage.getItem('auth-token')), {
+        errorMsg: 'Auth-token was not set in localstorage',
+      });
+    });
+
+    if (route !== '/') return cy.visit(route);
+
+    return;
+  },
+);
 
 Cypress.Commands.add('logout', () => {
   cy.clearCookies();
   return cy.clearLocalStorage();
+});
+
+/**
+ * This can be used to naturally exec pachctl commands.
+ *
+ * It is used as such:
+ * cy.multiLineExec(`
+ *    echo "pizza" | pachctl auth use-auth-token
+ *    pachctl create project root --description "Project made by pach:root. You can see nothing."
+ *    pachctl create repo images --project root
+ *    pachctl auth set cluster none user:kilgore@kilgore.trout
+ *    `);
+ */
+Cypress.Commands.add('multiLineExec', (stringInput) => {
+  const inputs = stringInput
+    .split('\n')
+    .map((el) => el.trimStart())
+    .filter((el) => !!el);
+  return cy.wrap(inputs).each((command) => cy.exec(command));
 });
 
 Cypress.Commands.add('setupProject', (projectTemplate) => {
@@ -121,19 +153,27 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
 Cypress.Commands.add('deleteReposAndPipelines', () => {
   return (
     cy
+      // These two commands are only needed for tests that reuse default
       .exec('pachctl delete pipeline --all --force')
       .exec('pachctl delete repo --all --force')
+
       // Remove all projects except for default
       .exec('pachctl list projects')
       .then((res) => {
-        const regex = /(\w*)\s*\[/g;
-        const projects = [...res.stdout.matchAll(regex)]
-          .map((el) => el[1])
+        const projects = res.stdout.split('\n');
+        projects.shift();
+        const filteredProjects = projects
+          .map((el) => [...el.matchAll(/(\w*)\s*/g)][1][1])
+          .filter((el) => !!el)
           .filter((el) => el.toLowerCase() !== 'default');
-        if (projects.length !== 0) cy.log('Deleting projects', projects);
+
+        if (filteredProjects.length !== 0)
+          cy.log('Deleting projects', filteredProjects);
         else cy.log('No projects to delete (ignoring default).');
-        projects.forEach((project) => {
-          cy.exec(`echo y | pachctl delete project ${project}`);
+
+        filteredProjects.forEach((project) => {
+          // yes will keep entering y. This prompt can ask for a y/N twice.
+          cy.exec(`yes | pachctl delete project ${project}`);
         });
       })
   );

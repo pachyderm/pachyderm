@@ -13,7 +13,7 @@
   margin: 0;
 }
 
-.footerLink {
+.footerContent {
   flex: 1;
   display: inline-flex;
   align-items: center;

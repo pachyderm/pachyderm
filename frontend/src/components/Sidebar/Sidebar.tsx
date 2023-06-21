@@ -45,7 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   } = useSidebar();
 
   return (
-    <div
+    <section
+      aria-label="project-sidebar"
       onMouseMove={throttleMouseEvent(applyMousePosition, 50)}
       onMouseUp={onDragEnd}
       onMouseLeave={onDragEnd}
@@ -102,7 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Button
                   IconSVG={CloseSVG}
                   onClick={onClose}
-                  aria-label="Close"
+                  aria-label="Close sidebar"
                   color="black"
                   buttonType="ghost"
                 />
@@ -113,7 +114,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {children}
       </div>
-    </div>
+    </section>
   );
 };
 

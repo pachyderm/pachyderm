@@ -32,6 +32,10 @@ tr.hasPrefixIcon > td:first-of-type {
   cursor: pointer;
 }
 
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 .dropdown {
   right: 3.25rem;
   top: 0rem;

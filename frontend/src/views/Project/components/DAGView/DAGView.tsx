@@ -1,4 +1,5 @@
 import {ApolloError} from '@apollo/client';
+import {Permission, ResourceType} from '@graphqlTypes';
 import classnames from 'classnames';
 import React from 'react';
 
@@ -7,6 +8,8 @@ import {NO_DAG_MESSAGE} from '@dash-frontend/components/EmptyState/constants/Emp
 import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import View from '@dash-frontend/components/View';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {
@@ -72,6 +75,13 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     graphExtents,
     projectName,
   );
+
+  const {projectId} = useUrlState();
+  const {isAuthorizedAction: createRepoIsAuthorizedAction} =
+    useVerifiedAuthorization({
+      permissionsList: [Permission.PROJECT_CREATE_REPO],
+      resource: {type: ResourceType.PROJECT, name: projectId},
+    });
 
   const {openModal, closeModal, isOpen} = useModal(false);
 
@@ -244,7 +254,24 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           title={''}
           message={NO_DAG_MESSAGE}
           renderButton={
-            <Button onClick={openModal}>Create Your First Repo</Button>
+            createRepoIsAuthorizedAction ? (
+              <Button onClick={openModal}>Create Your First Repo</Button>
+            ) : (
+              <Tooltip
+                tooltipKey="Create repo disabled"
+                tooltipText="You need at least projectWriter to create a repo."
+              >
+                <span>
+                  <Button
+                    onClick={openModal}
+                    disabled
+                    className={styles.pointerEventsNone}
+                  >
+                    Create Your First Repo
+                  </Button>
+                </span>
+              </Tooltip>
+            )
           }
           linkToDocs={{
             text: 'How to create a repo on CLI',

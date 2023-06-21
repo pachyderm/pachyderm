@@ -136,6 +136,9 @@ export const RepoFragmentFragmentDoc = gql`
       id
       name
     }
+    authInfo {
+      rolesList
+    }
   }
 `;
 export const CreateBranchDocument = gql`
@@ -651,6 +654,54 @@ export type FinishCommitMutationOptions = Apollo.BaseMutationOptions<
   Types.FinishCommitMutation,
   Types.FinishCommitMutationVariables
 >;
+export const ModifyRolesDocument = gql`
+  mutation modifyRoles($args: ModifyRolesArgs!) {
+    modifyRoles(args: $args)
+  }
+`;
+export type ModifyRolesMutationFn = Apollo.MutationFunction<
+  Types.ModifyRolesMutation,
+  Types.ModifyRolesMutationVariables
+>;
+
+/**
+ * __useModifyRolesMutation__
+ *
+ * To run a mutation, you first call `useModifyRolesMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useModifyRolesMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [modifyRolesMutation, { data, loading, error }] = useModifyRolesMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useModifyRolesMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.ModifyRolesMutation,
+    Types.ModifyRolesMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.ModifyRolesMutation,
+    Types.ModifyRolesMutationVariables
+  >(ModifyRolesDocument, options);
+}
+export type ModifyRolesMutationHookResult = ReturnType<
+  typeof useModifyRolesMutation
+>;
+export type ModifyRolesMutationResult =
+  Apollo.MutationResult<Types.ModifyRolesMutation>;
+export type ModifyRolesMutationOptions = Apollo.BaseMutationOptions<
+  Types.ModifyRolesMutation,
+  Types.ModifyRolesMutationVariables
+>;
 export const PutFilesFromUrLsDocument = gql`
   mutation putFilesFromURLs($args: PutFilesFromURLsArgs!) {
     putFilesFromURLs(args: $args)
@@ -978,6 +1029,67 @@ export type AuthConfigLazyQueryHookResult = ReturnType<
 export type AuthConfigQueryResult = Apollo.QueryResult<
   Types.AuthConfigQuery,
   Types.AuthConfigQueryVariables
+>;
+export const GetAuthorizeDocument = gql`
+  query getAuthorize($args: GetAuthorizeArgs!) {
+    getAuthorize(args: $args) {
+      satisfiedList
+      missingList
+      authorized
+      principal
+    }
+  }
+`;
+
+/**
+ * __useGetAuthorizeQuery__
+ *
+ * To run a query within a React component, call `useGetAuthorizeQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetAuthorizeQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetAuthorizeQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useGetAuthorizeQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.GetAuthorizeQuery,
+    Types.GetAuthorizeQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetAuthorizeQuery,
+    Types.GetAuthorizeQueryVariables
+  >(GetAuthorizeDocument, options);
+}
+export function useGetAuthorizeLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetAuthorizeQuery,
+    Types.GetAuthorizeQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetAuthorizeQuery,
+    Types.GetAuthorizeQueryVariables
+  >(GetAuthorizeDocument, options);
+}
+export type GetAuthorizeQueryHookResult = ReturnType<
+  typeof useGetAuthorizeQuery
+>;
+export type GetAuthorizeLazyQueryHookResult = ReturnType<
+  typeof useGetAuthorizeLazyQuery
+>;
+export type GetAuthorizeQueryResult = Apollo.QueryResult<
+  Types.GetAuthorizeQuery,
+  Types.GetAuthorizeQueryVariables
 >;
 export const GetBranchesDocument = gql`
   query getBranches($args: BranchesQueryArgs!) {
@@ -2891,6 +3003,65 @@ export type ReposWithCommitLazyQueryHookResult = ReturnType<
 export type ReposWithCommitQueryResult = Apollo.QueryResult<
   Types.ReposWithCommitQuery,
   Types.ReposWithCommitQueryVariables
+>;
+export const GetRolesDocument = gql`
+  query getRoles($args: GetRolesArgs!) {
+    getRoles(args: $args) {
+      roleBindings {
+        principal
+        roles
+      }
+    }
+  }
+`;
+
+/**
+ * __useGetRolesQuery__
+ *
+ * To run a query within a React component, call `useGetRolesQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetRolesQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetRolesQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useGetRolesQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.GetRolesQuery,
+    Types.GetRolesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.GetRolesQuery, Types.GetRolesQueryVariables>(
+    GetRolesDocument,
+    options,
+  );
+}
+export function useGetRolesLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetRolesQuery,
+    Types.GetRolesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.GetRolesQuery, Types.GetRolesQueryVariables>(
+    GetRolesDocument,
+    options,
+  );
+}
+export type GetRolesQueryHookResult = ReturnType<typeof useGetRolesQuery>;
+export type GetRolesLazyQueryHookResult = ReturnType<
+  typeof useGetRolesLazyQuery
+>;
+export type GetRolesQueryResult = Apollo.QueryResult<
+  Types.GetRolesQuery,
+  Types.GetRolesQueryVariables
 >;
 export const SearchResultsDocument = gql`
   query searchResults($args: SearchResultQueryArgs!) {

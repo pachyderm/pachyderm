@@ -35,7 +35,7 @@ describe('Repo List', () => {
       screen.queryByTestId('ReposTable__loadingDots'),
     );
 
-    const repos = screen.getAllByTestId('RepositoriesList__row');
+    const repos = screen.getAllByTestId('RepoListRow__row');
     expect(repos[1]).toHaveTextContent('cron');
     expect(repos[1]).toHaveTextContent('621.86 kB');
     expect(repos[1]).toHaveTextContent('9d5daa..');
@@ -53,9 +53,7 @@ describe('Repo List', () => {
       screen.getByText('Select a row to view detailed info'),
     ).toBeInTheDocument();
 
-    expect(await screen.findAllByTestId('RepositoriesList__row')).toHaveLength(
-      3,
-    );
+    expect(await screen.findAllByTestId('RepoListRow__row')).toHaveLength(3);
     await click(screen.getByText('edges'));
 
     expect(screen.getByText('Detailed info for edges')).toBeInTheDocument();
@@ -83,7 +81,7 @@ describe('Repo List', () => {
       screen.queryByTestId('ReposTable__loadingDots'),
     );
 
-    let repos = screen.getAllByTestId('RepositoriesList__row');
+    let repos = screen.getAllByTestId('RepoListRow__row');
     expect(repos[0]).toHaveTextContent('montage');
     expect(repos[1]).toHaveTextContent('edges');
     expect(repos[2]).toHaveTextContent('images');
@@ -91,7 +89,7 @@ describe('Repo List', () => {
     await click(screen.getByLabelText('expand filters'));
     await click(screen.getByText('Created: Oldest'));
 
-    repos = screen.getAllByTestId('RepositoriesList__row');
+    repos = screen.getAllByTestId('RepoListRow__row');
     expect(repos[0]).toHaveTextContent('images');
     expect(repos[1]).toHaveTextContent('edges');
     expect(repos[2]).toHaveTextContent('montage');
@@ -99,7 +97,7 @@ describe('Repo List', () => {
     await click(screen.getByLabelText('expand filters'));
     await click(screen.getByText('Alphabetical: A-Z'));
 
-    repos = screen.getAllByTestId('RepositoriesList__row');
+    repos = screen.getAllByTestId('RepoListRow__row');
     expect(repos[0]).toHaveTextContent('edges');
     expect(repos[1]).toHaveTextContent('images');
     expect(repos[2]).toHaveTextContent('montage');

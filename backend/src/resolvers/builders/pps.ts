@@ -180,6 +180,7 @@ export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject): Repo => {
     branches: repoInfo.branchesList.map(branchInfoToGQLBranch),
     sizeDisplay: formatBytes(repoInfo.sizeBytesUpperBound),
     projectId: repoInfo.repo?.project?.name || '',
+    authInfo: {rolesList: repoInfo.authInfo?.rolesList},
   };
 };
 

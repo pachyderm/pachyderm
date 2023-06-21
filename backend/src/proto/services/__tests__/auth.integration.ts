@@ -57,7 +57,7 @@ describe('services/auth', () => {
     });
   });
 
-  describe('getRoleBinding', () => {
+  describe('Roles & Permissions', () => {
     afterEach(async () => {
       const pachClient = await deactivateAuthEnterprise(token);
 
@@ -67,7 +67,7 @@ describe('services/auth', () => {
       await pfs.deleteAll();
     });
 
-    it('gives correct role binding data for repo', async () => {
+    it('getRoleBinding gives correct role binding data for repo', async () => {
       const pachClient = await activateEnterprise();
       const auth = pachClient.auth();
 
@@ -89,19 +89,8 @@ describe('services/auth', () => {
         ['pach:root', {rolesMap: [['repoOwner', true]]}],
       ]);
     });
-  });
 
-  describe('getPermissions', () => {
-    afterEach(async () => {
-      const pachClient = await deactivateAuthEnterprise(token);
-
-      const pps = pachClient.pps();
-      const pfs = pachClient.pfs();
-      await pps.deleteAll();
-      await pfs.deleteAll();
-    });
-
-    it('gives correct role and permission data for repo', async () => {
+    it('getPermissions gives correct role and permission data for repo', async () => {
       const pachClient = await activateEnterprise();
       const auth = pachClient.auth();
 
@@ -129,5 +118,38 @@ describe('services/auth', () => {
 
       expect(enumRes.rolesList).toStrictEqual(['clusterAdmin', 'repoOwner']);
     });
+
+    it('modifyRoles updates role bindings for a specific resource', async () => {
+      const pachClient = await activateEnterprise();
+      const auth = pachClient.auth();
+
+      const authRes = await auth.activate();
+      token = authRes?.pachToken;
+      expect(token).toBeTruthy();
+
+      pachClient.setAuthnToken(token);
+
+      const pfs = pachClient.pfs();
+      await pfs.createProject({name: 'test'});
+      await pfs.createRepo({projectId: 'test', repo: {name: 'images'}});
+
+      await pachClient.auth().modifyRoleBinding({
+        resource: {type: 2, name: 'test/images'},
+        principal: 'pach:root',
+        rolesList: ['repoWriter'],
+      });
+
+      const res = await pachClient
+        .auth()
+        .getRoleBinding({resource: {type: 2, name: 'test/images'}});
+
+      expect(res?.binding?.entriesMap).toStrictEqual([
+        ['pach:root', {rolesMap: [['repoWriter', true]]}],
+      ]);
+    });
+  });
+
+  describe('authorize', () => {
+    it.todo('correctly returns project auth checks');
   });
 });

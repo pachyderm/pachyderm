@@ -29,7 +29,7 @@ describe('Pipelines', () => {
       screen.queryByTestId('PipelineStepsTable__loadingDots'),
     );
 
-    const pipelines = screen.getAllByTestId('PipelineStepsList__row');
+    const pipelines = screen.getAllByTestId('PipelineListRow__row');
     expect(pipelines[0]).toHaveTextContent('montage');
     expect(pipelines[0]).toHaveTextContent('Error - Failure');
     expect(pipelines[0]).toHaveTextContent('Running - Created');
@@ -47,7 +47,7 @@ describe('Pipelines', () => {
     expect(
       screen.getByText('Select rows to view detailed info'),
     ).toBeInTheDocument();
-    expect(await screen.findAllByTestId('PipelineStepsList__row')).toHaveLength(
+    expect(await screen.findAllByTestId('PipelineListRow__row')).toHaveLength(
       2,
     );
 
@@ -81,19 +81,19 @@ describe('Pipelines', () => {
       screen.queryByTestId('PipelineStepsTable__loadingDots'),
     );
 
-    let pipelines = screen.getAllByTestId('PipelineStepsList__row');
+    let pipelines = screen.getAllByTestId('PipelineListRow__row');
     expect(pipelines[0]).toHaveTextContent('montage');
     expect(pipelines[1]).toHaveTextContent('edges');
 
     await click(screen.getByLabelText('expand filters'));
     await click(screen.getByText('Alphabetical: A-Z'));
-    pipelines = screen.getAllByTestId('PipelineStepsList__row');
+    pipelines = screen.getAllByTestId('PipelineListRow__row');
     expect(pipelines[0]).toHaveTextContent('edges');
     expect(pipelines[1]).toHaveTextContent('montage');
 
     await click(screen.getByLabelText('expand filters'));
     await click(screen.getByText('Alphabetical: Z-A'));
-    pipelines = screen.getAllByTestId('PipelineStepsList__row');
+    pipelines = screen.getAllByTestId('PipelineListRow__row');
     expect(pipelines[0]).toHaveTextContent('montage');
     expect(pipelines[1]).toHaveTextContent('edges');
   });
@@ -105,13 +105,13 @@ describe('Pipelines', () => {
       screen.queryByTestId('PipelineStepsTable__loadingDots'),
     );
 
-    expect(await screen.findAllByTestId('PipelineStepsList__row')).toHaveLength(
+    expect(await screen.findAllByTestId('PipelineListRow__row')).toHaveLength(
       2,
     );
     await click(screen.getByLabelText('expand filters'));
     await click(screen.getByText('Idle'));
 
-    const pipelines = await screen.findAllByTestId('PipelineStepsList__row');
+    const pipelines = await screen.findAllByTestId('PipelineListRow__row');
     expect(pipelines).toHaveLength(1);
     expect(pipelines[0]).toHaveTextContent('Idle - Running');
   });
@@ -123,7 +123,7 @@ describe('Pipelines', () => {
       screen.queryByTestId('PipelineStepsTable__loadingDots'),
     );
 
-    expect(await screen.findAllByTestId('PipelineStepsList__row')).toHaveLength(
+    expect(await screen.findAllByTestId('PipelineListRow__row')).toHaveLength(
       2,
     );
 

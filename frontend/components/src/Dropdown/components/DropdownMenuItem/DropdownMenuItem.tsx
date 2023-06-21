@@ -16,6 +16,7 @@ export interface DropdownMenuItemProps
   value?: string;
   buttonStyle?: 'default' | 'tertiary';
   IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  topBorder?: boolean;
 }
 
 export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
@@ -28,6 +29,7 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   value = '',
   buttonStyle = 'default',
   IconSVG,
+  topBorder,
   ...rest
 }) => {
   const ref = useRef<HTMLButtonElement>(null);
@@ -41,6 +43,7 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   const classes = classnames(styles.base, className, {
     [styles.tertiary]: buttonStyle === 'tertiary',
     [styles.important]: important,
+    [styles.topBorder]: topBorder,
   });
 
   if (!shown) {

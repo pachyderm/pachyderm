@@ -3,9 +3,6 @@ import React, {ButtonHTMLAttributes} from 'react';
 import BootstrapModalFooter from 'react-bootstrap/ModalFooter';
 
 import {Button, ButtonGroup} from './../../../Button';
-import {Icon} from './../../../Icon';
-import {Link} from './../../../Link';
-import {ExternalLinkSVG} from './../../../Svg';
 import styles from './ModalFooter.module.css';
 
 export interface ModalProps {
@@ -19,8 +16,7 @@ export interface ModalProps {
   className?: string;
   cancelText?: string;
   hideConfirm?: boolean;
-  infoLink?: string;
-  infoLinkText?: string;
+  footerContent?: JSX.Element;
 }
 
 const ModalFooter: React.FC<ModalProps> = ({
@@ -34,18 +30,12 @@ const ModalFooter: React.FC<ModalProps> = ({
   className = '',
   cancelText = 'Cancel',
   hideConfirm = false,
-  infoLink,
-  infoLinkText = 'Info',
+  footerContent,
 }) => {
   return (
     <BootstrapModalFooter className={classnames(styles.base, className)}>
-      {infoLink && (
-        <Link externalLink inline to={infoLink} className={styles.footerLink}>
-          {infoLinkText}
-          <Icon small color="plum">
-            <ExternalLinkSVG />
-          </Icon>
-        </Link>
+      {footerContent && (
+        <div className={styles.footerContent}>{footerContent}</div>
       )}
       <ButtonGroup>
         <Button

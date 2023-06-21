@@ -1,6 +1,9 @@
 import React, {useState} from 'react';
 
 import {Button} from './../Button';
+import {Icon} from './../Icon';
+import {Link} from './../Link';
+import {ExternalLinkSVG} from './../Svg';
 
 import {
   BasicModal,
@@ -117,7 +120,14 @@ export const NoConfirm = () => {
         small={true}
         actionable
         hideConfirm
-        footerInfoLink="foo"
+        footerContent={
+          <Link externalLink inline to={'/foo'}>
+            link
+            <Icon small color="plum">
+              <ExternalLinkSVG />
+            </Icon>
+          </Link>
+        }
       >
         The actionable Modal without a confirm button is meant for Modals that
         have asynchronously interactable elements within and not necessarily a

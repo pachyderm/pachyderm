@@ -1,10 +1,12 @@
-import {Project} from '@graphqlTypes';
+import {Permission, Project, ResourceType} from '@graphqlTypes';
 import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React from 'react';
 import {useHistory} from 'react-router';
 
 import ActiveProjectModal from '@dash-frontend/components/ActiveProjectModal';
+import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
+import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Button,
@@ -42,6 +44,11 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     isOpen: activeProjectModalIsOpen,
   } = useModal(false);
   const {
+    openModal: openRolesModal,
+    closeModal: closeRolesModal,
+    isOpen: rolesModalOpen,
+  } = useModal(false);
+  const {
     openModal: openUpdateModal,
     closeModal: closeUpdateModal,
     isOpen: updateModalIsOpen,
@@ -52,6 +59,24 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     isOpen: deleteModalIsOpen,
   } = useModal(false);
 
+  const {isAuthorizedAction: deleteProjectIsAuthorizedAction} =
+    useVerifiedAuthorization({
+      permissionsList: [Permission.PROJECT_DELETE],
+      resource: {type: ResourceType.PROJECT, name: project.id},
+    });
+
+  const {isAuthorizedAction: editProjectIsAuthorizedAction} =
+    useVerifiedAuthorization({
+      permissionsList: [Permission.PROJECT_CREATE],
+      resource: {type: ResourceType.PROJECT, name: project.id},
+    });
+
+  const {isAuthorizedAction: editProjectRoleIsAuthorizedAction, isAuthActive} =
+    useVerifiedAuthorization({
+      permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
+      resource: {type: ResourceType.PROJECT, name: project.id},
+    });
+
   const onClick = () =>
     browserHistory.push(lineageRoute({projectId: project.id}));
 
@@ -61,22 +86,38 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       content: 'Set Active Project',
       closeOnClick: true,
     },
-    {
+  ];
+
+  if (editProjectIsAuthorizedAction)
+    overflowMenuItems.push({
       id: 'edit-project-info',
       content: 'Edit Project Info',
       closeOnClick: true,
-    },
-    {
+    });
+
+  if (isAuthActive)
+    overflowMenuItems.push({
+      id: 'edit-project-roles',
+      content: editProjectRoleIsAuthorizedAction
+        ? 'Edit Project Roles'
+        : 'View Project Roles',
+      closeOnClick: true,
+    });
+
+  if (deleteProjectIsAuthorizedAction)
+    overflowMenuItems.push({
       id: 'delete-project',
       content: 'Delete Project',
       closeOnClick: true,
-    },
-  ];
+    });
 
   const onSelect = (id: string) => {
     switch (id) {
       case 'set-active':
         openActiveProjectModal();
+        return null;
+      case 'edit-project-roles':
+        openRolesModal();
         return null;
       case 'edit-project-info':
         openUpdateModal();
@@ -162,6 +203,14 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
           show={deleteModalIsOpen}
           onHide={closeDeleteModal}
           projectName={project.id}
+        />
+      )}
+      {rolesModalOpen && (
+        <ProjectRolesModal
+          show={rolesModalOpen}
+          onHide={closeRolesModal}
+          projectName={project.id}
+          readOnly={!editProjectRoleIsAuthorizedAction}
         />
       )}
     </>

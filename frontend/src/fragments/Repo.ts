@@ -17,5 +17,8 @@ export const RepoFragment = gql`
       id
       name
     }
+    authInfo {
+      rolesList
+    }
   }
 `;

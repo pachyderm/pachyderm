@@ -59,7 +59,7 @@ describe(
         .scrollIntoView()
         .click();
       cy.findByText('Repositories').click();
-      inspectListItemScrolling('RepositoriesList__row', 34);
+      inspectListItemScrolling('RepoListRow__row', 34);
     });
 
     it('should display the last item properly when scrolling a list of pipelines', () => {
@@ -69,7 +69,7 @@ describe(
         .scrollIntoView()
         .click();
       cy.findByText('Pipelines').click();
-      inspectListItemScrolling('PipelineStepsList__row', 27);
+      inspectListItemScrolling('PipelineListRow__row', 27);
     });
 
     it('should display the last item properly when scrolling info from pipelines in lineage view', () => {

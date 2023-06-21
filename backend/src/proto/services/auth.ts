@@ -1,4 +1,7 @@
-import {toProtoResourceType} from '@dash-backend/lib/gqlEnumMappers';
+import {
+  toProtoPermissionType,
+  toProtoResourceType,
+} from '@dash-backend/lib/gqlEnumMappers';
 
 import {ServiceArgs} from '../lib/types';
 import {APIClient} from '../proto/auth/auth_grpc_pb';
@@ -6,12 +9,16 @@ import {
   ActivateRequest,
   ActivateResponse,
   AuthenticateRequest,
+  AuthorizeRequest,
+  AuthorizeResponse,
   DeactivateRequest,
   DeactivateResponse,
   GetPermissionsRequest,
   GetPermissionsResponse,
   GetRoleBindingRequest,
   GetRoleBindingResponse,
+  ModifyRoleBindingRequest,
+  ModifyRoleBindingResponse,
   Resource,
   WhoAmIRequest,
   WhoAmIResponse,
@@ -95,11 +102,37 @@ const auth = ({
         });
       });
     },
+    modifyRoleBinding: (args: ModifyRoleBindingRequest.AsObject) => {
+      return new Promise<ModifyRoleBindingResponse.AsObject>(
+        (resolve, reject) => {
+          const request = new ModifyRoleBindingRequest();
+          request
+            .setPrincipal(args.principal)
+            .setRolesList(args.rolesList)
+            .setResource(
+              new Resource()
+                .setType(args.resource?.type || 0)
+                .setName(args.resource?.name || ''),
+            );
+          client.modifyRoleBinding(
+            request,
+            credentialMetadata,
+            (error, res) => {
+              if (error) {
+                return reject(error);
+              } else {
+                return resolve(res.toObject());
+              }
+            },
+          );
+        },
+      );
+    },
     getPermissions: (args: Required<GetPermissionsRequest.AsObject>) => {
       return new Promise<GetPermissionsResponse.AsObject>((resolve, reject) => {
         const request = new GetPermissionsRequest();
-        const resource = new Resource().setName(args.resource.name);
 
+        const resource = new Resource().setName(args.resource.name);
         if (Number.isInteger(args?.resource?.type)) {
           resource.setType(args?.resource?.type);
         } else {
@@ -107,7 +140,34 @@ const auth = ({
         }
 
         request.setResource(resource);
+
         client.getPermissions(request, credentialMetadata, (error, res) => {
+          if (error) {
+            return reject(error);
+          } else {
+            return resolve(res.toObject());
+          }
+        });
+      });
+    },
+    authorize: (args: Required<AuthorizeRequest.AsObject>) => {
+      return new Promise<AuthorizeResponse.AsObject>((resolve, reject) => {
+        const request = new AuthorizeRequest();
+
+        const resource = new Resource().setName(args.resource.name);
+        if (Number.isInteger(args?.resource?.type)) {
+          resource.setType(args?.resource?.type);
+        } else {
+          resource.setType(toProtoResourceType(args.resource.type));
+        }
+
+        request
+          .setPermissionsList(
+            args.permissionsList.map((el) => toProtoPermissionType(el)),
+          )
+          .setResource(resource);
+
+        client.authorize(request, credentialMetadata, (error, res) => {
           if (error) {
             return reject(error);
           } else {

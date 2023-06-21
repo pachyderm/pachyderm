@@ -38,3 +38,7 @@
 .important:hover {
   color: var(--error-red);
 }
+
+.topBorder {
+  border: solid 1px var(--border-grey);
+}

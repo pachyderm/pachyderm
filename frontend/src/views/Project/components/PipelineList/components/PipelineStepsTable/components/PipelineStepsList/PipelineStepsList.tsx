@@ -1,34 +1,20 @@
 import {ApolloError} from '@apollo/client';
-import {Pipeline} from '@graphqlTypes';
-import capitalize from 'lodash/capitalize';
+import {Pipeline, ReposWithCommitQuery} from '@graphqlTypes';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
-import {readableJobState} from '@dash-frontend/lib/jobs';
-import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {Table, LoadingDots} from '@pachyderm/components';
 
-import usePipelineStepsList from './hooks/usePipelineStepsList';
+import PipelineListRow from './components/PipelineListRow';
 
 type PipelineStepsListProps = {
   error?: ApolloError;
   loading: boolean;
   totalPipelinesLength: number;
   pipelines?: (Pipeline | null)[];
-};
-
-const getPipelineStateString = (nodeState: string, state: string) => {
-  if (!nodeState || !state) {
-    return '';
-  } else if (state === nodeState) {
-    return nodeState;
-  } else {
-    return `${nodeState} - ${state}`;
-  }
+  pipelineRepoMap: Record<string, ReposWithCommitQuery['repos'][0]>;
 };
 
 const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
@@ -36,14 +22,8 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
   pipelines = [],
   loading,
   error,
+  pipelineRepoMap,
 }) => {
-  const {iconItems, onOverflowMenuSelect} = usePipelineStepsList();
-  const {searchParams, toggleSearchParamsListEntry} = useUrlQueryState();
-
-  const addSelection = (value: string) => {
-    toggleSearchParamsListEntry('selectedPipelines', value);
-  };
-
   if (loading) {
     return <LoadingDots />;
   }
@@ -90,45 +70,24 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
             <Table.HeaderCell>Version</Table.HeaderCell>
             <Table.HeaderCell>Created</Table.HeaderCell>
             <Table.HeaderCell>Description</Table.HeaderCell>
+            {pipelineRepoMap[pipelines?.[0]?.id || '']?.authInfo?.rolesList && (
+              <Table.HeaderCell>Roles</Table.HeaderCell>
+            )}
             <Table.HeaderCell />
           </Table.Row>
         </Table.Head>
-
         <Table.Body>
-          {pipelines.map((pipeline) => (
-            <Table.Row
-              key={pipeline?.id}
-              data-testid="PipelineStepsList__row"
-              onClick={() => addSelection(pipeline?.name || '')}
-              isSelected={searchParams.selectedPipelines?.includes(
-                pipeline?.name || '',
-              )}
-              hasCheckbox
-              overflowMenuItems={iconItems}
-              dropdownOnSelect={onOverflowMenuSelect(pipeline?.name || '')}
-            >
-              <Table.DataCell>{pipeline?.name}</Table.DataCell>
-              <Table.DataCell>
-                {getPipelineStateString(
-                  capitalize(pipeline?.nodeState || ''),
-                  readablePipelineState(pipeline?.state || ''),
-                )}
-              </Table.DataCell>
-              <Table.DataCell>
-                {getPipelineStateString(
-                  capitalize(pipeline?.lastJobNodeState || ''),
-                  readableJobState(pipeline?.lastJobState || ''),
-                )}
-              </Table.DataCell>
-              <Table.DataCell>v:{pipeline?.version}</Table.DataCell>
-              <Table.DataCell>
-                {pipeline?.createdAt
-                  ? getStandardDate(pipeline?.createdAt)
-                  : '-'}
-              </Table.DataCell>
-              <Table.DataCell>{pipeline?.description || '-'}</Table.DataCell>
-            </Table.Row>
-          ))}
+          {pipelines.map((pipeline) => {
+            return (
+              pipeline && (
+                <PipelineListRow
+                  key={pipeline?.id}
+                  pipeline={pipeline}
+                  pipelineRepoMap={pipelineRepoMap}
+                />
+              )
+            );
+          })}
         </Table.Body>
       </Table>
     </TableViewWrapper>

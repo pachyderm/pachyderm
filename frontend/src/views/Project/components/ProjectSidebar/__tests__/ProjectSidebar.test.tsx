@@ -158,6 +158,21 @@ describe('ProjectSidebar', () => {
         await screen.findByText('Node_1 (Project Multi-Project-Pipeline-B)'),
       ).toBeInTheDocument();
     });
+
+    it('should allow users to open the roles modal', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/Egress-Examples/pipelines/edges',
+      );
+
+      render(<Project />);
+      await click((await screen.findAllByText('Set Roles via Repo'))[0]);
+
+      expect(
+        screen.getByText('Set Repo Level Roles: Egress-Examples/edges'),
+      ).toBeInTheDocument();
+    });
   });
 
   describe('repos', () => {
@@ -299,6 +314,21 @@ describe('ProjectSidebar', () => {
 
       expect(screen.getByText('edges_output')).toBeInTheDocument();
       expect(screen.getByText('egress_output')).toBeInTheDocument();
+    });
+
+    it('should allow users to open the roles modal', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/Egress-Examples/repos/edges',
+      );
+
+      render(<Project />);
+      await click((await screen.findAllByText('Set Roles'))[0]);
+
+      expect(
+        screen.getByText('Set Repo Level Roles: Egress-Examples/edges'),
+      ).toBeInTheDocument();
     });
   });
 });

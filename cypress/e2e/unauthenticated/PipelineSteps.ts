@@ -17,9 +17,9 @@ describe('Pipelines', () => {
 
   it('should allow a user to select a subset of pipelines to inspect jobs and apply a global ID', () => {
     cy.findByText('Pipelines').click();
-    cy.findAllByTestId('PipelineStepsList__row').should('have.length', 2)
+    cy.findAllByTestId('PipelineListRow__row').should('have.length', 2)
 
-    cy.findAllByTestId('PipelineStepsList__row').eq(1).click();
+    cy.findAllByTestId('PipelineListRow__row').eq(1).click();
     cy.findByText('Detailed info for 1 pipeline');
     cy.findByRole('tab', {name: 'Jobs'}).click();
     

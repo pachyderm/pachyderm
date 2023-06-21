@@ -29,11 +29,11 @@ describe('Project', () => {
 
     cy.findByText('images').click();
     cy.findByTestId('DeleteRepoButton__link').should('be.disabled');
-    cy.findByLabelText('Close').click();
+    cy.findByRole('button', {name: 'Close sidebar'}).click();
 
     cy.get("#GROUP_edges").within(() => cy.findByText('Pipeline').click());
     cy.findByTestId('DeletePipelineButton__link').should('be.disabled');
-    cy.findByLabelText('Close').click();
+    cy.findByRole('button', {name: 'Close sidebar'}).click();
 
     cy.get("#GROUP_montage").within(() => cy.findByText('Pipeline').click({force: true}));
     cy.findByTestId('DeletePipelineButton__link').click();
@@ -44,7 +44,7 @@ describe('Project', () => {
 
     cy.findByText('images').click({force: true});
     cy.findByTestId('DeleteRepoButton__link').should('be.disabled');
-    cy.findByLabelText('Close').click();
+    cy.findByRole('button', {name: 'Close sidebar'}).click();
 
     
     cy.get("#GROUP_edges").within(() => cy.findByText('Pipeline').click());

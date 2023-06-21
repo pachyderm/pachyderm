@@ -5,10 +5,12 @@ import {
   OriginKind,
   DatumState,
   State,
+  Permission,
 } from '@dash-backend/proto';
 import {
   OriginKind as GQLOriginKind,
   ResourceType as GQLResourceType,
+  Permission as GQLPermission,
 } from '@graphqlTypes';
 
 import {
@@ -20,6 +22,8 @@ import {
   toGQLDatumState,
   toGQLEnterpriseState,
   toProtoResourceType,
+  toProtoPermissionType,
+  toGQLPermissionType,
 } from '../gqlEnumMappers';
 
 describe('gqlEnumMappers', () => {
@@ -91,6 +95,24 @@ describe('gqlEnumMappers', () => {
       Object.values(GQLResourceType).forEach((val) => {
         if (typeof val === 'string') return;
         expect(() => toProtoResourceType(val)).not.toThrow();
+      });
+    });
+  });
+
+  describe('toProtoPermissionType', () => {
+    it('should not return an error for any resource type', () => {
+      Object.values(GQLPermission).forEach((val) => {
+        if (typeof val === 'string') return;
+        expect(() => toProtoPermissionType(val)).not.toThrow();
+      });
+    });
+  });
+
+  describe('toGQLPermissionType', () => {
+    it('should not return an error for any resource type', () => {
+      Object.values(Permission).forEach((val) => {
+        if (typeof val === 'string') return;
+        expect(() => toGQLPermissionType(val)).not.toThrow();
       });
     });
   });

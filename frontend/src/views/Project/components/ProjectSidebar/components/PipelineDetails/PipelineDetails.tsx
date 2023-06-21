@@ -3,8 +3,16 @@ import React from 'react';
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Description from '@dash-frontend/components/Description';
 import InfoPanel from '@dash-frontend/components/InfoPanel';
+import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
+import useCurrentOuptutRepoOfPipeline from '@dash-frontend/hooks/useCurrentOuptutRepoOfPipeline';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
-import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
+import {
+  SkeletonDisplayText,
+  Tabs,
+  Group,
+  ButtonLink,
+  useModal,
+} from '@pachyderm/components';
 
 import Title from '../Title';
 
@@ -15,9 +23,23 @@ import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
 
 const PipelineDetails: React.FC = () => {
-  const {loading, pipeline, lastJob, isServiceOrSpout, tabsBasePath} =
-    usePipelineDetails();
+  const {
+    loading,
+    pipeline,
+    lastJob,
+    isServiceOrSpout,
+    tabsBasePath,
+    projectId,
+    pipelineId,
+    editRolesPermission,
+  } = usePipelineDetails();
+  const {
+    openModal: openRolesModal,
+    closeModal: closeRolesModal,
+    isOpen: rolesModalOpen,
+  } = useModal(false);
 
+  const {repo} = useCurrentOuptutRepoOfPipeline();
   return (
     <>
       <BrandedTitle title="Pipeline" />
@@ -34,12 +56,34 @@ const PipelineDetails: React.FC = () => {
           {pipeline?.description && (
             <div className={styles.description}>{pipeline?.description}</div>
           )}
+          {repo?.authInfo?.rolesList && (
+            <Description term="Your Roles" loading={loading}>
+              <Group spacing={8}>
+                {repo?.authInfo?.rolesList.join(', ') || 'None'}
+                <ButtonLink onClick={openRolesModal}>
+                  {editRolesPermission
+                    ? 'Set Roles via Repo'
+                    : 'See All Roles via Repo'}
+                </ButtonLink>{' '}
+              </Group>
+            </Description>
+          )}
           <Description term="Most Recent Job Start" loading={loading}>
             {lastJob?.createdAt ? getStandardDate(lastJob?.createdAt) : 'N/A'}
           </Description>
           <Description term="Most Recent Job ID" loading={loading}>
             {lastJob?.id}
           </Description>
+
+          {repo?.authInfo?.rolesList && rolesModalOpen && (
+            <RepoRolesModal
+              show={rolesModalOpen}
+              onHide={closeRolesModal}
+              projectName={projectId}
+              repoName={pipelineId}
+              readOnly={!editRolesPermission}
+            />
+          )}
         </div>
         <Tabs.RouterTabs basePathTabId={TAB_ID.JOB} basePath={tabsBasePath}>
           <Tabs.TabsHeader className={styles.tabsHeader}>

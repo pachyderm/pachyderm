@@ -45,6 +45,11 @@ export type AuthConfig = {
   pachdClientId: Scalars['String'];
 };
 
+export type AuthInfo = {
+  __typename?: 'AuthInfo';
+  rolesList?: Maybe<Array<Maybe<Scalars['String']>>>;
+};
+
 export type Branch = {
   __typename?: 'Branch';
   name: Scalars['ID'];
@@ -332,6 +337,19 @@ export type FoundCommit = {
   started: Scalars['Int'];
 };
 
+export type GetAuthorizeArgs = {
+  permissionsList: Array<Permission>;
+  resource: Resource;
+};
+
+export type GetAuthorizeResp = {
+  __typename?: 'GetAuthorizeResp';
+  authorized?: Maybe<Scalars['Boolean']>;
+  missingList: Array<Permission>;
+  principal: Scalars['String'];
+  satisfiedList: Array<Permission>;
+};
+
 export type GetPermissionsArgs = {
   resource: Resource;
 };
@@ -339,7 +357,16 @@ export type GetPermissionsArgs = {
 export type GetPermissionsResp = {
   __typename?: 'GetPermissionsResp';
   permissionsList: Array<Maybe<Scalars['Int']>>;
-  rolesList: Array<Maybe<Scalars['String']>>;
+  rolesList: Array<Scalars['String']>;
+};
+
+export type GetRolesArgs = {
+  resource: Resource;
+};
+
+export type GetRolesResp = {
+  __typename?: 'GetRolesResp';
+  roleBindings?: Maybe<Array<Maybe<RolesList>>>;
 };
 
 export type GitInput = {
@@ -474,6 +501,12 @@ export type LogsArgs = {
   start?: InputMaybe<Scalars['Int']>;
 };
 
+export type ModifyRolesArgs = {
+  principal: Scalars['String'];
+  resource: Resource;
+  rolesList: Array<Scalars['String']>;
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   createBranch: Branch;
@@ -486,6 +519,7 @@ export type Mutation = {
   deleteRepo?: Maybe<Scalars['Boolean']>;
   exchangeCode: Tokens;
   finishCommit: Scalars['Boolean'];
+  modifyRoles: Scalars['Boolean'];
   putFilesFromURLs: Array<Scalars['String']>;
   startCommit: OpenCommit;
   updateProject: Project;
@@ -529,6 +563,10 @@ export type MutationExchangeCodeArgs = {
 
 export type MutationFinishCommitArgs = {
   args: FinishCommitArgs;
+};
+
+export type MutationModifyRolesArgs = {
+  args: ModifyRolesArgs;
 };
 
 export type MutationPutFilesFromUrLsArgs = {
@@ -644,6 +682,77 @@ export type PageableJobSet = {
   items: Array<JobSet>;
 };
 
+export enum Permission {
+  CLUSTER_AUTH_ACTIVATE = 'CLUSTER_AUTH_ACTIVATE',
+  CLUSTER_AUTH_DEACTIVATE = 'CLUSTER_AUTH_DEACTIVATE',
+  CLUSTER_AUTH_DELETE_EXPIRED_TOKENS = 'CLUSTER_AUTH_DELETE_EXPIRED_TOKENS',
+  CLUSTER_AUTH_EXTRACT_TOKENS = 'CLUSTER_AUTH_EXTRACT_TOKENS',
+  CLUSTER_AUTH_GET_CONFIG = 'CLUSTER_AUTH_GET_CONFIG',
+  CLUSTER_AUTH_GET_GROUPS = 'CLUSTER_AUTH_GET_GROUPS',
+  CLUSTER_AUTH_GET_GROUP_USERS = 'CLUSTER_AUTH_GET_GROUP_USERS',
+  CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL = 'CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL',
+  CLUSTER_AUTH_GET_ROBOT_TOKEN = 'CLUSTER_AUTH_GET_ROBOT_TOKEN',
+  CLUSTER_AUTH_MODIFY_GROUP_MEMBERS = 'CLUSTER_AUTH_MODIFY_GROUP_MEMBERS',
+  CLUSTER_AUTH_RESTORE_TOKEN = 'CLUSTER_AUTH_RESTORE_TOKEN',
+  CLUSTER_AUTH_REVOKE_USER_TOKENS = 'CLUSTER_AUTH_REVOKE_USER_TOKENS',
+  CLUSTER_AUTH_ROTATE_ROOT_TOKEN = 'CLUSTER_AUTH_ROTATE_ROOT_TOKEN',
+  CLUSTER_AUTH_SET_CONFIG = 'CLUSTER_AUTH_SET_CONFIG',
+  CLUSTER_CREATE_SECRET = 'CLUSTER_CREATE_SECRET',
+  CLUSTER_DEBUG_DUMP = 'CLUSTER_DEBUG_DUMP',
+  CLUSTER_DELETE_ALL = 'CLUSTER_DELETE_ALL',
+  CLUSTER_ENTERPRISE_ACTIVATE = 'CLUSTER_ENTERPRISE_ACTIVATE',
+  CLUSTER_ENTERPRISE_DEACTIVATE = 'CLUSTER_ENTERPRISE_DEACTIVATE',
+  CLUSTER_ENTERPRISE_GET_CODE = 'CLUSTER_ENTERPRISE_GET_CODE',
+  CLUSTER_ENTERPRISE_HEARTBEAT = 'CLUSTER_ENTERPRISE_HEARTBEAT',
+  CLUSTER_ENTERPRISE_PAUSE = 'CLUSTER_ENTERPRISE_PAUSE',
+  CLUSTER_GET_BINDINGS = 'CLUSTER_GET_BINDINGS',
+  CLUSTER_GET_PACHD_LOGS = 'CLUSTER_GET_PACHD_LOGS',
+  CLUSTER_IDENTITY_CREATE_IDP = 'CLUSTER_IDENTITY_CREATE_IDP',
+  CLUSTER_IDENTITY_CREATE_OIDC_CLIENT = 'CLUSTER_IDENTITY_CREATE_OIDC_CLIENT',
+  CLUSTER_IDENTITY_DELETE_IDP = 'CLUSTER_IDENTITY_DELETE_IDP',
+  CLUSTER_IDENTITY_DELETE_OIDC_CLIENT = 'CLUSTER_IDENTITY_DELETE_OIDC_CLIENT',
+  CLUSTER_IDENTITY_GET_CONFIG = 'CLUSTER_IDENTITY_GET_CONFIG',
+  CLUSTER_IDENTITY_GET_IDP = 'CLUSTER_IDENTITY_GET_IDP',
+  CLUSTER_IDENTITY_GET_OIDC_CLIENT = 'CLUSTER_IDENTITY_GET_OIDC_CLIENT',
+  CLUSTER_IDENTITY_LIST_IDPS = 'CLUSTER_IDENTITY_LIST_IDPS',
+  CLUSTER_IDENTITY_LIST_OIDC_CLIENTS = 'CLUSTER_IDENTITY_LIST_OIDC_CLIENTS',
+  CLUSTER_IDENTITY_SET_CONFIG = 'CLUSTER_IDENTITY_SET_CONFIG',
+  CLUSTER_IDENTITY_UPDATE_IDP = 'CLUSTER_IDENTITY_UPDATE_IDP',
+  CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT = 'CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT',
+  CLUSTER_LICENSE_ACTIVATE = 'CLUSTER_LICENSE_ACTIVATE',
+  CLUSTER_LICENSE_ADD_CLUSTER = 'CLUSTER_LICENSE_ADD_CLUSTER',
+  CLUSTER_LICENSE_DELETE_CLUSTER = 'CLUSTER_LICENSE_DELETE_CLUSTER',
+  CLUSTER_LICENSE_GET_CODE = 'CLUSTER_LICENSE_GET_CODE',
+  CLUSTER_LICENSE_LIST_CLUSTERS = 'CLUSTER_LICENSE_LIST_CLUSTERS',
+  CLUSTER_LICENSE_UPDATE_CLUSTER = 'CLUSTER_LICENSE_UPDATE_CLUSTER',
+  CLUSTER_LIST_SECRETS = 'CLUSTER_LIST_SECRETS',
+  CLUSTER_MODIFY_BINDINGS = 'CLUSTER_MODIFY_BINDINGS',
+  PERMISSION_UNKNOWN = 'PERMISSION_UNKNOWN',
+  PIPELINE_LIST_JOB = 'PIPELINE_LIST_JOB',
+  PROJECT_CREATE = 'PROJECT_CREATE',
+  PROJECT_CREATE_REPO = 'PROJECT_CREATE_REPO',
+  PROJECT_DELETE = 'PROJECT_DELETE',
+  PROJECT_LIST_REPO = 'PROJECT_LIST_REPO',
+  PROJECT_MODIFY_BINDINGS = 'PROJECT_MODIFY_BINDINGS',
+  REPO_ADD_PIPELINE_READER = 'REPO_ADD_PIPELINE_READER',
+  REPO_ADD_PIPELINE_WRITER = 'REPO_ADD_PIPELINE_WRITER',
+  REPO_CREATE_BRANCH = 'REPO_CREATE_BRANCH',
+  REPO_DELETE = 'REPO_DELETE',
+  REPO_DELETE_BRANCH = 'REPO_DELETE_BRANCH',
+  REPO_DELETE_COMMIT = 'REPO_DELETE_COMMIT',
+  REPO_INSPECT_COMMIT = 'REPO_INSPECT_COMMIT',
+  REPO_INSPECT_FILE = 'REPO_INSPECT_FILE',
+  REPO_LIST_BRANCH = 'REPO_LIST_BRANCH',
+  REPO_LIST_COMMIT = 'REPO_LIST_COMMIT',
+  REPO_LIST_FILE = 'REPO_LIST_FILE',
+  REPO_MODIFY_BINDINGS = 'REPO_MODIFY_BINDINGS',
+  REPO_READ = 'REPO_READ',
+  REPO_REMOVE_PIPELINE_READER = 'REPO_REMOVE_PIPELINE_READER',
+  REPO_WRITE = 'REPO_WRITE',
+  SECRET_DELETE = 'SECRET_DELETE',
+  SECRET_INSPECT = 'SECRET_INSPECT',
+}
+
 export type Pipeline = {
   __typename?: 'Pipeline';
   createdAt: Scalars['Int'];
@@ -753,7 +862,9 @@ export type Query = {
   fileDownload: Scalars['String'];
   files: PageableFile;
   findCommits: PageableFoundCommits;
+  getAuthorize?: Maybe<GetAuthorizeResp>;
   getPermissions?: Maybe<GetPermissionsResp>;
+  getRoles?: Maybe<GetRolesResp>;
   job: Job;
   jobSet: JobSet;
   jobSets: PageableJobSet;
@@ -821,8 +932,16 @@ export type QueryFindCommitsArgs = {
   args: FindCommitsQueryArgs;
 };
 
+export type QueryGetAuthorizeArgs = {
+  args: GetAuthorizeArgs;
+};
+
 export type QueryGetPermissionsArgs = {
   args: GetPermissionsArgs;
+};
+
+export type QueryGetRolesArgs = {
+  args: GetRolesArgs;
 };
 
 export type QueryJobArgs = {
@@ -884,6 +1003,7 @@ export type QueryWorkspaceLogsArgs = {
 export type Repo = {
   __typename?: 'Repo';
   access: Scalars['Boolean'];
+  authInfo?: Maybe<AuthInfo>;
   branches: Array<Branch>;
   createdAt: Scalars['Int'];
   description: Scalars['String'];
@@ -929,6 +1049,12 @@ export enum ResourceType {
   RESOURCE_TYPE_UNKNOWN = 'RESOURCE_TYPE_UNKNOWN',
   SPEC_REPO = 'SPEC_REPO',
 }
+
+export type RolesList = {
+  __typename?: 'RolesList';
+  principal: Scalars['String'];
+  roles: Array<Maybe<Scalars['String']>>;
+};
 
 export type SchedulingSpec = {
   __typename?: 'SchedulingSpec';
@@ -1159,6 +1285,7 @@ export type ResolversTypes = ResolversObject<{
   Account: ResolverTypeWrapper<Account>;
   AdminInfo: ResolverTypeWrapper<AdminInfo>;
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
+  AuthInfo: ResolverTypeWrapper<AuthInfo>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Branch: ResolverTypeWrapper<Branch>;
   BranchInfo: ResolverTypeWrapper<BranchInfo>;
@@ -1200,8 +1327,12 @@ export type ResolversTypes = ResolversObject<{
   FinishCommitArgs: FinishCommitArgs;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   FoundCommit: ResolverTypeWrapper<FoundCommit>;
+  GetAuthorizeArgs: GetAuthorizeArgs;
+  GetAuthorizeResp: ResolverTypeWrapper<GetAuthorizeResp>;
   GetPermissionsArgs: GetPermissionsArgs;
   GetPermissionsResp: ResolverTypeWrapper<GetPermissionsResp>;
+  GetRolesArgs: GetRolesArgs;
+  GetRolesResp: ResolverTypeWrapper<GetRolesResp>;
   GitInput: ResolverTypeWrapper<GitInput>;
   ID: ResolverTypeWrapper<Scalars['ID']>;
   Input: ResolverTypeWrapper<Input>;
@@ -1218,6 +1349,7 @@ export type ResolversTypes = ResolversObject<{
   JobsQueryArgs: JobsQueryArgs;
   Log: ResolverTypeWrapper<Log>;
   LogsArgs: LogsArgs;
+  ModifyRolesArgs: ModifyRolesArgs;
   Mutation: ResolverTypeWrapper<{}>;
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
   NodeState: NodeState;
@@ -1234,6 +1366,7 @@ export type ResolversTypes = ResolversObject<{
   PageableFoundCommits: ResolverTypeWrapper<PageableFoundCommits>;
   PageableJob: ResolverTypeWrapper<PageableJob>;
   PageableJobSet: ResolverTypeWrapper<PageableJobSet>;
+  Permission: Permission;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
@@ -1253,6 +1386,7 @@ export type ResolversTypes = ResolversObject<{
   ReposQueryArgs: ReposQueryArgs;
   Resource: Resource;
   ResourceType: ResourceType;
+  RolesList: ResolverTypeWrapper<RolesList>;
   SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: ResolverTypeWrapper<SearchResults>;
@@ -1276,6 +1410,7 @@ export type ResolversParentTypes = ResolversObject<{
   Account: Account;
   AdminInfo: AdminInfo;
   AuthConfig: AuthConfig;
+  AuthInfo: AuthInfo;
   Boolean: Scalars['Boolean'];
   Branch: Branch;
   BranchInfo: BranchInfo;
@@ -1312,8 +1447,12 @@ export type ResolversParentTypes = ResolversObject<{
   FinishCommitArgs: FinishCommitArgs;
   Float: Scalars['Float'];
   FoundCommit: FoundCommit;
+  GetAuthorizeArgs: GetAuthorizeArgs;
+  GetAuthorizeResp: GetAuthorizeResp;
   GetPermissionsArgs: GetPermissionsArgs;
   GetPermissionsResp: GetPermissionsResp;
+  GetRolesArgs: GetRolesArgs;
+  GetRolesResp: GetRolesResp;
   GitInput: GitInput;
   ID: Scalars['ID'];
   Input: Input;
@@ -1328,6 +1467,7 @@ export type ResolversParentTypes = ResolversObject<{
   JobsQueryArgs: JobsQueryArgs;
   Log: Log;
   LogsArgs: LogsArgs;
+  ModifyRolesArgs: ModifyRolesArgs;
   Mutation: {};
   NodeSelector: NodeSelector;
   OpenCommit: OpenCommit;
@@ -1356,6 +1496,7 @@ export type ResolversParentTypes = ResolversObject<{
   RepoQueryArgs: RepoQueryArgs;
   ReposQueryArgs: ReposQueryArgs;
   Resource: Resource;
+  RolesList: RolesList;
   SchedulingSpec: SchedulingSpec;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: SearchResults;
@@ -1403,6 +1544,18 @@ export type AuthConfigResolvers<
   authEndpoint?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   clientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   pachdClientId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type AuthInfoResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['AuthInfo'] = ResolversParentTypes['AuthInfo'],
+> = ResolversObject<{
+  rolesList?: Resolver<
+    Maybe<Array<Maybe<ResolversTypes['String']>>>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1578,6 +1731,29 @@ export type FoundCommitResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type GetAuthorizeRespResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['GetAuthorizeResp'] = ResolversParentTypes['GetAuthorizeResp'],
+> = ResolversObject<{
+  authorized?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
+  missingList?: Resolver<
+    Array<ResolversTypes['Permission']>,
+    ParentType,
+    ContextType
+  >;
+  principal?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  satisfiedList?: Resolver<
+    Array<ResolversTypes['Permission']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type GetPermissionsRespResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['GetPermissionsResp'] = ResolversParentTypes['GetPermissionsResp'],
@@ -1588,7 +1764,19 @@ export type GetPermissionsRespResolvers<
     ContextType
   >;
   rolesList?: Resolver<
-    Array<Maybe<ResolversTypes['String']>>,
+    Array<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type GetRolesRespResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['GetRolesResp'] = ResolversParentTypes['GetRolesResp'],
+> = ResolversObject<{
+  roleBindings?: Resolver<
+    Maybe<Array<Maybe<ResolversTypes['RolesList']>>>,
     ParentType,
     ContextType
   >;
@@ -1809,6 +1997,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationFinishCommitArgs, 'args'>
+  >;
+  modifyRoles?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationModifyRolesArgs, 'args'>
   >;
   putFilesFromURLs?: Resolver<
     Array<ResolversTypes['String']>,
@@ -2144,11 +2338,23 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryFindCommitsArgs, 'args'>
   >;
+  getAuthorize?: Resolver<
+    Maybe<ResolversTypes['GetAuthorizeResp']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryGetAuthorizeArgs, 'args'>
+  >;
   getPermissions?: Resolver<
     Maybe<ResolversTypes['GetPermissionsResp']>,
     ParentType,
     ContextType,
     RequireFields<QueryGetPermissionsArgs, 'args'>
+  >;
+  getRoles?: Resolver<
+    Maybe<ResolversTypes['GetRolesResp']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryGetRolesArgs, 'args'>
   >;
   job?: Resolver<
     ResolversTypes['Job'],
@@ -2252,6 +2458,11 @@ export type RepoResolvers<
   ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo'],
 > = ResolversObject<{
   access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  authInfo?: Resolver<
+    Maybe<ResolversTypes['AuthInfo']>,
+    ParentType,
+    ContextType
+  >;
   branches?: Resolver<Array<ResolversTypes['Branch']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -2279,6 +2490,19 @@ export type RepoInfoResolvers<
 > = ResolversObject<{
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   type?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type RolesListResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['RolesList'] = ResolversParentTypes['RolesList'],
+> = ResolversObject<{
+  principal?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  roles?: Resolver<
+    Array<Maybe<ResolversTypes['String']>>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2444,6 +2668,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Account?: AccountResolvers<ContextType>;
   AdminInfo?: AdminInfoResolvers<ContextType>;
   AuthConfig?: AuthConfigResolvers<ContextType>;
+  AuthInfo?: AuthInfoResolvers<ContextType>;
   Branch?: BranchResolvers<ContextType>;
   BranchInfo?: BranchInfoResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
@@ -2455,7 +2680,9 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   File?: FileResolvers<ContextType>;
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
   FoundCommit?: FoundCommitResolvers<ContextType>;
+  GetAuthorizeResp?: GetAuthorizeRespResolvers<ContextType>;
   GetPermissionsResp?: GetPermissionsRespResolvers<ContextType>;
+  GetRolesResp?: GetRolesRespResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
@@ -2480,6 +2707,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Query?: QueryResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
   RepoInfo?: RepoInfoResolvers<ContextType>;
+  RolesList?: RolesListResolvers<ContextType>;
   SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
   SearchResults?: SearchResultsResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
@@ -2627,6 +2855,10 @@ export type RepoFragmentFragment = {
   projectId: string;
   branches: Array<{__typename?: 'Branch'; name: string}>;
   linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+  authInfo?: {
+    __typename?: 'AuthInfo';
+    rolesList?: Array<string | null> | null;
+  } | null;
 };
 
 export type CreateBranchMutationVariables = Exact<{
@@ -2750,6 +2982,15 @@ export type FinishCommitMutation = {
   finishCommit: boolean;
 };
 
+export type ModifyRolesMutationVariables = Exact<{
+  args: ModifyRolesArgs;
+}>;
+
+export type ModifyRolesMutation = {
+  __typename?: 'Mutation';
+  modifyRoles: boolean;
+};
+
 export type PutFilesFromUrLsMutationVariables = Exact<{
   args: PutFilesFromUrLsArgs;
 }>;
@@ -2823,6 +3064,21 @@ export type AuthConfigQuery = {
     clientId: string;
     pachdClientId: string;
   };
+};
+
+export type GetAuthorizeQueryVariables = Exact<{
+  args: GetAuthorizeArgs;
+}>;
+
+export type GetAuthorizeQuery = {
+  __typename?: 'Query';
+  getAuthorize?: {
+    __typename?: 'GetAuthorizeResp';
+    satisfiedList: Array<Permission>;
+    missingList: Array<Permission>;
+    authorized?: boolean | null;
+    principal: string;
+  } | null;
 };
 
 export type GetBranchesQueryVariables = Exact<{
@@ -3429,7 +3685,7 @@ export type GetPermissionsQuery = {
   __typename?: 'Query';
   getPermissions?: {
     __typename?: 'GetPermissionsResp';
-    rolesList: Array<string | null>;
+    rolesList: Array<string>;
   } | null;
 };
 
@@ -3590,6 +3846,10 @@ export type RepoQuery = {
     projectId: string;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+    authInfo?: {
+      __typename?: 'AuthInfo';
+      rolesList?: Array<string | null> | null;
+    } | null;
   };
 };
 
@@ -3624,6 +3884,10 @@ export type RepoWithCommitQuery = {
     } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+    authInfo?: {
+      __typename?: 'AuthInfo';
+      rolesList?: Array<string | null> | null;
+    } | null;
   };
 };
 
@@ -3645,6 +3909,10 @@ export type ReposQuery = {
     projectId: string;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+    authInfo?: {
+      __typename?: 'AuthInfo';
+      rolesList?: Array<string | null> | null;
+    } | null;
   } | null>;
 };
 
@@ -3679,7 +3947,27 @@ export type ReposWithCommitQuery = {
     } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+    authInfo?: {
+      __typename?: 'AuthInfo';
+      rolesList?: Array<string | null> | null;
+    } | null;
   } | null>;
+};
+
+export type GetRolesQueryVariables = Exact<{
+  args: GetRolesArgs;
+}>;
+
+export type GetRolesQuery = {
+  __typename?: 'Query';
+  getRoles?: {
+    __typename?: 'GetRolesResp';
+    roleBindings?: Array<{
+      __typename?: 'RolesList';
+      principal: string;
+      roles: Array<string | null>;
+    } | null> | null;
+  } | null;
 };
 
 export type SearchResultsQueryVariables = Exact<{

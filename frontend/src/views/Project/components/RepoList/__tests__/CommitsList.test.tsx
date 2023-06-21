@@ -29,7 +29,7 @@ describe('Repo Commits List', () => {
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('ReposTable__loadingDots'),
     );
-    await click(screen.getAllByTestId('RepositoriesList__row')[1]);
+    await click(screen.getAllByTestId('RepoListRow__row')[1]);
     await click(screen.getByText('Commits'));
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('CommitsList__loadingDots'),
@@ -48,7 +48,7 @@ describe('Repo Commits List', () => {
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('ReposTable__loadingDots'),
     );
-    await click(screen.getAllByTestId('RepositoriesList__row')[1]);
+    await click(screen.getAllByTestId('RepoListRow__row')[1]);
     await click(screen.getByText('Commits'));
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('CommitsList__loadingDots'),
@@ -68,7 +68,7 @@ describe('Repo Commits List', () => {
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('ReposTable__loadingDots'),
     );
-    await click(screen.getAllByTestId('RepositoriesList__row')[1]);
+    await click(screen.getAllByTestId('RepoListRow__row')[1]);
     await click(screen.getByText('Commits'));
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('CommitsList__loadingDots'),
@@ -92,7 +92,7 @@ describe('Repo Commits List', () => {
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('ReposTable__loadingDots'),
     );
-    await click(screen.getAllByTestId('RepositoriesList__row')[1]);
+    await click(screen.getAllByTestId('RepoListRow__row')[1]);
     await click(screen.getByText('Commits'));
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('CommitsList__loadingDots'),

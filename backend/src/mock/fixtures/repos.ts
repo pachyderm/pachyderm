@@ -934,6 +934,16 @@ const multiProjectPipelineA = [
     .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
     .setBranchesList([new Branch().setName('master')])
     .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+  new RepoInfo()
+    .setRepo(
+      new Repo()
+        .setName('Node_2')
+        .setType('user')
+        .setProject(new Project().setName('Multi-Project-Pipeline-A')),
+    )
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')])
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
 ];
 
 const multiProjectPipelineB = [
@@ -943,6 +953,16 @@ const multiProjectPipelineB = [
         .setName('Node_1')
         .setType('user')
         .setProject(new Project().setName('Multi-Project-Pipeline-B')),
+    )
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')])
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+  new RepoInfo()
+    .setRepo(
+      new Repo()
+        .setName('Node_2')
+        .setType('user')
+        .setProject(new Project().setName('Multi-Project-Pipeline-A')),
     )
     .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
     .setBranchesList([new Branch().setName('master')])

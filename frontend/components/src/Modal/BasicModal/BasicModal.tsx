@@ -26,8 +26,7 @@ type BasicModalProps = {
   successMessage?: string;
   small?: boolean;
   cancelText?: string;
-  footerInfoLink?: string;
-  footerInfoLinkText?: string;
+  footerContent?: JSX.Element;
 };
 
 const BasicModal: React.FC<BasicModalProps> = ({
@@ -51,8 +50,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
   hideConfirm = false,
   small = false,
   cancelText,
-  footerInfoLink,
-  footerInfoLinkText,
+  footerContent,
 }) => {
   const modalStatus =
     (updating && 'updating') ||
@@ -93,8 +91,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
           onHide={onHide}
           cancelText={cancelText}
           hideConfirm={hideConfirm}
-          infoLink={footerInfoLink}
-          infoLinkText={footerInfoLinkText}
+          footerContent={footerContent}
         />
       ) : (
         <div className={styles.infoFooter} />

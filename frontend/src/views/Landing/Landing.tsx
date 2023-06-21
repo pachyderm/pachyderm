@@ -1,3 +1,4 @@
+import {Permission, ResourceType} from '@graphqlTypes';
 import React from 'react';
 import Favicon from 'react-favicon';
 
@@ -6,6 +7,7 @@ import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
+import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {Group, DefaultDropdown, useModal} from '@pachyderm/components';
 
 import CreateProjectModal from './components/CreateProjectModal';
@@ -35,6 +37,11 @@ const Landing: React.FC = () => {
   const {loading: loadingEnterprise, enterpriseActive} = useEnterpriseActive();
   const {openModal, closeModal, isOpen} = useModal(false);
 
+  const {isAuthorizedAction} = useVerifiedAuthorization({
+    permissionsList: [Permission.PROJECT_CREATE],
+    resource: {type: ResourceType.CLUSTER, name: ''},
+  });
+
   if (loading) return <LandingSkeleton />;
 
   return (
@@ -55,6 +62,7 @@ const Landing: React.FC = () => {
               heading="Projects"
               headerButtonText="Create Project"
               headerButtonAction={openModal}
+              headerButtonHidden={!isAuthorizedAction}
             />
             <TabView.Body initialActiveTabId={'Projects'} showSkeleton={false}>
               <TabView.Body.Header>

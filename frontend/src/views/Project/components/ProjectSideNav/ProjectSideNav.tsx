@@ -1,6 +1,9 @@
+import {Permission, ResourceType} from '@graphqlTypes';
 import React from 'react';
 
+import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {
   projectReposRoute,
   projectPipelinesRoute,
@@ -15,6 +18,7 @@ import {
   JobsSVG,
   AddCircleSVG,
   useModal,
+  UserSettingsSVG,
 } from '@pachyderm/components';
 import {MEDIUM} from 'constants/breakpoints';
 
@@ -23,8 +27,27 @@ import CreateRepoModal from '../CreateRepoModal';
 import styles from './ProjectSidenav.module.css';
 
 const ProjectSideNav: React.FC = () => {
-  const {openModal, closeModal, isOpen} = useModal(false);
+  const {
+    openModal: openCreateRepoModal,
+    closeModal: closeCreateRepoModal,
+    isOpen: createRepoModalOpen,
+  } = useModal(false);
+  const {
+    openModal: openUserRolesModal,
+    closeModal: closeUserRolesModal,
+    isOpen: userRolesModalOpen,
+  } = useModal(false);
   const {projectId} = useUrlState();
+  const {isAuthorizedAction: editProjectRoleIsAuthorizedAction, isAuthActive} =
+    useVerifiedAuthorization({
+      permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
+      resource: {type: ResourceType.PROJECT, name: projectId},
+    });
+  const {isAuthorizedAction: createRepoIsAuthorizedAction} =
+    useVerifiedAuthorization({
+      permissionsList: [Permission.PROJECT_CREATE_REPO],
+      resource: {type: ResourceType.PROJECT, name: projectId},
+    });
 
   return (
     <div className={styles.base}>
@@ -38,15 +61,28 @@ const ProjectSideNav: React.FC = () => {
           >
             DAG
           </SideNav.SideNavItem>
-          <SideNav.SideNavItem
-            IconSVG={AddCircleSVG}
-            onClick={openModal}
-            tooltipContent="Create New Repo"
-            className={styles.buttonLink}
-            showIconWhenExpanded
-          >
-            Create Repo
-          </SideNav.SideNavItem>
+          {createRepoIsAuthorizedAction && (
+            <SideNav.SideNavItem
+              IconSVG={AddCircleSVG}
+              onClick={openCreateRepoModal}
+              tooltipContent="Create New Repo"
+              className={styles.buttonLink}
+              showIconWhenExpanded
+            >
+              Create Repo
+            </SideNav.SideNavItem>
+          )}
+          {isAuthActive && (
+            <SideNav.SideNavItem
+              IconSVG={UserSettingsSVG}
+              onClick={openUserRolesModal}
+              tooltipContent="User Roles"
+              className={styles.buttonLink}
+              showIconWhenExpanded
+            >
+              User Roles
+            </SideNav.SideNavItem>
+          )}
         </SideNav.SideNavList>
         <SideNav.SideNavList label="Lists">
           <SideNav.SideNavItem
@@ -74,7 +110,20 @@ const ProjectSideNav: React.FC = () => {
             Repositories
           </SideNav.SideNavItem>
         </SideNav.SideNavList>
-        {isOpen && <CreateRepoModal show={isOpen} onHide={closeModal} />}
+        {createRepoModalOpen && (
+          <CreateRepoModal
+            show={createRepoModalOpen}
+            onHide={closeCreateRepoModal}
+          />
+        )}
+        {userRolesModalOpen && (
+          <ProjectRolesModal
+            show={userRolesModalOpen}
+            onHide={closeUserRolesModal}
+            projectName={projectId}
+            readOnly={!editProjectRoleIsAuthorizedAction}
+          />
+        )}
       </SideNav>
     </div>
   );

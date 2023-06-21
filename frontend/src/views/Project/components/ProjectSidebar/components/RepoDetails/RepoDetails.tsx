@@ -6,11 +6,18 @@ import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
+import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {SkeletonDisplayText, CaptionTextSmall} from '@pachyderm/components';
+import {
+  SkeletonDisplayText,
+  CaptionTextSmall,
+  ButtonLink,
+  useModal,
+  Group,
+} from '@pachyderm/components';
 
 import Title from '../Title';
 
@@ -24,7 +31,20 @@ type RepoDetailsProps = {
 };
 
 const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
-  const {repo, commit, repoError, currentRepoLoading} = useRepoDetails();
+  const {
+    repo,
+    commit,
+    repoError,
+    currentRepoLoading,
+    projectId,
+    repoId,
+    editRolesPermission,
+  } = useRepoDetails();
+  const {
+    openModal: openRolesModal,
+    closeModal: closeRolesModal,
+    isOpen: rolesModalOpen,
+  } = useModal(false);
 
   if (!currentRepoLoading && repoError) {
     return (
@@ -57,6 +77,20 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         {repo?.description && (
           <div className={styles.description}>{repo?.description}</div>
         )}
+        <Switch>
+          <Route path={LINEAGE_REPO_PATH} exact>
+            {repo?.authInfo?.rolesList && (
+              <Description loading={currentRepoLoading} term="Your Roles">
+                <Group spacing={8}>
+                  {repo?.authInfo?.rolesList.join(', ') || 'None'}
+                  <ButtonLink onClick={openRolesModal}>
+                    {editRolesPermission ? 'Set Roles' : 'See All Roles'}
+                  </ButtonLink>
+                </Group>
+              </Description>
+            )}
+          </Route>
+        </Switch>
         {pipelineOutputs.length > 0 && (
           <Description loading={currentRepoLoading} term="Inputs To">
             {pipelineOutputs.map(({name}) => (
@@ -92,6 +126,16 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                   'N/A'
                 )}
               </Description>
+            )}
+
+            {repo?.authInfo?.rolesList && rolesModalOpen && (
+              <RepoRolesModal
+                show={rolesModalOpen}
+                onHide={closeRolesModal}
+                projectName={projectId}
+                repoName={repoId}
+                readOnly={!editRolesPermission}
+              />
             )}
           </Route>
 

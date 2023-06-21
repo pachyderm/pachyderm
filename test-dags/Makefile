@@ -56,3 +56,45 @@ setup-multi-project-cron-egress:
 generate-commits:
 	-pachctl create repo lots-of-commits
 	-node scripts/lots-of-commits/index.js 100 lots-of-commits
+
+# RBAC
+rbac-setup:
+	-echo "pizza" | pachctl auth use-auth-token
+	-pachctl auth set cluster none user:kilgore@kilgore.trout
+
+rbac-root:
+	-echo "pizza" | pachctl auth use-auth-token
+	-pachctl create project root --description "Project made by pach root. You can see nothing."
+	-pachctl create repo repo1 --project root
+	-echo '{"pipeline":{"name":"pipeline1","project":{"name":"root"}},"description":"A sleepy pipeline.","input":{"pfs":{"glob":"/*","repo":"repo1","project":"root"}},"transform":{"cmd":["sh"],"stdin": ["sleep 0"]}}' | pachctl create pipeline
+
+rbac-tomcat:
+	-echo "pizza" | pachctl auth use-auth-token
+	-pachctl auth get-robot-token tomcat --quiet | pachctl auth use-auth-token
+	-pachctl create project tomcat --description "allClusterUsers have projectOwner on the project. There is one repo."
+	-pachctl create repo images --project tomcat
+	-pachctl auth set project tomcat projectOwner allClusterUsers
+
+rbac-viper:
+	-echo "pizza" | pachctl auth use-auth-token
+	-pachctl auth whoami
+	-pachctl auth get-robot-token viper --quiet | pachctl auth use-auth-token
+	-pachctl create project viper --description "Kilgore has projectViewer. Kilgore has repoReader on one of three repos and repoOwner on another"
+	-pachctl create repo repo1 --project viper
+	-pachctl create repo repo2 --project viper
+	-pachctl create repo repo3 --project viper
+	-pachctl auth set project viper projectViewer user:kilgore@kilgore.trout
+	-pachctl auth set repo repo1 repoReader user:kilgore@kilgore.trout --project viper
+	-pachctl auth set repo repo3 repoOwner user:kilgore@kilgore.trout --project viper
+
+rbac-warthog:
+	-echo "pizza" | pachctl auth use-auth-token
+	-pachctl auth whoami
+	-pachctl auth get-robot-token warthog --quiet | pachctl auth use-auth-token
+	-pachctl create project warthog --description "Kilgore has repoReader on one of the two repos."
+	-pachctl create repo hidden --project warthog
+	-pachctl create repo visible --project warthog
+	-pachctl auth set repo visible repoReader user:kilgore@kilgore.trout --project warthog
+
+generate-rbac: rbac-setup rbac-root rbac-tomcat rbac-viper rbac-warthog
+	-echo "pizza" | pachctl auth use-auth-token

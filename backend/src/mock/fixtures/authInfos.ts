@@ -11,9 +11,9 @@ const repoReaderAuthInfo = Object.values(allRepos).reduce<{
   [repoId: string]: AuthInfo;
 }>((acc, projectRepos) => {
   projectRepos.forEach((repo) => {
-    acc[repo.getRepo()?.getName() || ''] = new AuthInfo().setPermissionsList(
-      REPO_READER_PERMISSIONS,
-    );
+    acc[repo.getRepo()?.getName() || ''] = new AuthInfo()
+      .setPermissionsList(REPO_READER_PERMISSIONS)
+      .setRolesList(['repoOwner']);
   });
 
   return acc;
