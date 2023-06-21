@@ -26,6 +26,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -4588,7 +4589,22 @@ func TestPFS(suite *testing.T) {
 
 		_, err = env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit1, Limit: 1})
 		require.YesError(t, err)
-		require.Equal(t, err.Error(), pfsserver.ErrCommitNotFinished{Commit: commit1}.Error())
+		s, ok := status.FromError(err)
+		require.True(t, ok, "returned error must be a gRPC status")
+		dd := s.Details()
+		require.Len(t, dd, 1, "returned error must have a single detail")
+		for _, d := range dd {
+			switch d := d.(type) {
+			case *errdetails.PreconditionFailure:
+				require.Len(t, d.Violations, 1, "there must be a single violation")
+				for _, v := range d.Violations {
+					require.Equal(t, v.Type, "pfs:commitNotFinished")
+					require.Equal(t, v.Subject, commit1.String())
+				}
+			default:
+				t.Fatalf("expected *errdetails.PreconditionFailure, not %T", d)
+			}
+		}
 	})
 
 	suite.Run("CopyFile", func(t *testing.T) {
