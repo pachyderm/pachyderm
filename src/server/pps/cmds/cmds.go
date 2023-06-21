@@ -509,11 +509,11 @@ each datum.`,
 			if pipelineInputPath != "" && len(args) == 1 {
 				return errors.Errorf("can't specify both a job and a pipeline spec")
 			} else if pipelineInputPath != "" {
-				pipelineBytes, err := readPipelineBytes(pipelineInputPath)
+				r, err := fileIndicatorToReader(pipelineInputPath)
 				if err != nil {
 					return err
 				}
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
+				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 				if err != nil {
 					return err
 				}
@@ -951,11 +951,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editorArgs...); err != nil {
 				return err
 			}
-			pipelineBytes, err := readPipelineBytes(f.Name())
+			r, err := fileIndicatorToReader(f.Name())
 			if err != nil {
 				return err
 			}
-			pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
+			pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 			if err != nil {
 				return err
 			}
@@ -1442,52 +1442,71 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	nextDatum.Flags().StringVar(&errStr, "error", "", "A string representation of an error that occurred while processing the current datum.")
 	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
 
+	validatePipeline := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Validate pipeline spec.",
+		Long:  "Validate a pipeline spec.  Client-side only; does not check that repos, images &c. exist on the server.",
+		Run: cmdutil.RunFixedArgs(0, func(_ []string) error {
+			r, err := fileIndicatorToReader(pipelinePath)
+			if err != nil {
+				return err
+			}
+			pr, err := ppsutil.NewPipelineManifestReader(r)
+			if err != nil {
+				return err
+			}
+			for {
+				_, err := pr.NextCreatePipelineRequest()
+				if errors.Is(err, io.EOF) {
+					return nil
+				} else if err != nil {
+					return err
+				}
+			}
+		}),
+	}
+	validatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	commands = append(commands, cmdutil.CreateAliases(validatePipeline, "validate pipeline", pipelines))
+
 	return commands
 }
 
-// readPipelineBytes reads the pipeline spec at 'pipelinePath' (which may be
-// '-' for stdin, a local path, or a remote URL) and returns the bytes stored
-// there.
+// fileIndicatorToReader returns an IO reader for a file based on an indicator
+// (which may be a local path, a remote URL or "-" for stdin).
 //
 // TODO(msteffen) This is very similar to readConfigBytes in
 // s/s/identity/cmds/cmds.go (which differs only in not supporting URLs),
 // so the two could perhaps be refactored.
-func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error) {
-	if pipelinePath == "-" {
+func fileIndicatorToReader(indicator string) (io.Reader, error) {
+	if indicator == "-" {
 		cmdutil.PrintStdinReminder()
-		var err error
-		pipelineBytes, err = io.ReadAll(os.Stdin)
+		return os.Stdin, nil
+	} else if u, err := url.Parse(indicator); err == nil && u.Scheme != "" {
+		resp, err := http.Get(u.String())
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, errors.Wrapf(err, "could not retrieve URL %v", u)
 		}
-	} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
-		resp, err := http.Get(url.String())
-		if err != nil {
-			return nil, errors.EnsureStack(err)
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Wrapf(err, "cannot handle HTTP status code %s (%d)", resp.Status, resp.StatusCode)
 		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		pipelineBytes, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-	} else {
-		var err error
-		pipelineBytes, err = os.ReadFile(pipelinePath)
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
+		defer resp.Body.Close()
+		return resp.Body, nil
 	}
-	return pipelineBytes, nil
+	f, err := os.Open(indicator)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not open path %q", indicator)
+	}
+	return f, nil
 }
 
 func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
-	templateBytes, err := readPipelineBytes(jsonnetPath)
+	r, err := fileIndicatorToReader(jsonnetPath)
 	if err != nil {
 		return nil, err
+	}
+	templateBytes, err := io.ReadAll(r)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not read Jsonnet file %q", jsonnetPath)
 	}
 	args, err := pachtmpl.ParseArgs(jsonnetArgs)
 	if err != nil {
@@ -1517,18 +1536,26 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	}
 	defer pc.Close()
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
-	var pipelineBytes []byte
+	var pipelineReader *ppsutil.PipelineManifestReader
 	if pipelinePath != "" {
-		pipelineBytes, err = readPipelineBytes(pipelinePath)
+		r, err := fileIndicatorToReader(pipelinePath)
+		if err != nil {
+			return err
+		}
+		pipelineReader, err = ppsutil.NewPipelineManifestReader(r)
+		if err != nil {
+			return err
+		}
+
 	} else if jsonnetPath != "" {
-		pipelineBytes, err = evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
-	}
-	if err != nil {
-		return err
-	}
-	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
-	if err != nil {
-		return err
+		pipelineBytes, err := evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
+		if err != nil {
+			return err
+		}
+		pipelineReader, err = ppsutil.NewPipelineManifestReader(bytes.NewReader(pipelineBytes))
+		if err != nil {
+			return err
+		}
 	}
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
@@ -1536,13 +1563,6 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			break
 		} else if err != nil {
 			return err
-		}
-
-		if request.Pipeline == nil {
-			return errors.New("no `pipeline` specified")
-		}
-		if request.Pipeline.Name == "" {
-			return errors.New("no pipeline `name` specified")
 		}
 
 		// Add trace if env var is set
@@ -1566,22 +1586,10 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			}
 		}
 
-		if request.Transform != nil && request.Transform.Image != "" {
-			if !strings.Contains(request.Transform.Image, ":") {
-				fmt.Fprintf(os.Stderr,
-					"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
-						"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
-						"reproducibility of your pipelines.\n\n")
-			} else if strings.HasSuffix(request.Transform.Image, ":latest") {
-				fmt.Fprintf(os.Stderr,
-					"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
-						"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
-						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
-			}
-		}
 		if request.Pipeline.Project.GetName() == "" {
 			request.Pipeline.Project = &pfs.Project{Name: project}
 		}
+
 		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
 			_, err := txClient.PpsAPIClient.CreatePipeline(
 				txClient.Ctx(),
