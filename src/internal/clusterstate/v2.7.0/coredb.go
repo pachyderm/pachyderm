@@ -34,9 +34,6 @@ func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "creating set_updated_at_to_now trigger function")
 	}
 
-	if err := createProjectsTable(ctx, tx); err != nil {
-		return errors.Wrap(err, "creating projects table")
-	}
 	return nil
 }
 
