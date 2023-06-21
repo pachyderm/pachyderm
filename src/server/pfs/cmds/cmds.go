@@ -201,11 +201,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return a list of repos.",
 		Long: "This command returns a list of repos that you have permissions to view. By default, it does not show system repos like pipeline metadata. \n" +
 			"\n" +
-			"\t- To view all input repos across projects, use `-A` flag. \n" +
-			"\t- To view all repos in a specific project, including system repos, use the `--all` flag. \n" +
-			"\t- To view repos of a specific type, use the `--type` flag. \n" +
-			"\t- To view repos of a specific type across projects, use the `--type` and `-A` flags. \n" +
-			"\t- To view repos of a specific type in a specific project, use the `--type` and `--project` flags. \n" +
+			"\t- To view all input repos across projects, use `-A` flag \n" +
+			"\t- To view all repos in a specific project, including system repos, use the `--all` flag \n" +
+			"\t- To view repos of a specific type, use the `--type` flag; options include `USER`, `META`, & `SPEC` \n" +
+			"\t- To view repos of a specific type across projects, use the `--type` and `-A` flags \n" +
+			"\t- To view repos of a specific type in a specific project, use the `--type` and `--project` flags \n" +
 			"\n" +
 			"For information on roles and permissions, see the documentation: https://docs.pachyderm.com/latest/set-up/authorization/permissions/",
 		Example: "\t- `pachctl list repos` \n" +
@@ -274,11 +274,13 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\n" +
 			"\t- To force delete a repo, use the `--force` flag; use with caution \n" +
 			"\t- To delete all repos across all projects, use the `--all` flag \n" +
+			"\t- To delete a repo of a specific type, use the `--type` flag; options include `USER`, `META`, & `SPEC` \n" +
 			"\t- To delete all repos of a specific type across all projects, use the `--all` and `--type` flags \n" +
 			"\t- To delete all repos of a specific type in a specific project, use the `--all`, `--type`, and `--project` flags \n" +
 			"\n",
 		Example: "\t- `{{alias}} foo` \n" +
 			"\t- `{{alias}} foo --force` \n" +
+			"\t- `{{alias}} --type user` \n" +
 			"\t- `{{alias}} --all` \n" +
 			"\t- `{{alias}} --all --type user` \n" +
 			"\t- `{{alias}} --all --type user --project default`",
@@ -521,14 +523,21 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	listCommit := &cobra.Command{
 		Use:   "{{alias}} [<commit-id>|<repo>[@<branch-or-commit>]]",
 		Short: "Return a list of commits.",
-		Long:  "Return a list of commits, either across the entire pachyderm cluster or restricted to a single repo.",
-		Example: "\t- `{{alias}} foo` ➔ returns all commits in repo `foo`" +
-			"\t- `{{alias}} foo@master` ➔ returns all commits in repo `foo` on branch `master`" +
-			"\t- `{{alias}} foo@master --number 10` ➔ returns the last 10 commits in repo `foo` on branch `master`" +
-			"\t- `{{alias}} foo@master --from 0001a0100b1c10d01111e001fg00h00i` ➔ returns all commits in repo `foo` on branch `master` since `<commit>` " +
-			"\t- `{{alias}} foo@master --origin bar` ➔ returns all commits in repo `foo` on branch `master` originating from" +
-			"\t- `{{alias}} 0001a0100b1c10d01111e001fg00h00i` ➔ returns all commits with ID `<commit-id>`" +
-			"\t- `{{alias}} foo@master --raw -o yaml` ➔ returns all commits in repo `foo` on branch `master` in YAML format",
+		Long: "This command returns a list of commits, either across the entire pachyderm cluster or restricted to a single repo. \n" +
+			"\n" +
+			"\t- To specify which project the repo is in, use the `--project` flag \n" +
+			"\t- To specify the number of commits to return, use the `--number` flag \n" +
+			"\t- To list all commits that have come after a certain commit, use the `--from` flag \n" +
+			"\t- To specify the origin of the commit, use the `--origin` flag; options include `AUTO`, `FSCK`, & `USER`. Requires at least repo name in command \n" +
+			"\t- To expand the commit to include all of its sub-commits, use the `--expand` flag \n",
+		Example: "\t- `{{alias}} foo` ➔ returns all commits in repo `foo` \n" +
+			"\t- `{{alias}} foo@master` ➔ returns all commits in repo `foo` on branch `master` \n" +
+			"\t- `{{alias}} foo@master --number 10` ➔ returns the last 10 commits in repo `foo` on branch `master` \n" +
+			"\t- `{{alias}} foo@master --from 0001a0100b1c10d01111e001fg00h00i` ➔ returns all commits in repo `foo` on branch `master` since `<commit>` \n" +
+			"\t- `{{alias}} foo@master --origin user` ➔ returns all commits in repo `foo` on branch `master` originating from \n" +
+			"\t- `{{alias}} 0001a0100b1c10d01111e001fg00h00i` ➔ returns all commits with ID `<commit-id>` \n" +
+			"\t- `{{alias}} 0001a0100b1c10d01111e001fg00h00i --expand ➔ returns all sub-commits on new lines, along with columns of more information \n" +
+			"\t- `{{alias}} foo@master --raw -o yaml` ➔ returns all commits in repo `foo` on branch `master` in YAML format \n",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -708,25 +717,26 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 		}),
 	}
-	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
-	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
+	listCommit.Flags().StringVarP(&from, "from", "f", "", "Specify the starting point of the commit range to list.")
+	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "Specify the limit of returned results; if set to zero, list all commits.")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	listCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
-	listCommit.Flags().BoolVarP(&expand, "expand", "x", false, "show one line for each sub-commmit and include more columns")
-	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
+	listCommit.Flags().BoolVar(&all, "all", false, "Include all types of commits (`AUTO`, `FSCK`, `USER`); default only includes `USER`.")
+	listCommit.Flags().BoolVarP(&expand, "expand", "x", false, "Return one line for each sub-commmit and include more columns.")
+	listCommit.Flags().StringVar(&originStr, "origin", "", "Only return commits of a specific type; options include `AUTO`, `FSCK`, & `USER`.")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
-	listCommit.Flags().StringVar(&project, "project", project, "Project in which commit is located.")
+	listCommit.Flags().StringVar(&project, "project", project, "Specify the name of the project containing the commit.")
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 
 	waitCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Wait for the specified commit to finish and return it.",
-		Long:  "Wait for the specified commit to finish and return it.",
-		Example: `
-# wait for the commit foo@XXX to finish and return it
-$ {{alias}} foo@XXX -b bar@baz`,
+		Long:  "This command waits for the specified commit to finish before returning it, allowing you to track your commits downstream as they are produced. Each line is printed as soon as a new (sub) commit of your global commit finishes.",
+		Example: "\t- `{{alias}} foo@0001a0100b1c10d01111e001fg00h00i` \n" +
+			"\t- `{{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar` \n" +
+			"\t- `{{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar --raw -o yaml` \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
@@ -759,23 +769,17 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
-	waitCommit.Flags().StringVar(&project, "project", project, "Project containing commit.")
+	waitCommit.Flags().StringVar(&project, "project", project, "Specify the name of the project containing the commit.")
 	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Print commits as they are created (finished).",
-		Long:  "Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.",
-		Example: `
-# subscribe to commits in repo "test" on branch "master"
-$ {{alias}} test@master
-
-# subscribe to commits in repo "test" on branch "master", but only since commit XXX.
-$ {{alias}} test@master --from XXX
-
-# subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
-$ {{alias}} test@master --new`,
+		Long:  "Print commits as they are created in the specified repo and branch. By default, all existing commits on the specified branch are returned first.  A commit is only considered created when it's been finished.",
+		Example: "\t `{{alias}} foo@master` ➔ subscribe to commits in the `foo` repo on the `master` branch \n" +
+			"\t- `{{alias}} foo@bar --from 0001a0100b1c10d01111e001fg00h00i` ➔ starting at <commit-id>, subscribe to commits in the `foo` repo on the `master` branch \n" +
+			"\t- `{{alias}} foo@bar --new` ➔ subscribe to commits in the `foo` repo on the `master` branch, but only for new commits created from now on \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -839,14 +843,14 @@ $ {{alias}} test@master --new`,
 			return errors.EnsureStack(err)
 		}),
 	}
-	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
+	subscribeCommit.Flags().StringVar(&from, "from", "", "Subscribe to and return all commits since the specified commit.")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
-	subscribeCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
-	subscribeCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
+	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "Subscribe to and return only new commits created from now on.")
+	subscribeCommit.Flags().BoolVar(&all, "all", false, "Return all types of commits (`AUTO`, `FSCK`, `USER`)")
+	subscribeCommit.Flags().StringVar(&originStr, "origin", "", "Only return commits of a specific type; options include `AUTO`, `FSCK`, & `USER`.")
 	subscribeCommit.Flags().AddFlagSet(outputFlags)
 	subscribeCommit.Flags().AddFlagSet(timestampFlags)
-	subscribeCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	subscribeCommit.Flags().StringVar(&project, "project", project, "Specify the project name containing the commit.")
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, "subscribe commit", commits))
 
