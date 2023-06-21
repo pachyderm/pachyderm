@@ -74,6 +74,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
 
+	// REPO COMMANDS
+
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
 		Long: "A repo (repository) is a collection of files, directories, and commits that are versioned-controlled and exist under a Project. Files stored in an input repo can be of any type or size. " +
@@ -89,9 +91,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo in your active project.",
-		Long: "By default, this command creates a repo in the project that is set to your active context (initially the `default` project). You can choose other projects to create the repo in by passing in the `--project` flag. " +
-			"For example, `pachctl create repo --project=foo bar` creates a repo named `bar` in the `foo` project. You can also set a different project to your active context " +
-			"by running `pachctl config update context --project foo` so that repos are created in the foo project by default.",
+		Long: "By default, this command creates a repo in the project that is set to your active context (initially the `default` project).\n" +
+			"\n" +
+			"You can choose other projects to create the repo in by passing in the `--project` flag, for example, `pachctl create repo --project=foo bar` creates a repo named `bar` in the `foo` project. \n" +
+			"\n" +
+			"You can also set a different project to your active context, for example `pachctl config update context --project foo`, so that repos are created in the `foo` project by default when using this command.",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -121,6 +125,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:   "{{alias}} <repo>",
 		Short: "Update a repo.",
 		Long: "This command enables you to update the description of a repo by passing the `-d` flag. For example, `pachctl update repo foo -d 'new description'. " +
+			"\n" +
 			"If you are looking to update the pipelines in your repo, see `pachctl update pipeline` instead.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -152,6 +157,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:   "{{alias}} <repo>",
 		Short: "Return info about a repo.",
 		Long: "This command returns details of your repo such as: `Name`, `Description`, `Created`, and `Size of HEAD on Master`. " +
+			"\n" +
 			"If you have multiple repos with the same name in different projects, you can specify the project with the `--project` flag. " +
 			"For example, `pachctl inspect repo bar --project=foo ` returns information about the repo named `bar` in the `foo` project. ",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -189,9 +195,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	var repoType string
 	listRepo := &cobra.Command{
 		Short: "Return a list of repos.",
-		Long: "This command returns a list of repos. By default, it does not show system repos like pipeline metadata. " +
-			"To view all input repos across projects, use `-A` flag. For example, `pachctl list repos -A`. " +
-			"To view all repos, including system repos, use the `--all` flag. For example, `pachctl list repos --all`. ",
+		Long: "This command returns a list of repos. By default, it does not show system repos like pipeline metadata. \n" +
+			"\n" +
+			"\t- To view all input repos across projects, use `-A` flag. For example, `pachctl list repos -A` \n" +
+			"\t- To view all repos, including system repos, use the `--all` flag. For example, `pachctl list repos --all` ",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -247,7 +254,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
-		Long: "This command deletes a repo. You can force delete a repo with the `--force` flag. For example, `pachctl delete repo foo --force`. " +
+		Long: "This command deletes a repo. You can force delete a repo with the `--force` flag. For example, `pachctl delete repo foo --force`. \n" +
+			"\n" +
 			"To delete all repos across all projects, use the `--all` flag. For example, `pachctl delete repo --all`. ",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -300,19 +308,20 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteRepo, "delete repo", repos))
 
+	// COMMIT COMMANDS
+
 	commitDocs := &cobra.Command{
 		Short: "Docs for commits.",
-		Long: `Commits are atomic transactions on the content of a repo.
-
-Creating a commit is a multistep process:
-- start a new commit with 'start commit'
-- write files to the commit via 'put file'
-- finish the new commit with 'finish commit'
-
-Commits that have been started but not finished are NOT durable storage.
-Commits become reliable (and immutable) when they are finished.
-
-Commits can be created with another commit as a parent.`,
+		Long: "Commits are atomic transactions on the content of a repo.\n" +
+			"\n" +
+			"Creating a commit is a multi-step process: \n" +
+			"\t1. Start a new commit with `pachctl start commit`\n" +
+			"\t2. Write files to the commit via `pachctl put file`\n" +
+			"\t3. Finish the new commit with `pachctl finish commit`\n \n" +
+			"\n" +
+			"Commits that have been started but not finished are NOT durable storage.\n" +
+			"Commits become reliable (and immutable) when they are finished.\n" +
+			"Commits can be created with another commit as a parent.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(commitDocs, "commit", " commit$", commits))
 
