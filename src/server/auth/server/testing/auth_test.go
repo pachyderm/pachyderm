@@ -2244,7 +2244,7 @@ func TestGetPermissions_Project(t *testing.T) {
 	require.NoError(t, err, "should create project")
 
 	repo := tu.UniqueString("repo-")
-	err = rootClient.CreateRepo(project, repo)
+	err = rootClient.CreateProjectRepo(project, repo)
 	require.NoError(t, err, "should create repo")
 
 	err = rootClient.ModifyProjectRoleBinding(project, "user:alice", []string{"projectOwner"})
