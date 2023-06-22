@@ -66,6 +66,10 @@ func TestFileIndicatorToReader(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		oldStdin := os.Stdin
+		t.Cleanup(func() {
+			os.Stdin = oldStdin
+		})
 		os.Stdin = ff
 
 		if err := testReader("-"); err != nil {
@@ -86,10 +90,11 @@ func TestFileIndicatorToReader(t *testing.T) {
 }
 
 func testReader(indicator string) error {
-	r, err := fileIndicatorToReader(indicator)
+	r, err := fileIndicatorToReadCloser(indicator)
 	if err != nil {
 		return err
 	}
+	defer r.Close()
 
 	rr, err := ppsutil.NewPipelineManifestReader(r)
 	if err != nil {
