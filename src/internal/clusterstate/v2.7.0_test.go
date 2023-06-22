@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
@@ -19,14 +18,6 @@ import (
 )
 
 func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
-	type project struct {
-		ID          int       `db:"id"`
-		Name        string    `db:"name"`
-		Description string    `db:"description"`
-		CreatedAt   time.Time `db:"created_at"`
-		UpdatedAt   time.Time `db:"updated_at"`
-	}
-
 	ctx := pctx.TestContext(t)
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, t)
 	defer db.Close()
@@ -49,13 +40,13 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 	require.NoError(t, tx.Commit())
 
 	// Get all existing projects in collections.projects including the default project
-	var expectedProjects []project
+	var expectedProjects []v2_7_0.Project
 	var collectionRecords []v2_7_0.CollectionRecord
 	require.NoError(t, db.SelectContext(ctx, &collectionRecords, `SELECT key, proto, createdat, updatedat FROM collections.projects ORDER BY createdat`))
 	for i, row := range collectionRecords {
 		projectInfo := pfs.ProjectInfo{}
 		require.NoError(t, proto.Unmarshal(row.Proto, &projectInfo))
-		expectedProjects = append(expectedProjects, project{ID: i + 1, Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+		expectedProjects = append(expectedProjects, v2_7_0.Project{ID: uint64(i + 1), Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
 	}
 
 	// Migrates collections.projects to core.projects
@@ -63,7 +54,7 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_7_0))
 
 	// Check whether all the data is migrated to core.projects table
-	var gotProjects []project
+	var gotProjects []v2_7_0.Project
 	require.NoError(t, db.SelectContext(ctx, &gotProjects, `SELECT id, name, description, created_at, updated_at FROM core.projects ORDER BY created_at`))
 	require.Equal(t, len(expectedProjects), len(gotProjects))
 	if diff := cmp.Diff(expectedProjects, gotProjects); diff != "" {

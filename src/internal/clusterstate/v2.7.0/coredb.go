@@ -19,6 +19,14 @@ type CollectionRecord struct {
 	UpdatedAt time.Time `db:"updatedat"`
 }
 
+type Project struct {
+	ID          uint64    `db:"id"`
+	Name        string    `db:"name"`
+	Description string    `db:"description"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
+}
+
 func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS core;`); err != nil {
 		return errors.Wrap(err, "creating core schema")
@@ -80,7 +88,7 @@ func migrateProjects(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// Note that although it is more efficient to batch insert multiple rows in a single statement,
 	// we don't need it here because this is a one-time migration, and we don't expect users to have a large number of projects.
-	for i := range projectColRows {
+	for i := range projectInfos {
 		if _, err := insertStmt.ExecContext(ctx, projectInfos[i].Project.Name, projectInfos[i].Description, projectColRows[i].CreatedAt, projectColRows[i].UpdatedAt); err != nil {
 			return errors.Wrap(err, "inserting project")
 		}
