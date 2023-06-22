@@ -96,8 +96,8 @@ func resolveDeterminedWorkspaces(ctx context.Context, dc det.DeterminedClient, w
 		return nil, errors.Wrap(err, "list determined workspaces")
 	}
 	workspaceSet := make(map[string]struct{})
-	for _, w := range workspacesResp.Workspaces {
-		workspaceSet[w.Name] = struct{}{}
+	for _, w := range workspaces {
+		workspaceSet[w] = struct{}{}
 	}
 	res := make([]*workspacev1.Workspace, 0)
 	for _, dw := range workspacesResp.Workspaces {
@@ -160,7 +160,7 @@ func validateWorkspacePermissions(ctx context.Context, dc det.DeterminedClient, 
 		for _, dw := range dwMap {
 			workspaces = append(workspaces, dw.Name)
 		}
-		return errors.Errorf("requested workspaces don't exist: %v", workspaces)
+		return errors.Errorf("access required for determined workspaces: %v", workspaces)
 	}
 	return nil
 }
