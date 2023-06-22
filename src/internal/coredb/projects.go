@@ -3,8 +3,6 @@ package coredb
 import (
 	"context"
 	"fmt"
-	"io"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -12,17 +10,21 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // ProjectIterator batches a page of projectRow entries. Entries can be retrieved using iter.Next().
 type ProjectIterator struct {
-	lock     sync.Mutex
-	pageNum  int
+	limit    int
+	offset   int
 	projects []projectRow
 	index    int
 	db       *pachsql.DB
 }
+
+// ID is the auto-incrementing primary key used for entries in postgres tables.
+type ID uint64
 
 type projectRow struct {
 	Name        string    `db:"name"`
@@ -30,23 +32,21 @@ type projectRow struct {
 	CreatedAt   time.Time `db:"created_at"`
 }
 
-// Next advances the iterator by one row. It returns an io.EOF when there are no more entries.
-func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo) error {
-	if project == nil {
+// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
+func (iter *ProjectIterator) Next(ctx context.Context, dst **pfs.ProjectInfo) error {
+	if dst == nil {
 		return errors.Wrap(fmt.Errorf("project is nil"), "failed to get next project")
 	}
 	var err error
-	iter.lock.Lock()
-	defer iter.lock.Unlock()
 	if iter.index >= len(iter.projects) {
 		iter.index = 0
-		iter.pageNum++
-		iter.projects, err = listProjectPage(ctx, iter.db, 100, iter.pageNum)
+		iter.offset += iter.limit
+		iter.projects, err = listProject(ctx, iter.db, iter.limit, iter.offset)
 		if err != nil {
 			return errors.Wrap(err, "failed to list project page")
 		}
 		if len(iter.projects) == 0 {
-			return io.EOF
+			return stream.EOS
 		}
 	}
 	row := iter.projects[iter.index]
@@ -54,7 +54,7 @@ func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert time.Time to proto timestamp")
 	}
-	*project = pfs.ProjectInfo{
+	*dst = &pfs.ProjectInfo{
 		Project:     &pfs.Project{Name: row.Name},
 		Description: row.Description,
 		CreatedAt:   projectTimestamp}
@@ -64,21 +64,22 @@ func (iter *ProjectIterator) Next(ctx context.Context, project *pfs.ProjectInfo)
 
 // ListProject returns a ProjectIterator that exposes a Next() function for retrieving *pfs.ProjectInfo references.
 func ListProject(ctx context.Context, db *pachsql.DB) (*ProjectIterator, error) {
-	page, err := listProjectPage(ctx, db, 100, 0)
+	limit := 100
+	page, err := listProject(ctx, db, limit, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}
 	iter := &ProjectIterator{
 		projects: page,
 		db:       db,
+		limit:    limit,
 	}
 	return iter, nil
 }
 
-func listProjectPage(ctx context.Context, db *pachsql.DB, pageSize, pageNum int) ([]projectRow, error) {
+func listProject(ctx context.Context, db *pachsql.DB, limit, offset int) ([]projectRow, error) {
 	var page []projectRow
-	if err := db.SelectContext(ctx, &page, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2",
-		pageSize, pageSize*pageNum); err != nil {
+	if err := db.SelectContext(ctx, &page, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2", limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get project page")
 
 	}
@@ -120,14 +121,14 @@ func DeleteAllProjects(ctx context.Context, queryExecer QueryExecer) error {
 	return errors.Wrap(err, "could not delete all project rows")
 }
 
-// GetProject retrieves an entry from the core.projects table by project name.
-func GetProject(ctx context.Context, queryExecer QueryExecer, projectName string) (*pfs.ProjectInfo, error) {
-	return getProject(ctx, queryExecer, "name", projectName)
+// GetProject is like GetProjectByName, but retrieves an entry using the row id.
+func GetProject(ctx context.Context, queryExecer QueryExecer, id ID) (*pfs.ProjectInfo, error) {
+	return getProject(ctx, queryExecer, "id", id)
 }
 
-// GetProjectByID is like GetProject, but retrieves an entry using the row id.
-func GetProjectByID(ctx context.Context, queryExecer QueryExecer, id int64) (*pfs.ProjectInfo, error) {
-	return getProject(ctx, queryExecer, "id", id)
+// GetProjectByName retrieves an entry from the core.projects table by project name.
+func GetProjectByName(ctx context.Context, queryExecer QueryExecer, projectName string) (*pfs.ProjectInfo, error) {
+	return getProject(ctx, queryExecer, "name", projectName)
 }
 
 func getProject(ctx context.Context, queryExecer QueryExecer, where string, whereVal interface{}) (*pfs.ProjectInfo, error) {
@@ -145,14 +146,14 @@ func getProject(ctx context.Context, queryExecer QueryExecer, where string, wher
 	return project, nil
 }
 
-// UpdateProject updates all fields of an existing project entry in the core.projects table by name. If 'upsert' is set to true, UpdateProject()
+// UpsertProject updates all fields of an existing project entry in the core.projects table by name. If 'upsert' is set to true, UpsertProject()
 // will attempt to call CreateProject() if the entry does not exist.
-func UpdateProject(ctx context.Context, queryExecer QueryExecer, project *pfs.ProjectInfo, upsert bool) error {
-	return updateProject(ctx, queryExecer, project, "name", project.Project.Name, upsert)
+func UpsertProject(ctx context.Context, queryExecer QueryExecer, project *pfs.ProjectInfo) error {
+	return updateProject(ctx, queryExecer, project, "name", project.Project.Name, true)
 }
 
-// UpdateProjectByID is like UpdateProject, but uses the row id instead of the name. It does not allow upserting.
-func UpdateProjectByID(ctx context.Context, queryExecer QueryExecer, id int64, project *pfs.ProjectInfo) error {
+// UpdateProject is like UpsertProject, but uses the row id instead of the name. It does not allow upserting.
+func UpdateProject(ctx context.Context, queryExecer QueryExecer, id ID, project *pfs.ProjectInfo) error {
 	return updateProject(ctx, queryExecer, project, "id", id, false)
 }
 

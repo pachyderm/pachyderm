@@ -4,9 +4,11 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"io"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -76,19 +78,21 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}
-	projInfo := &pfs.ProjectInfo{}
-	for !errors.Is(projIter.Next(txnCtx.Context(), projInfo), io.EOF) {
+	if err := stream.ForEach[*pfs.ProjectInfo](txnCtx.Context(), projIter, func(proj *pfs.ProjectInfo) error {
 		var principal string
 		var roleSlice []string
-		if projInfo.Project.Name == pfs.DefaultProjectName {
+		if proj.Project.Name == pfs.DefaultProjectName {
 			// Grant all users ProjectWriter role for default project.
 			principal = auth.AllClusterUsersSubject
 			roleSlice = []string{auth.ProjectWriterRole}
 		}
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projInfo.Project.Name})
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
-			return nil, errors.EnsureStack(err)
+			return errors.Wrap(err, "failed to create role binding in transaction")
 		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "failed to list projects")
 	}
 	// Create role bindings for repos created before auth activation
 	var repoInfo pfs.RepoInfo
