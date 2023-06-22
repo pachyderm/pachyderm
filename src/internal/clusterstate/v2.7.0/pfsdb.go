@@ -2,6 +2,7 @@ package v2_7_0
 
 import (
 	"context"
+	"time"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -9,15 +10,21 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+type Repo struct {
+	ID        uint64    `db:"id"`
+	Name      string    `db:"name"`
+	RepoType  string    `db:"type"`
+	ProjectID uint64    `db:"project_id"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
 func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
 	// pfs schema already exists, but this SQL is idempotent
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS pfs;`); err != nil {
 		return errors.Wrap(err, "error creating core schema")
 	}
 
-	if err := createReposTable(ctx, tx); err != nil {
-		return errors.Wrap(err, "error creating pfs.repos table")
-	}
 	return nil
 }
 
@@ -102,23 +109,37 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 	if err := tx.SelectContext(ctx, &repoColRows, `SELECT key, proto, createdat, updatedat FROM collections.repos ORDER BY createdat ASC`); err != nil {
 		return errors.Wrap(err, "listing repos from collections.repos")
 	}
-	var repoInfos []pfs.RepoInfo
-	for _, repo := range repoColRows {
-		var repoInfo pfs.RepoInfo
-		if err := proto.Unmarshal(repo.Proto, &repoInfo); err != nil {
-			return errors.Wrap(err, "unmarshaling repo")
-		}
-		repoInfos = append(repoInfos, repoInfo)
-	}
 	// List all projects from core.projects
 	var projects []Project
 	if err := tx.SelectContext(ctx, &projects, `SELECT id, name FROM core.projects`); err != nil {
 		return errors.Wrap(err, "listing projects from core.projects")
 	}
 	// Create a map of project name to project id
-	projectsMap := make(map[string]uint64)
+	projectNameToID := make(map[string]uint64)
 	for _, project := range projects {
-		projectsMap[project.Name] = project.ID
+		projectNameToID[project.Name] = project.ID
+	}
+
+	var repos []Repo
+	for _, row := range repoColRows {
+		var repoInfo pfs.RepoInfo
+		if err := proto.Unmarshal(row.Proto, &repoInfo); err != nil {
+			return errors.Wrap(err, "unmarshaling repo")
+		}
+		repos = append(repos, Repo{
+			Name:      repoInfo.Repo.Name,
+			RepoType:  repoInfo.Repo.Type,
+			ProjectID: projectNameToID[repoInfo.Repo.GetProject().Name],
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+		})
+	}
+
+	// Insert all repos into pfs.repos
+	for _, repo := range repos {
+		if _, err := insertStmt.ExecContext(ctx, repo.Name, repo.RepoType, repo.ProjectID, repo.CreatedAt, repo.UpdatedAt); err != nil {
+			return errors.Wrap(err, "inserting repo")
+		}
 	}
 
 	return nil
