@@ -1489,7 +1489,6 @@ func fileIndicatorToReader(indicator string) (io.Reader, error) {
 		if resp.StatusCode != http.StatusOK {
 			return nil, errors.Wrapf(err, "cannot handle HTTP status code %s (%d)", resp.Status, resp.StatusCode)
 		}
-		defer resp.Body.Close()
 		return resp.Body, nil
 	}
 	f, err := os.Open(indicator)
