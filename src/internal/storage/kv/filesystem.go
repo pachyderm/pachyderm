@@ -134,7 +134,7 @@ func (it *fsIterator) Next(ctx context.Context, dst *[]byte) error {
 			it.pos++
 		}
 	}
-	return stream.EOS
+	return stream.EOS()
 }
 
 func (s *FSStore) ensureInit(ctx context.Context) (err error) {
