@@ -256,7 +256,13 @@ message Groups {
 message Role {
   string name = 1;
   repeated Permission permissions = 2;
-  repeated ResourceType resource_types = 3;
+  // Resources this role can be bound to.  For example, you can't apply clusterAdmin to a repo, so
+  // REPO would not be listed here.
+  repeated ResourceType can_be_bound_to = 3;
+  // Resources this role is returned for.  For example, a principal might have clusterAdmin
+  // permissions on the cluster, and this is what allows them to write to a repo.  So, clusterAdmin
+  // is returned for the repo, even though it cannot be bound to a repo.
+  repeated ResourceType returned_for = 4;
 }
 
 //// Authorization API
