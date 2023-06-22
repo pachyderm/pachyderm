@@ -2390,7 +2390,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	// TODO: should this be done before the start of the txn?
 	// handle determined hook
 	if newPipelineInfo.Details.Determined != nil {
-		password, err := a.hookDeterminedPipeline(txnCtx.Context(), newPipelineInfo.Pipeline, newPipelineInfo.Details.Determined.Workspaces, newPipelineInfo.Details.Determined.Password)
+		password, err := a.hookDeterminedPipeline(context.Background(), newPipelineInfo.Pipeline, newPipelineInfo.Details.Determined.Workspaces, newPipelineInfo.Details.Determined.Password)
 		if err != nil {
 			return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
 		}
@@ -2409,7 +2409,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		s.SetLabels(map[string]string{
 			"suite": "pachyderm",
 		})
-		if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(txnCtx.Context(), s, metav1.CreateOptions{}); err != nil {
+		if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(context.Background(), s, metav1.CreateOptions{}); err != nil {
 			return errors.Wrapf(err, "failed to create pipeline's determined secret")
 		}
 

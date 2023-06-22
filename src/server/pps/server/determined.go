@@ -99,7 +99,7 @@ func resolveDeterminedWorkspaces(ctx context.Context, dc det.DeterminedClient, w
 	for _, w := range workspacesResp.Workspaces {
 		workspaceSet[w.Name] = struct{}{}
 	}
-	res := make([]*workspacev1.Workspace, len(workspaces))
+	res := make([]*workspacev1.Workspace, 0)
 	for _, dw := range workspacesResp.Workspaces {
 		if _, ok := workspaceSet[dw.Name]; ok {
 			res = append(res, dw)
