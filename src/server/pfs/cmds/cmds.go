@@ -878,9 +878,9 @@ The squash will fail if it includes a commit with no children`,
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
 		Short: "Delete the sub-commits of a commit.",
-		Long: `Delete the sub-commits of a commit.  The data in the sub-commits will be lost.
-This operation is only supported if none of the sub-commits have children.`,
-
+		Long: "This command deletes the sub-commits of a commit; data in sub-commits will be lost, so use with caution. " +
+			"This operation is only supported if none of the sub-commits have children. ",
+		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -896,15 +896,13 @@ This operation is only supported if none of the sub-commits have children.`,
 	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteCommit, "delete commit", commits))
 
+	// BRANCH COMMANDS
+
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
-		Long: `A branch in Pachyderm records provenance relationships between data in different repos,
-as well as being as an alias for a commit in its repo.
-
-The branch reference will "float" to always refer to the latest commit on the
-branch, known as the HEAD commit. All commits are on exactly one branch.
-
-Any pachctl command that can take a commit, can take a branch name instead.`,
+		Long: "A branch in Pachyderm records provenance relationships between data in different repos, as well as being as an alias for a commit in its repo. " +
+			"The branch reference will float to always refer to the latest commit on the branch, known as the HEAD commit. All commits are on exactly one branch. " +
+			"Any pachctl command that can take a commit, can take a branch name instead.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(branchDocs, "branch", " branch$", branches))
 
@@ -914,7 +912,25 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	createBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
-		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
+		Long: "This command creates or updates a branch on a repo. \n" +
+			"\n" +
+			"\t- To create a branch for a repo in a particular project, use the `--project` flag; this requires the repo to already exist in that project. \n" +
+			"\t- To attach an existing commit as the head commit of the new branch, use the `--head` flag. \n" +
+			"\t- To set a trigger, use the `--trigger` flag, pass in the triggering branch (from the same repo, without `repo@`), and set conditions using `--trigger-size`, `--trigger-cron`, `--trigger-commits`. \n" +
+			"\t- To require all defined triggering conditions to be met, use the `--trigger-all` flag; otherwise, each individual triggering condition will execute the trigger. \n" +
+			"\t- To attach provenance to the new branch, use the `--provenance` flag. You can inspect provenance using `pachctl inspect branch foo@bar`.\n" +
+			"\n" +
+			"Note: Starting a commit on the branch also creates it, so there's often no need to call this.",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master --project bar \n" +
+			"\t- {{alias}} foo@master --head 0001a0100b1c10d01111e001fg00h00i \n" +
+			"\t- {{alias}} foo@master=0001a0100b1c10d01111e001fg00h00i \n" +
+			"\t- {{alias}} foo@master --provenance=foo@branch1,foo@branch2 \n" +
+			"\t- {{alias}} foo@master --trigger staging \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-cron='@every 1h' \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-commits=10' \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M --trigger-cron='@every 1h --trigger-commits=10 --trigger-all \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -965,16 +981,16 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			})
 		}),
 	}
-	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch>")
+	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "Define the provenance for the branch. format: <repo>@<branch>")
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "Set the head of the newly created branch using <branch-or-commit> or <repo>@<branch>=<id>")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "The branch to trigger this branch on.")
-	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
-	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
-	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
-	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
-	createBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "Define the branch (from the same repo) that triggers this branch.")
+	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "Define a cron spec interval as a condition for the trigger.")
+	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "Define data size as a condition for the trigger.")
+	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "Define the number of commits as a condition for the trigger.")
+	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Specify that all set conditions must be met for the trigger.")
+	createBranch.Flags().StringVar(&project, "project", project, "Specify the project name where the repo for this branch is located.")
 	commands = append(commands, cmdutil.CreateAliases(createBranch, "create branch", branches))
 
 	inspectBranch := &cobra.Command{
