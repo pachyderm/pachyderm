@@ -19,6 +19,14 @@ type CollectionRecord struct {
 	UpdatedAt time.Time `db:"updatedat"`
 }
 
+type Project struct {
+	ID          int       `db:"id"`
+	Name        string    `db:"name"`
+	Description string    `db:"description"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
+}
+
 func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS core;`); err != nil {
 		return errors.Wrap(err, "creating core schema")

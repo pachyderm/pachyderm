@@ -3,8 +3,10 @@ package v2_7_0
 import (
 	"context"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
@@ -84,5 +86,44 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	`); err != nil {
 		return errors.Wrap(err, "error creating notify trigger on pfs.repos")
 	}
+	return nil
+}
+
+func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
+	insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.repos(name, type, project_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`)
+	if err != nil {
+		return errors.Wrap(err, "preparing insert statement")
+	}
+	defer insertStmt.Close()
+
+	// Migrate repos from collections.repos to pfs.repos
+	// First collect all repos from collections.repos
+	var repoColRows []CollectionRecord
+	if err := tx.SelectContext(ctx, &repoColRows, `SELECT key, proto, createdat, updatedat FROM collections.repos ORDER BY createdat ASC`); err != nil {
+		return errors.Wrap(err, "listing repos from collections.repos")
+	}
+	var repoInfos []pfs.RepoInfo
+	for _, repo := range repoColRows {
+		var repoInfo pfs.RepoInfo
+		if err := proto.Unmarshal(repo.Proto, &repoInfo); err != nil {
+			return errors.Wrap(err, "unmarshaling repo")
+		}
+		repoInfos = append(repoInfos, repoInfo)
+	}
+	// List all projects from core.projects
+	var projects []Project
+	if err := tx.SelectContext(ctx, &projects, `SELECT id, name FROM core.projects`); err != nil {
+		return errors.Wrap(err, "listing projects from core.projects")
+	}
+	// Create a map of project name to project id
+	projectsMap := make(map[string]uint64)
+	for _, project := range projects {
+		projectsMap[project.Name] = project.ID
+	}
+
+	for i := range repoInfos {
+		if _, err := insertStmt.ExecContext(ctx, repoInfos[i].Name, repoInfos[i].Type, repoInfos[i].Project)
+	}
+
 	return nil
 }
