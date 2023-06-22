@@ -2,22 +2,12 @@ package v2_7_0
 
 import (
 	"context"
-	"time"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-type Repo struct {
-	ID        uint64    `db:"id"`
-	Name      string    `db:"name"`
-	RepoType  string    `db:"type"`
-	ProjectID uint64    `db:"project_id"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
-}
 
 func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
 	// pfs schema already exists, but this SQL is idempotent
