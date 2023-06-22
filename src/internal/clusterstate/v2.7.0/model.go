@@ -19,10 +19,11 @@ type Project struct {
 }
 
 type Repo struct {
-	ID        uint64    `db:"id"`
-	Name      string    `db:"name"`
-	RepoType  string    `db:"type"`
-	ProjectID uint64    `db:"project_id"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID          uint64    `db:"id"`
+	Name        string    `db:"name"`
+	Description string    `db:"description"`
+	RepoType    string    `db:"type"`
+	ProjectID   uint64    `db:"project_id"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
 }

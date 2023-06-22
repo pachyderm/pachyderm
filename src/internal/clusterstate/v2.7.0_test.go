@@ -31,6 +31,15 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 		require.NoError(t, err)
 		_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, projectInfo.Project.String(), b)
 		require.NoError(t, err)
+
+		// Create 3 repos for each project
+		for j := 0; j < 3; j++ {
+			repoInfo := pfs.RepoInfo{Repo: &pfs.Repo{Name: fmt.Sprintf("repo%d", j+1), Type: pfs.UserRepoType, Project: projectInfo.Project}, Description: "test repo"}
+			b, err = proto.Marshal(&repoInfo)
+			require.NoError(t, err)
+			_, err = tx.ExecContext(ctx, `INSERT INTO collections.repos(key, proto) VALUES($1, $2)`, repoInfo.Repo.String(), b)
+			require.NoError(t, err)
+		}
 	}
 	require.NoError(t, tx.Commit())
 }
@@ -64,4 +73,29 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 	// Test project names can only be 51 characters long
 	_, err = db.ExecContext(ctx, `INSERT INTO core.projects(name, description) VALUES($1, $2)`, strings.Repeat("A", 52), "this should error")
 	require.ErrorContains(t, err, "value too long for type character varying(51)")
+}
+
+func Test_v2_7_0_ClusterState_Repos(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, t)
+	defer db.Close()
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+
+	// Pre-migration
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_6_0))
+	setupTestData(t, ctx, db)
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_7_0))
+	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_7_0))
+
+	// Get all existing repos in collections.repos
+	expectedRepos, err := v2_7_0.ListReposFromCollection(ctx, db)
+	require.NoError(t, err)
+
+	// Check whether all the data is migrated to core.projects table
+	var gotRepos []v2_7_0.Repo
+	require.NoError(t, db.SelectContext(ctx, &gotRepos, `SELECT id, name, description, type, project_id, created_at, updated_at FROM pfs.repos ORDER BY id`))
+	require.Equal(t, len(expectedRepos), len(gotRepos))
+	if diff := cmp.Diff(expectedRepos, gotRepos); diff != "" {
+		t.Errorf("repos differ: (-want +got)\n%s", diff)
+	}
 }
