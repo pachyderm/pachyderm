@@ -14,10 +14,10 @@ var _ Store = &LRUCache{}
 
 type LRUCache struct {
 	slow, fast Store
-	mu         sync.RWMutex
-	cache      simplelru.LRU[string, struct{}]
 
-	ctx context.Context
+	mu      sync.RWMutex
+	cache   simplelru.LRU[string, struct{}]
+	toEvict []string
 }
 
 func NewLRUCache(slow, fast Store, size int) *LRUCache {
@@ -80,28 +80,32 @@ func (c *LRUCache) NewKeyIterator(span Span) stream.Iterator[[]byte] {
 }
 
 func (c *LRUCache) putFast(ctx context.Context, key, value []byte) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.ctx = ctx
-	defer func() { c.ctx = nil }()
 	if err := c.fast.Put(ctx, key, value); err != nil {
 		return err
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.cache.Add(string(key), struct{}{})
+	for _, k := range c.toEvict {
+		if err := c.fast.Delete(ctx, []byte(k)); err != nil {
+			log.Error(ctx, "deleting from cache", zap.Any("err", err))
+		}
+	}
+	c.toEvict = c.toEvict[:0]
 	return nil
 }
 
 func (c *LRUCache) deleteFast(ctx context.Context, key []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.ctx = ctx
-	defer func() { c.ctx = nil }()
 	c.cache.Remove(string(key))
+	if err := c.fast.Delete(ctx, []byte(key)); err != nil {
+		log.Error(ctx, "deleting from cache", zap.Any("err", err))
+	}
 }
 
+// onEvict is a callback, called by the LRUCache
+// onEvict is only called with the lock
 func (c *LRUCache) onEvict(key string, value struct{}) {
-	ctx := c.ctx
-	if err := c.fast.Delete(ctx, []byte(key)); err != nil {
-		log.Error(c.ctx, "deleting from cache", zap.Any("err", err))
-	}
+	c.toEvict = append(c.toEvict, key)
 }

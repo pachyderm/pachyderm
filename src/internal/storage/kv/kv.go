@@ -47,8 +47,7 @@ type Store interface {
 	Deleter
 	Exists(ctx context.Context, key []byte) (bool, error)
 
-	// NewKeyIterator returns an iterator for the keys in the store.
-	NewKeyIterator(span Span) stream.Iterator[[]byte]
+	KeyIterable
 }
 
 // Span is a range of bytes from Begin inclusive to End exclusive

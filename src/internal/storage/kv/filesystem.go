@@ -89,12 +89,12 @@ func (s *FSStore) Delete(ctx context.Context, key []byte) error {
 	return err
 }
 
-func (c *FSStore) stagingPathFor(k []byte) string {
-	return filepath.Join(c.dir, "staging", uuid.NewWithoutDashes())
+func (s *FSStore) stagingPathFor(k []byte) string {
+	return filepath.Join(s.dir, "staging", uuid.NewWithoutDashes())
 }
 
-func (c *FSStore) finalPathFor(k []byte) string {
-	return filepath.Join(c.dir, "objects", hex.EncodeToString(k))
+func (s *FSStore) finalPathFor(k []byte) string {
+	return filepath.Join(s.dir, "objects", hex.EncodeToString(k))
 }
 
 func (s *FSStore) NewKeyIterator(span Span) stream.Iterator[[]byte] {
