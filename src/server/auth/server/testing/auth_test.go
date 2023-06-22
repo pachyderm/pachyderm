@@ -2230,6 +2230,38 @@ func TestGetPermissions(t *testing.T) {
 	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
 }
 
+func TestGetPermissions_Project(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+
+	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
+	project := tu.UniqueString("project-")
+	err := rootClient.CreateProject(project)
+	require.NoError(t, err, "should create project")
+
+	repo := tu.UniqueString("repo-")
+	err = rootClient.CreateRepo(project, repo)
+	require.NoError(t, err, "should create repo")
+
+	err = rootClient.ModifyProjectRoleBinding(project, "user:alice", []string{"projectOwner"})
+	require.NoError(t, err, "should make alice a project owner")
+
+	perms, err := rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{
+		Resource: &auth.Resource{
+			Type: auth.ResourceType_REPO,
+			Name: (&pfs.Repo{Name: repo, Project: &pfs.Project{Name: project}, Type: pfs.UserRepoType}).String(),
+		},
+		Principal: "user:alice",
+	})
+	require.NoError(t, err, "should get permissions for alice on repo %v", repo)
+
+	require.OneOfEquals(t, "projectOwner", perms.Roles, "alice should be projectOwner on the repo")
+}
+
 // TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
 func TestDeactivateFSAdmin(t *testing.T) {
 	t.Parallel()

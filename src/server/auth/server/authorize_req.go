@@ -38,7 +38,7 @@ func newAuthorizeRequest(subject string, permissions map[auth.Permission]bool, g
 func (r *authorizeRequest) rolesForResourceType(rt auth.ResourceType) []string {
 	roles := make([]string, 0, len(r.roleMap))
 	for r, def := range r.roleMap {
-		if roleAppliesToResource(def, rt) {
+		if roleReturnedForResource(def, rt) {
 			roles = append(roles, r)
 		}
 	}
