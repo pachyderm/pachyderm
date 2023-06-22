@@ -89,14 +89,22 @@ describe('services/auth', () => {
         .auth()
         .getPermissions({resource: {type: 2, name: 'test/images'}});
 
-      expect(intRes.rolesList).toStrictEqual(['clusterAdmin', 'repoOwner']);
+      expect(intRes.rolesList).toStrictEqual([
+        'clusterAdmin',
+        'projectOwner',
+        'repoOwner',
+      ]);
 
       // using enum type
       const enumRes = await pachClient.auth().getPermissions({
         resource: {type: ResourceType.REPO, name: 'test/images'},
       });
 
-      expect(enumRes.rolesList).toStrictEqual(['clusterAdmin', 'repoOwner']);
+      expect(enumRes.rolesList).toStrictEqual([
+        'clusterAdmin',
+        'projectOwner',
+        'repoOwner',
+      ]);
     });
 
     it('modifyRoles updates role bindings for a specific resource', async () => {
