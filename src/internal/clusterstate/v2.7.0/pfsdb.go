@@ -121,9 +121,5 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 		projectsMap[project.Name] = project.ID
 	}
 
-	for i := range repoInfos {
-		if _, err := insertStmt.ExecContext(ctx, repoInfos[i].Name, repoInfos[i].Type, repoInfos[i].Project)
-	}
-
 	return nil
 }

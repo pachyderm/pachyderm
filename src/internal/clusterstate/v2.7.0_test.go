@@ -46,7 +46,7 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 	for i, row := range collectionRecords {
 		projectInfo := pfs.ProjectInfo{}
 		require.NoError(t, proto.Unmarshal(row.Proto, &projectInfo))
-		expectedProjects = append(expectedProjects, v2_7_0.Project{ID: i + 1, Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+		expectedProjects = append(expectedProjects, v2_7_0.Project{ID: uint64(i + 1), Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
 	}
 
 	// Migrates collections.projects to core.projects
