@@ -40,12 +40,12 @@ commands:
     steps:
       - run:
           name: Npm install project root, frontend and backend
-          command: npm ci & npm ci --prefix ./backend & npm ci --prefix ./frontend
+          command: npm ci && npm ci --prefix ./backend && npm ci --prefix ./frontend
   node-install-frontend-backend:
     steps:
       - run:
           name: Npm install frontend and backend
-          command: npm ci --prefix ./backend & npm ci --prefix ./frontend
+          command: npm ci --prefix ./backend && npm ci --prefix ./frontend
   install-pachyderm-dependencies:
     steps:
       - run:
