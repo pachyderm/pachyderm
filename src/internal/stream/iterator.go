@@ -19,7 +19,7 @@ func EOS() error {
 
 // IsEOS returns true if the error is an end of stream error.
 func IsEOS(err error) bool {
-	return errors.Is(err, &errEndOfStream{})
+	return errors.Is(err, errEndOfStream{})
 }
 
 type Iterator[T any] interface {
