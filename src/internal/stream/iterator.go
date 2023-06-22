@@ -6,20 +6,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-type ErrEndOfStream struct{}
+type errEndOfStream struct{}
 
-func (e ErrEndOfStream) Error() string {
+func (e errEndOfStream) Error() string {
 	return "end of stream"
 }
 
 // EOS returns a new end of stream error
 func EOS() error {
-	return errors.EnsureStack(ErrEndOfStream{})
+	return errors.EnsureStack(errEndOfStream{})
 }
 
 // IsEOS returns true if the error is an end of stream error.
 func IsEOS(err error) bool {
-	return errors.As(err, &ErrEndOfStream{})
+	return errors.Is(err, &errEndOfStream{})
 }
 
 type Iterator[T any] interface {
