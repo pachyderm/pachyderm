@@ -2,6 +2,7 @@ package clusterstate
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,7 +58,7 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 		expectedProjects = append(expectedProjects, project{ID: i + 1, Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
 	}
 
-	// Apply the migration of interest
+	// Migrates collections.projects to core.projects
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_7_0))
 	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_7_0))
 
@@ -68,4 +69,8 @@ func Test_v2_7_0_ClusterState_Projects(t *testing.T) {
 	if diff := cmp.Diff(expectedProjects, gotProjects); diff != "" {
 		t.Errorf("projects differ: (-want +got)\n%s", diff)
 	}
+
+	// Test project names can only be 51 characters long
+	_, err = db.ExecContext(ctx, `INSERT INTO core.projects(name, description) VALUES($1, $2)`, strings.Repeat("A", 52), "this should error")
+	require.ErrorContains(t, err, "value too long for type character varying(51)")
 }

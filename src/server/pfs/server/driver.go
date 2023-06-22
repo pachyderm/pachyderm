@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"sort"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -137,7 +137,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	// Check that the repo’s project exists; if not, return an error.
-	if _, err := coredb.GetProject(txnCtx.Context(), txnCtx.SqlTx, repo.Project.Name); err != nil {
+	if _, err := coredb.GetProjectByName(txnCtx.Context(), txnCtx.SqlTx, repo.Project.Name); err != nil {
 		return errors.Wrapf(err, "cannot find project %q", repo.Project)
 	}
 
@@ -619,8 +619,8 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 		return errors.Wrapf(err, "invalid project name")
 	}
 	if req.Update {
-		return errors.Wrapf(coredb.UpdateProject(txnCtx.Context(), txnCtx.SqlTx,
-			&pfs.ProjectInfo{Project: req.Project, Description: req.Description}, false),
+		return errors.Wrapf(coredb.UpsertProject(txnCtx.Context(), txnCtx.SqlTx,
+			&pfs.ProjectInfo{Project: req.Project, Description: req.Description}),
 			"failed to update project %s", req.Project.Name)
 	}
 	// If auth is active, make caller the owner of this new project.
@@ -652,7 +652,7 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 }
 
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
-	pi, err := coredb.GetProject(ctx, d.env.DB, pfsdb.ProjectKey(project))
+	pi, err := coredb.GetProjectByName(ctx, d.env.DB, pfsdb.ProjectKey(project))
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting project %q", project)
 	}
@@ -793,43 +793,30 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 	if err != nil {
 		return errors.Wrap(err, "could not list projects")
 	}
-	projInfo := &pfs.ProjectInfo{}
-	for !errors.Is(projIter.Next(ctx, projInfo), io.EOF) {
+	return errors.Wrap(stream.ForEach[*pfs.ProjectInfo](ctx, projIter, func(proj *pfs.ProjectInfo) error {
 		if authIsActive {
-			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projInfo.GetProject().AuthResource()})
+			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
 			if err != nil {
 				if errors.Is(err, auth.ErrNotActivated) {
 					// Avoid unnecessary subsequent Auth API calls.
 					authIsActive = false
-					if err := cb(projInfo); err != nil {
-						return errors.Wrapf(err, "error getting permissions for project %s", projInfo.Project)
-					}
-					continue
+					return cb(proj)
 				}
-				return errors.Wrapf(err, "error getting permissions for project %s", projInfo.Project)
+				return errors.Wrapf(err, "error getting permissions for project %s", proj.Project)
 			}
-			projInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+			proj.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 		}
-		if err := cb(projInfo); err != nil {
-			return errors.Wrapf(err, "could not execute callback on project %s", projInfo.Project.Name)
-		}
-	}
-	return nil
+		return cb(proj)
+	}), "failed to list projects")
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProjectInTransaction(txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
-	projectInfo := &pfs.ProjectInfo{}
 	projIter, err := coredb.ListProject(txnCtx.Context(), d.env.DB)
 	if err != nil {
 		return errors.Wrap(err, "could not list project")
 	}
-	for !errors.Is(projIter.Next(txnCtx.Context(), projectInfo), io.EOF) {
-		if err := cb(projectInfo); err != nil {
-			return errors.Wrap(err, "could not execute cb on project")
-		}
-	}
-	return nil
+	return errors.Wrap(stream.ForEach[*pfs.ProjectInfo](txnCtx.Context(), projIter, cb), "failed to list projects")
 }
 
 // TODO: delete all repos and pipelines within project
