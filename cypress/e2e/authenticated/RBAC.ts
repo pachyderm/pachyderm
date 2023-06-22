@@ -459,7 +459,9 @@ describe('Repo / Pipeline table and DAG view', () => {
     // DAG view
     cy.login('/lineage/raptor/repos/repo1');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
-      cy.findByText(/clusterAdmin\, repoOwner\, repoReader\, repoWriter/i);
+      cy.findByText(
+        /clusterAdmin\, projectOwner\, repoOwner\, repoReader\, repoWriter/i,
+      );
       cy.findByRole('button', {
         name: /delete/i,
       }).should('be.disabled');
@@ -467,7 +469,9 @@ describe('Repo / Pipeline table and DAG view', () => {
 
     cy.visit('/lineage/raptor/repos/isolatedRepo');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
-      cy.findByText(/clusterAdmin\, repoOwner\, repoReader\, repoWriter/i);
+      cy.findByText(
+        /clusterAdmin\, projectOwner\, repoOwner\, repoReader\, repoWriter/i,
+      );
       cy.findByRole('button', {
         name: /delete/i,
       }).should('be.enabled');
@@ -475,7 +479,9 @@ describe('Repo / Pipeline table and DAG view', () => {
 
     cy.visit('/lineage/raptor/repos/pipeline1');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
-      cy.findByText(/clusterAdmin\, repoOwner\, repoReader\, repoWriter/i);
+      cy.findByText(
+        /clusterAdmin\, projectOwner\, repoOwner\, repoReader\, repoWriter/i,
+      );
       cy.findByRole('button', {
         name: /delete/i,
       }).should('be.disabled');
@@ -483,7 +489,9 @@ describe('Repo / Pipeline table and DAG view', () => {
 
     cy.visit('/lineage/raptor/pipelines/pipeline1');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
-      cy.findByText(/clusterAdmin\, repoOwner\, repoReader\, repoWriter/i);
+      cy.findByText(
+        /clusterAdmin\, projectOwner\, repoOwner\, repoReader\, repoWriter/i,
+      );
     });
 
     // Pipelines table
@@ -493,7 +501,7 @@ describe('Repo / Pipeline table and DAG view', () => {
       name: /pipeline1/i,
     }).within(() => {
       cy.findByRole('cell', {
-        name: /clusterAdmin\, repoOwner\, repoReader\, repoWriter/i,
+        name: /clusterAdmin\, projectOwner\, repoOwner\, repoReader\, repoWriter/i,
       });
     });
 
@@ -504,7 +512,7 @@ describe('Repo / Pipeline table and DAG view', () => {
       name: /repo1/i,
     }).within(() => {
       cy.findByRole('cell', {
-        name: /clusterAdmin\, repoOwner\, repoReader\, repoWriter/i,
+        name: /clusterAdmin\, projectOwner\, repoOwner\, repoReader\, repoWriter/i,
       });
     });
   });
