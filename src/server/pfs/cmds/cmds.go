@@ -866,7 +866,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:     "{{alias}} <commit-id>",
 		Short:   "Squash the sub-commits of a commit.",
 		Long:    "Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits. The squash will fail if it includes a commit with no children",
-		Example: "\t- {{alias}} <commit-id> \n",
+		Example: "\t- `{{alias}} <commit-id>` \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -888,7 +888,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Delete the sub-commits of a commit.",
 		Long: "This command deletes the sub-commits of a commit; data in sub-commits will be lost, so use with caution. " +
 			"This operation is only supported if none of the sub-commits have children. ",
-		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i",
+		Example: "\t- `{{alias}} 0001a0100b1c10d01111e001fg00h00i`",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -931,14 +931,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"Note: Starting a commit on the branch also creates it, so there's often no need to call this.",
 		Example: "\t- {{alias}} foo@master \n" +
 			"\t- {{alias}} foo@master --project bar \n" +
-			"\t- {{alias}} foo@master --head 0001a0100b1c10d01111e001fg00h00i \n" +
-			"\t- {{alias}} foo@master=0001a0100b1c10d01111e001fg00h00i \n" +
-			"\t- {{alias}} foo@master --provenance=foo@branch1,foo@branch2 \n" +
-			"\t- {{alias}} foo@master --trigger staging \n" +
-			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M \n" +
-			"\t- {{alias}} foo@master --trigger staging --trigger-cron='@every 1h' \n" +
-			"\t- {{alias}} foo@master --trigger staging --trigger-commits=10' \n" +
-			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M --trigger-cron='@every 1h --trigger-commits=10 --trigger-all \n",
+			"\t- `{{alias}} foo@master --head 0001a0100b1c10d01111e001fg00h00i` \n" +
+			"\t- `{{alias}} foo@master=0001a0100b1c10d01111e001fg00h00i` \n" +
+			"\t- `{{alias}} foo@master --provenance=foo@branch1,foo@branch2` \n" +
+			"\t- `{{alias}} foo@master --trigger staging` \n" +
+			"\t- `{{alias}} foo@master --trigger staging --trigger-size=100M` \n" +
+			"\t- `{{alias}} foo@master --trigger staging --trigger-cron='@every 1h'` \n" +
+			"\t- `{{alias}} foo@master --trigger staging --trigger-commits=10'` \n" +
+			"\t- `{{alias}} foo@master --trigger staging --trigger-size=100M --trigger-cron='@every 1h --trigger-commits=10 --trigger-all` \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -1008,9 +1008,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\n" +
 			"\t- To inspect a branch from a repo in another project, use the `--project` flag. \n" +
 			"\t- To get additional details about the branch, use the `--raw` flag. \n",
-		Example: "\t- {{alias}} foo@master  \n" +
-			"\t- {{alias}} foo@master --project bar \n" +
-			"\t- {{alias}} foo@master --raw \n",
+		Example: "\t- `{{alias}} foo@master`  \n" +
+			"\t- `{{alias}} foo@master --project bar` \n" +
+			"\t- `{{alias}} foo@master --raw` \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1051,10 +1051,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\n" +
 			"\t- To list branches from a repo in another project, use the `--project` flag. \n" +
 			"\t- To get additional details about the branches, use the `--raw` flag. \n",
-		Example: "\t- {{alias}} foo@master \n" +
-			"\t- {{alias}} foo@master --project bar \n" +
-			"\t- {{alias}} foo@master --raw \n" +
-			"\t- {{alias}} foo@master --raw -o yaml \n",
+		Example: "\t- `{{alias}} foo@master `\n" +
+			"\t- `{{alias}} foo@master --project bar` \n" +
+			"\t- `{{alias}} foo@master --raw` \n" +
+			"\t- `{{alias}} foo@master --raw -o yaml` \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1099,9 +1099,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- To delete a branch from a repo in another project, use the `--project` flag. \n" +
 			"\t- To delete a branch regardless of errors, use the `--force` flag. \n",
 		Example: "\t- {{alias}} foo@master \n" +
-			"\t- {{alias}} foo@master --project bar \n" +
-			"\t- {{alias}} foo@master --force \n" +
-			"\t- {{alias}} foo@master --project bar --force \n",
+			"\t- `{{alias}} foo@master --project bar` \n" +
+			"\t- `{{alias}} foo@master --force` \n" +
+			"\t- `{{alias}} foo@master --project bar --force `\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -1198,8 +1198,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long: "This command creates a new project. \n" +
 			"\n" +
 			"\t- To set a description for the project, use the `--description` flag. \n",
-		Example: "\t- {{alias}} foo-project \n" +
-			"\t- {{alias}} foo-project --description \"This is a project for foo.\" \n",
+		Example: "\t- `{{alias}} foo-project` \n" +
+			"\t- `{{alias}} foo-project --description 'This is a project for foo.'` \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -1224,7 +1224,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:     "{{alias}} <project>",
 		Short:   "Update a project.",
 		Long:    "This command updates a project's description.",
-		Example: "\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
+		Example: "\t- `{{alias}} foo-project --description 'This is a project for foo.'` \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1253,9 +1253,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\n" +
 			"\t- To return additional details, use the `--raw` flag. \n",
 
-		Example: "\t- {{alias}} foo-project \n" +
-			"\t- {{alias}} foo-project --raw \n" +
-			"\t- {{alias}} foo-project --output=yaml \n",
+		Example: "\t- `{{alias}} foo-project` \n" +
+			"\t- `{{alias}} foo-project --raw` \n" +
+			"\t- `{{alias}} foo-project --output=yaml` \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -1286,7 +1286,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	listProject := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return all projects.",
-		Long:  "Return all projects.",
+		Long:  "This command returns all projects.",
+		Example: "\t- `{{alias}}` \n" +
+			"\t- `{{alias}} --raw` \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1325,7 +1327,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	deleteProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
 		Short: "Delete a project.",
-		Long:  "Delete a project.",
+		Long:  "This command deletes a project.",
+		Example: "\t- `{{alias}} foo-project` \n" +
+			"\t- `{{alias}} foo-project --force` \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1406,16 +1410,13 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteProject, shell.ProjectCompletion)
-	deleteProject.Flags().BoolVarP(&force, "force", "f", false, "remove the project regardless of errors; use with care")
+	deleteProject.Flags().BoolVarP(&force, "force", "f", false, "Remove the project regardless of errors; use with caution.")
 	commands = append(commands, cmdutil.CreateAliases(deleteProject, "delete project", projects))
 
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
-		Long: `Files are the lowest level data objects in Pachyderm.
-
-Files can be of any type (e.g. csv, binary, images, etc) or size and can be
-written to started (but not finished) commits with 'put file'. Files can be read
-from commits with 'get file'.`,
+		Long: "Files are the lowest level data objects in Pachyderm and can be of any type (e.g. csv, binary, images, etc) or size. \n" +
+			"Files can be written to started--but not yet finished--commits with the `pachctl put file` command. To read a file from a commit, Files use the `pachctl get file` command.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(fileDocs, "file", " file$", files))
 
@@ -1432,39 +1433,16 @@ from commits with 'get file'.`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
 		Long:  "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS.",
-		Example: `
-# Put data from stdin at repo@branch:/path
-$ echo "data" | {{alias}} repo@branch:/path
+		Example: "\t- `{{alias}} repo@master-f image.png` \n" +
+			"\t- `{{alias}} repo@master:/logs/log-1.txt`  \n" +
+			"\t- `{{alias}} -r repo@master -f my-directory `\n" +
+			"\t- `{{alias}} -r repo@branch:/path -f my-directory` \n" +
+			"\t- `{{{alias}} repo@branch -f http://host/example.png` \n" +
+			"\t- `{{alias}} repo@branch:/dir -f http://host/example.png` \n" +
+			"\t- `{{alias}} repo@branch -r -f s3://my_bucket` \n" +
+			"\t- `{{alias}} repo@branch -i file` \n" +
+			"\t- `{{alias}} repo@branch -i http://host/path` \n",
 
-# Put a file from the local filesystem at repo@branch:/file
-$ {{alias}} repo@branch -f file
-
-# Put a file from the local filesystem at repo@branch:/path
-$ {{alias}} repo@branch:/path -f file
-
-# Put the contents of a directory at repo@branch:/dir/file
-$ {{alias}} -r repo@branch -f dir
-
-# Put the contents of a directory at repo@branch:/path/file (without /dir)
-$ {{alias}} -r repo@branch:/path -f dir
-
-# Put the data from a URL at repo@branch:/example.png
-$ {{alias}} repo@branch -f http://host/example.png
-
-# Put the data from a URL at repo@branch:/dir/example.png
-$ {{alias}} repo@branch:/dir -f http://host/example.png
-
-# Put the data from an S3 bucket at repo@branch:/s3_object
-$ {{alias}} repo@branch -r -f s3://my_bucket
-
-# Put several files or URLs that are listed in file.
-# Files and URLs should be newline delimited.
-$ {{alias}} repo@branch -i file
-
-# Put several files or URLs that are listed at URL.
-# NOTE this URL can reference local files, so it could cause you to put sensitive
-# files into your Pachyderm cluster.
-$ {{alias}} repo@branch -i http://host/path`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			if !enableProgress {
 				progress.Disable()
