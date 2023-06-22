@@ -110,12 +110,12 @@ func testReader(indicator string) error {
 			return err
 		}
 		if expected, got := uint64(1), p.ParallelismSpec.Constant; expected != got {
-			return fmt.Errorf("parallelism spec constant: expected %d; got %d", expected, got)
+			return errors.Errorf("parallelism spec constant: expected %d; got %d", expected, got)
 		}
 		i++
 	}
 	if expected, got := 1, i; expected != got {
-		return fmt.Errorf("expected %d objects; got %d", expected, got)
+		return errors.Errorf("expected %d objects; got %d", expected, got)
 	}
 	return nil
 }
