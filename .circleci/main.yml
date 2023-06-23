@@ -33,7 +33,7 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2204:2022.10.1
+    default: ubuntu-2204:2023.04.2
   go-version:
     type: string
     default: "1.20.5"
@@ -393,6 +393,11 @@ jobs:
       - run:
           name: package release helm chart
           command: |
+            if [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
+            then
+              export CONSOLE_VERSION=${CIRCLE_TAG:1}
+              yq e -i '.console.image.tag=env(CONSOLE_VERSION)' etc/helm/pachyderm/values.yaml
+            fi
             helm package -d cr-release-packages/official --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
       - run:
           name: generate dd template
@@ -406,6 +411,11 @@ jobs:
       - run:
           name: package pre-release helm chart
           command: |
+            if [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
+            then
+              export CONSOLE_VERSION=${CIRCLE_TAG:1}
+              yq e -i '.console.image.tag=env(CONSOLE_VERSION)' etc/helm/pachyderm/values.yaml
+            fi
             helm package -d cr-release-packages/preview --version ${CIRCLE_TAG:1}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
@@ -1297,6 +1307,7 @@ jobs:
               fi
             git clone https://github.com/pachyderm/haberdashery.git haberdashery
             cd haberdashery
+            git fetch --all
             git checkout -b release-${CIRCLE_TAG:1} ${parentBranch}
             tmp=$(mktemp)
             jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
@@ -1306,14 +1317,13 @@ jobs:
             git commit -m "bump pachyderm version"
             git push origin release-${CIRCLE_TAG:1}
             PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
-            gh pr review ${PR} --approve --repo pachyderm/haberdashery
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
             PR_STATE=$(gh pr status --json mergeStateStatus --jq .currentBranch.mergeStateStatus --repo pachyderm/haberdashery)
             if [[ "$PR_STATE" != "CLEAN" ]]; then
               echo "review console PR ${PR} for failures. PR Checks failed."
               exit 1
             fi
-            gh pr merge ${PR} --repo pachyderm/haberdashery
+            gh pr merge ${PR} --admin --repo pachyderm/haberdashery
             sleep 2 # give it quick sec to merge, make sure we get right state.
             IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
             if [[ "${IS_MERGED}" != "MERGED" ]]; then
@@ -1394,6 +1404,41 @@ jobs:
           command: |
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
+  python-sdk-build:
+    executor: python
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - setup_remote_docker:
+          version: 19.03.13
+      - install-poetry
+      - run:
+          name: build
+          command: poetry build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/*
+  python-sdk-testing-docker-build:
+    executor: python
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - setup_remote_docker:
+          version: 20.10.18
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: docker build
+          command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
+      - run:
+          name: docker push
+          command: docker push pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1
   test-python-sdk:
     resource_class: xlarge
     machine:
@@ -1402,26 +1447,35 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: Install Poetry
-          command: |
-            mkdir -p /home/circleci/.local/poetry/venv
-            export POETRY_HOME=/home/circleci/.local/poetry/venv
-            python3 -m venv $POETRY_HOME
-            $POETRY_HOME/bin/pip install poetry==1.4.1
-            $POETRY_HOME/bin/poetry --version
-            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+      - install-minikube
+      - install-helm
+      - install-kubectl
+      - start-minikube
+      - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
-      - install-python-test-deps
-
-      # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
-      # export export PACH_PYTHON_AUTH_TOKEN=iamroot
+      - wait-for-minikube
+      - run:
+          name: Install pach
+          command: |
+            helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
+            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
+            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,proxy.service.httpNodePort=30081,pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
+            until poetry run python -c "import pachyderm_sdk; pachyderm_sdk.Client(\"$(minikube ip)\", 30080).get_version()"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
-            nohup pachctl port-forward &
+            PACH_PYTHON_TEST_HOST="$(minikube ip)" \
+            PACH_PYTHON_TEST_PORT="30080" \
+            PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
+            ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
+            PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
             poetry run pytest -vvv tests
 
 workflows:
@@ -1629,7 +1683,12 @@ workflows:
           requires:
             - build-docker-images
             - build-pachctl-bin
+            - python-sdk-testing-docker-build
       - build-docker-images
+      - python-sdk-build
+      - python-sdk-testing-docker-build:
+          requires:
+            - python-sdk-build
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
 
@@ -1923,6 +1982,38 @@ workflows:
             - aws-prerelease-testing
 
 commands:
+  install-helm:
+    steps:
+      - run:
+          name: Install helm
+          command: |
+            ARCH=amd64
+            if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
+            wget https://get.helm.sh/helm-v3.7.1-linux-${ARCH}.tar.gz && \
+            tar -zxvf helm-v3.7.1-linux-${ARCH}.tar.gz && \
+            chmod +x linux-amd64/helm && \
+            sudo mv linux-amd64/helm /usr/local/bin/helm
+  install-kubectl:
+    steps:
+      - run:
+          name: Install kubectl
+          command: |
+            ARCH=amd64
+            if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" && \
+            chmod +x kubectl && \
+            sudo mv kubectl /usr/local/bin/kubectl
+  install-minikube:
+    steps:
+      - run:
+          name: Install minikube
+          command: |
+            ARCH=amd64
+            if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
+            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.30.1/minikube-linux-${ARCH} && \
+            chmod +x ./minikube && \
+            sudo mv ./minikube /usr/local/bin/minikube
+
   install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
@@ -1937,19 +2028,8 @@ commands:
             curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
             && chmod +x ./kind-linux-amd64 \
             && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
-      - run:
-          name: Install helm
-          command: |
-            wget https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz && \
-            tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
-            chmod +x linux-amd64/helm && \
-            sudo mv linux-amd64/helm /usr/local/bin/helm
-      - run:
-          name: Install kubectl
-          command: |
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-            chmod +x kubectl && \
-            sudo mv kubectl /usr/local/bin/kubectl
+      - install-helm
+      - install-kubectl
       - run:
           name: Install pachctl and mount-server
           command: |
@@ -2012,6 +2092,16 @@ commands:
           name: Start minikube
           command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
           background: true
+  wait-for-minikube:
+    steps:
+      - run:
+          name: Wait for minikube
+          command: ~/project/etc/testing/circle/wait-minikube.sh
+  wait-for-pachd:
+    steps:
+      - run:
+          name: Wait for pachd
+          command: until pachctl inspect cluster; do sleep 5; done
   collect-test-results:
     steps:
       - run:
@@ -2019,3 +2109,14 @@ commands:
           when: always
           shell: /bin/sh # ignore fails without pipefail
           command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
+  install-poetry:
+    steps:
+      - run:
+          name: Install Poetry
+          command: |
+            mkdir -p /home/circleci/.local/poetry/venv
+            export POETRY_HOME=/home/circleci/.local/poetry/venv
+            python3 -m venv $POETRY_HOME
+            $POETRY_HOME/bin/pip install poetry==1.4.1
+            $POETRY_HOME/bin/poetry --version
+            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry

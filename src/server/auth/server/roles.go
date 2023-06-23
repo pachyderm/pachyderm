@@ -38,8 +38,9 @@ func init() {
 	// repoReader has the ability to view files, commits, branches
 	// and create pipelines that read from a repo.
 	repoReaderRole := registerRole(&auth.Role{
-		Name:          auth.RepoReaderRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		Name:         auth.RepoReaderRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_REPO},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_INSPECT_COMMIT,
@@ -57,8 +58,9 @@ func init() {
 	// write files to a repo and create pipelines that write to a repo,
 	// plus all the permissions of repoReader.
 	repoWriterRole := registerRole(&auth.Role{
-		Name:          auth.RepoWriterRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		Name:         auth.RepoWriterRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_REPO},
 		Permissions: combinePermissions(repoReaderRole.Permissions, []auth.Permission{
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_DELETE_COMMIT,
@@ -71,8 +73,9 @@ func init() {
 	// repoOwner has the ability to modify the role bindings for
 	// a repo and delete it, plus all the permissions of repoWriter.
 	repoOwnerRole := registerRole(&auth.Role{
-		Name:          auth.RepoOwnerRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		Name:         auth.RepoOwnerRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_REPO},
 		Permissions: combinePermissions(repoWriterRole.Permissions, []auth.Permission{
 			auth.Permission_REPO_MODIFY_BINDINGS,
 			auth.Permission_REPO_DELETE,
@@ -82,8 +85,9 @@ func init() {
 	// oidcAppAdmin has the ability to create, update and
 	// delete OIDC apps.
 	oidcAppAdminRole := registerRole(&auth.Role{
-		Name:          auth.OIDCAppAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.OIDCAppAdminRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_IDENTITY_DELETE_OIDC_CLIENT,
 			auth.Permission_CLUSTER_IDENTITY_CREATE_OIDC_CLIENT,
@@ -96,8 +100,9 @@ func init() {
 	// idpAdmin has the ability to create, update and delete
 	// identity providers.
 	idpAdminRole := registerRole(&auth.Role{
-		Name:          auth.IDPAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.IDPAdminRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_IDENTITY_CREATE_IDP,
 			auth.Permission_CLUSTER_IDENTITY_UPDATE_IDP,
@@ -110,8 +115,9 @@ func init() {
 	// identityAdmin has the ability to modify the identity
 	// server configuration
 	identityAdminRole := registerRole(&auth.Role{
-		Name:          auth.IdentityAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.IdentityAdminRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_IDENTITY_SET_CONFIG,
 			auth.Permission_CLUSTER_IDENTITY_GET_CONFIG,
@@ -120,8 +126,9 @@ func init() {
 
 	// debugger has the ability to produce debug dumps
 	debuggerRole := registerRole(&auth.Role{
-		Name:          auth.DebuggerRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.DebuggerRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_DEBUG_DUMP,
 			auth.Permission_CLUSTER_GET_PACHD_LOGS,
@@ -131,8 +138,9 @@ func init() {
 
 	// lokiLogReader has the ability to read logs from Loki
 	lokiLogReaderRole := registerRole(&auth.Role{
-		Name:          auth.LokiLogReaderRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.LokiLogReaderRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_GET_LOKI_LOGS,
 		},
@@ -140,8 +148,9 @@ func init() {
 
 	// robotUser has the ability to create tokens for any robot user
 	robotUserRole := registerRole(&auth.Role{
-		Name:          auth.RobotUserRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.RobotUserRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN,
 		},
@@ -149,8 +158,9 @@ func init() {
 
 	// licenseAdmin has the ability to update the enterprise license and manage clusters
 	licenseAdminRole := registerRole(&auth.Role{
-		Name:          auth.LicenseAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.LicenseAdminRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_LICENSE_ACTIVATE,
 			auth.Permission_CLUSTER_LICENSE_GET_CODE,
@@ -163,8 +173,9 @@ func init() {
 
 	// secretAdmin has the ability to list, create and delete secrets in k8s
 	secretAdminRole := registerRole(&auth.Role{
-		Name:          auth.SecretAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.SecretAdminRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_CREATE_SECRET,
 			auth.Permission_CLUSTER_LIST_SECRETS,
@@ -174,8 +185,9 @@ func init() {
 	})
 
 	pachdLogReaderRole := registerRole(&auth.Role{
-		Name:          auth.PachdLogReaderRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.PachdLogReaderRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_CLUSTER_GET_PACHD_LOGS,
 		},
@@ -183,24 +195,27 @@ func init() {
 
 	// Project related roles
 	projectViewerRole := registerRole(&auth.Role{
-		Name:          auth.ProjectViewerRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Name:         auth.ProjectViewerRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_PROJECT},
 		Permissions: []auth.Permission{
 			auth.Permission_PROJECT_LIST_REPO,
 		},
 	})
 
 	projectWriterRole := registerRole(&auth.Role{
-		Name:          auth.ProjectWriterRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Name:         auth.ProjectWriterRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_PROJECT},
 		Permissions: combinePermissions(projectViewerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_CREATE_REPO,
 		}),
 	})
 
 	projectOwnerRole := registerRole(&auth.Role{
-		Name:          auth.ProjectOwnerRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Name:         auth.ProjectOwnerRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: combinePermissions(repoOwnerRole.Permissions, projectWriterRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,
@@ -208,8 +223,9 @@ func init() {
 	})
 
 	projectCreatorRole := registerRole(&auth.Role{
-		Name:          auth.ProjectCreatorRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Name:         auth.ProjectCreatorRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_PROJECT_CREATE,
 		},
@@ -217,8 +233,9 @@ func init() {
 
 	// clusterAdmin is a catch-all role that has every permission
 	registerRole(&auth.Role{
-		Name:          auth.ClusterAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		Name:         auth.ClusterAdminRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: combinePermissions(
 			repoOwnerRole.Permissions,
 			oidcAppAdminRole.Permissions,
@@ -273,8 +290,8 @@ func combinePermissions(permissionSets ...[]auth.Permission) []auth.Permission {
 	return output
 }
 
-func roleAppliesToResource(r *auth.Role, rt auth.ResourceType) bool {
-	for _, t := range r.ResourceTypes {
+func roleReturnedForResource(r *auth.Role, rt auth.ResourceType) bool {
+	for _, t := range r.ReturnedFor {
 		if t == rt {
 			return true
 		}

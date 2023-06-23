@@ -1,4 +1,7 @@
-package serviceenv
+// Package pachconfig contains the configuration models for Pachyderm.
+// The various models are parsed from environment variables when pachd starts.
+// This package should be at the bottom of the dependency graph.
+package pachconfig
 
 import "k8s.io/apimachinery/pkg/api/resource"
 
@@ -136,6 +139,10 @@ type PachdSpecificConfiguration struct {
 	// the proxy, and ProxyTLS for whether or not to use https:// for generated URLs.
 	ProxyHost string `env:"PACHYDERM_PUBLIC_HOST,default="`
 	ProxyTLS  bool   `env:"PACHYDERM_PUBLIC_TLS,default=false"`
+	// Determined integration configuration
+	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
+	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
+	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server

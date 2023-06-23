@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -70,12 +71,12 @@ type RealEnv struct {
 // NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. PPS uses a fake clientset which allows
 // some PPS behavior to work.
-func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	return newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 }
 
 // NewRealEnvWithIdentity creates a new real Env and then activates an identity server with dex.
-func NewRealEnvWithIdentity(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func NewRealEnvWithIdentity(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	env := newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 	env.ActivateIdentity(t)
 	return env
@@ -83,7 +84,7 @@ func NewRealEnvWithIdentity(ctx context.Context, t testing.TB, customOpts ...ser
 
 // NewRealEnvWithPPSTransactionMock constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. A mock implementation of PPS Transactions are used.
-func NewRealEnvWithPPSTransactionMock(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func NewRealEnvWithPPSTransactionMock(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	noInterceptor := func(mock *testpachd.MockPachd) grpcutil.Interceptor {
 		return grpcutil.Interceptor{}
 	}
@@ -116,26 +117,26 @@ func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 	linkServers(&realEnv.MockPachd.Identity, realEnv.IdentityServer)
 }
 
-func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	mockEnv := testpachd.NewMockEnv(ctx, t, interceptor)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
 	etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
 	require.NoError(t, err)
 
-	opts := []serviceenv.ConfigOption{
-		func(config *serviceenv.Configuration) {
+	opts := []pachconfig.ConfigOption{
+		func(config *pachconfig.Configuration) {
 			require.NoError(t, cmdutil.PopulateDefaults(config))
 			config.StorageBackend = obj.Local
 			config.StorageRoot = path.Join(realEnv.Directory, "localStorage")
 		},
 		DefaultConfigOptions,
-		serviceenv.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
-		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
-		serviceenv.WithOidcPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port + 7)),
+		pachconfig.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
+		pachconfig.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
+		pachconfig.WithOidcPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port + 7)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	realEnv.ServiceEnv = serviceenv.InitServiceEnv(ctx, serviceenv.ConfigFromOptions(opts...))
+	realEnv.ServiceEnv = serviceenv.InitServiceEnv(ctx, pachconfig.ConfigFromOptions(opts...))
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
 	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())
@@ -230,7 +231,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 }
 
 // DefaultConfigOptions is a serviceenv config option with the defaults used for tests
-func DefaultConfigOptions(config *serviceenv.Configuration) {
+func DefaultConfigOptions(config *pachconfig.Configuration) {
 	config.StorageMemoryThreshold = units.GB
 	config.StorageLevelFactor = 10
 	config.StorageCompactionMaxFanIn = 10

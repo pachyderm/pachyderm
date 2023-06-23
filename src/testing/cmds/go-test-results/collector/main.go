@@ -156,7 +156,7 @@ func findJobInfoFromCI() (gotestresults.JobInfo, error) {
 		}
 	}
 	// non-string fields
-	jobInfo.JobTimestamp = time.Now()
+	jobInfo.JobTimestamp = time.Now().UTC()
 	var err error
 	jobInfo.JobNumExecutors, err = strconv.Atoi(os.Getenv("CIRCLE_NODE_TOTAL"))
 	if err != nil {
