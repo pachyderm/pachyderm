@@ -48,7 +48,7 @@ const CommitList: React.FC<CommitListProps> = ({
   } = useCommitList(commits);
 
   return (
-    <div data-testid="CommitList__list" className={styles.base}>
+    <div data-testid="CommitList__list" className={styles.base} role="list">
       <div className={styles.header}>
         <SimplePager
           page={page}
@@ -100,6 +100,7 @@ const CommitList: React.FC<CommitListProps> = ({
             RightIconSVG={CaretRightSVG}
             captionText={commit.id}
             onClick={() => updateSelectedCommit(commit.id, commit.branch?.name)}
+            role="listitem"
           />
         ))
       ) : (

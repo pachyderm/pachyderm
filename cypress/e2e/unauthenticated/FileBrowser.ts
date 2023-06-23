@@ -1,28 +1,21 @@
 describe('FileBrowser', () => {
   beforeEach(() => {
+    cy.deleteReposAndPipelines();
     cy.visit('/');
   });
 
   describe('Display and version history', () => {
-    before(() => {
-      cy.exec('pachctl create repo images')
-        .exec(
-          'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
-        )
-        .exec(
-          'pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png',
-        )
-        .exec(
-          'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
-        )
-        .exec('pachctl delete file images@test:image1.png')
-        .exec(
-          'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
-        )
-        .exec(
-          'pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png',
-        )
-        .visit('/');
+    beforeEach(() => {
+      cy.multiLineExec(
+        `pachctl create repo images
+        pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png
+        pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
+        pachctl delete file images@test:image1.png        
+        pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png
+        `,
+      ).visit('/');
     });
 
     after(() => {
@@ -31,9 +24,17 @@ describe('FileBrowser', () => {
 
     it('should display commits for selected branch', () => {
       cy.visit('/lineage/default/repos/images/branch/master/latest');
-      cy.findAllByTestId('CommitList__listItem').should('have.length', 2);
-      cy.findAllByTestId('DropdownButton__button').eq(1).click();
-      cy.findByText('test').click();
+      // look at master commits
+      cy.findAllByRole('listitem').should('have.length', 2);
+
+      // change branch to test
+      cy.findByRole('button', {
+        name: /master/i,
+      }).click();
+      cy.findByRole('menuitem', {
+        name: /test/i,
+      }).click();
+
       cy.findAllByTestId('CommitList__listItem').should('have.length', 4);
     });
 

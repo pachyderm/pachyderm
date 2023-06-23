@@ -15,6 +15,7 @@ export type ListItemProps = {
   captionText?: string;
   onClick?: () => void;
   'data-testid'?: string;
+  role?: string;
 };
 
 const ListItem: React.FC<ListItemProps> = ({
