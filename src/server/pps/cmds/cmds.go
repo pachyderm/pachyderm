@@ -509,10 +509,11 @@ each datum.`,
 			if pipelineInputPath != "" && len(args) == 1 {
 				return errors.Errorf("can't specify both a job and a pipeline spec")
 			} else if pipelineInputPath != "" {
-				r, err := fileIndicatorToReader(pipelineInputPath)
+				r, err := fileIndicatorToReadCloser(pipelineInputPath)
 				if err != nil {
 					return err
 				}
+				defer r.Close()
 				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 				if err != nil {
 					return err
@@ -951,10 +952,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editorArgs...); err != nil {
 				return err
 			}
-			r, err := fileIndicatorToReader(f.Name())
+			r, err := fileIndicatorToReadCloser(f.Name())
 			if err != nil {
 				return err
 			}
+			defer r.Close()
 			pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 			if err != nil {
 				return err
@@ -1447,10 +1449,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Validate pipeline spec.",
 		Long:  "Validate a pipeline spec.  Client-side only; does not check that repos, images &c. exist on the server.",
 		Run: cmdutil.RunFixedArgs(0, func(_ []string) error {
-			r, err := fileIndicatorToReader(pipelinePath)
+			r, err := fileIndicatorToReadCloser(pipelinePath)
 			if err != nil {
 				return err
 			}
+			defer r.Close()
 			pr, err := ppsutil.NewPipelineManifestReader(r)
 			if err != nil {
 				return err
@@ -1471,13 +1474,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	return commands
 }
 
-// fileIndicatorToReader returns an IO reader for a file based on an indicator
+// fileIndicatorToReadCloser returns an IO reader for a file based on an indicator
 // (which may be a local path, a remote URL or "-" for stdin).
 //
 // TODO(msteffen) This is very similar to readConfigBytes in
 // s/s/identity/cmds/cmds.go (which differs only in not supporting URLs),
 // so the two could perhaps be refactored.
-func fileIndicatorToReader(indicator string) (io.Reader, error) {
+func fileIndicatorToReadCloser(indicator string) (io.ReadCloser, error) {
 	if indicator == "-" {
 		cmdutil.PrintStdinReminder()
 		return os.Stdin, nil
@@ -1489,7 +1492,6 @@ func fileIndicatorToReader(indicator string) (io.Reader, error) {
 		if resp.StatusCode != http.StatusOK {
 			return nil, errors.Wrapf(err, "cannot handle HTTP status code %s (%d)", resp.Status, resp.StatusCode)
 		}
-		defer resp.Body.Close()
 		return resp.Body, nil
 	}
 	f, err := os.Open(indicator)
@@ -1500,10 +1502,11 @@ func fileIndicatorToReader(indicator string) (io.Reader, error) {
 }
 
 func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
-	r, err := fileIndicatorToReader(jsonnetPath)
+	r, err := fileIndicatorToReadCloser(jsonnetPath)
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 	templateBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read Jsonnet file %q", jsonnetPath)
@@ -1538,10 +1541,11 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
 	var pipelineReader *ppsutil.PipelineManifestReader
 	if pipelinePath != "" {
-		r, err := fileIndicatorToReader(pipelinePath)
+		r, err := fileIndicatorToReadCloser(pipelinePath)
 		if err != nil {
 			return err
 		}
+		defer r.Close()
 		pipelineReader, err = ppsutil.NewPipelineManifestReader(r)
 		if err != nil {
 			return err
