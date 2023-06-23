@@ -22,10 +22,14 @@ import {
 import Account from './components/Account';
 import styles from './HeaderDropdown.module.css';
 
-const HeaderDropdown: React.FC = () => {
+type HeaderDropdownProps = {
+  errorPage?: boolean;
+};
+
+const HeaderDropdown: React.FC<HeaderDropdownProps> = ({errorPage}) => {
   const {projectId} = useUrlState();
-  const {enterpriseActive} = useEnterpriseActive();
-  const {data: version} = useGetVersionInfoQuery();
+  const {enterpriseActive} = useEnterpriseActive(errorPage);
+  const {data: version} = useGetVersionInfoQuery({skip: errorPage});
   const {
     openModal: openActiveProjectModal,
     closeModal: closeActiveProjectModal,

@@ -10,21 +10,27 @@ import styles from './LandingHeader.module.css';
 
 type LandingHeaderProps = {
   projects?: Project[];
+  disableBranding?: boolean;
 };
 
-const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
-  const {enterpriseActive} = useEnterpriseActive();
+const LandingHeader: React.FC<LandingHeaderProps> = ({
+  projects = [],
+  disableBranding = false,
+}) => {
+  const {enterpriseActive} = useEnterpriseActive(disableBranding);
+
+  const logo = enterpriseActive ? (
+    <LogoHpe aria-describedby="logo-title" />
+  ) : (
+    <LogoElephant />
+  );
 
   return (
     <Header>
       <Group justify="stretch" align="center">
         <Group align="center" justify="center" spacing={24}>
           <a className={styles.logoLink} href="/">
-            {enterpriseActive ? (
-              <LogoHpe aria-describedby="logo-title" />
-            ) : (
-              <LogoElephant />
-            )}
+            {!disableBranding && logo}
             <h5
               className={
                 enterpriseActive
@@ -43,7 +49,7 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
             </h5>
           </a>
         </Group>
-        <HeaderDropdown />
+        <HeaderDropdown errorPage={disableBranding} />
       </Group>
     </Header>
   );

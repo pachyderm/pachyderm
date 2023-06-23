@@ -4,9 +4,11 @@ import {useGetEnterpriseInfoQuery} from '@dash-frontend/generated/hooks';
 
 import useLoggedIn from './useLoggedIn';
 
-export const useEnterpriseActive = () => {
+export const useEnterpriseActive = (disableCheck = false) => {
   const {loggedIn} = useLoggedIn();
-  const {data, loading} = useGetEnterpriseInfoQuery({skip: !loggedIn});
+  const {data, loading} = useGetEnterpriseInfoQuery({
+    skip: disableCheck || !loggedIn,
+  });
   const enterpriseActive =
     data?.enterpriseInfo.state === EnterpriseState.ACTIVE;
 
