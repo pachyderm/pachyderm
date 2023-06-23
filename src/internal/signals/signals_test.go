@@ -12,30 +12,34 @@ import (
 )
 
 func TestSignals(t *testing.T) {
+	if err := testSignal(os.Interrupt); err != nil {
+		t.Error(err)
+	}
+}
+
+func testSignal(s os.Signal) error {
 	var (
-		c = make(chan os.Signal)
+		c = make(chan os.Signal, 1)
 		g errgroup.Group
 	)
-
 	signal.Notify(c, signals.TerminationSignals...)
+	defer signal.Stop(c)
+	defer close(c)
 
 	g.Go(func() error {
 		p, err := os.FindProcess(os.Getpid())
 		if err != nil {
 			return errors.Wrap(err, "could not find own process")
 		}
-		p.Signal(os.Interrupt)
-		return nil
+		return errors.Wrap(p.Signal(s), "could not signal self")
 	})
 
 	g.Go(func() error {
-		if got, expected := <-c, os.Interrupt; got != expected {
+		if got, expected := <-c, s; got != expected {
 			return errors.Errorf("unexpected signal %v (expected %v)", got, expected)
 		}
 		return nil
 	})
 
-	if err := g.Wait(); err != nil {
-		t.Error(err)
-	}
+	return errors.Wrapf(g.Wait(), "could not signal & handle %v", s)
 }
