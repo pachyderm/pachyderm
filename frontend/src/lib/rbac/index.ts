@@ -1,1 +1,0 @@
-export {hasAtLeastRole} from './rbac';

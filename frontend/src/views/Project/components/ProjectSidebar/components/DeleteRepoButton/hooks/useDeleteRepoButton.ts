@@ -1,9 +1,10 @@
+import {Permission, ResourceType} from '@graphqlTypes';
 import {useState} from 'react';
 
 import {useGetDagQuery} from '@dash-frontend/generated/hooks';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {hasAtLeastRole} from '@dash-frontend/lib/rbac';
+import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 
 const useDeleteRepoButton = () => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -13,10 +14,10 @@ const useDeleteRepoButton = () => {
     variables: {args: {projectId}},
   });
 
-  const hasAuthDeleteRepo = hasAtLeastRole(
-    'repoOwner',
-    repo?.authInfo?.rolesList,
-  );
+  const {isAuthorizedAction: hasAuthDeleteRepo} = useVerifiedAuthorization({
+    permissionsList: [Permission.REPO_DELETE],
+    resource: {type: ResourceType.REPO, name: `${projectId}/${repo?.id}`},
+  });
 
   const canDelete =
     dagData &&

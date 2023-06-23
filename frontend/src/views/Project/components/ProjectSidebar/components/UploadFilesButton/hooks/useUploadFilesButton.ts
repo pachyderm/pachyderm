@@ -1,18 +1,19 @@
+import {Permission, ResourceType} from '@graphqlTypes';
 import {useMemo} from 'react';
 
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {hasAtLeastRole} from '@dash-frontend/lib/rbac';
+import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {fileUploadRoute} from '@dash-frontend/views/Project/utils/routes';
 
 const useUploadFilesButton = () => {
   const {projectId, repoId} = useUrlState();
   const {repo, loading} = useCurrentRepo();
 
-  const hasAuthUploadRepo = hasAtLeastRole(
-    'repoWriter',
-    repo?.authInfo?.rolesList,
-  );
+  const {isAuthorizedAction: hasAuthUploadRepo} = useVerifiedAuthorization({
+    permissionsList: [Permission.REPO_WRITE],
+    resource: {type: ResourceType.REPO, name: `${projectId}/${repo?.id}`},
+  });
 
   const tooltipText = !hasAuthUploadRepo
     ? 'You need at least repoWriter to upload files.'
