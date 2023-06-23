@@ -164,9 +164,6 @@ const client = ({
     attachCredentials: (header: string, value: string) => {
       credentialMetadata.set(header, value);
     },
-    setAuthnToken: (token: string) => {
-      credentialMetadata.set('authn-token', token);
-    },
     version: () => {
       if (versionService) return versionService;
 

@@ -57,6 +57,7 @@ const auth = ({
         });
       });
     },
+    /** If you are running this command from tests, prefer to use activateAuth from test utils */
     activate: (rootToken?: string) => {
       return new Promise<ActivateResponse.AsObject>((resolve, reject) => {
         const request = new ActivateRequest();

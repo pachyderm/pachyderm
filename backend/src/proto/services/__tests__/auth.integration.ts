@@ -1,12 +1,6 @@
 import {ResourceType} from '@graphqlTypes';
 
-import {
-  activateEnterprise,
-  deactivateAuthEnterprise,
-  deactivateEnterprise,
-} from './utils';
-
-let token = '';
+import {activateEnterprise, deactivateEnterprise, activateAuth} from './utils';
 
 describe('services/auth', () => {
   describe('environment', () => {
@@ -17,17 +11,15 @@ describe('services/auth', () => {
 
   describe('activate', () => {
     afterEach(async () => {
-      const pachClient = await deactivateEnterprise(token);
+      const pachClient = await deactivateEnterprise();
       pachClient.auth().deactivate();
     });
 
     it('enables auth', async () => {
       const pachClient = await activateEnterprise();
-      const auth = pachClient.auth();
 
-      const res = await auth.activate();
-      token = res?.pachToken;
-      expect(token).toBeTruthy();
+      const res = await activateAuth(pachClient);
+      expect(res?.pachToken).toBeTruthy();
     });
   });
 
@@ -36,20 +28,15 @@ describe('services/auth', () => {
       await deactivateEnterprise();
     });
     it('deactivates auth', async () => {
-      const pachClient = await activateEnterprise(token);
-      const auth = pachClient.auth();
-
-      const authRes = await auth.activate();
-      token = authRes?.pachToken;
-      expect(token).toBeTruthy();
-      pachClient.setAuthnToken(token);
+      const pachClient = await activateEnterprise();
+      await activateAuth(pachClient);
 
       const res = await pachClient.auth().deactivate();
       expect(res).toStrictEqual({});
     });
 
     it('errors if auth is not active', async () => {
-      const pachClient = await activateEnterprise(token);
+      const pachClient = await activateEnterprise();
 
       await expect(pachClient.auth().deactivate()).rejects.toThrow(
         '12 UNIMPLEMENTED: the auth service is not activated',
@@ -59,7 +46,7 @@ describe('services/auth', () => {
 
   describe('Roles & Permissions', () => {
     afterEach(async () => {
-      const pachClient = await deactivateAuthEnterprise(token);
+      const pachClient = await deactivateEnterprise({deactivateAuth: true});
 
       const pps = pachClient.pps();
       const pfs = pachClient.pfs();
@@ -69,13 +56,7 @@ describe('services/auth', () => {
 
     it('getRoleBinding gives correct role binding data for repo', async () => {
       const pachClient = await activateEnterprise();
-      const auth = pachClient.auth();
-
-      const authRes = await auth.activate();
-      token = authRes?.pachToken;
-      expect(token).toBeTruthy();
-
-      pachClient.setAuthnToken(token);
+      await activateAuth(pachClient);
 
       const pfs = pachClient.pfs();
       await pfs.createProject({name: 'test'});
@@ -92,13 +73,7 @@ describe('services/auth', () => {
 
     it('getPermissions gives correct role and permission data for repo', async () => {
       const pachClient = await activateEnterprise();
-      const auth = pachClient.auth();
-
-      const authRes = await auth.activate();
-      token = authRes?.pachToken;
-      expect(token).toBeTruthy();
-
-      pachClient.setAuthnToken(token);
+      await activateAuth(pachClient);
 
       const pfs = pachClient.pfs();
       await pfs.createProject({name: 'test'});
@@ -121,13 +96,7 @@ describe('services/auth', () => {
 
     it('modifyRoles updates role bindings for a specific resource', async () => {
       const pachClient = await activateEnterprise();
-      const auth = pachClient.auth();
-
-      const authRes = await auth.activate();
-      token = authRes?.pachToken;
-      expect(token).toBeTruthy();
-
-      pachClient.setAuthnToken(token);
+      await activateAuth(pachClient);
 
       const pfs = pachClient.pfs();
       await pfs.createProject({name: 'test'});
