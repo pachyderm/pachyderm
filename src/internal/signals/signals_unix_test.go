@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
@@ -21,7 +21,7 @@ func TestUnixSignals(t *testing.T) {
 
 	signal.Notify(c, signals.TerminationSignals...)
 
-	for _, s := range []os.Signal{syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT} {
+	for _, s := range []os.Signal{unix.SIGHUP, unix.SIGTERM, unix.SIGQUIT, unix.SIGINT} {
 		t.Run(fmt.Sprintf("signal: %v", s), func(t *testing.T) {
 			g.Go(func() error {
 				p, err := os.FindProcess(os.Getpid())

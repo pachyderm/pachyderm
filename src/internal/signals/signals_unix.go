@@ -1,7 +1,7 @@
 package signals
 
-import "syscall"
+import "golang.org/x/sys/unix"
 
 func init() {
-	TerminationSignals = append(TerminationSignals, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
+	TerminationSignals = append(TerminationSignals, unix.SIGTERM, unix.SIGQUIT, unix.SIGHUP)
 }
