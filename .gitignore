@@ -21,7 +21,7 @@ doc/_build
 /worker
 ## This is for testing pachctl documentation
 /src/server/cmd/pachctl/pachctl 
-/src/server/cmd/pachctl/pachctl-doc 
+/src/server/cmd/pachctl-doc/pachctl-doc 
 
 # Release artifacts
 /VERSION

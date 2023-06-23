@@ -479,7 +479,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- To specify which project the repo is in, use the `--project` flag \n",
 		Example: "\t- `{{alias}} foo@master` \n" +
 			"\t- `{{alias}} foo@master --project bar` \n" +
-			"\t- `{{alias}} foo@master --raw` \n",
+			"\t- `{{alias}} foo@master --raw` \n" +
+			"\t- `{{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar --raw` \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(project, args[0])
@@ -544,7 +545,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- `{{alias}} foo@master --from 0001a0100b1c10d01111e001fg00h00i` ➔ returns all commits in repo `foo` on branch `master` since `<commit>` \n" +
 			"\t- `{{alias}} foo@master --origin user` ➔ returns all commits in repo `foo` on branch `master` originating from \n" +
 			"\t- `{{alias}} 0001a0100b1c10d01111e001fg00h00i` ➔ returns all commits with ID `<commit-id>` \n" +
-			"\t- `{{alias}} 0001a0100b1c10d01111e001fg00h00i --expand ➔ returns all sub-commits on new lines, along with columns of more information \n" +
+			"\t- `{{alias}} 0001a0100b1c10d01111e001fg00h00i --expand` ➔ returns all sub-commits on new lines, along with columns of more information \n" +
 			"\t- `{{alias}} foo@master --raw -o yaml` ➔ returns all commits in repo `foo` on branch `master` in YAML format \n",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -1413,9 +1414,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	deleteProject.Flags().BoolVarP(&force, "force", "f", false, "Remove the project regardless of errors; use with caution.")
 	commands = append(commands, cmdutil.CreateAliases(deleteProject, "delete project", projects))
 
+	// FILE COMMANDS
+
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
-		Long: "Files are the lowest level data objects in Pachyderm and can be of any type (e.g. csv, binary, images, etc) or size. \n" +
+		Long: "Files are the lowest-level data objects in Pachyderm and can be of any type (e.g. csv, binary, images, etc) or size. \n" +
 			"Files can be written to started--but not yet finished--commits with the `pachctl put file` command. To read a file from a commit, Files use the `pachctl get file` command.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(fileDocs, "file", " file$", files))
@@ -1432,16 +1435,35 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
-		Long:  "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS.",
+		Long: "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS. \n" +
+			"\n" +
+			"Files, Directories, & URLs: \n" +
+			"\t- To upload via local filesystem, use the `-f` flag. \n" +
+			"\t- To upload via URL, use the `-f` flag with a URL as the argument. \n" +
+			"\t- To upload via filepaths & urls within a file, use the `i` flag. \n" +
+			"\t- To upload to a specific path in the repo, use the `-f` flag and add the path to the `repo@branch:/path` \n" +
+			"\t- To upload recursively from a directory, use the `-r` flag. \n" +
+			"\t- To upload tar files and have them automatically untarred, use the `-untar` flag. \n" +
+			"\n" +
+			"Compression, Parallelization, Appends: \n" +
+			"\t- To compress files before uploading, use the `-c` flag. \n" +
+			"\t- To define the maximum number of files that can be uploaded in parallel, use the `-p` flag. \n" +
+			"\t- To append to an existing file, use the `-a` flag. \n" +
+			"\n" +
+			"Other: \n" +
+			"\t- To enable progress bars, use the `-P` flag. \n",
+
 		Example: "\t- `{{alias}} repo@master-f image.png` \n" +
 			"\t- `{{alias}} repo@master:/logs/log-1.txt`  \n" +
-			"\t- `{{alias}} -r repo@master -f my-directory `\n" +
+			"\t- `{{alias}} -r repo@master -f my-directory` \n" +
 			"\t- `{{alias}} -r repo@branch:/path -f my-directory` \n" +
-			"\t- `{{{alias}} repo@branch -f http://host/example.png` \n" +
+			"\t- `{{alias}} repo@branch -f http://host/example.png` \n" +
 			"\t- `{{alias}} repo@branch:/dir -f http://host/example.png` \n" +
 			"\t- `{{alias}} repo@branch -r -f s3://my_bucket` \n" +
 			"\t- `{{alias}} repo@branch -i file` \n" +
-			"\t- `{{alias}} repo@branch -i http://host/path` \n",
+			"\t- `{{alias}} repo@branch -i http://host/path` \n" +
+			"\t- `{{alias}} repo@branch -f -untar dir.tar` \n" +
+			"\t- `{{alias}} repo@branch -f -c image.png` \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			if !enableProgress {
@@ -1551,16 +1573,16 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			})
 		}),
 	}
-	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
-	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
-	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
-	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "Specify the file to be put; it can be a local file or a URL.")
+	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Specify file provided contains a list of files to be put (as paths or URLs).")
+	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Specify files should be recursively put into a directory.")
+	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Specify data should be compressed during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
+	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "Specify the maximum number of files that can be uploaded in parallel.")
+	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Specify file contents should be appended to existing content from previous commits or previous calls to `pachctl put file` within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
-	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
-	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz or .tgz) tar file(s) are handled as well")
-	putFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "Specify entire path provided to -f should be the target filename in PFS; by default only the base of the path is used.")
+	putFile.Flags().BoolVar(&untar, "untar", false, "Specify file(s) with the extension .tar should be untarred and put as a separate file for each file within the tar stream(s); gzipped (.tar.gz or .tgz) tar file(s) are handled as well")
+	putFile.Flags().StringVar(&project, "project", project, "Specify the project name in which repo for uploading this file is located.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1578,26 +1600,17 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
-		Long:  "Copy files between pfs paths.",
-		Example: `
-# copy between repos within the current project defined by the pachyderm context
-# defaults to the "default" project
-$ {{alias}} srcRepo@master:/file destRepo@master:/file
-
-# copy within a specified project
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --project myProject
-
-# copy from the current project to a different project
-# here, srcRepo is in the current project, while destRepo is in myProject
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --dest-project myProject
-
-# copy from a different project to the current project
-# here, srcRepo is in myProject, while destRepo is in the current project
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project myProject
-
-# copy between repos across two different projects
-# here, srcRepo is in project1, while destRepo is in project2
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --dest-project project2`,
+		Long: "This command files between pfs paths. While using this command, take special note of which project is set to your active context by running `pachctl list projects` and checking for the `*` in the ACTIVE column. \n" +
+			"\n" +
+			"\t- To append to an existing file, use the --append flag.\n" +
+			"\t- To specify the project where both the source and destination repos are located, use the --project flag. This is only necessary if the project in question is not set to your active context.\n" +
+			"\t- To copy a file from one project to another, use the --src-project and --dest-project flags. Needing to use one (or both) depends on whether or not either project is set to your active context.\n",
+		Example: "\t- {{alias}} foo@master:/file bar@master:/file \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:/file bar@master:/file \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --project ProjectContainingFooAndBar \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --dest-project ProjectContainingBar \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --src-project ProjectContainingFoo \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --src-project ProjectContainingFoo --dest-project ProjectContainingBar",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if srcProject == "" {
 				srcProject = project
@@ -1631,9 +1644,9 @@ $ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --
 		}),
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
-	copyFile.Flags().StringVar(&project, "project", project, "Project in which both source and destination repos are located.")
-	copyFile.Flags().StringVar(&srcProject, "src-project", "", "Project in which the source repo is located. This overrides --project.")
-	copyFile.Flags().StringVar(&destProject, "dest-project", "", "Project in which the destination repo is located. This overrides --project.")
+	copyFile.Flags().StringVar(&project, "project", project, "Specify the project name in which both source and destination repos are located.")
+	copyFile.Flags().StringVar(&srcProject, "src-project", "", "Specify the project name in which the source repo is located; this overrides --project.")
+	copyFile.Flags().StringVar(&destProject, "dest-project", "", "Specify the project name in which the destination repo is located; this overrides --project.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
@@ -1643,26 +1656,26 @@ $ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --
 	getFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return the contents of a file.",
-		Long:  "Return the contents of a file.",
-		Example: `
-# get a single file "XXX" on branch "master" in repo "foo"
-$ {{alias}} foo@master:XXX
+		Long: "This command returns the contents of a file. " +
+			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to retrieve the contents of a file from a previous commit. \n" +
+			"\n" +
+			"\t- To specify the project where the repo is located, use the --project flag. \n" +
+			"\t- To specify the output path, use the --output flag. \n" +
+			"\t- To specify the number of bytes to offset the read by, use the --offset-bytes flag. \n" +
+			"\t- To retry the operation if it fails, use the --retry flag. \n",
 
-# get file "XXX" in the parent of the current head of branch "master"
-# in repo "foo"
-$ {{alias}} foo@master^:XXX
-
-# get file "XXX" in the grandparent of the current head of branch "master"
-# in repo "foo"
-$ {{alias}} foo@master^2:XXX
-
-# get file "test[].txt" on branch "master" in repo "foo"
-# the path is interpreted as a glob pattern: quote and protect regex characters
-$ {{alias}} 'foo@master:/test\[\].txt'
-
-# get all files under the directory "XXX" on branch "master" in repo "foo"
-$ {{alias}} foo@master:XXX -r
-`,
+		Example: "\t- {{alias}} foo@master:image.png \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:image.png \n" +
+			"\t- {{alias}} foo@master:/directory -r \n" +
+			"\t- {{alias}} foo@master:image.png --output /path/to/image.png \n" +
+			"\t- {{alias}} foo@master:/logs/log.txt--offset-bytes 100 \n" +
+			"\t- {{alias}} foo@master:image.png --retry \n" +
+			"\t- {{alias}} foo@master:/logs/log.txt --output /path/to/image.png --offset-bytes 100 --retry \n" +
+			"\t- {{alias}} foo@master^:chart.png \n" +
+			"\t- {{alias}} foo@master^2:chart.png  \n" +
+			"\t- {{alias}} foo@master.1:chart.png  \n" +
+			"\t- {{alias}} foo@master.-1:chart.png  \n" +
+			"\t- " + `{{alias}} 'foo@master:/test\[\].txt'` + "\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			if !enableProgress {
 				progress.Disable()
@@ -1738,18 +1751,25 @@ $ {{alias}} foo@master:XXX -r
 		}),
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Download multiple files, or recursively download a directory.")
-	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
+	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "Specify the path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
-	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
+	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "Specify the number of bytes in the file to skip ahead when reading.")
 	getFile.Flags().BoolVar(&retry, "retry", false, "{true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.")
-	getFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	getFile.Flags().StringVar(&project, "project", project, "Specify the project name in which the file's repo is located.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(getFile, "get file", files))
 
 	inspectFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return info about a file.",
-		Long:  "Return info about a file.",
+		Long: "This command returns info about a file." +
+			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to inspect the contents of a file from a previous commit. \n" +
+			"\t- To specify the project where the repo is located, use the --project flag. \n",
+		Example: "\t- {{alias}} repo@master:/logs/log.txt \n" +
+			"\t- {{alias}} repo@0001a0100b1c10d01111e001fg00h00i:/logs/log.txt \n" +
+			"\t- {{alias}} repo@master:/logs/log.txt^2 \n" +
+			"\t- {{alias}} repo@master:/logs/log.txt.-1 \n" +
+			"\t- {{alias}} repo@master:/logs/log.txt^2  --project foo \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1776,32 +1796,22 @@ $ {{alias}} foo@master:XXX -r
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(outputFlags)
-	inspectFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	inspectFile.Flags().StringVar(&project, "project", project, "Specify the project name in which the file's repo is located.")
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectFile, "inspect file", files))
 
 	listFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Return the files in a directory.",
-		Long:  "Return the files in a directory.",
-		Example: `
-# list top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master
-
-# list files under directory "dir" on branch "master" in repo "foo"
-$ {{alias}} foo@master:dir
-
-# list top-level files in the parent commit of the current head of "master"
-# in repo "foo"
-$ {{alias}} foo@master^
-
-# list top-level files in the grandparent of the current head of "master"
-# in repo "foo"
-$ {{alias}} foo@master^2
-
-# list file under directory "dir[1]" on branch "master" in repo "foo"
-# : quote and protect regex characters
-$ {{alias}} 'foo@master:dir\[1\]'`,
+		Long: "This command returns the files in a directory. " +
+			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to inspect the contents of a file from a previous commit. \n" +
+			"\t- To specify the project where the repo is located, use the --project flag. \n",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master:dir \n" +
+			"\t- {{alias}} foo@master^ \n" +
+			"\t- {{alias}} foo@master^2 \n" +
+			"\t- {{alias}} repo@master.-2  --project foo \n" +
+			"\t- " + `{{alias}} 'foo@master:dir\[1\]'` + "\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1840,17 +1850,13 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	globFile := &cobra.Command{
 		Use:   `{{alias}} "<repo>@<branch-or-commit>:<pattern>"`,
 		Short: "Return files that match a glob pattern in a commit.",
-		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
-		Example: `
-# Return files in repo "foo" on branch "master" that start
-# with the character "A".  Note how the double quotation marks around the
-# parameter are necessary because otherwise your shell might interpret the "*".
-$ {{alias}} "foo@master:A*"
-
-# Return files in repo "foo" on branch "master" under directory "data".
-$ {{alias}} "foo@master:data/*"
-
-# If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
+		Long: "This command returns files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). " +
+			"Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match). \n" +
+			"\n" +
+			"\t- To specify the project where the repo is located, use the `--project flag`. \n",
+		Example: "\t- " + `{{alias}} "foo@master:A*"` + "\n" +
+			"\t- " + `{{alias}} "foo@0001a0100b1c10d01111e001fg00h00i:data/*"` + "\n" +
+			"\t- " + `{{alias}} "foo@master:data/*"`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1885,7 +1891,7 @@ $ {{alias}} "foo@master:data/*"
 	}
 	globFile.Flags().AddFlagSet(outputFlags)
 	globFile.Flags().AddFlagSet(timestampFlags)
-	globFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	globFile.Flags().StringVar(&project, "project", project, "Specify the project name of the repo in which the potential matching file(s) are located.")
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(globFile, "glob file", files))
 
@@ -1894,17 +1900,10 @@ $ {{alias}} "foo@master:data/*"
 	var diffCmdArg string
 	var oldProject string
 	diffFile := &cobra.Command{
-		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
-		Short: "Return a diff of two file trees stored in Pachyderm",
-		Long:  "Return a diff of two file trees stored in Pachyderm",
-		Example: `
-# Return the diff of the file "path" of the repo "foo" between the head of the
-# "master" branch and its parent.
-$ {{alias}} foo@master:path
-
-# Return the diff between the master branches of repos foo and bar at paths
-# path1 and path2, respectively.
-$ {{alias}} foo@master:path1 bar@master:path2`,
+		Use:     "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
+		Short:   "Return a diff of two file trees stored in Pachyderm",
+		Long:    "This command returns a diff of two file trees stored in Pachyderm",
+		Example: "",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			newFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
