@@ -27,6 +27,7 @@
 }
 
 .docsLink {
+  text-align: center;
   margin-top: 0.75rem;
   margin-left: 0.25rem;
   display: inline-flex;

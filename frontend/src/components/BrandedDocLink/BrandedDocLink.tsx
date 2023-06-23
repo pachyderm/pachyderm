@@ -19,10 +19,12 @@ const BrandedDocLink: React.FC<
 
   return (
     <Link externalLink to={to} {...rest}>
-      {children}
-      <Icon className={styles.externalIcon} color="plum" small>
-        <ExternalLinkSVG aria-hidden />
-      </Icon>
+      <span className={styles.linkText}>
+        {children}{' '}
+        <Icon className={styles.externalIcon} color="plum" small>
+          <ExternalLinkSVG aria-hidden />
+        </Icon>
+      </span>
     </Link>
   );
 };
