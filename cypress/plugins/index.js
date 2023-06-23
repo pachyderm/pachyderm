@@ -11,13 +11,13 @@
 
 // This function is called when a project is opened or re-opened (e.g. due to
 // the project's config changing)
-const fs = require('fs')
+const fs = require('fs');
 const path = require('path');
 
 /**
  * @type {Cypress.PluginConfig}
  */
- module.exports = (on, config) => {
+module.exports = (on, config) => {
   require('@cypress/code-coverage/task')(on, config);
 
   config.env.AUTH_EMAIL = process.env.PACHYDERM_AUTH_EMAIL;
@@ -26,13 +26,13 @@ const path = require('path');
   on('task', {
     readFileMaybe(filename) {
       const downloadsFolder = config.downloadsFolder;
-      const filepath = path.join(downloadsFolder, filename)
+      const filepath = path.join(downloadsFolder, filename);
       if (fs.existsSync(filepath)) {
-        return fs.readFileSync(filepath, 'utf8')
+        return fs.readFileSync(filepath, 'utf8');
       }
-      return null
+      return null;
     },
-  })
+  });
 
   return config;
 };
