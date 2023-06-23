@@ -2,11 +2,11 @@ import client from '../../client';
 
 export const AUTH_TOKEN = 'pizza';
 
-const getTestPachClient = () => {
+export const getTestPachClient = (authToken?: string) => {
   return client({
     ssl: false,
     pachdAddress: 'localhost:30650',
-    authToken: AUTH_TOKEN,
+    authToken: authToken ?? AUTH_TOKEN,
   });
 };
 

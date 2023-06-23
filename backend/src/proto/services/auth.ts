@@ -15,6 +15,8 @@ import {
   DeactivateResponse,
   GetPermissionsRequest,
   GetPermissionsResponse,
+  GetRobotTokenRequest,
+  GetRobotTokenResponse,
   GetRoleBindingRequest,
   GetRoleBindingResponse,
   ModifyRoleBindingRequest,
@@ -169,6 +171,21 @@ const auth = ({
           .setResource(resource);
 
         client.authorize(request, credentialMetadata, (error, res) => {
+          if (error) {
+            return reject(error);
+          } else {
+            return resolve(res.toObject());
+          }
+        });
+      });
+    },
+    getRobotToken: (args: GetRobotTokenRequest.AsObject) => {
+      return new Promise<GetRobotTokenResponse.AsObject>((resolve, reject) => {
+        const request = new GetRobotTokenRequest()
+          .setRobot(args.robot)
+          .setTtl(args.ttl);
+
+        client.getRobotToken(request, credentialMetadata, (error, res) => {
           if (error) {
             return reject(error);
           } else {

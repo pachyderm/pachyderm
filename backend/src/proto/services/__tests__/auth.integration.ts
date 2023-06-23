@@ -1,6 +1,11 @@
-import {ResourceType} from '@graphqlTypes';
+import {Permission, ResourceType} from '@graphqlTypes';
 
-import {activateEnterprise, deactivateEnterprise, activateAuth} from './utils';
+import {
+  activateEnterprise,
+  deactivateEnterprise,
+  activateAuth,
+  getTestPachClient,
+} from './utils';
 
 describe('services/auth', () => {
   describe('environment', () => {
@@ -119,6 +124,135 @@ describe('services/auth', () => {
   });
 
   describe('authorize', () => {
-    it.todo('correctly returns project auth checks');
+    afterEach(async () => {
+      const pachClient = await deactivateEnterprise({deactivateAuth: true});
+
+      const pps = pachClient.pps();
+      const pfs = pachClient.pfs();
+      await pps.deleteAll();
+      await pfs.deleteAll();
+    });
+
+    it('correctly returns project auth checks', async () => {
+      const pachClient = await activateEnterprise();
+      await activateAuth(pachClient);
+
+      const pfs = pachClient.pfs();
+      await pfs.createProject({name: 'test'});
+      await pfs.createRepo({projectId: 'test', repo: {name: 'images'}});
+
+      let auth = pachClient.auth();
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
+          resource: {type: ResourceType.PROJECT, name: 'test'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: true,
+          satisfiedList: [404],
+          missingList: [],
+          principal: 'pach:root',
+        }),
+      );
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.REPO_DELETE],
+          resource: {type: ResourceType.REPO, name: 'test/images'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: true,
+          satisfiedList: [203],
+          missingList: [],
+          principal: 'pach:root',
+        }),
+      );
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.REPO_WRITE],
+          resource: {type: ResourceType.REPO, name: 'test/images'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: true,
+          satisfiedList: [201],
+          missingList: [],
+          principal: 'pach:root',
+        }),
+      );
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.REPO_MODIFY_BINDINGS],
+          resource: {type: ResourceType.REPO, name: 'test/images'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: true,
+          satisfiedList: [202],
+          missingList: [],
+          principal: 'pach:root',
+        }),
+      );
+
+      const {token} = await auth.getRobotToken({
+        robot: 'testbot',
+        ttl: 111111,
+      });
+      const robotPachClient = getTestPachClient(token);
+      auth = robotPachClient.auth();
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
+          resource: {type: ResourceType.PROJECT, name: 'test'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: false,
+          satisfiedList: [],
+          missingList: [404],
+          principal: 'robot:testbot',
+        }),
+      );
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.REPO_DELETE],
+          resource: {type: ResourceType.REPO, name: 'test/images'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: false,
+          satisfiedList: [],
+          missingList: [203],
+          principal: 'robot:testbot',
+        }),
+      );
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.REPO_WRITE],
+          resource: {type: ResourceType.REPO, name: 'test/images'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: false,
+          satisfiedList: [],
+          missingList: [201],
+          principal: 'robot:testbot',
+        }),
+      );
+      expect(
+        await auth.authorize({
+          permissionsList: [Permission.REPO_MODIFY_BINDINGS],
+          resource: {type: ResourceType.REPO, name: 'test/images'},
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          authorized: false,
+          satisfiedList: [],
+          missingList: [202],
+          principal: 'robot:testbot',
+        }),
+      );
+    });
   });
 });
