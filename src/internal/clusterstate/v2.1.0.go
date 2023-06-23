@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/storagedb"
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
@@ -16,7 +16,7 @@ var state_2_1_0 migrations.State = state_2_0_0.
 		return enterpriseserver.DeleteEnterpriseConfigFromEtcd(ctx, env.EtcdClient)
 	}).
 	Apply("create pfs cache v1", func(ctx context.Context, env migrations.Env) error {
-		return fileset.CreatePostgresCacheV1(ctx, env.Tx)
+		return storagedb.SchemaFilesetCacheV1(ctx, env.Tx)
 	})
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE

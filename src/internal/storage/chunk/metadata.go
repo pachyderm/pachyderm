@@ -61,32 +61,6 @@ type Entry struct {
 	Tombstone bool   `db:"tombstone"`
 }
 
-// SetupPostgresStoreV0 sets up tables in db
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresStoreV0(tx *pachsql.Tx) error {
-	_, err := tx.Exec(`
-	CREATE TABLE storage.chunk_objects (
-		chunk_id BYTEA NOT NULL,
-		gen BIGSERIAL NOT NULL,
-		uploaded BOOLEAN NOT NULL DEFAULT FALSE,
-		tombstone BOOLEAN NOT NULL DEFAULT FALSE,
-		size INT8 NOT NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-		PRIMARY KEY(chunk_id, gen)
-	);
-
-	CREATE TABLE storage.keys (
-		name VARCHAR(128) NOT NULL,
-		data BYTEA NOT NULL,
-
-		PRIMARY KEY(name)
-	)
-	`)
-	return errors.EnsureStack(err)
-}
-
 // KeyStore is a store for named secret keys
 type KeyStore interface {
 	Create(ctx context.Context, name string, data []byte) error

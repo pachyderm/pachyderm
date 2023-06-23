@@ -7,10 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/storagedb"
 )
 
 var (
@@ -221,7 +225,10 @@ func runGC(t *testing.T, tracker Tracker) int {
 
 // NewTestTracker returns a tracker scoped to the lifetime of the test
 func NewTestTracker(t testing.TB, db *pachsql.DB) Tracker {
-	db.MustExec("CREATE SCHEMA IF NOT EXISTS storage")
-	db.MustExec(schema)
+	ctx := pctx.TestContext(t)
+	require.NoError(t, dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
+		tx.MustExec("CREATE SCHEMA IF NOT EXISTS storage")
+		return storagedb.SchemaTrackerV0(ctx, tx)
+	}))
 	return NewPostgresTracker(db)
 }

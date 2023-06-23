@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/storagedb"
 )
 
 var _ MetadataStore = &postgresStore{}
@@ -147,26 +148,11 @@ func (s *postgresStore) Exists(ctx context.Context, id ID) (bool, error) {
 	return true, nil
 }
 
-// SetupPostgresStoreV0 sets up the tables for a Store
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
-	const schema = `
-	CREATE TABLE storage.filesets (
-		id UUID NOT NULL PRIMARY KEY,
-		metadata_pb BYTEA NOT NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-`
-	_, err := tx.ExecContext(ctx, schema)
-	return errors.EnsureStack(err)
-}
-
 // NewTestStore returns a Store scoped to the lifetime of the test.
 func NewTestStore(ctx context.Context, t testing.TB, db *pachsql.DB) MetadataStore {
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
-	require.NoError(t, SetupPostgresStoreV0(ctx, tx))
+	require.NoError(t, storagedb.SchemaFilesetV0(ctx, tx))
 	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)
 }

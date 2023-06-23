@@ -9,15 +9,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/storagedb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
 	"github.com/pachyderm/pachyderm/v2/src/server/identity"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 // DO NOT MODIFY THIS STATE
@@ -28,13 +25,13 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 		return errors.EnsureStack(err)
 	}).
 	Apply("storage tracker v0", func(ctx context.Context, env migrations.Env) error {
-		return track.SetupPostgresTrackerV0(ctx, env.Tx)
+		return storagedb.SchemaTrackerV0(ctx, env.Tx)
 	}).
 	Apply("storage chunk store v0", func(ctx context.Context, env migrations.Env) error {
-		return chunk.SetupPostgresStoreV0(env.Tx)
+		return storagedb.SchemaChunkV0(env.Tx)
 	}).
 	Apply("storage fileset store v0", func(ctx context.Context, env migrations.Env) error {
-		return fileset.SetupPostgresStoreV0(ctx, env.Tx)
+		return storagedb.SchemaFilesetV0(ctx, env.Tx)
 	}).
 	Apply("create license schema", func(ctx context.Context, env migrations.Env) error {
 		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA license`)
@@ -48,7 +45,7 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 		return errors.EnsureStack(err)
 	}).
 	Apply("pfs commit store v0", func(ctx context.Context, env migrations.Env) error {
-		return pfsserver.SetupPostgresCommitStoreV0(ctx, env.Tx)
+		return pfsdb.SchemaCommitStoreV0(ctx, env.Tx)
 	}).
 	Apply("create identity schema", func(ctx context.Context, env migrations.Env) error {
 		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA identity`)

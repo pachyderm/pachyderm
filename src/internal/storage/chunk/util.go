@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/storagedb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
@@ -17,7 +18,7 @@ import (
 func NewTestStorage(ctx context.Context, t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
 	objC := dockertestenv.NewTestObjClient(ctx, t)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
-	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
+	require.NoError(t, dbutil.WithTx(context.Background(), db, storagedb.SchemaChunkV0))
 	return objC, NewStorage(objC, db, tr, opts...)
 }
 

@@ -279,31 +279,3 @@ func removeDuplicates(xs []string) []string {
 	}
 	return xs[:len(xs)-countDeleted]
 }
-
-// SetupPostgresTrackerV0 sets up the table for the postgres tracker
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresTrackerV0(ctx context.Context, tx *pachsql.Tx) error {
-	_, err := tx.ExecContext(ctx, schema)
-	return errors.EnsureStack(err)
-}
-
-var schema = `
-	CREATE TABLE storage.tracker_objects (
-		int_id BIGSERIAL PRIMARY KEY,
-		str_id VARCHAR(4096) UNIQUE,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		expires_at TIMESTAMP
-	);
-
-	CREATE TABLE storage.tracker_refs (
-		from_id INT8 NOT NULL,
-		to_id INT8 NOT NULL,
-		PRIMARY KEY (from_id, to_id)
-	);
-
-	CREATE INDEX ON storage.tracker_refs (
-		to_id,
-		from_id
-	);
-`

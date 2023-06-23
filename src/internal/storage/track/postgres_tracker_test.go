@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/storagedb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
@@ -21,7 +22,7 @@ func TestPostgresTracker(t *testing.T) {
 		ctx := context.Background()
 		err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
 			db.MustExec("CREATE SCHEMA storage")
-			return track.SetupPostgresTrackerV0(ctx, tx)
+			return storagedb.SchemaTrackerV0(ctx, tx)
 		})
 		require.NoError(t, err)
 		return track.NewPostgresTracker(db)

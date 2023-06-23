@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/storagedb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
@@ -18,7 +19,7 @@ func newTestCache(t *testing.T, db *pachsql.DB, tr track.Tracker, maxSize int) *
 	ctx := pctx.TestContext(t)
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
-	require.NoError(t, CreatePostgresCacheV1(ctx, tx))
+	require.NoError(t, storagedb.SchemaFilesetCacheV1(ctx, tx))
 	require.NoError(t, tx.Commit())
 	return NewCache(db, tr, maxSize)
 }

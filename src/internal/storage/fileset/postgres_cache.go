@@ -12,25 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
-// CreatePostgresCacheV1 creates the table for a cache.
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func CreatePostgresCacheV1(ctx context.Context, tx *pachsql.Tx) error {
-	const schema = `
-	CREATE TABLE storage.cache (
-		key text NOT NULL PRIMARY KEY,
-		value_pb BYTEA NOT NULL,
-		ids UUID[] NOT NULL,
-		accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		tag text
-	);
-	CREATE INDEX ON storage.cache (accessed_at);
-	CREATE INDEX ON storage.cache (tag);
-`
-	_, err := tx.ExecContext(ctx, schema)
-	return errors.EnsureStack(err)
-}
-
 const CacheTrackerPrefix = "cache/"
 
 func cacheTrackerKey(key string) string {
