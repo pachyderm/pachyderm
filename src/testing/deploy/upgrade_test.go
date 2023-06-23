@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ var skip bool
 type upgradeFunc func(t *testing.T, ctx context.Context, c *client.APIClient, fromVersion string)
 
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVersions []string, preUpgrade upgradeFunc, postUpgrade upgradeFunc) {
+func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPachds int, fromVersions []string, preUpgrade upgradeFunc, postUpgrade upgradeFunc) {
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
 		from := from // suite.Run runs in a background goroutine if parallelOK is true
@@ -53,7 +54,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 					Version:        from,
 					DisableLoki:    true,
 					PortOffset:     portOffset,
-					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5"},
+					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
@@ -61,7 +62,8 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					PortOffset: portOffset,
+					PortOffset:     portOffset,
+					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("postUpgrade done")
 		})
@@ -78,7 +80,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
+	upgradeTest(t, context.Background(), true /* parallelOK */, 2, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
@@ -175,7 +177,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		return repo
 
 	}
-	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 2, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))
@@ -378,7 +380,7 @@ validator:
     count: 1
 `
 	var stateID string
-	upgradeTest(t, pctx.TestContext(t), false /* parallelOK */, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), false /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			t.Log("before upgrade: starting load test")

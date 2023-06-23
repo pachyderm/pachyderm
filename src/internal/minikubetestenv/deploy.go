@@ -373,9 +373,15 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
+		rs, err := kubeClient.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
+		if err != nil {
+			return errors.Wrap(err, "error on ReplicaSet list")
+		} else if rs.Size() != 1 {
+			return errors.Wrap(err, "unexpected ReplicaSet found")
+		}
 		var unacceptablePachds []string
 		for _, p := range pachds.Items {
-			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
+			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == int(*rs.Items[0].Spec.Replicas) {
 				return nil
 			}
 			unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
