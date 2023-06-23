@@ -59,6 +59,8 @@ const FileBrowser: React.FC = () => {
     );
   }
 
+  if (!isOpen) return null;
+
   return (
     <>
       <BrandedTitle title="Files" />
