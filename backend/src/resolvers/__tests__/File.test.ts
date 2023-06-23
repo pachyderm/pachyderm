@@ -97,7 +97,7 @@ describe('File Resolver', () => {
 
       expect(errors).toHaveLength(0);
       expect(data?.files.files).toHaveLength(3);
-      expect(data?.files.cursor).toBe('/carriers_list.textpb');
+      expect(data?.files.cursor).toBe('/cats/');
       expect(data?.files.hasNextPage).toBe(true);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({
@@ -119,7 +119,7 @@ describe('File Resolver', () => {
             path: '/',
             branchName: 'master',
             repoName: 'images',
-            cursorPath: '/carriers_list.textpb',
+            cursorPath: '/cats/',
             limit: 3,
             reverse: false,
           },
@@ -128,7 +128,7 @@ describe('File Resolver', () => {
 
       expect(errors).toHaveLength(0);
       expect(data?.files.files).toHaveLength(3);
-      expect(data?.files.cursor).toBe('/html_pachyderm.html');
+      expect(data?.files.cursor).toBe('/csv_tabs.csv');
       expect(data?.files.hasNextPage).toBe(true);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({
@@ -158,14 +158,14 @@ describe('File Resolver', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.files.files).toHaveLength(8);
+      expect(data?.files.files).toHaveLength(7);
       expect(data?.files.cursor).toBeNull();
       expect(data?.files.hasNextPage).toBe(false);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({
           __typename: 'File',
           commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
-          path: '/jsonl_people.jsonl',
+          path: '/tsv_tabs.tsv',
           repoName: 'samples',
         }),
       );
@@ -189,7 +189,7 @@ describe('File Resolver', () => {
 
       expect(errors).toHaveLength(0);
       expect(data?.files.files).toHaveLength(1);
-      expect(data?.files.cursor).toBe('/file.unknown');
+      expect(data?.files.cursor).toBe('/yml_spec_too_large.yml');
       expect(data?.files.hasNextPage).toBe(true);
       expect(data?.files.files[0]).toEqual(
         expect.objectContaining({

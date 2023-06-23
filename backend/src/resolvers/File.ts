@@ -115,10 +115,8 @@ const fileResolver: FileResolver = {
 
       //If files.length is not greater than limit there are no pages left
       if (files.length > limit) {
-        // cursor file is included in next page
+        files.pop(); //remove the extra file from the response
         nextCursor = files[files.length - 1].file?.path;
-        //remove the extra file from the response
-        files.pop();
       }
 
       return {

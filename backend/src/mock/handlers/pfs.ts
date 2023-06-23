@@ -268,9 +268,8 @@ const pfs = () => {
             const cursorIndex = replyFiles.findIndex(
               (file) => file.getFile()?.getPath() === cursor.getPath(),
             );
-            // cursor is included in response
             replyFiles = replyFiles.slice(
-              cursorIndex !== -1 ? cursorIndex : -1,
+              cursorIndex !== -1 ? cursorIndex + 1 : -1,
             );
           }
 
