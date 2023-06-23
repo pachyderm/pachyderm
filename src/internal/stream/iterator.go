@@ -6,11 +6,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// EOS signals the end of the stream
-var EOS = errors.New("end of stream")
+type errEndOfStream struct{}
 
+func (e errEndOfStream) Error() string {
+	return "end of stream"
+}
+
+// EOS returns a new end of stream error
+func EOS() error {
+	return errors.EnsureStack(errEndOfStream{})
+}
+
+// IsEOS returns true if the error is an end of stream error.
 func IsEOS(err error) bool {
-	return errors.Is(err, EOS)
+	return errors.Is(err, errEndOfStream{})
 }
 
 type Iterator[T any] interface {
@@ -45,7 +54,7 @@ func ForEach[T any](ctx context.Context, it Iterator[T], fn func(t T) error) err
 	var x T
 	for {
 		if err := it.Next(ctx, &x); err != nil {
-			if errors.Is(err, EOS) {
+			if IsEOS(err) {
 				return nil
 			}
 			return err
@@ -104,7 +113,7 @@ func NewSlice[T any](xs []T) *Slice[T] {
 
 func (s *Slice[T]) Next(ctx context.Context, dst *T) error {
 	if s.pos >= len(s.xs) {
-		return errors.EnsureStack(EOS)
+		return EOS()
 	}
 	*dst = s.xs[s.pos]
 	s.pos++
@@ -113,7 +122,7 @@ func (s *Slice[T]) Next(ctx context.Context, dst *T) error {
 
 func (s *Slice[T]) Peek(ctx context.Context, dst *T) error {
 	if s.pos >= len(s.xs) {
-		return errors.EnsureStack(EOS)
+		return EOS()
 	}
 	*dst = s.xs[s.pos]
 	return nil
