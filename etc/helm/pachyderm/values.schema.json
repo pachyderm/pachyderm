@@ -759,6 +759,17 @@
                 "defaultSidecarStorageRequest": {
                     "type": "string"
                 },
+                "determined": {
+                    "type": "object",
+                    "properties": {
+                        "apiEndpoint": {
+                            "type": "string"
+                        },
+                        "credentialsSecretName": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "developmentLogger": {
                     "type": "boolean"
                 },
