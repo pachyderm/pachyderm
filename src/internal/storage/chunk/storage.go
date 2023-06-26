@@ -19,7 +19,6 @@ import (
 const (
 	// TrackerPrefix is the prefix used when creating tracker objects for chunks
 	TrackerPrefix        = "chunk/"
-	prefix               = "chunk"
 	defaultChunkTTL      = 30 * time.Minute
 	DefaultPrefetchLimit = 10
 )
@@ -80,13 +79,16 @@ func (s *Storage) PrefetchData(ctx context.Context, dataRef *DataRef) error {
 	return s.NewDataReader(ctx, dataRef).fetchData()
 }
 
-// List lists all of the chunks in object storage.
-func (s *Storage) List(ctx context.Context, cb func(id ID) error) error {
+// ListStore lists all of the chunks in object storage.
+// This is not the same as listing the chunk entries in the database.
+func (s *Storage) ListStore(ctx context.Context, cb func(id ID, gen uint64) error) error {
 	it := s.store.NewKeyIterator(kv.Span{})
 	return stream.ForEach(ctx, it, func(key []byte) error {
-		var id ID
-		copy(id[:], key)
-		return cb(id)
+		chunkID, gen, err := parseKey(key)
+		if err != nil {
+			return err
+		}
+		return cb(chunkID, gen)
 	})
 }
 

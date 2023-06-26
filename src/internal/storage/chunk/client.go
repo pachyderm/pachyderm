@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	fmt "fmt"
-	"path"
+	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -228,15 +229,29 @@ func (c *trackedClient) entryExists(ctx context.Context, chunkID ID, gen uint64)
 	return true, nil
 }
 
-func chunkPath(chunkID ID, gen uint64) string {
+func chunkKey(chunkID ID, gen uint64) (ret []byte) {
 	if len(chunkID) == 0 {
 		panic("chunkID cannot be empty")
 	}
-	return path.Join(prefix, fmt.Sprintf("%s.%016x", chunkID.HexString(), gen))
+	return fmt.Appendf(ret, "%s.%016x", chunkID.HexString(), gen)
 }
 
-func chunkKey(chunkID ID, gen uint64) []byte {
-	return []byte(chunkPath(chunkID, gen))
+func parseKey(key []byte) (ID, uint64, error) {
+	parts := bytes.SplitN(key, []byte("."), 2)
+	if len(parts) < 2 {
+		return nil, 0, errors.Errorf("invalid chunk key %q", key)
+	}
+	chunkID := make([]byte, hex.DecodedLen(len(parts[0])))
+	n, err := hex.Decode(chunkID, parts[0])
+	if err != nil {
+		return nil, 0, err
+	}
+	chunkID = chunkID[:n]
+	gen, err := strconv.ParseUint(string(parts[1]), 16, 64)
+	if err != nil {
+		return nil, 0, err
+	}
+	return chunkID, gen, nil
 }
 
 func newErrMissingObject(ent Entry) error {

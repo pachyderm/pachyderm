@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const chunkPrefix = "chunk/"
+
 type Env struct {
 	DB          *pachsql.DB
 	ObjectStore obj.Client
@@ -32,9 +34,10 @@ type Server struct {
 
 // New creates a new Server
 func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
-	// Setup tracker and chunk / fileset storage.
+	// Setup tracker
 	tracker := track.NewPostgresTracker(env.DB)
-	chunkStorageOpts := makeChunkOptions(&config)
+
+	// chunk
 	keyStore := chunk.NewPostgresKeyStore(env.DB)
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
@@ -42,8 +45,12 @@ func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 	}
 	store := kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
 	store = wrapStore(&config, store)
+	store = kv.NewPrefixed(store, []byte(chunkPrefix))
+	chunkStorageOpts := makeChunkOptions(&config)
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(store, env.DB, tracker, chunkStorageOpts...)
+
+	// fileset
 	filesetStorage := fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, makeFilesetOptions(&config)...)
 
 	return &Server{
