@@ -10,7 +10,6 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 	"unicode"
@@ -26,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
@@ -654,7 +654,7 @@ This resets the cluster to its initial state.`,
 			ch := make(chan os.Signal, 1)
 			// Handle Control-C, closing the terminal window, and pkill (and friends)
 			// cleanly.
-			signal.Notify(ch, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
+			signal.Notify(ch, signals.TerminationSignals...)
 			<-ch
 
 			return nil
