@@ -249,13 +249,20 @@ func (x *Role) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("permissions", zapcore.ArrayMarshalerFunc(permissionsArrMarshaller))
-	resource_typesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.ResourceTypes {
+	can_be_bound_toArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.CanBeBoundTo {
 			enc.AppendString(v.String())
 		}
 		return nil
 	}
-	enc.AddArray("resource_types", zapcore.ArrayMarshalerFunc(resource_typesArrMarshaller))
+	enc.AddArray("can_be_bound_to", zapcore.ArrayMarshalerFunc(can_be_bound_toArrMarshaller))
+	returned_forArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.ReturnedFor {
+			enc.AppendString(v.String())
+		}
+		return nil
+	}
+	enc.AddArray("returned_for", zapcore.ArrayMarshalerFunc(returned_forArrMarshaller))
 	return nil
 }
 
