@@ -8,7 +8,7 @@ from pachyderm_sdk.constants import AUTH_TOKEN_ENV
 
 @pytest.mark.skipif(
         not os.environ.get(AUTH_TOKEN_ENV),
-        reason="enterprise code not available",
+        reason="auth code not available",
     )
 class TestUnitAuth:
 
