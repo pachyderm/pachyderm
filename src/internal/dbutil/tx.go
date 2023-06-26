@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/zap"
 )
 
 var (
@@ -110,10 +111,10 @@ func WithBackOff(bo backoff.BackOff) WithTxOption {
 	}
 }
 
-// WithTx calls cb with a transaction,
+// WithTxLogCtx calls cb with a transaction,
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
-func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, opts ...WithTxOption) error {
+func WithTxLogCtx(ctx context.Context, logCtx log.Context, db *pachsql.DB, cb func(logCtx log.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
 	backoffStrategy := backoff.NewExponentialBackOff()
 	backoffStrategy.InitialInterval = 1 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0
@@ -148,7 +149,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
 			return errors.EnsureStack(err)
 		}
-		return tryTxFunc(ctx, tx, cb)
+		return tryTxFunc(logCtx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
 		if isTransactionError(err) {
 			return nil
@@ -171,11 +172,22 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 	return nil
 }
 
-func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(tx *pachsql.Tx) error) error {
-	if err := cb(tx); err != nil {
+// WithTx calls cb with a transaction,
+// The transaction is committed IFF cb returns nil.
+// If cb returns an error the transaction is rolled back.
+func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, opts ...WithTxOption) error {
+	logCtx := ctx
+	cbWithLog := func(logCtx log.Context, tx *pachsql.Tx) error {
+		return cb(tx)
+	}
+	return WithTxLogCtx(ctx, logCtx, db, cbWithLog, opts...)
+}
+
+func tryTxFunc(logCtx log.Context, tx *pachsql.Tx, cb func(logCtx log.Context, tx *pachsql.Tx) error) error {
+	if err := cb(logCtx, tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
-			log.Info(ctx, "tryTxFunc encountered an error on rollback", zap.Error(rbErr))
+			log.Info(logCtx, "tryTxFunc encountered an error on rollback", zap.Error(rbErr))
 			return err // The user error, not the rollback error.
 		}
 		underlyingTxFinishMetric.WithLabelValues("rollback_ok").Inc()
