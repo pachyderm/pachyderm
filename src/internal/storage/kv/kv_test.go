@@ -26,6 +26,12 @@ func TestSemaphoredStore(t *testing.T) {
 	})
 }
 
+func TestPrefixedStore(t *testing.T) {
+	TestStore(t, func(t testing.TB) Store {
+		return NewPrefixed(NewMemStore(), []byte("prefix"))
+	})
+}
+
 func TestObjectClient(t *testing.T) {
 	TestStore(t, func(t testing.TB) Store {
 		c, err := obj.NewLocalClient(t.TempDir())
