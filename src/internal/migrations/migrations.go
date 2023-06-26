@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -92,9 +91,17 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	env := baseEnv
+	env.Tx = tx
+	if _, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`); err != nil {
+		return errors.EnsureStack(err)
+	}
 	for _, state := range CollectStates(make([]State, 0, state.n+1), state) {
-		if err := applyMigration(ctx, tx, baseEnv, state); err != nil {
-			return err
+		if err := ApplyMigrationTx(ctx, env, state); err != nil {
+			if err := tx.Rollback(); err != nil {
+				log.Error(ctx, "problem rolling back migrations", zap.Error(err))
+			}
+			return errors.EnsureStack(err)
 		}
 	}
 	return errors.EnsureStack(tx.Commit())
@@ -114,10 +121,6 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 		if err := state.change(ctx, env); err != nil {
 			panic(err)
 		}
-	}
-	_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
-	if err != nil {
-		return errors.EnsureStack(err)
 	}
 	if finished, err := isFinished(ctx, tx, state); err != nil {
 		return err
@@ -140,18 +143,6 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 	}
 	msg = fmt.Sprintf("successfully applied migration %d", state.n)
 	log.Info(ctx, msg) // avoid log rate limit
-	return nil
-}
-
-func applyMigration(ctx context.Context, tx *sqlx.Tx, baseEnv Env, state State) error {
-	env := baseEnv
-	env.Tx = tx
-	if err := ApplyMigrationTx(ctx, env, state); err != nil {
-		if err := tx.Rollback(); err != nil {
-			log.Error(ctx, "problem rolling back migrations", zap.Error(err))
-		}
-		return errors.EnsureStack(err)
-	}
 	return nil
 }
 
