@@ -718,6 +718,27 @@ pachd:
     # the name of the kubernetes secret containing the credentials for the determined user representing pachyderm.
     # the secret is expected to contain the keys "determined-username" & "determined-password"
     credentialsSecretName: ""
+  # readinessProbe, livenessProbe, startupProbe: Configure the probe settings.
+  # Acceptable inputs for each probe include initialDelaySeconds, timeoutSeconds, periodSeconds, successThreshold, and failureThreshold.
+  readinessProbe:
+    initialDelaySeconds: 0
+    timeoutSeconds: 1
+    periodSeconds: 10
+    successThreshold: 1
+    failureThreshold: 3
+  livenessProbe:
+    initialDelaySeconds: 0
+    failureThreshold: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 30
+  startupProbe:
+    initialDelaySeconds: 0
+    failureThreshold: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 30
+
 kubeEventTail:
   # Deploys a lightweight app that watches kubernetes events and echos them to logs.
   enabled: true
