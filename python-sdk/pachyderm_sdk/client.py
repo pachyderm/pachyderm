@@ -26,6 +26,8 @@ from .constants import (
     AUTH_TOKEN_ENV,
     CONFIG_PATH_LOCAL,
     CONFIG_PATH_SPOUT,
+    DEFAULT_HOST,
+    DEFAULT_PORT,
     GRPC_CHANNEL_OPTIONS,
     OIDC_TOKEN_ENV,
     PACHD_SERVICE_HOST_ENV,
@@ -48,8 +50,8 @@ class Client:
 
     def __init__(
         self,
-        host: str = 'localhost',
-        port: int = 30650,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
         auth_token: Optional[str] = None,
         root_certs: Optional[bytes] = None,
         transaction_id: str = None,
@@ -77,6 +79,8 @@ class Client:
             Whether TLS should be used. If `root_certs` are specified, they are
             used. Otherwise, we use the certs provided by certifi.
         """
+        host = host or DEFAULT_HOST
+        port = port or DEFAULT_PORT
         if auth_token is None:
             auth_token = os.environ.get(AUTH_TOKEN_ENV)
 
