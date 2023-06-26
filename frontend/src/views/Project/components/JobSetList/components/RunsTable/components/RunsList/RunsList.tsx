@@ -123,7 +123,7 @@ const RunsList: React.FC<RunsListProps> = ({
           </Table.Row>
         </Table.Head>
 
-        <Table.Body>
+        <Table.Body aria-label="runs list">
           {jobSets.map((jobSet) => (
             <Table.Row
               key={jobSet?.id}

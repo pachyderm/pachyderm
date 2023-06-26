@@ -105,6 +105,8 @@ const Node: React.FC<NodeProps> = ({
   if (node.type === NodeType.INPUT_REPO) {
     return (
       <g
+        role="button"
+        aria-label={`${groupName} repo`}
         className={repoClasses}
         id={groupName}
         transform={`translate (${node.x}, ${node.y})`}
@@ -138,6 +140,8 @@ const Node: React.FC<NodeProps> = ({
   if (isEgress) {
     return (
       <g
+        role="button"
+        aria-label={`${groupName} egress`}
         id={groupName}
         transform={`translate (${node.x + 70}, ${node.y - 30})`}
         onMouseOver={onMouseOver}
@@ -190,6 +194,8 @@ const Node: React.FC<NodeProps> = ({
           />
           {visiblePipelineStatus && (
             <g
+              role="button"
+              aria-label={`${groupName} status`}
               id="pipelineStatusGroup"
               data-testid={`Node__state-${node.state}`}
               transform={`translate (${
@@ -212,6 +218,8 @@ const Node: React.FC<NodeProps> = ({
 
           {node.jobState !== NodeState.IDLE && (
             <g
+              role="button"
+              aria-label={`${groupName} logs`}
               id="jobStatusGroup"
               data-testid={`Node__state-${node.jobState}`}
               transform={`translate (${
@@ -232,6 +240,8 @@ const Node: React.FC<NodeProps> = ({
             </g>
           )}
           <g
+            role="button"
+            aria-label={`${groupName} pipeline`}
             id="pipelineButtonGroup"
             transform={`translate (0, ${nodeHeight - BUTTON_HEIGHT})`}
             onClick={() => onClick('pipeline')}
@@ -259,6 +269,8 @@ const Node: React.FC<NodeProps> = ({
           </g>
 
           <g
+            role="button"
+            aria-label={`${groupName} repo`}
             id="repoButtonGroup"
             transform={`translate (${BUTTON_WIDTH + 20}, ${
               nodeHeight - BUTTON_HEIGHT
