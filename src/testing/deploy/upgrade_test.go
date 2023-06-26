@@ -234,10 +234,10 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 3, len(commitInfo.DirectProvenance))
 			for _, p := range commitInfo.DirectProvenance {
-				if p.Repo.Name == "montage.spec" { // spec commit should be in a different commit set
-					require.NotEqual(t, commitInfo.Commit.ID, p.ID)
+				if strings.HasSuffix(p.Repo.Name, ".spec") { // spec commit should be in a different commit set
+					require.NotEqual(t, commitInfo.Commit.ID, p.ID, "commit %q with provenance %q", commitInfo.Commit.String(), p.String())
 				} else {
-					require.Equal(t, commitInfo.Commit.ID, p.ID)
+					require.Equal(t, commitInfo.Commit.ID, p.ID, "commit %q with provenance %q", commitInfo.Commit.String(), p.String())
 				}
 			}
 			// check DAG still works with new commits
