@@ -940,4 +940,7 @@ service API {
 
   // QueryLoki returns a stream of loki log messages given a query string
   rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // GetClusterDefaults returns the current cluster defaults.
+  rpc GetClusterDefaults(GetClusterDefaultsRequest) returns (GetClusterDefaultsResponse) {}
 }

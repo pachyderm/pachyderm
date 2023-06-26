@@ -1487,6 +1487,7 @@ type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
+type getClusterDefaultsFunc func(context.Context, *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1521,6 +1522,7 @@ type mockRenderTemplate struct{ handler renderTemplateFunc }
 type mockListTaskPPS struct{ handler listTaskPPSFunc }
 type mockGetKubeEvents struct{ handler getKubeEventsFunc }
 type mockQueryLoki struct{ handler queryLokiFunc }
+type mockGetClusterDefaults struct{ handler getClusterDefaultsFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1595,6 +1597,7 @@ type mockPPSServer struct {
 	ListTask           mockListTaskPPS
 	GetKubeEvents      mockGetKubeEvents
 	QueryLoki          mockQueryLoki
+	GetClusterDefaults mockGetClusterDefaults
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1794,6 +1797,12 @@ func (api *ppsServerAPI) QueryLoki(req *pps.LokiRequest, server pps.API_QueryLok
 		return api.mock.QueryLoki.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pps.QueryLoki")
+}
+func (api *ppsServerAPI) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
+	if api.mock.GetClusterDefaults.handler != nil {
+		return api.mock.GetClusterDefaults.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.GetClusterDefaults")
 }
 
 /* Transaction Server Mocks */

@@ -3575,3 +3575,7 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 		return true, nil
 	}, nil
 }
+
+func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
+	return nil, status.New(codes.Unimplemented, "GetClusterDefaults unimplemented").Err()
+}
