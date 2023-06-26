@@ -98,7 +98,7 @@ type Driver interface {
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSQLTx(func(*pachsql.Tx) error) error
+	NewSQLTx(func(context.Context, *pachsql.Tx) error) error
 
 	// Returns the image ID associated with a container running in the worker pod
 	GetContainerImageID(context.Context, string) (string, error)
@@ -488,7 +488,7 @@ func (d *driver) RunUserErrorHandlingCode(
 }
 
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
-	return d.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
+	return d.NewSQLTx(func(_ context.Context, sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
 			return errors.EnsureStack(err)

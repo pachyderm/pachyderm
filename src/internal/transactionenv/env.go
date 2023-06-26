@@ -179,7 +179,7 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
