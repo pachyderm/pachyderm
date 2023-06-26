@@ -13,6 +13,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -33,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"go.uber.org/zap"
 )
 
 const (
@@ -169,7 +170,7 @@ func (a *apiServer) ActivateAuthEverywhere(ctx context.Context, scopes []Activat
 			switch s { //exhaustive:enforce
 			case ActivationScopePFS:
 				log.Debug(ctx, "attempting to activate PFS auth")
-				if _, err := a.env.GetPfsServer().ActivateAuthInTransaction(txCtx, &pfs.ActivateAuthRequest{}); err != nil {
+				if _, err := a.env.GetPfsServer().ActivateAuthInTransaction(ctx, txCtx, &pfs.ActivateAuthRequest{}); err != nil {
 					return errors.Wrap(err, "activate auth for pfs")
 				}
 			case ActivationScopePPS:
@@ -573,7 +574,7 @@ func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionCo
 
 // Deactivate implements the protobuf auth.Deactivate RPC
 func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
 		if err := a.roleBindings.ReadWrite(sqlTx).DeleteAll(); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -1255,7 +1256,7 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionC
 // based on signed JWT claims). This does no auth checks, so the caller must do all
 // relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
-	return dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
 		members := a.members.ReadWrite(sqlTx)
 
 		// Get groups to remove/add user from/to
@@ -1325,7 +1326,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		return nil, err
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
 		members := a.members.ReadWrite(sqlTx)
 		var groupsProto auth.Groups
 		for _, username := range req.Add {
@@ -1440,7 +1441,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	// Filter by group
 	if req.Group != "" {
 		var membersProto auth.Users
-		if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+		if err := dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
 			groups := a.groups.ReadWrite(sqlTx)
 			if err := groups.Get(req.Group, &membersProto); err != nil {
 				return errors.EnsureStack(err)
@@ -1591,7 +1592,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 	}
 
 	// set the new config
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(a.authConfig.ReadWrite(sqlTx).Put(configKey, configToStore))
 	}); err != nil {
 		return nil, err
@@ -1790,7 +1791,7 @@ func (a *apiServer) deleteAuthToken(sqlTx *pachsql.Tx, tokenHash string) (int64,
 }
 
 func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) (n int64, retErr error) {
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
 		n, retErr = a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
 		return retErr
 	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead)); err != nil {

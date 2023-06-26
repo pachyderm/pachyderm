@@ -61,7 +61,7 @@ func newPostgresCommitStore(db *pachsql.DB, tr track.Tracker, s *fileset.Storage
 }
 
 func (cs *postgresCommitStore) AddFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(_ context.Context, tx *pachsql.Tx) error {
 		return cs.AddFileSetTx(tx, commit, id)
 	})
 }
@@ -91,7 +91,7 @@ func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, 
 
 func (cs *postgresCommitStore) GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var id *fileset.ID
-	if err := dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, cs.db, func(_ context.Context, tx *pachsql.Tx) error {
 		var err error
 		id, err = cs.GetTotalFileSetTx(tx, commit)
 		return err
@@ -114,7 +114,7 @@ func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 
 func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var ids []fileset.ID
-	if err := dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, cs.db, func(_ context.Context, tx *pachsql.Tx) error {
 		var err error
 		ids, err = getDiff(tx, commit)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -128,7 +128,7 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 }
 
 func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(_ context.Context, tx *pachsql.Tx) error {
 		return cs.SetTotalFileSetTx(tx, commit, id)
 	})
 }
@@ -141,7 +141,7 @@ func (cs *postgresCommitStore) SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 }
 
 func (cs *postgresCommitStore) SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(_ context.Context, tx *pachsql.Tx) error {
 		return cs.SetDiffFileSetTx(tx, commit, id)
 	})
 }
@@ -154,7 +154,7 @@ func (cs *postgresCommitStore) SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Comm
 }
 
 func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Commit) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(_ context.Context, tx *pachsql.Tx) error {
 		return cs.DropFileSetsTx(tx, commit)
 	})
 }

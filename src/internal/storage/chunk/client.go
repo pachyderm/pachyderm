@@ -79,7 +79,7 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 		pointsTo = append(pointsTo, cid.TrackerID())
 	}
 	chunkTID := chunkID.TrackerID()
-	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) (retErr error) {
+	if err := dbutil.WithTx(ctx, c.db, func(_ context.Context, tx *pachsql.Tx) (retErr error) {
 		needUpload, gen = false, 0
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return errors.EnsureStack(err)

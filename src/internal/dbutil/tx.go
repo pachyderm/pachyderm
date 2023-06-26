@@ -111,10 +111,10 @@ func WithBackOff(bo backoff.BackOff) WithTxOption {
 	}
 }
 
-// WithTxLogCtx calls cb with a transaction,
+// WithTx calls cb with a transaction,
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
-func WithTxLogCtx(ctx context.Context, logCtx log.Context, db *pachsql.DB, cb func(logCtx log.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
+func WithTx(ctx context.Context, db *pachsql.DB, cb func(ctx context.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
 	backoffStrategy := backoff.NewExponentialBackOff()
 	backoffStrategy.InitialInterval = 1 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0
@@ -149,7 +149,7 @@ func WithTxLogCtx(ctx context.Context, logCtx log.Context, db *pachsql.DB, cb fu
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
 			return errors.EnsureStack(err)
 		}
-		return tryTxFunc(logCtx, tx, cb)
+		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
 		if isTransactionError(err) {
 			return nil
@@ -172,22 +172,11 @@ func WithTxLogCtx(ctx context.Context, logCtx log.Context, db *pachsql.DB, cb fu
 	return nil
 }
 
-// WithTx calls cb with a transaction,
-// The transaction is committed IFF cb returns nil.
-// If cb returns an error the transaction is rolled back.
-func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, opts ...WithTxOption) error {
-	logCtx := ctx
-	cbWithLog := func(logCtx log.Context, tx *pachsql.Tx) error {
-		return cb(tx)
-	}
-	return WithTxLogCtx(ctx, logCtx, db, cbWithLog, opts...)
-}
-
-func tryTxFunc(logCtx log.Context, tx *pachsql.Tx, cb func(logCtx log.Context, tx *pachsql.Tx) error) error {
-	if err := cb(logCtx, tx); err != nil {
+func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(ctx context.Context, tx *pachsql.Tx) error) error {
+	if err := cb(ctx, tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
-			log.Info(logCtx, "tryTxFunc encountered an error on rollback", zap.Error(rbErr))
+			log.Info(ctx, "tryTxFunc encountered an error on rollback", zap.Error(rbErr))
 			return err // The user error, not the rollback error.
 		}
 		underlyingTxFinishMetric.WithLabelValues("rollback_ok").Inc()

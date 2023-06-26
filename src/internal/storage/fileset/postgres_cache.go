@@ -6,6 +6,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -56,7 +57,7 @@ func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID,
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, c.db, func(_ context.Context, tx *pachsql.Tx) error {
 		if err := c.put(tx, key, data, ids, tag); err != nil {
 			return err
 		}
@@ -137,7 +138,7 @@ func (c *Cache) Clear(ctx context.Context, tagPrefix string) error {
 		return errors.EnsureStack(err)
 	}
 	for _, key := range keys {
-		if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(ctx, c.db, func(_ context.Context, tx *pachsql.Tx) error {
 			if _, err := tx.Exec(`
 				DELETE FROM storage.cache
 				WHERE key = $1

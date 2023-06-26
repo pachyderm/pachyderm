@@ -62,7 +62,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		}
 
 		var err error
-		result, err = d.runTransaction(txnCtx, info)
+		result, err = d.runTransaction(ctx, txnCtx, info)
 		return err
 	}); err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 		Started:  now(),
 	}
 
-	if err := dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.db, func(_ context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(sqlTx).Put(
 			info.Transaction.ID,
 			info,
@@ -138,7 +138,7 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *tran
 	return nil
 }
 
-func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	result := proto.Clone(info).(*transaction.TransactionInfo)
 	for len(result.Responses) < len(result.Requests) {
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
@@ -148,7 +148,7 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 	// will be used for any newly made commits.
 	txnCtx.CommitSetID = info.Transaction.ID
 
-	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
+	directTxn := txnenv.NewDirectTransaction(ctx, d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
 		var err error
 		response := result.Responses[i]
@@ -186,7 +186,7 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	return d.updateTransaction(ctx, true, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
-		info, err := d.runTransaction(txnCtx, info)
+		info, err := d.runTransaction(ctx, txnCtx, info)
 		if err != nil {
 			return info, err
 		}
@@ -220,7 +220,7 @@ func (d *driver) appendTransaction(
 		if restarted {
 			info.Requests = append(info.Requests, items...)
 		}
-		return d.runTransaction(txnCtx, info)
+		return d.runTransaction(ctx, txnCtx, info)
 	})
 }
 
@@ -281,7 +281,7 @@ func (d *driver) updateTransaction(
 		if err == nil {
 			// only persist the transaction if we succeeded, otherwise just update localInfo
 			var storedInfo transaction.TransactionInfo
-			if err = dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
+			if err = dbutil.WithTx(ctx, d.db, func(_ context.Context, sqlTx *pachsql.Tx) error {
 				// Update the existing transaction with the new requests/responses
 				err := d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {
