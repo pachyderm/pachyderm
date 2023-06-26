@@ -216,7 +216,7 @@
             '@type': 'type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap',
             common_config: {
               admin_config: {
-                config_id: 'tap_http' + name,
+                config_id: 'tap-http-' + name,
               },
             },
           },
@@ -300,7 +300,7 @@
             '@type': 'type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap',
             common_config: {
               admin_config: {
-                config_id: 'tap_listener_' + name,
+                config_id: 'tap-listener-' + name,
               },
             },
             transport_socket: {
@@ -432,7 +432,7 @@
            '@type': 'type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap',
            common_config: {
              admin_config: {
-               config_id: 'tap_cluster_' + name,
+               config_id: 'tap-cluster-' + name,
              },
            },
            transport_socket: {

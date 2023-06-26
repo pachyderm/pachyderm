@@ -86,7 +86,7 @@ message App {
   string name = 1;
   repeated Pod pods = 2;
   int64 timeout = 3;
-  Pipeline pipeline = 4;  
+  Pipeline pipeline = 4;
 }
 
 message System {
@@ -94,7 +94,7 @@ message System {
   bool database = 2;
   bool version = 3;
   repeated App describes = 4;
-  repeated App logs = 5;  
+  repeated App logs = 5;
   repeated App loki_logs = 6;
   repeated App binaries = 7;
   repeated App profiles = 8;
@@ -124,6 +124,28 @@ message DumpChunk {
   }
 }
 
+message TapRequest {
+    message Start {
+        string config_id = 1;
+        repeated string envoy_addresses = 2;
+    };
+    message End {};
+    oneof request {
+        Start start = 1;
+        End end = 2;
+    }
+}
+
+message TapResponse {
+    message Log {
+        string msg = 1;
+    }
+    oneof response {
+        google.protobuf.BytesValue capture = 1;
+        Log log = 2;
+    }
+}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
@@ -131,4 +153,5 @@ service Debug {
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
   rpc GetDumpV2Template(GetDumpV2TemplateRequest) returns (GetDumpV2TemplateResponse) {}
   rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
+  rpc Tap(stream TapRequest) returns (stream TapResponse) {}
 }

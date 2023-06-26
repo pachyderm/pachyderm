@@ -196,7 +196,7 @@
                   "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                   "common_config": {
                      "admin_config": {
-                        "config_id": "tap_cluster_console"
+                        "config_id": "tap-cluster-console"
                      }
                   },
                   "transport_socket": {
@@ -261,7 +261,7 @@
                   "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                   "common_config": {
                      "admin_config": {
-                        "config_id": "tap_cluster_pachd-archive"
+                        "config_id": "tap-cluster-pachd-archive"
                      }
                   },
                   "transport_socket": {
@@ -323,7 +323,7 @@
                   "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                   "common_config": {
                      "admin_config": {
-                        "config_id": "tap_cluster_pachd-grpc"
+                        "config_id": "tap-cluster-pachd-grpc"
                      }
                   },
                   "transport_socket": {
@@ -396,7 +396,7 @@
                   "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                   "common_config": {
                      "admin_config": {
-                        "config_id": "tap_cluster_pachd-identity"
+                        "config_id": "tap-cluster-pachd-identity"
                      }
                   },
                   "transport_socket": {
@@ -448,7 +448,7 @@
                   "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                   "common_config": {
                      "admin_config": {
-                        "config_id": "tap_cluster_pachd-metrics"
+                        "config_id": "tap-cluster-pachd-metrics"
                      }
                   },
                   "transport_socket": {
@@ -513,7 +513,7 @@
                   "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                   "common_config": {
                      "admin_config": {
-                        "config_id": "tap_cluster_pachd-oidc"
+                        "config_id": "tap-cluster-pachd-oidc"
                      }
                   },
                   "transport_socket": {
@@ -565,7 +565,7 @@
                   "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                   "common_config": {
                      "admin_config": {
-                        "config_id": "tap_cluster_pachd-s3"
+                        "config_id": "tap-cluster-pachd-s3"
                      }
                   },
                   "transport_socket": {
@@ -705,7 +705,7 @@
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
                                     "common_config": {
                                        "admin_config": {
-                                          "config_id": "tap_httphttps-redirect"
+                                          "config_id": "tap-http-https-redirect"
                                        }
                                     }
                                  }
@@ -758,7 +758,7 @@
                         "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
                         "common_config": {
                            "admin_config": {
-                              "config_id": "tap_listener_https-redirect"
+                              "config_id": "tap-listener-https-redirect"
                            }
                         },
                         "transport_socket": {
@@ -862,7 +862,7 @@
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
                                     "common_config": {
                                        "admin_config": {
-                                          "config_id": "tap_httpproxy-https"
+                                          "config_id": "tap-http-proxy-https"
                                        }
                                     }
                                  }
@@ -1108,7 +1108,7 @@
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
                                     "common_config": {
                                        "admin_config": {
-                                          "config_id": "tap_httpproxy-https-cleartext"
+                                          "config_id": "tap-http-proxy-https-cleartext"
                                        }
                                     }
                                  }

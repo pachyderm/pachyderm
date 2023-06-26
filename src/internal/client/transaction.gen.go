@@ -161,6 +161,10 @@ func (c *unsupportedDebugBuilderClient) SetLogLevel(_ context.Context, _ *debug_
 	return nil, unsupportedError("SetLogLevel")
 }
 
+func (c *unsupportedDebugBuilderClient) Tap(_ context.Context, opts ...grpc.CallOption) (debug_v2.Debug_TapClient, error) {
+	return nil, unsupportedError("Tap")
+}
+
 type unsupportedEnterpriseBuilderClient struct{}
 
 func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {

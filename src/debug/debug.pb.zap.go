@@ -248,3 +248,51 @@ func (x *DumpChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("progress", x.GetProgress())
 	return nil
 }
+
+func (x *TapRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("start", x.GetStart())
+	enc.AddObject("end", x.GetEnd())
+	return nil
+}
+
+func (x *TapRequest_Start) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("config_id", x.ConfigId)
+	envoy_addressesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.EnvoyAddresses {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("envoy_addresses", zapcore.ArrayMarshalerFunc(envoy_addressesArrMarshaller))
+	return nil
+}
+
+func (x *TapRequest_End) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
+
+func (x *TapResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddBytesValue(enc, "capture", x.GetCapture())
+	enc.AddObject("log", x.GetLog())
+	return nil
+}
+
+func (x *TapResponse_Log) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("msg", x.Msg)
+	return nil
+}
