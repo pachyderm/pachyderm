@@ -123,7 +123,7 @@ func ReadInto(dst []byte, r io.Reader) (int, error) {
 	if n2, err := r.Read(extraBuf[:]); errors.Is(err, io.EOF) && n2 == 0 {
 		return n, nil
 	} else if err != nil {
-		return n, err
+		return n, errors.EnsureStack(err)
 	}
 	// We filled the buffer, and there was another byte afterwards, return a short buffer error
 	return n, errors.Wrapf(io.ErrShortBuffer, "len(dst)=%d", io.ErrShortBuffer, len(dst))
