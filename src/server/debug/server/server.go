@@ -182,52 +182,57 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	return res, nil
 }
 
-func NewServerSender(s debug.Debug_DumpV2Server) (ContentSender, ProgressSender) {
-	var mu sync.Mutex
+func NewServerSender(ctx context.Context, s debug.Debug_DumpV2Server) (ContentSender, ProgressSender) {
+	ch := make(chan *debug.DumpChunk)
+	go func() {
+		for chunk := range ch {
+			if err := s.Send(chunk); err != nil {
+				log.Error(ctx, "send dump chunk failed", zap.Any("chunk", chunk), zap.Error(err))
+			}
+		}
+	}()
 	return &contentSender{
 			s:  s,
-			mu: &mu,
+			ch: ch,
 		}, &progressSender{
 			s:  s,
-			mu: &mu,
+			ch: ch,
 		}
 }
 
 type ProgressSender interface {
-	Send(progress *debug.DumpProgress) error
+	Send(context.Context, *debug.DumpProgress) error
 }
 
 type ContentSender interface {
-	Send(content *debug.DumpContent) error
+	Send(context.Context, *debug.DumpContent) error
 }
 type progressSender struct {
 	s  debug.Debug_DumpV2Server
-	mu *sync.Mutex
+	ch chan *debug.DumpChunk
 }
 
-func (ps *progressSender) Send(progress *debug.DumpProgress) error {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	return ps.s.Send(
-		&debug.DumpChunk{
-			Chunk: &debug.DumpChunk_Progress{Progress: progress},
-		},
-	)
+func (ps *progressSender) Send(ctx context.Context, progress *debug.DumpProgress) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ps.ch <- &debug.DumpChunk{Chunk: &debug.DumpChunk_Progress{Progress: progress}}:
+		return nil
+	}
 }
 
 type contentSender struct {
 	s  debug.Debug_DumpV2Server
-	mu *sync.Mutex
+	ch chan *debug.DumpChunk
 }
 
-func (cs *contentSender) Send(content *debug.DumpContent) error {
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	return cs.s.Send(
-		&debug.DumpChunk{
-			Chunk: &debug.DumpChunk_Content{Content: content},
-		},
-	)
+func (cs *contentSender) Send(ctx context.Context, content *debug.DumpContent) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case cs.ch <- &debug.DumpChunk{Chunk: &debug.DumpChunk_Content{Content: content}}:
+		return nil
+	}
 }
 
 // TODO
@@ -235,7 +240,7 @@ func (cs *contentSender) Send(content *debug.DumpContent) error {
 // top level errors colliding?
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
 	ctx := server.Context()
-	cs, ps := NewServerSender(server)
+	cs, ps := NewServerSender(ctx, server)
 	return s.dump(s.env.GetPachClient(ctx), cs, s.makeTasks(ctx, request, ps))
 }
 
@@ -469,11 +474,12 @@ func appDir(app *debug.App) string {
 }
 
 type dumpContentServer struct {
-	cs ContentSender
+	ctx context.Context
+	cs  ContentSender
 }
 
 func (dcs *dumpContentServer) Send(bytesValue *types.BytesValue) error {
-	return dcs.cs.Send(&debug.DumpContent{Content: bytesValue.Value})
+	return dcs.cs.Send(dcs.ctx, &debug.DumpContent{Content: bytesValue.Value})
 }
 
 type incProgressFunc func(context.Context)
@@ -486,7 +492,7 @@ func recordProgress(ps ProgressSender, task string, total int) incProgressFunc {
 	inc := 0
 	return func(ctx context.Context) {
 		inc++
-		if err := ps.Send(
+		if err := ps.Send(ctx,
 			&debug.DumpProgress{
 				Task:     task,
 				Progress: int64(inc),
@@ -522,7 +528,7 @@ func (s *debugServer) dump(c *client.APIClient, cs ContentSender, tasks []taskFu
 	}
 	eg, ctx := errgroup.WithContext(ctx)
 	var mu sync.Mutex // to synchronize writes to the tar stream
-	dumpContent := &dumpContentServer{cs: cs}
+	dumpContent := &dumpContentServer{ctx: ctx, cs: cs}
 	return grpcutil.WithStreamingBytesWriter(dumpContent, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
 			for _, f := range tasks {
