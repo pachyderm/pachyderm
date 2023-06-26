@@ -14,10 +14,13 @@ const useCurrentPipeline = () => {
     pipeline?.type === PipelineType.SERVICE ||
     pipeline?.type === PipelineType.SPOUT;
 
+  const isSpout = pipeline?.type === PipelineType.SPOUT;
+
   return {
     pipeline,
     loading,
     isServiceOrSpout,
+    isSpout,
   };
 };
 

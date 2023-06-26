@@ -969,6 +969,39 @@ const multiProjectPipelineB = [
     .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
 ];
 
+const pipelinesProject = [
+  new RepoInfo()
+    .setRepo(
+      new Repo()
+        .setName('service-pipeline-input')
+        .setType('user')
+        .setProject(new Project().setName('Pipelines-Project')),
+    )
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')])
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+  new RepoInfo()
+    .setRepo(
+      new Repo()
+        .setName('service-pipeline')
+        .setType('user')
+        .setProject(new Project().setName('Pipelines-Project')),
+    )
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')])
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+  new RepoInfo()
+    .setRepo(
+      new Repo()
+        .setName('spout-pipeline')
+        .setType('user')
+        .setProject(new Project().setName('Pipelines-Project')),
+    )
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')])
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+];
+
 const getLoadRepos = (count: number) => {
   return [...new Array(count).keys()].reduce((repos: RepoInfo[], i) => {
     const now = Math.floor(new Date().getTime() / 1000);
@@ -1007,6 +1040,7 @@ const repos: {[projectId: string]: RepoInfo[]} = {
   default: defaultRepos,
   'Multi-Project-Pipeline-A': multiProjectPipelineA,
   'Multi-Project-Pipeline-B': multiProjectPipelineB,
+  'Pipelines-Project': pipelinesProject,
 };
 
 export default repos;

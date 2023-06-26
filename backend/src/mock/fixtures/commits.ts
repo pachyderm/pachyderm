@@ -322,6 +322,26 @@ const nestedFolderCommits = [
   }),
 ];
 
+const pipelinesProject = [
+  commitInfoFromObject({
+    commit: {
+      id: '1234c8d08a644ed5b2ee98c035ab6b34',
+      branch: {
+        name: 'master',
+        repo: {name: 'service-pipeline-input'},
+      },
+    },
+    started: {
+      seconds: 1614136389,
+      nanos: 0,
+    },
+    finished: {
+      seconds: 1614136389,
+      nanos: 100,
+    },
+  }),
+];
+
 const getLoadCommits = (repoCount: number, commitCount: number) => {
   const now = Math.floor(new Date().getTime() / 1000);
   return [...new Array(repoCount).keys()].reduce(
@@ -359,6 +379,7 @@ const commits: {[projectId: string]: CommitInfo[]} = {
   'Trait-Discovery': [],
   'Empty-Project': [],
   'Load-Project': getLoadCommits(1, COMMITS),
+  'Pipelines-Project': pipelinesProject,
 
   default: [...tutorial],
 };

@@ -39,41 +39,28 @@ describe('PipelineInfo', () => {
     expect(screen.getByTestId('PipelineState__state')).toHaveTextContent(
       'Failure',
     );
-    expect(
-      screen.getByText('Pipeline Type').parentElement?.nextElementSibling,
-    ).toHaveTextContent('Standard');
-    expect(
-      screen.getByText('Failure Reason').parentElement?.nextElementSibling,
-    ).toHaveTextContent('failed');
-    expect(
-      screen.getByText('Description').parentElement?.nextElementSibling,
-    ).toHaveTextContent('Not my favorite pipeline');
+    expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent(
+      'Standard',
+    );
+    expect(screen.getByLabelText('Failure Reason')).toHaveTextContent('failed');
+    expect(screen.getByLabelText('Description')).toHaveTextContent(
+      'Not my favorite pipeline',
+    );
 
-    const outputRepo =
-      screen.getByText('Output Repo').parentElement?.nextElementSibling;
+    const outputRepo = screen.getByLabelText('Output Repo');
     expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
       `/lineage/${projectId}/repos/${pipelineId}`,
     );
 
-    expect(
-      screen.getByText('Datum Timeout').parentElement?.nextElementSibling,
-    ).toHaveTextContent('N/A');
-    expect(
-      screen.getByText('Datum Tries').parentElement?.nextElementSibling,
-    ).toHaveTextContent('0');
-    expect(
-      screen.getByText('Job Timeout').parentElement?.nextElementSibling,
-    ).toHaveTextContent('N/A');
-    expect(
-      screen.getByText('Output Branch').parentElement?.nextElementSibling,
-    ).toHaveTextContent('master');
-    expect(
-      screen.getByText('Egress').parentElement?.nextElementSibling,
-    ).toHaveTextContent('Yes');
-    expect(
-      screen.getByText('S3 Output Repo').parentElement?.nextElementSibling,
-    ).toHaveTextContent(`s3//${pipelineId}`);
+    expect(screen.getByLabelText('Datum Timeout')).toHaveTextContent('N/A');
+    expect(screen.getByLabelText('Datum Tries')).toHaveTextContent('0');
+    expect(screen.getByLabelText('Job Timeout')).toHaveTextContent('N/A');
+    expect(screen.getByLabelText('Output Branch')).toHaveTextContent('master');
+    expect(screen.getByLabelText('Egress')).toHaveTextContent('Yes');
+    expect(screen.getByLabelText('S3 Output Repo')).toHaveTextContent(
+      `s3//${pipelineId}`,
+    );
   });
 });

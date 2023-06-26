@@ -1,4 +1,5 @@
 import {ApolloError} from '@apollo/client';
+import kebabCase from 'lodash/kebabCase';
 import React, {HTMLAttributes} from 'react';
 
 import {
@@ -26,12 +27,14 @@ const Description: React.FC<DescriptionProps> = ({
   error,
   ...rest
 }) => {
+  const ariaLabel = kebabCase(term);
+
   return (
     <>
-      <dt className={styles.term}>
+      <dt className={styles.term} id={ariaLabel}>
         <CaptionTextSmall>{term}</CaptionTextSmall>
       </dt>
-      <dd className={styles.description} {...rest}>
+      <dd className={styles.description} {...rest} aria-labelledby={ariaLabel}>
         {loading && (
           <div className={lines === 1 ? styles.singleLineLoading : undefined}>
             <SkeletonBodyText

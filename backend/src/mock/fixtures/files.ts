@@ -287,6 +287,22 @@ const nestedFolders = (() => {
   }, {});
 })();
 
+const pipelinesProject = {
+  '/': [
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '9d5daa0918ac4c43a476b86e3bb5e88e',
+        path: '/csv_commas.csv',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: 146,
+    }),
+  ],
+};
+
 const getLoadFiles = (fileCount: number) => {
   const now = Math.floor(new Date().getTime() / 1000);
   return {
@@ -319,6 +335,8 @@ const files: Files = {
   'Solar-Price-Prediction-Modal': tutorial,
   'Egress-Examples': nestedFolders,
   'Load-Project': getLoadFiles(FILES),
+  'Pipelines-Project': pipelinesProject,
+
   default: tutorial,
 };
 

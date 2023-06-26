@@ -210,26 +210,27 @@ const Node: React.FC<NodeProps> = ({
             </g>
           )}
 
-          <g
-            id="jobStatusGroup"
-            data-testid={`Node__state-${node.jobState}`}
-            transform={`translate (${
-              nodeWidth - NODE_ICON_X_OFFSET / 2 - 4
-            }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
-            onClick={() => onClick('logs')}
-            className={styles.statusGroup}
-          >
-            <rect
-              width={44 / 0.6}
-              height={19 / 0.6}
-              className={statusClasses}
-              rx={8}
-              ry={8}
-            />
-            <NodeStateIcon state={node.jobState} x={10} y={6} />
-            <JobsSVG x={42} y={6} />
-          </g>
-
+          {node.jobState !== NodeState.IDLE && (
+            <g
+              id="jobStatusGroup"
+              data-testid={`Node__state-${node.jobState}`}
+              transform={`translate (${
+                nodeWidth - NODE_ICON_X_OFFSET / 2 - 4
+              }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
+              onClick={() => onClick('logs')}
+              className={styles.statusGroup}
+            >
+              <rect
+                width={44 / 0.6}
+                height={19 / 0.6}
+                className={statusClasses}
+                rx={8}
+                ry={8}
+              />
+              <NodeStateIcon state={node.jobState} x={10} y={6} />
+              <JobsSVG x={42} y={6} />
+            </g>
+          )}
           <g
             id="pipelineButtonGroup"
             transform={`translate (0, ${nodeHeight - BUTTON_HEIGHT})`}

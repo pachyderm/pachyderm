@@ -43,7 +43,7 @@ describe('Landing', () => {
       }),
     ).toBeInTheDocument();
 
-    expect(await screen.findAllByRole('row', {})).toHaveLength(10);
+    expect(await screen.findAllByRole('row', {})).toHaveLength(11);
 
     expect(
       await screen.findByRole('tab', {
@@ -102,7 +102,7 @@ describe('Landing', () => {
     render(<Landing />);
 
     expect(await screen.findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(
-      6,
+      7,
     );
     expect(
       await screen.findAllByTestId('ProjectStatus__UNHEALTHY'),
@@ -141,7 +141,7 @@ describe('Landing', () => {
     ).toBeInTheDocument();
 
     const projectsPanel = screen.getByRole('tabpanel', {
-      name: /projects 10/i,
+      name: /projects 11/i,
     });
     const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
       level: 5,
@@ -157,6 +157,7 @@ describe('Landing', () => {
       'Load-Project',
       'Multi-Project-Pipeline-A',
       'Multi-Project-Pipeline-B',
+      'Pipelines-Project',
       'Solar-Panel-Data-Sorting',
       'Solar-Power-Data-Logger-Team-Collab',
       'Solar-Price-Prediction-Modal',
@@ -180,6 +181,7 @@ describe('Landing', () => {
       'Solar-Price-Prediction-Modal',
       'Solar-Power-Data-Logger-Team-Collab',
       'Solar-Panel-Data-Sorting',
+      'Pipelines-Project',
       'Multi-Project-Pipeline-B',
       'Multi-Project-Pipeline-A',
       'Load-Project',
@@ -194,7 +196,7 @@ describe('Landing', () => {
     const projects = await screen.findByTestId('Landing__view');
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
     expect(
       await within(projects).findAllByTestId('ProjectStatus__UNHEALTHY'),
     ).toHaveLength(4);
@@ -239,7 +241,7 @@ describe('Landing', () => {
 
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
     expect(
       within(projects).queryByTestId('ProjectStatus__UNHEALTHY'),
     ).not.toBeInTheDocument();

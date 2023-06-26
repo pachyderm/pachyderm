@@ -11,10 +11,10 @@ generate-datums:
 setup-opencv:
 	-pachctl create repo images
 	-pachctl put file images@master:liberty.png -f ../etc/testing/files/46Q8nDz.jpg
-	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/2.4.x/examples/opencv/edges.json
+	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 	-pachctl put file images@master:AT-AT.png -f ../etc/testing/files/8MN9Kg0.jpg
 	-pachctl put file images@master:kitten.png -f ../etc/testing/files/g2QnNqa.jpg
-	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/2.4.x/examples/opencv/montage.json
+	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 
 setup-tutorial-project:
 	-pachctl create project tutorial --description wow
@@ -98,3 +98,16 @@ rbac-warthog:
 
 generate-rbac: rbac-setup rbac-root rbac-tomcat rbac-viper rbac-warthog
 	-echo "pizza" | pachctl auth use-auth-token
+setup-service-pipeline:
+	-pachctl create repo service-input
+	-pachctl put file service-input@master:birthday-cake.jpg -f ../etc/testing/files/FOO9q43.jpg
+	-pachctl create pipeline -f ./pipelines/simple-service.json
+
+setup-spout-pipeline:
+	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/spouts/spout101/pipelines/spout.json
+	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/spouts/spout101/pipelines/processor.json
+
+setup-spout-service-pipeline:
+	-pachctl create pipeline -f ./pipelines/spout-and-service.json
+	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/spouts/spout101/pipelines/processor.json
+	

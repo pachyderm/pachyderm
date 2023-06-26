@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "spout"
+  },
+  "spout": {
+    "service": {
+      "external_port": 30088,
+      "internal_port": 8888
+    }
+  },
+  "description": "A spout and service pipeline that emulates the reception of data from an external source",
+  "transform": {
+    "cmd": ["python", "consumer/main.py"],
+    "image": "pachyderm/example-spout101:2.0.1"
+  }
+}

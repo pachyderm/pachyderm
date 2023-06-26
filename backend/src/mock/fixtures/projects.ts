@@ -49,6 +49,9 @@ const projects: Record<string, ProjectInfo> = {
   'Load-Project': new ProjectInfo()
     .setProject(new Project().setName('Load-Project'))
     .setDescription('Project for testing frontend load'),
+  'Pipelines-Project': new ProjectInfo()
+    .setProject(new Project().setName('Pipelines-Project'))
+    .setDescription('Project for testing pipeline types'),
 };
 
 const tutorialProjects: {[projectId: string]: ProjectInfo} = {

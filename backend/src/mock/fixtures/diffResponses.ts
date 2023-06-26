@@ -88,6 +88,7 @@ const files: Diffs = {
   'Empty-Project': emptyDiffResponse,
   'Trait-Discovery': emptyDiffResponse,
   'OpenCV-Tutorial': emptyDiffResponse,
+  'Pipelines-Project': emptyDiffResponse,
   default: emptyDiffResponse,
 };
 

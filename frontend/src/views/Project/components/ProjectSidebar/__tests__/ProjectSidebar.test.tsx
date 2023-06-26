@@ -81,24 +81,6 @@ describe('ProjectSidebar', () => {
       );
     });
 
-    it('should show a link to file browser for most recent commit', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/training',
-      );
-
-      render(<Project />);
-
-      const fileBrowserLink = await screen.findByRole('link', {
-        name: 'Inspect Commits',
-      });
-      expect(fileBrowserLink).toHaveAttribute(
-        'href',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a/?prevPath=%2Flineage%2FData-Cleaning-Process%2Frepos%2Ftraining',
-      );
-    });
-
     it('should disable the delete button when there are downstream pipelines', async () => {
       window.history.replaceState(
         '',
@@ -152,7 +134,7 @@ describe('ProjectSidebar', () => {
       );
       render(<Project />);
 
-      expect(await screen.findByText('Success')).toBeInTheDocument();
+      expect((await screen.findAllByText('Success'))[0]).toBeInTheDocument();
 
       expect(
         await screen.findByText('Node_1 (Project Multi-Project-Pipeline-B)'),
@@ -172,6 +154,51 @@ describe('ProjectSidebar', () => {
       expect(
         screen.getByText('Set Repo Level Roles: Egress-Examples/edges'),
       ).toBeInTheDocument();
+    });
+
+    it('should default to the info tab for a service pipeline', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/Pipelines-Project/pipelines/service-pipeline',
+      );
+      render(<Project />);
+
+      expect(await screen.findByText('Standby')).toBeInTheDocument();
+
+      expect(screen.getByRole('tablist').childNodes).toHaveLength(2);
+      expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent(
+        'Service',
+      );
+    });
+
+    it('should default to the info tab for a spout pipeline', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/Pipelines-Project/pipelines/spout-pipeline',
+      );
+      render(<Project />);
+
+      expect(await screen.findByText('Running')).toBeInTheDocument();
+
+      expect(screen.getByRole('tablist').childNodes).toHaveLength(2);
+      expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent('Spout');
+    });
+
+    it('should hide recent job info for a spout pipeline', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/Pipelines-Project/pipelines/spout-pipeline',
+      );
+      render(<Project />);
+
+      expect(await screen.findByText('Running')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Most Recent Job Start'),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Most Recent Job ID')).not.toBeInTheDocument();
     });
   });
 
@@ -329,6 +356,24 @@ describe('ProjectSidebar', () => {
       expect(
         screen.getByText('Set Repo Level Roles: Egress-Examples/edges'),
       ).toBeInTheDocument();
+    });
+
+    it('should show a link to file browser for most recent commit', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/Data-Cleaning-Process/repos/training',
+      );
+
+      render(<Project />);
+
+      const fileBrowserLink = await screen.findByRole('link', {
+        name: 'Inspect Commits',
+      });
+      expect(fileBrowserLink).toHaveAttribute(
+        'href',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a/?prevPath=%2Flineage%2FData-Cleaning-Process%2Frepos%2Ftraining',
+      );
     });
   });
 });

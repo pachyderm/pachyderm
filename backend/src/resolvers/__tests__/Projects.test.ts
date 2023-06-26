@@ -53,7 +53,7 @@ describe('Projects Resolver', () => {
 
       const projects = data?.projects;
 
-      expect(projects).toHaveLength(10);
+      expect(projects).toHaveLength(11);
       expect(projects?.[0]).toEqual(
         expect.objectContaining({
           __typename: 'Project',
@@ -140,6 +140,14 @@ describe('Projects Resolver', () => {
           __typename: 'Project',
           description: 'Project for testing frontend load',
           id: 'Load-Project',
+          status: 'HEALTHY',
+        }),
+      );
+      expect(projects?.[10]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description: 'Project for testing pipeline types',
+          id: 'Pipelines-Project',
           status: 'HEALTHY',
         }),
       );

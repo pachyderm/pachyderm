@@ -28,6 +28,7 @@ const PipelineDetails: React.FC = () => {
     pipeline,
     lastJob,
     isServiceOrSpout,
+    isSpout,
     tabsBasePath,
     projectId,
     pipelineId,
@@ -68,13 +69,18 @@ const PipelineDetails: React.FC = () => {
               </Group>
             </Description>
           )}
-          <Description term="Most Recent Job Start" loading={loading}>
-            {lastJob?.createdAt ? getStandardDate(lastJob?.createdAt) : 'N/A'}
-          </Description>
-          <Description term="Most Recent Job ID" loading={loading}>
-            {lastJob?.id}
-          </Description>
-
+          {!isSpout && (
+            <>
+              <Description term="Most Recent Job Start" loading={loading}>
+                {lastJob?.createdAt
+                  ? getStandardDate(lastJob?.createdAt)
+                  : 'N/A'}
+              </Description>
+              <Description term="Most Recent Job ID" loading={loading}>
+                {lastJob?.id}
+              </Description>
+            </>
+          )}
           {repo?.authInfo?.rolesList && rolesModalOpen && (
             <RepoRolesModal
               show={rolesModalOpen}
@@ -85,7 +91,10 @@ const PipelineDetails: React.FC = () => {
             />
           )}
         </div>
-        <Tabs.RouterTabs basePathTabId={TAB_ID.JOB} basePath={tabsBasePath}>
+        <Tabs.RouterTabs
+          basePathTabId={!isServiceOrSpout ? TAB_ID.JOB : TAB_ID.INFO}
+          basePath={tabsBasePath}
+        >
           <Tabs.TabsHeader className={styles.tabsHeader}>
             {!loading && !isServiceOrSpout && (
               <Tabs.Tab id={TAB_ID.JOB} key={TAB_ID.JOB}>
@@ -99,10 +108,11 @@ const PipelineDetails: React.FC = () => {
               Spec
             </Tabs.Tab>
           </Tabs.TabsHeader>
-
-          <Tabs.TabPanel id={TAB_ID.JOB}>
-            <InfoPanel lastPipelineJob={lastJob} pipelineLoading={loading} />
-          </Tabs.TabPanel>
+          {!loading && !isServiceOrSpout && (
+            <Tabs.TabPanel id={TAB_ID.JOB}>
+              <InfoPanel lastPipelineJob={lastJob} pipelineLoading={loading} />
+            </Tabs.TabPanel>
+          )}
           <Tabs.TabPanel id={TAB_ID.INFO}>
             <PipelineInfo />
           </Tabs.TabPanel>

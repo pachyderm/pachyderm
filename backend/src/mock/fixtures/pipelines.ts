@@ -10,6 +10,8 @@ import {
   Transform,
   JobState,
   ParallelismSpec,
+  Service,
+  Spout,
 } from '@dash-backend/proto';
 import {
   ObjectStorageEgress,
@@ -1534,6 +1536,42 @@ const multiProjectPipelineB = [
     ),
 ];
 
+const pipelinesProject = [
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('service-pipeline')
+        .setProject(new Project().setName('Pipelines-Project')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('service-pipeline-input')
+              .setProject('Pipelines-Project'),
+          ),
+        )
+        .setOutputBranch('master')
+        .setService(new Service().setExternalPort(30000)),
+    ),
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('spout-pipeline')
+        .setProject(new Project().setName('Pipelines-Project')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setOutputBranch('master')
+        .setSpout(new Spout()),
+    ),
+];
+
 const getLoadPipelines = (count: number) => {
   return [...new Array(count).keys()].map((i) => {
     return new PipelineInfo()
@@ -1563,6 +1601,7 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
   default: defaultPipelines,
   'Multi-Project-Pipeline-A': multiProjectPipelineA,
   'Multi-Project-Pipeline-B': multiProjectPipelineB,
+  'Pipelines-Project': pipelinesProject,
 };
 
 export default pipelines;

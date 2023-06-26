@@ -12,6 +12,7 @@ const usePipelineDetails = () => {
     loading: pipelineLoading,
     pipeline,
     isServiceOrSpout,
+    isSpout,
   } = useCurrentPipeline();
   const {jobs, loading: jobsLoading} = useJobs(
     {
@@ -38,6 +39,7 @@ const usePipelineDetails = () => {
     pipeline,
     lastJob: jobs[0],
     isServiceOrSpout,
+    isSpout,
     tabsBasePath,
     editRolesPermission,
   };

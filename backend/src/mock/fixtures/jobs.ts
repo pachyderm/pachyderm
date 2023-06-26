@@ -570,6 +570,40 @@ const multiProjectPipelineB = [
   }),
 ];
 
+const pipelinesProject = [
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+      pipeline: {name: 'service-pipeline'},
+    },
+    input: {
+      pfs: {
+        project: 'Pipelines-Project',
+        repo: 'service-pipeline-input',
+        name: 'service-pipeline-input',
+        branch: 'master',
+      },
+    },
+    outputCommit: {
+      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'service-pipeline',
+        },
+      },
+    },
+    dataFailed: 1,
+    dataProcessed: 2,
+    dataSkipped: 1,
+    dataTotal: 4,
+  }),
+];
+
 const getLoadJobs = (jobCount: number) => {
   const jobStates = Object.values(JobState);
   const now = Math.floor(new Date().getTime() / 1000);
@@ -606,6 +640,7 @@ const jobs: {[projectId: string]: JobInfo[]} = {
   default: [...solarPanelDataSorting, ...dataCleaningProcess],
   'Multi-Project-Pipeline-A': multiProjectPipelineA,
   'Multi-Project-Pipeline-B': multiProjectPipelineB,
+  'Pipelines-Project': pipelinesProject,
 };
 
 export default jobs;

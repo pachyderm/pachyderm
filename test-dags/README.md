@@ -14,3 +14,7 @@ This folder contains a collection of dags that can be useful for console develop
 `setup-cross-project` - Creates two cross-project DAGs across two projects each, for a total of four projects.
 
 `generate-commits` - generates lots of commits
+
+`setup-service-pipeline` - Sets up a basic service pipeline for testing.
+
+`setup-spout-pipeline` - Pachyderm Spout example from [here](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout101).

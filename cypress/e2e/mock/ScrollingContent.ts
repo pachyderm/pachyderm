@@ -21,7 +21,7 @@ describe(
     // These tests ensure that scrollable content involving long lists of items don't cut off any items at the bottom when scrolling
 
     it('should display the last item properly when scrolling a list of projects', () => {
-      cy.findAllByRole('row').should('have.length', 10);
+      cy.findAllByRole('row').should('have.length', 11);
       cy.findByText('Data-Cleaning-Process').should('be.visible');
       cy.findByText('Trait-Discovery').should('not.be.visible');
       cy.findByTestId('Landing__view').scrollTo('bottom');
