@@ -6,7 +6,7 @@ import pytest
 
 from pachyderm_sdk.api import pfs, pps
 from pachyderm_sdk.client import Client as _Client
-from pachyderm_sdk.constants import ENTERPRISE_CODE_ENV
+from pachyderm_sdk.constants import AUTH_TOKEN_ENV
 
 
 @pytest.fixture(params=[True, False])
@@ -25,6 +25,18 @@ def client(request) -> "TestClient":
         nodeid=request.node.nodeid,
         host=os.environ.get('PACH_PYTHON_TEST_HOST'),
         port=os.environ.get('PACH_PYTHON_TEST_PORT'),
+    )
+    yield client
+    client.tear_down()
+
+
+@pytest.fixture
+def auth_client(request) -> "TestClient":
+    client = TestClient(
+        nodeid=request.node.nodeid,
+        host=os.environ.get('PACH_PYTHON_TEST_HOST'),
+        port=os.environ.get('PACH_PYTHON_TEST_PORT_ENTERPRISE'),
+        auth_token=os.environ.get(AUTH_TOKEN_ENV)
     )
     yield client
     client.tear_down()
