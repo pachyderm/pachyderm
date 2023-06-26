@@ -185,7 +185,10 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 func NewServerSender(ctx context.Context, s debug.Debug_DumpV2Server) (ContentSender, ProgressSender) {
 	ch := make(chan *debug.DumpChunk)
 	go func() {
-		for chunk := range ch {
+		select {
+		case <-ctx.Done():
+			log.Error(ctx, "dump chunk sender context cancelled", zap.Error(ctx.Err()))
+		case chunk := <-ch:
 			if err := s.Send(chunk); err != nil {
 				log.Error(ctx, "send dump chunk failed", zap.Any("chunk", chunk), zap.Error(err))
 			}
