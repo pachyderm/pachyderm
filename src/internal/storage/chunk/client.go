@@ -244,12 +244,12 @@ func parseKey(key []byte) (ID, uint64, error) {
 	chunkID := make([]byte, hex.DecodedLen(len(parts[0])))
 	n, err := hex.Decode(chunkID, parts[0])
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.EnsureStack(err)
 	}
 	chunkID = chunkID[:n]
 	gen, err := strconv.ParseUint(string(parts[1]), 16, 64)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.EnsureStack(err)
 	}
 	return chunkID, gen, nil
 }
