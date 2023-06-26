@@ -3,6 +3,7 @@ package kv
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,12 @@ func (s *FSStore) Get(ctx context.Context, key, buf []byte) (_ int, retErr error
 		return 0, s.transformError(err, key)
 	}
 	defer s.closeFile(ctx, &retErr, f)
+	defer func() {
+		if retErr != nil {
+			finfo, _ := os.Stat(s.finalPathFor(key))
+			fmt.Println("FILE STAT", finfo.Name(), finfo.Size())
+		}
+	}()
 	return miscutil.ReadInto(buf, f)
 }
 
