@@ -285,11 +285,11 @@ func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsRespons
 	defer cf()
 	client, err := c.PfsAPIClient.FindCommits(ctx, req)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	resp := &FindCommitsResponse{}
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	if err := grpcutil.ForEach[*pfs.FindCommitsResponse](client, func(x *pfs.FindCommitsResponse) error {
 		switch x.Result.(type) {
@@ -301,7 +301,7 @@ func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsRespons
 		}
 		return nil
 	}); err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return resp, nil
 }
