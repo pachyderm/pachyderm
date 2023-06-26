@@ -1258,6 +1258,323 @@ func (*DumpChunk) XXX_OneofWrappers() []interface{} {
 	}
 }
 
+type TapRequest struct {
+	// Types that are valid to be assigned to Request:
+	//	*TapRequest_Start_
+	//	*TapRequest_End_
+	Request              isTapRequest_Request `protobuf_oneof:"request"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *TapRequest) Reset()         { *m = TapRequest{} }
+func (m *TapRequest) String() string { return proto.CompactTextString(m) }
+func (*TapRequest) ProtoMessage()    {}
+func (*TapRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5ae24eab94cb53d5, []int{18}
+}
+func (m *TapRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TapRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TapRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TapRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TapRequest.Merge(m, src)
+}
+func (m *TapRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *TapRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_TapRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TapRequest proto.InternalMessageInfo
+
+type isTapRequest_Request interface {
+	isTapRequest_Request()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type TapRequest_Start_ struct {
+	Start *TapRequest_Start `protobuf:"bytes,1,opt,name=start,proto3,oneof" json:"start,omitempty"`
+}
+type TapRequest_End_ struct {
+	End *TapRequest_End `protobuf:"bytes,2,opt,name=end,proto3,oneof" json:"end,omitempty"`
+}
+
+func (*TapRequest_Start_) isTapRequest_Request() {}
+func (*TapRequest_End_) isTapRequest_Request()   {}
+
+func (m *TapRequest) GetRequest() isTapRequest_Request {
+	if m != nil {
+		return m.Request
+	}
+	return nil
+}
+
+func (m *TapRequest) GetStart() *TapRequest_Start {
+	if x, ok := m.GetRequest().(*TapRequest_Start_); ok {
+		return x.Start
+	}
+	return nil
+}
+
+func (m *TapRequest) GetEnd() *TapRequest_End {
+	if x, ok := m.GetRequest().(*TapRequest_End_); ok {
+		return x.End
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*TapRequest) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*TapRequest_Start_)(nil),
+		(*TapRequest_End_)(nil),
+	}
+}
+
+type TapRequest_Start struct {
+	ConfigId             string   `protobuf:"bytes,1,opt,name=config_id,json=configId,proto3" json:"config_id,omitempty"`
+	EnvoyAddresses       []string `protobuf:"bytes,2,rep,name=envoy_addresses,json=envoyAddresses,proto3" json:"envoy_addresses,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *TapRequest_Start) Reset()         { *m = TapRequest_Start{} }
+func (m *TapRequest_Start) String() string { return proto.CompactTextString(m) }
+func (*TapRequest_Start) ProtoMessage()    {}
+func (*TapRequest_Start) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5ae24eab94cb53d5, []int{18, 0}
+}
+func (m *TapRequest_Start) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TapRequest_Start) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TapRequest_Start.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TapRequest_Start) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TapRequest_Start.Merge(m, src)
+}
+func (m *TapRequest_Start) XXX_Size() int {
+	return m.Size()
+}
+func (m *TapRequest_Start) XXX_DiscardUnknown() {
+	xxx_messageInfo_TapRequest_Start.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TapRequest_Start proto.InternalMessageInfo
+
+func (m *TapRequest_Start) GetConfigId() string {
+	if m != nil {
+		return m.ConfigId
+	}
+	return ""
+}
+
+func (m *TapRequest_Start) GetEnvoyAddresses() []string {
+	if m != nil {
+		return m.EnvoyAddresses
+	}
+	return nil
+}
+
+type TapRequest_End struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *TapRequest_End) Reset()         { *m = TapRequest_End{} }
+func (m *TapRequest_End) String() string { return proto.CompactTextString(m) }
+func (*TapRequest_End) ProtoMessage()    {}
+func (*TapRequest_End) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5ae24eab94cb53d5, []int{18, 1}
+}
+func (m *TapRequest_End) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TapRequest_End) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TapRequest_End.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TapRequest_End) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TapRequest_End.Merge(m, src)
+}
+func (m *TapRequest_End) XXX_Size() int {
+	return m.Size()
+}
+func (m *TapRequest_End) XXX_DiscardUnknown() {
+	xxx_messageInfo_TapRequest_End.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TapRequest_End proto.InternalMessageInfo
+
+type TapResponse struct {
+	// Types that are valid to be assigned to Response:
+	//	*TapResponse_Capture
+	//	*TapResponse_Log_
+	Response             isTapResponse_Response `protobuf_oneof:"response"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
+}
+
+func (m *TapResponse) Reset()         { *m = TapResponse{} }
+func (m *TapResponse) String() string { return proto.CompactTextString(m) }
+func (*TapResponse) ProtoMessage()    {}
+func (*TapResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5ae24eab94cb53d5, []int{19}
+}
+func (m *TapResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TapResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TapResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TapResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TapResponse.Merge(m, src)
+}
+func (m *TapResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *TapResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_TapResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TapResponse proto.InternalMessageInfo
+
+type isTapResponse_Response interface {
+	isTapResponse_Response()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type TapResponse_Capture struct {
+	Capture *types.BytesValue `protobuf:"bytes,1,opt,name=capture,proto3,oneof" json:"capture,omitempty"`
+}
+type TapResponse_Log_ struct {
+	Log *TapResponse_Log `protobuf:"bytes,2,opt,name=log,proto3,oneof" json:"log,omitempty"`
+}
+
+func (*TapResponse_Capture) isTapResponse_Response() {}
+func (*TapResponse_Log_) isTapResponse_Response()    {}
+
+func (m *TapResponse) GetResponse() isTapResponse_Response {
+	if m != nil {
+		return m.Response
+	}
+	return nil
+}
+
+func (m *TapResponse) GetCapture() *types.BytesValue {
+	if x, ok := m.GetResponse().(*TapResponse_Capture); ok {
+		return x.Capture
+	}
+	return nil
+}
+
+func (m *TapResponse) GetLog() *TapResponse_Log {
+	if x, ok := m.GetResponse().(*TapResponse_Log_); ok {
+		return x.Log
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*TapResponse) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*TapResponse_Capture)(nil),
+		(*TapResponse_Log_)(nil),
+	}
+}
+
+type TapResponse_Log struct {
+	Msg                  string   `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *TapResponse_Log) Reset()         { *m = TapResponse_Log{} }
+func (m *TapResponse_Log) String() string { return proto.CompactTextString(m) }
+func (*TapResponse_Log) ProtoMessage()    {}
+func (*TapResponse_Log) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5ae24eab94cb53d5, []int{19, 0}
+}
+func (m *TapResponse_Log) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TapResponse_Log) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TapResponse_Log.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TapResponse_Log) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TapResponse_Log.Merge(m, src)
+}
+func (m *TapResponse_Log) XXX_Size() int {
+	return m.Size()
+}
+func (m *TapResponse_Log) XXX_DiscardUnknown() {
+	xxx_messageInfo_TapResponse_Log.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TapResponse_Log proto.InternalMessageInfo
+
+func (m *TapResponse_Log) GetMsg() string {
+	if m != nil {
+		return m.Msg
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterEnum("debug_v2.SetLogLevelRequest_LogLevel", SetLogLevelRequest_LogLevel_name, SetLogLevelRequest_LogLevel_value)
 	proto.RegisterType((*ProfileRequest)(nil), "debug_v2.ProfileRequest")
@@ -1278,81 +1595,98 @@ func init() {
 	proto.RegisterType((*DumpContent)(nil), "debug_v2.DumpContent")
 	proto.RegisterType((*DumpProgress)(nil), "debug_v2.DumpProgress")
 	proto.RegisterType((*DumpChunk)(nil), "debug_v2.DumpChunk")
+	proto.RegisterType((*TapRequest)(nil), "debug_v2.TapRequest")
+	proto.RegisterType((*TapRequest_Start)(nil), "debug_v2.TapRequest.Start")
+	proto.RegisterType((*TapRequest_End)(nil), "debug_v2.TapRequest.End")
+	proto.RegisterType((*TapResponse)(nil), "debug_v2.TapResponse")
+	proto.RegisterType((*TapResponse_Log)(nil), "debug_v2.TapResponse.Log")
 }
 
 func init() { proto.RegisterFile("debug/debug.proto", fileDescriptor_5ae24eab94cb53d5) }
 
 var fileDescriptor_5ae24eab94cb53d5 = []byte{
-	// 1103 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x56, 0xdd, 0x6e, 0x1b, 0x45,
-	0x14, 0xf6, 0x7a, 0xfd, 0xb3, 0x3e, 0x4e, 0x22, 0x67, 0x0a, 0x65, 0x6b, 0x4a, 0x68, 0xb7, 0x42,
-	0x84, 0x46, 0xb2, 0x8b, 0x29, 0x12, 0x2d, 0x12, 0xa2, 0x26, 0x49, 0x53, 0x11, 0x92, 0x68, 0x9a,
-	0xb6, 0x12, 0x12, 0x44, 0x6b, 0xef, 0xc4, 0x59, 0xb2, 0xf6, 0x0c, 0x33, 0xe3, 0x54, 0xb9, 0xe0,
-	0x96, 0x27, 0xa9, 0x78, 0x02, 0xee, 0x78, 0x01, 0x2e, 0x79, 0x04, 0x94, 0x27, 0xa9, 0x66, 0x76,
-	0x66, 0x77, 0x1d, 0x3b, 0xfd, 0xb9, 0xb1, 0xf6, 0x9c, 0xf3, 0x9d, 0xff, 0x9f, 0x31, 0xac, 0x46,
-	0x64, 0x30, 0x1d, 0x75, 0xf5, 0x6f, 0x87, 0x71, 0x2a, 0x29, 0xf2, 0x34, 0x71, 0x74, 0xd6, 0x6b,
-	0xaf, 0x8d, 0x28, 0x1d, 0x25, 0xa4, 0xab, 0xf9, 0x83, 0xe9, 0x71, 0xf7, 0x25, 0x0f, 0x19, 0x23,
-	0x5c, 0xa4, 0xc8, 0x79, 0x79, 0x34, 0xe5, 0xa1, 0x8c, 0xe9, 0xc4, 0xc8, 0x97, 0x19, 0x13, 0x5d,
-	0xc6, 0x0c, 0x3c, 0x18, 0xc1, 0xca, 0x01, 0xa7, 0xc7, 0x71, 0x42, 0x30, 0xf9, 0x7d, 0x4a, 0x84,
-	0x44, 0x1b, 0x50, 0x67, 0x29, 0xc7, 0x77, 0x6e, 0x39, 0xeb, 0xcd, 0xde, 0x6a, 0xc7, 0x3a, 0xef,
-	0x58, 0xa8, 0x45, 0xa0, 0x75, 0xa8, 0x1d, 0xc7, 0x89, 0x24, 0xdc, 0x2f, 0x6b, 0x6c, 0x2b, 0xc7,
-	0x6e, 0x6b, 0x3e, 0x36, 0xf2, 0xe0, 0x10, 0xea, 0x46, 0x1b, 0x21, 0xa8, 0x4c, 0xc2, 0x71, 0x6a,
-	0xbe, 0x81, 0xf5, 0x37, 0xfa, 0x1a, 0x3c, 0x1b, 0xa8, 0x31, 0x75, 0xa3, 0x93, 0x66, 0xd2, 0xb1,
-	0x99, 0x74, 0x36, 0x0d, 0x00, 0x67, 0xd0, 0xe0, 0x95, 0x03, 0xb5, 0xd4, 0x11, 0xba, 0x0e, 0x55,
-	0x16, 0x0e, 0x4f, 0x22, 0x6d, 0xd6, 0xdb, 0x29, 0xe1, 0x94, 0x44, 0x1d, 0xf0, 0x58, 0xcc, 0x48,
-	0x12, 0x4f, 0x48, 0x16, 0x24, 0x63, 0x42, 0xa7, 0x63, 0xf8, 0x3b, 0x25, 0x9c, 0x61, 0xd0, 0x5d,
-	0xa8, 0xbd, 0xa4, 0xfc, 0x94, 0x70, 0xdf, 0xbd, 0x9c, 0xd2, 0x0b, 0xcd, 0xdf, 0x29, 0x61, 0x83,
-	0x40, 0x37, 0xc1, 0x8b, 0x42, 0x19, 0x0e, 0x42, 0x41, 0xfc, 0x8a, 0x71, 0x9b, 0x71, 0xfa, 0x9e,
-	0x2d, 0x4e, 0xf0, 0x10, 0x6a, 0xa9, 0x2e, 0x6a, 0x81, 0xcb, 0x68, 0x64, 0x52, 0x57, 0x9f, 0x68,
-	0x0d, 0x80, 0x93, 0x28, 0xe6, 0x64, 0x28, 0x49, 0xa4, 0x23, 0xf4, 0x70, 0x81, 0x13, 0x3c, 0x80,
-	0xe5, 0x7e, 0x3c, 0x09, 0xf9, 0xb9, 0x6d, 0x50, 0x5e, 0x73, 0xe7, 0x2d, 0x35, 0xff, 0x09, 0x9a,
-	0x9b, 0xd3, 0x31, 0x7b, 0x6f, 0x45, 0xf4, 0x01, 0x54, 0x93, 0x78, 0x1c, 0x4b, 0x1d, 0x8e, 0x8b,
-	0x53, 0x22, 0xf8, 0xbb, 0x0c, 0xe8, 0x29, 0x91, 0xbb, 0x74, 0xb4, 0x4b, 0xce, 0x48, 0x62, 0xcd,
-	0x6e, 0x41, 0x43, 0x55, 0xfa, 0x3c, 0x22, 0x7c, 0xac, 0x2d, 0xaf, 0xf4, 0x3e, 0xcb, 0x2d, 0xcf,
-	0x2b, 0x74, 0x2c, 0xbd, 0x53, 0xc2, 0xb9, 0x26, 0xfa, 0x16, 0x2a, 0x23, 0xce, 0x86, 0xda, 0xe5,
-	0x7b, 0x58, 0xd0, 0x4a, 0x33, 0xe3, 0xe3, 0xbe, 0xf3, 0xf8, 0x20, 0x1f, 0xea, 0x9c, 0x0c, 0xa7,
-	0xdc, 0xb6, 0x0f, 0x5b, 0x32, 0xf8, 0x1e, 0x3c, 0xeb, 0x04, 0x35, 0xa1, 0xfe, 0x6c, 0xef, 0xc7,
-	0xbd, 0xfd, 0x17, 0x7b, 0xad, 0x12, 0x6a, 0x40, 0x75, 0x73, 0xab, 0xff, 0xec, 0x71, 0xcb, 0x41,
-	0x1e, 0x54, 0x9e, 0xec, 0x6d, 0xef, 0xb7, 0xca, 0x8a, 0xb9, 0x85, 0xf1, 0x3e, 0x6e, 0xb9, 0xa8,
-	0x0e, 0xee, 0xfe, 0xf6, 0x76, 0xab, 0xd2, 0xaf, 0x43, 0x35, 0x51, 0xea, 0xc1, 0x2f, 0x70, 0x6d,
-	0x26, 0x05, 0xc1, 0xe8, 0x44, 0x10, 0x74, 0x07, 0x96, 0xc3, 0xe3, 0x63, 0xdd, 0xe3, 0x23, 0x46,
-	0x23, 0xe1, 0x3b, 0xb7, 0xdc, 0xf5, 0x06, 0x5e, 0xb2, 0xcc, 0x03, 0x1a, 0x09, 0x74, 0x1b, 0x96,
-	0x08, 0xe7, 0x94, 0x5b, 0x4c, 0x59, 0x63, 0x9a, 0x86, 0xa7, 0x20, 0xc1, 0x7d, 0xf0, 0x1f, 0x13,
-	0xa9, 0xfa, 0xfc, 0xbc, 0x77, 0x48, 0xc6, 0x2c, 0x09, 0x65, 0xb6, 0xcb, 0x3e, 0xd4, 0xd3, 0x8e,
-	0x5a, 0xeb, 0x96, 0x0c, 0xf6, 0xe0, 0xc6, 0x02, 0x2d, 0x13, 0xda, 0x97, 0xaa, 0x2c, 0xda, 0x82,
-	0x99, 0x94, 0x8f, 0xf2, 0x6e, 0xa4, 0x2a, 0xc6, 0x01, 0xb6, 0xb8, 0xe0, 0x1b, 0xf0, 0xec, 0x36,
-	0x29, 0xaf, 0x8c, 0xd3, 0xdf, 0xc8, 0x50, 0x9a, 0x39, 0xb7, 0x64, 0xb6, 0xf9, 0xe5, 0x7c, 0xf3,
-	0x83, 0x27, 0xe0, 0x1e, 0xd0, 0x68, 0xe1, 0x51, 0x58, 0x81, 0x72, 0xcc, 0x0c, 0xb8, 0x1c, 0x33,
-	0xb5, 0x2a, 0x43, 0x3a, 0x91, 0x61, 0x3c, 0x51, 0x19, 0xb9, 0x3a, 0xa3, 0x02, 0x27, 0xf8, 0xd3,
-	0x01, 0xf7, 0x11, 0x63, 0x0b, 0x6d, 0xdd, 0x86, 0x4a, 0x56, 0xc1, 0x66, 0x6f, 0xb9, 0x70, 0xd3,
-	0x68, 0x84, 0xb5, 0x48, 0xc5, 0x2d, 0xe3, 0x31, 0xa1, 0x53, 0xa9, 0x67, 0xc8, 0xc5, 0x96, 0x9c,
-	0xb9, 0x21, 0x15, 0x5d, 0x11, 0x54, 0x30, 0x60, 0x24, 0xf9, 0x0d, 0x09, 0x5e, 0x95, 0xa1, 0xf6,
-	0xf4, 0x5c, 0x48, 0x32, 0x56, 0xb1, 0x9c, 0x90, 0x24, 0x5d, 0x0c, 0x0f, 0xeb, 0x6f, 0xd4, 0x2e,
-	0x9c, 0x8d, 0x74, 0xe1, 0x33, 0x5a, 0x05, 0x71, 0x46, 0xb8, 0xb0, 0x83, 0xec, 0x61, 0x4b, 0xa2,
-	0x0d, 0x68, 0x44, 0x44, 0x0c, 0x79, 0x3c, 0x20, 0xc2, 0xaf, 0x5c, 0x4e, 0xe3, 0x11, 0x63, 0x38,
-	0x97, 0xab, 0x74, 0x13, 0x3a, 0x12, 0x7e, 0x75, 0x11, 0x4e, 0x8b, 0xd0, 0x5d, 0x68, 0x24, 0xf4,
-	0x34, 0x3e, 0xd2, 0xb8, 0xda, 0x22, 0x9c, 0xa7, 0xe4, 0xbb, 0x0a, 0xfb, 0x05, 0x78, 0x03, 0x75,
-	0x84, 0x62, 0x22, 0xfc, 0xfa, 0x42, 0xa8, 0x15, 0x2b, 0xa8, 0x79, 0x1d, 0x84, 0xef, 0x2d, 0x84,
-	0x5a, 0x71, 0xf0, 0x97, 0x03, 0xcb, 0x33, 0xf3, 0xa4, 0x4e, 0x94, 0xd0, 0x75, 0x9b, 0x3f, 0x51,
-	0x69, 0x3d, 0xb1, 0x91, 0xa3, 0x7b, 0xd0, 0xb0, 0xe5, 0xb6, 0x4d, 0x5d, 0xd4, 0x93, 0x1c, 0x84,
-	0x3e, 0x85, 0x66, 0x3c, 0x61, 0x53, 0x79, 0xc4, 0x09, 0xa3, 0xc2, 0x54, 0x17, 0x34, 0x0b, 0x2b,
-	0x4e, 0xb1, 0xff, 0x95, 0x99, 0xfe, 0x07, 0x9f, 0xa7, 0x87, 0xf4, 0x07, 0x3a, 0x91, 0x64, 0xa2,
-	0xd7, 0x6a, 0x98, 0x7e, 0xea, 0x30, 0x97, 0xb0, 0x25, 0x83, 0x43, 0x58, 0x52, 0xc0, 0x03, 0x4e,
-	0x47, 0x9c, 0x08, 0xa1, 0xba, 0x2f, 0x43, 0x71, 0x6a, 0x27, 0x51, 0x7d, 0xab, 0xe3, 0x2a, 0xa9,
-	0x0c, 0x13, 0x7b, 0x5c, 0x35, 0xa1, 0x66, 0x82, 0x19, 0x2d, 0x33, 0x7d, 0x19, 0x1d, 0xfc, 0x01,
-	0x0d, 0xed, 0xfe, 0x64, 0x3a, 0x39, 0x55, 0xcb, 0x59, 0x74, 0xde, 0xec, 0x7d, 0x38, 0xbb, 0x9c,
-	0x26, 0xc8, 0x9d, 0x52, 0x16, 0x15, 0xba, 0x5f, 0xb0, 0x9d, 0x3e, 0x81, 0xd7, 0x67, 0x75, 0x6c,
-	0xbc, 0xfa, 0x21, 0x34, 0xdf, 0xea, 0x80, 0x0d, 0x95, 0xc7, 0xde, 0x3f, 0x2e, 0x54, 0x37, 0x15,
-	0x1c, 0x6d, 0xe6, 0x8f, 0xb8, 0x3f, 0xff, 0xaf, 0x20, 0xed, 0x61, 0xfb, 0xe3, 0xb9, 0xcb, 0xdb,
-	0x3f, 0x97, 0x44, 0x3c, 0x0f, 0x93, 0x29, 0x09, 0x4a, 0xf7, 0x1c, 0xd4, 0x87, 0x5a, 0xfa, 0xa2,
-	0xa1, 0xc2, 0x5d, 0x99, 0x79, 0xe3, 0xde, 0x6e, 0xe3, 0x3b, 0xa8, 0xa8, 0xc0, 0xd1, 0xa5, 0xe4,
-	0xdf, 0x59, 0x7f, 0x17, 0x9a, 0x85, 0xa3, 0x8c, 0x6e, 0xbe, 0xe9, 0xb9, 0x69, 0x7f, 0x72, 0x85,
-	0x34, 0x3d, 0x97, 0x41, 0x09, 0xfd, 0x0a, 0xab, 0x73, 0xd7, 0x14, 0x05, 0xb9, 0xd6, 0x55, 0x07,
-	0xba, 0x7d, 0xe7, 0x8d, 0x98, 0xcc, 0xfe, 0x43, 0xa8, 0xa5, 0x32, 0x74, 0xd5, 0x25, 0x6e, 0x5f,
-	0xbb, 0x34, 0x05, 0xaa, 0x73, 0x2a, 0xd3, 0xfe, 0x83, 0x7f, 0x2f, 0xd6, 0x9c, 0xff, 0x2e, 0xd6,
-	0x9c, 0xff, 0x2f, 0xd6, 0x9c, 0x9f, 0x37, 0x46, 0xb1, 0x3c, 0x99, 0x0e, 0x3a, 0x43, 0x3a, 0xee,
-	0x66, 0x6f, 0x6f, 0xe1, 0xeb, 0xac, 0xd7, 0x15, 0x7c, 0x98, 0xfe, 0xf7, 0x1c, 0xd4, 0x74, 0xf5,
-	0xbe, 0x7a, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x00, 0x5e, 0x1b, 0xdd, 0x91, 0x0a, 0x00, 0x00,
+	// 1286 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x57, 0xdd, 0x6e, 0x1b, 0x45,
+	0x14, 0xf6, 0x7a, 0xfd, 0xb3, 0x3e, 0x4e, 0x82, 0x3b, 0xfd, 0xdb, 0xba, 0x25, 0xb4, 0x5b, 0xa1,
+	0x86, 0x16, 0x9c, 0x62, 0x8a, 0x68, 0x8b, 0x84, 0xa8, 0x49, 0xd2, 0x54, 0xa4, 0x49, 0x34, 0x4d,
+	0x5b, 0x09, 0x09, 0xa2, 0xf5, 0xee, 0x64, 0xb3, 0x64, 0xbd, 0x33, 0xcc, 0xac, 0x53, 0xe5, 0x82,
+	0x5b, 0x1e, 0x82, 0xeb, 0x8a, 0x27, 0xe0, 0x21, 0xb8, 0x83, 0x47, 0x40, 0x7d, 0x07, 0xee, 0xd1,
+	0xcc, 0xce, 0xec, 0xda, 0xb1, 0xfb, 0x77, 0x63, 0xed, 0x39, 0xe7, 0x3b, 0xbf, 0x73, 0xe6, 0x9c,
+	0x31, 0x9c, 0x09, 0xc9, 0x70, 0x1c, 0xad, 0xaa, 0xdf, 0x1e, 0xe3, 0x34, 0xa3, 0xc8, 0x51, 0xc4,
+	0xfe, 0x71, 0xbf, 0xbb, 0x1c, 0x51, 0x1a, 0x25, 0x64, 0x55, 0xf1, 0x87, 0xe3, 0x83, 0xd5, 0x17,
+	0xdc, 0x67, 0x8c, 0x70, 0x91, 0x23, 0x67, 0xe5, 0xe1, 0x98, 0xfb, 0x59, 0x4c, 0x53, 0x2d, 0x5f,
+	0x64, 0x4c, 0xac, 0x32, 0xa6, 0xe1, 0x5e, 0x04, 0x4b, 0xbb, 0x9c, 0x1e, 0xc4, 0x09, 0xc1, 0xe4,
+	0x97, 0x31, 0x11, 0x19, 0xba, 0x05, 0x4d, 0x96, 0x73, 0x5c, 0xeb, 0xaa, 0xb5, 0xd2, 0xee, 0x9f,
+	0xe9, 0x19, 0xe7, 0x3d, 0x03, 0x35, 0x08, 0xb4, 0x02, 0x8d, 0x83, 0x38, 0xc9, 0x08, 0x77, 0xab,
+	0x0a, 0xdb, 0x29, 0xb1, 0x1b, 0x8a, 0x8f, 0xb5, 0xdc, 0xdb, 0x83, 0xa6, 0xd6, 0x46, 0x08, 0x6a,
+	0xa9, 0x3f, 0xca, 0xcd, 0xb7, 0xb0, 0xfa, 0x46, 0x5f, 0x82, 0x63, 0x02, 0xd5, 0xa6, 0x2e, 0xf5,
+	0xf2, 0x4c, 0x7a, 0x26, 0x93, 0xde, 0x9a, 0x06, 0xe0, 0x02, 0xea, 0xbd, 0xb4, 0xa0, 0x91, 0x3b,
+	0x42, 0x17, 0xa0, 0xce, 0xfc, 0xe0, 0x30, 0x54, 0x66, 0x9d, 0xcd, 0x0a, 0xce, 0x49, 0xd4, 0x03,
+	0x87, 0xc5, 0x8c, 0x24, 0x71, 0x4a, 0x8a, 0x20, 0x19, 0x13, 0x2a, 0x1d, 0xcd, 0xdf, 0xac, 0xe0,
+	0x02, 0x83, 0x6e, 0x42, 0xe3, 0x05, 0xe5, 0x47, 0x84, 0xbb, 0xf6, 0xe9, 0x94, 0x9e, 0x2b, 0xfe,
+	0x66, 0x05, 0x6b, 0x04, 0xba, 0x02, 0x4e, 0xe8, 0x67, 0xfe, 0xd0, 0x17, 0xc4, 0xad, 0x69, 0xb7,
+	0x05, 0x67, 0xe0, 0x98, 0xe2, 0x78, 0xf7, 0xa1, 0x91, 0xeb, 0xa2, 0x0e, 0xd8, 0x8c, 0x86, 0x3a,
+	0x75, 0xf9, 0x89, 0x96, 0x01, 0x38, 0x09, 0x63, 0x4e, 0x82, 0x8c, 0x84, 0x2a, 0x42, 0x07, 0x4f,
+	0x70, 0xbc, 0x7b, 0xb0, 0x38, 0x88, 0x53, 0x9f, 0x9f, 0x98, 0x03, 0x2a, 0x6b, 0x6e, 0xbd, 0xa5,
+	0xe6, 0x8f, 0xa1, 0xbd, 0x36, 0x1e, 0xb1, 0xf7, 0x56, 0x44, 0xe7, 0xa0, 0x9e, 0xc4, 0xa3, 0x38,
+	0x53, 0xe1, 0xd8, 0x38, 0x27, 0xbc, 0x3f, 0xab, 0x80, 0x9e, 0x90, 0x6c, 0x8b, 0x46, 0x5b, 0xe4,
+	0x98, 0x24, 0xc6, 0xec, 0x3a, 0xb4, 0x64, 0xa5, 0x4f, 0x42, 0xc2, 0x47, 0xca, 0xf2, 0x52, 0xff,
+	0xe3, 0xd2, 0xf2, 0xac, 0x42, 0xcf, 0xd0, 0x9b, 0x15, 0x5c, 0x6a, 0xa2, 0xaf, 0xa1, 0x16, 0x71,
+	0x16, 0x28, 0x97, 0xef, 0x61, 0x41, 0x29, 0x4d, 0xb5, 0x8f, 0xfd, 0xce, 0xed, 0x83, 0x5c, 0x68,
+	0x72, 0x12, 0x8c, 0xb9, 0x39, 0x3e, 0x6c, 0x48, 0xef, 0x5b, 0x70, 0x8c, 0x13, 0xd4, 0x86, 0xe6,
+	0xd3, 0xed, 0xef, 0xb7, 0x77, 0x9e, 0x6f, 0x77, 0x2a, 0xa8, 0x05, 0xf5, 0xb5, 0xf5, 0xc1, 0xd3,
+	0x87, 0x1d, 0x0b, 0x39, 0x50, 0x7b, 0xb4, 0xbd, 0xb1, 0xd3, 0xa9, 0x4a, 0xe6, 0x3a, 0xc6, 0x3b,
+	0xb8, 0x63, 0xa3, 0x26, 0xd8, 0x3b, 0x1b, 0x1b, 0x9d, 0xda, 0xa0, 0x09, 0xf5, 0x44, 0xaa, 0x7b,
+	0x3f, 0xc2, 0xd9, 0xa9, 0x14, 0x04, 0xa3, 0xa9, 0x20, 0xe8, 0x3a, 0x2c, 0xfa, 0x07, 0x07, 0xea,
+	0x8c, 0xf7, 0x19, 0x0d, 0x85, 0x6b, 0x5d, 0xb5, 0x57, 0x5a, 0x78, 0xc1, 0x30, 0x77, 0x69, 0x28,
+	0xd0, 0x35, 0x58, 0x20, 0x9c, 0x53, 0x6e, 0x30, 0x55, 0x85, 0x69, 0x6b, 0x9e, 0x84, 0x78, 0x77,
+	0xc0, 0x7d, 0x48, 0x32, 0x79, 0xce, 0xcf, 0xfa, 0x7b, 0x64, 0xc4, 0x12, 0x3f, 0x2b, 0xee, 0xb2,
+	0x0b, 0xcd, 0xfc, 0x44, 0x8d, 0x75, 0x43, 0x7a, 0xdb, 0x70, 0x69, 0x8e, 0x96, 0x0e, 0xed, 0x73,
+	0x59, 0x16, 0x65, 0x41, 0x77, 0xca, 0xc5, 0xf2, 0x34, 0x72, 0x15, 0xed, 0x00, 0x1b, 0x9c, 0x77,
+	0x17, 0x1c, 0x73, 0x9b, 0xa4, 0x57, 0xc6, 0xe9, 0xcf, 0x24, 0xc8, 0x74, 0x9f, 0x1b, 0xb2, 0xb8,
+	0xf9, 0xd5, 0xf2, 0xe6, 0x7b, 0x8f, 0xc0, 0xde, 0xa5, 0xe1, 0xdc, 0xa1, 0xb0, 0x04, 0xd5, 0x98,
+	0x69, 0x70, 0x35, 0x66, 0xf2, 0xaa, 0x04, 0x34, 0xcd, 0xfc, 0x38, 0x95, 0x19, 0xd9, 0x2a, 0xa3,
+	0x09, 0x8e, 0xf7, 0x9b, 0x05, 0xf6, 0x03, 0xc6, 0xe6, 0xda, 0xba, 0x06, 0xb5, 0xa2, 0x82, 0xed,
+	0xfe, 0xe2, 0xc4, 0x4c, 0xa3, 0x21, 0x56, 0x22, 0x19, 0x77, 0x16, 0x8f, 0x08, 0x1d, 0x67, 0xaa,
+	0x87, 0x6c, 0x6c, 0xc8, 0xa9, 0x19, 0x52, 0x53, 0x15, 0x41, 0x13, 0x06, 0xb4, 0xa4, 0x9c, 0x21,
+	0xde, 0xcb, 0x2a, 0x34, 0x9e, 0x9c, 0x88, 0x8c, 0x8c, 0x64, 0x2c, 0x87, 0x24, 0xc9, 0x2f, 0x86,
+	0x83, 0xd5, 0x37, 0xea, 0x4e, 0x8c, 0x8d, 0xfc, 0xc2, 0x17, 0xb4, 0x0c, 0xe2, 0x98, 0x70, 0x61,
+	0x1a, 0xd9, 0xc1, 0x86, 0x44, 0xb7, 0xa0, 0x15, 0x12, 0x11, 0xf0, 0x78, 0x48, 0x84, 0x5b, 0x3b,
+	0x9d, 0xc6, 0x03, 0xc6, 0x70, 0x29, 0x97, 0xe9, 0x26, 0x34, 0x12, 0x6e, 0x7d, 0x1e, 0x4e, 0x89,
+	0xd0, 0x4d, 0x68, 0x25, 0xf4, 0x28, 0xde, 0x57, 0xb8, 0xc6, 0x3c, 0x9c, 0x23, 0xe5, 0x5b, 0x12,
+	0xfb, 0x09, 0x38, 0x43, 0x39, 0x84, 0x62, 0x22, 0xdc, 0xe6, 0x5c, 0xa8, 0x11, 0x4b, 0xa8, 0xde,
+	0x0e, 0xc2, 0x75, 0xe6, 0x42, 0x8d, 0xd8, 0xfb, 0xc3, 0x82, 0xc5, 0xa9, 0x7e, 0x92, 0x23, 0x4a,
+	0xa8, 0xba, 0xcd, 0x8e, 0xa8, 0xbc, 0x9e, 0x58, 0xcb, 0xd1, 0x6d, 0x68, 0x99, 0x72, 0x9b, 0x43,
+	0x9d, 0x77, 0x26, 0x25, 0x08, 0x7d, 0x04, 0xed, 0x38, 0x65, 0xe3, 0x6c, 0x9f, 0x13, 0x46, 0x85,
+	0xae, 0x2e, 0x28, 0x16, 0x96, 0x9c, 0xc9, 0xf3, 0xaf, 0x4d, 0x9d, 0xbf, 0x77, 0x23, 0x1f, 0xa4,
+	0xdf, 0xd1, 0x34, 0x23, 0xa9, 0xba, 0x56, 0x41, 0xfe, 0xa9, 0xc2, 0x5c, 0xc0, 0x86, 0xf4, 0xf6,
+	0x60, 0x41, 0x02, 0x77, 0x39, 0x8d, 0x38, 0x11, 0x42, 0x9e, 0x7e, 0xe6, 0x8b, 0x23, 0xd3, 0x89,
+	0xf2, 0x5b, 0x0e, 0xd7, 0x8c, 0x66, 0x7e, 0x62, 0x86, 0xab, 0x22, 0x64, 0x4f, 0x30, 0xad, 0xa5,
+	0xbb, 0xaf, 0xa0, 0xbd, 0x5f, 0xa1, 0xa5, 0xdc, 0x1f, 0x8e, 0xd3, 0x23, 0x79, 0x39, 0x27, 0x9d,
+	0xb7, 0xfb, 0xe7, 0xa7, 0x2f, 0xa7, 0x0e, 0x72, 0xb3, 0x52, 0x44, 0x85, 0xee, 0x4c, 0xd8, 0xce,
+	0x57, 0xe0, 0x85, 0x69, 0x1d, 0x13, 0xaf, 0x5a, 0x84, 0xfa, 0x5b, 0x0e, 0xb0, 0x40, 0x7a, 0xf4,
+	0xfe, 0xb6, 0x00, 0xf6, 0xfc, 0x62, 0x8d, 0xf4, 0xa1, 0x2e, 0x32, 0x9f, 0x1b, 0xf7, 0xdd, 0xd2,
+	0x54, 0x09, 0xea, 0x3d, 0x91, 0x08, 0xb9, 0x84, 0x15, 0x14, 0x7d, 0x0a, 0x36, 0x49, 0x43, 0xed,
+	0xdc, 0x9d, 0xab, 0xb1, 0x9e, 0x86, 0x9b, 0x15, 0x2c, 0x61, 0xdd, 0xc7, 0x50, 0x57, 0xfa, 0xe8,
+	0x32, 0xb4, 0x02, 0x9a, 0x1e, 0xc4, 0xd1, 0x7e, 0x6c, 0x76, 0xa6, 0x93, 0x33, 0x1e, 0x85, 0xe8,
+	0x06, 0x7c, 0x40, 0xd2, 0x63, 0x7a, 0xb2, 0xef, 0x87, 0xa1, 0x0c, 0x98, 0x98, 0xf1, 0xb8, 0xa4,
+	0xd8, 0x0f, 0x0c, 0xb7, 0x5b, 0x07, 0x7b, 0x3d, 0x0d, 0x07, 0xad, 0x62, 0xaa, 0x79, 0xbf, 0x5b,
+	0xd0, 0x56, 0xae, 0xf5, 0xc0, 0xfb, 0x0a, 0x9a, 0x81, 0xcf, 0xb2, 0x31, 0x37, 0x6f, 0x9e, 0xcb,
+	0x33, 0xdb, 0x63, 0x70, 0x92, 0x11, 0xf1, 0xcc, 0x4f, 0xc6, 0x44, 0x55, 0x36, 0x47, 0xa3, 0xcf,
+	0xc0, 0x4e, 0x68, 0x54, 0xbc, 0x58, 0xa6, 0xf3, 0xca, 0x8d, 0xcb, 0x65, 0x25, 0x13, 0x4b, 0x68,
+	0xd4, 0xbd, 0x08, 0xf6, 0x16, 0x8d, 0xe4, 0x23, 0x60, 0x24, 0x22, 0xf3, 0x08, 0x18, 0x89, 0x68,
+	0x00, 0xe0, 0x70, 0x8d, 0xef, 0xff, 0x67, 0x43, 0x7d, 0x4d, 0x1a, 0x42, 0x6b, 0xe5, 0x9b, 0xc9,
+	0x9d, 0x7d, 0x84, 0xe5, 0xb9, 0x74, 0xdf, 0x14, 0xaa, 0x57, 0xb9, 0x6d, 0xa1, 0x01, 0x34, 0xf2,
+	0x07, 0x04, 0x9a, 0x18, 0xe3, 0x53, 0x4f, 0x8a, 0xb7, 0xdb, 0xf8, 0x06, 0x6a, 0xb2, 0x4f, 0xd0,
+	0xa9, 0x5e, 0x7b, 0x67, 0xfd, 0x2d, 0x68, 0x4f, 0xec, 0x40, 0x74, 0xe5, 0x4d, 0xdb, 0xbd, 0xfb,
+	0xe1, 0x6b, 0xa4, 0x79, 0x7d, 0xbc, 0x0a, 0xfa, 0x09, 0xce, 0xcc, 0x2c, 0x2f, 0xe4, 0x95, 0x5a,
+	0xaf, 0xdb, 0x87, 0xdd, 0xeb, 0x6f, 0xc4, 0x14, 0xf6, 0xef, 0x43, 0x23, 0x97, 0xa1, 0xd7, 0x2d,
+	0xbe, 0xee, 0xd9, 0x53, 0x97, 0x4e, 0x5d, 0x14, 0x99, 0xe9, 0x5d, 0xb0, 0xf7, 0x7c, 0x86, 0xce,
+	0xcd, 0xeb, 0xf1, 0xee, 0xf9, 0xb9, 0x1d, 0xe2, 0x55, 0x56, 0xac, 0xdb, 0xd6, 0xe0, 0xde, 0x5f,
+	0xaf, 0x96, 0xad, 0x7f, 0x5e, 0x2d, 0x5b, 0xff, 0xbe, 0x5a, 0xb6, 0x7e, 0xb8, 0x15, 0xc5, 0xd9,
+	0xe1, 0x78, 0xd8, 0x0b, 0xe8, 0x68, 0xb5, 0x78, 0x24, 0x4d, 0x7c, 0x1d, 0xf7, 0x57, 0x05, 0x0f,
+	0xf2, 0x3f, 0x09, 0xc3, 0x86, 0xaa, 0xfb, 0x17, 0xff, 0x07, 0x00, 0x00, 0xff, 0xff, 0xa7, 0xb4,
+	0x47, 0xba, 0x3a, 0x0c, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1373,6 +1707,7 @@ type DebugClient interface {
 	SetLogLevel(ctx context.Context, in *SetLogLevelRequest, opts ...grpc.CallOption) (*SetLogLevelResponse, error)
 	GetDumpV2Template(ctx context.Context, in *GetDumpV2TemplateRequest, opts ...grpc.CallOption) (*GetDumpV2TemplateResponse, error)
 	DumpV2(ctx context.Context, in *DumpV2Request, opts ...grpc.CallOption) (Debug_DumpV2Client, error)
+	Tap(ctx context.Context, opts ...grpc.CallOption) (Debug_TapClient, error)
 }
 
 type debugClient struct {
@@ -1529,6 +1864,37 @@ func (x *debugDumpV2Client) Recv() (*DumpChunk, error) {
 	return m, nil
 }
 
+func (c *debugClient) Tap(ctx context.Context, opts ...grpc.CallOption) (Debug_TapClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Debug_serviceDesc.Streams[4], "/debug_v2.Debug/Tap", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &debugTapClient{stream}
+	return x, nil
+}
+
+type Debug_TapClient interface {
+	Send(*TapRequest) error
+	Recv() (*TapResponse, error)
+	grpc.ClientStream
+}
+
+type debugTapClient struct {
+	grpc.ClientStream
+}
+
+func (x *debugTapClient) Send(m *TapRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *debugTapClient) Recv() (*TapResponse, error) {
+	m := new(TapResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DebugServer is the server API for Debug service.
 type DebugServer interface {
 	Profile(*ProfileRequest, Debug_ProfileServer) error
@@ -1537,6 +1903,7 @@ type DebugServer interface {
 	SetLogLevel(context.Context, *SetLogLevelRequest) (*SetLogLevelResponse, error)
 	GetDumpV2Template(context.Context, *GetDumpV2TemplateRequest) (*GetDumpV2TemplateResponse, error)
 	DumpV2(*DumpV2Request, Debug_DumpV2Server) error
+	Tap(Debug_TapServer) error
 }
 
 // UnimplementedDebugServer can be embedded to have forward compatible implementations.
@@ -1560,6 +1927,9 @@ func (*UnimplementedDebugServer) GetDumpV2Template(ctx context.Context, req *Get
 }
 func (*UnimplementedDebugServer) DumpV2(req *DumpV2Request, srv Debug_DumpV2Server) error {
 	return status.Errorf(codes.Unimplemented, "method DumpV2 not implemented")
+}
+func (*UnimplementedDebugServer) Tap(srv Debug_TapServer) error {
+	return status.Errorf(codes.Unimplemented, "method Tap not implemented")
 }
 
 func RegisterDebugServer(s *grpc.Server, srv DebugServer) {
@@ -1686,6 +2056,32 @@ func (x *debugDumpV2Server) Send(m *DumpChunk) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Debug_Tap_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(DebugServer).Tap(&debugTapServer{stream})
+}
+
+type Debug_TapServer interface {
+	Send(*TapResponse) error
+	Recv() (*TapRequest, error)
+	grpc.ServerStream
+}
+
+type debugTapServer struct {
+	grpc.ServerStream
+}
+
+func (x *debugTapServer) Send(m *TapResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *debugTapServer) Recv() (*TapRequest, error) {
+	m := new(TapRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _Debug_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "debug_v2.Debug",
 	HandlerType: (*DebugServer)(nil),
@@ -1719,6 +2115,12 @@ var _Debug_serviceDesc = grpc.ServiceDesc{
 			StreamName:    "DumpV2",
 			Handler:       _Debug_DumpV2_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "Tap",
+			Handler:       _Debug_Tap_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "debug/debug.proto",
@@ -2769,6 +3171,266 @@ func (m *DumpChunk_Progress) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+func (m *TapRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TapRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Request != nil {
+		{
+			size := m.Request.Size()
+			i -= size
+			if _, err := m.Request.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TapRequest_Start_) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapRequest_Start_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Start != nil {
+		{
+			size, err := m.Start.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDebug(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+func (m *TapRequest_End_) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapRequest_End_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.End != nil {
+		{
+			size, err := m.End.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDebug(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
+}
+func (m *TapRequest_Start) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TapRequest_Start) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapRequest_Start) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.EnvoyAddresses) > 0 {
+		for iNdEx := len(m.EnvoyAddresses) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.EnvoyAddresses[iNdEx])
+			copy(dAtA[i:], m.EnvoyAddresses[iNdEx])
+			i = encodeVarintDebug(dAtA, i, uint64(len(m.EnvoyAddresses[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.ConfigId) > 0 {
+		i -= len(m.ConfigId)
+		copy(dAtA[i:], m.ConfigId)
+		i = encodeVarintDebug(dAtA, i, uint64(len(m.ConfigId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TapRequest_End) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TapRequest_End) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapRequest_End) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TapResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TapResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Response != nil {
+		{
+			size := m.Response.Size()
+			i -= size
+			if _, err := m.Response.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TapResponse_Capture) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapResponse_Capture) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Capture != nil {
+		{
+			size, err := m.Capture.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDebug(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+func (m *TapResponse_Log_) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapResponse_Log_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Log != nil {
+		{
+			size, err := m.Log.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDebug(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
+}
+func (m *TapResponse_Log) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TapResponse_Log) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TapResponse_Log) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Msg) > 0 {
+		i -= len(m.Msg)
+		copy(dAtA[i:], m.Msg)
+		i = encodeVarintDebug(dAtA, i, uint64(len(m.Msg)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintDebug(dAtA []byte, offset int, v uint64) int {
 	offset -= sovDebug(v)
 	base := offset
@@ -3257,6 +3919,133 @@ func (m *DumpChunk_Progress) Size() (n int) {
 	if m.Progress != nil {
 		l = m.Progress.Size()
 		n += 1 + l + sovDebug(uint64(l))
+	}
+	return n
+}
+func (m *TapRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Request != nil {
+		n += m.Request.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TapRequest_Start_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Start != nil {
+		l = m.Start.Size()
+		n += 1 + l + sovDebug(uint64(l))
+	}
+	return n
+}
+func (m *TapRequest_End_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.End != nil {
+		l = m.End.Size()
+		n += 1 + l + sovDebug(uint64(l))
+	}
+	return n
+}
+func (m *TapRequest_Start) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ConfigId)
+	if l > 0 {
+		n += 1 + l + sovDebug(uint64(l))
+	}
+	if len(m.EnvoyAddresses) > 0 {
+		for _, s := range m.EnvoyAddresses {
+			l = len(s)
+			n += 1 + l + sovDebug(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TapRequest_End) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TapResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Response != nil {
+		n += m.Response.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TapResponse_Capture) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Capture != nil {
+		l = m.Capture.Size()
+		n += 1 + l + sovDebug(uint64(l))
+	}
+	return n
+}
+func (m *TapResponse_Log_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Log != nil {
+		l = m.Log.Size()
+		n += 1 + l + sovDebug(uint64(l))
+	}
+	return n
+}
+func (m *TapResponse_Log) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Msg)
+	if l > 0 {
+		n += 1 + l + sovDebug(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -5579,6 +6368,497 @@ func (m *DumpChunk) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			m.Chunk = &DumpChunk_Progress{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDebug(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TapRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDebug
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TapRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TapRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Start", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &TapRequest_Start{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Request = &TapRequest_Start_{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field End", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &TapRequest_End{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Request = &TapRequest_End_{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDebug(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TapRequest_Start) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDebug
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Start: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Start: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConfigId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ConfigId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EnvoyAddresses", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.EnvoyAddresses = append(m.EnvoyAddresses, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDebug(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TapRequest_End) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDebug
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: End: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: End: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDebug(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TapResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDebug
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TapResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TapResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Capture", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.BytesValue{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Response = &TapResponse_Capture{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Log", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &TapResponse_Log{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Response = &TapResponse_Log_{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDebug(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TapResponse_Log) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDebug
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Log: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Log: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Msg", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Msg = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

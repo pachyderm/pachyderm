@@ -211,6 +211,17 @@
             },
           } else {},
         {
+          name: 'envoy.filters.http.tap',
+          typed_config: {
+            '@type': 'type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap',
+            common_config: {
+              admin_config: {
+                config_id: 'tap-http-' + name,
+              },
+            },
+          },
+        },
+        {
           name: 'envoy.filters.http.router',
           typed_config: {
             '@type': 'type.googleapis.com/envoy.extensions.filters.http.router.v3.Router',
@@ -283,7 +294,26 @@
     },
     filter_chains: [
       {
-        filters: [$.httpConnectionManager(name, routes)],
+        transport_socket: {
+          name: 'envoy.transport_sockets.tap',
+          typed_config: {
+            '@type': 'type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap',
+            common_config: {
+              admin_config: {
+                config_id: 'tap-listener-' + name,
+              },
+            },
+            transport_socket: {
+              name: 'envoy.transport_sockets.raw_buffer',
+              typed_config: {
+                '@type': 'type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer',
+              },
+            },
+          },
+        },
+        filters: [
+          $.httpConnectionManager(name, routes),
+        ],
       },
     ],
     access_log: [
@@ -396,5 +426,22 @@
        name: name,
        load_assignment: $.loadAssignment(name=name, address=service.service, port=service.internal_port),
        health_checks: if 'health_check' in service then [service.health_check] else [],
+       transport_socket: {
+         name: 'envoy.transport_sockets.tap',
+         typed_config: {
+           '@type': 'type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap',
+           common_config: {
+             admin_config: {
+               config_id: 'tap-cluster-' + name,
+             },
+           },
+           transport_socket: {
+             name: 'envoy.transport_sockets.raw_buffer',
+             typed_config: {
+               '@type': 'type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer',
+             },
+           },
+         },
+       },
      }),
 }

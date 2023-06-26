@@ -40,11 +40,11 @@ type loggingRT struct {
 
 func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
-	ctx := pctx.Child(req.Context(), "outgoingHttp", pctx.WithFields([]log.Field{
+	ctx := pctx.Child(req.Context(), "outgoingHttp", pctx.WithFields(
 		zap.String("name", rt.name),
 		zap.String("method", req.Method),
 		zap.String("uri", req.URL.String()),
-	}...))
+	))
 
 	// Log the start of long HTTP requests.
 	timer := time.AfterFunc(10*time.Second, func() {

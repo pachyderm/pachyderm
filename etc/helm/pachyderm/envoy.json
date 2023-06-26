@@ -190,6 +190,23 @@
                ]
             },
             "name": "console",
+            "transport_socket": {
+               "name": "envoy.transport_sockets.tap",
+               "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                  "common_config": {
+                     "admin_config": {
+                        "config_id": "tap-cluster-console"
+                     }
+                  },
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.raw_buffer",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                     }
+                  }
+               }
+            },
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -238,6 +255,23 @@
                ]
             },
             "name": "pachd-archive",
+            "transport_socket": {
+               "name": "envoy.transport_sockets.tap",
+               "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                  "common_config": {
+                     "admin_config": {
+                        "config_id": "tap-cluster-pachd-archive"
+                     }
+                  },
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.raw_buffer",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                     }
+                  }
+               }
+            },
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -283,6 +317,23 @@
                ]
             },
             "name": "pachd-grpc",
+            "transport_socket": {
+               "name": "envoy.transport_sockets.tap",
+               "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                  "common_config": {
+                     "admin_config": {
+                        "config_id": "tap-cluster-pachd-grpc"
+                     }
+                  },
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.raw_buffer",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                     }
+                  }
+               }
+            },
             "type": "strict_dns",
             "typed_extension_protocol_options": {
                "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -339,6 +390,23 @@
                ]
             },
             "name": "pachd-identity",
+            "transport_socket": {
+               "name": "envoy.transport_sockets.tap",
+               "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                  "common_config": {
+                     "admin_config": {
+                        "config_id": "tap-cluster-pachd-identity"
+                     }
+                  },
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.raw_buffer",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                     }
+                  }
+               }
+            },
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -374,6 +442,23 @@
                ]
             },
             "name": "pachd-metrics",
+            "transport_socket": {
+               "name": "envoy.transport_sockets.tap",
+               "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                  "common_config": {
+                     "admin_config": {
+                        "config_id": "tap-cluster-pachd-metrics"
+                     }
+                  },
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.raw_buffer",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                     }
+                  }
+               }
+            },
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -422,6 +507,23 @@
                ]
             },
             "name": "pachd-oidc",
+            "transport_socket": {
+               "name": "envoy.transport_sockets.tap",
+               "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                  "common_config": {
+                     "admin_config": {
+                        "config_id": "tap-cluster-pachd-oidc"
+                     }
+                  },
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.raw_buffer",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                     }
+                  }
+               }
+            },
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -457,6 +559,23 @@
                ]
             },
             "name": "pachd-s3",
+            "transport_socket": {
+               "name": "envoy.transport_sockets.tap",
+               "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                  "common_config": {
+                     "admin_config": {
+                        "config_id": "tap-cluster-pachd-s3"
+                     }
+                  },
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.raw_buffer",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                     }
+                  }
+               }
+            },
             "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
@@ -589,6 +708,17 @@
                                  }
                               },
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-proxy-http"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -713,7 +843,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-proxy-http"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "proxy-http",
@@ -837,6 +984,17 @@
                            },
                            "http_filters": [
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-https-warning"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -880,7 +1038,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-https-warning"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "https-warning",
@@ -1004,6 +1179,17 @@
                            },
                            "http_filters": [
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-direct-pachd-s3"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -1072,7 +1258,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-direct-pachd-s3"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "direct-pachd-s3",
@@ -1204,6 +1407,17 @@
                                  }
                               },
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-direct-pachd-grpc"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -1246,7 +1460,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-direct-pachd-grpc"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "direct-pachd-grpc",
@@ -1370,6 +1601,17 @@
                            },
                            "http_filters": [
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-direct-pachd-metrics"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -1412,7 +1654,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-direct-pachd-metrics"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "direct-pachd-metrics",
@@ -1536,6 +1795,17 @@
                            },
                            "http_filters": [
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-direct-pachd-oidc"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -1578,7 +1848,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-direct-pachd-oidc"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "direct-pachd-oidc",
@@ -1702,6 +1989,17 @@
                            },
                            "http_filters": [
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-direct-pachd-identity"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -1744,7 +2042,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-direct-pachd-identity"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "direct-pachd-identity",
@@ -1868,6 +2183,17 @@
                            },
                            "http_filters": [
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-direct-pachd-archive"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -1910,7 +2236,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-direct-pachd-archive"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "direct-pachd-archive",
@@ -2034,6 +2377,17 @@
                            },
                            "http_filters": [
                               {
+                                 "name": "envoy.filters.http.tap",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap",
+                                    "common_config": {
+                                       "admin_config": {
+                                          "config_id": "tap-http-direct-console"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
                                  "name": "envoy.filters.http.router",
                                  "typed_config": {
                                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -2082,7 +2436,24 @@
                            "use_remote_address": true
                         }
                      }
-                  ]
+                  ],
+                  "transport_socket": {
+                     "name": "envoy.transport_sockets.tap",
+                     "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tap.v3.Tap",
+                        "common_config": {
+                           "admin_config": {
+                              "config_id": "tap-listener-direct-console"
+                           }
+                        },
+                        "transport_socket": {
+                           "name": "envoy.transport_sockets.raw_buffer",
+                           "typed_config": {
+                              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+                           }
+                        }
+                     }
+                  }
                }
             ],
             "name": "direct-console",

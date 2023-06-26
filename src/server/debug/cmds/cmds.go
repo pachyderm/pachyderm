@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -233,6 +234,149 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "adjust the grpc log level instead of the pachyderm log level")
 	log.Flags().BoolVarP(&recursivelySetLogLevel, "recursive", "r", true, "set the log level on all pachyderm pods; if false, only the pachd that handles this RPC")
 	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
+
+	var tapConfigID string
+	var envoyAddresses []string
+	tap := &cobra.Command{
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			out := args[0]
+			var nCap int
+
+			// Open the output.
+			w, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+			if err != nil {
+				return errors.Wrap(err, "open pcap destination")
+			}
+			defer errors.Close(&retErr, w, "close output file")
+
+			// Start the tap.
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return errors.Wrap(err, "new pachyderm client")
+			}
+			ts, err := client.DebugClient.Tap(client.Ctx())
+			if err != nil {
+				return errors.Wrap(err, "start tap stream")
+			}
+			if err := ts.Send(&debug.TapRequest{
+				Request: &debug.TapRequest_Start_{
+					Start: &debug.TapRequest_Start{
+						ConfigId:       tapConfigID,
+						EnvoyAddresses: envoyAddresses,
+					},
+				},
+			}); err != nil {
+				return errors.Wrap(err, "send tap request")
+			}
+
+			// The tap has started; collect data.
+			defer func() {
+				fmt.Fprintf(os.Stderr, "captured %d bytes\n", nCap)
+			}()
+
+			msgCh := make(chan *debug.TapResponse)
+			errCh := make(chan error)
+
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, os.Interrupt)
+			defer signal.Stop(sigCh)
+			defer close(sigCh)
+
+			fmt.Fprintf(os.Stderr, "Writing captured packets to %v; ^C to end tap\n", out)
+			go func() {
+				// Direct messages from the server to the appropriate channel.
+				for {
+					msg, err := ts.Recv()
+					if err != nil {
+						if errors.Is(err, io.EOF) {
+							// Everything finished OK.
+							close(errCh)
+							close(msgCh)
+							return
+						}
+						// The upstream RPC returned an error.
+						errCh <- errors.Wrap(err, "recv")
+						close(errCh)
+						close(msgCh)
+						return
+					}
+					msgCh <- msg
+				}
+			}()
+		main:
+			for {
+				select {
+				case err, ok := <-errCh:
+					if ok && err != nil {
+						return errors.Wrap(err, "tap")
+					}
+				case <-sigCh:
+					signal.Stop(sigCh) // Now ^C kills the program.
+					fmt.Fprintf(os.Stderr, "\nEnding tap and writing final packets... ^C to kill\n")
+					if err := ts.Send(&debug.TapRequest{
+						Request: &debug.TapRequest_End_{
+							End: &debug.TapRequest_End{},
+						},
+					}); err != nil {
+						return errors.Wrap(err, "send end stream request")
+					}
+					if err := ts.CloseSend(); err != nil {
+						return errors.Wrap(err, "close send")
+					}
+				case msg, ok := <-msgCh:
+					if !ok { // chan closed
+						fmt.Fprintf(os.Stderr, "Tap stream complete\n")
+						break main
+					}
+					switch x := msg.Response.(type) {
+					case *debug.TapResponse_Capture:
+						n, err := w.Write(x.Capture.GetValue())
+						if err != nil {
+							return errors.Wrap(err, "write captured packets")
+						}
+						nCap += n
+					case *debug.TapResponse_Log_:
+						fmt.Fprintf(os.Stderr, "server log: %s\n", x.Log.Msg)
+					}
+
+				}
+			}
+			return nil
+		}),
+	}
+	// Generate knownTaps with:
+	// cat etc/helm/pachyderm/envoy.json  | grep "config_id" | sed 's/^/{/g; s/$/}/g;'
+	// | jq .config_id -r | sort | sed 's/^/"/g;s/$/",/g'
+	knownTaps := []string{
+		"tap-cluster-console",
+		"tap-cluster-pachd-archive",
+		"tap-cluster-pachd-grpc",
+		"tap-cluster-pachd-identity",
+		"tap-cluster-pachd-metrics",
+		"tap-cluster-pachd-oidc",
+		"tap-cluster-pachd-s3",
+		"tap-http-direct-console",
+		"tap-http-direct-pachd-archive",
+		"tap-http-direct-pachd-grpc",
+		"tap-http-direct-pachd-identity",
+		"tap-http-direct-pachd-metrics",
+		"tap-http-direct-pachd-oidc",
+		"tap-http-direct-pachd-s3",
+		"tap-http-https-warning",
+		"tap-http-proxy-http",
+		"tap-listener-direct-console",
+		"tap-listener-direct-pachd-archive",
+		"tap-listener-direct-pachd-grpc",
+		"tap-listener-direct-pachd-identity",
+		"tap-listener-direct-pachd-metrics",
+		"tap-listener-direct-pachd-oidc",
+		"tap-listener-direct-pachd-s3",
+		"tap-listener-https-warning",
+		"tap-listener-proxy-http",
+	}
+	tap.Flags().StringVarP(&tapConfigID, "tap", "t", "tap-listener-proxy-http", "The tap config to tap; "+strings.Join(knownTaps, ", "))
+	tap.Flags().StringArrayVarP(&envoyAddresses, "proxy", "p", nil, "The addresses of proxies to connect to; if not specified, all available.  Each address should include a port, typically 9901.")
+	commands = append(commands, cmdutil.CreateAliases(tap, "debug tap"))
 
 	debug := &cobra.Command{
 		Short: "Debug commands for analyzing a running cluster.",

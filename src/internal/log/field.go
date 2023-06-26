@@ -108,3 +108,8 @@ func OutgoingMetadata(ctx context.Context) Field {
 	}
 	return Metadata("metadata", md)
 }
+
+// ConciseBytes is a Field that logs the first few bytes of a byte string.
+func ConciseBytes(name string, bytes []byte) Field {
+	return zap.Object(name, protoextensions.ConciseBytes(bytes))
+}
