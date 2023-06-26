@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/spf13/cobra"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
@@ -186,7 +187,7 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		Short: "Runs the database migrations against the supplied database, then rolls them back.",
 		Long:  "Runs the database migrations against the supplied database, then rolls them back.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			ctx, c := signal.NotifyContext(pctx.Background(""), os.Interrupt)
+			ctx, c := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
 			defer c()
 
 			dsn := args[0]
