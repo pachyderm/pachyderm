@@ -218,7 +218,7 @@ type progressSender struct {
 func (ps *progressSender) Send(ctx context.Context, progress *debug.DumpProgress) error {
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.Wrap(ctx.Err(), "progress sender context cancelled")
 	case ps.ch <- &debug.DumpChunk{Chunk: &debug.DumpChunk_Progress{Progress: progress}}:
 		return nil
 	}
@@ -232,7 +232,7 @@ type contentSender struct {
 func (cs *contentSender) Send(ctx context.Context, content *debug.DumpContent) error {
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.Wrap(ctx.Err(), "content sender context cancelled")
 	case cs.ch <- &debug.DumpChunk{Chunk: &debug.DumpChunk_Content{Content: content}}:
 		return nil
 	}
