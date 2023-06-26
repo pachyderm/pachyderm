@@ -2,8 +2,8 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": "../src",
-    "target": "es5",
-    "lib": ["es2015", "dom"],
+    "target": "es2020",
+    "lib": ["ES2020", "dom"],
     "types": ["@testing-library/cypress", "cypress", "cypress-wait-until"],
     "esModuleInterop": true
   },

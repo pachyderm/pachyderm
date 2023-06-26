@@ -1,3 +1,7 @@
+// @ts-check
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+///<reference path="./commands.d.ts" />
+
 import '@testing-library/cypress/add-commands';
 import 'cypress-wait-until';
 import {jsonrepair} from 'jsonrepair';
@@ -69,7 +73,7 @@ Cypress.Commands.add('multiLineExec', (stringInput) => {
     .split('\n')
     .map((el) => el.trimStart())
     .filter((el) => !!el);
-  return cy.wrap(inputs).each((command) => cy.exec(command));
+  return inputs.forEach((command) => cy.exec(command));
 });
 
 Cypress.Commands.add('setupProject', (projectTemplate) => {
@@ -194,7 +198,7 @@ Cypress.Commands.add('deleteProjects', (keepDefaultProject = true) => {
 
 Cypress.Commands.add('isInViewport', (element) => {
   element().then(($el) => {
-    const bottom = Cypress.$(cy.state('window')).height();
+    const bottom = Cypress.$(cy.state('window')).height() || 0;
     const rect = $el[0].getBoundingClientRect();
 
     expect(rect.top).not.to.be.greaterThan(bottom);
