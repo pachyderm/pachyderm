@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -87,12 +88,16 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	ctx, end := log.SpanContextL(ctx, "ApplyMigrations", log.InfoLevel)
 	defer end(log.Errorp(&retErr))
 
+	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
 	for _, state := range CollectStates(make([]State, 0, state.n+1), state) {
-		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
+		if err := applyMigration(ctx, tx, baseEnv, state); err != nil {
 			return err
 		}
 	}
-	return nil
+	return errors.EnsureStack(tx.Commit())
 }
 
 // CollectStates does a reverse order traversal of a linked list and adds each item to a slice
@@ -138,11 +143,7 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 	return nil
 }
 
-func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
+func applyMigration(ctx context.Context, tx *sqlx.Tx, baseEnv Env, state State) error {
 	env := baseEnv
 	env.Tx = tx
 	if err := ApplyMigrationTx(ctx, env, state); err != nil {
@@ -151,7 +152,7 @@ func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state Stat
 		}
 		return errors.EnsureStack(err)
 	}
-	return errors.EnsureStack(tx.Commit())
+	return nil
 }
 
 // BlockUntil blocks until state is actualized.
