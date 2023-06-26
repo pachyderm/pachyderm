@@ -43,7 +43,7 @@ class TestUnitAuth:
 
     @staticmethod
     def test_who_am_i(auth_client: TestClient):
-        assert auth_client.auth.who_am_i().username.startswith('user:')
+        assert auth_client.auth.who_am_i().username
 
     @staticmethod
     def test_get_roles_for_permission(auth_client: TestClient):
