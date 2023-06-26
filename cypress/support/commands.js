@@ -118,7 +118,7 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
         );
     });
   } else if (projectTemplate === 'file-browser') {
-    return cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
+    return cy.exec('jq -r .pachReleaseCommit version.json').then(() => {
       cy.exec('pachctl create repo images')
         .exec(
           'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',

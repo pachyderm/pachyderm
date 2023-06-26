@@ -54,39 +54,37 @@ describe('Dag', () => {
 
   it('should derive the correct selected repo from the url', () => {
     cy.visit('/lineage/default/repos/images');
-    const imageNode = cy.get('#GROUP_images', {timeout: 10000});
-    imageNode.should('be.visible');
+    cy.get('#GROUP_images', {timeout: 10000}).should('be.visible');
     cy.findByTestId('Title__name').should('have.text', 'images');
   });
 
   it('should derive the correct selected pipeline from the url', () => {
     cy.visit('/lineage/default/pipelines/edges');
-    const edgesNode = cy.get('#GROUP_edges', {timeout: 10000});
-    edgesNode.should('be.visible');
+    cy.get('#GROUP_edges', {timeout: 10000}).should('be.visible');
     cy.findByTestId('Title__name').should('have.text', 'edges');
   });
 
   it('should update the url correctly when selecting a repo', () => {
-    const imageNode = cy.get('#GROUP_images', {timeout: 10000});
-    imageNode.click();
+    cy.get('#GROUP_images', {timeout: 10000}).click();
     cy.url().should('contain', '/lineage/default/repos/images');
   });
 
   it('should update the url correctly when selecting a pipeline', () => {
-    const edgesPipelineNode = cy.get('#GROUP_edges', {timeout: 10000});
-    edgesPipelineNode.within(() => cy.findByText('Pipeline').click());
+    cy.get('#GROUP_edges', {timeout: 10000}).within(() =>
+      cy.findByText('Pipeline').click(),
+    );
     cy.url().should('contain', '/lineage/default/pipelines/edges');
   });
 
   it('should update the url correctly when selecting an output repo', () => {
-    const edgesPipelineNode = cy.get('#GROUP_edges', {timeout: 10000});
-    edgesPipelineNode.within(() => cy.findByText('Output').click());
+    cy.get('#GROUP_edges', {timeout: 10000}).within(() =>
+      cy.findByText('Output').click(),
+    );
     cy.url().should('contain', '/lineage/default/repos/edges');
   });
 
   it('should update the url correctly when selecting a status icon', () => {
-    const edgesPipelineNode = cy.get('#GROUP_edges', {timeout: 10000});
-    edgesPipelineNode.within(() =>
+    cy.get('#GROUP_edges', {timeout: 10000}).within(() =>
       cy.findByTestId('Node__state-ERROR').click(),
     );
     cy.url().should(
@@ -96,15 +94,15 @@ describe('Dag', () => {
   });
 
   it('should not update the url when selecting an egress node', () => {
-    const egressNode = cy.get('#GROUP_', {timeout: 10000});
-    egressNode.click({force: true});
+    cy.get('#GROUP_', {timeout: 10000}).click({force: true});
 
     cy.url().should('equal', 'http://localhost:4000/lineage/default');
   });
 
   it('should correctly reset the DAG when DAG nodes are deleted', () => {
-    const montagePipelineNode = cy.get('#GROUP_montage', {timeout: 10000});
-    montagePipelineNode.within(() => cy.findByText('Pipeline').click());
+    cy.get('#GROUP_montage', {timeout: 10000}).within(() =>
+      cy.findByText('Pipeline').click(),
+    );
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
 

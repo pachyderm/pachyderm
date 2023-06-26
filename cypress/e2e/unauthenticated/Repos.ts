@@ -20,9 +20,8 @@ describe('Repos', () => {
   it('should allow a user to create a repo', () => {
     cy.findByText('Create Repo', {timeout: 12000}).click();
 
-    cy.findByLabelText('Name', {exact: false, timeout: 12000})
-      .clear()
-      .type('NewRepo');
+    cy.findByLabelText('Name', {exact: false, timeout: 12000}).clear();
+    cy.findByLabelText('Name', {exact: false, timeout: 12000}).type('NewRepo');
     cy.findByLabelText('Description', {exact: false}).type(
       'New repo description',
     );

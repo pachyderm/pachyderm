@@ -74,10 +74,15 @@ describe('Landing', () => {
       cy.findByRole('textbox', {
         name: /description/i,
         exact: false,
-      })
-        .should('have.value', 'New desc')
-        .clear()
-        .type('Edit desc');
+      }).should('have.value', 'New desc');
+      cy.findByRole('textbox', {
+        name: /description/i,
+        exact: false,
+      }).clear();
+      cy.findByRole('textbox', {
+        name: /description/i,
+        exact: false,
+      }).type('Edit desc');
 
       cy.findByRole('button', {
         name: /confirm changes/i,

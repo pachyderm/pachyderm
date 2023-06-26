@@ -37,9 +37,10 @@ describe('Onboarding', () => {
     cy.findByRole('dialog', {timeout: 12000}).within(() => {
       cy.findByRole('textbox', {
         name: /name/i,
-      })
-        .clear()
-        .type('NewRepo');
+      }).clear();
+      cy.findByRole('textbox', {
+        name: /name/i,
+      }).type('NewRepo');
 
       cy.findByRole('textbox', {
         name: /description \(optional\)/i,
