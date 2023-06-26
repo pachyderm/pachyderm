@@ -56,15 +56,26 @@ const logsResolver: LogsResolver = {
     },
     logs: async (
       _field,
-      {args: {projectId, pipelineName, jobId, datumId, start, reverse = false}},
+      {
+        args: {
+          projectId,
+          pipelineName,
+          jobId,
+          datumId,
+          start,
+          reverse = false,
+          master = false,
+        },
+      },
       {pachClient},
     ) => {
       const logs = await pachClient.pps().getLogs({
         projectId,
         pipelineName: pipelineName,
+        since: calculateSince(start),
         jobId: jobId || undefined,
         datumId: datumId || undefined,
-        since: calculateSince(start),
+        master: master || undefined,
       });
 
       return reverse

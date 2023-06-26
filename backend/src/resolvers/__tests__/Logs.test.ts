@@ -102,6 +102,25 @@ describe('Logs resolver', () => {
       expect(workspaceLogs?.[3]?.timestamp?.seconds).toBe(1616533106);
     });
 
+    it('should resolve master logs', async () => {
+      const {data, errors = []} = await executeQuery<GetLogsQuery>(
+        GET_LOGS_QUERY,
+        {
+          args: {
+            pipelineName: 'montage',
+            projectId,
+            master: true,
+            start: 1614126189,
+          },
+        },
+      );
+      const workspaceLogs = data?.logs;
+      expect(errors).toHaveLength(0);
+      expect(workspaceLogs).toHaveLength(1);
+      expect(workspaceLogs?.[0]?.message).toBe('started datum task');
+      expect(workspaceLogs?.[0]?.timestamp?.seconds).toBe(1614126189);
+    });
+
     it('should reverse logs order', async () => {
       const {data, errors = []} = await executeQuery<GetLogsQuery>(
         GET_LOGS_QUERY,

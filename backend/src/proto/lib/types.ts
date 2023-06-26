@@ -61,6 +61,7 @@ export type GetLogsRequestArgs = {
   datumId?: string;
   since?: number;
   follow?: boolean;
+  master?: boolean;
 };
 
 export type ListCommitArgs = {

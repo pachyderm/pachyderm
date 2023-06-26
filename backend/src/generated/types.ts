@@ -495,6 +495,7 @@ export type Log = {
 export type LogsArgs = {
   datumId?: InputMaybe<Scalars['String']>;
   jobId?: InputMaybe<Scalars['String']>;
+  master?: InputMaybe<Scalars['Boolean']>;
   pipelineName: Scalars['String'];
   projectId: Scalars['String'];
   reverse?: InputMaybe<Scalars['Boolean']>;

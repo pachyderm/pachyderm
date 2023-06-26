@@ -786,6 +786,7 @@ export const getLogsRequestFromArgs = ({
   datumId,
   since,
   follow = false,
+  master = false,
 }: GetLogsRequestArgs) => {
   const getLogsRequest = new GetLogsRequest();
   getLogsRequest.setFollow(follow);
@@ -822,6 +823,10 @@ export const getLogsRequestFromArgs = ({
   }
   if (since) {
     getLogsRequest.setSince(durationFromObject({seconds: since, nanos: 0}));
+  }
+
+  if (master) {
+    getLogsRequest.setMaster(true);
   }
   return getLogsRequest;
 };

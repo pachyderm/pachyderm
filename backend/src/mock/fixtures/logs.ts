@@ -12,6 +12,7 @@ const tutorial = [
     )
     .setUser(false)
     .setMessage('started datum task')
+    .setMaster(true)
     .setTs(
       timestampFromObject({
         seconds: 1614126189,

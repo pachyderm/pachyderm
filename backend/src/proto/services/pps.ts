@@ -465,6 +465,7 @@ const pps = ({
       datumId,
       since,
       follow = false,
+      master = false,
     }: GetLogsRequestArgs) => {
       const getLogsRequest = getLogsRequestFromArgs({
         projectId,
@@ -473,6 +474,7 @@ const pps = ({
         datumId,
         since,
         follow,
+        master,
       });
 
       const stream = client.getLogs(getLogsRequest, credentialMetadata, {

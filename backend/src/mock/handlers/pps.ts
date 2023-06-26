@@ -204,9 +204,13 @@ const pps = () => {
               : MockState.state.pipelineAndJobLogs['Solar-Panel-Data-Sorting'];
 
             const pipelineName = call.request.getPipeline()?.getName();
+            const master = call.request.getMaster();
             if (pipelineName) {
               filteredLogs = projectLogs.filter(
-                (log) => pipelineName && log.getPipelineName() === pipelineName,
+                (log) =>
+                  pipelineName &&
+                  log.getPipelineName() === pipelineName &&
+                  (master ? log.getMaster() === master : true),
               );
             } else {
               const jobId = call.request.getJob()?.getId();
@@ -222,12 +226,16 @@ const pps = () => {
                   jobId &&
                   log.getJobId() === jobId &&
                   pipelineJobName &&
-                  log.getPipelineName() === pipelineJobName,
+                  log.getPipelineName() === pipelineJobName &&
+                  (master ? log.getMaster() === master : true),
               );
 
               if (datumId) {
                 filteredLogs = filteredLogs.filter(
-                  (log) => datumId && log.getDatumId() === datumId,
+                  (log) =>
+                    datumId &&
+                    log.getDatumId() === datumId &&
+                    (master ? log.getMaster() === master : true),
                 );
               }
             }

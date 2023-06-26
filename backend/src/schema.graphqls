@@ -492,6 +492,7 @@ input WorkspaceLogsArgs {
 input LogsArgs {
   projectId: String!
   pipelineName: String!
+  master: Boolean
   jobId: String
   datumId: String
   start: Int
