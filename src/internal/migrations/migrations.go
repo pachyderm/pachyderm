@@ -93,9 +93,6 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	}
 	env := baseEnv
 	env.Tx = tx
-	if _, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`); err != nil {
-		return errors.EnsureStack(err)
-	}
 	for _, state := range CollectStates(make([]State, 0, state.n+1), state) {
 		if err := ApplyMigrationTx(ctx, env, state); err != nil {
 			if err := tx.Rollback(); err != nil {
@@ -121,6 +118,9 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 		if err := state.change(ctx, env); err != nil {
 			panic(err)
 		}
+	}
+	if _, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`); err != nil {
+		return errors.EnsureStack(err)
 	}
 	if finished, err := isFinished(ctx, tx, state); err != nil {
 		return err
