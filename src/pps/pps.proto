@@ -459,6 +459,7 @@ message PipelineInfo {
     ResourceSpec sidecar_resource_requests = 35;
   }
   Details details = 12;
+  string details_json = 13;
 }
 
 message PipelineInfos {
@@ -713,6 +714,12 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
+  string details_json = 36;
+  bool dry_run = 37;
+}
+
+message CreatePipelineResponse {
+  string details_json = 1;
 }
 
 message InspectPipelineRequest {
@@ -851,6 +858,30 @@ message LokiRequest {
 
 message LokiLogMessage {
   string message = 1;
+}
+
+message ClusterDefaults {
+  string details_json = 1;
+  string effective_details_json = 2;
+}
+
+
+message GetClusterDefaultsRequest {}
+
+message GetClusterDefaultsResponse {
+  ClusterDefaults cluster_defaults = 1;
+}
+
+message SetClusterDefaultsRequest {
+  ClusterDefaults cluster_defaults = 1;
+  bool regenerate = 2;
+  bool reprocess = 3; // must be false if regenerate is false
+  bool dry_run = 4;
+}
+
+message SetClusterDefaultsResponse {
+  string effective_details_json = 1;
+  repeated Pipeline affected_pipelines = 2;
 }
 
 service API {
