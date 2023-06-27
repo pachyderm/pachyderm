@@ -1172,6 +1172,8 @@ jobs:
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
+    environment:
+      GOOGLE_PROJECT_ID: pulumi-ci
     steps:
       - checkout
       - node/install
@@ -1179,6 +1181,7 @@ jobs:
       - aws-eks/install-aws-iam-authenticator
       - aws-cli/setup
       - pulumi/login
+      - gcp-cli/initialize
       - run: |
           pulumi plugin install resource eks
       - when:
