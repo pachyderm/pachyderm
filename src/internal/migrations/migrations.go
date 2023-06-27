@@ -101,7 +101,11 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 			return errors.EnsureStack(err)
 		}
 	}
-	return errors.EnsureStack(tx.Commit())
+	if err := tx.Commit(); err != nil {
+		log.Error(ctx, "failed to commit migration", zap.Error(err))
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // CollectStates does a reverse order traversal of a linked list and adds each item to a slice
