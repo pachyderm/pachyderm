@@ -1467,8 +1467,8 @@ jobs:
           command: |
             sleep 20
             kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            until poetry run python -c "import pachyderm_sdk; pachyderm_sdk.Client(\"$(minikube ip)\", 30080).get_version()"; do sleep 5; done
-            until poetry run python -c "import pachyderm_sdk; pachyderm_sdk.Client(\"$(minikube ip)\", 30081).get_version()"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
