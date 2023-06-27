@@ -180,6 +180,7 @@ type StorageConfiguration struct {
 	StorageCompactionShardCountThreshold int64 `env:"STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD"`
 	StorageLevelFactor                   int64 `env:"STORAGE_LEVEL_FACTOR"`
 	StorageUploadConcurrencyLimit        int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
+	StorageDownloadConcurrencyLimit      int   `env:"STORAGE_DOWNLOAD_CONCURRENCY_LIMIT,default=100"`
 	StoragePutFileConcurrencyLimit       int   `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
 	StorageGCPeriod                      int64 `env:"STORAGE_GC_PERIOD,default=60"`
 	StorageChunkGCPeriod                 int64 `env:"STORAGE_CHUNK_GC_PERIOD,default=60"`
