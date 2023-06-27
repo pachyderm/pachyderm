@@ -53,7 +53,7 @@ func createSetUpdatedAtTrigger(ctx context.Context, tx *pachsql.Tx, tableName st
 			BEFORE UPDATE ON %s
 			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
 	`, tableName))
-	return err
+	return errors.Wrap(err, "creating set updated_at trigger")
 }
 
 func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {

@@ -2,6 +2,7 @@ package clusterstate
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
@@ -31,7 +32,7 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 		return track.SetupPostgresTrackerV0(ctx, env.Tx)
 	}).
 	Apply("storage chunk store v0", func(ctx context.Context, env migrations.Env) error {
-		return chunk.SetupPostgresStoreV0(env.Tx)
+		return chunk.SetupPostgresStoreV0(ctx, env.Tx)
 	}).
 	Apply("storage fileset store v0", func(ctx context.Context, env migrations.Env) error {
 		return fileset.SetupPostgresStoreV0(ctx, env.Tx)
