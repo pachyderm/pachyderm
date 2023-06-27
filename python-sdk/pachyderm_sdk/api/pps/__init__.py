@@ -548,6 +548,7 @@ class PipelineInfo(betterproto.Message):
     type: "PipelineInfoPipelineType" = betterproto.enum_field(10)
     auth_token: str = betterproto.string_field(11)
     details: "PipelineInfoDetails" = betterproto.message_field(12)
+    details_json: str = betterproto.string_field(13)
 
 
 @dataclass(eq=False, repr=False)
@@ -923,6 +924,13 @@ class CreatePipelineRequest(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(30)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
+    details_json: str = betterproto.string_field(36)
+    dry_run: bool = betterproto.bool_field(37)
+
+
+@dataclass(eq=False, repr=False)
+class CreatePipelineResponse(betterproto.Message):
+    details_json: str = betterproto.string_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -1113,6 +1121,36 @@ class LokiRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class LokiLogMessage(betterproto.Message):
     message: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ClusterDefaults(betterproto.Message):
+    details_json: str = betterproto.string_field(1)
+    effective_details_json: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class GetClusterDefaultsRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class GetClusterDefaultsResponse(betterproto.Message):
+    cluster_defaults: "ClusterDefaults" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class SetClusterDefaultsRequest(betterproto.Message):
+    cluster_defaults: "ClusterDefaults" = betterproto.message_field(1)
+    regenerate: bool = betterproto.bool_field(2)
+    reprocess: bool = betterproto.bool_field(3)
+    dry_run: bool = betterproto.bool_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class SetClusterDefaultsResponse(betterproto.Message):
+    effective_details_json: str = betterproto.string_field(1)
+    affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
 
 
 class ApiStub:
@@ -1470,7 +1508,9 @@ class ApiStub:
         reprocess_spec: str = "",
         autoscaling: bool = False,
         tolerations: Optional[List["Toleration"]] = None,
-        sidecar_resource_requests: "ResourceSpec" = None
+        sidecar_resource_requests: "ResourceSpec" = None,
+        details_json: str = "",
+        dry_run: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1524,6 +1564,8 @@ class ApiStub:
             request.tolerations = tolerations
         if sidecar_resource_requests is not None:
             request.sidecar_resource_requests = sidecar_resource_requests
+        request.details_json = details_json
+        request.dry_run = dry_run
 
         return self.__rpc_create_pipeline(request)
 
@@ -1945,6 +1987,8 @@ class ApiBase:
         autoscaling: bool,
         tolerations: Optional[List["Toleration"]],
         sidecar_resource_requests: "ResourceSpec",
+        details_json: str,
+        dry_run: bool,
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

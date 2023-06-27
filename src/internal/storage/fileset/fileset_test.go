@@ -195,7 +195,7 @@ func TestCopy(t *testing.T) {
 }
 
 func countChunks(t *testing.T, s *Storage) (count int64) {
-	require.NoError(t, s.chunks.List(context.Background(), func(chunk.ID) error {
+	require.NoError(t, s.chunks.ListStore(context.Background(), func(chunk.ID, uint64) error {
 		count++
 		return nil
 	}))
