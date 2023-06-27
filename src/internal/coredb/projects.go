@@ -45,6 +45,27 @@ func (err ErrProjectNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
+// ErrProjectDoesNotExist is returned by DeleteProject() when a project is not found in postgres.
+type ErrProjectDoesNotExist struct {
+	Name string
+}
+
+func (err ErrProjectDoesNotExist) Error() string {
+	if err.Name != "" {
+		return fmt.Sprintf("project %q does not exist", err.Name)
+	}
+	return "project does not exist"
+}
+
+func (err ErrProjectDoesNotExist) Is(other error) bool {
+	_, ok := other.(ErrProjectDoesNotExist)
+	return ok
+}
+
+func (err ErrProjectDoesNotExist) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, err.Error())
+}
+
 // ProjectIterator batches a page of projectRow entries. Entries can be retrieved using iter.Next().
 type ProjectIterator struct {
 	limit    int
@@ -134,7 +155,9 @@ func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) erro
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		return errors.Wrap(fmt.Errorf("project %s does not exist", projectName), "delete project")
+		return ErrProjectDoesNotExist{
+			Name: projectName,
+		}
 	}
 	return nil
 }
@@ -158,8 +181,8 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at FROM core.projects WHERE %s = $1", where), whereVal)
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
 	var createdAt time.Time
-	var err error
-	if err = row.Scan(&project.Project.Name, &project.Description, &createdAt); err != nil {
+	err := row.Scan(&project.Project.Name, &project.Description, &createdAt)
+	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
 				return nil, ErrProjectNotFound{Name: name}
