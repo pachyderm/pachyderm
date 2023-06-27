@@ -9,6 +9,7 @@ describe('switching between repo and datum mode', () => {
 
   it('should open datum mode', () => {
     cy.findByTestId('Datum__mode').click();
+    cy.wait(2000);
     cy.findAllByText('Test Datums').should('have.length', 1);
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('attr', 'placeholder')
