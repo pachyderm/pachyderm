@@ -7,20 +7,18 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
 const (
 	// TrackerPrefix is the prefix used when creating tracker objects for chunks
 	TrackerPrefix        = "chunk/"
-	prefix               = "chunk"
 	defaultChunkTTL      = 30 * time.Minute
 	DefaultPrefetchLimit = 10
 )
@@ -31,25 +29,26 @@ const (
 // - Manages tracker state to keep chunks alive while uploading.
 // - Manages an internal chunk cache and work deduplicator (parallel downloads of the same chunk will be deduplicated).
 type Storage struct {
-	objClient     obj.Client
 	db            *pachsql.DB
 	tracker       track.Tracker
 	store         kv.Store
 	memCache      *memoryCache
 	deduper       *miscutil.WorkDeduper[pachhash.Output]
+	pool          *kv.Pool
 	prefetchLimit int
 
 	createOpts CreateOptions
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(store kv.Store, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
-		objClient:     objC,
 		db:            db,
+		store:         store,
 		tracker:       tracker,
 		memCache:      newMemoryCache(50),
 		deduper:       &miscutil.WorkDeduper[pachhash.Output]{},
+		pool:          kv.NewPool(DefaultMaxChunkSize),
 		prefetchLimit: DefaultPrefetchLimit,
 		createOpts: CreateOptions{
 			Compression: CompressionAlgo_GZIP_BEST_SPEED,
@@ -58,20 +57,18 @@ func NewStorage(objC obj.Client, db *pachsql.DB, tracker track.Tracker, opts ...
 	for _, opt := range opts {
 		opt(s)
 	}
-	s.store = kv.NewFromObjectClient(objC)
-	s.objClient = nil
 	return s
 }
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
-	client := NewClient(s.store, s.db, s.tracker, nil)
+	client := NewClient(s.store, s.db, s.tracker, nil, s.pool)
 	defaultOpts := []ReaderOption{WithPrefetchLimit(s.prefetchLimit)}
 	return newReader(ctx, s, client, dataRefs, append(defaultOpts, opts...)...)
 }
 
 func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {
-	client := NewClient(s.store, s.db, s.tracker, nil)
+	client := NewClient(s.store, s.db, s.tracker, nil, s.pool)
 	return newDataReader(ctx, s, client, dataRef, 0)
 }
 
@@ -79,11 +76,17 @@ func (s *Storage) PrefetchData(ctx context.Context, dataRef *DataRef) error {
 	return s.NewDataReader(ctx, dataRef).fetchData()
 }
 
-// List lists all of the chunks in object storage.
-func (s *Storage) List(ctx context.Context, cb func(id ID) error) error {
-	return errors.EnsureStack(s.store.Walk(ctx, nil, func(key []byte) error {
-		return cb(ID(key))
-	}))
+// ListStore lists all of the chunks in object storage.
+// This is not the same as listing the chunk entries in the database.
+func (s *Storage) ListStore(ctx context.Context, cb func(id ID, gen uint64) error) error {
+	it := s.store.NewKeyIterator(kv.Span{})
+	return stream.ForEach(ctx, it, func(key []byte) error {
+		chunkID, gen, err := parseKey(key)
+		if err != nil {
+			return err
+		}
+		return cb(chunkID, gen)
+	})
 }
 
 // NewDeleter creates a deleter for use with a tracker.GC
@@ -95,7 +98,7 @@ func (s *Storage) NewDeleter() track.Deleter {
 // It will check objects for chunks with IDs in the range [first, last)
 // As a special case: if len(end) == 0 then it is ignored.
 func (s *Storage) Check(ctx context.Context, begin, end []byte, readChunks bool) (int, error) {
-	c := NewClient(s.store, s.db, s.tracker, nil).(*trackedClient)
+	c := NewClient(s.store, s.db, s.tracker, nil, s.pool).(*trackedClient)
 	first := append([]byte{}, begin...)
 	var count int
 	for {
