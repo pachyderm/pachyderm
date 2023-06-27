@@ -461,7 +461,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "Set a description of this commit's contents; overwrites existing commit description (synonym for --description).")
 	finishCommit.Flags().StringVar(&description, "description", "", "Set a description of this commit's contents; overwrites existing commit description (synonym for --message).")
-	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "Force finish commit, even if it has provenance, which could break jobs; prefer `pachctl stop stop job`")
+	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "Force finish commit, even if it has provenance, which could break jobs; prefer 'pachctl stop stop job'")
 	finishCommit.Flags().StringVar(&project, "project", project, "Specify the project name where the repo for this commit is located.")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(finishCommit, "finish commit", commits))
@@ -1574,7 +1574,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Specify files should be recursively put into a directory.")
 	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Specify data should be compressed during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "Specify the maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Specify file contents should be appended to existing content from previous commits or previous calls to `pachctl put file` within this commit.")
+	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Specify file contents should be appended to existing content from previous commits or previous calls to 'pachctl put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "Specify entire path provided to -f should be the target filename in PFS; by default only the base of the path is used.")
 	putFile.Flags().BoolVar(&untar, "untar", false, "Specify file(s) with the extension .tar should be untarred and put as a separate file for each file within the tar stream(s); gzipped (.tar.gz or .tgz) tar file(s) are handled as well")
