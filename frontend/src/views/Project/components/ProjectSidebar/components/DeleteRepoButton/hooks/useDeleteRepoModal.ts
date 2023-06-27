@@ -21,11 +21,7 @@ const useDeleteRepoButton = () => {
     }
   };
 
-  const {
-    deleteRepo,
-    loading: updating,
-    error,
-  } = useDeleteRepo(repoId, onCompleted);
+  const {deleteRepo, loading: updating, error} = useDeleteRepo(onCompleted);
 
   const onDelete = () => {
     if (repoId) {

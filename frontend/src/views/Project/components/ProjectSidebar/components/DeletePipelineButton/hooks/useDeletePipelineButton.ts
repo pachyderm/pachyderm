@@ -2,7 +2,6 @@ import {Permission, ResourceType} from '@graphqlTypes';
 import {useMemo, useState} from 'react';
 
 import {useGetDagQuery} from '@dash-frontend/generated/hooks';
-import useCurrentOuptutRepoOfPipeline from '@dash-frontend/hooks/useCurrentOuptutRepoOfPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 
@@ -12,11 +11,9 @@ const useDeletePipelineButton = () => {
   const {data: dagData, loading: dagLoading} = useGetDagQuery({
     variables: {args: {projectId}},
   });
-  const {repo, loading: repoLoading} = useCurrentOuptutRepoOfPipeline();
-
   const {isAuthorizedAction: hasAuthDeleteRepo} = useVerifiedAuthorization({
     permissionsList: [Permission.REPO_DELETE],
-    resource: {type: ResourceType.REPO, name: `${projectId}/${repo?.id}`},
+    resource: {type: ResourceType.REPO, name: `${projectId}/${pipelineId}`},
   });
 
   const canDelete = useMemo(() => {
@@ -30,8 +27,7 @@ const useDeletePipelineButton = () => {
     );
   }, [pipelineId, dagData, projectId]);
 
-  const disableButton =
-    repoLoading || dagLoading || !hasAuthDeleteRepo || !canDelete;
+  const disableButton = dagLoading || !hasAuthDeleteRepo || !canDelete;
 
   const tooltipText = () => {
     if (!hasAuthDeleteRepo)

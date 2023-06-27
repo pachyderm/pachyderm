@@ -26,7 +26,7 @@ const useDeletePipelineButton = () => {
     deletePipeline,
     loading: updating,
     error,
-  } = useDeletePipeline(pipelineId, onCompleted);
+  } = useDeletePipeline(onCompleted);
 
   const onDelete = useCallback(() => {
     if (pipelineId) {

@@ -12,7 +12,7 @@ const useDeleteProjectModal = (projectName: string, onHide?: () => void) => {
     deleteProject,
     loading: deleteProjectLoading,
     error,
-  } = useDeleteProjectAndResources(onHide, projectName);
+  } = useDeleteProjectAndResources(onHide);
   const formCtx = useForm<DeleteProjectFormValues>({mode: 'onChange'});
   const {watch, reset} = formCtx;
   const name = watch('name');

@@ -25,17 +25,17 @@ const useImageProcessingCleanup = () => {
     deletePipeline: deletePipelineMontage,
     loading: deletePipelineMontageLoading,
     error: deletePipelineMontageError,
-  } = useDeletePipeline(`montage_${tutorialId}`);
+  } = useDeletePipeline();
   const {
     deletePipeline: deletePipelineEdges,
     loading: deletePipelineEdgesLoading,
     error: deletePipelineEdgesError,
-  } = useDeletePipeline(`edges_${tutorialId}`);
+  } = useDeletePipeline();
   const {
     deleteRepo: deleteRepoImages,
     loading: deleteRepoImagesLoading,
     error: deleteRepoImagesError,
-  } = useDeleteRepo(`images_${tutorialId}`);
+  } = useDeleteRepo();
 
   const cleanupImageProcessing = useCallback(async () => {
     const callDeletePipelineMontage = () =>
