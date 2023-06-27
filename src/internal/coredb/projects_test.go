@@ -3,7 +3,10 @@
 package coredb
 
 import (
+	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
@@ -24,130 +27,135 @@ const (
 )
 
 func TestCreateProject(t *testing.T) {
+	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err, "should be able to create a tx")
-	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
-	require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
-	getInfo, err := GetProjectByName(ctx, tx, testProj)
-	require.NoError(t, err, "should be able to get a project")
-	require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
-	require.Equal(t, createInfo.Description, getInfo.Description)
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
+		require.NoError(t, CreateProject(cbCtx, tx, createInfo), "should be able to create project")
+		getInfo, err := GetProjectByName(cbCtx, tx, testProj)
+		require.NoError(t, err, "should be able to get a project")
+		require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
+		require.Equal(t, createInfo.Description, getInfo.Description)
+		return nil
+	}))
 }
 
 func TestDeleteProject(t *testing.T) {
+	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err, "should be able to create a tx")
-	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
-	require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
-	require.NoError(t, DeleteProject(ctx, tx, createInfo.Project.Name), "should be able to delete project")
-	_, err = GetProjectByName(ctx, tx, testProj)
-	require.YesError(t, err, "get project should not find row")
-	require.YesError(t, DeleteProject(ctx, tx, createInfo.Project.Name), "double delete should be an error")
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
+		require.NoError(t, CreateProject(cbCtx, tx, createInfo), "should be able to create project")
+		require.NoError(t, DeleteProject(cbCtx, tx, createInfo.Project.Name), "should be able to delete project")
+		_, err := GetProjectByName(cbCtx, tx, testProj)
+		require.YesError(t, err, "get project should not find row")
+		require.YesError(t, DeleteProject(cbCtx, tx, createInfo.Project.Name), "double delete should be an error")
+		return nil
+	}))
 }
 
 func TestGetProject(t *testing.T) {
+	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err, "should be able to create a tx")
-	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
-	require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
-	// the 'default' project is ID 1.
-	getInfo, err := GetProject(ctx, tx, 2)
-	fmt.Printf("%q %q\n", createInfo, getInfo)
-	require.NoError(t, err, "should be able to get a project")
-	require.NoError(t, tx.Commit())
-	require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
-	require.Equal(t, createInfo.Description, getInfo.Description)
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		require.NoError(t, CreateProject(cbCtx, tx, createInfo), "should be able to create project")
+		// the 'default' project is ID 1.
+		getInfo, err := GetProject(cbCtx, tx, 2)
+		require.NoError(t, err, "should be able to get a project")
+		require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
+		require.Equal(t, createInfo.Description, getInfo.Description)
+		return nil
+	}))
 }
 
 func TestListProject(t *testing.T) {
+	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err, "should be able to create a tx")
-	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	require.NoError(t, DeleteProject(ctx, tx, "default"))
-	size := 210
-	expectedInfos := make([]*pfs.ProjectInfo, size)
-	for i := 0; i < size; i++ {
-		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
-		expectedInfos[i] = createInfo
-		require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
-	}
-	iter, err := ListProject(ctx, tx)
-	require.NoError(t, err, "should be able to list projects")
-	i := 0
-	require.NoError(t, stream.ForEach[*pfs.ProjectInfo](ctx, iter, func(proj *pfs.ProjectInfo) error {
-		if err != nil {
-			require.NoError(t, err, "should be able to iterate over projects")
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		require.NoError(t, DeleteProject(cbCtx, tx, "default"))
+		size := 210
+		expectedInfos := make([]*pfs.ProjectInfo, size)
+		for i := 0; i < size; i++ {
+			createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+			expectedInfos[i] = createInfo
+			require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
 		}
-		require.Equal(t, expectedInfos[i].Project.Name, proj.Project.Name)
-		require.Equal(t, expectedInfos[i].Description, proj.Description)
-		i++
+		iter, err := ListProject(cbCtx, tx)
+		require.NoError(t, err, "should be able to list projects")
+		i := 0
+		require.NoError(t, stream.ForEach[*pfs.ProjectInfo](cbCtx, iter, func(proj *pfs.ProjectInfo) error {
+			if err != nil {
+				require.NoError(t, err, "should be able to iterate over projects")
+			}
+			require.Equal(t, expectedInfos[i].Project.Name, proj.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, proj.Description)
+			i++
+			return nil
+		}))
 		return nil
 	}))
 }
 
 func TestDeleteAllProjects(t *testing.T) {
+	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err, "should be able to create a tx")
-	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	size := 3
-	for i := 0; i < size; i++ {
-		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
-		require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
-	}
-	require.NoError(t, DeleteAllProjects(ctx, tx))
-	_, err = GetProject(ctx, tx, 1)
-	require.YesError(t, err, "should not have any project entries")
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		require.NoError(t, migrations.ApplyMigrations(cbCtx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+		size := 3
+		for i := 0; i < size; i++ {
+			createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+			require.NoError(t, CreateProject(cbCtx, tx, createInfo), "should be able to create project %d", i)
+		}
+		require.NoError(t, DeleteAllProjects(cbCtx, tx))
+		_, err := GetProject(cbCtx, tx, 1)
+		require.YesError(t, err, "should not have any project entries")
+		return nil
+	}))
 }
 
 func TestUpdateProject(t *testing.T) {
+	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err, "should be able to create a tx")
-	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	// test upsert correctness
-	projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
-	require.YesError(t, UpdateProject(ctx, tx, 99, projInfo), "should not be able to create project when upsert = false")
-	require.NoError(t, UpsertProject(ctx, tx, projInfo), "should be able to create project when upsert = true")
-	projInfo.Description = "new desc"
-	require.NoError(t, UpsertProject(ctx, tx, projInfo), "should be able to update project")
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		// test upsert correctness
+		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		require.YesError(t, UpdateProject(cbCtx, tx, 99, projInfo), "should not be able to create project when upsert = false")
+		require.NoError(t, UpsertProject(cbCtx, tx, projInfo), "should be able to create project when upsert = true")
+		projInfo.Description = "new desc"
+		require.NoError(t, UpsertProject(cbCtx, tx, projInfo), "should be able to update project")
+		return nil
+	}))
 }
 
 func TestUpdateProjectByID(t *testing.T) {
+	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err, "should be able to create a tx")
-	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
-	require.NoError(t, CreateProject(ctx, tx, projInfo), "should be able to create project")
-	// the 'default' project ID is 1
-	require.NoError(t, UpdateProject(ctx, tx, 2, projInfo), "should be able to update project")
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		require.NoError(t, CreateProject(cbCtx, tx, projInfo), "should be able to create project")
+		// the 'default' project ID is 1
+		require.NoError(t, UpdateProject(cbCtx, tx, 2, projInfo), "should be able to update project")
+		return nil
+	}))
 }
