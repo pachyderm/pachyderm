@@ -170,7 +170,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 	logSetPipelineState(ctx, pipeline, from, to, reason)
 	var resultMessage string
 	var warn bool
-	err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, sqlTx *pachsql.Tx) error {
 		resultMessage = ""
 		warn = false
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
@@ -178,7 +178,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
-		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
+		tracing.TagAnySpan(cbCtx, "old-state", pipelineInfo.State)
 		// Only UpdatePipeline can bring a pipeline out of failure
 		// TODO(msteffen): apply the same logic for CRASHING?
 		if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {

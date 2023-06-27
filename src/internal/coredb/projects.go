@@ -146,7 +146,7 @@ func UpsertProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 	return updateProject(ctx, tx, project, "name", project.Project.Name, true)
 }
 
-// UpdateProject is like UpsertProject, but uses the row id instead of the name. It does not allow upserting.
+// UpdateProject overwrites an existing project entry by ID.
 func UpdateProject(ctx context.Context, tx *pachsql.Tx, id ID, project *pfs.ProjectInfo) error {
 	return updateProject(ctx, tx, project, "id", id, false)
 }

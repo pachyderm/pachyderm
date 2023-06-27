@@ -114,7 +114,7 @@ func WithBackOff(bo backoff.BackOff) WithTxOption {
 // WithTx calls cb with a transaction,
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
-func WithTx(ctx context.Context, db *pachsql.DB, cb func(ctx context.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
+func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
 	backoffStrategy := backoff.NewExponentialBackOff()
 	backoffStrategy.InitialInterval = 1 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0
@@ -172,7 +172,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(ctx context.Context, tx
 	return nil
 }
 
-func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(ctx context.Context, tx *pachsql.Tx) error) error {
+func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(cbCtx context.Context, tx *pachsql.Tx) error) error {
 	if err := cb(ctx, tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
