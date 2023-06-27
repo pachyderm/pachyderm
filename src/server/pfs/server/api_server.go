@@ -61,7 +61,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 	var resp *pfs.ActivateAuthResponse
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		resp, err = a.ActivateAuthInTransaction(txnCtx, request)
+		resp, err = a.ActivateAuthInTransaction(ctx, txnCtx, request)
 		if err != nil {
 			return err
 		}
@@ -72,13 +72,13 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 	return resp, nil
 }
 
-func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
+func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	projIter, err := coredb.ListProject(txnCtx.Context(), a.env.DB)
+	projIter, err := coredb.ListProject(ctx, txnCtx.SqlTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list projects")
 	}
-	if err := stream.ForEach[*pfs.ProjectInfo](txnCtx.Context(), projIter, func(proj *pfs.ProjectInfo) error {
+	if err := stream.ForEach[*pfs.ProjectInfo](ctx, projIter, func(proj *pfs.ProjectInfo) error {
 		var principal string
 		var roleSlice []string
 		if proj.Project.Name == pfs.DefaultProjectName {
@@ -110,11 +110,11 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) CreateRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateRepoRequest) error {
+func (a *apiServer) CreateRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.CreateRepoRequest) error {
 	if repo := request.GetRepo(); repo != nil && repo.Name == fileSetsRepo {
 		return errors.Errorf("%s is a reserved name", fileSetsRepo)
 	}
-	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Update)
+	return a.driver.createRepo(ctx, txnCtx, request.Repo, request.Description, request.Update)
 }
 
 // CreateRepo implements the protobuf pfs.CreateRepo RPC
@@ -442,7 +442,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
+		return a.driver.deleteProject(ctx, txnCtx, request.Project, request.Force)
 	}); err != nil {
 		return nil, err
 	}

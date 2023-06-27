@@ -222,7 +222,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 			}
 			// Output commit was deleted. Delete job as well
 			// TODO: This should be handled through a transaction defer when the commit is squashed.
-			if err := pj.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+			if err := pj.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobInfo := &pps.JobInfo{}
 				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {

@@ -77,17 +77,20 @@ func TestGetProject(t *testing.T) {
 func TestListProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
+	tx, err := db.BeginTxx(ctx, nil)
+	require.NoError(t, err, "should be able to create a tx")
+	defer tx.Rollback()
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	require.NoError(t, DeleteProject(ctx, db, "default"))
+	require.NoError(t, DeleteProject(ctx, tx, "default"))
 	size := 210
 	expectedInfos := make([]*pfs.ProjectInfo, size)
 	for i := 0; i < size; i++ {
 		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
 		expectedInfos[i] = createInfo
-		require.NoError(t, CreateProject(ctx, db, createInfo), "should be able to create project")
+		require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
 	}
-	iter, err := ListProject(ctx, db)
+	iter, err := ListProject(ctx, tx)
 	require.NoError(t, err, "should be able to list projects")
 	i := 0
 	require.NoError(t, stream.ForEach[*pfs.ProjectInfo](ctx, iter, func(proj *pfs.ProjectInfo) error {
