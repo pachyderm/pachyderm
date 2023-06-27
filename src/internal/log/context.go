@@ -17,8 +17,6 @@ import (
 
 type pachydermLogger struct{}
 
-type Context context.Context
-
 // CombineLogger extracts a logger from loggerCtx, and associates the logger with ctx.  It's only
 // public until grpc interceptors move into this package.
 func CombineLogger(ctx, loggerCtx context.Context) context.Context {

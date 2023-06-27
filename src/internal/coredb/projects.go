@@ -19,14 +19,14 @@ type ProjectIterator struct {
 	offset   int
 	projects []projectRow
 	index    int
-	tx *pachsql.Tx
+	tx       *pachsql.Tx
 }
 
 // ID is the auto-incrementing primary key used for entries in postgres tables.
 type ID uint64
 
 type projectRow struct {
-	ID          ID      `db:"id"`
+	ID          ID        `db:"id"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
 	CreatedAt   time.Time `db:"created_at"`
@@ -73,7 +73,7 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) (*ProjectIterator, error) 
 	iter := &ProjectIterator{
 		projects: page,
 		limit:    limit,
-		tx: tx,
+		tx:       tx,
 	}
 	return iter, nil
 }
