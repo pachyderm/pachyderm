@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 )
 
 // Mount pfs to target, opts may be left nil.
@@ -104,7 +105,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 		return errors.WithStack(err)
 	}
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, signals.TerminationSignals...)
 	go func() {
 		select {
 		case <-sigChan:

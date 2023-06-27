@@ -10,7 +10,6 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 	"unicode"
@@ -26,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
@@ -654,7 +654,7 @@ This resets the cluster to its initial state.`,
 			ch := make(chan os.Signal, 1)
 			// Handle Control-C, closing the terminal window, and pkill (and friends)
 			// cleanly.
-			signal.Notify(ch, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
+			signal.Notify(ch, signals.TerminationSignals...)
 			<-ch
 
 			return nil
@@ -846,6 +846,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(nextDocs, "next"))
 
+	validateDocs := &cobra.Command{
+		Short: "Validate the specification of a Pachyderm resource.",
+		Long:  "Validate the specification of a Pachyderm resource.  Client-side only.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(validateDocs, "validate"))
+
 	subcommands = append(subcommands, pfscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, ppscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, authcmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
@@ -912,7 +918,8 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"start",
 			"stop",
 			"subscribe",
-			"update":
+			"update",
+			"validate":
 			actions = append(actions, subcmd)
 		case
 			"extract",
