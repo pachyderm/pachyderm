@@ -471,20 +471,31 @@ spec:
             command:
             - /pachd
             - --readiness
+          initialDelaySeconds: {{ .Values.pachd.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.pachd.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.pachd.readinessProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.pachd.readinessProbe.failureThreshold }}
         livenessProbe:
           exec:
             command:
             - /pachd
             - --readiness
-          failureThreshold: 10
-          timeoutSeconds: 30
+          initialDelaySeconds: {{ .Values.pachd.livenessProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.pachd.livenessProbe.failureThreshold }}
+          periodSeconds: {{ .Values.pachd.livenessProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.livenessProbe.successThreshold }}
+          timeoutSeconds: {{ .Values.pachd.livenessProbe.timeoutSeconds }}
         startupProbe:
           exec:
             command:
             - /pachd
             - --readiness
-          failureThreshold: 10
-          timeoutSeconds: 30
+          initialDelaySeconds: {{ .Values.pachd.startupProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.pachd.startupProbe.failureThreshold }}
+          periodSeconds: {{ .Values.pachd.startupProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.startupProbe.successThreshold }}
+          timeoutSeconds: {{ .Values.pachd.startupProbe.timeoutSeconds }}
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}

@@ -2,27 +2,11 @@ package chunk
 
 import (
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
 
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
-
-// WithMaxConcurrentObjects sets the maximum number of object writers (upload)
-// and readers (download) that can be open at a time.
-func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
-	return func(s *Storage) {
-		s.objClient = obj.NewLimitedClient(s.objClient, maxDownload, maxUpload)
-	}
-}
-
-// WithObjectCache adds a cache around the currently configured object client
-func WithObjectCache(fastLayer obj.Client, size int) StorageOption {
-	return func(s *Storage) {
-		s.objClient = obj.NewCacheClient(s.objClient, fastLayer, size)
-	}
-}
 
 // WithMemoryCacheSize sets the number of decrypted, uncompressed chunks that will be stored in memory.
 func WithMemoryCacheSize(size int) StorageOption {
