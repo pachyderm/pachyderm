@@ -80,7 +80,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 		Started:  now(),
 	}
 
-	if err := dbutil.WithTx(ctx, d.db, func(_ context.Context, sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(sqlTx).Put(
 			info.Transaction.ID,
 			info,
@@ -281,7 +281,7 @@ func (d *driver) updateTransaction(
 		if err == nil {
 			// only persist the transaction if we succeeded, otherwise just update localInfo
 			var storedInfo transaction.TransactionInfo
-			if err = dbutil.WithTx(ctx, d.db, func(_ context.Context, sqlTx *pachsql.Tx) error {
+			if err = dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 				// Update the existing transaction with the new requests/responses
 				err := d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {

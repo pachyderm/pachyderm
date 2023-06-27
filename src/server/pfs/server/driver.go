@@ -655,7 +655,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
 	var pi *pfs.ProjectInfo
 	var err error
-	if err = dbutil.WithTx(ctx, d.env.DB, func(_ context.Context, tx *pachsql.Tx) error {
+	if err = dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		pi, err = coredb.GetProjectByName(ctx, tx, pfsdb.ProjectKey(project))
 		if err != nil {
 			return err
@@ -797,7 +797,7 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
-	return errors.Wrap(dbutil.WithTx(ctx, d.env.DB, func(_ context.Context, tx *pachsql.Tx) error {
+	return errors.Wrap(dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		projIter, err := coredb.ListProject(ctx, tx)
 		if err != nil {
 			return err

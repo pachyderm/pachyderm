@@ -57,7 +57,7 @@ func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID,
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return dbutil.WithTx(ctx, c.db, func(_ context.Context, tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, c.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := c.put(tx, key, data, ids, tag); err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (c *Cache) Clear(ctx context.Context, tagPrefix string) error {
 		return errors.EnsureStack(err)
 	}
 	for _, key := range keys {
-		if err := dbutil.WithTx(ctx, c.db, func(_ context.Context, tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(ctx, c.db, func(ctx context.Context, tx *pachsql.Tx) error {
 			if _, err := tx.Exec(`
 				DELETE FROM storage.cache
 				WHERE key = $1

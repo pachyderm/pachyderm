@@ -93,7 +93,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (n int, retErr error) {
 
 func (gc *GarbageCollector) deleteObject(ctx context.Context, id string) error {
 	db := gc.tracker.DB()
-	return dbutil.WithTx(ctx, db, func(_ context.Context, tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := gc.tracker.DeleteTx(tx, id); err != nil {
 			return errors.EnsureStack(err)
 		}

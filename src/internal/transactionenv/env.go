@@ -320,7 +320,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
-	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(_ context.Context, sqlTx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }

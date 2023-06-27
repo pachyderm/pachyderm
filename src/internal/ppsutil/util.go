@@ -170,7 +170,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 	logSetPipelineState(ctx, pipeline, from, to, reason)
 	var resultMessage string
 	var warn bool
-	err := dbutil.WithTx(ctx, db, func(_ context.Context, sqlTx *pachsql.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		resultMessage = ""
 		warn = false
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)

@@ -123,7 +123,7 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 		Expires:        expirationProto,
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
@@ -256,7 +256,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 		return nil, errors.Wrapf(err, "unable to delete clusters in database")
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(_ context.Context, sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
