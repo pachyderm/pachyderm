@@ -59,6 +59,9 @@ func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 	if config.ClientID == "" {
 		return errors.Errorf("OIDC configuration must have a non-empty client_id")
 	}
+	if _, err := url.ParseRequestURI(config.UserAccessibleIssuerHost); config.UserAccessibleIssuerHost != "" && err != nil {
+		return errors.Wrapf(err, "OIDC user_accessible_issuer_host must be a valid URL")
+	}
 
 	return nil
 }
