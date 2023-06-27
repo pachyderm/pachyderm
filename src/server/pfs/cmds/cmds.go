@@ -91,7 +91,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo in your active project.",
-		Long: "By default, this command creates a repo in the project that is set to your active context (initially the `default` project).\n" +
+		Long: "This command creates a repo in the project that is set to your active context (initially the `default` project).\n" +
 			"\n" +
 			"\t- To specify which project to create the repo in, use the `--project` flag \n" +
 			"\t- To add a description to the project, use the `--description` flag  \n",
@@ -126,13 +126,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Update a repo.",
-		Long: "This command enables you to update the description of an existing repo by passing the `-d` flag. \n" +
+		Long: "This command enables you to update the description of an existing repo. \n" +
 			"\n" +
 			"\t- To specify which project to update the repo in, use the `--project` flag \n" +
 			"\t- To update the description of a repo, use the `--description` flag \n" +
 			"\n" +
 			"If you are looking to update the pipelines in your repo, see `pachctl update pipeline` instead.",
-		Example: "\t- {{alias}} foo --description 'my updated repo description'",
+		Example: "\t- {{alias}} foo --description 'my updated repo description'\n" +
+			"\t- {{alias}} foo --project bar --description 'my updated repo description'\n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -163,11 +164,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	inspectRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return info about a repo.",
-		Long: "This command returns details of your repo such as: `Name`, `Description`, `Created`, and `Size of HEAD on Master`. \n" +
+		Long: "This command returns details of the repo such as: `Name`, `Description`, `Created`, and `Size of HEAD on Master`. By default, PachCTL checks for a matching repo in the project that is set to your active context (initially the `default` project).\n" +
 			"\n" +
-			"\t- To specify which project to inspect the repo in, use the `--project` flag \n",
-		Example: "\t- {{alias}} foo ➔ inspects /<active-project>/foo \n" +
-			"\t- {{alias}} foo --project myproject ➔ inspects /myproject/foo",
+			"\t- To specify the project containing the repo you want to inspect, use the `--project` flag \n",
+		Example: "\t- {{alias}} foo  \n" +
+			"\t- {{alias}} foo --project myproject",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -349,7 +350,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"Creating a commit is a multi-step process: \n" +
 			"\t1. Start a new commit with `pachctl start commit`\n" +
 			"\t2. Write files to the commit via `pachctl put file`\n" +
-			"\t3. Finish the new commit with `pachctl finish commit`\n \n" +
+			"\t3. Finish the new commit with `pachctl finish commit`\n" +
 			"\n" +
 			"Commits that have been started but not finished are NOT durable storage.\n" +
 			"Commits become reliable (and immutable) when they are finished.\n" +
@@ -462,7 +463,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "Set a description of this commit's contents; overwrites existing commit description (synonym for --description).")
 	finishCommit.Flags().StringVar(&description, "description", "", "Set a description of this commit's contents; overwrites existing commit description (synonym for --message).")
 	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "Force finish commit, even if it has provenance, which could break jobs; prefer 'pachctl stop stop job'")
-	finishCommit.Flags().StringVar(&project, "project", project, "Specify the project name where the repo for this commit is located.")
+	finishCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo for this commit is located.")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(finishCommit, "finish commit", commits))
 
@@ -471,7 +472,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return info about a commit.",
 		Long: "This command returns information about the commit, such as the commit location (`branch@commit-id`), originating branch, start/finish times, and size. \n" +
 			"\n" +
-			"\t- To view the raw details of the commit in JSON format, use the `--raw` flag. \n" +
+			"\t- To view the raw details of the commit in JSON format, use the `--raw` flag \n" +
 			"\t- To specify which project the repo is in, use the `--project` flag \n",
 		Example: "\t- {{alias}} foo@master \n" +
 			"\t- {{alias}} foo@master --project bar \n" +
@@ -774,14 +775,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
-	waitCommit.Flags().StringVar(&project, "project", project, "Specify the name of the project containing the commit.")
+	waitCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the commit.")
 	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Print commits as they are created (finished).",
-		Long:  "Print commits as they are created in the specified repo and branch. By default, all existing commits on the specified branch are returned first.  A commit is only considered created when it's been finished.",
+		Long:  "This command prints commits as they are created in the specified repo and branch. By default, all existing commits on the specified branch are returned first.  A commit is only considered created when it's been finished.",
 		Example: "\t {{alias}} foo@master ➔ subscribe to commits in the foo repo on the master branch \n" +
 			"\t- {{alias}} foo@bar --from 0001a0100b1c10d01111e001fg00h00i ➔ starting at <commit-id>, subscribe to commits in the foo repo on the master branch \n" +
 			"\t- {{alias}} foo@bar --new ➔ subscribe to commits in the foo repo on the master branch, but only for new commits created from now on \n",
@@ -862,8 +863,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	squashCommit := &cobra.Command{
 		Use:     "{{alias}} <commit-id>",
 		Short:   "Squash the sub-commits of a commit.",
-		Long:    "Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits. The squash will fail if it includes a commit with no children",
-		Example: "\t- {{alias}} <commit-id> \n",
+		Long:    "This command squashes the sub-commits of a commit.  The data in the sub-commits will remain in their child commits. The squash will fail if it includes a commit with no children",
+		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -919,11 +920,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Create a new branch, or update an existing branch, on a repo.",
 		Long: "This command creates or updates a branch on a repo. \n" +
 			"\n" +
-			"\t- To create a branch for a repo in a particular project, use the `--project` flag; this requires the repo to already exist in that project. \n" +
-			"\t- To attach an existing commit as the head commit of the new branch, use the `--head` flag. \n" +
-			"\t- To set a trigger, use the `--trigger` flag, pass in the triggering branch (from the same repo, without `repo@`), and set conditions using `--trigger-size`, `--trigger-cron`, `--trigger-commits`. \n" +
-			"\t- To require all defined triggering conditions to be met, use the `--trigger-all` flag; otherwise, each individual triggering condition will execute the trigger. \n" +
-			"\t- To attach provenance to the new branch, use the `--provenance` flag. You can inspect provenance using `pachctl inspect branch foo@bar`.\n" +
+			"\t- To create a branch for a repo in a particular project, use the `--project` flag; this requires the repo to already exist in that project \n" +
+			"\t- To attach an existing commit as the head commit of the new branch, use the `--head` flag \n" +
+			"\t- To set a trigger, use the `--trigger` flag, pass in the triggering branch (from the same repo, without `repo@`), and set conditions using `--trigger-size`, `--trigger-cron`, `--trigger-commits` \n" +
+			"\t- To require all defined triggering conditions to be met, use the `--trigger-all` flag; otherwise, each individual triggering condition will execute the trigger \n" +
+			"\t- To attach provenance to the new branch, use the `--provenance` flag. You can inspect provenance using `pachctl inspect branch foo@bar` \n" +
 			"\n" +
 			"Note: Starting a commit on the branch also creates it, so there's often no need to call this.",
 		Example: "\t- {{alias}} foo@master \n" +
@@ -1003,8 +1004,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return info about a branch.",
 		Long: "This command returns info about a branch, such as its `Name`, `Head Commit`, and `Trigger`. \n" +
 			"\n" +
-			"\t- To inspect a branch from a repo in another project, use the `--project` flag. \n" +
-			"\t- To get additional details about the branch, use the `--raw` flag. \n",
+			"\t- To inspect a branch from a repo in another project, use the `--project` flag \n" +
+			"\t- To get additional details about the branch, use the `--raw` flag \n",
 		Example: "\t- {{alias}} foo@master  \n" +
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --raw \n",
@@ -1046,8 +1047,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return all branches on a repo.",
 		Long: "This command returns all branches on a repo. \n" +
 			"\n" +
-			"\t- To list branches from a repo in another project, use the `--project` flag. \n" +
-			"\t- To get additional details about the branches, use the `--raw` flag. \n",
+			"\t- To list branches from a repo in another project, use the `--project` flag \n" +
+			"\t- To get additional details about the branches, use the `--raw` flag \n",
 		Example: "\t- {{alias}} foo@master \n" +
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --raw \n" +
@@ -1093,8 +1094,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Delete a branch",
 		Long: "This command deletes a branch while leaving its commits intact. \n" +
 			"\n" +
-			"\t- To delete a branch from a repo in another project, use the `--project` flag. \n" +
-			"\t- To delete a branch regardless of errors, use the `--force` flag. \n",
+			"\t- To delete a branch from a repo in another project, use the `--project` flag \n" +
+			"\t- To delete a branch regardless of errors, use the `--force` flag \n",
 		Example: "\t- {{alias}} foo@master \n" +
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --force \n" +
@@ -1128,10 +1129,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Find commits with reference to <filePath> within a branch starting from <repo@commitID>",
 		Long: "This command returns a list of commits using a reference to their `file/path` within a branch, starting from `repo@<commitID>`. \n" +
 			"\n" +
-			"\t- To find commits from a repo in another project, use the `--project` flag. \n" +
-			"\t- To set a limit on the number of returned commits, use the `--limits` flag. \n" +
-			"\t- To set a timeout for your commit search, use the `--timeout` flag. \n" +
-			"\t- To print the results as json, use the `--json` flag. \n",
+			"\t- To find commits from a repo in another project, use the `--project` flag \n" +
+			"\t- To set a limit on the number of returned commits, use the `--limits` flag \n" +
+			"\t- To set a timeout for your commit search, use the `--timeout` flag \n" +
+			"\t- To print the results as json, use the `--json` flag \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1194,7 +1195,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Create a new project.",
 		Long: "This command creates a new project. \n" +
 			"\n" +
-			"\t- To set a description for the project, use the `--description` flag. \n",
+			"\t- To set a description for the project, use the `--description` flag \n",
 		Example: "\t- {{alias}} foo-project \n" +
 			"\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
 
@@ -1248,7 +1249,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Inspect a project.",
 		Long: "This command inspects a project and returns information like its `Name` and `Created at` time. \n" +
 			"\n" +
-			"\t- To return additional details, use the `--raw` flag. \n",
+			"\t- To return additional details, use the `--raw` flag \n",
 
 		Example: "\t- {{alias}} foo-project \n" +
 			"\t- {{alias}} foo-project --raw \n" +
@@ -1434,20 +1435,20 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long: "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS. \n" +
 			"\n" +
 			"Files, Directories, & URLs: \n" +
-			"\t- To upload via local filesystem, use the `-f` flag. \n" +
-			"\t- To upload via URL, use the `-f` flag with a URL as the argument. \n" +
-			"\t- To upload via filepaths & urls within a file, use the `i` flag. \n" +
+			"\t- To upload via local filesystem, use the `-f` flag \n" +
+			"\t- To upload via URL, use the `-f` flag with a URL as the argument \n" +
+			"\t- To upload via filepaths & urls within a file, use the `i` flag \n" +
 			"\t- To upload to a specific path in the repo, use the `-f` flag and add the path to the `repo@branch:/path` \n" +
-			"\t- To upload recursively from a directory, use the `-r` flag. \n" +
-			"\t- To upload tar files and have them automatically untarred, use the `-untar` flag. \n" +
+			"\t- To upload recursively from a directory, use the `-r` flag \n" +
+			"\t- To upload tar files and have them automatically untarred, use the `-untar` flag \n" +
 			"\n" +
 			"Compression, Parallelization, Appends: \n" +
-			"\t- To compress files before uploading, use the `-c` flag. \n" +
-			"\t- To define the maximum number of files that can be uploaded in parallel, use the `-p` flag. \n" +
-			"\t- To append to an existing file, use the `-a` flag. \n" +
+			"\t- To compress files before uploading, use the `-c` flag \n" +
+			"\t- To define the maximum number of files that can be uploaded in parallel, use the `-p` flag \n" +
+			"\t- To append to an existing file, use the `-a` flag \n" +
 			"\n" +
 			"Other: \n" +
-			"\t- To enable progress bars, use the `-P` flag. \n",
+			"\t- To enable progress bars, use the `-P` flag \n",
 
 		Example: "\t- {{alias}} repo@master-f image.png \n" +
 			"\t- {{alias}} repo@master:/logs/log-1.txt  \n" +
@@ -1655,10 +1656,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long: "This command returns the contents of a file. " +
 			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to retrieve the contents of a file from a previous commit. \n" +
 			"\n" +
-			"\t- To specify the project where the repo is located, use the --project flag. \n" +
-			"\t- To specify the output path, use the --output flag. \n" +
-			"\t- To specify the number of bytes to offset the read by, use the --offset-bytes flag. \n" +
-			"\t- To retry the operation if it fails, use the --retry flag. \n",
+			"\t- To specify the project where the repo is located, use the --project flag \n" +
+			"\t- To specify the output path, use the --output flag \n" +
+			"\t- To specify the number of bytes to offset the read by, use the --offset-bytes flag \n" +
+			"\t- To retry the operation if it fails, use the --retry flag \n",
 
 		Example: "\t- {{alias}} foo@master:image.png \n" +
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:image.png \n" +
@@ -1760,7 +1761,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return info about a file.",
 		Long: "This command returns info about a file." +
 			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to inspect the contents of a file from a previous commit. \n" +
-			"\t- To specify the project where the repo is located, use the --project flag. \n",
+			"\t- To specify the project where the repo is located, use the --project flag \n",
 		Example: "\t- {{alias}} repo@master:/logs/log.txt \n" +
 			"\t- {{alias}} repo@0001a0100b1c10d01111e001fg00h00i:/logs/log.txt \n" +
 			"\t- {{alias}} repo@master:/logs/log.txt^2 \n" +
@@ -1801,7 +1802,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return the files in a directory.",
 		Long: "This command returns the files in a directory. " +
 			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to inspect the contents of a file from a previous commit. \n" +
-			"\t- To specify the project where the repo is located, use the --project flag. \n",
+			"\t- To specify the project where the repo is located, use the --project flag \n",
 		Example: "\t- {{alias}} foo@master \n" +
 			"\t- {{alias}} foo@master:dir \n" +
 			"\t- {{alias}} foo@master^ \n" +
@@ -1839,7 +1840,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
 	listFile.Flags().AddFlagSet(timestampFlags)
-	listFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where repo is located.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
@@ -1849,7 +1850,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long: "This command returns files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). " +
 			"Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match). \n" +
 			"\n" +
-			"\t- To specify the project where the repo is located, use the `--project flag`. \n",
+			"\t- To specify the project where the repo is located, use the `--project flag` \n",
 		Example: "\t- " + `{{alias}} "foo@master:A*"` + "\n" +
 			"\t- " + `{{alias}} "foo@0001a0100b1c10d01111e001fg00h00i:data/*"` + "\n" +
 			"\t- " + `{{alias}} "foo@master:data/*"`,
@@ -1900,11 +1901,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return a diff of two file trees stored in Pachyderm",
 		Long: "This command returns a diff of two file trees stored in Pachyderm. The file trees are specified by two files, one from the new tree and one from the old tree." +
 			" \n" +
-			"\t- To specify the project where the repos are located, use the `--project flag`. \n" +
-			"\t- To specify the project where the second older repo is located, use the `--old-project flag`. \n" +
-			"\t- To prevent descending into sub-directories, use the `--shallow flag`. \n" +
-			"\t- To use an alternative (non-git) diff command, use the `--diff-command flag`. \n" +
-			"\t- To get only the names of changed files, use the `--name-only flag`. \n",
+			"\t- To specify the project where the repos are located, use the `--project flag` \n" +
+			"\t- To specify the project where the second older repo is located, use the `--old-project flag` \n" +
+			"\t- To prevent descending into sub-directories, use the `--shallow flag`\n" +
+			"\t- To use an alternative (non-git) diff command, use the `--diff-command flag` \n" +
+			"\t- To get only the names of changed files, use the `--name-only flag` \n",
 
 		Example: "\t- {{alias}} foo@master:/logs/log.txt \n" +
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:log.txt \n" +

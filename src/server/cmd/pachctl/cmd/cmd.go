@@ -326,17 +326,16 @@ func PachctlCmd() (*cobra.Command, error) {
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
-		Long: `Access the Pachyderm API.
-
-PachCTL Environment variables:
-├─ PACH_CONFIG=<path> | (Req) PachCTL config location.
-├─ PACH_TRACE={true,false} | (Opt) Attach Jaeger trace to outgoing RPCs; JAEGER_ENDPOINT must be specified.
-│   │  (req. PACH_TRACE={true})
-│   └─ JAEGER_ENDPOINT=<host>:<port>  | Jaeger server to connect to.
-│   └─ PACH_TRACE_DURATION=<duration> | Duration to trace pipelines after 'pachctl create-pipeline'.
-
-Documentation: https://docs.pachyderm.com/latest/
-`,
+		Long: "Access the Pachyderm API." +
+			"\n\n" +
+			"PachCTL Environment Variables:" +
+			"\n" +
+			"\t- PACH_CONFIG=<path> | (Req) PachCTL config location. \n" +
+			"\t- PACH_TRACE={true,false} | (Opt) Attach Jaeger trace to outgoing RPCs; JAEGER_ENDPOINT must be specified. \n" +
+			"\t\t(req. PACH_TRACE={true}) \n" +
+			"\t\t- JAEGER_ENDPOINT=<host>:<port>  | Jaeger server to connect to. \n" +
+			"\t\t- PACH_TRACE_DURATION=<duration> | Duration to trace pipelines after 'pachctl create-pipeline'. \n\n" +
+			"Documentation: https://docs.pachyderm.com/latest/",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if pachctlCfg.Verbose {
 				log.SetLevel(log.DebugLevel)
@@ -785,10 +784,7 @@ This resets the cluster to its initial state.`,
 
 	getDocs := &cobra.Command{
 		Short: "Get the raw data represented by a Pachyderm resource.",
-		Long: `Get the raw data represented by a Pachyderm resource.
-		{{- range $index, $command := .Commands }}
-- {{ $command.Name }}: {{ $command.Short }}
-{{- end }}`,
+		Long:  `Get the raw data represented by a Pachyderm resource.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(getDocs, "get"))
 
