@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 
 	"golang.org/x/sync/semaphore"
@@ -93,6 +94,7 @@ type DataReader struct {
 	ctx      context.Context
 	client   Client
 	memCache *memoryCache
+	pool     *kv.Pool
 	deduper  *miscutil.WorkDeduper[pachhash.Output]
 	dataRef  *DataRef
 	offset   int64
@@ -104,6 +106,7 @@ func newDataReader(ctx context.Context, s *Storage, client Client, dataRef *Data
 		ctx:      ctx,
 		client:   client,
 		memCache: s.memCache,
+		pool:     s.pool,
 		deduper:  s.deduper,
 		dataRef:  dataRef,
 		offset:   offset,
