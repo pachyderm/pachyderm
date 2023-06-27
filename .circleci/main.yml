@@ -1209,6 +1209,7 @@ jobs:
                   echo "export PACHD_IP=$PACHD_IP" >> $BASH_ENV
                   mkdir -p workspace
                   cp $BASH_ENV workspace/bash.env
+                  gcloud dns --project=pulumi-ci-334619 record-sets update << parameters.env >>.workspace.pachyderm.com. --type="CNAME" --zone="sandbox" --rrdatas="$PACHD_IP." --ttl="300"
             - persist_to_workspace:
                 root: etc/testing/circle/workloads/pulumi/aws/workspace
                 paths:
