@@ -2,7 +2,9 @@ package coredb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -131,6 +133,12 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	var createdAt time.Time
 	var err error
 	if err = row.Scan(&project.Project.Name, &project.Description, &createdAt); err != nil {
+		if err == sql.ErrNoRows {
+			if _, ok := whereVal.(string); ok {
+				// only return a NotFound when querying by name.
+				return nil, collection.ErrNotFound{Type: "projects", Key: fmt.Sprintf("%v", whereVal)}
+			}
+		}
 		return nil, errors.Wrap(err, "failed scanning project row")
 	}
 	project.CreatedAt, err = types.TimestampProto(createdAt)
