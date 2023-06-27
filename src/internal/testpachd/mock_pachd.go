@@ -1557,6 +1557,7 @@ func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.
 func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.handler = cb }
 func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.handler = cb }
+func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc)       { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
