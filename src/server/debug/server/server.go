@@ -182,17 +182,33 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	return res, nil
 }
 
-func NewServerSender(ctx context.Context, s debug.Debug_DumpV2Server) (ContentSender, ProgressSender) {
+func NewServerSender(ctx context.Context, s debug.Debug_DumpV2Server) (ContentSender, ProgressSender, func()) {
 	ch := make(chan *debug.DumpChunk)
+	done := make(chan struct{})
+	close := func() {
+		close(ch)
+		<-done
+	}
 	go func() {
-		select {
-		case <-ctx.Done():
-			log.Error(ctx, "dump chunk sender context cancelled", zap.Error(ctx.Err()))
-		case chunk := <-ch:
-			if err := s.Send(chunk); err != nil {
-				log.Error(ctx, "send dump chunk failed", zap.Any("chunk", chunk), zap.Error(err))
+		defer func() {
+			done <- struct{}{}
+		}()
+		for {
+			select {
+			case chunk, more := <-ch:
+				if !more {
+					return
+				}
+				if err := s.Send(chunk); err != nil {
+					log.Error(ctx, "send dump chunk failed", zap.Any("chunk", chunk), zap.Error(err))
+					return
+				}
+			case <-ctx.Done():
+				log.Error(ctx, "dump chunk sender context cancelled", zap.Error(ctx.Err()))
+				return
 			}
 		}
+
 	}()
 	return &contentSender{
 			s:  s,
@@ -200,7 +216,8 @@ func NewServerSender(ctx context.Context, s debug.Debug_DumpV2Server) (ContentSe
 		}, &progressSender{
 			s:  s,
 			ch: ch,
-		}
+		},
+		close
 }
 
 type ProgressSender interface {
@@ -216,10 +233,15 @@ type progressSender struct {
 }
 
 func (ps *progressSender) Send(ctx context.Context, progress *debug.DumpProgress) error {
+	chunk := &debug.DumpChunk{Chunk: &debug.DumpChunk_Progress{Progress: progress}}
+	if progress == nil {
+		chunk = nil
+	}
 	select {
 	case <-ctx.Done():
+		log.Error(ctx, "progress sender context cancelled", zap.Error(ctx.Err()))
 		return errors.Wrap(ctx.Err(), "progress sender context cancelled")
-	case ps.ch <- &debug.DumpChunk{Chunk: &debug.DumpChunk_Progress{Progress: progress}}:
+	case ps.ch <- chunk:
 		return nil
 	}
 }
@@ -230,10 +252,15 @@ type contentSender struct {
 }
 
 func (cs *contentSender) Send(ctx context.Context, content *debug.DumpContent) error {
+	chunk := &debug.DumpChunk{Chunk: &debug.DumpChunk_Content{Content: content}}
+	if content == nil {
+		chunk = nil
+	}
 	select {
 	case <-ctx.Done():
+		log.Error(ctx, "content sender context cancelled", zap.Error(ctx.Err()))
 		return errors.Wrap(ctx.Err(), "content sender context cancelled")
-	case cs.ch <- &debug.DumpChunk{Chunk: &debug.DumpChunk_Content{Content: content}}:
+	case cs.ch <- chunk:
 		return nil
 	}
 }
@@ -243,8 +270,8 @@ func (cs *contentSender) Send(ctx context.Context, content *debug.DumpContent) e
 // top level errors colliding?
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
 	ctx := server.Context()
-	cs, ps := NewServerSender(ctx, server)
-	return s.dump(s.env.GetPachClient(ctx), cs, s.makeTasks(ctx, request, ps))
+	cs, ps, close := NewServerSender(ctx, server)
+	return s.dump(s.env.GetPachClient(ctx), cs, s.makeTasks(ctx, request, ps), close)
 }
 
 func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Request, ps ProgressSender) []taskFunc {
@@ -508,7 +535,7 @@ func recordProgress(ps ProgressSender, task string, total int) incProgressFunc {
 }
 
 // TODO: sharpen timeouts
-func (s *debugServer) dump(c *client.APIClient, cs ContentSender, tasks []taskFunc) (retErr error) {
+func (s *debugServer) dump(c *client.APIClient, cs ContentSender, tasks []taskFunc, close func()) (retErr error) {
 	ctx := c.Ctx() // this context has authorization credentials we need
 	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
 	if err := os.Mkdir(dumpRoot, 0744); err != nil {
@@ -529,9 +556,10 @@ func (s *debugServer) dump(c *client.APIClient, cs ContentSender, tasks []taskFu
 		ctx, cf = context.WithTimeout(ctx, 25*time.Minute) // If no client-side deadline set, use 25 minutes.
 		defer cf()
 	}
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, _ := errgroup.WithContext(ctx)
 	var mu sync.Mutex // to synchronize writes to the tar stream
 	dumpContent := &dumpContentServer{ctx: ctx, cs: cs}
+	defer close()
 	return grpcutil.WithStreamingBytesWriter(dumpContent, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
 			for _, f := range tasks {
@@ -554,7 +582,7 @@ func (s *debugServer) dump(c *client.APIClient, cs ContentSender, tasks []taskFu
 							}
 						}()
 						dfs := NewDumpFS(taskDir)
-						if err := f(ctx, dfs); err != nil {
+						if err := f(taskCtx, dfs); err != nil {
 							if writeErr := writeErrorFile(dfs, err, ""); writeErr != nil {
 								log.Error(taskCtx, "write error", zap.Error(writeErr))
 							}
@@ -575,7 +603,11 @@ func (s *debugServer) dump(c *client.APIClient, cs ContentSender, tasks []taskFu
 					})
 				}(f)
 			}
-			return errors.Wrap(eg.Wait(), "run dump tasks")
+			if err := eg.Wait(); err != nil {
+				return errors.Wrap(eg.Wait(), "run dump tasks")
+			}
+			// here we know we've written everything. just wait for the goro to finish sending
+			return nil
 		})
 	})
 }
