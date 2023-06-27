@@ -118,8 +118,9 @@ type apiServer struct {
 	peerPort              uint16
 	gcPercent             int
 	// collections
-	pipelines col.PostgresCollection
-	jobs      col.PostgresCollection
+	pipelines       col.PostgresCollection
+	jobs            col.PostgresCollection
+	clusterDefaults col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -3577,5 +3578,9 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 }
 
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
-	return nil, status.New(codes.Unimplemented, "GetClusterDefaults unimplemented").Err() //nolint:wrapcheck
+	var clusterDefaults pps.ClusterDefaults
+	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil && !errors.As(err, &col.ErrNotFound{}) {
+		return nil, errors.Wrap(err, "could not read cluster defaults")
+	}
+	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
 }

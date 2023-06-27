@@ -108,6 +108,7 @@ func NewAPIServerNoMaster(env Env) (ppsiface.APIServer, error) {
 		workerUsesRoot:        config.WorkerUsesRoot,
 		pipelines:             ppsdb.Pipelines(env.DB, env.Listener),
 		jobs:                  ppsdb.Jobs(env.DB, env.Listener),
+		clusterDefaults:       ppsdb.ClusterDefaults(env.DB, env.Listener),
 		workerGrpcPort:        config.PPSWorkerPort,
 		port:                  config.Port,
 		peerPort:              config.PeerPort,
@@ -126,16 +127,17 @@ func NewSidecarAPIServer(
 	peerPort uint16,
 ) (*apiServer, error) {
 	apiServer := &apiServer{
-		env:            env,
-		txnEnv:         env.TxnEnv,
-		etcdPrefix:     env.EtcdPrefix,
-		reporter:       env.Reporter,
-		namespace:      namespace,
-		workerUsesRoot: true,
-		pipelines:      ppsdb.Pipelines(env.DB, env.Listener),
-		jobs:           ppsdb.Jobs(env.DB, env.Listener),
-		workerGrpcPort: workerGrpcPort,
-		peerPort:       peerPort,
+		env:             env,
+		txnEnv:          env.TxnEnv,
+		etcdPrefix:      env.EtcdPrefix,
+		reporter:        env.Reporter,
+		namespace:       namespace,
+		workerUsesRoot:  true,
+		pipelines:       ppsdb.Pipelines(env.DB, env.Listener),
+		jobs:            ppsdb.Jobs(env.DB, env.Listener),
+		clusterDefaults: ppsdb.ClusterDefaults(env.DB, env.Listener),
+		workerGrpcPort:  workerGrpcPort,
+		peerPort:        peerPort,
 	}
 	go apiServer.ServeSidecarS3G(pctx.Child(env.BackgroundContext, "s3gateway", pctx.WithServerID()))
 	return apiServer, nil
