@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -15,6 +16,35 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+// ID is the auto-incrementing primary key used for entries in postgres tables.
+type ID uint64
+
+// ErrProjectNotFound is returned by GetProject() when a project is not found in postgres.
+type ErrProjectNotFound struct {
+	Name string
+	ID   ID
+}
+
+// Error satisfies the error interface.
+func (err ErrProjectNotFound) Error() string {
+	if n := err.Name; n != "" {
+		return fmt.Sprintf("project %q not found", n)
+	}
+	if id := err.ID; id != 0 {
+		return fmt.Sprintf("project id=%d not found", id)
+	}
+	return "project not found"
+}
+
+func (err ErrProjectNotFound) Is(other error) bool {
+	_, ok := other.(ErrProjectNotFound)
+	return ok
+}
+
+func (err ErrProjectNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, err.Error())
+}
+
 // ProjectIterator batches a page of projectRow entries. Entries can be retrieved using iter.Next().
 type ProjectIterator struct {
 	limit    int
@@ -23,9 +53,6 @@ type ProjectIterator struct {
 	index    int
 	tx       *pachsql.Tx
 }
-
-// ID is the auto-incrementing primary key used for entries in postgres tables.
-type ID uint64
 
 type projectRow struct {
 	ID          ID        `db:"id"`
@@ -38,7 +65,7 @@ type projectRow struct {
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
 func (iter *ProjectIterator) Next(ctx context.Context, dst **pfs.ProjectInfo) error {
 	if dst == nil {
-		return errors.Wrap(fmt.Errorf("project is nil"), "failed to get next project")
+		return errors.Wrap(fmt.Errorf("project is nil"), "get next project")
 	}
 	var err error
 	if iter.index >= len(iter.projects) {
@@ -46,7 +73,7 @@ func (iter *ProjectIterator) Next(ctx context.Context, dst **pfs.ProjectInfo) er
 		iter.offset += iter.limit
 		iter.projects, err = listProject(ctx, iter.tx, iter.limit, iter.offset)
 		if err != nil {
-			return errors.Wrap(err, "failed to list project page")
+			return errors.Wrap(err, "list project page")
 		}
 		if len(iter.projects) == 0 {
 			return stream.EOS()
@@ -55,7 +82,7 @@ func (iter *ProjectIterator) Next(ctx context.Context, dst **pfs.ProjectInfo) er
 	row := iter.projects[iter.index]
 	projectTimestamp, err := types.TimestampProto(row.CreatedAt)
 	if err != nil {
-		return errors.Wrap(err, "failed to convert time.Time to proto timestamp")
+		return errors.Wrap(err, "converting time.Time to proto timestamp")
 	}
 	*dst = &pfs.ProjectInfo{
 		Project:     &pfs.Project{Name: row.Name},
@@ -70,7 +97,7 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) (*ProjectIterator, error) 
 	limit := 100
 	page, err := listProject(ctx, tx, limit, 0)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list projects")
+		return nil, errors.Wrap(err, "list projects")
 	}
 	iter := &ProjectIterator{
 		projects: page,
@@ -93,21 +120,21 @@ func listProject(ctx context.Context, tx *pachsql.Tx, limit, offset int) ([]proj
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
 	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description) VALUES ($1, $2);", project.Project.Name, project.Description)
 	//todo: insert project.authInfo into auth table.
-	return errors.Wrap(err, "failed to create project")
+	return errors.Wrap(err, "create project")
 }
 
 // DeleteProject deletes an entry in the core.projects table.
 func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) error {
 	result, err := tx.ExecContext(ctx, "DELETE FROM core.projects WHERE name = $1;", projectName)
 	if err != nil {
-		return errors.Wrap(err, "failed to delete project")
+		return errors.Wrap(err, "delete project")
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		return errors.Wrap(fmt.Errorf("project %s does not exist", projectName), "failed to delete project")
+		return errors.Wrap(fmt.Errorf("project %s does not exist", projectName), "delete project")
 	}
 	return nil
 }
@@ -134,16 +161,16 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	var err error
 	if err = row.Scan(&project.Project.Name, &project.Description, &createdAt); err != nil {
 		if err == sql.ErrNoRows {
-			if _, ok := whereVal.(string); ok {
-				// only return a NotFound when querying by name.
-				return nil, collection.ErrNotFound{Type: "projects", Key: fmt.Sprintf("%v", whereVal)}
+			if name, ok := whereVal.(string); ok {
+				return nil, ErrProjectNotFound{Name: name}
 			}
+			return nil, ErrProjectNotFound{ID: whereVal.(ID)}
 		}
-		return nil, errors.Wrap(err, "failed scanning project row")
+		return nil, errors.Wrap(err, "scanning project row")
 	}
 	project.CreatedAt, err = types.TimestampProto(createdAt)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed converting project proto timestamp")
+		return nil, errors.Wrap(err, "converting project proto timestamp")
 	}
 	return project, nil
 }
@@ -163,11 +190,11 @@ func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 	res, err := tx.ExecContext(ctx, fmt.Sprintf("UPDATE core.projects SET name = $1, description = $2 WHERE %s = $3;", where),
 		project.Project.Name, project.Description, whereVal)
 	if err != nil {
-		return errors.Wrap(err, "failed to update project")
+		return errors.Wrap(err, "update project")
 	}
 	numRows, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "failed to get affected rows")
+		return errors.Wrap(err, "get affected rows")
 	}
 	if numRows == 0 {
 		if upsert {

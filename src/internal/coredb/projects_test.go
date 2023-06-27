@@ -74,6 +74,9 @@ func TestGetProject(t *testing.T) {
 		require.NoError(t, err, "should be able to get a project")
 		require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
 		require.Equal(t, createInfo.Description, getInfo.Description)
+		_, err = GetProject(cbCtx, tx, 3)
+		require.YesError(t, err, "should not be able to get non-existent project")
+		require.True(t, ErrProjectNotFound{ID: 3}.Is(err))
 		return nil
 	}))
 }
