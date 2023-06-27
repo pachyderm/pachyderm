@@ -87,10 +87,23 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	ctx, end := log.SpanContextL(ctx, "ApplyMigrations", log.InfoLevel)
 	defer end(log.Errorp(&retErr))
 
+	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	env := baseEnv
+	env.Tx = tx
 	for _, state := range CollectStates(make([]State, 0, state.n+1), state) {
-		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
-			return err
+		if err := ApplyMigrationTx(ctx, env, state); err != nil {
+			if err := tx.Rollback(); err != nil {
+				log.Error(ctx, "problem rolling back migrations", zap.Error(err))
+			}
+			return errors.EnsureStack(err)
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		log.Error(ctx, "failed to commit migration", zap.Error(err))
+		return errors.EnsureStack(err)
 	}
 	return nil
 }
@@ -110,8 +123,7 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 			panic(err)
 		}
 	}
-	_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
-	if err != nil {
+	if _, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`); err != nil {
 		return errors.EnsureStack(err)
 	}
 	if finished, err := isFinished(ctx, tx, state); err != nil {
@@ -136,22 +148,6 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 	msg = fmt.Sprintf("successfully applied migration %d", state.n)
 	log.Info(ctx, msg) // avoid log rate limit
 	return nil
-}
-
-func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	env := baseEnv
-	env.Tx = tx
-	if err := ApplyMigrationTx(ctx, env, state); err != nil {
-		if err := tx.Rollback(); err != nil {
-			log.Error(ctx, "problem rolling back migrations", zap.Error(err))
-		}
-		return errors.EnsureStack(err)
-	}
-	return errors.EnsureStack(tx.Commit())
 }
 
 // BlockUntil blocks until state is actualized.
