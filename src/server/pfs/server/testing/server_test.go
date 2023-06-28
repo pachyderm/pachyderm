@@ -26,6 +26,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -4588,7 +4589,19 @@ func TestPFS(suite *testing.T) {
 
 		_, err = env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit1, Limit: 1})
 		require.YesError(t, err)
-		require.Equal(t, err.Error(), pfsserver.ErrCommitNotFinished{Commit: commit1}.Error())
+		s, ok := status.FromError(err)
+		require.True(t, ok, "returned error must be a gRPC status")
+		var sawResourceInfo bool
+		for _, d := range s.Details() {
+			switch d := d.(type) {
+			case *errdetails.ResourceInfo:
+				require.Equal(t, d.ResourceType, "pfs:commit")
+				require.Equal(t, d.ResourceName, commit1.ID)
+				require.Equal(t, d.Description, "commit not finished")
+				sawResourceInfo = true
+			}
+		}
+		require.True(t, sawResourceInfo, "must have seen resource info in error details")
 	})
 
 	suite.Run("CopyFile", func(t *testing.T) {
