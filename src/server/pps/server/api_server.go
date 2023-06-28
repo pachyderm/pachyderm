@@ -2188,7 +2188,7 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, req *pps.C
 	password := req.Password
 	if sec, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, secretName, metav1.GetOptions{}); err != nil {
 		if !errutil.IsNotFoundError(err) {
-			return nil, err
+			return nil, errors.Wrapf(err, "get k8s secret %q", secretName)
 		}
 	} else {
 		if p, ok := sec.StringData["password"]; ok {
