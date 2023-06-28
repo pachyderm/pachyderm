@@ -175,18 +175,30 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	return res, nil
 }
 
-func (s *debugServer) fillApps(ctx context.Context, apps []*debug.App) error {
-	allApps, err := s.listApps(ctx)
+func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error {
+	apps, err := s.listApps(ctx)
 	if err != nil {
 		return err
 	}
 	appMap := make(map[string]*debug.App)
-	for _, a := range allApps {
+	for _, a := range apps {
 		appMap[a.Name] = a
 	}
-	for _, a := range apps {
-		if app, ok := appMap[a.Name]; ok {
-			a.Pods = app.Pods
+	for _, reqApp := range reqApps {
+		if app, ok := appMap[reqApp.Name]; ok {
+			if len(reqApp.Pods) == 0 {
+				reqApp.Pods = app.Pods
+			} else {
+				for _, reqPod := range reqApp.Pods {
+					for _, pod := range app.Pods {
+						if reqPod.Name == pod.Name {
+							reqPod.Ip = pod.Ip
+							break
+						}
+					}
+					return errors.Errorf("Requested pod %q of app %q not found", reqPod.Name, reqApp.Name)
+				}
+			}
 		}
 	}
 	return nil
