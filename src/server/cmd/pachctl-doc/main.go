@@ -26,7 +26,7 @@ func do(ctx context.Context, appEnvObj interface{}) error {
 	path := "./docs/"
 
 	if err := os.MkdirAll(path, os.ModePerm); !os.IsExist(err) && err != nil {
-		return err
+		return fmt.Errorf("error creating directory: %w", err)
 	}
 
 	rootCmd, err := cmd.PachctlCmd()
@@ -56,7 +56,6 @@ slug: "Learn about the %s command"
 	}
 
 	err = doc.GenMarkdownTreeCustom(rootCmd, path, filePrepender, linkHandler)
-
 	if err != nil {
 		return fmt.Errorf("failed to generate Markdown documentation: %w", err)
 	}
