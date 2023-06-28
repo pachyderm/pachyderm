@@ -3,7 +3,6 @@ package server_test
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"strings"
 	"testing"
 
@@ -345,5 +344,4 @@ func TestGetClusterDefaults(t *testing.T) {
 	require.NotNil(t, resp.ClusterDefaults)
 	require.NotEqual(t, "", resp.ClusterDefaults.DetailsJson, "details must not be empty")
 	require.NotEqual(t, "", resp.ClusterDefaults.EffectiveDetailsJson, "effective details must not be empty")
-	log.Println("QQQ", resp.ClusterDefaults.EffectiveDetailsJson)
 }
