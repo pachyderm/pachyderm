@@ -2,12 +2,14 @@ import io
 import os
 from contextlib import contextmanager
 from dataclasses import fields
+from functools import wraps
 from pathlib import Path
-from typing import ContextManager, Iterable, List, Union, TYPE_CHECKING
+from typing import Callable, ContextManager, Iterable, List, Union, TYPE_CHECKING
 
 from betterproto.lib.google.protobuf import Empty
 import grpc
 
+from ...errors import InvalidTransactionOperation
 from . import ApiStub as _GeneratedApiStub
 from . import (
     Branch,
@@ -32,6 +34,19 @@ if TYPE_CHECKING:
 BUFFER_SIZE = 19 * 1024 * 1024  # 19MB
 
 __all__ = ("ApiStub", "ClosedCommit", "OpenCommit")
+
+
+def transaction_incompatible(pfs_method: Callable) -> Callable:
+    """Decorator for marking methods of the PFS API which are
+    not allowed to occur during a transaction. """
+
+    @wraps(pfs_method)
+    def wrapper(stub: "ApiStub", *args, **kwargs):
+        if stub.within_transaction:
+            raise InvalidTransactionOperation()
+        return pfs_method(stub, *args, **kwargs)
+
+    return wrapper
 
 
 class ClosedCommit(Commit):
@@ -284,6 +299,23 @@ class OpenCommit(ClosedCommit):
 class ApiStub(_GeneratedApiStub):
     """An extension to the API stub generated from the PFS protobufs."""
 
+    def __init__(
+        self,
+        channel: grpc.Channel,
+        *,
+        get_transaction_id: Callable[[], str],
+    ):
+        self._get_transaction_id = get_transaction_id
+        super().__init__(channel=channel)
+
+    @property
+    def within_transaction(self) -> bool:
+        """For internal use.
+
+        Whether the client is currently within a transaction.
+        """
+        return bool(self._get_transaction_id())
+
     @contextmanager
     def commit(
         self, *, parent: "Commit" = None, description: str = "", branch: "Branch" = None
@@ -338,6 +370,7 @@ class ApiStub(_GeneratedApiStub):
         """
         return list(self.inspect_commit_set(commit_set=commit_set, wait=True))
 
+    @transaction_incompatible
     def put_files(
         self, *, commit: "Commit", source: Union[Path, str], path: str
     ) -> None:
@@ -375,6 +408,7 @@ class ApiStub(_GeneratedApiStub):
                 with open(src, "rb") as file:
                     self.put_file_from_file(commit=commit, path=dst, file=file)
 
+    @transaction_incompatible
     def put_file_from_bytes(
         self,
         *,
@@ -411,6 +445,7 @@ class ApiStub(_GeneratedApiStub):
             commit=commit, path=path, file=io.BytesIO(data), append=append
         )
 
+    @transaction_incompatible
     def put_file_from_url(
         self,
         *,
@@ -455,6 +490,7 @@ class ApiStub(_GeneratedApiStub):
         ]
         return self.modify_file(iter(operations))
 
+    @transaction_incompatible
     def put_file_from_file(
         self,
         *,
@@ -501,6 +537,7 @@ class ApiStub(_GeneratedApiStub):
                 yield ModifyFileRequest(add_file=AddFile(path=path, raw=data))
         return self.modify_file(operations())
 
+    @transaction_incompatible
     def copy_file(
         self,
         *,
@@ -540,6 +577,7 @@ class ApiStub(_GeneratedApiStub):
         ]
         return self.modify_file(iter(operations))
 
+    @transaction_incompatible
     def delete_file(self, *, commit: "Commit", path: str) -> Empty:
         """Copies a file within PFS
 
