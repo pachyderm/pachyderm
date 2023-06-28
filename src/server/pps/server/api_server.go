@@ -3601,7 +3601,7 @@ func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterD
 
 	var err error
 	if clusterDefaults.EffectiveDetailsJson, err = jsonMergePatch(emptyPipelineSpecJSON, clusterDefaults.DetailsJson); err != nil {
-		return nil, errors.Wrap(err, "could not merge nil with cluster default details")
+		return nil, errors.Wrap(err, "could not merge empty spec with cluster default details")
 	}
 
 	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
