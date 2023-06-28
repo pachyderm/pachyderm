@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,6 +13,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -344,4 +347,56 @@ func TestGetClusterDefaults(t *testing.T) {
 	require.NotNil(t, resp.ClusterDefaults)
 	require.NotEqual(t, "", resp.ClusterDefaults.DetailsJson, "details must not be empty")
 	require.NotEqual(t, "", resp.ClusterDefaults.EffectiveDetailsJson, "effective details must not be empty")
+}
+
+func TestSetClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	t.Run("BadJSON", func(t *testing.T) {
+		_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+			ClusterDefaults: &pps.ClusterDefaults{
+				DetailsJson: `#<this is not JSON>`,
+			},
+		})
+		require.YesError(t, err, "syntactically-invalid JSON is an error")
+		s, ok := status.FromError(err)
+		require.True(t, ok, "syntactically-invalid JSON returns a status")
+		require.Equal(t, codes.InvalidArgument, s.Code(), "syntactically-invalid JSON is an invalid argument")
+	})
+
+	t.Run("InvalidDetails", func(t *testing.T) {
+		_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+			ClusterDefaults: &pps.ClusterDefaults{
+				DetailsJson: `{"not an valid spec field":123}`,
+			},
+		})
+		require.YesError(t, err, "invalid details are an error")
+		s, ok := status.FromError(err)
+		require.True(t, ok, "semantically-invalid JSON returns a status")
+		require.Equal(t, codes.InvalidArgument, s.Code(), "semantically-invalid JSON is an invalid argument")
+	})
+
+	t.Run("ValidDetails", func(t *testing.T) {
+		resp, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+			ClusterDefaults: &pps.ClusterDefaults{
+				DetailsJson: `{"autoscaling": true}`,
+			},
+		})
+		require.NoError(t, err, "GetClusterDefaults failed")
+		require.NotEqual(t, "", resp.EffectiveDetailsJson, "returned effective details must not be empty")
+		// FIXME: this will change once CORE-1708 is implemented
+		require.Len(t, resp.AffectedPipelines, 0, "pipelines should not yet be affected by setting defaults")
+		getResp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+		require.NoError(t, err, "GetClusterDefaults failed")
+
+		var spec pps.PipelineSpec
+		err = json.Unmarshal([]byte(getResp.GetClusterDefaults().GetDetailsJson()), &spec)
+		require.NoError(t, err, "unmarshal retrieved cluster defaults")
+		require.True(t, spec.Autoscaling, "default autoscaling should be true after SetDetailsJSON")
+
+		err = json.Unmarshal([]byte(getResp.GetClusterDefaults().GetEffectiveDetailsJson()), &spec)
+		require.NoError(t, err, "unmarshal retrieved effective details")
+		require.True(t, spec.Autoscaling, "effective autoscaling should be true after SetDetailsJSON")
+	})
 }

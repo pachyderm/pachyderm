@@ -603,6 +603,10 @@ func (c *unsupportedPpsBuilderClient) RunPipeline(_ context.Context, _ *pps_v2.R
 	return nil, unsupportedError("RunPipeline")
 }
 
+func (c *unsupportedPpsBuilderClient) SetClusterDefaults(_ context.Context, _ *pps_v2.SetClusterDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.SetClusterDefaultsResponse, error) {
+	return nil, unsupportedError("SetClusterDefaults")
+}
+
 func (c *unsupportedPpsBuilderClient) StartPipeline(_ context.Context, _ *pps_v2.StartPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("StartPipeline")
 }

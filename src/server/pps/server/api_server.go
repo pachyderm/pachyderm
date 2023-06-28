@@ -20,6 +20,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -3643,4 +3644,38 @@ func mergePatch(target, patch any) any {
 	default:
 		return patch
 	}
+}
+
+func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
+	var d = json.NewDecoder(strings.NewReader(req.GetClusterDefaults().GetDetailsJson()))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&pps.PipelineSpec{}); err != nil {
+		s, err := status.New(codes.InvalidArgument, "invalid pipeline details").WithDetails(&errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{Field: "cluster_defaults.details_json", Description: err.Error()},
+			},
+		})
+		if err != nil {
+			log.Error(ctx, "could not add bad-request details", zap.Error(err))
+			s = status.New(codes.Internal, "could not add bad-request details")
+		}
+		return nil, s.Err()
+	}
+
+	effectiveDetails, err := jsonMergePatch(emptyPipelineSpecJSON, req.ClusterDefaults.GetDetailsJson())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to merge empty pipeline spec with cluster defaults")
+	}
+
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", req.ClusterDefaults); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return &pps.SetClusterDefaultsResponse{
+		EffectiveDetailsJson: effectiveDetails,
+	}, nil
 }

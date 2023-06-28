@@ -1488,6 +1488,7 @@ type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
 type getClusterDefaultsFunc func(context.Context, *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error)
+type setClusterDefaultsFunc func(context.Context, *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1523,6 +1524,7 @@ type mockListTaskPPS struct{ handler listTaskPPSFunc }
 type mockGetKubeEvents struct{ handler getKubeEventsFunc }
 type mockQueryLoki struct{ handler queryLokiFunc }
 type mockGetClusterDefaults struct{ handler getClusterDefaultsFunc }
+type mockSetClusterDefaults struct{ handler setClusterDefaultsFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1558,6 +1560,7 @@ func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.
 func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.handler = cb }
 func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.handler = cb }
 func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc)       { mock.handler = cb }
+func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc)       { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -1599,6 +1602,7 @@ type mockPPSServer struct {
 	GetKubeEvents      mockGetKubeEvents
 	QueryLoki          mockQueryLoki
 	GetClusterDefaults mockGetClusterDefaults
+	SetClusterDefaults mockSetClusterDefaults
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1804,6 +1808,12 @@ func (api *ppsServerAPI) GetClusterDefaults(ctx context.Context, req *pps.GetClu
 		return api.mock.GetClusterDefaults.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.GetClusterDefaults")
+}
+func (api *ppsServerAPI) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
+	if api.mock.SetClusterDefaults.handler != nil {
+		return api.mock.SetClusterDefaults.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.SetClusterDefaults")
 }
 
 /* Transaction Server Mocks */
