@@ -98,6 +98,10 @@ class TestTransaction:
             with client.pfs.commit(branch=branch) as commit:
                 with pytest.raises(InvalidTransactionOperation):
                     commit.put_file_from_bytes(path=test_file.path, data=b"hello world")
+                with pytest.raises(InvalidTransactionOperation):
+                    commit.copy_file(src=test_file.path, dst="/new_file.dat")
+                with pytest.raises(InvalidTransactionOperation):
+                    commit.delete_file(path=test_file.path)
 
         assert not client.pfs.path_exists(file=test_file), "file should not exist"
         assert client.pfs.repo_exists(repo=repo_txn), "txn resources should exist"
