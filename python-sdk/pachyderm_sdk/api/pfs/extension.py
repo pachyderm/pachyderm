@@ -31,6 +31,8 @@ if TYPE_CHECKING:
 
 BUFFER_SIZE = 19 * 1024 * 1024  # 19MB
 
+__all__ = ("ApiStub", "ClosedCommit", "OpenCommit")
+
 
 class ClosedCommit(Commit):
     """A ClosedCommit is an extension of the pfs.Commit message with some
@@ -287,6 +289,11 @@ class ApiStub(_GeneratedApiStub):
         self, *, parent: "Commit" = None, description: str = "", branch: "Branch" = None
     ) -> ContextManager["OpenCommit"]:
         """A context manager for running operations within a commit.
+
+        When inside this context, the returned object is an OpenCommit which accepts
+          write-operations. Upon exiting the context, the commit is closed and the
+          OpenCommit becomes a ClosedCommit, no longer allowing write-operations
+          to the commit.
 
         Parameters
         ----------
