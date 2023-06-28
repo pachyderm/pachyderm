@@ -189,14 +189,16 @@ func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error 
 			if len(reqApp.Pods) == 0 {
 				reqApp.Pods = app.Pods
 			} else {
+				appPods := make(map[string]*debug.Pod)
+				for _, p := range app.Pods {
+					appPods[p.Name] = p
+				}
 				for _, reqPod := range reqApp.Pods {
-					for _, pod := range app.Pods {
-						if reqPod.Name == pod.Name {
-							reqPod.Ip = pod.Ip
-							break
-						}
+					if pod, ok := appPods[reqPod.Name]; ok {
+						reqPod.Ip = pod.Ip
+					} else {
+						return errors.Errorf("Requested pod %q of app %q not found", reqPod.Name, reqApp.Name)
 					}
-					return errors.Errorf("Requested pod %q of app %q not found", reqPod.Name, reqApp.Name)
 				}
 			}
 		}
