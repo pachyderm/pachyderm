@@ -103,14 +103,10 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	var lokiApps []*debug.App
 	var pachApps []*debug.App
 	for _, app := range apps {
-		lokiApps = append(lokiApps, &debug.App{Name: app.Name, Pipeline: app.Pipeline})
+		app.Pods = nil // clear pods
+		lokiApps = append(lokiApps, app)
 		if app.Pipeline != nil || app.Name == "pachd" {
-			// Listing all the loki pods requires querying the logs which is too expensive to compute at template time.
-			// Since we don't actually know the pods, we only populate the App names.
 			pachApps = append(pachApps, app)
-			lokiApps = append(lokiApps, &debug.App{Name: app.Name, Pipeline: app.Pipeline})
-		} else {
-			lokiApps = append(lokiApps, app)
 		}
 	}
 	return &debug.GetDumpV2TemplateResponse{
@@ -131,7 +127,6 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	}, nil
 }
 
-// TODO: don't include pods in templates...?
 func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr error) {
 	ctx, end := log.SpanContext(ctx, "listApps")
 	defer end(log.Errorp(&retErr))
@@ -182,10 +177,34 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	return res, nil
 }
 
-// TODO
-// remove pods from templates?
-// top level errors colliding?
+func (s *debugServer) fillApps(ctx context.Context, apps []*debug.App) error {
+	allApps, err := s.listApps(ctx)
+	if err != nil {
+		return err
+	}
+	appMap := make(map[string]*debug.App)
+	for _, a := range allApps {
+		appMap[a.Name] = a
+	}
+	for _, a := range apps {
+		if app, ok := appMap[a.Name]; ok {
+			a.Pods = app.Pods
+		}
+	}
+	return nil
+}
+
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
+	// fill the pod info for all the pods referenced in request.System Apps
+	var apps []*debug.App
+	apps = append(apps, request.System.Binaries...)
+	apps = append(apps, request.System.Describes...)
+	apps = append(apps, request.System.Logs...)
+	apps = append(apps, request.System.LokiLogs...)
+	apps = append(apps, request.System.Profiles...)
+	if err := s.fillApps(server.Context(), apps); err != nil {
+		return err
+	}
 	return s.dump(s.env.GetPachClient(server.Context()), server, s.makeTasks(server.Context(), request, server))
 }
 
