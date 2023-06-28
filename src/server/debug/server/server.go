@@ -100,11 +100,9 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 		return nil, err
 	}
 	// App could have oneof label selector or list of specifics
-	var lokiApps []*debug.App
 	var pachApps []*debug.App
 	for _, app := range apps {
 		app.Pods = nil // clear pods
-		lokiApps = append(lokiApps, app)
 		if app.Pipeline != nil || app.Name == "pachd" {
 			pachApps = append(pachApps, app)
 		}
@@ -117,7 +115,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Version:   true,
 				Describes: apps,
 				Logs:      apps,
-				LokiLogs:  lokiApps,
+				LokiLogs:  apps,
 				Binaries:  pachApps,
 				Profiles:  pachApps,
 			},
