@@ -92,11 +92,6 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 	return s
 }
 
-// ChunkStorage returns the underlying chunk storage instance for this storage instance.
-func (s *Storage) ChunkStorage() *chunk.Storage {
-	return s.chunks
-}
-
 func (s *Storage) ShardConfig() *index.ShardConfig {
 	return s.shardConfig
 }
@@ -254,8 +249,8 @@ func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, er
 // Concat always returns the ID of a primitive fileset.
 func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var size int64
-	additive := index.NewWriter(ctx, s.ChunkStorage(), "additive-index-writer")
-	deletive := index.NewWriter(ctx, s.ChunkStorage(), "deletive-index-writer")
+	additive := index.NewWriter(ctx, s.chunks, "additive-index-writer")
+	deletive := index.NewWriter(ctx, s.chunks, "deletive-index-writer")
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {

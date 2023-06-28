@@ -512,6 +512,27 @@
                                             }
                                         }
                                     }
+                                },
+                                "query_scheduler": {
+                                    "type": "object",
+                                    "properties": {
+                                        "grpc_client_config": {
+                                            "type": "object",
+                                            "properties": {
+                                                "max_send_msg_size": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "server": {
+                                    "type": "object",
+                                    "properties": {
+                                        "grpc_server_max_recv_msg_size": {
+                                            "type": "integer"
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -688,56 +709,6 @@
                 }
             }
         },
-        "pachw": {
-            "type": "object",
-            "properties": {
-                "affinity": {
-                    "type": "object"
-                },
-                "inheritFromPachd": {
-                    "type": "boolean"
-                },
-                "inSidecars": {
-                    "type": "boolean"
-                },
-                "minReplicas": {
-                    "type": "integer"
-                },
-                "maxReplicas": {
-                    "type": "integer"
-                },
-                "nodeSelector": {
-                    "type": "object"
-                },
-                "resources": {
-                    "type": "object",
-                    "properties": {
-                        "limits": {
-                            "type": "object",
-                            "properties": {
-                                "memory": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "requests": {
-                            "type": "object",
-                            "properties": {
-                                "cpu": {
-                                    "type": "string"
-                                },
-                                "memory": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                },
-                "tolerations": {
-                    "type": "array"
-                }
-            }
-        },
         "pachd": {
             "type": "object",
             "properties": {
@@ -769,6 +740,41 @@
                             "type": "object"
                         }
                     }
+                },
+                "defaultPipelineCPURequest": {
+                    "type": "string"
+                },
+                "defaultPipelineMemoryRequest": {
+                    "type": "string"
+                },
+                "defaultPipelineStorageRequest": {
+                    "type": "string"
+                },
+                "defaultSidecarCPURequest": {
+                    "type": "string"
+                },
+                "defaultSidecarMemoryRequest": {
+                    "type": "string"
+                },
+                "defaultSidecarStorageRequest": {
+                    "type": "string"
+                },
+                "determined": {
+                    "type": "object",
+                    "properties": {
+                        "apiEndpoint": {
+                            "type": "string"
+                        },
+                        "credentialsSecretName": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "developmentLogger": {
+                    "type": "boolean"
+                },
+                "disableLogSampling": {
+                    "type": "boolean"
                 },
                 "enabled": {
                     "type": "boolean"
@@ -832,24 +838,6 @@
                 "goMemLimit": {
                     "type": "string"
                 },
-                "defaultPipelineCPURequest": {
-                    "type": "string"
-                },
-                "defaultPipelineMemoryRequest": {
-                    "type": "string"
-                },
-                "defaultPipelineStorageRequest": {
-                    "type": "string"
-                },
-                "defaultSidecarCPURequest": {
-                    "type": "string"
-                },
-                "defaultSidecarMemoryRequest": {
-                    "type": "string"
-                },
-                "defaultSidecarStorageRequest": {
-                    "type": "string"
-                },
                 "image": {
                     "type": "object",
                     "properties": {
@@ -864,20 +852,31 @@
                         }
                     }
                 },
+                "livenessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "failureThreshold": {
+                            "type": "integer"
+                        },
+                        "initialDelaySeconds": {
+                            "type": "integer"
+                        },
+                        "periodSeconds": {
+                            "type": "integer"
+                        },
+                        "successThreshold": {
+                            "type": "integer"
+                        },
+                        "timeoutSeconds": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "localhostIssuer": {
                     "type": "string"
                 },
                 "logLevel": {
                     "type": "string"
-                },
-                "disableLogSampling": {
-                    "type": "boolean"
-                },
-                "developmentLogger": {
-                    "type": "boolean"
-                },
-                "sqlQueryLogs": {
-                    "type": "boolean"
                 },
                 "lokiDeploy": {
                     "type": "boolean"
@@ -939,6 +938,26 @@
                         }
                     }
                 },
+                "readinessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "failureThreshold": {
+                            "type": "integer"
+                        },
+                        "initialDelaySeconds": {
+                            "type": "integer"
+                        },
+                        "periodSeconds": {
+                            "type": "integer"
+                        },
+                        "successThreshold": {
+                            "type": "integer"
+                        },
+                        "timeoutSeconds": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "replicas": {
                     "type": "integer"
                 },
@@ -994,6 +1013,29 @@
                         },
                         "name": {
                             "type": "string"
+                        }
+                    }
+                },
+                "sqlQueryLogs": {
+                    "type": "boolean"
+                },
+                "startupProbe": {
+                    "type": "object",
+                    "properties": {
+                        "failureThreshold": {
+                            "type": "integer"
+                        },
+                        "initialDelaySeconds": {
+                            "type": "integer"
+                        },
+                        "periodSeconds": {
+                            "type": "integer"
+                        },
+                        "successThreshold": {
+                            "type": "integer"
+                        },
+                        "timeoutSeconds": {
+                            "type": "integer"
                         }
                     }
                 },
@@ -1062,6 +1104,9 @@
                         "compactionShardSizeThreshold": {
                             "type": "string"
                         },
+                        "diskCacheSize": {
+                            "type": "integer"
+                        },
                         "google": {
                             "type": "object",
                             "properties": {
@@ -1073,6 +1118,9 @@
                                 }
                             }
                         },
+                        "levelFactor": {
+                            "type": "integer"
+                        },
                         "local": {
                             "type": "object",
                             "properties": {
@@ -1083,6 +1131,18 @@
                                     "type": "boolean"
                                 }
                             }
+                        },
+                        "maxFanIn": {
+                            "type": "integer"
+                        },
+                        "maxOpenFileSets": {
+                            "type": "integer"
+                        },
+                        "memoryCacheSize": {
+                            "type": "integer"
+                        },
+                        "memoryThreshold": {
+                            "type": "integer"
                         },
                         "microsoft": {
                             "type": "object",
@@ -1125,24 +1185,6 @@
                             "type": "integer"
                         },
                         "uploadConcurrencyLimit": {
-                            "type": "integer"
-                        },
-                        "memoryThreshold": {
-                            "type": "integer"
-                        },
-                        "levelFactor": {
-                            "type": "integer"
-                        },
-                        "maxFanIn": {
-                            "type": "integer"
-                        },
-                        "maxOpenFileSets": {
-                            "type": "integer"
-                        },
-                        "diskCacheSize": {
-                            "type": "integer"
-                        },
-                        "memoryCacheSize": {
                             "type": "integer"
                         }
                     }
@@ -1210,6 +1252,20 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "pachw": {
+            "type": "object",
+            "properties": {
+                "inSidecars": {
+                    "type": "boolean"
+                },
+                "inheritFromPachd": {
+                    "type": "boolean"
+                },
+                "maxReplicas": {
+                    "type": "integer"
                 }
             }
         },
@@ -1364,6 +1420,12 @@
                 "labels": {
                     "type": "object"
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "replicas": {
                     "type": "integer"
                 },
@@ -1396,6 +1458,9 @@
                     "properties": {
                         "annotations": {
                             "type": "object"
+                        },
+                        "externalTrafficPolicy": {
+                            "type": "string"
                         },
                         "httpNodePort": {
                             "type": "integer"
@@ -1456,6 +1521,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },

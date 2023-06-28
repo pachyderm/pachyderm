@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	fmt "fmt"
-	"path"
+	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -26,22 +27,26 @@ type Client interface {
 // trackedClient allows manipulation of individual chunks, by maintaining consistency between
 // a tracker and an kv.Store
 type trackedClient struct {
-	store   kv.Store
-	db      *pachsql.DB
-	tracker track.Tracker
-	renewer *Renewer
-	ttl     time.Duration
+	store        kv.Store
+	pool         *kv.Pool
+	db           *pachsql.DB
+	tracker      track.Tracker
+	maxChunkSize int
+	renewer      *Renewer
+	ttl          time.Duration
 }
 
 // NewClient returns a client which will write to objc, mdstore, and tracker.  Name is used
 // for the set of temporary objects
-func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewer) Client {
+func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewer, pool *kv.Pool) Client {
 	return &trackedClient{
-		store:   store,
-		db:      db,
-		tracker: tr,
-		renewer: renewer,
-		ttl:     defaultChunkTTL,
+		store:        store,
+		pool:         pool,
+		db:           db,
+		tracker:      tr,
+		maxChunkSize: DefaultMaxChunkSize,
+		renewer:      renewer,
+		ttl:          defaultChunkTTL,
 	}
 }
 
@@ -50,6 +55,9 @@ func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewe
 func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
 	if c.renewer == nil {
 		panic("client must have a renewer to create chunks")
+	}
+	if len(chunkData) > c.maxChunkSize {
+		return nil, errors.Errorf("data len=%d exceeds max chunk size %d", len(chunkData), c.maxChunkSize)
 	}
 	chunkID := Hash(chunkData)
 	needUpload, gen, err := c.beforeUpload(ctx, chunkID, md)
@@ -149,7 +157,7 @@ func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback
 		return err
 	}
 	key := chunkKey(chunkID, gen)
-	return errors.EnsureStack(c.store.Get(ctx, key, cb))
+	return errors.EnsureStack(c.pool.GetF(ctx, c.store, key, cb))
 }
 
 // Close closes the client, stopping the background renewal of created objects
@@ -177,7 +185,7 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 	}
 	for _, ent := range ents {
 		if readChunks {
-			if err := c.store.Get(ctx, chunkKey(ent.ChunkID, ent.Gen), func(data []byte) error {
+			if err := c.pool.GetF(ctx, c.store, chunkKey(ent.ChunkID, ent.Gen), func(data []byte) error {
 				return verifyData(ent.ChunkID, data)
 			}); err != nil {
 				if pacherr.IsNotExist(err) {
@@ -221,15 +229,29 @@ func (c *trackedClient) entryExists(ctx context.Context, chunkID ID, gen uint64)
 	return true, nil
 }
 
-func chunkPath(chunkID ID, gen uint64) string {
+func chunkKey(chunkID ID, gen uint64) (ret []byte) {
 	if len(chunkID) == 0 {
 		panic("chunkID cannot be empty")
 	}
-	return path.Join(prefix, fmt.Sprintf("%s.%016x", chunkID.HexString(), gen))
+	return fmt.Appendf(ret, "%s.%016x", chunkID.HexString(), gen)
 }
 
-func chunkKey(chunkID ID, gen uint64) []byte {
-	return []byte(chunkPath(chunkID, gen))
+func parseKey(key []byte) (ID, uint64, error) {
+	parts := bytes.SplitN(key, []byte("."), 2)
+	if len(parts) < 2 {
+		return nil, 0, errors.Errorf("invalid chunk key %q", key)
+	}
+	chunkID := make([]byte, hex.DecodedLen(len(parts[0])))
+	n, err := hex.Decode(chunkID, parts[0])
+	if err != nil {
+		return nil, 0, errors.EnsureStack(err)
+	}
+	chunkID = chunkID[:n]
+	gen, err := strconv.ParseUint(string(parts[1]), 16, 64)
+	if err != nil {
+		return nil, 0, errors.EnsureStack(err)
+	}
+	return chunkID, gen, nil
 }
 
 func newErrMissingObject(ent Entry) error {

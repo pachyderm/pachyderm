@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -32,7 +33,7 @@ type Env struct {
 	namespace         string
 	mode              PauseMode
 	unpausedMode      string
-	Config            serviceenv.Configuration
+	Config            pachconfig.Configuration
 }
 
 // PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.

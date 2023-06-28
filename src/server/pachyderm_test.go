@@ -7348,6 +7348,133 @@ func TestListJobSetPaged(t *testing.T) {
 	require.Equal(t, len(allJobSetInfos), len(reverseJIs))
 }
 
+func TestListJobSetWithProjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	client, _ := minikubetestenv.AcquireCluster(t)
+
+	inputRepo := tu.UniqueString("repo")
+	require.NoError(t, client.CreateRepo(pfs.DefaultProjectName, inputRepo))
+
+	// pipeline1 is in default project and takes inputRepo as input
+	// pipeline2 is in a non-default project, and takes pipeline1 as input
+	project := tu.UniqueString("project-")
+	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
+	require.NoError(t, client.CreateProject(project))
+	require.NoError(t, client.CreatePipeline(
+		pfs.DefaultProjectName,
+		pipeline1,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	require.NoError(t, client.CreatePipeline(
+		project,
+		pipeline2,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: pipeline1, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	require.NoError(t, client.PutFile(
+		&pfs.Commit{Branch: &pfs.Branch{
+			Name: "master",
+			Repo: &pfs.Repo{
+				Name:    inputRepo,
+				Type:    pfs.UserRepoType,
+				Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			}}},
+		"/file",
+		strings.NewReader("test data"),
+	))
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		_, err := client.WaitCommit(project, pipeline2, "master", "")
+		return err
+	})
+
+	// don't filter on any projects
+	rpcClient, err := client.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+	require.NoError(t, err)
+	gotPipelines := []string{}
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.OneOfEquals(t, pipeline1, gotPipelines)
+	require.OneOfEquals(t, pipeline2, gotPipelines)
+
+	// filter on default project
+	rpcClient, err = client.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: pfs.DefaultProjectName}}})
+	require.NoError(t, err)
+	gotPipelines = []string{}
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.OneOfEquals(t, pipeline1, gotPipelines)
+	require.NoneEquals(t, pipeline2, gotPipelines)
+
+	// filter on non-default project
+	rpcClient, err = client.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: project}}})
+	require.NoError(t, err)
+	gotPipelines = []string{}
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.OneOfEquals(t, pipeline2, gotPipelines)
+	require.NoneEquals(t, pipeline1, gotPipelines)
+
+	// filter on a bogus project
+	rpcClient, err = client.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: "bogus"}}})
+	require.NoError(t, err)
+	gotPipelines = []string{}
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.Len(t, gotPipelines, 0)
+
+	// filter with jq
+	rpcClient, err = client.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{JqFilter: `.state == "JOB_SUCCESS"`})
+	require.NoError(t, err)
+	gotJobs := 0
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			require.Equal(t, pps.JobState_JOB_SUCCESS, job.State)
+		}
+		gotJobs += len(jobSetInfo.Jobs)
+		return nil
+	}))
+	require.Equal(t, 4, gotJobs)
+
+	rpcClient, err = client.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{JqFilter: `.state == "JOB_FAILURE"`})
+	require.NoError(t, err)
+	gotJobs = 0
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		gotJobs += len(jobSetInfo.Jobs)
+		return nil
+	}))
+	require.Equal(t, 0, gotJobs)
+}
+
 func TestListJobPaged(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

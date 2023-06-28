@@ -66,7 +66,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	prefix := strings.TrimPrefix(url.Object, "/")
 	result := &PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
-		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
 				startOffset := task.StartOffset
 				length := int64(-1) // -1 means to read until end of file.

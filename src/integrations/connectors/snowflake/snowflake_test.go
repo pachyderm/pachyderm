@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -118,7 +119,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 		Template: writeTemplate,
 	})
 	require.NoError(t, err)
-	pipelineReader, err := ppsutil.NewPipelineManifestReader([]byte(fmt.Sprintf("[%s,%s]", readPipelineTempl.GetJson(), writePipelineTempl.GetJson())))
+	pipelineReader, err := ppsutil.NewPipelineManifestReader(strings.NewReader(fmt.Sprintf("[%s,%s]", readPipelineTempl.GetJson(), writePipelineTempl.GetJson())))
 	require.NoError(t, err)
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()

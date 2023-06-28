@@ -93,16 +93,23 @@ func (gen *TransactionClientGenerator) AddProto(proto *descriptor.FileDescriptor
 	return nil
 }
 
-func (gen *TransactionClientGenerator) Finish() (*plugin.CodeGeneratorResponse_File, error) {
+func (gen *TransactionClientGenerator) Finish() ([]*plugin.CodeGeneratorResponse_File, error) {
 	buf := &bytes.Buffer{}
 	if err := outTemplate.Execute(buf, gen); err != nil {
 		return nil, err
 	}
 
-	filename := "client/transaction.gen.go"
+	publicFilename := "client/transaction.gen.go"
+	privateFilename := "internal/client/transaction.gen.go"
 	content := buf.String()
-	return &plugin.CodeGeneratorResponse_File{
-		Name:    &filename,
-		Content: &content,
+	return []*plugin.CodeGeneratorResponse_File{
+		{
+			Name:    &publicFilename,
+			Content: &content,
+		},
+		{
+			Name:    &privateFilename,
+			Content: &content,
+		},
 	}, nil
 }

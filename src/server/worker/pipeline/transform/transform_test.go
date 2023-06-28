@@ -18,11 +18,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -30,7 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
