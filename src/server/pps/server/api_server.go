@@ -3577,10 +3577,70 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	}, nil
 }
 
+// This exists in case we end up not ommitting any empty values when marshalling
+// a spec.
+var emptyPipelineSpecJSON string
+
+func init() {
+	var spec pps.PipelineSpec
+	b, err := json.Marshal(spec)
+	if err != nil {
+		panic(fmt.Sprint("could not marshal empty pipeline spec: ", err))
+	}
+	emptyPipelineSpecJSON = string(b)
+}
+
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	var clusterDefaults pps.ClusterDefaults
-	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil && !errors.As(err, &col.ErrNotFound{}) {
-		return nil, errors.Wrap(err, "could not read cluster defaults")
+	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
+		if !errors.As(err, &col.ErrNotFound{}) {
+			return nil, errors.Wrap(err, "could not read cluster defaults")
+		}
+		clusterDefaults.DetailsJson = "{}"
 	}
+
+	var err error
+	if clusterDefaults.EffectiveDetailsJson, err = jsonMergePatch(emptyPipelineSpecJSON, clusterDefaults.DetailsJson); err != nil {
+		return nil, errors.Wrap(err, "could not merge nil with cluster default details")
+	}
+
 	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
+}
+
+func jsonMergePatch(target, patch string) (string, error) {
+	var targetObject, patchObject any
+	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal target JSON")
+	}
+	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal patch JSON")
+	}
+	result, err := json.Marshal(mergePatch(targetObject, patchObject))
+	if err != nil {
+		return "", errors.Wrap(err, "could not marshal merge patch result")
+	}
+	return string(result), nil
+}
+
+func mergePatch(target, patch any) any {
+	switch patch := patch.(type) {
+	case map[string]any:
+		var targetMap map[string]any
+		switch t := target.(type) {
+		case map[string]any:
+			targetMap = t
+		default:
+			targetMap = make(map[string]any)
+		}
+		for name, value := range patch {
+			if value == nil {
+				delete(targetMap, name)
+			} else {
+				targetMap[name] = mergePatch(targetMap[name], value)
+			}
+		}
+		return targetMap
+	default:
+		return patch
+	}
 }
