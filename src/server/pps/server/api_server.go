@@ -3577,8 +3577,9 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	}, nil
 }
 
-// This exists in case we end up not ommitting any empty values when marshalling
-// a spec.
+// emptyPipelineSpecJSON is the result of marshalling a zero pps.PipelineSpec
+// value.  It is used in case any of the PipelineSpec fields are marshaled even
+// if empty.
 var emptyPipelineSpecJSON string
 
 func init() {
