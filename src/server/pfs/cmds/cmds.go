@@ -79,9 +79,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
 		Long: "A repo (repository) is the top-level data object in Pachyderm and contains a collection of files, directories, and commits that are versioned-controlled. Repos exist under a Project, which is the top-level organizational object in Pachyderm. Files stored in an input repo can be of any type or size. " +
-			"After you create a repo using `pachctl create repo`, you can put files into it using `pachctl put file` or `pachctl put file url`. " +
-			"To transform the files in a repo, you can create a pipeline using `pachctl create pipeline` and pass in a specification that includes the repo's name (for example, `input.pfs.repo`) and reference to your user code attributes found in the `transform` key. " +
-			"See the Pipeline Specification documentation for more information: https://docs.pachyderm.com/latest/build-dags/pipeline-spec/",
+			"After you create a repo using `pachctl create repo`, you can put files into it using `pachctl put file`." +
+			"To transform the files in a repo, create a pipeline using `pachctl create pipeline` and pass in a specification that references your repo, user code, and other configurations. " +
+			"See Pipeline Specification documentation for more information: https://docs.pachyderm.com/latest/build-dags/pipeline-spec/",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
@@ -424,7 +424,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	finishCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Finish a started commit.",
-		Long: "This command finishes a started commit. Once a commit is finished, it is immutable. \n" +
+		Long: "This command finishes a started commit. \n" +
 			"\n" +
 			"\t- To force finish a commit, use the `--force` flag \n" +
 			"\t- To add a message to the commit, use the `--message` or `--description` flag \n" +
@@ -782,7 +782,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Print commits as they are created (finished).",
-		Long:  "This command prints commits as they are created in the specified repo and branch. By default, all existing commits on the specified branch are returned first.  A commit is only considered created when it's been finished.",
+		Long: "This command prints commits as they are created in the specified repo and branch. By default, all existing commits on the specified branch are returned first.  A commit is only considered created when it's been finished." +
+			"\n" +
+			"\t- To only see commits created after a certain commit, use the `--from` flag. \n" +
+			"\t- To only see new commits created from now on, use the `--new` flag. \n" +
+			"\t- To see all commit types, use the `--all` flag.\n" +
+			"\t- To only see commits of a specific type, use the `--origin` flag. \n",
 		Example: "\t {{alias}} foo@master ➔ subscribe to commits in the foo repo on the master branch \n" +
 			"\t- {{alias}} foo@bar --from 0001a0100b1c10d01111e001fg00h00i ➔ starting at <commit-id>, subscribe to commits in the foo repo on the master branch \n" +
 			"\t- {{alias}} foo@bar --new ➔ subscribe to commits in the foo repo on the master branch, but only for new commits created from now on \n",
@@ -922,8 +927,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\n" +
 			"\t- To create a branch for a repo in a particular project, use the `--project` flag; this requires the repo to already exist in that project \n" +
 			"\t- To attach an existing commit as the head commit of the new branch, use the `--head` flag \n" +
-			"\t- To set a trigger, use the `--trigger` flag, pass in the triggering branch (from the same repo, without `repo@`), and set conditions using `--trigger-size`, `--trigger-cron`, `--trigger-commits` \n" +
-			"\t- To require all defined triggering conditions to be met, use the `--trigger-all` flag; otherwise, each individual triggering condition will execute the trigger \n" +
+			"\t- To set a trigger, use the `--trigger` flag, pass in the branch (from same repo, without `repo@`), and set conditions using any of the `--trigger` options \n" +
+			"\t- To require all defined triggering conditions to be met, use the `--trigger-all` flag; otherwise, each condition can execute the trigger \n" +
 			"\t- To attach provenance to the new branch, use the `--provenance` flag. You can inspect provenance using `pachctl inspect branch foo@bar` \n" +
 			"\n" +
 			"Note: Starting a commit on the branch also creates it, so there's often no need to call this.",
@@ -1133,6 +1138,13 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- To set a limit on the number of returned commits, use the `--limits` flag \n" +
 			"\t- To set a timeout for your commit search, use the `--timeout` flag \n" +
 			"\t- To print the results as json, use the `--json` flag \n",
+		Example: "\t- {{alias}} foo@master:file \n" +
+			"\t- {{alias}} foo@master:file --project bar \n" +
+			"\t- {{alias}} foo@master:file --limit 10 \n" +
+			"\t- {{alias}} foo@master:file --timeout 10s \n" +
+			"\t- {{alias}} foo@master:file --json \n" +
+			"\t- {{alias}} foo@master:file --project bar --json --limit 100 --timeout 20s \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1432,7 +1444,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
-		Long: "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS. \n" +
+		Long: "This command puts a file into the filesystem.  This command supports a number of ways to insert data into PFS. \n" +
 			"\n" +
 			"Files, Directories, & URLs: \n" +
 			"\t- To upload via local filesystem, use the `-f` flag \n" +
@@ -1574,7 +1586,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Specify file provided contains a list of files to be put (as paths or URLs).")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Specify files should be recursively put into a directory.")
 	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Specify data should be compressed during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
-	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "Specify the maximum number of files that can be uploaded in parallel.")
+	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "Set the maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Specify file contents should be appended to existing content from previous commits or previous calls to 'pachctl put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "Specify entire path provided to -f should be the target filename in PFS; by default only the base of the path is used.")

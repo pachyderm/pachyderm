@@ -332,9 +332,9 @@ func PachctlCmd() (*cobra.Command, error) {
 			"\n" +
 			"\t- PACH_CONFIG=<path> | (Req) PachCTL config location. \n" +
 			"\t- PACH_TRACE={true,false} | (Opt) Attach Jaeger trace to outgoing RPCs; JAEGER_ENDPOINT must be specified. \n" +
-			"\t\t(req. PACH_TRACE={true}) \n" +
+			"\t\t[req. PACH_TRACE={true}]: \n" +
 			"\t\t- JAEGER_ENDPOINT=<host>:<port>  | Jaeger server to connect to. \n" +
-			"\t\t- PACH_TRACE_DURATION=<duration> | Duration to trace pipelines after 'pachctl create-pipeline'. \n\n" +
+			"\t\t- PACH_TRACE_DURATION=<duration> | Duration to trace pipelines after 'pachctl create-pipeline'. \n \n" +
 			"Documentation: https://docs.pachyderm.com/latest/",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if pachctlCfg.Verbose {
