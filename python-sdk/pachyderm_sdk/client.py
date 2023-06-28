@@ -85,17 +85,14 @@ class Client:
             auth_token = os.environ.get(AUTH_TOKEN_ENV)
 
         tls = tls or (root_certs is not None)
-        if tls and root_certs is None:
-            # load default certs if none are specified
-            import certifi
-
-            with open(certifi.where(), "rb") as f:
-                root_certs = f.read()
-
         self.address = "{}:{}".format(host, port)
         self.root_certs = root_certs
+        self.tls = tls
         channel = _create_channel(
-            self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
+            address=self.address,
+            root_certs=self.root_certs,
+            options=GRPC_CHANNEL_OPTIONS,
+            tls=self.tls
         )
 
         self._auth_token = auth_token
@@ -265,7 +262,7 @@ class Client:
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
             channel=_create_channel(
-                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
+                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS, tls=self.tls
             ),
             metadata=self._metadata,
         )
@@ -281,7 +278,7 @@ class Client:
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
             channel=_create_channel(
-                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
+                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS, tls=self.tls
             ),
             metadata=self._metadata,
         )
@@ -305,7 +302,8 @@ class Client:
             channel = _create_channel(
                 address=f"localhost:{port}",
                 root_certs=None,
-                options=GRPC_CHANNEL_OPTIONS
+                options=GRPC_CHANNEL_OPTIONS,
+                tls=False
             )
             self._worker = _WorkerStub(channel)
         return self._worker
@@ -353,8 +351,10 @@ def _create_channel(
     address: str,
     root_certs: Optional[bytes],
     options: MetadataType,
+    tls: bool = False,
 ) -> grpc.Channel:
-    if root_certs is not None:
-        ssl = grpc.ssl_channel_credentials(root_certificates=root_certs)
+    if tls:
+        ssl = (grpc.ssl_channel_credentials() if root_certs is None
+               else grpc.ssl_channel_credentials(root_certificates=root_certs))
         return grpc.secure_channel(address, ssl, options=options)
     return grpc.insecure_channel(address, options=options)
