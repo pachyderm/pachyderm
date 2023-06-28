@@ -31,20 +31,12 @@ if TYPE_CHECKING:
 
 BUFFER_SIZE = 19 * 1024 * 1024  # 19MB
 
+__all__ = ("ApiStub", "ClosedCommit", "OpenCommit")
 
-class OpenCommit(Commit):
-    """An OpenCommit is an extension of the pfs.Commit message with some
-    helpful methods that provide a more intuitive UX when writing to a commit.
 
-    Examples
-    --------
-    >>> from pachyderm_sdk import Client
-    >>> from pachyderm_sdk.api import pfs
-    >>> client: Client
-    >>> with client.pfs.commit(branch=pfs.Branch.from_uri("data@master")) as commit:
-    >>>     commit.put_file_from_bytes("/greeting.txt", b"Hello!")
-    >>>     commit.delete_file("/rude/insult.txt")
-    >>> commit.wait()
+class ClosedCommit(Commit):
+    """A ClosedCommit is an extension of the pfs.Commit message with some
+    helpful methods. Cannot write to a closed commit.
     """
 
     def __init__(self, commit: "Commit", stub: "ApiStub"):
@@ -53,13 +45,12 @@ class OpenCommit(Commit):
         Parameters
         ----------
         commit : pfs.Commit
-            The "open" commit to write to.
+            The commit.
         stub : pfs.ApiStub
             The API class to route requests though.
         """
         self._commit = commit
         self._stub = stub
-        self._open = True
 
         # This is required to maintain serialization capabilities while being
         #   future compatible with any new fields to the pfs.Commit message.
@@ -86,6 +77,40 @@ class OpenCommit(Commit):
         (See example in class docstring)
         """
         return self._stub.wait_commit_set(CommitSet(id=self._commit.id))
+
+
+class OpenCommit(ClosedCommit):
+    """An OpenCommit is an extension of the pfs.Commit message with some
+    helpful methods that provide a more intuitive UX when writing to a commit.
+
+    Examples
+    --------
+    >>> from pachyderm_sdk import Client
+    >>> from pachyderm_sdk.api import pfs
+    >>> client: Client
+    >>> with client.pfs.commit(branch=pfs.Branch.from_uri("data@master")) as commit:
+    >>>     commit.put_file_from_bytes("/greeting.txt", b"Hello!")
+    >>>     commit.delete_file("/rude/insult.txt")
+    >>> commit.wait()
+    """
+
+    def __init__(self, commit: "Commit", stub: "ApiStub"):
+        """Internal Use: Do not create this object yourself.
+
+        Parameters
+        ----------
+        commit : pfs.Commit
+            The "open" commit to write to.
+        stub : pfs.ApiStub
+            The API class to route requests though.
+        """
+        self._commit = commit
+        self._stub = stub
+        super().__init__(commit, stub)
+
+    def _close(self):
+        """Transform an OpenCommit into a ClosedCommit."""
+        self.__class__ = ClosedCommit
 
     def put_file_from_bytes(
         self,
@@ -117,8 +142,6 @@ class OpenCommit(Commit):
         >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as commit:
         >>>     commit.put_file_from_bytes(path="/file.txt", data=b"SOME BYTES")
         """
-        if not self._open:
-            raise ValueError("Cannot write to a closed commit")
         self._stub.put_file_from_bytes(
             commit=self, path=path, data=data, append=append
         )
@@ -157,8 +180,6 @@ class OpenCommit(Commit):
         >>>         path="/index.html", url="https://www.pachyderm.com/index.html"
         >>>     )
         """
-        if not self._open:
-            raise ValueError("Cannot write to a closed commit")
         self._stub.put_file_from_url(
             commit=self, path=path, url=url, recursive=recursive
         )
@@ -196,8 +217,6 @@ class OpenCommit(Commit):
         >>>     with open("local_file.dat", "rb") as source:
         >>>         commit.put_file_from_file(path="/index.html", file=source)
         """
-        if not self._open:
-            raise ValueError("Cannot write to a closed commit")
         self._stub.put_file_from_file(
             commit=self, path=path, file=file, append=append
         )
@@ -235,8 +254,6 @@ class OpenCommit(Commit):
         >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as commit:
         >>>     commit.copy_file(src=source, dst="/copy.dat")
         """
-        if not self._open:
-            raise ValueError("Cannot modify a closed commit")
         self._stub.copy_file(commit=self, src=src, dst=dst, append=append)
         return File(commit=self._commit, path=dst)
 
@@ -260,8 +277,6 @@ class OpenCommit(Commit):
         >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as commit:
         >>>     commit.delete_file(path="/file.dat")
         """
-        if not self._open:
-            raise ValueError("Cannot modify a closed commit")
         self._stub.delete_file(commit=self, path=path)
         return File(commit=self._commit, path=path)
 
@@ -274,6 +289,11 @@ class ApiStub(_GeneratedApiStub):
         self, *, parent: "Commit" = None, description: str = "", branch: "Branch" = None
     ) -> ContextManager["OpenCommit"]:
         """A context manager for running operations within a commit.
+
+        When inside this context, the returned object is an OpenCommit which accepts
+          write-operations. Upon exiting the context, the commit is closed and the
+          OpenCommit becomes a ClosedCommit, no longer allowing write-operations
+          to the commit.
 
         Parameters
         ----------
@@ -301,10 +321,11 @@ class ApiStub(_GeneratedApiStub):
         >>>     c.put_file_from_bytes(c, "/new_file.txt", b"DATA")
         """
         commit = self.start_commit(parent=parent, description=description, branch=branch)
+        commit_obj = OpenCommit(commit=commit, stub=self)
         try:
-            yield OpenCommit(commit=commit, stub=self)
+            yield commit_obj
         finally:
-            commit._open = False
+            commit_obj._close()
             self.finish_commit(commit=commit)
 
     def wait_commit(self, commit: "Commit") -> "CommitInfo":
