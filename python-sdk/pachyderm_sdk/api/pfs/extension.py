@@ -35,6 +35,8 @@ BUFFER_SIZE = 19 * 1024 * 1024  # 19MB
 
 
 def transaction_incompatible(pfs_method: Callable) -> Callable:
+    """Decorator for marking methods of the PFS API which are
+    not allowed to occur during a transaction. """
 
     @wraps(pfs_method)
     def wrapper(stub: "ApiStub", *args, **kwargs):
