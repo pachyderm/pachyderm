@@ -491,6 +491,10 @@ func (c *unsupportedPpsBuilderClient) ActivateAuth(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("ActivateAuth")
 }
 
+func (c *unsupportedPpsBuilderClient) CreateDetPipelineSideEffects(_ context.Context, _ *pps_v2.CreateDetPipelineSideEffectsRequest, opts ...grpc.CallOption) (*pps_v2.CreateDetPipelineSideEffectsResponse, error) {
+	return nil, unsupportedError("CreateDetPipelineSideEffects")
+}
+
 func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v2.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CreatePipeline")
 }

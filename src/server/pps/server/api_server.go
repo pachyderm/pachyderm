@@ -2166,13 +2166,68 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.validateSecret(ctx, request); err != nil {
 		return nil, err
 	}
-
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// CreateDetPipelineSideEffects implements the protobuf pps.CreateDetPipelineSideEffects RPC
+// Modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
+// Provisions a determined user on representing the pipeline, and stores its password in a kubernetes secret named "{project}/{pipeline}-det"
+//
+// Implementation Notes:
+// - This method must be idempotent, as it interfaces with Pachyderm's Transaction API that may run this multiple times
+//
+// TODO: set up garbage collection for the records stored outside the DB
+func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, req *pps.CreateDetPipelineSideEffectsRequest) (*pps.CreateDetPipelineSideEffectsResponse, error) {
+	// check if pipeline's creds secret exists
+	secretName := req.Pipeline.Project.Name + "-" + req.Pipeline.Name + "-det"
+	password := req.Password
+	if sec, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, secretName, metav1.GetOptions{}); err != nil {
+		if !errutil.IsNotFoundError(err) {
+			return nil, err
+		}
+	} else {
+		if p, ok := sec.StringData["password"]; ok {
+			if password == "" {
+				password = p
+			} else if password == p {
+				// state is already applied, exit early
+				return &pps.CreateDetPipelineSideEffectsResponse{Password: password}, nil
+			}
+		}
+	}
+	if password == "" {
+		password = uuid.NewWithoutDashes()
+	}
+	whoAmI, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if err != nil {
+		return nil, errors.Wrap(err, "who am i")
+	}
+	if err := a.hookDeterminedPipeline(ctx, req.Pipeline, req.Workspaces, password, whoAmI.Username); err != nil {
+		return nil, errors.Wrapf(err, "failed to connect pipeline %q to determined", req.Pipeline.String())
+	}
+	s := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: a.namespace,
+		},
+		StringData: map[string]string{
+			"password": password,
+		},
+	}
+	s.SetLabels(map[string]string{
+		"suite": "pachyderm",
+	})
+	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, s, metav1.CreateOptions{}); err != nil {
+		return nil, errors.Wrapf(err, "failed to create pipeline's determined secret")
+	}
+	return &pps.CreateDetPipelineSideEffectsResponse{
+		Password: password,
+	}, nil
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
@@ -2386,33 +2441,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		return nil
 	}(); err != nil {
 		return err
-	}
-	// TODO: should this be done before the start of the txn?
-	// handle determined hook
-	if newPipelineInfo.Details.Determined != nil {
-		password, err := a.hookDeterminedPipeline(context.Background(), newPipelineInfo.Pipeline, newPipelineInfo.Details.Determined.Workspaces, newPipelineInfo.Details.Determined.Password)
-		if err != nil {
-			return errors.Wrapf(err, "failed to connect pipeline %q to determined", newPipelineInfo.Pipeline.String())
-		}
-		newPipelineInfo.Details.Determined.Password = password
-		// create det secret for pipeline
-		secretName := newPipelineInfo.Pipeline.Project.Name + "-" + newPipelineInfo.Pipeline.Name + "-det"
-		s := &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: a.namespace,
-			},
-			Data: map[string][]byte{
-				"password": []byte(password),
-			},
-		}
-		s.SetLabels(map[string]string{
-			"suite": "pachyderm",
-		})
-		if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(context.Background(), s, metav1.CreateOptions{}); err != nil {
-			return errors.Wrapf(err, "failed to create pipeline's determined secret")
-		}
-
 	}
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {

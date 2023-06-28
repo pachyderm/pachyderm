@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -24,11 +23,12 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/workspacev1"
 )
 
-func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline, workspaces []string, password string) (string, error) {
+func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline, workspaces []string, pipPassword string, whoami string) error {
 	var cf context.CancelFunc
 	ctx, cf = context.WithTimeout(ctx, 60*time.Second)
 	defer cf()
 	errCnt := 0
+	// right now the entire integration is specifc to auth, so first check that auth is active
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		conn, err := grpc.DialContext(ctx, a.env.Config.DeterminedURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -36,7 +36,6 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 		}
 		defer conn.Close()
 		dc := det.NewDeterminedClient(conn)
-		// TODO: add check to verify calling subject has Editor Permissions on each workspace
 		tok, err := mintDeterminedToken(ctx, dc, a.env.Config.DeterminedUsername, a.env.Config.DeterminedPassword)
 		if err != nil {
 			return err
@@ -49,10 +48,10 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 		if err := validateWorkspacePermissions(ctx, dc, detWorkspaces); err != nil {
 			return err
 		}
-		if password == "" {
-			password = uuid.NewWithoutDashes()
+		if err := validateWorkspacePermsByUser(ctx, dc, whoami, detWorkspaces); err != nil {
+			return err
 		}
-		userId, err := provisionDeterminedPipelineUser(ctx, dc, p, password)
+		userId, err := provisionDeterminedPipelineUser(ctx, dc, p, pipPassword)
 		if err != nil {
 			return err
 		}
@@ -72,9 +71,9 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 		}
 		return nil
 	}); err != nil {
-		return "", err
+		return err
 	}
-	return password, nil
+	return nil
 }
 
 func workspaceEditorRoleId(ctx context.Context, dc det.DeterminedClient) (int32, error) {
@@ -125,6 +124,47 @@ func mintDeterminedToken(ctx context.Context, dc det.DeterminedClient, username,
 		return "", errors.Wrap(err, "login as determined user")
 	}
 	return loginResp.Token, nil
+}
+
+func validateWorkspacePermsByUser(ctx context.Context, dc det.DeterminedClient, user string, ws []*workspacev1.Workspace) error {
+	detUser, err := dc.GetUserByUsername(ctx, &det.GetUserByUsernameRequest{Username: user})
+	if err != nil {
+		return errors.Wrapf(err, "get determined user %q", user)
+	}
+	resp, err := dc.GetRolesAssignedToUser(ctx, &det.GetRolesAssignedToUserRequest{UserId: detUser.User.Id})
+	if err != nil {
+		return errors.Wrapf(err, "get roles assigned to user %q", user)
+	}
+	workspaceMap := make(map[int32]*workspacev1.Workspace)
+	for _, w := range ws {
+		workspaceMap[w.Id] = w
+	}
+	for _, r := range resp.Roles {
+		relevant := false
+		for _, p := range r.Role.Permissions {
+			if p.Id == rbacv1.PermissionType_PERMISSION_TYPE_EDIT_MODEL_REGISTRY {
+				relevant = true
+			}
+		}
+		if !relevant {
+			continue
+		}
+		for _, a := range r.UserRoleAssignments {
+			// if user is editor of the cluster, exit early
+			if a.RoleAssignment.ScopeCluster {
+				return nil
+			}
+			delete(workspaceMap, *a.RoleAssignment.ScopeWorkspaceId)
+		}
+	}
+	if len(workspaceMap) > 0 {
+		var workspaces []string
+		for _, w := range workspaceMap {
+			workspaces = append(workspaces, w.Name)
+		}
+		return errors.Errorf("user %q doesn't have editor access for determined workspaces: %v", workspaces)
+	}
+	return nil
 }
 
 func validateWorkspacePermissions(ctx context.Context, dc det.DeterminedClient, dws []*workspacev1.Workspace) error {

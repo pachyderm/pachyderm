@@ -861,6 +861,16 @@ message LokiLogMessage {
   string message = 1;
 }
 
+message CreateDetPipelineSideEffectsRequest {
+  Pipeline pipeline = 1;
+  repeated string workspaces = 2;
+  string password = 3;
+}
+
+message CreateDetPipelineSideEffectsResponse {
+  string password = 1;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -917,4 +927,7 @@ service API {
 
   // QueryLoki returns a stream of loki log messages given a query string
   rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // CreateDeterminedPipelineSideEffects prepares adjacent systems to work with pachyderm's determined pipelines.
+  rpc CreateDetPipelineSideEffects(CreateDetPipelineSideEffectsRequest) returns (CreateDetPipelineSideEffectsResponse) {}
 }
