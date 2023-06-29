@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 
@@ -28,12 +29,12 @@ func do(ctx context.Context, appEnvObj interface{}) error {
 	path := "./docs/"
 
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {
-		return err
+		return errors.Wrap(err, "make output directory")
 	}
 
 	rootCmd, err := cmd.PachctlCmd()
 	if err != nil {
-		return fmt.Errorf("could not generate pachctl command: %v", err)
+		return errors.Wrap(err, "generate pachctl command")
 	}
 	rootCmd.DisableAutoGenTag = true
 
@@ -60,7 +61,7 @@ slug: "Learn about the %s command"
 	err = doc.GenMarkdownTreeCustom(rootCmd, path, filePrepender, linkHandler)
 
 	if err != nil {
-		return fmt.Errorf("failed to generate Markdown documentation: %v", err)
+		return errors.Wrap(err, "generate Markdown documentation")
 	}
 
 	return nil
