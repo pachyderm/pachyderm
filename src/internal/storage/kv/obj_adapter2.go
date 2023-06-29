@@ -2,24 +2,26 @@ package kv
 
 import (
 	"context"
-	"errors"
 	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+
 	"gocloud.dev/blob"
+	"gocloud.dev/gcerrors"
 )
 
 type ObjectStore2 struct {
 	b                        *blob.Bucket
-	maxKeySize, maxValueSise int
+	maxKeySize, maxValueSize int
 }
 
 func NewFromBucket(b *blob.Bucket, maxKeySize, maxValueSize int) *ObjectStore2 {
 	return &ObjectStore2{
 		b:            b,
 		maxKeySize:   maxKeySize,
-		maxValueSise: maxValueSize,
+		maxValueSize: maxValueSize,
 	}
 }
 
@@ -34,26 +36,34 @@ func (s *ObjectStore2) Get(ctx context.Context, key []byte, buf []byte) (int, er
 	return miscutil.ReadInto(buf, r)
 }
 
-func (s *ObjectStore2) Put(ctx context.Context, key []byte, value []byte) (int, error) {
-	// TODO: add checks for keys and values exceeding max size.
+func (s *ObjectStore2) Put(ctx context.Context, key []byte, value []byte) error {
+	if len(key) > s.maxKeySize {
+		return errors.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
+	}
+	if len(value) > s.maxValueSize {
+		return errors.Errorf("max value size %d exceeded. len(value)=%d", s.maxKeySize, len(value))
+	}
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	w, err := s.b.NewWriter(ctx, string(key), &blob.WriterOptions{
 		MaxConcurrency: 1,
-		BufferSize:     s.maxValueSise,
+		BufferSize:     s.maxValueSize,
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	n, err := w.Write(value)
-	if err != nil {
-		return 0, err
+	if _, err := w.Write(value); err != nil {
+		return err
 	}
-	return n, w.Close()
+	return w.Close()
 }
 
-func (s *ObjectStore2) Delete(ctx context.Context, key []byte, buf []byte) error {
-	return s.b.Delete(ctx, string(key))
+func (s *ObjectStore2) Delete(ctx context.Context, key []byte) error {
+	err := s.b.Delete(ctx, string(key))
+	if gcerrors.Code(err) == gcerrors.NotFound {
+		err = nil
+	}
+	return err
 }
 
 func (s *ObjectStore2) Exists(ctx context.Context, key []byte) (bool, error) {
@@ -78,7 +88,7 @@ func (it *objIterator) Next(ctx context.Context, dst *[]byte) error {
 	x, err := it.it.Next(ctx)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return stream.EOS
+			return stream.EOS()
 		}
 		return err
 	}
