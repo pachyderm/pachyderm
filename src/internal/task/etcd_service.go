@@ -147,28 +147,28 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					err = errors.New(task.Reason)
 				}
 				if ed.cache != nil && err == nil {
-					if err := ed.cache.Put(ctx, task.ID, task.Output); err != nil {
+					if err := ed.cache.Put(ctx, task.Id, task.Output); err != nil {
 						log.Info(ctx, "errored putting task in cache",
 							zap.String("taskType", task.GetInput().GetTypeUrl()),
-							zap.String("taskID", task.GetID()),
+							zap.String("taskID", task.GetId()),
 							zap.Error(err))
 					}
 				}
 
 				log.Debug(ctx, "task callback starting",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()),
+					zap.String("taskID", task.GetId()),
 					zap.Error(err))
 				if err := cb(task.Index, task.Output, err); err != nil {
 					log.Debug(ctx, "task callback errored",
 						zap.String("taskType", task.GetInput().GetTypeUrl()),
-						zap.String("taskID", task.GetID()),
+						zap.String("taskID", task.GetId()),
 						zap.Error(err))
 					return err
 				}
 				log.Debug(ctx, "task callback finished ok",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()))
+					zap.String("taskID", task.GetId()))
 
 				atomic.AddInt64(&count, -1)
 				select {
@@ -227,7 +227,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				taskKey := path.Join(prefix, taskID)
 				task := &Task{
-					ID:    taskID,
+					Id:    taskID,
 					Input: input,
 					State: State_RUNNING,
 					Index: index,
@@ -379,11 +379,11 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
 				log.Debug(ctx, "task received",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()))
+					zap.String("taskID", task.GetId()))
 				taskOutput, taskErr := cb(ctx, task.Input)
 				log.Debug(ctx, "task completed",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()),
+					zap.String("taskID", task.GetId()),
 					zap.Error(taskErr))
 
 				// If the task context was canceled or the claim was lost, just return with no error.

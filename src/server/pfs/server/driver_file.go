@@ -27,7 +27,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
 		branch := proto.Clone(commit.Branch).(*pfs.Branch)
-		commitID := commit.ID
+		commitID := commit.Id
 		if branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
 			branch.Name = commitID
 			commitID = ""
@@ -116,7 +116,7 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 
 func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
 	if commit.AccessRepo().Name == fileSetsRepo {
-		fsid, err := fileset.ParseID(commit.ID)
+		fsid, err := fileset.ParseID(commit.Id)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -403,7 +403,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		opts = append(opts, WithPathRange(pathRange))
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
+	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.Id, p))
 	if number == 0 {
 		number = math.MaxInt64
 	}

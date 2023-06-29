@@ -221,8 +221,8 @@ func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask)
 // git inputs.
 func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*types.Any, error) {
 	var output *types.Any
-	if err := status.withJob(task.Job.ID, func() error {
-		logger = logger.WithJob(task.Job.ID)
+	if err := status.withJob(task.Job.Id, func() error {
+		logger = logger.WithJob(task.Job.Id)
 		return errors.EnsureStack(logger.LogStep("process datum set task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {

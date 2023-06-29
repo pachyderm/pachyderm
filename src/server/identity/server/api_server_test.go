@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -310,5 +311,5 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.True(t, time.Until(*whoAmIResp.Expiration) < time.Hour)
+	require.True(t, time.Until(protoutil.MustTime(whoAmIResp.Expiration)) < time.Hour)
 }

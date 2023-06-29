@@ -20,7 +20,7 @@ func ResolveCommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (
 			return c, nil
 		}
 	}
-	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
+	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, Id: commitSet}}
 }
 
 // CommitSetProvenance returns all the commit IDs that are in the provenance
@@ -97,7 +97,7 @@ func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 
 func AddCommit(tx *pachsql.Tx, commit *pfs.Commit) error {
 	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`
-	_, err := tx.Exec(stmt, CommitKey(commit), commit.ID)
+	_, err := tx.Exec(stmt, CommitKey(commit), commit.Id)
 	return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 }
 

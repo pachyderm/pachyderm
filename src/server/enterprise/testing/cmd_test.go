@@ -364,7 +364,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		ClientVersion: version.Version,
 	})
 	require.NoError(t, inspectErr)
-	clusterId := clusterInfo.DeploymentID
+	clusterId := clusterInfo.DeploymentId
 
 	host := c.GetAddress().Host
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)

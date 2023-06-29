@@ -58,7 +58,7 @@ func Cancel(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 	success := false
 	if err := forEachWorker(ctx, pipelineInfo, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		resp, err := c.Cancel(ctx, &workerapi.CancelRequest{
-			JobID:       jobID,
+			JobId:       jobID,
 			DataFilters: dataFilter,
 		})
 		if err != nil {

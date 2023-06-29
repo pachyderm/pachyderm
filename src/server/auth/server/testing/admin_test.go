@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -108,7 +109,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -147,7 +148,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	// bob can write to the repo
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
@@ -208,7 +209,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -247,7 +248,7 @@ func TestFSAdminRWO(t *testing.T) {
 	// bob can write to the repo
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
@@ -330,7 +331,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 1, tu.CommitCnt(t, rootClient, repo)) // check that a new commit was created
 }
 
@@ -411,11 +412,11 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 
@@ -447,11 +448,11 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := rootClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 }
@@ -518,7 +519,7 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 
 	// Generate auth credentials
 	robotUser := tu.UniqueString("rock-em-sock-em")
-	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, TTL: 600})
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, Ttl: 600})
 	require.NoError(t, err)
 	token1 := resp.Token
 	robotClient1 := tu.UnauthenticatedPachClient(t, c)
@@ -529,8 +530,8 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tu.Robot(robotUser), who.Username)
 
-	require.True(t, who.Expiration.After(time.Now()))
-	require.True(t, who.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
+	require.True(t, protoutil.MustTime(who.Expiration).After(time.Now()))
+	require.True(t, protoutil.MustTime(who.Expiration).Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
@@ -583,7 +584,7 @@ func TestRobotUserACL(t *testing.T) {
 	// test that alice can commit to the robot user's repo
 	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// Now alice creates a repo, and adds robotUser as a writer
 	repo2 := tu.UniqueString("TestRobotUserACL")
@@ -595,7 +596,7 @@ func TestRobotUserACL(t *testing.T) {
 	// test that the robot can commit to alice's repo
 	commit, err = robotClient.StartCommit(pfs.DefaultProjectName, repo2, "master")
 	require.NoError(t, err)
-	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo2, commit.Branch.Name, commit.ID))
+	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo2, commit.Branch.Name, commit.Id))
 }
 
 // TestGroupRoleBinding tests that a group can be added to a role binding
@@ -623,7 +624,7 @@ func TestGroupRoleBinding(t *testing.T) {
 	// test that alice can commit to the repo
 	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 }
 
 // TestRobotUserAdmin tests that robot users can
@@ -669,7 +670,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, robotClient2.CreateRepo(pfs.DefaultProjectName, repo))
 	commit, err := robotClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err) // admin privs means robotUser can commit
-	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
@@ -677,7 +678,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
 	commit, err = aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 
 	_, err = robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)

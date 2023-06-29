@@ -111,7 +111,7 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 		if err := grpcutil.ForEach[*pfs.BranchInfo](client, func(bi *pfs.BranchInfo) error {
 			head := "-"
 			if bi.Head != nil {
-				head = bi.Head.ID
+				head = bi.Head.Id
 			}
 			result = append(result, prompt.Suggest{
 				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo, bi.Branch.Name),
@@ -186,7 +186,7 @@ func ProjectFileCompletion(project, flag, text string, maxCompletions int64) ([]
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo, partialFile.Commit.Id, fi.File.Path),
 			})
 			return nil
 		}); err != nil {
@@ -278,7 +278,7 @@ func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, C
 	}
 	if err := grpcutil.ForEach[*pps.JobSetInfo](listJobSetClient, func(jsi *pps.JobSetInfo) error {
 		result = append(result, prompt.Suggest{
-			Text:        jsi.JobSet.ID,
+			Text:        jsi.JobSet.Id,
 			Description: jobSetDesc(jsi),
 		})
 		return nil
@@ -309,7 +309,7 @@ func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cach
 			return errutil.ErrBreak
 		}
 		result = append(result, prompt.Suggest{
-			Text:        ji.Job.ID,
+			Text:        ji.Job.Id,
 			Description: jobDesc(ji),
 		})
 		return nil

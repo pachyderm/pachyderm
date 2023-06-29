@@ -68,7 +68,7 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) error {
 			return nil
 		}
 	}
-	err := client.WaitCommitSet(commit.ID, func(ci *pfs.CommitInfo) error {
+	err := client.WaitCommitSet(commit.Id, func(ci *pfs.CommitInfo) error {
 		if ci.Commit.Repo.Type != pfs.UserRepoType {
 			return nil
 		}

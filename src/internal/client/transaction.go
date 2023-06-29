@@ -27,7 +27,7 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	md, _ := metadata.FromOutgoingContext(c.Ctx())
 	md = md.Copy()
 	if txn != nil {
-		md.Set(transactionMetadataKey, txn.ID)
+		md.Set(transactionMetadataKey, txn.Id)
 	} else {
 		md.Set(transactionMetadataKey)
 	}
@@ -74,7 +74,7 @@ func GetTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	} else if len(txns) > 1 {
 		return nil, errors.Errorf("multiple active transactions found in context")
 	}
-	return &transaction.Transaction{ID: txns[0]}, nil
+	return &transaction.Transaction{Id: txns[0]}, nil
 }
 
 // GetTransaction is a helper function to get the active transaction from the

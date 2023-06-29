@@ -93,7 +93,7 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 		seen := make(map[string]struct{})
 		var commitSet string
 		for _, d := range dups {
-			commitSet = d.Commit.ID
+			commitSet = d.Commit.Id
 			if d.ParentCommit != nil {
 				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
 					seen[oldCommitKey(d.Commit)] = struct{}{}
@@ -123,7 +123,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			zap.String("commit", fmt.Sprintf("%s@%s=%s",
 				repoKey(ci.Commit.Branch.Repo),
 				ci.Commit.Branch.GetName(),
-				ci.Commit.ID)),
+				ci.Commit.Id)),
 		)
 		if err := addCommit(ctx, tx, ci.Commit); err != nil {
 			return err
@@ -142,17 +142,17 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		for _, b := range ci.DirectProvenance {
 			log.Info(ctx, "add commit provenance",
 				zap.String("from", oldCommitKey(ci.Commit)),
-				zap.String("to", oldCommitKey(b.NewCommit(ci.Commit.ID))),
+				zap.String("to", oldCommitKey(b.NewCommit(ci.Commit.Id))),
 			)
 			// if the provenant commit's repo was deleted, it's reference may
 			// still exist in the old provenance, so we skip mapping it over to the new model
-			if _, ok := oldCIMap[oldCommitKey(b.NewCommit(ci.Commit.ID))]; !ok {
+			if _, ok := oldCIMap[oldCommitKey(b.NewCommit(ci.Commit.Id))]; !ok {
 				continue
 			}
-			if err := addCommitProvenance(ctx, tx, ci.Commit, b.NewCommit(ci.Commit.ID)); err != nil {
+			if err := addCommitProvenance(ctx, tx, ci.Commit, b.NewCommit(ci.Commit.Id)); err != nil {
 				return errors.Wrapf(err, "add commit provenance from %q to %q",
 					oldCommitKey(ci.Commit),
-					oldCommitKey(b.NewCommit(ci.Commit.ID)))
+					oldCommitKey(b.NewCommit(ci.Commit.Id)))
 			}
 		}
 		// collect all the ALIAS commits to be deleted
@@ -228,7 +228,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	for _, oldCI := range oldCIs {
 		var err error
 		ci := convertCommitInfoToV2_6_0(oldCI)
-		ci.DirectProvenance, err = commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.ID)
+		ci.DirectProvenance, err = commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.Id)
 		log.Info(ctx, "collect commit provenance",
 			zap.String("commit", oldCommitKey(ci.Commit)),
 			zap.Any("provenance", ci.DirectProvenance))
@@ -270,12 +270,12 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit, ancestor *
 		return err
 	}
 	// update provenance pointers
-	if _, err := tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance (from_id, to_id) 
+	if _, err := tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance (from_id, to_id)
                                           SELECT $1, to_id FROM pfs.commit_provenance WHERE from_id=$2 ON CONFLICT DO NOTHING;`,
 		ancestorId, cId); err != nil {
 		return errors.Wrapf(err, "update commit 'from' provenance for commit %q", key)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance (from_id, to_id)                                       
+	if _, err := tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance (from_id, to_id)
                                           SELECT from_id, $1 FROM pfs.commit_provenance WHERE to_id=$2 ON CONFLICT DO NOTHING;`,
 		ancestorId, cId); err != nil {
 		return errors.Wrapf(err, "update commit 'to' provenance for commit %q", key)
@@ -380,12 +380,12 @@ func commitProvenance(tx *pachsql.Tx, repo *pfs.Repo, branch *pfs.Branch, commit
 	commitKey := oldCommitKey(&pfs.Commit{
 		Repo:   repo,
 		Branch: branch,
-		ID:     commitSet,
+		Id:     commitSet,
 	})
-	query := `SELECT commit_id FROM pfs.commits 
-                  WHERE int_id IN (       
-                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance 
-                        ON int_id = from_id 
+	query := `SELECT commit_id FROM pfs.commits
+                  WHERE int_id IN (
+                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance
+                        ON int_id = from_id
                       WHERE commit_id = $1
                   );`
 	rows, err := tx.Queryx(query, commitKey)
@@ -406,7 +406,7 @@ func commitProvenance(tx *pachsql.Tx, repo *pfs.Repo, branch *pfs.Branch, commit
 					Name: strings.Split(commitId, "/")[0],
 				},
 			},
-			ID: strings.Split(commitId, "=")[1],
+			Id: strings.Split(commitId, "=")[1],
 		}
 		commitProvenance = append(commitProvenance, c)
 	}
@@ -417,7 +417,7 @@ func commitProvenance(tx *pachsql.Tx, repo *pfs.Repo, branch *pfs.Branch, commit
 }
 
 func addCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, oldCommitKey(commit), commit.ID)
+	_, err := tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, oldCommitKey(commit), commit.Id)
 	if err != nil {
 		return errors.Wrapf(err, "insert commit %q", oldCommitKey(commit))
 	}
@@ -520,7 +520,7 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 				if err := getCollectionProto(ctx, tx, "branches", bk, bi); err != nil {
 					return errors.Wrapf(err, "get branch info for %q", bk)
 				}
-				if bi.Head.ID == ci.Commit.ID {
+				if bi.Head.Id == ci.Commit.Id {
 					bi.Head = ci.ParentCommit
 					if err := updateCollectionProto(ctx, tx, "branches", bk, bk, bi); err != nil {
 						return errors.Wrapf(err, "update branch info for %q", bk)
@@ -595,7 +595,7 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 
 func commitSubvenance(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) ([]*pfs.Commit, error) {
 	key := oldCommitKey(c)
-	query := `SELECT commit_id FROM pfs.commits WHERE int_id IN (       
+	query := `SELECT commit_id FROM pfs.commits WHERE int_id IN (
             SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON int_id = to_id WHERE commit_id = $1
         );`
 	rows, err := tx.QueryxContext(ctx, query, key)
@@ -623,7 +623,7 @@ func commitSubvenance(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) ([]*pf
 		c := &pfs.Commit{
 			Repo:   repo,
 			Branch: &pfs.Branch{Name: branch, Repo: repo},
-			ID:     id,
+			Id:     id,
 		}
 		commitSubvenance = append(commitSubvenance, c)
 	}
@@ -698,7 +698,7 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) error {
 		return &pfs.Commit{
 			Repo:   b.Repo,
 			Branch: b,
-			ID:     split[1],
+			Id:     split[1],
 		}, nil
 	}
 	listReferencedCommits := func(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {

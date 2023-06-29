@@ -94,7 +94,7 @@ func (x *TFJob) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("tf_job", x.TFJob)
+	enc.AddString("tf_job", x.TfJob)
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (x *Job) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 
@@ -142,7 +142,7 @@ func (x *Service) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddInt32("internal_port", x.InternalPort)
 	enc.AddInt32("external_port", x.ExternalPort)
-	enc.AddString("ip", x.IP)
+	enc.AddString("ip", x.Ip)
 	enc.AddString("type", x.Type)
 	return nil
 }
@@ -260,7 +260,7 @@ func (x *Datum) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("job", x.Job)
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 
@@ -323,8 +323,8 @@ func (x *WorkerStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("worker_id", x.WorkerID)
-	enc.AddString("job_id", x.JobID)
+	enc.AddString("worker_id", x.WorkerId)
+	enc.AddString("job_id", x.JobId)
 	enc.AddObject("datum_status", x.DatumStatus)
 	return nil
 }
@@ -488,7 +488,7 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddObject("transform", x.Transform)
-	enc.AddObject("tf_job", x.TFJob)
+	enc.AddObject("tf_job", x.TfJob)
 	enc.AddObject("parallelism_spec", x.ParallelismSpec)
 	enc.AddObject("egress", x.Egress)
 	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
@@ -547,7 +547,7 @@ func (x *JobSet) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 
@@ -689,9 +689,9 @@ func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("project_name", x.ProjectName)
 	enc.AddString("pipeline_name", x.PipelineName)
-	enc.AddString("job_id", x.JobID)
-	enc.AddString("worker_id", x.WorkerID)
-	enc.AddString("datum_id", x.DatumID)
+	enc.AddString("job_id", x.JobId)
+	enc.AddString("worker_id", x.WorkerId)
+	enc.AddString("datum_id", x.DatumId)
 	enc.AddBool("master", x.Master)
 	dataArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Data {
@@ -785,7 +785,7 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
-	enc.AddObject("tf_job", x.TFJob)
+	enc.AddObject("tf_job", x.TfJob)
 	enc.AddObject("transform", x.Transform)
 	enc.AddObject("parallelism_spec", x.ParallelismSpec)
 	enc.AddObject("egress", x.Egress)
@@ -931,7 +931,7 @@ func (x *RunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("provenance", zapcore.ArrayMarshalerFunc(provenanceArrMarshaller))
-	enc.AddString("job_id", x.JobID)
+	enc.AddString("job_id", x.JobId)
 	return nil
 }
 

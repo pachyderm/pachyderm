@@ -30,7 +30,7 @@ type PrintableTransactionInfo struct {
 // PrintTransactionInfo prints a short summary of a transaction to the provided
 // device.
 func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", info.Transaction.ID)
+	fmt.Fprintf(w, "%s\t", info.Transaction.Id)
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", info.Started.String())
 	} else {
@@ -75,7 +75,7 @@ func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.Tr
 	if response == nil || response.Commit == nil {
 		commit = "ERROR (unknown response type)"
 	} else {
-		commit = response.Commit.ID
+		commit = response.Commit.Id
 	}
 	return fmt.Sprintf("start commit %s (%s)", request.Branch, commit)
 }
@@ -85,7 +85,7 @@ func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
 }
 
 func sprintSquashCommitSet(request *pfs.SquashCommitSetRequest) string {
-	return fmt.Sprintf("squash commitset %s", request.CommitSet.ID)
+	return fmt.Sprintf("squash commitset %s", request.CommitSet.Id)
 }
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
@@ -124,7 +124,7 @@ func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 	}()
 	return fmt.Sprintf(
 		"update job %s -> %s (%s)",
-		request.Job.ID, state, request.Reason,
+		request.Job.Id, state, request.Reason,
 	)
 }
 
