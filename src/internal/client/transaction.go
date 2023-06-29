@@ -91,7 +91,7 @@ func (c APIClient) ListTransaction() ([]*transaction.TransactionInfo, error) {
 		&transaction.ListTransactionRequest{},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return response.TransactionInfo, nil
 }
@@ -104,7 +104,7 @@ func (c APIClient) StartTransaction() (*transaction.Transaction, error) {
 		&transaction.StartTransactionRequest{},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return response, nil
 }
@@ -120,7 +120,7 @@ func (c APIClient) FinishTransaction(txn *transaction.Transaction) (*transaction
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return response, nil
 }
@@ -134,7 +134,7 @@ func (c APIClient) DeleteTransaction(txn *transaction.Transaction) error {
 			Transaction: txn,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectTransaction is an RPC that fetches the detailed information for an
@@ -147,7 +147,7 @@ func (c APIClient) InspectTransaction(txn *transaction.Transaction) (*transactio
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return response, nil
 }

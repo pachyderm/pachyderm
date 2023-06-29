@@ -589,22 +589,21 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	// Verify cluster deployment ID
 	clusterInfo, err := client.InspectClusterWithVersion(version.Version)
 	if err != nil {
-		scrubbedErr := grpcutil.ScrubGRPC(err)
 		if status.Code(err) == codes.Unimplemented {
 			// This is an older version check designed to detect 1.x vs. 2.x mismatch.
 			pachdVersion, versErr := client.Version()
 			if err != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
+				return nil, errors.Wrap(err, errors.Wrap(versErr, "could not determine pachd version").Error())
 			}
 			pachdMajVersion, convErr := strconv.Atoi(strings.Split(pachdVersion, ".")[0])
 			if convErr != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version").Error())
+				return nil, errors.Wrap(err, errors.Wrap(convErr, "could not parse pachd major version").Error())
 			}
 			if pachdMajVersion != int(version.Version.Major) {
 				return nil, errors.Errorf("this client is for pachyderm %d.x, but the server has a version %d.x - please install the correct client for your server", version.Version.Major, pachdMajVersion)
 			}
 		}
-		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
+		return nil, errors.Wrap(err, "could not get cluster ID")
 	}
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
@@ -703,37 +702,37 @@ func (c APIClient) DeleteAll() error {
 		c.Ctx(),
 		&identity.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
 		&auth.DeactivateRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	if _, err := c.License.DeleteAll(
 		c.Ctx(),
 		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
 	); err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
 	); err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	if _, err := c.TransactionAPIClient.DeleteAll(
 		c.Ctx(),
 		&transaction.DeleteAllRequest{},
 	); err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	return nil
 }
@@ -746,19 +745,19 @@ func (c APIClient) DeleteAllEnterprise() error {
 		c.Ctx(),
 		&identity.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
 		&auth.DeactivateRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	if _, err := c.License.DeleteAll(
 		c.Ctx(),
 		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	return nil
 }

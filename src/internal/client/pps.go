@@ -204,26 +204,24 @@ func NewPipeline(projectName, pipelineName string) *pps.Pipeline {
 //
 // 'details' indicates that the JobInfo.Details field should be filled out.
 func (c APIClient) InspectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
 		Job:     NewJob(projectName, pipelineName, jobID),
 		Details: details,
 	}
 	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
-	return jobInfo, grpcutil.ScrubGRPC(err)
+	return jobInfo, err
 }
 
 // WaitJob is a blocking version of InspectJob that will wait
 // until the job has reached a terminal state.
 func (c APIClient) WaitJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
 		Job:     NewJob(projectName, pipelineName, jobID),
 		Wait:    true,
 		Details: details,
 	}
 	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
-	return jobInfo, grpcutil.ScrubGRPC(err)
+	return jobInfo, err
 }
 
 func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pps.JobInfo) error) (retErr error) {
@@ -256,7 +254,6 @@ func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pp
 }
 
 func (c APIClient) InspectJobSet(id string, details bool) (_ []*pps.JobInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
 	if err := c.inspectJobSet(id, false, details, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
@@ -268,7 +265,6 @@ func (c APIClient) InspectJobSet(id string, details bool) (_ []*pps.JobInfo, ret
 }
 
 func (c APIClient) WaitJobSetAll(id string, details bool) (_ []*pps.JobInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pps.JobInfo{}
 	if err := c.WaitJobSet(id, details, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
@@ -280,7 +276,6 @@ func (c APIClient) WaitJobSetAll(id string, details bool) (_ []*pps.JobInfo, ret
 }
 
 func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) error) (retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	return c.inspectJobSet(id, true, details, cb)
 }
 
@@ -407,14 +402,14 @@ func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, input
 			JqFilter:    jqFilter,
 		})
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
 		ji, err := client.Recv()
 		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}
 		if err := f(ji); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -437,14 +432,14 @@ func (c APIClient) SubscribeJob(projectName, pipelineName string, details bool, 
 			Details:  details,
 		})
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
 		ji, err := client.Recv()
 		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}
 		if err := cb(ji); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -463,7 +458,7 @@ func (c APIClient) DeleteJob(projectName, pipelineName, jobID string) error {
 			Job: NewJob(projectName, pipelineName, jobID),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // StopJob stops a job.
@@ -474,7 +469,7 @@ func (c APIClient) StopJob(projectName, pipelineName, jobID string) error {
 			Job: NewJob(projectName, pipelineName, jobID),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // RestartDatum restarts a datum that's being processed as part of a job.
@@ -489,14 +484,11 @@ func (c APIClient) RestartDatum(projectName, pipelineName, jobID string, datumFi
 			DataFilters: datumFilter,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // ListDatum returns info about datums in a job.
 func (c APIClient) ListDatum(projectName, pipelineName, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	req := &pps.ListDatumRequest{
 		Job: NewJob(projectName, pipelineName, jobID),
 	}
@@ -505,9 +497,6 @@ func (c APIClient) ListDatum(projectName, pipelineName, jobID string, cb func(*p
 
 // ListDatumAll returns info about datums in a job.
 func (c APIClient) ListDatumAll(projectName, pipelineName, jobID string) (_ []*pps.DatumInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	var dis []*pps.DatumInfo
 	if err := c.ListDatum(projectName, pipelineName, jobID, func(di *pps.DatumInfo) error {
 		dis = append(dis, di)
@@ -521,9 +510,6 @@ func (c APIClient) ListDatumAll(projectName, pipelineName, jobID string) (_ []*p
 // ListDatumInput returns info about datums for a pipeline with input.  The
 // pipeline doesn't need to exist.
 func (c APIClient) ListDatumInput(input *pps.Input, cb func(*pps.DatumInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	req := &pps.ListDatumRequest{
 		Input: input,
 	}
@@ -533,9 +519,6 @@ func (c APIClient) ListDatumInput(input *pps.Input, cb func(*pps.DatumInfo) erro
 // ListDatumInputAll returns info about datums for a pipeline with input. The
 // pipeline doesn't need to exist.
 func (c APIClient) ListDatumInputAll(input *pps.Input) (_ []*pps.DatumInfo, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
 	var dis []*pps.DatumInfo
 	if err := c.ListDatumInput(input, func(di *pps.DatumInfo) error {
 		dis = append(dis, di)
@@ -582,7 +565,7 @@ func (c APIClient) InspectDatum(projectName, pipelineName, jobID, datumID string
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return datumInfo, nil
 }
@@ -617,7 +600,7 @@ func (l *LogsIter) Err() error {
 	if errors.Is(l.err, io.EOF) {
 		return nil
 	}
-	return grpcutil.ScrubGRPC(l.err)
+	return l.err
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr).
@@ -674,7 +657,6 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 	}
 	resp := &LogsIter{}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
-	resp.err = grpcutil.ScrubGRPC(resp.err)
 	return resp
 }
 
@@ -722,7 +704,7 @@ func (c APIClient) CreatePipeline(projectName, pipelineName, image string, cmd [
 			Update:          update,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectPipeline returns info about a specific pipeline.  The name may
@@ -735,7 +717,7 @@ func (c APIClient) InspectPipeline(projectName, pipelineName string, details boo
 			Details:  details,
 		},
 	)
-	return pipelineInfo, grpcutil.ScrubGRPC(err)
+	return pipelineInfo, err
 }
 
 // ListPipeline returns info about all pipelines.
@@ -747,7 +729,7 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 		&pps.ListPipelineRequest{Details: details},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return grpcutil.Collect[*pps.PipelineInfo](client, 1000)
 }
@@ -780,7 +762,7 @@ func (c APIClient) ListPipelineHistory(projectName, pipelineName string, history
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return grpcutil.Collect[*pps.PipelineInfo](client, 1000)
 }
@@ -795,7 +777,7 @@ func (c APIClient) DeletePipeline(projectName, pipelineName string, force bool) 
 		c.Ctx(),
 		req,
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // StartPipeline restarts a stopped pipeline.
@@ -806,7 +788,7 @@ func (c APIClient) StartPipeline(projectName, pipelineName string) error {
 			Pipeline: NewPipeline(projectName, pipelineName),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // StopPipeline prevents a pipeline from processing things; it can be
@@ -818,7 +800,7 @@ func (c APIClient) StopPipeline(projectName, pipelineName string) error {
 			Pipeline: NewPipeline(projectName, pipelineName),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // RunPipeline runs a pipeline.  It can be passed a list of commit
@@ -833,7 +815,7 @@ func (c APIClient) RunPipeline(projectName, pipelineName string, provenance []*p
 			JobId:      jobID,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // RunCron runs a pipeline.  It can be passed a list of commit
@@ -846,7 +828,7 @@ func (c APIClient) RunCron(projectName, pipelineName string) error {
 			Pipeline: NewPipeline(projectName, pipelineName),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // CreateSecret creates a secret on the cluster.
@@ -857,7 +839,7 @@ func (c APIClient) CreateSecret(file []byte) error {
 			File: file,
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // DeleteSecret deletes a secret from the cluster.
@@ -868,7 +850,7 @@ func (c APIClient) DeleteSecret(secret string) error {
 			Secret: &pps.Secret{Name: secret},
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // InspectSecret returns info about a specific secret.
@@ -879,7 +861,7 @@ func (c APIClient) InspectSecret(secret string) (*pps.SecretInfo, error) {
 			Secret: &pps.Secret{Name: secret},
 		},
 	)
-	return secretInfo, grpcutil.ScrubGRPC(err)
+	return secretInfo, err
 }
 
 // ListSecret returns info about all Pachyderm secrets.
@@ -889,7 +871,7 @@ func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 		&types.Empty{},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return secretInfos.SecretInfo, nil
 }
@@ -920,7 +902,7 @@ func (c APIClient) CreatePipelineService(projectName, pipelineName, image string
 			},
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	return err
 }
 
 // WithDefaultTransformImage sets the image used when the empty string ""

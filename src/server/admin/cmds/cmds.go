@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
@@ -27,7 +26,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			defer c.Close()
 			ci, err := c.InspectClusterWithVersion(version.Version)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			fmt.Println(ci.Id)
 			return nil
