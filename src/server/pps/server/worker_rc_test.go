@@ -4,13 +4,13 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -167,13 +167,11 @@ func TestGetWorkerOptions(t *testing.T) {
 							Effect:   pps.TaintEffect_NO_SCHEDULE,
 						},
 						{
-							Key:      "foo",
-							Operator: pps.TolerationOperator_EQUAL,
-							Value:    "bar",
-							Effect:   pps.TaintEffect_NO_EXECUTE,
-							TolerationSeconds: &types.Int64Value{
-								Value: 100,
-							},
+							Key:               "foo",
+							Operator:          pps.TolerationOperator_EQUAL,
+							Value:             "bar",
+							Effect:            pps.TaintEffect_NO_EXECUTE,
+							TolerationSeconds: wrapperspb.Int64(100),
 						},
 					},
 				},
@@ -214,13 +212,11 @@ func TestGetWorkerOptions(t *testing.T) {
 							Effect:   pps.TaintEffect_NO_SCHEDULE,
 						},
 						{
-							Key:      "foo",
-							Operator: pps.TolerationOperator_EMPTY,
-							Value:    "bar",
-							Effect:   pps.TaintEffect_NO_EXECUTE,
-							TolerationSeconds: &types.Int64Value{
-								Value: 100,
-							},
+							Key:               "foo",
+							Operator:          pps.TolerationOperator_EMPTY,
+							Value:             "bar",
+							Effect:            pps.TaintEffect_NO_EXECUTE,
+							TolerationSeconds: wrapperspb.Int64(100),
 						},
 					},
 				},

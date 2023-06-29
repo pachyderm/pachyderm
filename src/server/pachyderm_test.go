@@ -25,11 +25,13 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -286,7 +288,7 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input:           client.NewPFSInput(projectName, dataRepoName, "/*"),
-			DatumTimeout:    types.DurationProto(5 * time.Second),
+			DatumTimeout:    durationpb.New(5 * time.Second),
 		},
 	)
 	require.NoError(t, err, "should create pipeline ok")
@@ -4863,10 +4865,7 @@ func TestDatumStatusRestart(t *testing.T) {
 				}
 				// The first time this function is called, datumStarted is zero
 				// so `Before` is true for any non-zero time.
-				started, err := types.TimestampFromProto(workerStatus.DatumStatus.Started)
-				if err != nil {
-					return errors.Errorf("could not convert timestamp: %v", err)
-				}
+				started := workerStatus.DatumStatus.Started.AsTime()
 				if !datumStarted.Before(started) {
 					return errors.Errorf("%v ≮ %v", datumStarted, started)
 				}
@@ -6935,8 +6934,7 @@ func TestCronPipeline(t *testing.T) {
 			require.NoError(t, c.DeleteAll())
 		}()
 		pipeline := tu.UniqueString("testCron-")
-		start, err := types.TimestampProto(time.Now().Add(-10 * time.Hour))
-		require.NoError(t, err)
+		start := timestamppb.New(time.Now().Add(-10 * time.Hour))
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 			pipeline,
 			"",
@@ -7003,8 +7001,7 @@ func TestCronPipeline(t *testing.T) {
 		numTicksToSkip := 3
 
 		startTime := time.Now().Add(time.Duration(numTicksToSkip) * tick)
-		startTimeStr, err := types.TimestampProto(startTime)
-		require.NoError(t, err)
+		startTimeStr := timestamppb.New(startTime)
 
 		// update pipeline with start time few ticks into future
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -8100,7 +8097,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 				},
 			},
 			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-			DatumTimeout: types.DurationProto(duration),
+			DatumTimeout: durationpb.New(duration),
 		},
 	)
 	require.NoError(t, err)
@@ -8166,7 +8163,7 @@ func TestListDatumDuringJob(t *testing.T) {
 				},
 			},
 			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-			DatumTimeout: types.DurationProto(duration),
+			DatumTimeout: durationpb.New(duration),
 			DatumSetSpec: &pps.DatumSetSpec{
 				Number: 2, // since we set the DatumSetSpec number to 2, we expect our datums to be processed in 5 datum sets (10 files / 2 files per set)
 			},
@@ -8252,7 +8249,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 				},
 			},
 			Input:        client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-			DatumTimeout: types.DurationProto(duration),
+			DatumTimeout: durationpb.New(duration),
 		},
 	)
 	require.NoError(t, err)
@@ -8307,7 +8304,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 				},
 			},
 			Input:      client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-			JobTimeout: types.DurationProto(duration),
+			JobTimeout: durationpb.New(duration),
 		},
 	)
 	require.NoError(t, err)
@@ -8331,10 +8328,8 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, job.Job.Pipeline.Name, job.Job.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
-	started, err := types.TimestampFromProto(jobInfo.Started)
-	require.NoError(t, err)
-	finished, err := types.TimestampFromProto(jobInfo.Finished)
-	require.NoError(t, err)
+	started := jobInfo.Started.AsTime()
+	finished := jobInfo.Finished.AsTime()
 	require.True(t, math.Abs((finished.Sub(started)-(time.Second*20)).Seconds()) <= 1.0)
 }
 
@@ -9638,7 +9633,7 @@ func TestExtractPipeline(t *testing.T) {
 	//	// CacheSize must parse as a memory value
 	//	request.CacheSize = "1G"
 	//	// Durations must be valid
-	//	d := &types.Duration{Seconds: 1, Nanos: 1}
+	//	d := &durrationpb.Duration{Seconds: 1, Nanos: 1}
 	//	request.JobTimeout = d
 	//	request.DatumTimeout = d
 	//	// PodSpec and PodPatch must parse as json
@@ -10189,7 +10184,7 @@ func TestTrigger(t *testing.T) {
 		},
 		client.NewPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 			Branch: "master",
-			Size_:  "1K",
+			Size:   "1K",
 		}),
 		"",
 		false,
@@ -10205,7 +10200,7 @@ func TestTrigger(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Size_: "2K",
+			Size: "2K",
 		}),
 		"",
 		false,
@@ -10271,7 +10266,7 @@ func TestTrigger(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Size_: "3K",
+			Size: "3K",
 		}),
 		"",
 		true,
@@ -11134,7 +11129,7 @@ func TestLoad(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
@@ -11824,7 +11819,7 @@ func TestDatumBatching(t *testing.T) {
 			`, dataRepo)
 		pipeline := tu.UniqueString("DatumBatchingDatumTimeout")
 		request := createPipelineRequest(pipeline, script)
-		request.DatumTimeout = types.DurationProto(3 * time.Second)
+		request.DatumTimeout = durationpb.New(3 * time.Second)
 		checkSuccess(request)
 	})
 
@@ -11850,7 +11845,7 @@ func TestDatumBatching(t *testing.T) {
 		script := `sleep 3600`
 		pipeline := tu.UniqueString("DatumBatchingJobTimeout")
 		request := createPipelineRequest(pipeline, script)
-		request.JobTimeout = types.DurationProto(10 * time.Second)
+		request.JobTimeout = durationpb.New(10 * time.Second)
 		checkState(request, pps.JobState_JOB_KILLED)
 	})
 	t.Run("PrematureExit", func(t *testing.T) {

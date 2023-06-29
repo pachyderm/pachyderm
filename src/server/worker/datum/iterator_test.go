@@ -8,12 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -301,7 +300,7 @@ func createTaskDoer(t *testing.T, env *realenv.RealEnv) task.Doer {
 	namespace := "iterators"
 	taskSource := taskService.NewSource(namespace)
 	go func() {
-		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
+		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
 			case datum.IsTask(input):
 				pachClient := env.PachClient.WithCtx(ctx)

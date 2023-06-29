@@ -3,8 +3,6 @@ package transform
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -16,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type pendingJob struct {
@@ -40,9 +39,7 @@ func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
 	if pj.ji.Stats == nil {
 		pj.ji.Stats = &pps.ProcessStats{}
 	}
-	if err := datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats); err != nil {
-		pj.logger.Logf("errored merging process stats: %v", err)
-	}
+	datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats)
 	pj.ji.DataProcessed += stats.Processed
 	pj.ji.DataSkipped += stats.Skipped
 	pj.ji.DataTotal += stats.Total
@@ -222,7 +219,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			if err != nil {
 				return err
 			}
-			var inputs []*types.Any
+			var inputs []*anypb.Any
 			for _, shard := range shards {
 				input, err := serializeCreateParallelDatumsTask(&CreateParallelDatumsTask{
 					Job:           pj.ji.Job,
@@ -237,7 +234,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 				inputs = append(inputs, input)
 			}
 			resultFileSetIDs := make([]string, len(inputs))
-			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 				if err != nil {
 					return err
 				}
@@ -313,7 +310,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			if err != nil {
 				return err
 			}
-			var inputs []*types.Any
+			var inputs []*anypb.Any
 			for _, shard := range shards {
 				input, err := serializeCreateSerialDatumsTask(&CreateSerialDatumsTask{
 					Job:            pj.ji.Job,
@@ -329,7 +326,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 				inputs = append(inputs, input)
 			}
 			resultFileSetIDs := make([]string, len(inputs))
-			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 				if err != nil {
 					return err
 				}
@@ -374,40 +371,28 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 }
 
 // TODO: We might be better off removing the serialize boilerplate and switching to types.MarshalAny.
-func serializeCreateParallelDatumsTask(task *CreateParallelDatumsTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateParallelDatumsTask(task *CreateParallelDatumsTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCreateParallelDatumsTaskResult(taskAny *types.Any) (*CreateParallelDatumsTaskResult, error) {
+func deserializeCreateParallelDatumsTaskResult(taskAny *anypb.Any) (*CreateParallelDatumsTaskResult, error) {
 	task := &CreateParallelDatumsTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCreateSerialDatumsTask(task *CreateSerialDatumsTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateSerialDatumsTask(task *CreateSerialDatumsTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCreateSerialDatumsTaskResult(taskAny *types.Any) (*CreateSerialDatumsTaskResult, error) {
+func deserializeCreateSerialDatumsTaskResult(taskAny *anypb.Any) (*CreateSerialDatumsTaskResult, error) {
 	task := &CreateSerialDatumsTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }

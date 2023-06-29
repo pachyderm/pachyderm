@@ -2,10 +2,9 @@ package server
 
 import (
 	"context"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -40,14 +39,6 @@ func newDriver(
 	}, nil
 }
 
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		return &types.Timestamp{}
-	}
-	return t
-}
-
 func (d *driver) batchTransaction(ctx context.Context, req []*transaction.TransactionRequest) (*transaction.TransactionInfo, error) {
 	var result *transaction.TransactionInfo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -58,7 +49,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 				Id: uuid.NewWithoutDashes(),
 			},
 			Requests: req,
-			Started:  now(),
+			Started:  timestamppb.Now(),
 		}
 
 		var err error
@@ -77,7 +68,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 			Id: uuid.NewWithoutDashes(),
 		},
 		Requests: []*transaction.TransactionRequest{},
-		Started:  now(),
+		Started:  timestamppb.Now(),
 	}
 
 	if err := dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {

@@ -4,12 +4,12 @@ import (
 	"context"
 	"io"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+	"google.golang.org/protobuf/proto"
 
 	"golang.org/x/sync/semaphore"
 )

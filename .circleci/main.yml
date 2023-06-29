@@ -73,14 +73,13 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: go install ./src/testing/match
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - install-go-releaser
       - run:
           no_output_timeout: 20m
           command: |-
@@ -90,6 +89,7 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
+            --rerun-fails-max-failures=100 \
             --debug \
             -- \
             go test ./... -json \
@@ -209,6 +209,7 @@ jobs:
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --raw-command \
               --rerun-fails \
+              --rerun-fails-max-failures=100 \
               --format standard-verbose \
               --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \

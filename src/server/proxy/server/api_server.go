@@ -16,6 +16,7 @@ type Env struct {
 }
 
 type APIServer struct {
+	proxy.UnimplementedAPIServer
 	env Env
 }
 

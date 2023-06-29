@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+// This is a copy of CommitInfo from Pachyderm 2.5.  It's used for converting to a new schema in the
+// 2.6 migrations.
+package v2_5_0;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.5.0";
+
+import "pfs/pfs.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+
+// CommitInfo is the main data structure representing a commit in etcd
+message CommitInfo {
+  pfs_v2.Commit commit = 1;
+  pfs_v2.CommitOrigin origin = 2;
+  // description is a user-provided script describing this commit
+  string description = 3;
+  pfs_v2.Commit parent_commit = 4;
+  repeated pfs_v2.Commit child_commits = 5;
+  google.protobuf.Timestamp started = 6;
+  google.protobuf.Timestamp finishing = 7;
+  google.protobuf.Timestamp finished = 8;
+  repeated pfs_v2.Branch direct_provenance = 9;
+  string error = 10;
+  int64 size_bytes_upper_bound = 11;
+  pfs_v2.CommitInfo.Details details = 12;
+}

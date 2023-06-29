@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -266,15 +266,15 @@ func TestBoolIndex(t *testing.T) {
 	index := &col.Index{
 		Name: "Value",
 		Extract: func(val proto.Message) string {
-			return fmt.Sprintf("%v", val.(*types.BoolValue).Value)
+			return fmt.Sprintf("%v", val.(*wrapperspb.BoolValue).Value)
 		},
 	}
-	boolValues := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{index}, &types.BoolValue{}, nil, nil)
+	boolValues := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{index}, &wrapperspb.BoolValue{}, nil, nil)
 
-	r1 := &types.BoolValue{
+	r1 := &wrapperspb.BoolValue{
 		Value: true,
 	}
-	r2 := &types.BoolValue{
+	r2 := &wrapperspb.BoolValue{
 		Value: false,
 	}
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
@@ -302,7 +302,7 @@ func TestBoolIndex(t *testing.T) {
 	}
 }
 
-var epsilon = &types.BoolValue{Value: true}
+var epsilon = &wrapperspb.BoolValue{Value: true}
 
 func TestTTL(t *testing.T) {
 	t.Parallel()
@@ -310,7 +310,7 @@ func TestTTL(t *testing.T) {
 	env := testetcd.NewEnv(ctx, t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &wrapperspb.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
@@ -333,7 +333,7 @@ func TestTTLExpire(t *testing.T) {
 	env := testetcd.NewEnv(ctx, t)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &wrapperspb.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
@@ -341,7 +341,7 @@ func TestTTLExpire(t *testing.T) {
 	require.NoError(t, err)
 
 	time.Sleep((TTL + 1) * time.Second)
-	value := &types.BoolValue{}
+	value := &wrapperspb.BoolValue{}
 	err = clxn.ReadOnly(ctx).Get("key", value)
 	require.NotNil(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
@@ -354,7 +354,7 @@ func TestTTLExtend(t *testing.T) {
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	// Put value with short TLL & check that it was set
-	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &wrapperspb.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))

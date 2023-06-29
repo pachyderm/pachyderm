@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -59,8 +59,7 @@ func TestGetState(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.State, enterprise.State_ACTIVE)
 
-	expires, err := types.TimestampFromProto(resp.Info.Expires)
-	require.NoError(t, err)
+	expires := resp.Info.Expires.AsTime()
 	untilExpires := time.Until(expires)
 	require.True(t, untilExpires >= year)
 
@@ -71,8 +70,7 @@ func TestGetState(t *testing.T) {
 
 	// Make current enterprise token expire
 	expires = time.Now().Add(-30 * time.Second)
-	expiresProto, err := types.TimestampProto(expires)
-	require.NoError(t, err)
+	expiresProto := timestamppb.New(expires)
 
 	_, err = client.License.Activate(client.Ctx(),
 		&lc.ActivateRequest{
@@ -112,8 +110,7 @@ func TestGetActivationCode(t *testing.T) {
 
 	// Make current enterprise token expire
 	expires := time.Now().Add(-30 * time.Second)
-	expiresProto, err := types.TimestampProto(expires)
-	require.NoError(t, err)
+	expiresProto := timestamppb.New(expires)
 	_, err = client.License.Activate(client.Ctx(),
 		&lc.ActivateRequest{
 			ActivationCode: testutil.GetTestEnterpriseCode(t),
