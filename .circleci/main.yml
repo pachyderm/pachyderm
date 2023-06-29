@@ -90,6 +90,7 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
+            --rerun-fails-max-failures=100 \
             --debug \
             -- \
             go test ./... -json \
@@ -209,6 +210,7 @@ jobs:
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --raw-command \
               --rerun-fails \
+              --rerun-fails-max-failures=100 \
               --format standard-verbose \
               --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \
