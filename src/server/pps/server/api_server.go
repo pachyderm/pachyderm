@@ -1606,6 +1606,29 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	})
 }
 
+// parseNativeLineWithDuplicate key is like parseNativeLine, but tries to convert to a
+// map[string]any and back to JSON if unmarshaling fails because of a duplicate key.
+func parseNativeLineWithDuplicateKey(s string, msg *pps.LogMessage) error {
+	if err := parseNativeLine(s, msg); err != nil {
+		if !strings.Contains(err.Error(), "duplicate field") {
+			return errors.Wrap(err, "parseNativeLine")
+		}
+		var result map[string]any
+		if err := json.Unmarshal([]byte(s), &result); err != nil {
+			return errors.Wrap(err, "unmarshal into map[string]any")
+		}
+		bs, err := json.Marshal(result)
+		if err != nil {
+			return errors.Wrap(err, "marshal map[string]any back to JSON")
+		}
+		if err := parseNativeLine(string(bs), msg); err != nil {
+			return errors.Wrap(err, "parseNativeLine(cleaned)")
+		}
+		return nil
+	}
+	return nil
+}
+
 // parseNativeLine receives a raw chunk of JSON from Loki, which is our logged
 // pps.LogMessage object.
 func parseNativeLine(s string, msg *pps.LogMessage) error {
@@ -1660,7 +1683,7 @@ func parseDockerLine(s string, msg *pps.LogMessage) error {
 	if result.Log == "" {
 		return errors.New("log field is empty")
 	}
-	if err := parseNativeLine(result.Log, msg); err != nil {
+	if err := parseNativeLineWithDuplicateKey(result.Log, msg); err != nil {
 		return errors.Errorf("native json (%q): %v", result.Log, err)
 	}
 	return nil
@@ -1678,7 +1701,7 @@ func parseCRILine(s string, msg *pps.LogMessage) error {
 		return errors.New("line does not contain {")
 	}
 	l := string(b[i:])
-	if err := parseNativeLine(l, msg); err != nil {
+	if err := parseNativeLineWithDuplicateKey(l, msg); err != nil {
 		return errors.Errorf("native json (%q): %v", l, err)
 	}
 	return nil
@@ -1702,7 +1725,7 @@ func ParseLokiLine(inputLine string, msg *pps.LogMessage) error {
 		// It is unfortunate that we can't happy-path native.
 		{"cri", parseCRILine},
 		{"docker", parseDockerLine},
-		{"native", parseNativeLine},
+		{"native", parseNativeLineWithDuplicateKey},
 	}
 	for _, item := range parsers {
 		if err := item.parser(inputLine, msg); err != nil {
