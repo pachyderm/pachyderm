@@ -173,44 +173,67 @@ make launch-prod
 
 This will start the production server at `localhost:3000`. Additionally, if you'd like to test the production UI/API against the mock gRPC & Auth server, you can run `npm run start:mock` from /backend and add a `.env.production.local` file that replicates the variables found in `.env.test`.
 
-## Working with environment variables
+## Environment variables
 
 All variables are stored in `.env.${environmentName}`. You can find a list of the default variables configured in the Console container in the `.env.production` file.
 
-### Client build-time variables
+### React build-time variables
 
-Any variables added with the `REACT_APP` prefix (no `_RUNTIME`) will be appended to
-the `process.env` object in the client Javascript bundle.
+Build-time variables are embedded into the JavaScript files during the build process. Any variable starting with the `REACT_APP` prefix (without `_RUNTIME`) are build-time variables.
 
-```bash
-// client-side code
+Our build tool, Vite, first looks at the `REACT_APP` variables present in the `.env` or environment, then scans the code for any occurrences of `process.env.WHATEVER` during the build process. It then statically replaces these instances with the value of the environment variable.
+
+```ts
+// .env.production
+REACT_APP_PORT = 3000;
+
+// React code
 const port = process.env.REACT_APP_PORT;
+
+// Built React code
+const port = 3000;
 ```
 
-### Client runtime variables
+⚠️ Be aware, since `process` is not available in the browser, errors may occur if a `REACT_APP` env var exists in your code but is not defined in all `.env.ENVIRONMENT` files. The call to `process.env.WHATEVER` will not be replaced, leading to an error when the browser attempts to run it.
 
-Any variables with the `REACT_APP_RUNTIME` prefix should be retrieved and accessed in the frontend from [runtimeVariables.ts](./frontend/src/lib/runtimeVariables.ts). If we are building for production the variables will be added to a window object
-called `pachDashConfig` with can be accessed in the client code:
+ℹ️ In the Node.js runtime (on the server, and during test execution), these variables can be accessed like other environment variables on `process.env`, without referring to pachDashConfig.
 
-```bash
-// client-side code
+### React runtime variables
+
+Variables prefixed with the `REACT_APP_RUNTIME` are runtime variables. In a similiar manner to build-time variables, Vite statically replaces these with references to `window.pachDashConfig.WHATEVER` during the build process. The `pachDashConfig` object is then injected into the served index.html by our Express server at runtime.
+
+The helper module at [runtimeVariables.ts](./frontend/src/lib/runtimeVariables.ts) handles these variables in the frontend, retrieving these variables correctly depending on the current environment (dev or prod).
+
+```ts
+// .env.production
+REACT_APP_RUNTIME_PORT = 3000;
+
+// React code
+const port = process.env.REACT_APP_RUNTIME_PORT;
+
+// Built React code
 const port = window.pachDashConfig.REACT_APP_RUNTIME_PORT;
 ```
-In any other environment they are loaded like other environment variables on `process.env`.
 
-These variables can also be accessed in the node runtime (on the server, and during test execution), but not via the `pachDashConfig` object. The reason for this, is that
-the node runtime does not support maps as environment variables.
+ℹ️ These are needed so that end-users can inject env vars from the Helm chart when they deploy Pachyderm. Adding a runtime variable to the helm chart is a manual process.
 
-```bash
-// node runtime
-const port = process.env.REACT_APP_RUNTIME_PORT;
+### Shared variables
+
+Variables prefixed with `REACT_APP` or `_RUNTIME` are both available in the backend server. If you need to share an environment variable between the client and the server code, use the `REACT_APP` or `REACT_APP_RUNTIME` prefixes.
+
+```ts
+// can be used both on frontend and backend
+const apiEndpoint = process.env.REACT_APP_REPORTING_API_ENDPOINT;
 ```
 
 ### Server-only variables
 
-Any variables not prefixed with `REACT_APP` or `REACT_APP_RUNTIME` will only be accessible from the server **only**.
+Finally, variables without `REACT_APP` or `REACT_APP_RUNTIME` prefixes are server-only variables and are only accessible in the server-side code.
 
-```bash
+```ts
+// .env.production
+PORT = 3000;
+
 // server code
 const port = process.env.PORT;
 ```
