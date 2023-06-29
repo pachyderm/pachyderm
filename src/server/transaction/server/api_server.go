@@ -64,7 +64,7 @@ func (a *apiServer) FinishTransaction(ctx context.Context, request *transaction.
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAllRequest) (response *types.Empty, retErr error) {
-	if err := dbutil.WithTx(ctx, a.driver.db, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.driver.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return a.driver.deleteAll(ctx, sqlTx, nil)
 	}); err != nil {
 		return nil, err

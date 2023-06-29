@@ -378,7 +378,7 @@ func TestPFS(suite *testing.T) {
 				err := c.CreateProject(tc.projectName)
 				if tc.errMatch != "" {
 					require.YesError(t, err)
-					require.Matches(t, tc.errMatch, err.Error())
+					require.ErrorContains(t, err, tc.errMatch)
 				} else {
 					require.NoError(t, err)
 				}
