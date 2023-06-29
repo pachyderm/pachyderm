@@ -71,7 +71,7 @@ func TestPrometheusStats(t *testing.T) {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
 		}
 		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 		// Prometheus scrapes every 10s
 		// We run a new job outside this window so that we see a more organic
 		// time series
@@ -81,9 +81,9 @@ func TestPrometheusStats(t *testing.T) {
 	commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "test", strings.NewReader("fail")))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 
-	_, err = c.WaitCommitSetAll(commit.ID)
+	_, err = c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
 
 	port := os.Getenv("PROM_PORT")
@@ -256,18 +256,18 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout
-	_, err = c.WaitCommitSetAll(commit.ID)
+	_, err = c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
 
 	// Make sure the job succeeded as well
 	jobs, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }

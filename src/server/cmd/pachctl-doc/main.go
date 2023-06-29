@@ -1,9 +1,14 @@
+// pachctl-doc
+
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -21,19 +26,43 @@ func main() {
 }
 
 func do(ctx context.Context, appEnvObj interface{}) error {
-	// Set 'os.Args[0]' so that examples use the expected command name
-	os.Args[0] = "pachctl"
+	path := "./docs/"
 
-	path := "./doc/docs/master/reference/pachctl/"
-	if len(os.Args) == 2 {
-		path = os.Args[1]
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return errors.Wrap(err, "make output directory")
 	}
 
 	rootCmd, err := cmd.PachctlCmd()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "could not generate pachctl command: %v\n", err)
-		os.Exit(1)
+		return errors.Wrap(err, "generate pachctl command")
 	}
 	rootCmd.DisableAutoGenTag = true
-	return errors.EnsureStack(doc.GenMarkdownTree(rootCmd, path))
+
+	const fmTemplate = `---
+date: %s
+title: "%s"
+slug: "Learn about the %s command"
+---
+
+`
+
+	filePrepender := func(filename string) string {
+		now := time.Now().Format(time.RFC3339)
+		name := filepath.Base(filename)
+		base := strings.TrimSuffix(name, filepath.Ext(name))
+		return fmt.Sprintf(fmTemplate, now, strings.Replace(base, "_", " ", -1), base)
+	}
+
+	linkHandler := func(name string) string {
+		base := strings.TrimSuffix(name, filepath.Ext(name))
+		return "/commands/" + strings.ToLower(base) + "/"
+	}
+
+	err = doc.GenMarkdownTreeCustom(rootCmd, path, filePrepender, linkHandler)
+
+	if err != nil {
+		return errors.Wrap(err, "generate Markdown documentation")
+	}
+
+	return nil
 }

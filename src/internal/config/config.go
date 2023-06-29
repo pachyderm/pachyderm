@@ -128,10 +128,10 @@ func fetchCachedConfig(p string) error {
 // pachctl), indicating that their on-disk config is invalid.
 func validateCachedConfig() (bool, error) {
 	var updated bool
-	if cachedConfig.UserID == "" {
+	if cachedConfig.UserId == "" {
 		updated = true
 		log.Debug(pctx.TODO(), "No UserID present in config - generating new one.")
-		cachedConfig.UserID = uuid.NewWithoutDashes()
+		cachedConfig.UserId = uuid.NewWithoutDashes()
 	}
 
 	if cachedConfig.V2 == nil {
@@ -205,7 +205,7 @@ func (c *Config) InitV2() error {
 		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
 			PachdAddress:      c.V1.PachdAddress,
-			ServerCAs:         c.V1.ServerCAs,
+			ServerCas:         c.V1.ServerCas,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,
 		}

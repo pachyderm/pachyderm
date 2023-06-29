@@ -118,7 +118,10 @@ class Client:
         self.enterprise = _EnterpriseStub(self._channel)
         self.identity = _IdentityStub(self._channel)
         self.license = _LicenseStub(self._channel)
-        self.pfs = _PfsStub(self._channel)
+        self.pfs = _PfsStub(
+            self._channel,
+            get_transaction_id=lambda: self.transaction_id,
+        )
         self.pps = _PpsStub(self._channel)
         self.transaction = _TransactionStub(
             self._channel,

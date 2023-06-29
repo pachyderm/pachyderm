@@ -173,7 +173,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 					return d.finalizeCommit(ctx, commit, "", nil, nil)
 				}
 				compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, cache)
+				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, cache)
 				return errors.EnsureStack(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 					start := time.Now()
 					// Compacting the diff before getting the total allows us to compose the

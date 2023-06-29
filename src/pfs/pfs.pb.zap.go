@@ -144,7 +144,7 @@ func (x *Commit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("repo", x.Repo)
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	enc.AddObject("branch", x.Branch)
 	return nil
 }
@@ -194,7 +194,7 @@ func (x *CommitSet) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 

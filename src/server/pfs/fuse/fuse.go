@@ -68,9 +68,9 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 	commits := make(map[string]string)
 	if opts != nil {
 		for repo, ropts := range opts.RepoOptions {
-			if ropts.File.Commit.ID != "" && ropts.File.Commit.GetBranch().GetName() == "" {
-				commits[repo] = ropts.File.Commit.ID
-				cis, err := c.InspectCommitSet(ropts.File.Commit.ID)
+			if ropts.File.Commit.Id != "" && ropts.File.Commit.GetBranch().GetName() == "" {
+				commits[repo] = ropts.File.Commit.Id
+				cis, err := c.InspectCommitSet(ropts.File.Commit.Id)
 				if err != nil {
 					return err
 				}
@@ -78,7 +78,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				for _, ci := range cis {
 					if ci.Commit.Branch.Repo.Name == repo {
 						if branch != "" {
-							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.ID)
+							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.Id)
 						}
 						branch = ci.Commit.Branch.Name
 					}
