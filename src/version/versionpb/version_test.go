@@ -45,7 +45,14 @@ func TestCompare(t *testing.T) {
 		client, server *Version
 		wantErr        error
 	}{
-		{}, // client and server are both development versions, no error
+		{
+			wantErr: ErrClientIsNil,
+		},
+		{
+			// This mirrors the development environment.
+			client: new(Version),
+			server: new(Version),
+		},
 		{
 			client: &Version{Major: 2, Minor: 5},
 			server: &Version{Major: 0, Minor: 0, Micro: 0},
