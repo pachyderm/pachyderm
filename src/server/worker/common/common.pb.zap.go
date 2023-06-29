@@ -19,7 +19,6 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("group_by", x.GroupBy)
 	enc.AddBool("lazy", x.Lazy)
 	enc.AddString("branch", x.Branch)
-	enc.AddString("git_url", x.GitURL)
 	enc.AddBool("empty_files", x.EmptyFiles)
 	enc.AddBool("s3", x.S3)
 	return nil

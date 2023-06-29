@@ -691,7 +691,7 @@ func TestAuthLoginLogout(t *testing.T) {
 
 		type AuthLoginResp struct {
 			AuthUrl   string `json:"auth_url"`
-			OIDCState string `json:"oidc_state"`
+			OidcState string `json:"oidc_state"`
 		}
 		getAuthLogin := &AuthLoginResp{}
 		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
@@ -699,7 +699,7 @@ func TestAuthLoginLogout(t *testing.T) {
 		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
 		time.Sleep(1 * time.Second)
 
-		b := bytes.NewBufferString(getAuthLogin.OIDCState)
+		b := bytes.NewBufferString(getAuthLogin.OidcState)
 		tokenResp, err := put("auth/_login_token", b)
 		require.NoError(t, err)
 		require.Equal(t, 200, tokenResp.StatusCode)

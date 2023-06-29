@@ -41,13 +41,13 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	status.WorkerID = a.workerName
+	status.WorkerId = a.workerName
 	return status, nil
 }
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *workerapi.CancelRequest) (*workerapi.CancelResponse, error) {
-	success := a.workerInterface.Cancel(request.JobID, request.DataFilters)
+	success := a.workerInterface.Cancel(request.JobId, request.DataFilters)
 	return &workerapi.CancelResponse{Success: success}, nil
 }
 

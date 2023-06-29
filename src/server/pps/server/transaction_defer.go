@@ -71,7 +71,7 @@ func (t *JobStopper) Run() error {
 	if len(t.commitsets) > 0 {
 		for _, commitset := range t.commitsets {
 			jobInfo := &pps.JobInfo{}
-			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.ID, jobInfo, col.DefaultOptions(), func(string) error {
+			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.Id, jobInfo, col.DefaultOptions(), func(string) error {
 				return t.a.stopJob(t.txnCtx, jobInfo.Job, "output commit removed")
 			}); err != nil {
 				return errors.EnsureStack(err)
@@ -106,7 +106,7 @@ func (jf *JobFinisher) Run() error {
 			if commitInfo.Commit.Repo.Type != pfs.UserRepoType {
 				continue
 			}
-			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Repo.Project.GetName(), commitInfo.Commit.Repo.Name, commitInfo.Commit.ID))
+			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Repo.Project.GetName(), commitInfo.Commit.Repo.Name, commitInfo.Commit.Id))
 			jobInfo := &pps.JobInfo{}
 			if err := jobs.Get(jobKey, jobInfo); err != nil {
 				// Commits in source repos will not have a job associated with them.

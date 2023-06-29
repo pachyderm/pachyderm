@@ -79,7 +79,7 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 		return nil, auth.ErrNotActivated
 	})
 	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
-		return &admin.ClusterInfo{ID: "debug", VersionWarningsOk: true}, nil
+		return &admin.ClusterInfo{Id: "debug", VersionWarningsOk: true}, nil
 	})
 
 	return d
@@ -209,7 +209,7 @@ func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommi
 }
 
 func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	targetID, ancestors, err := ancestry.Parse(req.Commit.ID)
+	targetID, ancestors, err := ancestry.Parse(req.Commit.Id)
 	var targetBranch string
 	if err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 			// assume the first we see on this branch is the current head
 			match = info.Commit.Branch.Name == targetBranch
 		} else {
-			match = info.Commit.ID == targetID
+			match = info.Commit.Id == targetID
 		}
 		if match {
 			if ancestors == 0 {
@@ -239,7 +239,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 				// this will fail for negative/future ancestry, but I doubt people use that anyway
 				ancestors--
 				targetBranch = ""
-				targetID = info.ParentCommit.ID
+				targetID = info.ParentCommit.Id
 			}
 		}
 		return nil
@@ -317,10 +317,10 @@ func (d *debugDump) listCommitSet(req *pfs.ListCommitSetRequest, srv pfs.API_Lis
 	commitMap := make(map[string][]*pfs.CommitInfo)
 	latestMap := make(map[string]time.Time)
 	if _, err := d.globTarProtos(glob, &info, func() error {
-		commitMap[info.Commit.ID] = append(commitMap[info.Commit.ID], proto.Clone(&info).(*pfs.CommitInfo))
+		commitMap[info.Commit.Id] = append(commitMap[info.Commit.Id], proto.Clone(&info).(*pfs.CommitInfo))
 		asTime, _ := types.TimestampFromProto(info.Started)
-		if latestMap[info.Commit.ID].Before(asTime) {
-			latestMap[info.Commit.ID] = asTime
+		if latestMap[info.Commit.Id].Before(asTime) {
+			latestMap[info.Commit.Id] = asTime
 		}
 		return nil
 	}); err != nil {
@@ -348,7 +348,7 @@ func (d *debugDump) inspectCommitSet(req *pfs.InspectCommitSetRequest, srv pfs.A
 	glob := fmt.Sprintf(commitPatternFormatString, "*")
 	var info pfs.CommitInfo
 	_, err := d.globTarProtos(glob, &info, func() error {
-		if info.Commit.ID != req.CommitSet.ID {
+		if info.Commit.Id != req.CommitSet.Id {
 			return nil
 		}
 		return srv.Send(&info)
@@ -515,10 +515,10 @@ func (d *debugDump) listJobSet(req *pps.ListJobSetRequest, srv pps.API_ListJobSe
 	jobMap := make(map[string][]*pps.JobInfo)
 	latestMap := make(map[string]time.Time)
 	if _, err := d.globTarProtos(glob, &info, func() error {
-		jobMap[info.Job.ID] = append(jobMap[info.Job.ID], proto.Clone(&info).(*pps.JobInfo))
+		jobMap[info.Job.Id] = append(jobMap[info.Job.Id], proto.Clone(&info).(*pps.JobInfo))
 		asTime, _ := types.TimestampFromProto(info.Started)
-		if latestMap[info.Job.ID].Before(asTime) {
-			latestMap[info.Job.ID] = asTime
+		if latestMap[info.Job.Id].Before(asTime) {
+			latestMap[info.Job.Id] = asTime
 		}
 		return nil
 	}); err != nil {
@@ -546,7 +546,7 @@ func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_Ins
 	glob := fmt.Sprintf(jobPatternFormatString, "*")
 	var info pps.JobInfo
 	_, err := d.globTarProtos(glob, &info, func() error {
-		if info.Job.ID != req.JobSet.ID {
+		if info.Job.Id != req.JobSet.Id {
 			return nil
 		}
 		return srv.Send(&info)

@@ -77,12 +77,12 @@ const (
 
 // NewJob creates a pps.Job.
 func NewJob(projectName, pipelineName, jobID string) *pps.Job {
-	return &pps.Job{Pipeline: NewPipeline(projectName, pipelineName), ID: jobID}
+	return &pps.Job{Pipeline: NewPipeline(projectName, pipelineName), Id: jobID}
 }
 
 // NewJobSet creates a pps.JobSet.
 func NewJobSet(id string) *pps.JobSet {
-	return &pps.JobSet{ID: id}
+	return &pps.JobSet{Id: id}
 }
 
 // NewPFSInput returns a new PFS input.  It only includes required options.
@@ -576,7 +576,7 @@ func (c APIClient) InspectDatum(projectName, pipelineName, jobID, datumID string
 		c.Ctx(),
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
-				ID:  datumID,
+				Id:  datumID,
 				Job: NewJob(projectName, pipelineName, jobID),
 			},
 		},
@@ -669,7 +669,7 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 	if datumID != "" {
 		request.Datum = &pps.Datum{
 			Job: NewJob(projectName, pipelineName, jobID),
-			ID:  datumID,
+			Id:  datumID,
 		}
 	}
 	resp := &LogsIter{}
@@ -830,7 +830,7 @@ func (c APIClient) RunPipeline(projectName, pipelineName string, provenance []*p
 		&pps.RunPipelineRequest{
 			Pipeline:   NewPipeline(projectName, pipelineName),
 			Provenance: provenance,
-			JobID:      jobID,
+			JobId:      jobID,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

@@ -128,7 +128,7 @@ func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController
 			Name: ppsutil.PipelineRcName(pi),
 			Annotations: map[string]string{
 				pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
-				pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
+				pipelineSpecCommitAnnotation: pi.SpecCommit.Id,
 				hashedAuthTokenAnnotation:    hashAuthToken(pi.AuthToken),
 				pachVersionAnnotation:        version.PrettyVersion(),
 			},

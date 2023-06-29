@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -147,7 +148,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err := bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -170,7 +171,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -201,7 +202,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID)) // # commits = 1
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id)) // # commits = 1
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataCommit, "/file", buf))
 	require.Equal(t, "1", buf.String())
@@ -219,7 +220,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -246,7 +247,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -923,7 +924,7 @@ func TestStopJob(t *testing.T) {
 		if len(jobs) != 1 {
 			return errors.Errorf("expected one job but got %d", len(jobs))
 		}
-		jobID = jobs[0].Job.ID
+		jobID = jobs[0].Job.Id
 		return nil
 	})
 
@@ -1377,7 +1378,7 @@ func TestListJob(t *testing.T) {
 	jobs, err := aliceClient.ListJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	jobID := jobs[0].Job.ID
+	jobID := jobs[0].Job.Id
 
 	// bob cannot call ListJob on 'pipeline'
 	_, err = bobClient.ListJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
@@ -1406,11 +1407,11 @@ func TestListJob(t *testing.T) {
 	jobs, err = bobClient.ListJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	require.Equal(t, jobID, jobs[0].Job.ID)
+	require.Equal(t, jobID, jobs[0].Job.Id)
 	jobs, err = bobClient.ListJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	require.Equal(t, jobID, jobs[0].Job.ID)
+	require.Equal(t, jobID, jobs[0].Job.Id)
 }
 
 // TestInspectDatum tests InspectDatum runs even when auth is activated
@@ -1450,7 +1451,7 @@ func TestInspectDatum(t *testing.T) {
 	jobs, err := aliceClient.ListJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
-	jobID := jobs[0].Job.ID
+	jobID := jobs[0].Job.Id
 
 	// ListDatum seems like it may return inconsistent results, so sleep until
 	// the /stats branch is written
@@ -1460,7 +1461,7 @@ func TestInspectDatum(t *testing.T) {
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
-			if _, err := aliceClient.InspectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.ID); err != nil {
+			if _, err := aliceClient.InspectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.Id); err != nil {
 				continue
 			}
 		}
@@ -1821,7 +1822,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	))
 
 	// Wait for pipeline to finish
-	_, err = aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+	_, err = aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 	require.NoError(t, err)
 
 	// alice calls 'list job'
@@ -1838,7 +1839,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	jobs2, err := aliceClient.ListJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
-	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
+	require.Equal(t, jobs[0].Job.Id, jobs2[0].Job.Id)
 }
 
 // TestDeleteFailedPipeline creates a pipeline with an invalid image and then
@@ -1877,7 +1878,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// make sure the pipeline failure doesn't cause waits to block indefinitely
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitCommitSetAll(commitInfo.Commit.ID)
+		_, err := aliceClient.WaitCommitSetAll(commitInfo.Commit.Id)
 		return err
 	})
 }
@@ -1936,10 +1937,10 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 	noExpirationResp, noExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice"})
 	require.NoError(t, noExpErr)
 
-	fastExpirationResp, fastExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", TTL: 1})
+	fastExpirationResp, fastExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", Ttl: 1})
 	require.NoError(t, fastExpErr)
 
-	slowExpirationResp, slowExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", TTL: 1000})
+	slowExpirationResp, slowExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice", Ttl: 1000})
 	require.NoError(t, slowExpErr)
 
 	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
@@ -2121,7 +2122,7 @@ func TestPutFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
 	check()
 }
 
@@ -2182,7 +2183,7 @@ func TestGetFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
 	check()
 }
 
@@ -2304,7 +2305,7 @@ func TestExtractAuthToken(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// Create a token with a TTL and confirm it is extracted with an expiration
-	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", TTL: 1000})
+	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", Ttl: 1000})
 	require.NoError(t, err)
 
 	// Create a token without a TTL and confirm it is extracted
@@ -2322,7 +2323,7 @@ func TestExtractAuthToken(t *testing.T) {
 			if token.HashedToken == hash {
 				require.Equal(t, subject, token.Subject)
 				if expires {
-					require.True(t, token.Expiration.After(time.Now()))
+					require.True(t, protoutil.MustTime(token.Expiration).After(time.Now()))
 				} else {
 					require.Nil(t, token.Expiration)
 				}
@@ -2379,7 +2380,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	// restore a token with an expiration date in the past
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
 	pastExpiration := time.Now().Add(-1 * time.Minute)
-	req.Token.Expiration = &pastExpiration
+	req.Token.Expiration = protoutil.MustTimestamp(pastExpiration)
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.YesError(t, err)
@@ -2388,7 +2389,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	// restore a token with an expiration date in the future
 	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
 	futureExpiration := time.Now().Add(10 * time.Minute)
-	req.Token.Expiration = &futureExpiration
+	req.Token.Expiration = protoutil.MustTimestamp(futureExpiration)
 
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.NoError(t, err)
@@ -2399,8 +2400,8 @@ func TestRestoreAuthToken(t *testing.T) {
 
 	// Relying on time.Now is gross but the token should have a TTL in the
 	// next 10 minutes
-	require.True(t, whoAmIResp.Expiration.After(time.Now()))
-	require.True(t, whoAmIResp.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
+	require.True(t, protoutil.MustTime(whoAmIResp.Expiration).After(time.Now()))
+	require.True(t, protoutil.MustTime(whoAmIResp.Expiration).Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
@@ -2450,7 +2451,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 

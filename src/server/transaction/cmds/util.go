@@ -25,7 +25,7 @@ func getActiveTransaction() (*transaction.Transaction, error) {
 	if context.ActiveTransaction == "" {
 		return nil, nil
 	}
-	return &transaction.Transaction{ID: context.ActiveTransaction}, nil
+	return &transaction.Transaction{Id: context.ActiveTransaction}, nil
 }
 
 func requireActiveTransaction() (*transaction.Transaction, error) {
@@ -50,7 +50,7 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 	if txn == nil {
 		context.ActiveTransaction = ""
 	} else {
-		context.ActiveTransaction = txn.ID
+		context.ActiveTransaction = txn.Id
 	}
 	if err := cfg.Write(); err != nil {
 		return errors.Wrapf(err, "error writing Pachyderm config")
@@ -78,7 +78,7 @@ func WithActiveTransaction(c *client.APIClient, callback func(*client.APIClient)
 	}
 	err = callback(c)
 	if err == nil && txn != nil {
-		fmt.Fprintf(os.Stdout, "Added to transaction: %s\n", txn.ID)
+		fmt.Fprintf(os.Stdout, "Added to transaction: %s\n", txn.Id)
 	}
 	return err
 }
