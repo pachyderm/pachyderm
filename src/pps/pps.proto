@@ -757,7 +757,7 @@ message ListPipelineRequest {
 // pipelines in the default project.
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
-  bool all = 2; // Deprecated.
+  bool all = 2 [deprecated = true]; // Deprecated.
   bool force = 3;
   bool keep_repo = 4;
 }
