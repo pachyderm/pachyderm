@@ -719,7 +719,7 @@ func TestYAMLError(t *testing.T) {
 		  stdin:
 		    - "cp /pfs/input/* /pfs/out"
 		EOF
-		) | match "cannot unmarshal string into Go value of type \[\]json.RawMessage"
+		) | match "syntax error"
 		`,
 	).Run())
 }
