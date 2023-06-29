@@ -3,12 +3,11 @@ syntax = "proto3";
 package admin_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/admin";
 
-import "gogoproto/gogo.proto";
 import "version/versionpb/version.proto";
 
 message ClusterInfo {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  string deployment_id = 2 [(gogoproto.customname) = "DeploymentID"];
+  string id = 1;
+  string deployment_id = 2;
 
   bool version_warnings_ok = 3; // Let the client detect a server that can't generate warnings.
   repeated string version_warnings = 4; // Warnings about version skew.

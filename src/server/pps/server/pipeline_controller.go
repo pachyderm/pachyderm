@@ -500,8 +500,8 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):
 		log.Info(ctx, "pipeline version looks stale", zap.String("old", rcPipelineVersion), zap.Uint64("new", pi.Version))
 		return false
-	case rcSpecCommit != pi.SpecCommit.ID:
-		log.Info(ctx, "pipeline spec commit looks stale", zap.String("old", rcSpecCommit), zap.String("new", pi.SpecCommit.ID))
+	case rcSpecCommit != pi.SpecCommit.Id:
+		log.Info(ctx, "pipeline spec commit looks stale", zap.String("old", rcSpecCommit), zap.String("new", pi.SpecCommit.Id))
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Info(ctx, "pipeline is using stale pachd", zap.String("old", rcPachVersion), zap.String("new", version.PrettyVersion()))
@@ -572,7 +572,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 	pachClient.SetAuthToken(pi.AuthToken)
 	c := client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, "")
 	if err := pachClient.ListCommitF(c.Repo, c, nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
+		return pachClient.StopJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.Id)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted

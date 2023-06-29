@@ -4,7 +4,6 @@ package license_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/license";
 
 import "google/protobuf/timestamp.proto";
-import "gogoproto/gogo.proto";
 import "enterprise/enterprise.proto";
 import "protoextensions/log.proto";
 
@@ -65,10 +64,10 @@ message ClusterStatus {
   string id = 1;
   string address = 2;
   string version = 3;
-  bool auth_enabled = 4 [(gogoproto.moretags) = "db:\"auth_enabled\""];
-  string client_id = 7 [(gogoproto.moretags) = "db:\"client_id\""];
-  google.protobuf.Timestamp last_heartbeat = 5 [(gogoproto.moretags) = "db:\"last_heartbeat\"", (gogoproto.stdtime) = true];
-  google.protobuf.Timestamp created_at = 6 [(gogoproto.moretags) = "db:\"created_at\"", (gogoproto.stdtime) = true];
+  bool auth_enabled = 4;
+  string client_id = 7;
+  google.protobuf.Timestamp last_heartbeat = 5;
+  google.protobuf.Timestamp created_at = 6;
 }
 
 // Note: Updates of the enterprise-server field are not allowed. In the worst case, a user can recreate their cluster if they need the field updated.
@@ -102,10 +101,10 @@ message HeartbeatResponse {
 }
 
 message UserClusterInfo {
-  string id = 1 [(gogoproto.moretags) = "db:\"id\""];
-  string cluster_deployment_id = 2 [(gogoproto.moretags) = "db:\"cluster_deployment_id\""];
-  string address = 3 [(gogoproto.moretags) = "db:\"user_address\""];
-  bool enterprise_server = 4 [(gogoproto.moretags) = "db:\"is_enterprise_server\""];
+  string id = 1;
+  string cluster_deployment_id = 2;
+  string address = 3;
+  bool enterprise_server = 4;
 }
 
 message ListUserClustersRequest {}

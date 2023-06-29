@@ -29,7 +29,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Println(ci.ID)
+			fmt.Println(ci.Id)
 			return nil
 		}),
 	}

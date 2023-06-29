@@ -66,7 +66,7 @@ func multipartKeepArgs(path string) (repo string, branch string, key string, upl
 }
 
 func parentDirPath(bucket *Bucket, key string, uploadID string) string {
-	commitID := bucket.Commit.ID
+	commitID := bucket.Commit.Id
 	if commitID == "" {
 		commitID = "latest"
 	}
@@ -294,7 +294,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	result := s2.CompleteMultipartResult{Location: globalLocation}
 	if fileInfo != nil {
 		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
-		result.Version = fileInfo.File.Commit.ID
+		result.Version = fileInfo.File.Commit.Id
 	}
 
 	return &result, nil

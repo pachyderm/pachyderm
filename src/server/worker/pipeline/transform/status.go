@@ -85,7 +85,7 @@ func (s *Status) GetStatus() (*pps.WorkerStatus, error) {
 	defer s.mutex.Unlock()
 
 	return &pps.WorkerStatus{
-		JobID:       s.jobID,
+		JobId:       s.jobID,
 		DatumStatus: s.datumStatus,
 	}, nil
 }

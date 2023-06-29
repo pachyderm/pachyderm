@@ -178,15 +178,7 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 		case "google.protobuf.Empty":
 			// do nothing
 		case "google.protobuf.Timestamp":
-			if proto.GetExtension(opts, gogoproto.E_Stdtime).(bool) {
-				// If gogoproto.stdtime is set, then this is a pointer to a
-				// time.Time, not a types.Timestamp.
-				g.P(`if t := x.`, gname, `; t != nil {`)
-				g.P(`enc.AddTime("`, fname, `", *t)`)
-				g.P(`}`)
-			} else {
-				g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddTimestamp")), `(enc, "`, fname, `", x.`, gname, `)`)
-			}
+			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddTimestamp")), `(enc, "`, fname, `", x.`, gname, `)`)
 		case "google.protobuf.Duration":
 			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddDuration")), `(enc, "`, fname, `", x.`, gname, `)`)
 		case "google.protobuf.BytesValue":
