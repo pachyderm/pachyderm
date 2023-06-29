@@ -286,7 +286,9 @@ func (s *stm) commit() *v3.TxnResponse {
 	defer tracing.FinishAnySpan(span)
 
 	cmps := s.cmps()
+	tracing.TagAnySpan(s.ctx, "comparisons", len(cmps))
 	writes := s.writes()
+	tracing.TagAnySpan(s.ctx, "writes", len(writes))
 	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(writes...).Commit()
 	if errors.Is(err, rpctypes.ErrTooManyOps) {
 		panic(stmError{
