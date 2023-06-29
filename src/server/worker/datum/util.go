@@ -21,8 +21,8 @@ func MergeStats(x, y *Stats) error {
 	x.Skipped += y.Skipped
 	x.Failed += y.Failed
 	x.Recovered += y.Recovered
-	if x.FailedID == "" {
-		x.FailedID = y.FailedID
+	if x.FailedId == "" {
+		x.FailedId = y.FailedId
 	}
 	return nil
 }

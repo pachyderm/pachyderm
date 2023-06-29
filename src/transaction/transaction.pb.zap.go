@@ -45,7 +45,7 @@ func (x *Transaction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 

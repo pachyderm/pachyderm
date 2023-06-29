@@ -18,11 +18,11 @@ func repoKey(repo *pfs.Repo) string {
 }
 
 func oldCommitKey(commit *pfs.Commit) string {
-	return branchKey(commit.Branch) + "=" + commit.ID
+	return branchKey(commit.Branch) + "=" + commit.Id
 }
 
 func commitBranchlessKey(commit *pfs.Commit) string {
-	return repoKey(commit.Branch.Repo) + "@" + commit.ID
+	return repoKey(commit.Branch.Repo) + "@" + commit.Id
 }
 
 func branchKey(branch *pfs.Branch) string {
@@ -33,10 +33,10 @@ func branchKey(branch *pfs.Branch) string {
 // key.  It will include the project if the project name is not the empty
 // string.
 func jobKey(j *pps.Job) string {
-	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)
+	return fmt.Sprintf("%s@%s", j.Pipeline, j.Id)
 }
 func pipelineCommitKey(commit *pfs.Commit) string {
-	return fmt.Sprintf("%s/%s@%s", commit.Repo.Project.Name, commit.Repo.Name, commit.ID)
+	return fmt.Sprintf("%s/%s@%s", commit.Repo.Project.Name, commit.Repo.Name, commit.Id)
 }
 
 func forEachCollectionProtos[T proto.Message](ctx context.Context, tx *pachsql.Tx, table string, val T, f func(T)) error {

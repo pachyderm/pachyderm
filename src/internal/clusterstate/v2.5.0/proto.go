@@ -177,20 +177,6 @@ func (m *CommitInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.DirectProvenance) > 0 {
-		for iNdEx := len(m.DirectProvenance) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.DirectProvenance[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintPfs(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x6a
-		}
-	}
 	if m.Details != nil {
 		{
 			size, err := m.Details.MarshalToSizedBuffer(dAtA[:i])
@@ -214,6 +200,20 @@ func (m *CommitInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i = encodeVarintPfs(dAtA, i, uint64(len(m.Error)))
 		i--
 		dAtA[i] = 0x52
+	}
+	if len(m.DirectProvenance) > 0 {
+		for iNdEx := len(m.DirectProvenance) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DirectProvenance[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPfs(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x4a
+		}
 	}
 	if m.Finished != nil {
 		{

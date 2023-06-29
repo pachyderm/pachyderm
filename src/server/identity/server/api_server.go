@@ -134,7 +134,7 @@ func (a *apiServer) setIdentityServerConfig(ctx context.Context, req *identity.S
 
 func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (resp *identity.GetIdentityServerConfigResponse, retErr error) {
 	var config []*identity.IdentityServerConfig
-	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry, rotation_token_expiry FROM identity.config WHERE id=$1;", configKey)
+	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry AS IdTokenExpiry, rotation_token_expiry AS RotationTokenExpiry FROM identity.config WHERE id=$1;", configKey)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

@@ -32,4 +32,11 @@ func TestServer(t *testing.T) {
 	id, err := w.Close()
 	require.NoError(t, err)
 	t.Log(id)
+
+	require.NoError(t, objC.Walk(ctx, chunkPrefix, func(k string) error {
+		if !strings.HasPrefix(k, chunkPrefix) {
+			t.Errorf("object key %q does not have prefix %q", k, chunkPrefix)
+		}
+		return nil
+	}))
 }

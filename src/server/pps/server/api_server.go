@@ -544,7 +544,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			case watch.EventError:
 				return nil, ev.Err
 			case watch.EventDelete:
-				return nil, errors.Errorf("job %s was deleted", request.Job.ID)
+				return nil, errors.Errorf("job %s was deleted", request.Job.Id)
 			case watch.EventPut:
 				var jobID string
 				if err := ev.Unmarshal(&jobID, jobInfo); err != nil {
@@ -579,7 +579,7 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 					},
 					Name: pipelineName,
 				},
-				ID: request.JobSet.ID,
+				Id: request.JobSet.Id,
 			},
 			Details: request.Details,
 		})
@@ -593,7 +593,7 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 		return errors.EnsureStack(server.Send(jobInfo))
 	}
 
-	if err := forEachCommitInJob(pachClient, request.JobSet.ID, request.Wait, func(ci *pfs.CommitInfo) error {
+	if err := forEachCommitInJob(pachClient, request.JobSet.Id, request.Wait, func(ci *pfs.CommitInfo) error {
 		if ci.Commit.Repo.Type != pfs.UserRepoType {
 			return nil
 		}
@@ -605,7 +605,7 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 			// Load all the jobs eagerly to avoid a nested query
 			pipelines := []*pps.Pipeline{}
 			jobInfo := &pps.JobInfo{}
-			if err := a.jobs.ReadOnly(pachClient.Ctx()).GetByIndex(ppsdb.JobsJobSetIndex, request.JobSet.ID, jobInfo, col.DefaultOptions(), func(string) error {
+			if err := a.jobs.ReadOnly(pachClient.Ctx()).GetByIndex(ppsdb.JobsJobSetIndex, request.JobSet.Id, jobInfo, col.DefaultOptions(), func(string) error {
 				pipelines = append(pipelines, jobInfo.Job.Pipeline)
 				return nil
 			}); err != nil {
@@ -677,7 +677,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if number == 0 {
 			return errutil.ErrBreak
 		}
-		id := jobInfo.GetJob().GetID()
+		id := jobInfo.GetJob().GetId()
 		if _, ok := seen[id]; ok {
 			return nil
 		}
@@ -746,7 +746,7 @@ func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Comm
 			}
 		}
 		if allCommits {
-			intersection[cs.CommitSet.ID] = struct{}{}
+			intersection[cs.CommitSet.Id] = struct{}{}
 		}
 		return nil
 	}); err != nil {
@@ -811,7 +811,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 			// jobs, we omit those since they're not part of the status for this
 			// job.
 			for _, status := range workerStatus {
-				if status.JobID == jobInfo.Job.ID {
+				if status.JobId == jobInfo.Job.Id {
 					details.WorkerStatus = append(details.WorkerStatus, status)
 				}
 			}
@@ -887,7 +887,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			if err != nil {
 				return err
 			}
-			if _, ok := commitsets[jobInfo.Job.ID]; !ok {
+			if _, ok := commitsets[jobInfo.Job.Id]; !ok {
 				return nil
 			}
 		}
@@ -1076,14 +1076,14 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		Pipeline: jobInfo.Job.Pipeline,
 		Version:  jobInfo.PipelineVersion,
 	}
-	if err := workerserver.Cancel(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.Id, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
-	if request.Datum == nil || request.Datum.ID == "" {
+	if request.Datum == nil || request.Datum.Id == "" {
 		return nil, errors.New("must specify a datum")
 	}
 	if request.Datum.Job == nil {
@@ -1092,7 +1092,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	ensurePipelineProject(request.Datum.Job.Pipeline)
 	// TODO: Auth?
 	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
-		if common.DatumID(meta.Inputs) == request.Datum.ID {
+		if common.DatumID(meta.Inputs) == request.Datum.Id {
 			response = convertDatumMetaToInfo(meta, request.Datum.Job)
 			response.PfsState = pfsState
 		}
@@ -1101,7 +1101,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 		return nil, err
 	}
 	if response == nil {
-		return nil, errors.Errorf("datum %s not found in job %s", request.Datum.ID, request.Datum.Job)
+		return nil, errors.Errorf("datum %s not found in job %s", request.Datum.Id, request.Datum.Job)
 	}
 	return response, nil
 }
@@ -1129,7 +1129,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 			}
 			info := convertDatumMetaToInfo(meta, nil)
 			info.State = pps.DatumState_UNKNOWN
-			if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
+			if (request.PaginationMarker != "" && info.Datum.Id <= request.PaginationMarker) || !request.Filter.Allow(info) {
 				return nil
 			}
 			number--
@@ -1144,7 +1144,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 			return errutil.ErrBreak
 		}
 		info := convertDatumMetaToInfo(meta, request.Job)
-		if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
+		if (request.PaginationMarker != "" && info.Datum.Id <= request.PaginationMarker) || !request.Filter.Allow(info) {
 			return nil
 		}
 		number--
@@ -1162,7 +1162,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
 			info := convertDatumMetaToInfo(meta, nil)
 			info.State = pps.DatumState_UNKNOWN
-			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+			if request.PaginationMarker != "" && info.Datum.Id >= request.PaginationMarker {
 				return errutil.ErrBreak
 			}
 			if !request.Filter.Allow(info) {
@@ -1181,7 +1181,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 	} else {
 		if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
 			info := convertDatumMetaToInfo(meta, request.Job)
-			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+			if request.PaginationMarker != "" && info.Datum.Id >= request.PaginationMarker {
 				return errutil.ErrBreak
 			}
 			if !request.Filter.Allow(info) {
@@ -1227,7 +1227,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 			if err != nil {
 				return err
 			}
-			input.Pfs.Commit = ci.Commit.ID
+			input.Pfs.Commit = ci.Commit.Id
 		}
 		if input.Cron != nil {
 			return errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
@@ -1252,7 +1252,7 @@ func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo
 	di := &pps.DatumInfo{
 		Datum: &pps.Datum{
 			Job: meta.Job,
-			ID:  common.DatumID(meta.Inputs),
+			Id:  common.DatumID(meta.Inputs),
 		},
 		State:   convertDatumState(meta.State),
 		Stats:   meta.Stats,
@@ -1392,7 +1392,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			jobInfo := &pps.JobInfo{}
 			err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(ppsdb.JobKey(request.Job), jobInfo)
 			if err != nil {
-				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 			}
 			if created := jobInfo.GetCreated(); since == nil && created != nil {
 				t, err := types.TimestampFromProto(created)
@@ -1548,7 +1548,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		jobInfo := &pps.JobInfo{}
 		err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(ppsdb.JobKey(request.Job), jobInfo)
 		if err != nil {
-			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 		}
 		if created := jobInfo.GetCreated(); from.IsZero() && created != nil {
 			if from, err = types.TimestampFromProto(created); err != nil {
@@ -1571,10 +1571,10 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		query += contains("master")
 	}
 	if request.Job != nil {
-		query += contains(request.Job.ID)
+		query += contains(request.Job.Id)
 	}
 	if request.Datum != nil {
-		query += contains(request.Datum.ID)
+		query += contains(request.Datum.Id)
 	}
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
@@ -1598,10 +1598,10 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 			return nil
 		}
-		if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+		if request.Job != nil && (request.Job.Id != msg.JobId || request.Job.Pipeline.Name != msg.PipelineName) {
 			return nil
 		}
-		if request.Datum != nil && request.Datum.ID != msg.DatumID {
+		if request.Datum != nil && request.Datum.Id != msg.DatumId {
 			return nil
 		}
 		if request.Master != msg.Master {
@@ -1784,7 +1784,7 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
-	if request.TFJob != nil {
+	if request.TfJob != nil {
 		return errors.New("embedding TFJobs in pipelines is not supported yet")
 	}
 	if request.S3Out && ((request.Service != nil) || (request.Spout != nil)) {
@@ -2189,7 +2189,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		Version:  1,
 		Details: &pps.PipelineInfo_Details{
 			Transform:               request.Transform,
-			TFJob:                   request.TFJob,
+			TfJob:                   request.TfJob,
 			ParallelismSpec:         request.ParallelismSpec,
 			Input:                   request.Input,
 			OutputBranch:            request.OutputBranch,
@@ -2619,7 +2619,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 					return nil, errors.EnsureStack(err)
 				}
 			} else {
-				info.Details.Service.IP = service.Spec.ClusterIP
+				info.Details.Service.Ip = service.Spec.ClusterIP
 			}
 		}
 
@@ -2756,9 +2756,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			}
 			return nil
 		}
-		if request.GetCommitSet().GetID() != "" {
+		if request.GetCommitSet().GetId() != "" {
 			// load pipeline as it was at the commit set along with its associated job state
-			if err := loadPipelineAtCommit(pi, request.GetCommitSet().GetID()); err != nil {
+			if err := loadPipelineAtCommit(pi, request.GetCommitSet().GetId()); err != nil {
 				if pfsServer.IsCommitNotFoundErr(err) || ppsServer.IsPipelineNotFoundErr(err) || col.IsErrNotFound(err) {
 					return nil
 				}

@@ -99,7 +99,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+			jobInfo, err := client.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, true)
 			if err != nil {
 				return errors.Wrap(err, "error from InspectJob")
 			}
@@ -165,7 +165,7 @@ If the job fails, the output commit will not be populated with data.`,
 				if err != nil {
 					return err
 				}
-				jobInfo, err := client.WaitJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+				jobInfo, err := client.WaitJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, true)
 				if err != nil {
 					return errors.Wrap(err, "error from InspectJob")
 				}
@@ -377,7 +377,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return err
 			}
 			defer client.Close()
-			if err := client.DeleteJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID); err != nil {
+			if err := client.DeleteJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id); err != nil {
 				return errors.Wrap(err, "error from DeleteJob")
 			}
 			return nil
@@ -406,7 +406,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				}
 				if _, err := client.RunBatchInTransaction(func(tb *pachdclient.TransactionBuilder) error {
 					for _, jobInfo := range jobInfos {
-						if err := tb.StopJob(jobInfo.Job.Pipeline.Project.Name, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
+						if err := tb.StopJob(jobInfo.Job.Pipeline.Project.Name, jobInfo.Job.Pipeline.Name, jobInfo.Job.Id); err != nil {
 							return err
 						}
 					}
@@ -419,7 +419,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				if err != nil {
 					return err
 				}
-				if err := client.StopJob(job.Pipeline.Project.Name, job.Pipeline.Name, job.ID); err != nil {
+				if err := client.StopJob(job.Pipeline.Project.Name, job.Pipeline.Name, job.Id); err != nil {
 					return errors.Wrap(err, "error from StopProjectJob")
 				}
 			}
@@ -468,7 +468,7 @@ each datum.`,
 					i++
 				}
 			}
-			return client.RestartDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, datumFilter)
+			return client.RestartDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, datumFilter)
 		}),
 	}
 	restartDatum.Flags().StringVar(&project, "project", project, "Project containing the datum job")
@@ -536,7 +536,7 @@ each datum.`,
 				if err != nil {
 					return err
 				}
-				return client.ListDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, printF)
+				return client.ListDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, printF)
 			} else {
 				return errors.Errorf("must specify either a job or a pipeline spec")
 			}
@@ -637,7 +637,7 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			datumInfo, err := client.InspectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, args[1])
+			datumInfo, err := client.InspectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, args[1])
 			if err != nil {
 				return err
 			}
@@ -740,7 +740,7 @@ each datum.`,
 					return err
 				}
 				pipelineName = job.Pipeline.Name
-				jobID = job.ID
+				jobID = job.Id
 			}
 
 			// Issue RPC
@@ -1041,7 +1041,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			request := &pps.ListPipelineRequest{
 				History:   history,
-				CommitSet: &pfs.CommitSet{ID: commit},
+				CommitSet: &pfs.CommitSet{Id: commit},
 				JqFilter:  filter,
 				Details:   true,
 				Projects:  projectsFilter,
@@ -1114,7 +1114,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				History:   0,
 				JqFilter:  "",
 				Details:   true,
-				CommitSet: &pfs.CommitSet{ID: commitSet},
+				CommitSet: &pfs.CommitSet{Id: commitSet},
 				Projects:  []*pfs.Project{{Name: project}},
 			}
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)

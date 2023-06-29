@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/signal"
 
 	flag "github.com/spf13/pflag"
@@ -16,13 +15,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
 )
 
 var (
-	mode          string
-	readiness     bool
-	notifySignals = []os.Signal{os.Interrupt}
+	mode      string
+	readiness bool
 )
 
 func init() {
@@ -33,7 +32,7 @@ func init() {
 
 func main() {
 	log.InitPachdLogger()
-	ctx, cancel := signal.NotifyContext(pctx.Background(""), notifySignals...)
+	ctx, cancel := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
 	defer cancel()
 
 	logMode := func(mode string) {

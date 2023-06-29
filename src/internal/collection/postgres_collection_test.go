@@ -121,11 +121,11 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
-					require.Equal(t, testProto.ID, key)
+					require.Equal(t, testProto.Id, key)
 					require.Equal(t, testProto.Value, originalValue)
 					keys = append(keys, key)
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
-					testProto.ID = ""
+					testProto.Id = ""
 					testProto.Value = ""
 					return nil
 				})
@@ -173,13 +173,13 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
-					outerKeys = append(outerKeys, testProto.ID)
+					outerKeys = append(outerKeys, testProto.Id)
 					if err := pgrw.Get(innerID, testProto); err != nil {
 						return errors.EnsureStack(err)
 					}
-					innerKeys = append(innerKeys, testProto.ID)
+					innerKeys = append(innerKeys, testProto.Id)
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
-					testProto.ID = ""
+					testProto.Id = ""
 					testProto.Value = ""
 					return nil
 				})

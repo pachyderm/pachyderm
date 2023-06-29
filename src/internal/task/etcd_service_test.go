@@ -110,7 +110,7 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 		groupEg.Go(func() error {
 			var inputs []*types.Any
 			for j := 0; j < numTasks; j++ {
-				input, err := serializeTestTask(&TestTask{ID: strconv.Itoa(j)})
+				input, err := serializeTestTask(&TestTask{Id: strconv.Itoa(j)})
 				if err != nil {
 					return err
 				}
@@ -286,7 +286,7 @@ func TestListTask(t *testing.T) {
 		groupEg.Go(func() error {
 			var inputs []*types.Any
 			for j := 0; j < numTasks; j++ {
-				input, err := serializeTestTask(&TestTask{ID: strconv.Itoa(g*numTasks + j)})
+				input, err := serializeTestTask(&TestTask{Id: strconv.Itoa(g*numTasks + j)})
 				if err != nil {
 					return err
 				}
@@ -332,7 +332,7 @@ func TestListTask(t *testing.T) {
 						// use channels to control task progress
 						claimedChan <- struct{}{}
 						<-finishChan
-						if shouldFail(testTask.ID) {
+						if shouldFail(testTask.Id) {
 							return nil, errTaskFailure
 						}
 						return serializeTestTask(testTask)

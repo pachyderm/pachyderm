@@ -113,7 +113,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	pi := reg.driver.PipelineInfo()
 	pj := &pendingJob{
 		driver: reg.driver,
-		logger: reg.logger.WithJob(jobInfo.Job.ID),
+		logger: reg.logger.WithJob(jobInfo.Job.Id),
 		ji:     jobInfo,
 		noSkip: pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out,
 		cache:  newCache(reg.driver.PachClient(), ppsdb.JobKey(jobInfo.Job)),
@@ -284,7 +284,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID, pj.cache)
+	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.Id, pj.cache)
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		fileSetID, err := pj.createParallelDatums(ctx, taskDoer)
 		if err != nil {
@@ -372,8 +372,8 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 	}); err != nil {
 		return err
 	}
-	if stats.FailedID != "" {
-		if err := reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID)); err != nil {
+	if stats.FailedId != "" {
+		if err := reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedId)); err != nil {
 			return err
 		}
 		return errutil.ErrBreak
@@ -519,7 +519,7 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failed []string
 	waitCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.WaitCommit(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.ID)
+		ci, err := pachClient.WaitCommit(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.Id)
 		if err != nil {
 			return errors.Wrapf(err, "error blocking on commit %s", commit)
 		}

@@ -421,7 +421,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				context.AuthInfo = authInfo
 			}
 			if updateContext.Flags().Changed("server-cas") {
-				context.ServerCAs = serverCAs
+				context.ServerCas = serverCAs
 			}
 			if updateContext.Flags().Changed("namespace") {
 				context.Namespace = namespace
@@ -430,7 +430,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				context.Project = project
 			}
 			if removeClusterDeploymentID {
-				context.ClusterDeploymentID = ""
+				context.ClusterDeploymentId = ""
 			}
 
 			return cfg.Write()

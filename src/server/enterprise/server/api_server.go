@@ -212,7 +212,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 	} else if err != nil {
 		return nil, errors.EnsureStack(err)
 	} else {
-		clientID = config.Configuration.ClientID
+		clientID = config.Configuration.ClientId
 	}
 
 	pachClient, err := client.NewFromURI(ctx, licenseServer, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))

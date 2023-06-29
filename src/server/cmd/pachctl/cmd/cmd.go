@@ -10,7 +10,6 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 	"unicode"
@@ -26,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
@@ -326,17 +326,16 @@ func PachctlCmd() (*cobra.Command, error) {
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
-		Long: `Access the Pachyderm API.
-
-Environment variables:
-  PACH_CONFIG=<path>, the path where pachctl will attempt to load your config.
-  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_TRACE
-    is set
-  PACH_TRACE={true,false}, if true, and JAEGER_ENDPOINT is set, attach a Jaeger
-    trace to any outgoing RPCs.
-  PACH_TRACE_DURATION=<duration>, the amount of time for which PPS should trace
-    a pipeline after 'pachctl create-pipeline' (PACH_TRACE must also be set).
-`,
+		Long: "Access the Pachyderm API." +
+			"\n\n" +
+			"PachCTL Environment Variables:" +
+			"\n" +
+			"\t- PACH_CONFIG=<path> | (Req) PachCTL config location. \n" +
+			"\t- PACH_TRACE={true,false} | (Opt) Attach Jaeger trace to outgoing RPCs; JAEGER_ENDPOINT must be specified. \n" +
+			"\t\t[req. PACH_TRACE={true}]: \n" +
+			"\t\t- JAEGER_ENDPOINT=<host>:<port>  | Jaeger server to connect to. \n" +
+			"\t\t- PACH_TRACE_DURATION=<duration> | Duration to trace pipelines after 'pachctl create-pipeline'. \n \n" +
+			"Documentation: https://docs.pachyderm.com/latest/",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if pachctlCfg.Verbose {
 				log.SetLevel(log.DebugLevel)
@@ -654,7 +653,7 @@ This resets the cluster to its initial state.`,
 			ch := make(chan os.Signal, 1)
 			// Handle Control-C, closing the terminal window, and pkill (and friends)
 			// cleanly.
-			signal.Notify(ch, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
+			signal.Notify(ch, signals.TerminationSignals...)
 			<-ch
 
 			return nil
@@ -785,7 +784,7 @@ This resets the cluster to its initial state.`,
 
 	getDocs := &cobra.Command{
 		Short: "Get the raw data represented by a Pachyderm resource.",
-		Long:  "Get the raw data represented by a Pachyderm resource.",
+		Long:  `Get the raw data represented by a Pachyderm resource.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(getDocs, "get"))
 

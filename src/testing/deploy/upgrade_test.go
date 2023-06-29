@@ -121,7 +121,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			ci, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
-			_, err = c.WaitCommitSetAll(ci.Commit.ID)
+			_, err = c.WaitCommitSetAll(ci.Commit.Id)
 			require.NoError(t, err)
 		},
 		func(t *testing.T, c *client.APIClient, _ string) { /* postUpgrade */
@@ -133,9 +133,9 @@ func TestUpgradeTrigger(t *testing.T) {
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
-				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.ID)
+				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
 				require.NoError(t, err)
-				if aliasCI.Commit.ID != latestDataCI.Commit.ID {
+				if aliasCI.Commit.Id != latestDataCI.Commit.Id {
 					return errors.New("not ready")
 				}
 				return nil
@@ -213,7 +213,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
 			t.Log("before upgrade: waiting for montage commit")
-			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.Id)
 			t.Log("before upgrade: wait is done")
 			require.NoError(t, err)
 
@@ -232,14 +232,12 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			// check provenance migration
 			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage(from), "master", "")
 			require.NoError(t, err)
-			if from >= "2.5" { // remove this conditional once migrating between multiple minor releases is bullet-proof
-				require.Equal(t, 3, len(commitInfo.DirectProvenance))
-				for _, p := range commitInfo.DirectProvenance {
-					if p.Repo.Name == "montage.spec" { // spec commit should be in a different commit set
-						require.NotEqual(t, commitInfo.Commit.ID, p.ID)
-					} else {
-						require.Equal(t, commitInfo.Commit.ID, p.ID)
-					}
+			require.Equal(t, 3, len(commitInfo.DirectProvenance))
+			for _, p := range commitInfo.DirectProvenance {
+				if strings.HasSuffix(p.Repo.Name, ".spec") { // spec commit should be in a different commit set
+					require.NotEqual(t, commitInfo.Commit.Id, p.Id, "commit %q with provenance %q", commitInfo.Commit.String(), p.String())
+				} else {
+					require.Equal(t, commitInfo.Commit.Id, p.Id, "commit %q with provenance %q", commitInfo.Commit.String(), p.String())
 				}
 			}
 			// check DAG still works with new commits
@@ -251,7 +249,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 			t.Log("after upgrade: waiting for montage commit")
-			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.Id)
 			t.Log("after upgrade: wait is done")
 			require.NoError(t, err)
 			var buf bytes.Buffer
