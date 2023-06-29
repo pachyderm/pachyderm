@@ -81,18 +81,19 @@ def _Commit_from_uri(uri: str) -> Commit:
             "[project/]<repo>@(branch|branch=commit|commit)"
         )
     project_repo, branch_or_commit = uri.split("@", 1)
+    repo = Repo.from_uri(project_repo)
     if "=" in branch_or_commit:
         branch, commit = branch_or_commit.split("=", 1)
     elif uuid_re.match(branch_or_commit) or not branch_re.match(branch_or_commit):
         branch, commit = None, branch_or_commit
     else:
         branch, commit = branch_or_commit, None
+    # TODO: Commits are no longer pinned to branches.
+    #       When officially deprecated, the `branch` field will be removed.
     return Commit(
-            branch=Branch(
-                name=branch,
-                repo=Repo.from_uri(project_repo)
-            ),
-            id=commit
+            branch=Branch(name=branch, repo=repo),
+            id=commit,
+            repo=repo,
         )
 
 
