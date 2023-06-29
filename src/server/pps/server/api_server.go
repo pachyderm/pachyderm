@@ -3181,6 +3181,11 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			return errors.EnsureStack(err)
 		}
 
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineInfo.Pipeline)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
 		jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 		jobPtr := &pps.JobInfo{
@@ -3189,6 +3194,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			OutputCommit:    commitInfo.Commit,
 			Stats:           &pps.ProcessStats{},
 			Created:         types.TimestampNow(),
+			AuthToken:       token,
 		}
 		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
 			return err

@@ -309,6 +309,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
+		jobInfo.AuthToken = ""
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
@@ -348,7 +349,7 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 			return errors.EnsureStack(err)
 		}
 		if jobInfo.AuthToken != "" {
-			if _, err := builder.RevokeAuthToken(pachClient.Ctx(), &auth.RevokeAuthTokenRequest{
+			if _, err := pachClient.AuthAPIClient.RevokeAuthToken(pachClient.Ctx(), &auth.RevokeAuthTokenRequest{
 				Token: jobInfo.AuthToken,
 			}); err != nil {
 				return errors.EnsureStack(err)
