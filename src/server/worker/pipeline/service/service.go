@@ -31,7 +31,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			return errors.EnsureStack(err)
 		}
 		// TODO: Add cache?
-		taskDoer := driver.NewTaskDoer(jobInfo.Job.ID, nil)
+		taskDoer := driver.NewTaskDoer(jobInfo.Job.Id, nil)
 		di, err := datum.NewIterator(pachClient, taskDoer, ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit))
 		if err != nil {
 			return err
@@ -100,7 +100,7 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 				return errors.EnsureStack(err)
 			}
 		}
-		logger.Logf("starting new service, job: %s", ji.Job.ID)
+		logger.Logf("starting new service, job: %s", ji.Job.Id)
 		var ctx context.Context
 		ctx, cancel = pctx.WithCancel(pachClient.Ctx())
 		eg, ctx = errgroup.WithContext(ctx)

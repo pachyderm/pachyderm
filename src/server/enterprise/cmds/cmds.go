@@ -94,7 +94,7 @@ func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 				if inspectErr != nil {
 					return errors.Wrapf(inspectErr, "could not inspect cluster")
 				}
-				clusterId = clusterInfo.DeploymentID
+				clusterId = clusterInfo.DeploymentId
 			}
 
 			enterpriseServer, err := getIsActiveContextEnterpriseServer()
@@ -210,15 +210,15 @@ func SyncContextsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Com
 			for _, cluster := range resp.Clusters {
 				if context, ok := cfg.V2.Contexts[cluster.Id]; ok {
 					// reset the session token if the context is pointing to a new cluster deployment
-					if cluster.ClusterDeploymentId != context.ClusterDeploymentID {
-						context.ClusterDeploymentID = cluster.ClusterDeploymentId
+					if cluster.ClusterDeploymentId != context.ClusterDeploymentId {
+						context.ClusterDeploymentId = cluster.ClusterDeploymentId
 						context.SessionToken = ""
 					}
 					context.PachdAddress = cluster.Address
 					context.EnterpriseServer = cluster.EnterpriseServer
 				} else {
 					cfg.V2.Contexts[cluster.Id] = &config.Context{
-						ClusterDeploymentID: cluster.ClusterDeploymentId,
+						ClusterDeploymentId: cluster.ClusterDeploymentId,
 						PachdAddress:        cluster.Address,
 						Source:              config.ContextSource_IMPORTED,
 						EnterpriseServer:    cluster.EnterpriseServer,

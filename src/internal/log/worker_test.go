@@ -61,29 +61,29 @@ func TestParseWorkerLines(t *testing.T) {
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "debug",
 		},
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "info",
 			Master:       true,
 		},
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "retrying unary invoker failed",
 		},
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "error",
-			JobID:        "jobIDField",
-			DatumID:      "datumIDField",
+			JobId:        "jobIDField",
+			DatumId:      "datumIDField",
 			User:         true,
 			Data: []*pps.InputFile{
 				{

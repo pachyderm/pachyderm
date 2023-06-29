@@ -362,11 +362,11 @@ func TestPause(t *testing.T) {
 		},
 	})
 	// pause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.specCommits[spec.Id].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.specCommits[spec.Id].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
@@ -419,11 +419,11 @@ func TestPauseAutoscaling(t *testing.T) {
 		return nil
 	})
 	// pause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.specCommits[spec.Id].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.specCommits[spec.Id].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{

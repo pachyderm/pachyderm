@@ -68,7 +68,7 @@ const fakeCommit = "44444444444444444444444444444444"
 func (fakePFS) GetFileTAR(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error) {
 	log.Debug(ctx, "GetFileTAR", log.Proto("request", req))
 	files := map[string]string{}
-	if req.File.Commit.ID == fakeCommit {
+	if req.File.Commit.Id == fakeCommit {
 		if req.File.Commit.Repo.Name == "images" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/" {
 			files["/hello.txt"] = "hello"
 			files["/a/"] = ""
@@ -94,7 +94,7 @@ func (fakePFS) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest,
 		return &pfs.BranchInfo{
 			Head: &pfs.Commit{
 				Repo: req.Branch.Repo,
-				ID:   fakeCommit,
+				Id:   fakeCommit,
 			},
 		}, nil
 	}

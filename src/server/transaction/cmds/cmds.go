@@ -98,7 +98,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 			if txn != nil {
-				return errors.Errorf("cannot start a new transaction, since transaction with ID %q already exists", txn.ID)
+				return errors.Errorf("cannot start a new transaction, since transaction with ID %q already exists", txn.Id)
 			}
 
 			transaction, err := c.StartTransaction()
@@ -111,7 +111,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			if err != nil {
 				return err
 			}
-			fmt.Printf("started new transaction: %q\n", transaction.ID)
+			fmt.Printf("started new transaction: %q\n", transaction.Id)
 			return nil
 		}),
 	}
@@ -133,7 +133,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Cleared active transaction: %s\n", txn.ID)
+			fmt.Printf("Cleared active transaction: %s\n", txn.Id)
 			return nil
 		}),
 	}
@@ -154,7 +154,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			// two commands are run simultaneously
 			var txn *transaction.Transaction
 			if len(args) > 0 {
-				txn = &transaction.Transaction{ID: args[0]}
+				txn = &transaction.Transaction{Id: args[0]}
 			} else {
 				txn, err = requireActiveTransaction()
 				if err != nil {
@@ -172,7 +172,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Completed transaction with %d requests: %s\n", len(info.Responses), info.Transaction.ID)
+			fmt.Printf("Completed transaction with %d requests: %s\n", len(info.Responses), info.Transaction.Id)
 			return nil
 		}),
 	}
@@ -194,13 +194,13 @@ transaction' or cancelled with 'delete transaction'.`,
 			var txn *transaction.Transaction
 			isActive := false
 			if len(args) > 0 {
-				txn = &transaction.Transaction{ID: args[0]}
+				txn = &transaction.Transaction{Id: args[0]}
 
 				// Don't check err here, this is just a quality-of-life check to clean
 				// up the config after a successful delete
 				activeTxn, _ := requireActiveTransaction()
 				if activeTxn != nil {
-					isActive = txn.ID == activeTxn.ID
+					isActive = txn.Id == activeTxn.Id
 				}
 			} else {
 				txn, err = requireActiveTransaction()
@@ -239,7 +239,7 @@ transaction' or cancelled with 'delete transaction'.`,
 
 			var txn *transaction.Transaction
 			if len(args) > 0 {
-				txn = &transaction.Transaction{ID: args[0]}
+				txn = &transaction.Transaction{Id: args[0]}
 			} else {
 				txn, err = requireActiveTransaction()
 				if err != nil {
@@ -252,7 +252,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return grpcutil.ScrubGRPC(err)
 			}
 			if info == nil {
-				return errors.Errorf("transaction %s not found", txn.ID)
+				return errors.Errorf("transaction %s not found", txn.Id)
 			}
 			if raw {
 				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(info))
@@ -279,7 +279,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 			defer c.Close()
-			info, err := c.InspectTransaction(&transaction.Transaction{ID: args[0]})
+			info, err := c.InspectTransaction(&transaction.Transaction{Id: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -292,7 +292,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.Requests), info.Transaction.ID)
+			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.Requests), info.Transaction.Id)
 			return nil
 		}),
 	}

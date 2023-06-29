@@ -105,15 +105,15 @@ func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send f
 		if err := types.UnmarshalAny(data.Input, &input); err != nil {
 			// unmarshalling might fail due to the input type not being registered,
 			// don't let this interfere with fetching or counting tasks
-			log.Error(ctx, "couldn't unmarshal task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
+			log.Error(ctx, "couldn't unmarshal task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetId()))
 		} else {
 			inputJSON, err = marshaler.MarshalToString(input.Message)
 			if err != nil {
-				log.Error(ctx, "couldn't marahsl task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
+				log.Error(ctx, "couldn't marahsl task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetId()))
 			}
 		}
 		info := &taskapi.TaskInfo{
-			ID: data.ID,
+			Id: data.Id,
 			Group: &taskapi.Group{
 				Namespace: namespace,
 				Group:     group,

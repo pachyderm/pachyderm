@@ -12,6 +12,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -28,6 +29,7 @@ import (
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -228,7 +230,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			}
 			for _, c := range clients {
 				log.Info(ctx, "adding oidc client", zap.String("id", c.Id), zap.Bool("via_enterprise_server", a.env.Config.EnterpriseMember))
-				if c.Id == config.ClientID { // c represents pachd
+				if c.Id == config.ClientId { // c represents pachd
 					c.Secret = config.ClientSecret
 					if a.env.Config.TrustedPeers != "" {
 						var tps []string
@@ -618,9 +620,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	// Pachyderm token for the user that their credential belongs to
 	var pachToken string
 	switch {
-	case req.OIDCState != "":
+	case req.OidcState != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
-		email, err := a.OIDCStateToEmail(ctx, req.OIDCState)
+		email, err := a.OIDCStateToEmail(ctx, req.OidcState)
 		if err != nil {
 			return nil, err
 		}
@@ -1187,8 +1189,8 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 	// generate new token, and write to postgres
 	var token string
 	var err error
-	if req.TTL > 0 {
-		token, err = a.generateAndInsertAuthToken(ctx, subject, req.TTL)
+	if req.Ttl > 0 {
+		token, err = a.generateAndInsertAuthToken(ctx, subject, req.Ttl)
 	} else {
 		token, err = a.generateAndInsertAuthTokenNoTTL(ctx, subject)
 	}
@@ -1222,7 +1224,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 		return nil, err
 	}
 	return &auth.GetOIDCLoginResponse{
-		LoginURL: authURL,
+		LoginUrl: authURL,
 		State:    state,
 	}, nil
 }
@@ -1513,8 +1515,14 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	}
 
 	// verify token hasn't expired
-	if tokenInfo.Expiration != nil && time.Now().After(*tokenInfo.Expiration) {
-		return nil, auth.ErrExpiredToken
+	if tokenInfo.Expiration != nil {
+		t, err := types.TimestampFromProto(tokenInfo.Expiration)
+		if err != nil {
+			return nil, errors.Wrap(err, "convert tokenInfo.Expiration to time.Time")
+		}
+		if time.Now().After(t) {
+			return nil, auth.ErrExpiredToken
+		}
 	}
 	return tokenInfo, nil
 }
@@ -1629,7 +1637,11 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest) (resp *auth.RestoreAuthTokenResponse, retErr error) {
 	var ttl int64
 	if req.Token.Expiration != nil {
-		ttl = int64(time.Until(*req.Token.Expiration).Seconds())
+		t, err := types.TimestampFromProto(req.Token.Expiration)
+		if err != nil {
+			return nil, errors.Wrap(err, "convert Token.Expiration to time.Time")
+		}
+		ttl = int64(time.Until(t).Seconds())
 		if ttl < 0 {
 			return nil, auth.ErrExpiredToken
 		}
@@ -1698,26 +1710,44 @@ func (a *apiServer) deleteExpiredTokensRoutine(ctx context.Context) error {
 	return nil
 }
 
+type dbTokenInfo struct {
+	Subject     string     `db:"subject"`
+	Expiration  *time.Time `db:"expiration"`
+	HashedToken string     `db:"token_hash"`
+}
+
+func (ti dbTokenInfo) ToProto() *auth.TokenInfo {
+	return &auth.TokenInfo{
+		Subject:     ti.Subject,
+		Expiration:  protoutil.MustTimestampFromPointer(ti.Expiration),
+		HashedToken: ti.HashedToken,
+	}
+}
+
 // we interpret an expiration value of NULL as "lives forever".
 func (a *apiServer) lookupAuthTokenInfo(ctx context.Context, tokenHash string) (*auth.TokenInfo, error) {
-	var tokenInfo auth.TokenInfo
+	var tokenInfo dbTokenInfo
 	err := a.env.DB.GetContext(ctx, &tokenInfo, `SELECT subject, expiration FROM auth.auth_tokens WHERE token_hash = $1`, tokenHash)
 	if err != nil {
 		return nil, col.ErrNotFound{Type: "auth_tokens", Key: tokenHash}
 	}
-	return &tokenInfo, nil
+	return tokenInfo.ToProto(), nil
 }
 
-// we will sometimes have expiration values set in the passed, since we only remove those values in the deleteExpiredTokensRoutine() goroutine
+// we will sometimes have expiration values set in the past, since we only remove those values in the deleteExpiredTokensRoutine() goroutine
 func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.TokenInfo, error) {
-	robotTokens := make([]*auth.TokenInfo, 0)
+	var robotTokens []dbTokenInfo
 	if err := a.env.DB.SelectContext(ctx, &robotTokens,
 		`SELECT token_hash, subject, expiration
 		FROM auth.auth_tokens
 		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix); err != nil {
 		return nil, errors.Wrapf(err, "error querying token")
 	}
-	return robotTokens, nil
+	result := make([]*auth.TokenInfo, len(robotTokens))
+	for i, t := range robotTokens {
+		result[i] = t.ToProto()
+	}
+	return result, nil
 }
 
 func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, ttlSeconds int64) (string, error) {

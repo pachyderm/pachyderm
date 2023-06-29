@@ -109,7 +109,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		var commits int64
 		for commits < t.Commits {
 			commits++
-			if ci.ParentCommit != nil && oldHead.Commit.ID != ci.ParentCommit.ID {
+			if ci.ParentCommit != nil && oldHead.Commit.Id != ci.ParentCommit.Id {
 				var err error
 				ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
 				if err != nil {

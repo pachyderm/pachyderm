@@ -99,7 +99,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 	c.SetAuthToken("")
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
-	require.True(t, strings.Contains(loginInfo.LoginURL, ":31658"))
+	require.True(t, strings.Contains(loginInfo.LoginUrl, ":31658"))
 	mockIDPLogin(t, c)
 }
 
@@ -115,7 +115,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		state := loginInfo.State
 
 		// Get the initial URL from the grpc, which should point to the dex login page
-		getResp, err := hc.Get(loginInfo.LoginURL)
+		getResp, err := hc.Get(loginInfo.LoginUrl)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -146,7 +146,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 			return errors.Errorf("response body from mock IDP login form got: %v, want: %v", postBody, want)
 		}
 
-		authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
+		authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OidcState: state})
 		if err != nil {
 			return errors.EnsureStack(err)
 		}

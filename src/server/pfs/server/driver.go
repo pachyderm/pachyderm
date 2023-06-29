@@ -538,7 +538,7 @@ func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.R
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+		commitInfos[commitInfo.Commit.Id] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
 		return errors.EnsureStack(err)
@@ -704,7 +704,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 				return err
 			}
 			if inCommit {
-				log.Info(ctx, "found target", zap.String("commit", commit.ID), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath))
+				log.Info(ctx, "found target", zap.String("commit", commit.Id), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath))
 				found = commit
 				foundCommits++
 				if err := cb(makeResp(found, commitsSearched, nil)); err != nil {
@@ -718,7 +718,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 			}
 			commit = inspectCommitResp.ParentCommit
 			return nil
-		}, zap.String("commit", commit.ID), zap.String("branch", commit.GetBranch().String()), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath)); err != nil {
+		}, zap.String("commit", commit.Id), zap.String("branch", commit.GetBranch().String()), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath)); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
 			}
@@ -781,7 +781,7 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 	}
 	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, nil)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, nil)
 		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
 	}); err != nil {
@@ -1082,13 +1082,13 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		// necessary when upstream and downstream branches are created in the same pachyderm transaction.
 		// ex. when the spec and meta repos are created, the meta commit is already created at branch create time.
-		if bi.GetHead().GetID() == txnCtx.CommitSetID {
+		if bi.GetHead().GetId() == txnCtx.CommitSetID {
 			continue
 		}
 		newCommit := &pfs.Commit{
 			Repo:   bi.Branch.Repo,
 			Branch: bi.Branch,
-			ID:     txnCtx.CommitSetID,
+			Id:     txnCtx.CommitSetID,
 		}
 		newCommitInfo := &pfs.CommitInfo{
 			Commit:  newCommit,
@@ -1227,42 +1227,42 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	if userCommit.Repo == nil {
 		return nil, errors.Errorf("cannot resolve commit with no repo")
 	}
-	if userCommit.ID == "" && userCommit.GetBranch().GetName() == "" {
+	if userCommit.Id == "" && userCommit.GetBranch().GetName() == "" {
 		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
 	}
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~, ^ and .)
 	var ancestryLength int
 	var err error
-	commit.ID, ancestryLength, err = ancestry.Parse(commit.ID)
+	commit.Id, ancestryLength, err = ancestry.Parse(commit.Id)
 	if err != nil {
 		return nil, err
 	}
 	// Now that ancestry has been parsed out, check if the ID is a branch name
-	if commit.ID != "" && !uuid.IsUUIDWithoutDashes(commit.ID) {
+	if commit.Id != "" && !uuid.IsUUIDWithoutDashes(commit.Id) {
 		if commit.Branch.GetName() != "" {
-			return nil, errors.Errorf("invalid commit ID given with a branch (%s): %s\n", commit.Branch, commit.ID)
+			return nil, errors.Errorf("invalid commit ID given with a branch (%s): %s\n", commit.Branch, commit.Id)
 		}
-		commit.Branch = commit.Repo.NewBranch(commit.ID)
-		commit.ID = ""
+		commit.Branch = commit.Repo.NewBranch(commit.Id)
+		commit.Id = ""
 	}
 	// If commit.ID is unspecified, get it from the branch head
-	if commit.ID == "" {
+	if commit.Id == "" {
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(sqlTx).Get(commit.Branch, branchInfo); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		commit.ID = branchInfo.Head.ID
+		commit.Id = branchInfo.Head.Id
 	}
 	commitInfo := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			// try to resolve to alias if not found
-			resolvedCommit, err := pfsdb.ResolveCommitProvenance(sqlTx, userCommit.Repo, commit.ID)
+			resolvedCommit, err := pfsdb.ResolveCommitProvenance(sqlTx, userCommit.Repo, commit.Id)
 			if err != nil {
 				return nil, err
 			}
-			commit.ID = resolvedCommit.ID
+			commit.Id = resolvedCommit.Id
 			if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
@@ -1488,7 +1488,7 @@ func (d *driver) listCommit(
 			return errors.Errorf("cannot use 'Reverse' while also using 'From' or 'To'")
 		}
 		cursor := to
-		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
+		for number != 0 && cursor != nil && (from == nil || cursor.Id != from.Id) {
 			commitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadOnly(ctx).Get(cursor, commitInfo); err != nil {
 				return errors.EnsureStack(err)
@@ -1555,7 +1555,7 @@ func (d *driver) subscribeCommit(
 		}
 
 		// We don't want to include the `from` commit itself
-		if !(seen[commitInfo.Commit.ID] || (from != nil && from.ID == commitInfo.Commit.ID)) {
+		if !(seen[commitInfo.Commit.Id] || (from != nil && from.Id == commitInfo.Commit.Id)) {
 			// Wait for the commit to enter the right state
 			commitInfo, err := d.inspectCommit(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
 			if err != nil {
@@ -1564,7 +1564,7 @@ func (d *driver) subscribeCommit(
 			if err := cb(commitInfo); err != nil {
 				return err
 			}
-			seen[commitInfo.Commit.ID] = true
+			seen[commitInfo.Commit.Id] = true
 		}
 		return nil
 	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete)
@@ -1784,7 +1784,7 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 		Commit: &pfs.Commit{
 			Branch: branch,
 			Repo:   branch.Repo,
-			ID:     txnCtx.CommitSetID,
+			Id:     txnCtx.CommitSetID,
 		},
 		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
 		Started: txnCtx.Timestamp,

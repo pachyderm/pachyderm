@@ -104,7 +104,7 @@ func ParseKubeEvent(s string, event *KubeEvent) error {
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Project.Name)
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Name)
-	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
+	fmt.Fprintf(w, "%s\t", jobInfo.Job.Id)
 	if jobInfo.Started != nil {
 		if fullTimestamps {
 			fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
@@ -162,7 +162,7 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 		}
 	}
 
-	fmt.Fprintf(w, "%s\t", jobSetInfo.JobSet.ID)
+	fmt.Fprintf(w, "%s\t", jobSetInfo.JobSet.Id)
 	fmt.Fprintf(w, "%d\t", len(jobSetInfo.Jobs))
 	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(jobSetInfo.Jobs)-success-failure, failure))
 	if created != nil {
@@ -216,8 +216,8 @@ func PrintWorkerStatusHeader(w io.Writer) {
 
 // PrintWorkerStatus pretty prints a worker status.
 func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
-	fmt.Fprintf(w, "%s\t", workerStatus.JobID)
+	fmt.Fprintf(w, "%s\t", workerStatus.WorkerId)
+	fmt.Fprintf(w, "%s\t", workerStatus.JobId)
 	if workerStatus.DatumStatus != nil {
 		datumStatus := workerStatus.DatumStatus
 		for _, datum := range datumStatus.Data {
@@ -251,7 +251,7 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo, full bool) *PrintableJobInfo {
 // PrintDetailedJobInfo pretty-prints detailed job info.
 func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
-		`ID: {{.Job.ID}}
+		`ID: {{.Job.Id}}
 Pipeline: {{.Job.Pipeline.Name}}
 Project: {{.Job.Pipeline.Project.Name}}{{if .FullTimestamps}}
 Started: {{jobStarted .Started}}{{else}}
@@ -295,7 +295,7 @@ ParallelismSpec: {{.Details.ParallelismSpec}}
 {{jobInput .}}
 Transform:
 {{prettyTransform .Details.Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
+Output Commit: {{.OutputCommit.Id}} {{end}}{{ if .Details.Egress }}
 Egress: {{egress .Details.Egress}} {{end}}
 `)
 	if err != nil {
@@ -337,7 +337,7 @@ Parallelism Spec: {{.Details.ParallelismSpec}}
   CPU: {{ .Details.ResourceLimits.Cpu }}
   Memory: {{ .Details.ResourceLimits.Memory }}
   {{ if .Details.ResourceLimits.Gpu }}GPU:
-    Type: {{ .Details.ResourceLimits.Gpu.Type }} 
+    Type: {{ .Details.ResourceLimits.Gpu.Type }}
     Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
 Datum Timeout: {{.Details.DatumTimeout}}
 Job Timeout: {{.Details.JobTimeout}}
@@ -363,10 +363,10 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	if datumInfo.Stats != nil {
 		totalTime = units.HumanDuration(client.GetDatumTotalTime(datumInfo.Stats))
 	}
-	if datumInfo.Datum.ID == "" {
-		datumInfo.Datum.ID = "-"
+	if datumInfo.Datum.Id == "" {
+		datumInfo.Datum.Id = "-"
 	}
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t", datumInfo.Datum.ID, datumFiles(datumInfo), datumState(datumInfo.State), totalTime)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t", datumInfo.Datum.Id, datumFiles(datumInfo), datumState(datumInfo.State), totalTime)
 	fmt.Fprintln(w)
 }
 
@@ -383,8 +383,8 @@ func datumFiles(datumInfo *ppsclient.DatumInfo) string {
 
 // PrintDetailedDatumInfo pretty-prints detailed info about a datum
 func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
-	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.ID)
-	fmt.Fprintf(w, "Job ID\t%s\n", datumInfo.Datum.Job.ID)
+	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.Id)
+	fmt.Fprintf(w, "Job ID\t%s\n", datumInfo.Datum.Job.Id)
 	fmt.Fprintf(w, "Image ID\t%s\n", datumInfo.ImageId)
 	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
 	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
@@ -446,7 +446,7 @@ func PrintFileHeader(w io.Writer) {
 
 // PrintFile values for a pfs file.
 func PrintFile(w io.Writer, file *pfsclient.File) {
-	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Repo, file.Commit.ID, file.Path)
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Repo, file.Commit.Id, file.Path)
 }
 
 func datumState(datumState ppsclient.DatumState) string {
