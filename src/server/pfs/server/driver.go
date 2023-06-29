@@ -654,8 +654,8 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
 	var pi *pfs.ProjectInfo
-	var err error
-	if err = dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		var err error
 		pi, err = coredb.GetProjectByName(ctx, tx, pfsdb.ProjectKey(project))
 		if err != nil {
 			return err
@@ -798,26 +798,24 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
 	return errors.Wrap(dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		projIter, err := coredb.ListProject(ctx, tx)
-		if err != nil {
-			return err
-		}
-		return stream.ForEach[*pfs.ProjectInfo](ctx, projIter, func(proj *pfs.ProjectInfo) error {
-			if authIsActive {
-				resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
-				if err != nil {
-					if errors.Is(err, auth.ErrNotActivated) {
-						// Avoid unnecessary subsequent Auth API calls.
-						authIsActive = false
-						return cb(proj)
+		return d.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
+			return d.listProjectInTransaction(ctx, txnCxt, func(proj *pfs.ProjectInfo) error {
+				if authIsActive {
+					resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
+					if err != nil {
+						if errors.Is(err, auth.ErrNotActivated) {
+							// Avoid unnecessary subsequent Auth API calls.
+							authIsActive = false
+							return cb(proj)
+						}
+						return errors.Wrapf(err, "getting permissions for project %s", proj.Project)
 					}
-					return errors.Wrapf(err, "error getting permissions for project %s", proj.Project)
+					proj.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 				}
-				proj.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
-			}
-			return cb(proj)
+				return cb(proj)
+			})
 		})
-	}), "failed to list projects")
+	}), "list projects")
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
@@ -826,7 +824,7 @@ func (d *driver) listProjectInTransaction(ctx context.Context, txnCtx *txncontex
 	if err != nil {
 		return errors.Wrap(err, "could not list project")
 	}
-	return errors.Wrap(stream.ForEach[*pfs.ProjectInfo](ctx, projIter, cb), "failed to list projects")
+	return errors.Wrap(stream.ForEach[*pfs.ProjectInfo](ctx, projIter, cb), "list projects")
 }
 
 // TODO: delete all repos and pipelines within project

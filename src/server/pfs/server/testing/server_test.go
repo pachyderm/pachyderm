@@ -353,7 +353,7 @@ func TestPFS(suite *testing.T) {
 			{tu.UniqueString("lenny-123"), ""},
 			// {tu.UniqueString("_project"), badFormatErr}, // Require CORE-1343
 			// {tu.UniqueString("project-"), badFormatErr},
-			{pfs.DefaultProjectName, "duplicate key value violates unique constraint \"projects_name_key\" (SQLSTATE 23505)"},
+			{pfs.DefaultProjectName, "already exists"},
 			{tu.UniqueString("/repo"), badFormatErr},
 			{tu.UniqueString("lenny.123"), badFormatErr},
 			{tu.UniqueString("lenny:"), badFormatErr},

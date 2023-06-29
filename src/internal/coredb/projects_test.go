@@ -5,9 +5,10 @@ package coredb
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"testing"
 
 	"github.com/gogo/protobuf/types"
 
@@ -31,9 +32,9 @@ func TestCreateProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
 		require.NoError(t, CreateProject(cbCtx, tx, createInfo), "should be able to create project")
 		getInfo, err := GetProjectByName(cbCtx, tx, testProj)
 		require.NoError(t, err, "should be able to get a project")
@@ -41,6 +42,13 @@ func TestCreateProject(t *testing.T) {
 		require.Equal(t, createInfo.Description, getInfo.Description)
 		return nil
 	}))
+	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		err := CreateProject(cbCtx, tx, createInfo)
+		require.YesError(t, err, "should not be able to create project again with same name")
+		require.True(t, ErrProjectAlreadyExists{testProj}.Is(err))
+		fmt.Println("hello")
+		return nil
+	}), "double create should fail and result in rollback")
 }
 
 func TestDeleteProject(t *testing.T) {
@@ -58,7 +66,7 @@ func TestDeleteProject(t *testing.T) {
 		require.True(t, ErrProjectNotFound{Name: testProj}.Is(err))
 		err = DeleteProject(cbCtx, tx, createInfo.Project.Name)
 		require.YesError(t, err, "double delete should be an error")
-		require.True(t, ErrProjectDoesNotExist{Name: testProj}.Is(err))
+		require.True(t, ErrProjectNotFound{Name: testProj}.Is(err))
 		return nil
 	}))
 }

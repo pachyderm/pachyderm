@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"time"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
 
 	"github.com/gogo/protobuf/types"
 
@@ -45,25 +47,31 @@ func (err ErrProjectNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
-// ErrProjectDoesNotExist is returned by DeleteProject() when a project is not found in postgres.
-type ErrProjectDoesNotExist struct {
+// ErrProjectAlreadyExists is returned by CreateProject() when a project with the same name already exists in postgres.
+type ErrProjectAlreadyExists struct {
 	Name string
 }
 
-func (err ErrProjectDoesNotExist) Error() string {
-	if err.Name != "" {
-		return fmt.Sprintf("project %q does not exist", err.Name)
+// Error satisfies the error interface.
+func (err ErrProjectAlreadyExists) Error() string {
+	if n := err.Name; n != "" {
+		return fmt.Sprintf("project %q already exists", n)
 	}
-	return "project does not exist"
+
+	return "project already exists"
 }
 
-func (err ErrProjectDoesNotExist) Is(other error) bool {
-	_, ok := other.(ErrProjectDoesNotExist)
+func (err ErrProjectAlreadyExists) Is(other error) bool {
+	_, ok := other.(ErrProjectAlreadyExists)
 	return ok
 }
 
-func (err ErrProjectDoesNotExist) GRPCStatus() *status.Status {
-	return status.New(codes.NotFound, err.Error())
+func (err ErrProjectAlreadyExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, err.Error())
+}
+
+func IsErrProjectAlreadyExists(err error) bool {
+	return strings.Contains(err.Error(), "SQLSTATE 23505")
 }
 
 // ProjectIterator batches a page of projectRow entries. Entries can be retrieved using iter.Next().
@@ -141,6 +149,9 @@ func listProject(ctx context.Context, tx *pachsql.Tx, limit, offset int) ([]proj
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
 	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description) VALUES ($1, $2);", project.Project.Name, project.Description)
 	//todo: insert project.authInfo into auth table.
+	if err != nil && IsErrProjectAlreadyExists(err) {
+		return ErrProjectAlreadyExists{Name: project.Project.Name}
+	}
 	return errors.Wrap(err, "create project")
 }
 
@@ -155,7 +166,7 @@ func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) erro
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		return ErrProjectDoesNotExist{
+		return ErrProjectNotFound{
 			Name: projectName,
 		}
 	}

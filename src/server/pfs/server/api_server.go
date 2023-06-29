@@ -76,7 +76,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 	// Create role bindings for projects created before auth activation
 	projIter, err := coredb.ListProject(ctx, txnCtx.SqlTx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list projects")
+		return nil, errors.Wrap(err, "list projects")
 	}
 	if err := stream.ForEach[*pfs.ProjectInfo](ctx, projIter, func(proj *pfs.ProjectInfo) error {
 		var principal string
@@ -88,11 +88,11 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		}
 		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
-			return errors.Wrap(err, "failed to create role binding in transaction")
+			return errors.Wrap(err, "create role binding in transaction")
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Wrap(err, "failed to list projects")
+		return nil, errors.Wrap(err, "list projects")
 	}
 	// Create role bindings for repos created before auth activation
 	var repoInfo pfs.RepoInfo
