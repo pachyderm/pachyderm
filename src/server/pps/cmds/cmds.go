@@ -71,14 +71,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 	jobDocs := &cobra.Command{
 		Short: "Docs for jobs.",
-		Long: `Jobs are the basic units of computation in Pachyderm.
-
-Jobs run a containerized workload over a set of finished input commits. Jobs are
-created by pipelines and will write output to a commit in the pipeline's output
-repo. A job can have multiple datums, each processed independently and the
-results will be merged together at the end.
-
-If the job fails, the output commit will not be populated with data.`,
+		Long: "Jobs are the basic units of computation in Pachyderm and are created by pipelines. \n \n" +
+			"When created, a job runs a containerized workload over a set of finished input commits; once completed, they  write the output to a commit in the pipeline's output repo. \n" +
+			"Jobs can have multiple datums, each processed independently, with the results merged together at the end. \n \n" +
+			"If a job fails, the output commit will not be populated with data.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(jobDocs, "job", " job$", jobs))
 
@@ -86,7 +82,13 @@ If the job fails, the output commit will not be populated with data.`,
 	inspectJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return info about a job.",
-		Long:  "Return info about a job.",
+		Long: "This command returns detailed info about a job, including processing stats, inputs, and transformation configuration (the image and commands used). \n \n" +
+			"If you pass in a job set ID (without the `pipeline@`), it will defer you to using the `pachctl list job <id>` command. See examples for proper use. \n \n" +
+			"\t- To specify the project where the parent pipeline lives, use the `--project` flag. \n" +
+			"\t- To specify the output should be raw JSON or YAML, use the `--raw` flag along with `--output`",
+		Example: "\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
+			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
+			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
@@ -117,7 +119,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	inspectJob.Flags().AddFlagSet(outputFlags)
 	inspectJob.Flags().AddFlagSet(timestampFlags)
-	inspectJob.Flags().StringVar(&project, "project", project, "project containing job")
+	inspectJob.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the parent pipeline for this job.")
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectJob, "inspect job", jobs))
 
@@ -146,7 +148,11 @@ If the job fails, the output commit will not be populated with data.`,
 	waitJob := &cobra.Command{
 		Use:   "{{alias}} <job>|<pipeline>@<job>",
 		Short: "Wait for a job to finish then return info about the job.",
-		Long:  "Wait for a job to finish then return info about the job.",
+		Long:  "This command waits for a job to finish then return info about the job.",
+		Example: "\t- {{alias}} e0f68a2fcda7458880c9e2e2dae9e678 \n" +
+			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
+			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
+			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -177,7 +183,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	waitJob.Flags().AddFlagSet(outputFlags)
 	waitJob.Flags().AddFlagSet(timestampFlags)
-	waitJob.Flags().StringVar(&project, "project", project, "project containing job")
+	waitJob.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the parent pipeline for this job.")
 	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
@@ -190,28 +196,26 @@ If the job fails, the output commit will not be populated with data.`,
 	listJob := &cobra.Command{
 		Use:   "{{alias}} [<job-id>]",
 		Short: "Return info about jobs.",
-		Long:  "Return info about jobs.",
-		Example: `
-# Return a summary list of all jobs
-$ {{alias}}
-
-# Return all sub-jobs in a job
-$ {{alias}} <job-id>
-
-# Return all sub-jobs split across all pipelines
-$ {{alias}} --expand
-
-# Return only the sub-jobs from the most recent version of pipeline "foo"
-$ {{alias}} -p foo
-
-# Return all sub-jobs from all versions of pipeline "foo"
-$ {{alias}} -p foo --history all
-
-# Return all sub-jobs whose input commits include foo@XXX and bar@YYY
-$ {{alias}} -i foo@XXX -i bar@YYY
-
-# Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
-$ {{alias}} -p foo -i bar@YYY`,
+		Long: "This command returns info about a list of jobs. You can pass in the command with or without a job ID. \n \n" +
+			"Without an ID, this command returns a global list of top-level job sets which contain their own sub-jobs; " +
+			"With an ID, it returns a list of sub-jobs within the specified job set. \n \n" +
+			"\t- To return a list of sub-jobs across all job sets, use the `--expand` flag without passing an ID \n" +
+			"\t- To return only the sub-jobs from the most recent version of a pipeline, use the `--pipeline` flag \n" +
+			"\t- To return all sub-jobs from all versions of a pipeline, use the `--history` flag \n" +
+			"\t- To return all sub-jobs whose input commits include data from a particular repo branch/commit, use the `--input` flag \n" +
+			"\t- To turn only sub-jobs with a particular state, use the `--state` flag; options: CREATED, STARTING, UNRUNNABLE, RUNNING, EGRESS, FINISHING, FAILURE, KILLED, SUCCESS",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} --state starting \n" +
+			"\t- {{alias}} --pipeline foo \n" +
+			"\t- {{alias}} --expand \n" +
+			"\t- {{alias}} --expand --pipeline foo \n" +
+			"\t- {{alias}} --expand --pipeline foo  --state failure --state unrunnable \n" +
+			"\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 \n" +
+			"\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 --state running\n" +
+			"\t- {{alias}} --input foo-repo@staging \n" +
+			"\t- {{alias}} --input foo-repo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
+			"\t- {{alias}} --pipeline foo --input bar-repo@staging \n" +
+			"\t- {{alias}} --pipeline foo --input bar-repo@5f93d03b65fa421996185e53f7f8b1e4 \n",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
@@ -341,18 +345,18 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 		}),
 	}
-	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
-	listJob.Flags().StringVar(&project, "project", project, "Limit to jobs in the project specified.")
+	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Specify results should only return jobs created by a given pipeline.")
+	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Specify results should return jobs from all projects.")
+	listJob.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the parent pipeline for returned jobs.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
+	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "Specify results should only return jobs with a specific set of input commits; format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
-	listJob.Flags().BoolVarP(&expand, "expand", "x", false, "Show one line for each sub-job and include more columns")
+	listJob.Flags().BoolVarP(&expand, "expand", "x", false, "Specify results return as one line for each sub-job and include more columns; not needed if ID is passed.")
 	listJob.Flags().AddFlagSet(outputFlags)
 	listJob.Flags().AddFlagSet(timestampFlags)
 	listJob.Flags().AddFlagSet(pagerFlags)
-	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
-	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
+	listJob.Flags().StringVar(&history, "history", "none", "Specify results returned include jobs from historical versions of pipelines.")
+	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Specify results return only sub-jobs with the specified state; can be repeated to include multiple states.")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
