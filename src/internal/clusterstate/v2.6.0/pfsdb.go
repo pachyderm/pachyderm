@@ -146,7 +146,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			)
 			// if the provenant commit's repo was deleted, it's reference may
 			// still exist in the old provenance, so we skip mapping it over to the new model
-			if _, ok := oldCIMap[oldCommitKey(b.NewCommit(ci.Commit.ID))]; !ok {
+			if _, ok := oldCIMap[oldCommitKey(b.NewCommit(ci.Commit.Id))]; !ok {
 				continue
 			}
 			if err := addCommitProvenance(ctx, tx, ci.Commit, b.NewCommit(ci.Commit.Id)); err != nil {

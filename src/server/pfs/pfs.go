@@ -275,7 +275,7 @@ func (e ErrCommitNotFinished) Error() string {
 func (err ErrCommitNotFinished) GRPCStatus() *status.Status {
 	s, sErr := status.New(codes.Unavailable, fmt.Sprintf("commit %v not finished", err.Commit)).WithDetails(&epb.ResourceInfo{
 		ResourceType: "pfs:commit",
-		ResourceName: err.Commit.ID,
+		ResourceName: err.Commit.Id,
 		Description:  "commit not finished",
 	})
 	if sErr != nil {

@@ -4596,7 +4596,7 @@ func TestPFS(suite *testing.T) {
 			switch d := d.(type) {
 			case *errdetails.ResourceInfo:
 				require.Equal(t, d.ResourceType, "pfs:commit")
-				require.Equal(t, d.ResourceName, commit1.ID)
+				require.Equal(t, d.ResourceName, commit1.Id)
 				require.Equal(t, d.Description, "commit not finished")
 				sawResourceInfo = true
 			}
