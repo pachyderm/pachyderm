@@ -3,7 +3,6 @@ package v2_7_0
 import (
 	"context"
 	"fmt"
-	"time"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
@@ -12,22 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-// CollectionRecord is a record in a collections table.
-type CollectionRecord struct {
-	Key       string    `db:"key"`
-	Proto     []byte    `db:"proto"`
-	CreatedAt time.Time `db:"createdat"`
-	UpdatedAt time.Time `db:"updatedat"`
-}
-
-type Project struct {
-	ID          uint64    `db:"id"`
-	Name        string    `db:"name"`
-	Description string    `db:"description"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
-}
 
 // ListProjectsFromCollection iterates over all projects in the collections.projects table
 // and returns a list of Project objects that satisfy the relational model.
