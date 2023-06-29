@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"

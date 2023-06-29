@@ -9,8 +9,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -109,14 +108,11 @@ func (iter *ProjectIterator) Next(ctx context.Context, dst **pfs.ProjectInfo) er
 		}
 	}
 	row := iter.projects[iter.index]
-	projectTimestamp, err := types.TimestampProto(row.CreatedAt)
-	if err != nil {
-		return errors.Wrap(err, "converting time.Time to proto timestamp")
-	}
 	*dst = &pfs.ProjectInfo{
 		Project:     &pfs.Project{Name: row.Name},
 		Description: row.Description,
-		CreatedAt:   projectTimestamp}
+		CreatedAt:   timestamppb.New(row.CreatedAt),
+	}
 	iter.index++
 	return nil
 }
@@ -202,10 +198,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 		}
 		return nil, errors.Wrap(err, "scanning project row")
 	}
-	project.CreatedAt, err = types.TimestampProto(createdAt)
-	if err != nil {
-		return nil, errors.Wrap(err, "converting project proto timestamp")
-	}
+	project.CreatedAt = timestamppb.New(createdAt)
 	return project, nil
 }
 

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/jmoiron/sqlx"
+	"google.golang.org/protobuf/proto"
 
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
