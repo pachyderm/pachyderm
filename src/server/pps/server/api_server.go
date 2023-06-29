@@ -901,6 +901,10 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return nil
 		}
 
+		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
+		// won't use this function to get their auth token)
+		jobInfo.AuthToken = ""
+
 		if err := resp.Send(jobInfo); err != nil {
 			return errors.Wrap(err, "error sending job")
 		}

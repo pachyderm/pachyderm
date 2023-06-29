@@ -85,7 +85,7 @@ type Driver interface {
 
 	// UserCodeEnv returns the set of environment variables to construct when
 	// launching the configured user process.
-	UserCodeEnv(string, *pfs.Commit, []*common.Input, string) []string
+	UserCodeEnv(string, *pfs.Commit, []*common.Input, string, string) []string
 
 	RunUserCode(context.Context, logs.TaggedLogger, []string) error
 
@@ -525,6 +525,7 @@ func (d *driver) UserCodeEnv(
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
 	authToken string,
+	pachToken string,
 ) []string {
 	result := os.Environ()
 
@@ -579,6 +580,10 @@ func (d *driver) UserCodeEnv(
 				result = append(result, "AWS_SECRET_ACCESS_KEY=default")
 			}
 		}
+	}
+
+	if pachToken != "" {
+		result = append(result, "PACH_TOKEN="+pachToken)
 	}
 
 	if outputCommit != nil {
