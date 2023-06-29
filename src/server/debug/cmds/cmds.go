@@ -150,6 +150,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			return withFile(args[0], func(f *os.File) error {
 				var d *debug.DumpChunk
+				bytesWritten := int64(0)
 				for d, err = c.Recv(); !errors.Is(err, io.EOF); d, err = c.Recv() {
 					if err != nil {
 						return err
@@ -158,12 +159,15 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 						if _, err = f.Write(content.Content); err != nil {
 							return errors.Wrap(err, "write dump contents")
 						}
+						bytesWritten += int64(len(content.Content))
+						progress.WriteProgressCountBytes("Downloaded", bytesWritten, false, 100)
 					}
 					// erroring here should not stop the dump from working
 					if prgs := d.GetProgress(); prgs != nil {
 						progress.WriteProgress(prgs.Task, prgs.Progress, prgs.Total)
 					}
 				}
+				progress.WriteProgressCountBytes("Downloaded", bytesWritten, true, 100)
 				return nil
 			})
 		}),
