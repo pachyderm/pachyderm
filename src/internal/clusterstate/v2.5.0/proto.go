@@ -7,7 +7,6 @@
 package v2_5_0
 
 import (
-	reflect "reflect"
 	sync "sync"
 
 	duration "github.com/golang/protobuf/ptypes/duration"
@@ -265,14 +264,7 @@ func file_pfs_pfs_proto_rawDescGZIP() []byte {
 var file_pfs_pfs_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_pfs_pfs_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_pfs_pfs_proto_goTypes = []interface{}{
-	(OriginKind)(0),             // 0: pfs_v2.OriginKind
-	(*Repo)(nil),                // 1: pfs_v2.Repo
-	(*Branch)(nil),              // 2: pfs_v2.Branch
-	(*CommitOrigin)(nil),        // 3: pfs_v2.CommitOrigin
-	(*Commit)(nil),              // 4: pfs_v2.Commit
 	(*CommitInfo)(nil),          // 5: pfs_v2.CommitInfo
-	(*Project)(nil),             // 6: pfs_v2.Project
-	(*CommitInfo_Details)(nil),  // 7: pfs_v2.CommitInfo.Details
 	(*timestamp.Timestamp)(nil), // 8: google.protobuf.Timestamp
 	(*duration.Duration)(nil),   // 9: google.protobuf.Duration
 }

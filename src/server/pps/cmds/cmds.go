@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"

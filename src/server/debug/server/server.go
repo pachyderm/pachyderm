@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/wcharczuk/go-chart"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -32,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -423,7 +423,7 @@ type dumpContentServer struct {
 	server debug.Debug_DumpV2Server
 }
 
-func (dcs *dumpContentServer) Send(bytesValue *types.BytesValue) error {
+func (dcs *dumpContentServer) Send(bytesValue *wrapperspb.BytesValue) error {
 	return dcs.server.Send(&debug.DumpChunk{Chunk: &debug.DumpChunk_Content{Content: &debug.DumpContent{Content: bytesValue.Value}}})
 }
 
@@ -665,11 +665,7 @@ func writeProfile(ctx context.Context, dfs DumpFS, profile *debug.Profile) (retE
 			defer pprof.StopCPUProfile()
 			duration := defaultDuration
 			if profile.Duration != nil {
-				var err error
-				duration, err = types.DurationFromProto(profile.Duration)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
+				duration = profile.Duration.AsDuration()
 			}
 			// Wait for either the defined duration, or until the context is
 			// done.
