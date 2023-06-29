@@ -1,6 +1,7 @@
 import {JobQuery} from '@graphqlTypes';
 import classnames from 'classnames';
 import React from 'react';
+import {Route, Switch} from 'react-router-dom';
 
 import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
 import Description from '@dash-frontend/components/Description';
@@ -16,7 +17,7 @@ import {
   getVisualJobState,
   readableJobState,
 } from '@dash-frontend/lib/jobs';
-import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
+import {LINEAGE_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   ArrowRightSVG,
   CaptionTextSmall,
@@ -25,6 +26,7 @@ import {
   LoadingDots,
   SpinnerSVG,
   Tooltip,
+  Button,
 } from '@pachyderm/components';
 
 import {Chip} from '../Chip';
@@ -33,14 +35,12 @@ import useInfoPanel from './hooks/useInfoPanel';
 import styles from './InfoPanel.module.css';
 
 type InfoPanelProps = {
-  showReadLogs?: boolean;
   lastPipelineJob?: JobQuery['job'];
   pipelineLoading?: boolean;
   className?: string;
 };
 
 const InfoPanel: React.FC<InfoPanelProps> = ({
-  showReadLogs = false,
   lastPipelineJob,
   pipelineLoading,
   className,
@@ -77,7 +77,17 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
               <h6>{job?.state ? readableJobState(job?.state) : ''}</h6>
             </span>
           </div>
-          {showReadLogs ? <ReadLogsButton omitIcon={true} /> : null}
+          <Switch>
+            <Route path={LINEAGE_PIPELINE_PATH} exact>
+              <Button
+                buttonType="ghost"
+                to={logsDatumRoute}
+                disabled={!logsDatumRoute}
+              >
+                Inspect Job
+              </Button>
+            </Route>
+          </Switch>
         </div>
         {loading ? (
           <div data-testid="InfoPanel__loading" className={styles.datumCard}>

@@ -59,10 +59,20 @@ describe('ProjectSidebar', () => {
       );
 
       render(<Project />);
-      const logsLink = await screen.findByRole('link', {name: 'Inspect Jobs'});
-      expect(logsLink).toHaveAttribute(
+      const topLogsLink = await screen.findByRole('link', {
+        name: 'Inspect Jobs',
+      });
+      expect(topLogsLink).toHaveAttribute(
         'href',
         '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs',
+      );
+
+      const inspectLogsLink = await screen.findByRole('link', {
+        name: 'Inspect Job',
+      });
+      expect(inspectLogsLink).toHaveAttribute(
+        'href',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum',
       );
     });
 
@@ -224,6 +234,15 @@ describe('ProjectSidebar', () => {
         expect(
           screen.queryByTestId('CommitList__loadingdots'),
         ).not.toBeInTheDocument(),
+      );
+
+      expect(
+        screen.getByRole('link', {
+          name: 'Inspect Current Commit',
+        }),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/?prevPath=%2Flineage%2FSolar-Power-Data-Logger-Team-Collab%2Frepos%2Fcron',
       );
 
       const previousCommits = screen.queryAllByTestId('CommitList__commit');

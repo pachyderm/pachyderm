@@ -17,6 +17,7 @@ import {
   ButtonLink,
   useModal,
   Group,
+  Button,
 } from '@pachyderm/components';
 
 import Title from '../Title';
@@ -39,6 +40,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     projectId,
     repoId,
     editRolesPermission,
+    getPathToFileBrowser,
   } = useRepoDetails();
   const {
     openModal: openRolesModal,
@@ -171,6 +173,21 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
             <Switch>
               <Route path={LINEAGE_REPO_PATH} exact>
                 Current Commit Stats
+                {commit && (
+                  <Button
+                    buttonType="ghost"
+                    to={getPathToFileBrowser({
+                      projectId,
+                      repoId,
+                      commitId: commit.id,
+                      branchId: commit.branch?.name || '',
+                    })}
+                    disabled={!commit}
+                    aria-label="Inspect Current Commit"
+                  >
+                    Inspect Commit
+                  </Button>
+                )}
               </Route>
               <Route>Selected Commit Stats</Route>
             </Switch>

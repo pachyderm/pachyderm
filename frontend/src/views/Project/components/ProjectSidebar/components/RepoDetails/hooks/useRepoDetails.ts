@@ -2,12 +2,14 @@ import {Permission, ResourceType} from '@graphqlTypes';
 
 import useCommit from '@dash-frontend/hooks/useCommit';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 
 const useRepoDetails = () => {
   const {repoId, projectId, commitId} = useUrlState();
   const {loading: repoLoading, repo, error: repoError} = useCurrentRepo();
+  const {getPathToFileBrowser} = useFileBrowserNavigation();
 
   const {
     commit,
@@ -39,6 +41,7 @@ const useRepoDetails = () => {
     commitError,
     repoError,
     editRolesPermission,
+    getPathToFileBrowser,
   };
 };
 
