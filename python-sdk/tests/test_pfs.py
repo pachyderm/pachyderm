@@ -390,7 +390,7 @@ class TestModifyFile:
         with client.pfs.commit(branch=branch) as commit2:
             commit2.delete_file(path="/file1.dat")
         assert not client.pfs.path_exists(
-            file=pfs.File.from_uri(f'{commit2.as_uri()}:/file1.dat')
+            file=pfs.File.from_uri(f'{commit2}:/file1.dat')
         )
 
     @staticmethod
@@ -519,7 +519,7 @@ class TestPFSFile:
         """Test that gRPC errors are caught and thrown early."""
         # Arrange
         repo = client.new_repo()
-        invalid_file = pfs.File.from_uri(f"{repo.as_uri()}@master:/NO_FILE.HERE")
+        invalid_file = pfs.File.from_uri(f"{repo}@master:/NO_FILE.HERE")
 
         # Act & Assert
         with pytest.raises(ValueError):
