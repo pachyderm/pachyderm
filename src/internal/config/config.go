@@ -111,8 +111,11 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 func fetchCachedConfig(p string) error {
 	cachedConfig = &Config{}
 	if raw, err := os.ReadFile(p); err == nil {
-		err = serde.Decode(raw, cachedConfig)
-		if err != nil {
+		if len(raw) == 0 {
+			// It's OK if the file is empty.
+			return nil
+		}
+		if err := serde.Decode(raw, cachedConfig); err != nil {
 			return errors.Wrapf(err, "could not parse config json at %q", p)
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
