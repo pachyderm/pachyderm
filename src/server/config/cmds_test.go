@@ -146,7 +146,7 @@ func TestSetContext(t *testing.T) {
 	require.NoError(t, run(t, `
 		echo '{}' | pachctl config set context foo
 		echo '{"pachd_address": "foobar:9000"}' | pachctl config set context foo --overwrite
-		pachctl config get context foo | match '"pachd_address": "grpc://foobar:9000"'
+		pachctl config get context foo | match '"pachd_address":[[:space:]]*"grpc://foobar:9000"'
 	`))
 }
 
@@ -162,14 +162,14 @@ func TestUpdateContext(t *testing.T) {
 	require.NoError(t, run(t, `
 		echo '{}' | pachctl config set context foo
 		pachctl config update context foo --pachd-address="foobar:9000"
-		pachctl config get context foo | match '"pachd_address": "grpc://foobar:9000"'
+		pachctl config get context foo | match '"pachd_address":[[:space:]]*"grpc://foobar:9000"'
 		pachctl config update context foo --pachd-address=""
 		pachctl config get context foo | match -v pachd_address
 	`))
 
 	require.NoError(t, run(t, `
 		pachctl config update context default --project="myproject"
-		pachctl config get context default | match '"project": "myproject"'
+		pachctl config get context default | match '"project":[[:space:]]*"myproject"'
 	`))
 }
 
@@ -222,12 +222,12 @@ func TestImportKube(t *testing.T) {
 	require.NoError(t, run(t, `
 		pachctl config import-kube imported
 		pachctl config get active-context | match 'imported'
-		pachctl config get context imported | match "\"cluster_name\": \"$(kubectl config current-context)\""
-		pachctl config get context imported | match '"namespace": "default"'
+		pachctl config get context imported | match "\"cluster_name\":[[:space:]]*\"$(kubectl config current-context)\""
+		pachctl config get context imported | match '"namespace":[[:space:]]*"default"'
 		pachctl config import-kube enterprise-kube --overwrite --namespace enterprise --enterprise
 		pachctl config get active-enterprise-context | match 'enterprise-kube'
-		pachctl config get context enterprise-kube | match "\"cluster_name\": \"$(kubectl config current-context)\""
-		pachctl config get context enterprise-kube | match '"namespace": "enterprise"'
+		pachctl config get context enterprise-kube | match "\"cluster_name\":[[:space:]]*\"$(kubectl config current-context)\""
+		pachctl config get context enterprise-kube | match '"namespace":[[:space:]]*"enterprise"'
 
 	`))
 }
