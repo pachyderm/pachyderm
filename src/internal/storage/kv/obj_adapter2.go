@@ -12,20 +12,20 @@ import (
 	"gocloud.dev/gcerrors"
 )
 
-type ObjectStore2 struct {
+type BucketStore struct {
 	b                        *blob.Bucket
 	maxKeySize, maxValueSize int
 }
 
-func NewFromBucket(b *blob.Bucket, maxKeySize, maxValueSize int) *ObjectStore2 {
-	return &ObjectStore2{
+func NewFromBucket(b *blob.Bucket, maxKeySize, maxValueSize int) *BucketStore {
+	return &BucketStore{
 		b:            b,
 		maxKeySize:   maxKeySize,
 		maxValueSize: maxValueSize,
 	}
 }
 
-func (s *ObjectStore2) Get(ctx context.Context, key []byte, buf []byte) (int, error) {
+func (s *BucketStore) Get(ctx context.Context, key []byte, buf []byte) (int, error) {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	r, err := s.b.NewReader(ctx, string(key), nil)
@@ -36,7 +36,7 @@ func (s *ObjectStore2) Get(ctx context.Context, key []byte, buf []byte) (int, er
 	return miscutil.ReadInto(buf, r)
 }
 
-func (s *ObjectStore2) Put(ctx context.Context, key []byte, value []byte) error {
+func (s *BucketStore) Put(ctx context.Context, key []byte, value []byte) error {
 	if len(key) > s.maxKeySize {
 		return errors.Errorf("max key size %d exceeded. len(key)=%d", s.maxKeySize, len(key))
 	}
@@ -58,7 +58,7 @@ func (s *ObjectStore2) Put(ctx context.Context, key []byte, value []byte) error 
 	return errors.EnsureStack(w.Close())
 }
 
-func (s *ObjectStore2) Delete(ctx context.Context, key []byte) error {
+func (s *BucketStore) Delete(ctx context.Context, key []byte) error {
 	err := s.b.Delete(ctx, string(key))
 	if gcerrors.Code(err) == gcerrors.NotFound {
 		err = nil
@@ -66,12 +66,12 @@ func (s *ObjectStore2) Delete(ctx context.Context, key []byte) error {
 	return errors.EnsureStack(err)
 }
 
-func (s *ObjectStore2) Exists(ctx context.Context, key []byte) (bool, error) {
+func (s *BucketStore) Exists(ctx context.Context, key []byte) (bool, error) {
 	exists, err := s.b.Exists(ctx, string(key))
 	return exists, errors.EnsureStack(err)
 }
 
-func (s *ObjectStore2) NewKeyIterator(span Span) stream.Iterator[[]byte] {
+func (s *BucketStore) NewKeyIterator(span Span) stream.Iterator[[]byte] {
 	it1 := s.b.List(&blob.ListOptions{})
 	return &objIterator{it: it1, span: span}
 }
