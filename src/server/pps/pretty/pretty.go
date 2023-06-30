@@ -10,8 +10,8 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -64,7 +64,7 @@ func PrintKubeEvent(w io.Writer, event string) {
 		fmt.Fprintf(w, "parse kube event: %v", errors.EnsureStack(err))
 		return
 	}
-	lastSeen := types.Timestamp{Seconds: int64(kubeEvent.Event.LastSeen)}
+	lastSeen := timestamppb.Timestamp{Seconds: int64(kubeEvent.Event.LastSeen)}
 	fmt.Fprintf(w, "%s\t", pretty.Ago(&lastSeen))
 	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Type)
 	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Reason)
@@ -140,8 +140,8 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 	// Aggregate some data to print from the jobs in the jobset
 	success := 0
 	failure := 0
-	var created *types.Timestamp
-	var modified *types.Timestamp
+	var created *timestamppb.Timestamp
+	var modified *timestamppb.Timestamp
 	for _, job := range jobSetInfo.Jobs {
 		if job.State == ppsclient.JobState_JOB_SUCCESS {
 			success++
@@ -153,10 +153,10 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 			created = job.Created
 			modified = job.Created
 		} else {
-			if job.Created.Compare(created) < 0 {
+			if job.Created.AsTime().Before(created.AsTime()) {
 				created = job.Created
 			}
-			if job.Created.Compare(modified) > 0 {
+			if job.Created.AsTime().After(modified.AsTime()) {
 				modified = job.Created
 			}
 		}
@@ -392,33 +392,9 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 
 	totalTime := client.GetDatumTotalTime(datumInfo.Stats).String()
 	fmt.Fprintf(w, "Total Time\t%s\n", totalTime)
-
-	var downloadTime string
-	dl, err := types.DurationFromProto(datumInfo.Stats.DownloadTime)
-	if err != nil {
-		downloadTime = err.Error()
-	} else {
-		downloadTime = dl.String()
-	}
-	fmt.Fprintf(w, "Download Time\t%s\n", downloadTime)
-
-	var procTime string
-	proc, err := types.DurationFromProto(datumInfo.Stats.ProcessTime)
-	if err != nil {
-		procTime = err.Error()
-	} else {
-		procTime = proc.String()
-	}
-	fmt.Fprintf(w, "Process Time\t%s\n", procTime)
-
-	var uploadTime string
-	ul, err := types.DurationFromProto(datumInfo.Stats.UploadTime)
-	if err != nil {
-		uploadTime = err.Error()
-	} else {
-		uploadTime = ul.String()
-	}
-	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
+	fmt.Fprintf(w, "Download Time\t%s\n", datumInfo.Stats.DownloadTime.AsDuration())
+	fmt.Fprintf(w, "Process Time\t%s\n", datumInfo.Stats.ProcessTime.AsDuration())
+	fmt.Fprintf(w, "Upload Time\t%s\n", datumInfo.Stats.UploadTime.AsDuration())
 
 	fmt.Fprintf(w, "PFS State:\n")
 	tw := ansiterm.NewTabWriter(w, 10, 1, 3, ' ', 0)
@@ -489,11 +465,11 @@ func JobState(jobState ppsclient.JobState) string {
 	return "-"
 }
 
-func jobStarted(started *types.Timestamp) string {
+func jobStarted(started *timestamppb.Timestamp) string {
 	if started == nil {
 		return "-"
 	}
-	return started.GoString()
+	return started.AsTime().GoString()
 }
 
 // Progress pretty prints the datum progress of a job.

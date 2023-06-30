@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -69,10 +68,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		return nil, s2.NoSuchKeyError(r)
 	}
 
-	modTime, err := types.TimestampFromProto(fileInfo.Committed)
-	if err != nil {
-		log.Debug(r.Context(), "Warning: using nil timestamp (file probably in open commit)", zap.Error(err))
-	}
+	modTime := fileInfo.Committed.AsTime()
 
 	content, err := pc.GetFileReadSeeker(bucket.Commit, file)
 	if err != nil {

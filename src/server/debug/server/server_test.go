@@ -507,7 +507,7 @@ metadata:
 	if err := writeTar(ctx, got, func(ctx context.Context, dfs DumpFS) error {
 		return s.collectHelm(ctx, dfs, nil)
 	}); err != nil {
-		t.Fatalf("helmRealses: %v", err)
+		t.Fatalf("helmReleases: %v", err)
 	}
 	// Iterate over the debug dump, comparing the content of generated files with the reference.
 	wantFiles := map[string]any{

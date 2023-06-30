@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -237,19 +237,21 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	c := env.PachClient
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
-	conn := &identity.IDPConnector{
-		Id:   "id",
-		Name: "name",
-		Type: "mockPassword",
-		Config: &types.Struct{
-			Fields: map[string]*types.Value{
-				"password": {Kind: &types.Value_StringValue{StringValue: "test"}},
-				"username": {Kind: &types.Value_StringValue{StringValue: "test"}},
-			},
+	config, err := structpb.NewStruct(
+		map[string]any{
+			"password": "test",
+			"username": "test",
 		},
+	)
+	require.NoError(t, err)
+	conn := &identity.IDPConnector{
+		Id:     "id",
+		Name:   "name",
+		Type:   "mockPassword",
+		Config: config,
 	}
 
-	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
+	_, err = adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
 		Connector: conn,
 	})
 	require.NoError(t, err)

@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -136,14 +135,8 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	// TODO: This could probably be scoped to a callback.
 	var afterTime time.Duration
 	if pj.ji.Details.JobTimeout != nil {
-		startTime, err := types.TimestampFromProto(pj.ji.Started)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		timeout, err := types.DurationFromProto(pj.ji.Details.JobTimeout)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
+		startTime := pj.ji.Started.AsTime()
+		timeout := pj.ji.Details.JobTimeout.AsDuration()
 		afterTime = time.Until(startTime.Add(timeout))
 	}
 	go func() {
@@ -222,7 +215,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 			}
 			// Output commit was deleted. Delete job as well
 			// TODO: This should be handled through a transaction defer when the commit is squashed.
-			if err := pj.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+			if err := pj.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 				// Delete the job if no other worker has deleted it yet
 				jobInfo := &pps.JobInfo{}
 				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
@@ -323,7 +316,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 	if err != nil {
 		return err
 	}
-	var inputs []*types.Any
+	var inputs []*anypb.Any
 	for _, datumSet := range datumSets {
 		input, err := serializeDatumSetTask(&DatumSetTask{
 			Job:          pj.ji.Job,
@@ -338,7 +331,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 	}
 	ctx := pachClient.Ctx()
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -364,9 +357,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 		); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := datum.MergeStats(stats, result.Stats); err != nil {
-			return err
-		}
+		datum.MergeStats(stats, result.Stats)
 		pj.saveJobStats(result.Stats)
 		return pj.writeJobInfo()
 	}); err != nil {
@@ -392,7 +383,7 @@ func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task
 		if err != nil {
 			return err
 		}
-		var inputs []*types.Any
+		var inputs []*anypb.Any
 		for _, shard := range shards {
 			input, err := serializeCreateDatumSetsTask(&CreateDatumSetsTask{
 				FileSetId: fileSetID,
@@ -404,7 +395,7 @@ func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task
 			}
 			inputs = append(inputs, input)
 		}
-		return task.DoBatch(pachClient.Ctx(), taskDoer, inputs, func(_ int64, output *types.Any, err error) error {
+		return task.DoBatch(pachClient.Ctx(), taskDoer, inputs, func(_ int64, output *anypb.Any, err error) error {
 			if err != nil {
 				return err
 			}
@@ -446,41 +437,27 @@ func createSetSpec(pj *pendingJob) (*datum.SetSpec, error) {
 	return setSpec, nil
 }
 
-func serializeCreateDatumSetsTask(task *CreateDatumSetsTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateDatumSetsTask(task *CreateDatumSetsTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCreateDatumSetsTaskResult(taskAny *types.Any) (*CreateDatumSetsTaskResult, error) {
+func deserializeCreateDatumSetsTaskResult(taskAny *anypb.Any) (*CreateDatumSetsTaskResult, error) {
 	task := &CreateDatumSetsTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeDatumSetTask(task *DatumSetTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeDatumSetTask(task *DatumSetTask) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeDatumSetTaskResult(taskAny *types.Any) (*DatumSetTaskResult, error) {
+func deserializeDatumSetTaskResult(taskAny *anypb.Any) (*DatumSetTaskResult, error) {
 	task := &DatumSetTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 

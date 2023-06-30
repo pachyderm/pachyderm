@@ -112,7 +112,7 @@ func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
 }
-func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+func (td *testDriver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {

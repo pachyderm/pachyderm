@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -393,13 +392,9 @@ func WhoamiCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 			}
-			fmt.Printf("You are \"%s\"\n", resp.Username)
-			if resp.Expiration != nil {
-				if t, err := types.TimestampFromProto(resp.Expiration); err != nil {
-					fmt.Fprintf(os.Stderr, "session exipration time unparseable: %v\n", err)
-				} else {
-					fmt.Printf("session expires: %v\n", t.Format(time.RFC822))
-				}
+			fmt.Printf("You are %q\n", resp.Username)
+			if e := resp.Expiration; e != nil {
+				fmt.Printf("session expires: %v\n", e.AsTime().Format(time.RFC822))
 			}
 			return nil
 		}),

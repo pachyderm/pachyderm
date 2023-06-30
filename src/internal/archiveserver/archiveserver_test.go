@@ -14,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -22,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type fakePFS struct {
@@ -34,7 +34,7 @@ type getFileTARClient struct {
 	files map[string]string
 }
 
-func (c *getFileTARClient) Recv() (*types.BytesValue, error) {
+func (c *getFileTARClient) Recv() (*wrapperspb.BytesValue, error) {
 	if !c.recvd {
 		c.recvd = true
 		buf := new(bytes.Buffer)
@@ -56,9 +56,7 @@ func (c *getFileTARClient) Recv() (*types.BytesValue, error) {
 		if err := w.Close(); err != nil {
 			return nil, errors.Wrap(err, "Close")
 		}
-		return &types.BytesValue{
-			Value: buf.Bytes(),
-		}, nil
+		return wrapperspb.Bytes(buf.Bytes()), nil
 	}
 	return nil, io.EOF
 }

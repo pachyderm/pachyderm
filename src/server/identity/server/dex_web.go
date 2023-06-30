@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -239,7 +239,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if err := dbutil.WithTx(r.Context(), w.env.DB, func(tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(r.Context(), w.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 			err := addUserInTx(r.Context(), tx, authReq.Claims.Email)
 			return errors.Wrapf(err, "unable to record user identity for login")
 		}); err != nil {
