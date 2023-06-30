@@ -146,7 +146,7 @@ func TestSetContext(t *testing.T) {
 	require.NoError(t, run(t, `
 		echo '{}' | pachctl config set context foo
 		echo '{"pachd_address": "foobar:9000"}' | pachctl config set context foo --overwrite
-		pachctl config get context foo | match '"pachd_address": "grpc://foobar:9000"'
+		pachctl config get context foo | match '"pachd_address": *"grpc://foobar:9000"'
 	`))
 }
 
