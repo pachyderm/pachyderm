@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -26,8 +26,9 @@ const (
 )
 
 type apiServer struct {
-	env *Env
+	lc.UnimplementedAPIServer
 
+	env *Env
 	// license is the database record where we store the active enterprise license
 	license col.PostgresCollection
 }
@@ -109,22 +110,19 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 	// Allow request to override expiration in the activation code, for testing
 	if req.Expires != nil {
-		customExpiration, err := types.TimestampFromProto(req.Expires)
+		customExpiration := req.Expires.AsTime()
 		if err == nil && expiration.After(customExpiration) {
 			expiration = customExpiration
 		}
 	}
-	expirationProto, err := types.TimestampProto(expiration)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not convert expiration time \"%s\" to proto", expiration.String())
-	}
+	expirationProto := timestamppb.New(expiration)
 
 	newRecord := &ec.LicenseRecord{
 		ActivationCode: req.ActivationCode,
 		Expires:        expirationProto,
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
@@ -151,10 +149,7 @@ func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCode
 		return nil, errors.EnsureStack(err)
 	}
 
-	expiration, err := types.TimestampFromProto(record.Expires)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse expiration timestamp")
-	}
+	expiration := record.Expires.AsTime()
 	resp := &lc.GetActivationCodeResponse{
 		Info: &ec.TokenInfo{
 			Expires: record.Expires,
@@ -257,7 +252,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 		return nil, errors.Wrapf(err, "unable to delete clusters in database")
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)

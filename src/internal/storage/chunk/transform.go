@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"golang.org/x/crypto/chacha20"
+	"google.golang.org/protobuf/proto"
 )
 
 // CreateOptions affect how chunks are created.
@@ -191,7 +192,7 @@ func verifyData(id ID, x []byte) error {
 
 // Key returns a unique key for the Ref suitable for use in hash tables
 func (r *Ref) Key() pachhash.Output {
-	data, err := r.Marshal()
+	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(r)
 	if err != nil {
 		panic(err)
 	}

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -105,7 +105,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.C
 	testEnv.driver = testEnv.driver.WithContext(ctx)
 	testEnv.PachClient = testEnv.driver.PachClient()
 	// Put the pipeline info into the collection (which is read by the master)
-	err = testEnv.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+	err = testEnv.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		rw := testEnv.driver.Pipelines().ReadWrite(sqlTx)
 		err := rw.Put(specCommit, pipelineInfo) // pipeline/info needs to contain spec
 		return errors.EnsureStack(err)
@@ -219,9 +219,9 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		updateJobState(request)
 		return nil
 	})
-	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*emptypb.Empty, error) {
 		updateJobState(request)
-		return &types.Empty{}, nil
+		return &emptypb.Empty{}, nil
 	})
 
 	eg, ctx := errgroup.WithContext(ctx)

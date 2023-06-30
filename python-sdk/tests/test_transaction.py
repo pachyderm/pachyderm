@@ -91,7 +91,7 @@ class TestTransaction:
         """Ensure that file operations """
         repo = client.new_repo(default_project)
         branch = pfs.Branch(repo=repo, name="master")
-        test_file = pfs.File.from_uri(f"{repo.project.name}/{repo.name}@master:/file.dat")
+        test_file = pfs.File.from_uri(f"{branch}:/file.dat")
 
         with client.transaction.transaction() as _txn:
             repo_txn = client.new_repo(default_project)

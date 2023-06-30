@@ -9,9 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -79,6 +82,10 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 
 // EqualOrErr checks equality of two values and returns an error if they're not equal
 func EqualOrErr(expected interface{}, actual interface{}) error {
+	if diff := cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()); diff == "" {
+		return nil
+	}
+
 	eV, aV := reflect.ValueOf(expected), reflect.ValueOf(actual)
 	if eV.Type() != aV.Type() {
 		return errors.Errorf("Not equal: %T(%#v) (expected)\n"+

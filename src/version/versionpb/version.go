@@ -10,6 +10,9 @@ import (
 
 // Canonical returns the version in canonical semver form, according to golang.org/x/mod/semver.
 func (v *Version) Canonical() string {
+	if v == nil {
+		v = new(Version)
+	}
 	// vMAJOR[.MINOR[.PATCH[-PRERELEASE][+BUILD]]]
 	b := new(strings.Builder)
 	fmt.Fprintf(b, "v%d.%d.%d", v.Major, v.Minor, v.Micro)
@@ -30,6 +33,8 @@ func (v *Version) IsDevelopment() bool {
 }
 
 var (
+	ErrClientIsNil         = errors.New("client version is missing")
+	ErrServerIsNil         = errors.New("server version is nil")
 	ErrClientTooOld        = errors.New("client is outdated")
 	ErrServerTooOld        = errors.New("server is outdated")
 	ErrIncompatiblePreview = errors.New("client and server versions must match exactly")
@@ -40,10 +45,10 @@ var (
 // prereleases, then the major and minor numbers are identical.
 func IsCompatible(rawClient, rawServer *Version) error {
 	if rawClient == nil {
-		return errors.New("client version is nil")
+		return ErrClientIsNil
 	}
 	if rawServer == nil {
-		return errors.New("server version is nil")
+		return ErrServerIsNil
 	}
 	if rawClient.IsDevelopment() || rawServer.IsDevelopment() {
 		return nil

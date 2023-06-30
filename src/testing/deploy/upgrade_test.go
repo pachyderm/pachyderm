@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	proto "github.com/gogo/protobuf/proto"
-
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -20,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

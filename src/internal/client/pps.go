@@ -10,8 +10,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -180,7 +181,7 @@ func NewCronInput(name string, spec string) *pps.Input {
 // It uses cron syntax to specify the schedule. The input will be exposed to
 // jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
 // e.g. `2006-01-02T15:04:05Z07:00`. It includes all the options.
-func NewCronInputOpts(name string, repo string, spec string, overwrite bool, start *types.Timestamp) *pps.Input {
+func NewCronInputOpts(name string, repo string, spec string, overwrite bool, start *timestamppb.Timestamp) *pps.Input {
 	return &pps.Input{
 		Cron: &pps.CronInput{
 			Name:      name,
@@ -657,7 +658,7 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 		Master:         master,
 		Follow:         follow,
 		UseLokiBackend: useLoki,
-		Since:          types.DurationProto(since),
+		Since:          durationpb.New(since),
 	}
 	if pipelineName != "" {
 		request.Pipeline = NewPipeline(projectName, pipelineName)
@@ -886,7 +887,7 @@ func (c APIClient) InspectSecret(secret string) (*pps.SecretInfo, error) {
 func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 	secretInfos, err := c.PpsAPIClient.ListSecret(
 		c.Ctx(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -942,11 +943,8 @@ func (c APIClient) WithDefaultTransformUser(x string) *APIClient {
 // GetDatumTotalTime sums the timing stats from a DatumInfo
 func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
 	totalDuration := time.Duration(0)
-	duration, _ := types.DurationFromProto(s.DownloadTime)
-	totalDuration += duration
-	duration, _ = types.DurationFromProto(s.ProcessTime)
-	totalDuration += duration
-	duration, _ = types.DurationFromProto(s.UploadTime)
-	totalDuration += duration
+	totalDuration += s.DownloadTime.AsDuration()
+	totalDuration += s.ProcessTime.AsDuration()
+	totalDuration += s.UploadTime.AsDuration()
 	return totalDuration
 }

@@ -13,15 +13,15 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -100,6 +100,8 @@ var (
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
+	pps.UnimplementedAPIServer
+
 	etcdPrefix            string
 	env                   Env
 	txnEnv                *txnenv.TransactionEnv
@@ -483,14 +485,14 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 	return nil
 }
 
-func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *emptypb.Empty, retErr error) {
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.UpdateJobState(request))
 	}); err != nil {
 		return nil, err
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
@@ -966,7 +968,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 }
 
 // DeleteJob implements the protobuf pps.DeleteJob RPC
-func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *emptypb.Empty, retErr error) {
 	if request.GetJob() == nil {
 		return nil, errors.New("job cannot be nil")
 	}
@@ -977,7 +979,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, err
 	}
 	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
@@ -988,7 +990,7 @@ func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext
 }
 
 // StopJob implements the protobuf pps.StopJob RPC
-func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *emptypb.Empty, retErr error) {
 	ensurePipelineProject(request.GetJob().GetPipeline())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.StopJob(request))
@@ -996,7 +998,7 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 		return nil, err
 	}
 	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // TODO: Remove when job state transition operations are handled by a background process.
@@ -1065,7 +1067,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
-func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *emptypb.Empty, retErr error) {
 	ensurePipelineProject(request.GetJob().GetPipeline())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
@@ -1080,7 +1082,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err := workerserver.Cancel(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.Id, request.DataFilters); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
@@ -1358,10 +1360,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// Convert request.Since to a usable timestamp.
 	if request.Since != nil {
 		since = new(time.Duration)
-		*since, err = types.DurationFromProto(request.Since)
-		if err != nil {
-			return errors.Wrapf(err, "invalid since duration")
-		}
+		*since = request.Since.AsDuration()
 		if *since == 0 {
 			since = nil
 		}
@@ -1396,10 +1395,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 			}
 			if created := jobInfo.GetCreated(); since == nil && created != nil {
-				t, err := types.TimestampFromProto(created)
-				if err != nil {
-					return errors.Wrapf(err, "could not convert %v to time", created)
-				}
+				t := created.AsTime()
 				since = new(time.Duration)
 				*since = time.Since(t) + jobClockSkew
 			}
@@ -1510,10 +1506,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	}
 	var from time.Time
 	if request.Since != nil {
-		since, err := types.DurationFromProto(request.Since)
-		if err != nil {
-			return errors.Wrapf(err, "invalid from time")
-		}
+		since := request.Since.AsDuration()
 		if since != 0 {
 			from = time.Now().Add(-since)
 		}
@@ -1552,9 +1545,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 		}
 		if created := jobInfo.GetCreated(); from.IsZero() && created != nil {
-			if from, err = types.TimestampFromProto(created); err != nil {
-				return errors.Wrapf(err, "could not convert %v to from time", created)
-			}
+			from = created.AsTime()
 			from = from.Add(-jobClockSkew)
 		}
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline, true)
@@ -1616,13 +1607,37 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	})
 }
 
+// parseNativeLineWithDuplicate key is like parseNativeLine, but tries to convert to a
+// map[string]any and back to JSON if unmarshaling fails because of a duplicate key.
+func parseNativeLineWithDuplicateKey(s string, msg *pps.LogMessage) error {
+	if err := parseNativeLine(s, msg); err != nil {
+		if !strings.Contains(err.Error(), "duplicate field") {
+			return errors.Wrap(err, "parseNativeLine")
+		}
+		var result map[string]any
+		if err := json.Unmarshal([]byte(s), &result); err != nil {
+			return errors.Wrap(err, "unmarshal into map[string]any")
+		}
+		bs, err := json.Marshal(result)
+		if err != nil {
+			return errors.Wrap(err, "marshal map[string]any back to JSON")
+		}
+		if err := parseNativeLine(string(bs), msg); err != nil {
+			return errors.Wrap(err, "parseNativeLine(cleaned)")
+		}
+		return nil
+	}
+	return nil
+}
+
 // parseNativeLine receives a raw chunk of JSON from Loki, which is our logged
 // pps.LogMessage object.
 func parseNativeLine(s string, msg *pps.LogMessage) error {
-	m := &jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
+	m := protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
 	}
-	if err := m.Unmarshal(strings.NewReader(s), msg); err != nil {
+	if err := m.Unmarshal([]byte(s), msg); err != nil {
 		return errors.EnsureStack(err)
 	}
 	if proto.Equal(msg, &pps.LogMessage{}) {
@@ -1630,9 +1645,9 @@ func parseNativeLine(s string, msg *pps.LogMessage) error {
 		// that the JSON is not native format.  A usable Docker-format message looks empty
 		// and valid to the Unmarshaler in this mode.  This is not strictly correct, as
 		// `{"master":false}` is a valid pps.LogMessage proto, but appears empty here, so we
-		// incorrectly reject it.  This is the price we pay for AllowUnknownFields, of which
-		// zap logs lots of.  (If we didn't allow unknown fields, then we couldn't ever log
-		// fields in the worker, which is difficult to enforce.)
+		// incorrectly reject it.  This is the price we pay for DisardUnknown, of which zap
+		// logs lots of.  (If we didn't allow unknown fields then we couldn't ever log
+		// fields in the worker, which is too unfortunate to consider.)
 		//
 		// An alternative considered was to make zap put all of its fields in a
 		// zap.Namespace, and then put that key into the proto so it would be recognized
@@ -1669,7 +1684,7 @@ func parseDockerLine(s string, msg *pps.LogMessage) error {
 	if result.Log == "" {
 		return errors.New("log field is empty")
 	}
-	if err := parseNativeLine(result.Log, msg); err != nil {
+	if err := parseNativeLineWithDuplicateKey(result.Log, msg); err != nil {
 		return errors.Errorf("native json (%q): %v", result.Log, err)
 	}
 	return nil
@@ -1687,7 +1702,7 @@ func parseCRILine(s string, msg *pps.LogMessage) error {
 		return errors.New("line does not contain {")
 	}
 	l := string(b[i:])
-	if err := parseNativeLine(l, msg); err != nil {
+	if err := parseNativeLineWithDuplicateKey(l, msg); err != nil {
 		return errors.Errorf("native json (%q): %v", l, err)
 	}
 	return nil
@@ -1711,7 +1726,7 @@ func ParseLokiLine(inputLine string, msg *pps.LogMessage) error {
 		// It is unfortunate that we can't happy-path native.
 		{"cri", parseCRILine},
 		{"docker", parseDockerLine},
-		{"native", parseNativeLine},
+		{"native", parseNativeLineWithDuplicateKey},
 	}
 	for _, item := range parsers {
 		if err := item.parser(inputLine, msg); err != nil {
@@ -1754,14 +1769,6 @@ func (s podSlice) Swap(i, j int) {
 }
 func (s podSlice) Less(i, j int) bool {
 	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
-}
-
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
@@ -1918,18 +1925,6 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	}
 	if pipelineInfo.Details.OutputBranch == "" {
 		return errors.New("pipeline needs to specify an output branch")
-	}
-	if pipelineInfo.Details.JobTimeout != nil {
-		_, err := types.DurationFromProto(pipelineInfo.Details.JobTimeout)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
-	if pipelineInfo.Details.DatumTimeout != nil {
-		_, err := types.DurationFromProto(pipelineInfo.Details.DatumTimeout)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
 	}
 	if pipelineInfo.Details.PodSpec != "" && !json.Valid([]byte(pipelineInfo.Details.PodSpec)) {
 		return errors.Errorf("malformed PodSpec")
@@ -2143,7 +2138,7 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //     request.Reprocess == true).
 //   - Rather than try to enumerate every case where we can't create a spec
 //     commit without stopping the pipeline, we just always stop the pipeline
-func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -2173,7 +2168,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
@@ -2195,7 +2190,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Input:                   request.Input,
 			OutputBranch:            request.OutputBranch,
 			Egress:                  request.Egress,
-			CreatedAt:               now(),
+			CreatedAt:               timestamppb.Now(),
 			ResourceRequests:        request.ResourceRequests,
 			ResourceLimits:          request.ResourceLimits,
 			SidecarResourceLimits:   request.SidecarResourceLimits,
@@ -2242,7 +2237,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	return pipelineInfo, nil
 }
 
-func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
+func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
 	var (
 		projectName          = request.Pipeline.Project.GetName()
 		pipelineName         = request.Pipeline.Name
@@ -2278,7 +2273,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}
 		}
 		if input.Cron != nil {
-			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
+			if err := a.env.PFSServer.CreateRepoInTransaction(ctx, txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(projectName, input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline),
@@ -2322,7 +2317,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 
 	if !update {
 		// Create output and spec repos
-		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
+		if err := a.env.PFSServer.CreateRepoInTransaction(ctx, txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(projectName, pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline),
@@ -2331,7 +2326,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		} else if errutil.IsAlreadyExistError(err) {
 			return errors.Errorf("pipeline %q cannot be created because a repo with the same name already exists", pipelineName)
 		}
-		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
+		if err := a.env.PFSServer.CreateRepoInTransaction(ctx, txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType),
 				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline),
@@ -2460,7 +2455,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 
 	if request.Service == nil && request.Spout == nil {
-		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
+		if err := a.env.PFSServer.CreateRepoInTransaction(ctx, txnCtx, &pfs.CreateRepoRequest{
 			Repo:        metaBranch.Repo,
 			Description: fmt.Sprint("Meta repo for pipeline ", pipelineName),
 		}); err != nil && !errutil.IsAlreadyExistError(err) {
@@ -2514,7 +2509,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	pps.SortInput(input)
-	now := time.Now()
 	nCreatedBranches := make(map[string]int)
 	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
@@ -2542,8 +2536,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 		}
 		if input.Cron != nil {
 			if input.Cron.Start == nil {
-				start, _ := types.TimestampProto(now)
-				input.Cron.Start = start
+				input.Cron.Start = timestamppb.Now()
 			}
 			if input.Cron.Repo == "" {
 				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
@@ -2781,20 +2774,20 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
-func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *emptypb.Empty, retErr error) {
 	if request != nil && request.Pipeline != nil {
 		ensurePipelineProject(request.GetPipeline())
 	}
-	if request.All {
+	if request.All { //nolint:staticcheck
 		_, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{
 			KeepRepo: request.KeepRepo,
 		})
-		return &types.Empty{}, errors.Wrap(err, "delete all pipelines")
+		return &emptypb.Empty{}, errors.Wrap(err, "delete all pipelines")
 	} else if err := a.deletePipeline(ctx, request); err != nil {
 		return nil, err
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) error {
@@ -2997,7 +2990,7 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 }
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC
-func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *emptypb.Empty, retErr error) {
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
@@ -3041,11 +3034,11 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	}); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // StopPipeline implements the protobuf pps.StopPipeline RPC
-func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *emptypb.Empty, retErr error) {
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
@@ -3093,14 +3086,14 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *emptypb.Empty, retErr error) {
 	return nil, errors.New("unimplemented")
 }
 
-func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *emptypb.Empty, retErr error) {
 	ensurePipelineProject(request.GetPipeline())
 	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline, true)
 	if err != nil {
@@ -3136,7 +3129,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		}
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
@@ -3185,7 +3178,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			PipelineVersion: pipelineInfo.Version,
 			OutputCommit:    commitInfo.Commit,
 			Stats:           &pps.ProcessStats{},
-			Created:         types.TimestampNow(),
+			Created:         timestamppb.Now(),
 		}
 		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
 			return err
@@ -3195,7 +3188,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 }
 
 // CreateSecret implements the protobuf pps.CreateSecret RPC
-func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -3218,18 +3211,18 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to create secret")
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // DeleteSecret implements the protobuf pps.DeleteSecret RPC
-func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(ctx, request.Secret.Name, metav1.DeleteOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete secret")
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // InspectSecret implements the protobuf pps.InspectSecret RPC
@@ -3241,21 +3234,17 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get secret")
 	}
-	creationTimestamp := timestamppb.New(secret.GetCreationTimestamp().Time)
 	return &pps.SecretInfo{
 		Secret: &pps.Secret{
 			Name: secret.Name,
 		},
-		Type: string(secret.Type),
-		CreationTimestamp: &types.Timestamp{
-			Seconds: creationTimestamp.GetSeconds(),
-			Nanos:   creationTimestamp.GetNanos(),
-		},
+		Type:              string(secret.Type),
+		CreationTimestamp: timestamppb.New(secret.GetCreationTimestamp().Time),
 	}, nil
 }
 
 // ListSecret implements the protobuf pps.ListSecret RPC
-func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
+func (a *apiServer) ListSecret(ctx context.Context, in *emptypb.Empty) (response *pps.SecretInfos, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -3267,17 +3256,12 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	}
 	secretInfos := []*pps.SecretInfo{}
 	for _, s := range secrets.Items {
-		creationTimestamp := timestamppb.New(s.GetCreationTimestamp().Time)
-
 		secretInfos = append(secretInfos, &pps.SecretInfo{
 			Secret: &pps.Secret{
 				Name: s.Name,
 			},
-			Type: string(s.Type),
-			CreationTimestamp: &types.Timestamp{
-				Seconds: creationTimestamp.GetSeconds(),
-				Nanos:   creationTimestamp.GetNanos(),
-			},
+			Type:              string(s.Type),
+			CreationTimestamp: timestamppb.New(s.GetCreationTimestamp().Time),
 		})
 	}
 
@@ -3287,7 +3271,7 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 }
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
-func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteAll(ctx context.Context, request *emptypb.Empty) (response *emptypb.Empty, retErr error) {
 	if _, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
@@ -3297,7 +3281,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
@@ -3351,7 +3335,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pps.RunLoadTestRequest
 }
 
 // RunLoadTestDefault implements the pps.RunLoadTestDefault RPC
-func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pps.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *emptypb.Empty) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	return ppsload.Pipeline(pachClient, &pps.RunLoadTestRequest{
 		DagSpec:  defaultDagSpecs[0],
@@ -3483,7 +3467,7 @@ func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateR
 		}
 	case '{':
 		var spec pps.CreatePipelineRequest
-		if err := jsonpb.Unmarshal(strings.NewReader(jsonResult), &spec); err != nil {
+		if err := protojson.Unmarshal([]byte(jsonResult), &spec); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 		specs = append(specs, &spec)

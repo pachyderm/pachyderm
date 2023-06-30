@@ -10,8 +10,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
+	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -43,9 +43,9 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 			defer client.Close()
-			var d *types.Duration
+			var d *durationpb.Duration
 			if duration != 0 {
-				d = types.DurationProto(duration)
+				d = durationpb.New(duration)
 			}
 			p := &debug.Profile{
 				Name:     args[0],
@@ -203,7 +203,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return errors.Errorf("no log level %v", want)
 			}
 			req := &debug.SetLogLevelRequest{
-				Duration: types.DurationProto(levelChangeDuration),
+				Duration: durationpb.New(levelChangeDuration),
 				Recurse:  recursivelySetLogLevel,
 			}
 			if setGRPCLevel {

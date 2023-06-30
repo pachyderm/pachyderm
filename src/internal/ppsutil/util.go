@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -170,7 +170,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 	logSetPipelineState(ctx, pipeline, from, to, reason)
 	var resultMessage string
 	var warn bool
-	err := dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, sqlTx *pachsql.Tx) error {
 		resultMessage = ""
 		warn = false
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
@@ -178,7 +178,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
-		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
+		tracing.TagAnySpan(cbCtx, "old-state", pipelineInfo.State)
 		// Only UpdatePipeline can bring a pipeline out of failure
 		// TODO(msteffen): apply the same logic for CRASHING?
 		if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {
@@ -291,23 +291,13 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	}
 
 	// Update job info
-	var err error
 	if jobInfo.State == pps.JobState_JOB_STARTING && state == pps.JobState_JOB_RUNNING {
-		jobInfo.Started, err = types.TimestampProto(time.Now())
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
+		jobInfo.Started = timestamppb.Now()
 	} else if pps.IsTerminal(state) {
 		if jobInfo.Started == nil {
-			jobInfo.Started, err = types.TimestampProto(time.Now())
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
+			jobInfo.Started = timestamppb.Now()
 		}
-		jobInfo.Finished, err = types.TimestampProto(time.Now())
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
+		jobInfo.Finished = timestamppb.Now()
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
@@ -509,8 +499,9 @@ func ListPipelineInfo(ctx context.Context,
 }
 
 func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {
-	m := &jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
+	m := &protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
 	}
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -519,7 +510,7 @@ func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, se
 			msg.Message = scanner.Text()
 		} else {
 			logBytes := scanner.Bytes()
-			if err := m.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+			if err := m.Unmarshal(logBytes, msg); err != nil {
 				continue
 			}
 			// Filter out log lines that don't match on pipeline or job

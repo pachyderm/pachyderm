@@ -8,7 +8,8 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // UnescapeHTML returns s with < and > unescaped.
@@ -20,8 +21,8 @@ func UnescapeHTML(s string) string {
 
 // Since pretty-prints the amount of time that has passed since timestamp as a
 // human-readable string.
-func Since(timestamp *types.Timestamp) string {
-	t, _ := types.TimestampFromProto(timestamp)
+func Since(timestamp *timestamppb.Timestamp) string {
+	t := timestamp.AsTime()
 	if t.Equal(time.Time{}) {
 		return ""
 	}
@@ -30,7 +31,7 @@ func Since(timestamp *types.Timestamp) string {
 
 // Ago pretty-prints the amount of time that has passed since timestamp as a
 // human-readable string, and adds "ago" to the end.
-func Ago(timestamp *types.Timestamp) string {
+func Ago(timestamp *timestamppb.Timestamp) string {
 	if timestamp == nil {
 		return "-"
 	}
@@ -43,16 +44,13 @@ func Ago(timestamp *types.Timestamp) string {
 
 // TimeDifference pretty-prints the duration of time between from
 // and to as a human-reabable string.
-func TimeDifference(from *types.Timestamp, to *types.Timestamp) string {
-	tFrom, _ := types.TimestampFromProto(from)
-	tTo, _ := types.TimestampFromProto(to)
-	return units.HumanDuration(tTo.Sub(tFrom))
+func TimeDifference(from, to *timestamppb.Timestamp) string {
+	return units.HumanDuration(to.AsTime().Sub(from.AsTime()))
 }
 
 // Duration pretty prints a duration in a human readable way.
-func Duration(d *types.Duration) string {
-	duration, _ := types.DurationFromProto(d)
-	return units.HumanDuration(duration)
+func Duration(d *durationpb.Duration) string {
+	return units.HumanDuration(d.AsDuration())
 }
 
 // Size pretty-prints size amount of bytes as a human readable string.

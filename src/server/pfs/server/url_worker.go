@@ -6,10 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
 	"gocloud.dev/blob"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -28,15 +27,15 @@ func (d *driver) URLWorker(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pfs-url-worker")
 	taskSource := d.env.TaskService.NewSource(URLTaskNamespace)
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
+		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
-			case types.Is(input, &PutFileURLTask{}):
+			case input.MessageIs(&PutFileURLTask{}):
 				putFileURLTask, err := deserializePutFileURLTask(input)
 				if err != nil {
 					return nil, err
 				}
 				return d.processPutFileURLTask(ctx, putFileURLTask)
-			case types.Is(input, &GetFileURLTask{}):
+			case input.MessageIs(&GetFileURLTask{}):
 				getFileURLTask, err := deserializeGetFileURLTask(input)
 				if err != nil {
 					return nil, err
@@ -53,7 +52,7 @@ func (d *driver) URLWorker(ctx context.Context) {
 	})
 }
 
-func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *types.Any, retErr error) {
+func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *anypb.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -102,7 +101,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	return serializePutFileURLTaskResult(result)
 }
 
-func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (_ *types.Any, retErr error) {
+func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (_ *anypb.Any, retErr error) {
 	src, err := d.getFile(ctx, task.File, task.PathRange)
 	if err != nil {
 		return nil, err
@@ -139,70 +138,42 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	return serializeGetFileURLTaskResult(&GetFileURLTaskResult{})
 }
 
-func serializePutFileURLTask(task *PutFileURLTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializePutFileURLTask(task *PutFileURLTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializePutFileURLTask(taskAny *types.Any) (*PutFileURLTask, error) {
+func deserializePutFileURLTask(taskAny *anypb.Any) (*PutFileURLTask, error) {
 	task := &PutFileURLTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializePutFileURLTaskResult(task *PutFileURLTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializePutFileURLTaskResult(task *PutFileURLTaskResult) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializePutFileURLTaskResult(taskAny *types.Any) (*PutFileURLTaskResult, error) {
+func deserializePutFileURLTaskResult(taskAny *anypb.Any) (*PutFileURLTaskResult, error) {
 	task := &PutFileURLTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeGetFileURLTask(task *GetFileURLTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeGetFileURLTask(task *GetFileURLTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeGetFileURLTask(taskAny *types.Any) (*GetFileURLTask, error) {
+func deserializeGetFileURLTask(taskAny *anypb.Any) (*GetFileURLTask, error) {
 	task := &GetFileURLTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeGetFileURLTaskResult(task *GetFileURLTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeGetFileURLTaskResult(task *GetFileURLTaskResult) (*anypb.Any, error) {
+	return anypb.New(task)
 }

@@ -2,17 +2,17 @@ package datum
 
 import (
 	"archive/tar"
-	"encoding/json"
 	"io"
 	"path"
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -118,11 +118,15 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			if pfsserver.IsFileNotFoundErr(err) || errors.Is(err, io.EOF) {
 				return nil
 			}
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "next")
 		}
 		meta := &Meta{}
-		if err := jsonpb.Unmarshal(tr, meta); err != nil {
-			return errors.EnsureStack(err)
+		content, err := io.ReadAll(tr)
+		if err != nil {
+			return errors.Wrapf(err, "read file %v", hdr.Name)
+		}
+		if err := protojson.Unmarshal(content, meta); err != nil {
+			return errors.Wrap(err, "unmarshal protojson")
 		}
 		migrateMetaInputsV2_6_0(meta)
 		if err := cb(hdr.Name, meta); err != nil {
@@ -181,10 +185,10 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 		var meta Meta
 		// kind of an abuse of the field, just stick this to key off of
 		meta.Hash = hdr.Name
-		decoder := json.NewDecoder(tr)
+		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
 		for {
 			input := new(common.Input)
-			if err := jsonpb.UnmarshalNext(decoder, input); err != nil {
+			if err := decoder.UnmarshalNext(input); err != nil {
 				if errors.Is(err, io.EOF) {
 					break
 				}

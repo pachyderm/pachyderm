@@ -45,7 +45,7 @@ func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.Tr
 		return err
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *resource, Required: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: resource, Required: p}
 	}
 	return nil
 }
@@ -82,7 +82,7 @@ func (a *apiServer) checkResourceIsAuthorized(ctx context.Context, resource *aut
 		return err
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *resource, Required: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: resource, Required: p}
 	}
 	return nil
 }

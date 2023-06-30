@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -21,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"google.golang.org/protobuf/proto"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -319,7 +319,7 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 
 func (d *driver) listReferencedCommits(ctx context.Context) (map[string]*pfs.Commit, error) {
 	cs := make(map[string]*pfs.Commit)
-	if err := dbutil.WithTx(ctx, d.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		var ids []string
 		if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
 			return errors.Wrap(err, "select commit ids from pfs.commit_totals")
@@ -403,7 +403,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		return errors.Errorf("commits with dangling references: %v", keys)
 	}
 	if fix {
-		return dbutil.WithTx(ctx, d.env.DB, func(sqlTx *pachsql.Tx) error {
+		return dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 			for _, dc := range dangCs {
 				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
 					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", pfsdb.CommitKey(dc))
