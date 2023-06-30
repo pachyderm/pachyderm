@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -25,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 type PipelineStateDriver interface {

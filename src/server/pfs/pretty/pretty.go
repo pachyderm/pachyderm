@@ -9,7 +9,7 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -103,8 +103,8 @@ func printTrigger(trigger *pfs.Trigger) string {
 	if trigger.CronSpec != "" {
 		conds = append(conds, fmt.Sprintf("Cron(%s)", trigger.CronSpec))
 	}
-	if trigger.Size_ != "" {
-		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size_))
+	if trigger.Size != "" {
+		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size))
 	}
 	if trigger.Commits != 0 {
 		conds = append(conds, fmt.Sprintf("Commits(%d)", trigger.Commits))
@@ -234,8 +234,8 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	// Aggregate some data to print from the jobs in the jobset
 	success := 0
 	failure := 0
-	var created *types.Timestamp
-	var modified *types.Timestamp
+	var created *timestamppb.Timestamp
+	var modified *timestamppb.Timestamp
 	for _, commitInfo := range commitSetInfo.Commits {
 		if commitInfo.Finished != nil {
 			if commitInfo.Error != "" {
@@ -249,10 +249,10 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 			created = commitInfo.Started
 			modified = commitInfo.Started
 		} else {
-			if commitInfo.Started.Compare(created) < 0 {
+			if commitInfo.Started.AsTime().Before(created.AsTime()) {
 				created = commitInfo.Started
 			}
-			if commitInfo.Started.Compare(modified) > 0 {
+			if commitInfo.Started.AsTime().After(modified.AsTime()) {
 				modified = commitInfo.Started
 			}
 		}

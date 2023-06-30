@@ -926,7 +926,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 	context.SessionToken = pipelineInfo.AuthToken
 	context.PachdAddress = "localhost:1653"
 
-	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
+	rawConfig, err := json.MarshalIndent(&cfg, "", "  ")
 	if err != nil {
 		return errors.Wrapf(err, "error marshaling the config")
 	}

@@ -13,7 +13,7 @@ from pachyderm_sdk.api.pfs import Branch, Commit, File, Project, Repo
 )
 def test_repo(message: Repo, uri: str):
     """Test the Repo.from_uri and Repo.as_uri methods."""
-    assert message.as_uri() == uri
+    assert message.as_uri() == str(message) == uri
     assert Repo.from_uri(uri).as_uri() == uri
 
 
@@ -38,7 +38,7 @@ def test_repo(message: Repo, uri: str):
     ]
 )
 def test_branch(message: Branch, uri: str):
-    assert message.as_uri() == uri
+    assert message.as_uri() == str(message) == uri
     assert Branch.from_uri(uri).as_uri() == uri
 
 
@@ -78,7 +78,7 @@ def test_branch_error(bad_uri: str):
     ]
 )
 def test_commit(message: Commit, uri: str):
-    assert message.as_uri() == uri
+    assert message.as_uri() == str(message) ==  uri
     assert Commit.from_uri(uri).as_uri() == uri
 
 
@@ -126,5 +126,5 @@ def test_commit_error():
     ]
 )
 def test_file(message: File, uri: str):
-    assert message.as_uri() == uri
+    assert message.as_uri() == str(message) == uri
     assert File.from_uri(uri).as_uri() == uri

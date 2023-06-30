@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -65,7 +65,7 @@ func listCollectionProtos[T proto.Message](ctx context.Context, tx *pachsql.Tx, 
 	protos := make([]T, 0)
 	if err := forEachCollectionProtos(ctx, tx, table, val, func(T) {
 		protos = append(protos, proto.Clone(val).(T))
-		val.Reset()
+		proto.Reset(val)
 	}); err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func updateCollectionProto[T proto.Message](ctx context.Context, tx *pachsql.Tx,
 	if err != nil {
 		return errors.Wrapf(err, "unmarshal info proto from %q table for key %q", table, oldKey)
 	}
-	pb.Reset()
+	proto.Reset(pb)
 	if err := proto.Unmarshal(data, pb); err != nil {
 		return errors.Wrap(err, "FAILED REMARSHALL")
 	}

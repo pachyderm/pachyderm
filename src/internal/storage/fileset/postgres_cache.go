@@ -3,14 +3,14 @@ package fileset
 import (
 	"context"
 
-	proto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // CreatePostgresCacheV1 creates the table for a cache.
@@ -52,7 +52,7 @@ func NewCache(db *pachsql.DB, tracker track.Tracker, maxSize int) *Cache {
 	}
 }
 
-func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID, tag string) error {
+func (c *Cache) Put(ctx context.Context, key string, value *anypb.Any, ids []ID, tag string) error {
 	data, err := proto.Marshal(value)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -88,7 +88,7 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 	var size int
 	if err := tx.Get(&size, `
 		SELECT COUNT(key)
-		FROM storage.cache 
+		FROM storage.cache
 	`); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -97,10 +97,10 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 	}
 	var key string
 	if err := tx.Get(&key, `
-		DELETE FROM storage.cache 
+		DELETE FROM storage.cache
 		WHERE key IN (
-			SELECT key 
-			FROM storage.cache 
+			SELECT key
+			FROM storage.cache
 			ORDER BY accessed_at
 			LIMIT 1
 		)
@@ -111,7 +111,7 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 	return c.tracker.DeleteTx(tx, cacheTrackerKey(key))
 }
 
-func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
+func (c *Cache) Get(ctx context.Context, key string) (*anypb.Any, error) {
 	data := []byte{}
 	if err := sqlx.GetContext(ctx, c.db, &data, `
 		UPDATE storage.cache
@@ -121,7 +121,7 @@ func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
 	`, key); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	value := &types.Any{}
+	value := &anypb.Any{}
 	if err := proto.Unmarshal(data, value); err != nil {
 		return nil, errors.EnsureStack(err)
 	}

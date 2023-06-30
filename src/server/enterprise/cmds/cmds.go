@@ -12,8 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-
-	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 )
 
@@ -171,11 +169,7 @@ func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 				fmt.Println("No Pachyderm Enterprise token was found")
 				return nil
 			}
-			ts, err := types.TimestampFromProto(resp.Info.Expires)
-			if err != nil {
-				return errors.Wrapf(err, "activation request succeeded, but could not "+
-					"convert token expiration time to a timestamp")
-			}
+			ts := resp.Info.Expires.AsTime()
 			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\n",
 				resp.State.String(), ts.String())
 			return nil

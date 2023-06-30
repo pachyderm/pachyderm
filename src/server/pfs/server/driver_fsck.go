@@ -7,8 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -22,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"google.golang.org/protobuf/proto"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {

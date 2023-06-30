@@ -9,8 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -78,7 +77,7 @@ func TestGetProject(t *testing.T) {
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 		require.NoError(t, CreateProject(cbCtx, tx, createInfo), "should be able to create project")
 		// the 'default' project is ID 1.
 		getInfo, err := GetProject(cbCtx, tx, 2)
@@ -103,7 +102,7 @@ func TestListProject(t *testing.T) {
 		size := 210
 		expectedInfos := make([]*pfs.ProjectInfo, size)
 		for i := 0; i < size; i++ {
-			createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+			createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 			expectedInfos[i] = createInfo
 			require.NoError(t, CreateProject(ctx, tx, createInfo), "should be able to create project")
 		}
@@ -132,7 +131,7 @@ func TestDeleteAllProjects(t *testing.T) {
 		require.NoError(t, migrations.ApplyMigrations(cbCtx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 		size := 3
 		for i := 0; i < size; i++ {
-			createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+			createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 			require.NoError(t, CreateProject(cbCtx, tx, createInfo), "should be able to create project %d", i)
 		}
 		require.NoError(t, DeleteAllProjects(cbCtx, tx))
@@ -150,7 +149,7 @@ func TestUpdateProject(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// test upsert correctness
-		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 		require.YesError(t, UpdateProject(cbCtx, tx, 99, projInfo), "should not be able to create project when upsert = false")
 		require.NoError(t, UpsertProject(cbCtx, tx, projInfo), "should be able to create project when upsert = true")
 		projInfo.Description = "new desc"
@@ -166,7 +165,7 @@ func TestUpdateProjectByID(t *testing.T) {
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: types.TimestampNow()}
+		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 		require.NoError(t, CreateProject(cbCtx, tx, projInfo), "should be able to create project")
 		// the 'default' project ID is 1
 		require.NoError(t, UpdateProject(cbCtx, tx, 2, projInfo), "should be able to update project")

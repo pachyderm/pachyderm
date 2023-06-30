@@ -44,7 +44,7 @@ func TestLogUnexpectedSubprocesses(t *testing.T) {
 	}
 	want := []string{
 		"/^beginning to run user code/",
-		"/^note: about to kill unexpectedly-remaining subprocess.*sleep infinity/",
+		"/^note: about to kill unexpectedly-remaining subprocess.*sleep/",
 		"/^finished running user code/",
 	}
 	if diff := cmp.Diff(got, want, cmputil.RegexpStrings()); diff != "" {

@@ -3,9 +3,9 @@ package server
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type cache struct {
@@ -20,7 +20,7 @@ func (d *driver) newCache(tag string) *cache {
 	}
 }
 
-func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
+func (c *cache) Get(ctx context.Context, key string) (*anypb.Any, error) {
 	output, err := c.driver.getCache(ctx, key)
 	if err != nil {
 		return nil, err
@@ -28,23 +28,23 @@ func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
 	return output, nil
 }
 
-func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
+func (c *cache) Put(ctx context.Context, key string, output *anypb.Any) error {
 	var fileSetIds []string
 	switch {
-	case types.Is(output, &ShardTaskResult{}):
-	case types.Is(output, &CompactTaskResult{}):
+	case output.MessageIs(&ShardTaskResult{}):
+	case output.MessageIs(&CompactTaskResult{}):
 		ct, err := deserializeCompactTaskResult(output)
 		if err != nil {
 			return err
 		}
 		fileSetIds = append(fileSetIds, ct.Id)
-	case types.Is(output, &ConcatTaskResult{}):
+	case output.MessageIs(&ConcatTaskResult{}):
 		ct, err := deserializeConcatTaskResult(output)
 		if err != nil {
 			return err
 		}
 		fileSetIds = append(fileSetIds, ct.Id)
-	case types.Is(output, &ValidateTaskResult{}):
+	case output.MessageIs(&ValidateTaskResult{}):
 	default:
 		return errors.Errorf("unrecognized any type (%v) in compaction cache", output.TypeUrl)
 	}

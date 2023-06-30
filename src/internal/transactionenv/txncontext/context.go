@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -25,7 +25,7 @@ type TransactionContext struct {
 	// CommitSetID is the ID of the CommitSet corresponding to PFS changes in this transaction.
 	CommitSetID string
 	// Timestamp is the canonical timestamp to be used for writes in this transaction.
-	Timestamp *types.Timestamp
+	Timestamp *timestamppb.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
@@ -67,14 +67,10 @@ func New(ctx context.Context, sqlTx *pachsql.Tx, authServer identifier) (*Transa
 		return nil, errors.EnsureStack(err)
 	}
 
-	ts, err := types.TimestampProto(currTime)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error getting transaction timestamp")
-	}
 	return &TransactionContext{
 		SqlTx:       sqlTx,
 		CommitSetID: uuid.NewWithoutDashes(),
-		Timestamp:   ts,
+		Timestamp:   timestamppb.New(currTime),
 		username:    username,
 	}, nil
 }

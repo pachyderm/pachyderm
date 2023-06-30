@@ -176,6 +176,21 @@ func TestParseLokiLine(t *testing.T) {
 			wantMessage: "ok",
 		},
 		{
+			name:        "native json with duplicate field",
+			line:        `{"message":"ok","message":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "CRI with duplicate field",
+			line:        `2022-01-01T00:00:00.1234 stdout F {"message":"ok","message":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "docker json with duplicate field",
+			line:        `{"log":"{\"message\":\"ok\",\"message\":\"ok\"}"}`,
+			wantMessage: "ok",
+		},
+		{
 			name:        "mostly empty native json",
 			line:        `{"master":false,"user":true}`,
 			wantMessage: "",
