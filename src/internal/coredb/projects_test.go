@@ -150,10 +150,10 @@ func TestUpdateProject(t *testing.T) {
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// test upsert correctness
 		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
-		require.YesError(t, UpdateProject(cbCtx, tx, 99, projInfo), "should not be able to create project when upsert = false")
-		require.NoError(t, UpsertProject(cbCtx, tx, projInfo), "should be able to create project when upsert = true")
+		require.YesError(t, UpdateProject(cbCtx, tx, 99, projInfo), "should not be able to create project when id is out of bounds")
+		require.NoError(t, UpsertProject(cbCtx, tx, projInfo), "should be able to create project via upsert")
 		projInfo.Description = "new desc"
-		require.NoError(t, UpsertProject(cbCtx, tx, projInfo), "should be able to update project")
+		require.NoError(t, UpsertProject(cbCtx, tx, projInfo), "should be able to update project via upsert")
 		return nil
 	}))
 }

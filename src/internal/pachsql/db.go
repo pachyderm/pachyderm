@@ -46,6 +46,9 @@ type Tx = sqlx.Tx
 // Stmt is an alias for sqlx.Stmt which is the standard prepared statement type used throught the project
 type Stmt = sqlx.Stmt
 
+// ID is the auto-incrementing primary key used for entries in postgres tables.
+type ID uint64
+
 // SchemaTable stores a given table's name and schema.
 type SchemaTable struct {
 	SchemaName string `json:"schemaname"`
