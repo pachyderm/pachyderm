@@ -71,7 +71,6 @@ func (s *BucketStore) Delete(ctx context.Context, key []byte) error {
 }
 
 func (s *BucketStore) Exists(ctx context.Context, key []byte) (bool, error) {
-	return s.b.Exists(ctx, string(key))
 	exists, err := s.b.Exists(ctx, string(key))
 	return exists, errors.EnsureStack(err)
 }
