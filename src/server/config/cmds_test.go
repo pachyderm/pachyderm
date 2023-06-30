@@ -222,11 +222,11 @@ func TestImportKube(t *testing.T) {
 	require.NoError(t, run(t, `
 		pachctl config import-kube imported
 		pachctl config get active-context | match 'imported'
-		pachctl config get context imported | match "\"cluster_name\": \"$(kubectl config current-context)\""
+		pachctl config get context imported | match "\"cluster_name\": +\"$(kubectl config current-context)\""
 		pachctl config get context imported | match '"namespace": "default"'
 		pachctl config import-kube enterprise-kube --overwrite --namespace enterprise --enterprise
 		pachctl config get active-enterprise-context | match 'enterprise-kube'
-		pachctl config get context enterprise-kube | match "\"cluster_name\": \"$(kubectl config current-context)\""
+		pachctl config get context enterprise-kube | match "\"cluster_name\": +\"$(kubectl config current-context)\""
 		pachctl config get context enterprise-kube | match '"namespace": "enterprise"'
 
 	`))
