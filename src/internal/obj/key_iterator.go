@@ -24,7 +24,7 @@ func (it *keyIterator) Next(ctx context.Context, dst *string) error {
 		if errors.Is(err, io.EOF) {
 			return stream.EOS()
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	*dst = lo.Key
 	return nil

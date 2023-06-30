@@ -30,7 +30,7 @@ func (s *ObjectStore2) Get(ctx context.Context, key []byte, buf []byte) (int, er
 	defer cf()
 	r, err := s.b.NewReader(ctx, string(key), nil)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	defer r.Close()
 	return miscutil.ReadInto(buf, r)
@@ -50,12 +50,12 @@ func (s *ObjectStore2) Put(ctx context.Context, key []byte, value []byte) error 
 		BufferSize:     s.maxValueSize,
 	})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if _, err := w.Write(value); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return w.Close()
+	return errors.EnsureStack(w.Close())
 }
 
 func (s *ObjectStore2) Delete(ctx context.Context, key []byte) error {
@@ -63,11 +63,12 @@ func (s *ObjectStore2) Delete(ctx context.Context, key []byte) error {
 	if gcerrors.Code(err) == gcerrors.NotFound {
 		err = nil
 	}
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (s *ObjectStore2) Exists(ctx context.Context, key []byte) (bool, error) {
-	return s.b.Exists(ctx, string(key))
+	exists, err := s.b.Exists(ctx, string(key))
+	return exists, errors.EnsureStack(err)
 }
 
 func (s *ObjectStore2) NewKeyIterator(span Span) stream.Iterator[[]byte] {
@@ -90,7 +91,7 @@ func (it *objIterator) Next(ctx context.Context, dst *[]byte) error {
 		if errors.Is(err, io.EOF) {
 			return stream.EOS()
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	*dst = append((*dst)[:0], x.Key...)
 	return nil
