@@ -8,6 +8,7 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -32,5 +33,16 @@ func TestGoogleClient(t *testing.T) {
 		client, err := obj.NewGoogleClient(bucket, opts)
 		require.NoError(t, err)
 		obj.TestEmptyWrite(t, client)
+	})
+}
+
+func TestGoogleBucket(t *testing.T) {
+	t.Parallel()
+	obj.TestBucket(t, func(t testing.TB) *obj.Bucket {
+		ctx := pctx.TestContext(t)
+		b, err := obj.NewGoogleBucketFromEnv(ctx)
+		require.NoError(t, err)
+		t.Cleanup(func() { b.Close() })
+		return b
 	})
 }

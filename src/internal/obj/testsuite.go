@@ -168,3 +168,23 @@ func doWriteTest(t testing.TB, client Client, object string, data []byte) {
 		require.Equal(t, expected, actualBuf.Bytes())
 	}
 }
+
+func TestBucket(t *testing.T, newBucket func(t testing.TB) *Bucket) {
+	t.Run("PutGet", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		b := newBucket(t)
+		objKey := randutil.UniqueString("TestBucket-")
+		objValue := "Hello World"
+		w, err := b.NewWriter(ctx, randutil.UniqueString("TestBucket-"), nil)
+		require.NoError(t, err)
+		w.Write([]byte(objValue))
+		require.NoError(t, w.Close())
+
+		r, err := b.NewReader(ctx, objKey, nil)
+		require.NoError(t, err)
+		defer r.Close()
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, objValue, string(data))
+	})
+}

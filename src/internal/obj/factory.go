@@ -105,6 +105,7 @@ func readSecretFile(name string) (string, error) {
 // NewGoogleClientFromSecret creates a google client by reading credentials
 // from a mounted GoogleSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
+// DEPRECATED: Use NewGoogleBucketFromSecret
 func NewGoogleClientFromSecret(bucket string) (Client, error) {
 	var err error
 	if bucket == "" {
@@ -127,6 +128,7 @@ func NewGoogleClientFromSecret(bucket string) (Client, error) {
 }
 
 // NewGoogleClientFromEnv creates a Google client based on environment variables.
+// DEPRECATED: Use NewGoogleBucketFromEnv
 func NewGoogleClientFromEnv() (Client, error) {
 	bucket, ok := os.LookupEnv(GoogleBucketEnvVar)
 	if !ok {
@@ -308,6 +310,7 @@ func NewMinioClientFromEnv() (Client, error) {
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
+// DEPRECATED: use NewAmazonBucketFromSecret
 func NewAmazonClientFromSecret(ctx context.Context, bucket string, reverse ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
 	region, err := readSecretFile(fmt.Sprintf("/%s", AmazonRegionEnvVar))
@@ -353,6 +356,7 @@ func NewAmazonClientFromSecret(ctx context.Context, bucket string, reverse ...bo
 }
 
 // NewAmazonClientFromEnv creates a Amazon client based on environment variables.
+// DEPRECATED: use NewAmazonBucketFromEnv
 func NewAmazonClientFromEnv(ctx context.Context) (Client, error) {
 	region, ok := os.LookupEnv(AmazonRegionEnvVar)
 	if !ok {
