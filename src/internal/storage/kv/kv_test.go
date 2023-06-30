@@ -45,6 +45,6 @@ func TestBucket(t *testing.T) {
 	TestStore(t, func(t testing.TB) Store {
 		b, err := fileblob.OpenBucket(t.TempDir(), &fileblob.Options{})
 		require.NoError(t, err)
-		return NewFromBucket(b, 1034, 1<<20)
+		return NewFromBucket(b, 1024, 1<<20)
 	})
 }
