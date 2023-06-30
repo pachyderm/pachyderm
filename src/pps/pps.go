@@ -2,10 +2,11 @@ package pps
 
 import (
 	"fmt"
+	"time"
 
-	types "github.com/gogo/protobuf/types"
-	pfs "github.com/pachyderm/pachyderm/v2/src/pfs"
 	"go.uber.org/zap"
+
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func (j *Job) String() string {
@@ -88,8 +89,8 @@ type PipelineSpec struct {
 	Service                 *Service        `json:"service,omitempty"`
 	Spout                   *Spout          `json:"spout,omitempty"`
 	DatumSetSpec            *DatumSetSpec   `json:"datum_set_spec,omitempty"`
-	DatumTimeout            *types.Duration `json:"datum_timeout,omitempty"`
-	JobTimeout              *types.Duration `json:"job_timeout,omitempty"`
+	DatumTimeout            *time.Duration  `json:"datum_timeout,omitempty"`
+	JobTimeout              *time.Duration  `json:"job_timeout,omitempty"`
 	Salt                    string          `json:"salt,omitempty"`
 	DatumTries              int64           `json:"datum_tries,omitempty"`
 	SchedulingSpec          *SchedulingSpec `json:"scheduling_spec,omitempty"`
