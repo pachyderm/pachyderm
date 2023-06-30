@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"gocloud.dev/blob"
@@ -30,6 +31,9 @@ func (s *BucketStore) Get(ctx context.Context, key []byte, buf []byte) (int, err
 	defer cf()
 	r, err := s.b.NewReader(ctx, string(key), nil)
 	if err != nil {
+		if gcerrors.Code(err) == gcerrors.NotFound {
+			err = pacherr.NewNotExist("kv.BucketStore", string(key))
+		}
 		return 0, errors.EnsureStack(err)
 	}
 	defer r.Close()
@@ -67,6 +71,7 @@ func (s *BucketStore) Delete(ctx context.Context, key []byte) error {
 }
 
 func (s *BucketStore) Exists(ctx context.Context, key []byte) (bool, error) {
+	return s.b.Exists(ctx, string(key))
 	exists, err := s.b.Exists(ctx, string(key))
 	return exists, errors.EnsureStack(err)
 }
