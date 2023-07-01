@@ -27,6 +27,7 @@ func (m *Metered) Put(ctx context.Context, key, value []byte) error {
 		return err
 	}
 	meters.Inc(ctx, "put", 1)
+	meters.Inc(ctx, "putBytes", len(value))
 	return nil
 }
 
@@ -42,6 +43,7 @@ func (m *Metered) Get(ctx context.Context, key, buf []byte) (int, error) {
 		return n, err
 	}
 	meters.Inc(ctx, "get", 1)
+	meters.Inc(ctx, "getBytes", n)
 	return n, err
 }
 
