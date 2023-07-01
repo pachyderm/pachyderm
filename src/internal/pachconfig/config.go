@@ -117,6 +117,7 @@ type PachdFullConfiguration struct {
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
+	GoCDKEnabled               bool   `env:"GOCDK_ENABLED,default=false"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`

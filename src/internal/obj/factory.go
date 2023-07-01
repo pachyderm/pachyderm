@@ -549,3 +549,21 @@ func NewClient(ctx context.Context, storageBackend string, storageRoot string) (
 		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
 	}
 }
+
+// NewBucket creates a Bucket using the given backend and storage root (for
+// local backends).
+// TODO: Not sure if we want to keep the storage root configuration for
+// non-local deployments. If so, we will need to connect it to the object path
+// prefix for chunks.
+func NewBucket(ctx context.Context, storageBackend string, storageRoot string) (*Bucket, error) {
+	var b *Bucket
+	var err error
+	switch storageBackend {
+	case Local:
+		b, err = NewLocalBucket(storageRoot)
+	// TODO: other backends
+	default:
+		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
+	}
+	return b, err
+}

@@ -112,7 +112,7 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 	}
-	storageSrv, err := storage.New(storage.Env{DB: env.DB, ObjectStore: env.ObjectClient}, env.StorageConfig)
+	storageSrv, err := storage.New(storage.Env{DB: env.DB, ObjectStore: env.ObjectClient, Bucket: env.Bucket}, env.StorageConfig)
 	if err != nil {
 		return nil, err
 	}
