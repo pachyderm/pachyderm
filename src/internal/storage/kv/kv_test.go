@@ -48,3 +48,9 @@ func TestBucket(t *testing.T) {
 		return NewFromBucket(b, 1024, 1<<20)
 	})
 }
+
+func TestMetered(t *testing.T) {
+	TestStore(t, func(t testing.TB) Store {
+		return NewMetered(NewMemStore(), "test-store")
+	})
+}

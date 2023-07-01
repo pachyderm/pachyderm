@@ -42,7 +42,7 @@ func (m *Metered) Get(ctx context.Context, key, buf []byte) (int, error) {
 		return n, err
 	}
 	meters.Inc(ctx, "get", 1)
-	return 0, err
+	return n, err
 }
 
 func (m *Metered) Delete(ctx context.Context, key []byte) error {
