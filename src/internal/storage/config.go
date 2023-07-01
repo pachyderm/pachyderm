@@ -51,7 +51,8 @@ func wrapStore(conf *pachconfig.StorageConfiguration, store kv.Store) kv.Store {
 	}
 	if conf.StorageDiskCacheSize > 0 {
 		p := filepath.Join(os.TempDir(), "pss-cache", uuid.NewWithoutDashes())
-		diskCache := kv.NewFSStore(p, maxKeySize, chunk.DefaultMaxChunkSize)
+		var diskCache kv.Store = kv.NewFSStore(p, maxKeySize, chunk.DefaultMaxChunkSize)
+		diskCache = kv.NewMetered(diskCache, "disk")
 		return kv.NewLRUCache(store, diskCache, conf.StorageDiskCacheSize)
 	}
 	return store

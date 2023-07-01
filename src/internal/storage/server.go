@@ -56,6 +56,7 @@ func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 	} else {
 		store = kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
 	}
+	store = kv.NewMetered(store, "bucket")
 	store = wrapStore(&config, store)
 	store = kv.NewPrefixed(store, []byte(chunkPrefix))
 	chunkStorageOpts := makeChunkOptions(&config)
