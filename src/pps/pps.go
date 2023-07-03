@@ -1,11 +1,13 @@
 package pps
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -102,4 +104,51 @@ type PipelineSpec struct {
 	Autoscaling             bool            `json:"autoscaling,omitempty"`
 	Tolerations             []*Toleration   `json:"tolerations,omitempty"`
 	SidecarResourceRequests *ResourceSpec   `json:"sidecar_resource_requests,omitempty"`
+}
+
+var ErrInvalidPipelineSpec = errors.New("invalid pipeline spec")
+
+// PipelineSpec creates a pipeline spec from a CreatePipelineRequest.
+// If the request has a DetailsJSON field, it unmarshals it; otherwise, it fills
+// the spec from the request.
+func (req *CreatePipelineRequest) PipelineSpec() (PipelineSpec, error) {
+	if js := req.GetDetailsJson(); js != "" {
+		var ps PipelineSpec
+		if err := json.Unmarshal([]byte(js), &ps); err != nil {
+			return ps, errors.Wrap(ErrInvalidPipelineSpec, err.Error())
+		}
+		return ps, nil
+	}
+	return PipelineSpec{
+		Pipeline:                req.Pipeline,
+		TFJob:                   req.TfJob,
+		Transform:               req.Transform,
+		ParallelismSpec:         req.ParallelismSpec,
+		Egress:                  req.Egress,
+		Update:                  req.Update,
+		OutputBranch:            req.OutputBranch,
+		S3Out:                   req.S3Out,
+		ResourceRequests:        req.ResourceRequests,
+		ResourceLimits:          req.ResourceLimits,
+		SidecarResourceLimits:   req.SidecarResourceLimits,
+		Input:                   req.Input,
+		Description:             req.Description,
+		Reprocess:               req.Reprocess,
+		Service:                 req.Service,
+		Spout:                   req.Spout,
+		DatumSetSpec:            req.DatumSetSpec,
+		DatumTimeout:            req.DatumTimeout.AsDuration(),
+		JobTimeout:              req.JobTimeout.AsDuration(),
+		Salt:                    req.Salt,
+		DatumTries:              req.DatumTries,
+		SchedulingSpec:          req.SchedulingSpec,
+		PodSpec:                 req.PodSpec,
+		PodPatch:                req.PodPatch,
+		SpecCommit:              req.SpecCommit,
+		Metadata:                req.Metadata,
+		ReprocessSpec:           req.ReprocessSpec,
+		Autoscaling:             req.Autoscaling,
+		Tolerations:             req.Tolerations,
+		SidecarResourceRequests: req.SidecarResourceRequests,
+	}, nil
 }

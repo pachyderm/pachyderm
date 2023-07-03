@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
@@ -2121,14 +2122,15 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //
 // Implementation note:
 //   - CreatePipeline always creates pipeline output branches such that the
-//     pipeline's spec branch is in the pipeline output branch's provenance
+//     pipeline's spec branch is in the pipeline output branch's provenance.
 //   - CreatePipeline will always create a new output commit, but that's done
 //     by CreateBranch at the bottom of the function, which sets the new output
 //     branch provenance, rather than commitPipelineInfoFromFileSet higher up.
 //   - This is because CreatePipeline calls hardStopPipeline towards the top,
-//     breaking the provenance connection from the spec branch to the output branch
+//     breaking the provenance connection from the spec branch to the output
+//     branch.
 //   - For straightforward pipeline updates (e.g. new pipeline image)
-//     stopping + updating + starting the pipeline isn't necessary
+//     stopping + updating + starting the pipeline isn't necessary.
 //   - However it is necessary in many slightly atypical cases  (e.g. the
 //     pipeline input changed: if the spec commit is created while the
 //     output branch has its old provenance, or the output branch gets new
@@ -2137,7 +2139,7 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //     match its spec's PipelineInfo.Details.Input. Another example is when
 //     request.Reprocess == true).
 //   - Rather than try to enumerate every case where we can't create a spec
-//     commit without stopping the pipeline, we just always stop the pipeline
+//     commit without stopping the pipeline, we just always stop the pipeline.
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -2180,36 +2182,41 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		request.Salt = uuid.NewWithoutDashes()
 	}
 
+	details, err := request.PipelineSpec()
+	if err != nil {
+		return nil, err
+	}
+
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline: request.Pipeline,
 		Version:  1,
 		Details: &pps.PipelineInfo_Details{
-			Transform:               request.Transform,
-			TfJob:                   request.TfJob,
-			ParallelismSpec:         request.ParallelismSpec,
-			Input:                   request.Input,
-			OutputBranch:            request.OutputBranch,
-			Egress:                  request.Egress,
+			Transform:               details.Transform,
+			TfJob:                   details.TFJob,
+			ParallelismSpec:         details.ParallelismSpec,
+			Input:                   details.Input,
+			OutputBranch:            details.OutputBranch,
+			Egress:                  details.Egress,
 			CreatedAt:               timestamppb.Now(),
-			ResourceRequests:        request.ResourceRequests,
-			ResourceLimits:          request.ResourceLimits,
-			SidecarResourceLimits:   request.SidecarResourceLimits,
-			SidecarResourceRequests: request.SidecarResourceRequests,
-			Description:             request.Description,
-			Salt:                    request.Salt,
-			Service:                 request.Service,
-			Spout:                   request.Spout,
-			DatumSetSpec:            request.DatumSetSpec,
-			DatumTimeout:            request.DatumTimeout,
-			JobTimeout:              request.JobTimeout,
-			DatumTries:              request.DatumTries,
-			SchedulingSpec:          request.SchedulingSpec,
-			PodSpec:                 request.PodSpec,
-			PodPatch:                request.PodPatch,
-			S3Out:                   request.S3Out,
-			Metadata:                request.Metadata,
-			ReprocessSpec:           request.ReprocessSpec,
-			Autoscaling:             request.Autoscaling,
+			ResourceRequests:        details.ResourceRequests,
+			ResourceLimits:          details.ResourceLimits,
+			SidecarResourceLimits:   details.SidecarResourceLimits,
+			SidecarResourceRequests: details.SidecarResourceRequests,
+			Description:             details.Description,
+			Salt:                    details.Salt,
+			Service:                 details.Service,
+			Spout:                   details.Spout,
+			DatumSetSpec:            details.DatumSetSpec,
+			DatumTimeout:            durationpb.New(details.DatumTimeout),
+			JobTimeout:              durationpb.New(details.JobTimeout),
+			DatumTries:              details.DatumTries,
+			SchedulingSpec:          details.SchedulingSpec,
+			PodSpec:                 details.PodSpec,
+			PodPatch:                details.PodPatch,
+			S3Out:                   details.S3Out,
+			Metadata:                details.Metadata,
+			ReprocessSpec:           details.ReprocessSpec,
+			Autoscaling:             details.Autoscaling,
 			Tolerations:             request.Tolerations,
 		},
 	}
