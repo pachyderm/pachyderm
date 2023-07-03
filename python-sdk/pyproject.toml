@@ -28,11 +28,20 @@ grpc-interceptor = "^0.14.2"
 python-dotenv = "1.0"
 
 [tool.poetry.dev-dependencies]
-pytest = "^7.2.1"
 black = "^23.3.0"
+pytest = "^7.2.1"
+pytest-black = "^0.3.12"
 
 [tool.poetry.scripts]
 pachyderm-sdk-check-connection = 'pachyderm_sdk.__main__:check_connection'
+
+[tool.black]
+line-length = 92
+target-version = ['py38', 'py39', 'py310']
+exclude = '\.git|\.idea|\.venv|\.\*cache|\*\.egg-info'
+
+[tool.pytest.ini_options]
+addopts = "-vvv --black"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
