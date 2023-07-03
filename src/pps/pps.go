@@ -1,12 +1,16 @@
 package pps
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 func (j *Job) String() string {
@@ -102,4 +106,20 @@ type PipelineSpec struct {
 	Autoscaling             bool            `json:"autoscaling,omitempty"`
 	Tolerations             []*Toleration   `json:"tolerations,omitempty"`
 	SidecarResourceRequests *ResourceSpec   `json:"sidecar_resource_requests,omitempty"`
+}
+
+var ErrInvalidPipelineSpec = errors.New("invalid pipeline spec")
+
+// ValidateJSONSpec checks that a JSON spec is a valid spec.  Currently it only
+// checks that it unmarshals cleanly and has no unknown fields.
+//
+// TODO(CORE-1809): add static semantic checks
+func ValidateJSONPipelineSpec(spec string) error {
+	var d = json.NewDecoder(strings.NewReader(spec))
+
+	d.DisallowUnknownFields()
+	if err := d.Decode(&PipelineSpec{}); err != nil {
+		return errors.Wrap(ErrInvalidPipelineSpec, err.Error())
+	}
+	return nil
 }
