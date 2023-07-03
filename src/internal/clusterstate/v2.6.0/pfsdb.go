@@ -263,7 +263,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	for _, bi := range headlessBranches {
 		log.Info(ctx, "update headless branch",
-			zap.String("commit", branchKey(bi.Branch)),
+			zap.String("branch", branchKey(bi.Branch)),
 		)
 		prevHead := deleteCommits[oldCommitKey(bi.Head)]
 		if err := updateOldBranch(ctx, tx, bi.Branch, func(bi *pfs.BranchInfo) {
