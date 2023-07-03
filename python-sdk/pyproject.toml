@@ -38,7 +38,7 @@ pachyderm-sdk-check-connection = 'pachyderm_sdk.__main__:check_connection'
 [tool.black]
 line-length = 92
 target-version = ['py38', 'py39', 'py310']
-exclude = '\.git|\.idea|\.venv|\.\*cache|\*\.egg-info'
+exclude = '\.git|\.idea|\.venv|\.\*cache|\*\.egg-info|api\/.*\/__init__.py'
 
 [tool.pytest.ini_options]
 addopts = "-vvv --black"

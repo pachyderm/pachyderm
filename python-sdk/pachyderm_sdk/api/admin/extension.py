@@ -6,7 +6,6 @@ from . import ClusterInfo
 
 
 class ApiStub(_GeneratedApiStub):
-
     # noinspection PyMethodOverriding
     def inspect_cluster(self) -> "ClusterInfo":
         try:

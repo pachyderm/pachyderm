@@ -13,9 +13,7 @@ class MetadataClientInterceptor(ClientInterceptor):
     def __init__(self, metadata: MetadataType):
         self.metadata = metadata
 
-    def intercept(
-        self, method: Callable, request: Any, call_details: ClientCallDetails
-    ):
+    def intercept(self, method: Callable, request: Any, call_details: ClientCallDetails):
         call_details_metadata = list(call_details.metadata or [])
         call_details_metadata.extend(self.metadata)
         new_details = call_details._replace(metadata=call_details_metadata)
