@@ -271,7 +271,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 				txnCtx.FinishJob(commitInfo)
 			}
 			if commitInfo.Error == "" {
-				return d.triggerCommit(txnCtx, commitInfo.Commit)
+				return d.triggerCommit(ctx, txnCtx, commitInfo.Commit)
 			}
 			return nil
 		})

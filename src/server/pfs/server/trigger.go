@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -16,12 +17,13 @@ import (
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change
 func (d *driver) triggerCommit(
+	ctx context.Context,
 	txnCtx *txncontext.TransactionContext,
 	commit *pfs.Commit,
 ) error {
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Repo, repoInfo); err != nil {
-		return errors.EnsureStack(err)
+	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, commit.Repo.Name)
+	if err != nil {
+		return errors.Wrap(err, "trigger commit: get repo")
 	}
 	newHead := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, newHead); err != nil {
