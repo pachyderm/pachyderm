@@ -35,8 +35,7 @@ def test_branch(message: Branch, uri: str):
 
 
 @pytest.mark.parametrize(
-    "bad_uri",
-    ["project/repo", "project/repo@bad=branch", "project/repo@bad.branch"]
+    "bad_uri", ["project/repo", "project/repo@bad=branch", "project/repo@bad.branch"]
 )
 def test_branch_error(bad_uri: str):
     with pytest.raises(ValueError):
@@ -61,7 +60,7 @@ def test_branch_error(bad_uri: str):
 )
 # fmt: on
 def test_commit(message: Commit, uri: str):
-    assert message.as_uri() == str(message) ==  uri
+    assert message.as_uri() == str(message) == uri
     assert Commit.from_uri(uri).as_uri() == uri
 
 

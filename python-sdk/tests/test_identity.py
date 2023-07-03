@@ -5,11 +5,10 @@ from pachyderm_sdk.constants import AUTH_TOKEN_ENV
 
 
 @pytest.mark.skipif(
-        not os.environ.get(AUTH_TOKEN_ENV),
-        reason="auth code not available",
-    )
+    not os.environ.get(AUTH_TOKEN_ENV),
+    reason="auth code not available",
+)
 class TestIdentity:
-
     @staticmethod
     def test_identity_server_config(auth_client: TestClient):
         isc = auth_client.identity.get_identity_server_config()
@@ -27,12 +26,21 @@ class TestIdentity:
             assert oidc1.client in oidc_clients
             assert oidc2.client in oidc_clients
 
-            assert auth_client.identity.get_oidc_client(id=client1.id).client.name == client1.name
-            assert auth_client.identity.get_oidc_client(id=client2.id).client.name == client2.name
+            assert (
+                auth_client.identity.get_oidc_client(id=client1.id).client.name
+                == client1.name
+            )
+            assert (
+                auth_client.identity.get_oidc_client(id=client2.id).client.name
+                == client2.name
+            )
 
             client1.name = "pach3"
             auth_client.identity.update_oidc_client(client=client1)
-            assert auth_client.identity.get_oidc_client(id=client1.id).client.name == client1.name
+            assert (
+                auth_client.identity.get_oidc_client(id=client1.id).client.name
+                == client1.name
+            )
 
             auth_client.identity.delete_oidc_client(id=oidc1.client.id)
             oidc_clients = auth_client.identity.list_oidc_clients().clients
