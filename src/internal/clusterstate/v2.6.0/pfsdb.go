@@ -162,6 +162,9 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	for _, ci := range deleteCommits {
+		log.Info(ctx, "check consistent filesets for aliases",
+			zap.String("commit", oldCommitKey(ci.Commit)),
+		)
 		same, err := sameFileSets(ctx, tx, ci.Commit, ci.ParentCommit)
 		if err != nil {
 			return err
@@ -201,11 +204,18 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	for _, ci := range realAncestors {
+		log.Info(ctx, "reset old ancestor",
+			zap.String("commit", oldCommitKey(ci.Commit)),
+		)
 		if err := resetOldCommitInfo(ctx, tx, ci); err != nil {
 			return errors.Wrapf(err, "reset real ancestor %q", oldCommitKey(ci.Commit))
 		}
 	}
 	for child, parent := range childToNewParents {
+		log.Info(ctx, "update child to parent",
+			zap.String("child", oldCommitKey(child)),
+			zap.String("parent", oldCommitKey(parent)),
+		)
 		if err := updateOldCommit_V2_5(ctx, tx, child, func(ci *v2_5_0.CommitInfo) {
 			ci.ParentCommit = parent
 		}); err != nil {
@@ -214,6 +224,9 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// now write out realAncestors and childToNewParents
 	for _, ci := range deleteCommits {
+		log.Info(ctx, "delete commit",
+			zap.String("commit", oldCommitKey(ci.Commit)),
+		)
 		ancstr := oldestAncestor(ci, deleteCommits)
 		// passing restoreLinks=false because we're already resetting parent/children relationships above
 		if err := deleteCommit(ctx, tx, ci.Commit, ancstr); err != nil {
@@ -249,6 +262,9 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "record headless branches")
 	}
 	for _, bi := range headlessBranches {
+		log.Info(ctx, "update headless branch",
+			zap.String("commit", branchKey(bi.Branch)),
+		)
 		prevHead := deleteCommits[oldCommitKey(bi.Head)]
 		if err := updateOldBranch(ctx, tx, bi.Branch, func(bi *pfs.BranchInfo) {
 			bi.Head = oldestAncestor(prevHead, deleteCommits)
@@ -535,6 +551,9 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 		return err
 	}
 	for _, oldCommit := range oldCommits {
+		log.Info(ctx, "remove branch from commit key in collections.commits",
+			zap.String("commit", oldCommitKey(oldCommit.Commit)),
+		)
 		if oldCommit.Commit.Repo == nil {
 			oldCommit.Commit.Repo = oldCommit.Commit.Branch.Repo
 		}
@@ -578,15 +597,19 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
+	log.Info(ctx, "remove branch from commit key in pfs.commits")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrapf(err, "update pfs.commits to branchless commit ids")
 	}
+	log.Info(ctx, "remove branch from commit key in pfs.commit_totals")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_totals to branchless commit ids")
 	}
+	log.Info(ctx, "remove branch from commit key in pfs.commit_diffs")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_diffs to branchless commits ids")
 	}
+	log.Info(ctx, "remove branch from commit key in pfs.tracker_objects")
 	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '@(.+)=', '@') WHERE str_id LIKE 'commit/%';`); err != nil {
 		return errors.Wrap(err, "update storage.tracker_objects to branchless commit ids")
 	}
