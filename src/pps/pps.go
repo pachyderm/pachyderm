@@ -89,8 +89,8 @@ type PipelineSpec struct {
 	Service                 *Service        `json:"service,omitempty"`
 	Spout                   *Spout          `json:"spout,omitempty"`
 	DatumSetSpec            *DatumSetSpec   `json:"datum_set_spec,omitempty"`
-	DatumTimeout            *time.Duration  `json:"datum_timeout,omitempty"`
-	JobTimeout              *time.Duration  `json:"job_timeout,omitempty"`
+	DatumTimeout            time.Duration   `json:"datum_timeout,omitempty"`
+	JobTimeout              time.Duration   `json:"job_timeout,omitempty"`
 	Salt                    string          `json:"salt,omitempty"`
 	DatumTries              int64           `json:"datum_tries,omitempty"`
 	SchedulingSpec          *SchedulingSpec `json:"scheduling_spec,omitempty"`
