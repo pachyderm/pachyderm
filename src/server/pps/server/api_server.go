@@ -2207,8 +2207,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Service:                 details.Service,
 			Spout:                   details.Spout,
 			DatumSetSpec:            details.DatumSetSpec,
-			DatumTimeout:            durationpb.New(details.DatumTimeout),
-			JobTimeout:              durationpb.New(details.JobTimeout),
 			DatumTries:              details.DatumTries,
 			SchedulingSpec:          details.SchedulingSpec,
 			PodSpec:                 details.PodSpec,
@@ -2219,6 +2217,12 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Autoscaling:             details.Autoscaling,
 			Tolerations:             request.Tolerations,
 		},
+	}
+	if details.DatumTimeout != 0 {
+		pipelineInfo.Details.DatumTimeout = durationpb.New(details.DatumTimeout)
+	}
+	if details.JobTimeout != 0 {
+		pipelineInfo.Details.JobTimeout = durationpb.New(details.JobTimeout)
 	}
 
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
