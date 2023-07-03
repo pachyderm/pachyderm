@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -10,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"google.golang.org/protobuf/proto"
 )
 
 // returns CommitInfos in a commit set, topologically sorted.
@@ -260,7 +261,7 @@ func (d *driver) deleteCommit(txnCtx *txncontext.TransactionContext, ci *pfs.Com
 	// update branch heads
 	headlessBranches := make([]*pfs.BranchInfo, 0)
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.Repo, repoInfo); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.Repo, repoInfo); err != nil { // todo(fahad): need to get branches from the repo
 		return err
 	}
 	branchInfo := &pfs.BranchInfo{}

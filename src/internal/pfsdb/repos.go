@@ -4,17 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // ErrRepoNotFound is returned by GetRepo() when a repo is not found in postgres.
@@ -188,6 +190,8 @@ func DeleteAllRepos(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.ExecContext(ctx, "TRUNCATE pfs.repos;")
 	return errors.Wrap(err, "could not delete all repo rows")
 }
+
+// todo(fahad): GetByIndex() Repo Type
 
 // GetRepo is like GetRepoByName, but retrieves an entry using the row id.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
