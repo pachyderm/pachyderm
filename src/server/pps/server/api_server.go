@@ -3592,6 +3592,8 @@ func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterD
 	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
 }
 
+// jsonMergePatch merges a JSON patch in string form with a JSON target, also in
+// string form.
 func jsonMergePatch(target, patch string) (string, error) {
 	var targetObject, patchObject any
 	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
@@ -3607,6 +3609,12 @@ func jsonMergePatch(target, patch string) (string, error) {
 	return string(result), nil
 }
 
+// mergePatch implements the RFC 7396 algorithm.  To quote the RFC “If the patch
+// is anything other than an object, the result will always be to replace the
+// entire target with the entire patch.  Also, it is not possible to patch part
+// of a target that is not an object, such as to replace just some of the values
+// in an array.”  If the patch _is_ an object, then non-null values replace
+// target values, and null values delete target values.
 func mergePatch(target, patch any) any {
 	switch patch := patch.(type) {
 	case map[string]any:
