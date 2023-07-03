@@ -169,30 +169,26 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				}
 				return err
 			})
-			return errors.EnsureStack(eg.Wait())
-		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			pj.logger.Logf("error processing job: %v, retrying in %v", err, d)
-			for err != nil {
+			if err := errors.EnsureStack(eg.Wait()); err != nil {
 				if st, ok := err.(errors.StackTracer); ok {
 					pj.logger.Logf("error stack: %+v", st.StackTrace())
 				}
-				err = errors.Unwrap(err)
-			}
-			pj.driver = reg.driver
-			return backoff.RetryUntilCancel(reg.driver.PachClient().Ctx(), func() error {
+				pj.driver = reg.driver
 				// Reload the job's commits and info as they may have changed.
 				if err := pj.load(); err != nil {
 					return err
 				}
 				pj.ji.Restart++
 				return pj.writeJobInfo()
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-					return err
-				}
-				pj.logger.Logf("error restarting job: %v, retrying in %v", err, d)
-				return nil
-			})
+			}
+			return nil
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+				return err
+			}
+			pj.logger.Logf("error restarting job: %v, retrying in %v", err, d)
+			return nil
+
 		}); err != nil {
 			pj.logger.Logf("fatal job error: %v", err)
 		}

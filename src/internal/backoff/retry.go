@@ -121,7 +121,7 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 }
 
 // RetryUntilCancel is the same as RetryNotify, except that it will not retry if
-// the given context is canceled.
+// the given context is canceled. If the context is cancelled, then notify wll not run.
 func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notify Notify) error {
 	var err error
 	var next time.Duration
