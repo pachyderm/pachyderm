@@ -2,6 +2,7 @@
 # PFS
 /src/pfs/                @pachyderm/PFS
 /src/server/pfs/         @pachyderm/PFS
+/src/server/pfs/cmds
 
 # Integrations
 /src/server/pfs/s3       @pachyderm/INT
