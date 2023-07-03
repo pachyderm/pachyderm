@@ -370,7 +370,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	deleteJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Delete a job.",
-		Long:  "Delete a job.",
+		Long:  "This command deletes a job.",
+		Example: "\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 \n" +
+			"\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 --project foo",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
@@ -387,14 +389,15 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			return nil
 		}),
 	}
-	deleteJob.Flags().StringVar(&project, "project", project, "Project within which to delete job")
+	deleteJob.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the parent pipeline for this job.")
 	shell.RegisterCompletionFunc(deleteJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteJob, "delete job", jobs))
 
 	stopJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Stop a job.",
-		Long:  "Stop a job.  The job will be stopped immediately.",
+		Long: "This command stops a job immediately." +
+			"\t- To specify the project where the parent pipeline lives, use the `--project` flag \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -430,27 +433,28 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			return nil
 		}),
 	}
-	stopJob.Flags().StringVar(&project, "project", project, "Project containing the job")
+	stopJob.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the parent pipeline for the job.")
 	shell.RegisterCompletionFunc(stopJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(stopJob, "stop job", jobs))
 
 	datumDocs := &cobra.Command{
 		Short: "Docs for datums.",
-		Long: `Datums are the small independent units of processing for Pachyderm jobs.
-
-A datum is defined by applying a glob pattern (in the pipeline spec) to the file
-paths in the input repo. A datum can include one or more files or directories.
-
-Datums within a job will be processed independently, sometimes distributed
-across separate workers.  A separate execution of user code will be run for
-each datum.`,
+		Long: "Datums are the smallest independent unit of processing for a Job. " +
+			"Datums are defined by applying a glob pattern in the pipeline spec to the file paths in an input repo, and they can include any number of files and directories. \n \n" +
+			"Datums within a job are processed independently -- and sometimes distributed across separate workers (see `datum_set_spec` and `parallelism_spec` options for pipeline specification).\n \n" +
+			"A separate execution of user code will be run for each datum unless datum batching is utilized.`",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(datumDocs, "datum", " datum$", datums))
 
 	restartDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum-path1>,<datum-path2>,...",
 		Short: "Restart a stuck datum during a currently running job.",
-		Long:  "Restart a stuck datum during a currently running job; does not solve failed datums. Optionally, you can configure a job to skip failed datums via the transform.err_cmd setting of your pipeline spec.",
+		Long: "This command restarts a stuck datum during a currently running job; it does not solve failed datums. \n \n" +
+			"You can configure a job to skip failed datums via the transform.err_cmd setting of your pipeline spec. \n \n" +
+			"\t- To specify the project where the parent pipeline lives, use the `--project` flag \n",
+		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs.txt \n" +
+			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt \n" +
+			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt --project bar ",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
@@ -475,14 +479,19 @@ each datum.`,
 			return client.RestartDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, datumFilter)
 		}),
 	}
-	restartDatum.Flags().StringVar(&project, "project", project, "Project containing the datum job")
+	restartDatum.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing parent pipeline for the datum's job")
 	commands = append(commands, cmdutil.CreateAliases(restartDatum, "restart datum", datums))
 
 	var pipelineInputPath string
 	listDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return the datums in a job.",
-		Long:  "Return the datums in a job.",
+		Long: "This command returns the datums in a job. \n \n" +
+			"\t- To pass in a JSON pipeline spec instead of `pipeline@job`, use the `--file` flag \n " +
+			"\t- To specify the project where the parent pipeline lives, use the `--project` flag \n",
+		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
+			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 --project bar \n" +
+			"\t- {{alias}} --file pipeline.json",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -546,8 +555,8 @@ each datum.`,
 			}
 		}),
 	}
-	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
-	listDatum.Flags().StringVar(&project, "project", project, "Project containing the job")
+	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "Set the JSON file containing the pipeline to list datums from; the pipeline need not exist.")
+	listDatum.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing parent pipeline for the job.")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
@@ -556,7 +565,12 @@ each datum.`,
 	kubeEvents := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Return the kubernetes events.",
-		Long:  "Return the kubernetes events.",
+		Long: "This command returns the kubernetes events. \n" +
+			"\t- To return results starting from a certain amount of time before now, use the `--since` flag \n" +
+			"\t- To return the raw events, use the `--raw` flag \n",
+		Example: "\t- {{alias}} --raw \n" +
+			"\t- {{alias}} --since 100s \n" +
+			"\t- {{alias}} --raw --since 1h \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -588,14 +602,16 @@ each datum.`,
 			return writer.Flush()
 		}),
 	}
-	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
-	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Specify results should return log messages verbatim from server.")
+	kubeEvents.Flags().StringVar(&since, "since", "0", "Specify results should return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
 
 	queryLoki := &cobra.Command{
 		Use:   "{{alias}} <query>",
 		Short: "Query the loki logs.",
-		Long:  "Query the loki logs.",
+		Long:  "This command queries the loki logs.",
+		Example: "\t- {{alias}} <query> --since 100s \n" +
+			"\t- {{alias}} <query> --since 1h",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			query := args[0]
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -624,13 +640,15 @@ each datum.`,
 			return nil
 		}),
 	}
-	queryLoki.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	queryLoki.Flags().StringVar(&since, "since", "0", "Specify results should return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(queryLoki, "loki"))
 
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
 		Short: "Display detailed info about a single datum.",
-		Long:  "Display detailed info about a single datum. Requires the pipeline to have stats enabled.",
+		Long:  "This command displays detailed info about a single datum; requires the pipeline to have stats enabled.",
+		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 \n" +
+			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 --project foo",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
@@ -696,16 +714,24 @@ each datum.`,
 	getLogs := &cobra.Command{
 		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<pipeline>@<job>] [--datum=<datum>]",
 		Short: "Return logs from a job.",
-		Long:  "Return logs from a job.",
-		Example: `
-	# Return logs emitted by recent jobs in the "filter" pipeline
-	$ {{alias}} --pipeline=filter
-
-	# Return logs emitted by the job aedfa12aedf
-	$ {{alias}} --job=aedfa12aedf
-
-	# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-	$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
+		Long: "This command returns logs from a job. \n" +
+			"\t- To filter your logs by pipeline, use the `--pipeline` flag \n" +
+			"\t- To filter your logs by job, use the `--job` flag \n" +
+			"\t- To filter your logs by datum, use the `--datum` flag \n" +
+			"\t- To filter your logs by the master process, use the `--master` flag  with the `--pipeline` flag \n" +
+			"\t- To filter your logs by the worker process, use the `--worker` flag \n" +
+			"\t- To follow the logs as more are created, use the `--follow` flag \n" +
+			"\t- To set the number of lines to return, use the `--tail` flag \n" +
+			"\t- To return results starting from a certain amount of time before now, use the `--since` flag \n",
+		Example: "\t- {{alias}} --pipeline foo \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 --tail 10 \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 --follow \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 --datum 7f3c[...] \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --master \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker  \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --master --tail 10  \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker --follow \n",
 		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -774,22 +800,19 @@ each datum.`,
 			return iter.Err()
 		}),
 	}
-	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
-		"for lines from this pipeline (accepts pipeline name)")
+	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Specify results should only return logs for a given pipeline.")
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	getLogs.Flags().StringVarP(&jobStr, "job", "j", "", "Filter for log lines from "+
-		"this job (accepts job ID)")
+	getLogs.Flags().StringVarP(&jobStr, "job", "j", "", "Specify results should only return logs for a given job ID.")
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
-	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
-	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
-		"generated while processing these files (accepts PFS paths or file hashes)")
-	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")
-	getLogs.Flags().BoolVar(&worker, "worker", false, "Return log messages from the worker process.")
-	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
+	getLogs.Flags().StringVar(&datumID, "datum", "", "Specify results should only return logs for a given datum ID.")
+	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines generated while processing these files (accepts PFS paths or file hashes)")
+	getLogs.Flags().BoolVar(&master, "master", false, "Specify results should only return logs from the master process; --pipeline must be set.")
+	getLogs.Flags().BoolVar(&worker, "worker", false, "Specify results should only return logs from the worker process.")
+	getLogs.Flags().BoolVar(&raw, "raw", false, "Specify results should only return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
-	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
-	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
-	getLogs.Flags().StringVar(&project, "project", project, "Project containing the job.")
+	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Set the number of lines to return of the most recent logs.")
+	getLogs.Flags().StringVar(&since, "since", "24h", "Specify results should return log messages more recent than \"since\".")
+	getLogs.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing parent pipeline for the job.")
 	shell.RegisterCompletionFunc(getLogs,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "--pipeline" || flag == "-p" {
@@ -806,13 +829,8 @@ each datum.`,
 
 	pipelineDocs := &cobra.Command{
 		Short: "Docs for pipelines.",
-		Long: `Pipelines are a powerful abstraction for automating jobs.
-
-Pipelines take a set of repos and branches as inputs and will write to a single
-output repo of the same name. Pipelines then subscribe to commits on those repos
-and launch a job to process each incoming commit.
-
-All jobs created by a pipeline will create commits in the pipeline's output repo.`,
+		Long: "Pipelines are a powerful abstraction for automating jobs. They take a set of repos and branches as inputs and write to a single output repo of the same name. \n" +
+			"Pipelines then subscribe to commits on those repos and launch a job to process each incoming commit. All jobs created by a pipeline will create commits in the pipeline's output repo.			",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(pipelineDocs, "pipeline", " pipeline$", pipelines))
 
@@ -824,45 +842,63 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var jsonnetArgs []string
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
-		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
+		Long: "This command creates a new pipeline from a pipeline specification. \n \n" +
+			"You can create a pipeline using a JSON/YAML file or a jsonnet template file -- via either a local filepath or URL. Multiple pipelines can be created from one file." +
+			"For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/. \n \n" +
+			"\t- To create a pipeline from a JSON/YAML file, use the `--file` flag. \n" +
+			"\t- To create a pipeline from a jsonnet template file, use the `--jsonnet` flag. You can optionally pay multiple arguments separately using `--arg` \n" +
+			"\t- To push your local images to docker registry, use the `--push-images` and `--username` flags. \n" +
+			"\t- To push your local images to custom registry, use the `--push-images`, `--registry`, and `--username` flags. \n",
+		Example: "\t {{alias}} -file regression.json \n" +
+			"\t {{alias}} -file foo.json --project bar \n" +
+			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
+			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(mainCtx, pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false)
 		}),
 	}
-	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
-	createPipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
-	createPipeline.Flags().StringArrayVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arguments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once.")
-	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
-	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
-	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
-	createPipeline.Flags().StringVar(&project, "project", project, "The project in which to create the pipeline.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	createPipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "Provide a Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	createPipeline.Flags().StringArrayVar(&jsonnetArgs, "arg", nil, "Provide a top-level argument in the form of 'param=value' passed to the Jsonnet template; requires --jsonnet. For multiple args, --arg may be set more than once.")
+	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "Specify that the local docker images should be pushed into the registry (docker by default).")
+	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "Specify an alternative registry to push images to.")
+	createPipeline.Flags().StringVarP(&username, "username", "u", "", "Specify the username to push images as.")
+	createPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) in which to create the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(createPipeline, "create pipeline", pipelines))
 
 	var reprocess bool
 	updatePipeline := &cobra.Command{
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline-spec/.",
+		Long: "This command updates a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline-spec/ \n \n" +
+			"\t- To update a pipeline from a JSON/YAML file, use the `--file` flag. \n" +
+			"\t- To update a pipeline from a jsonnet template file, use the `--jsonnet` flag. You can optionally pay multiple arguments separately using `--arg` \n" +
+			"\t- To reprocess all data in the pipeline, use the `--reprocess` flag. \n" +
+			"\t- To push your local images to docker registry, use the `--push-images` and `--username` flags. \n" +
+			"\t- To push your local images to custom registry, use the `--push-images`, `--registry`, and `--username` flags. \n",
+		Example: "\t {{alias}} -file regression.json \n" +
+			"\t {{alias}} -file foo.json --project bar \n" +
+			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
+			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(mainCtx, pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true)
 		}),
 	}
-	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
-	updatePipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
-	updatePipeline.Flags().StringArrayVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arguments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once.")
-	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
-	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
-	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
-	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
-	updatePipeline.Flags().StringVar(&project, "project", project, "The project in which to update the pipeline.")
+	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	updatePipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "Provide a Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	updatePipeline.Flags().StringArrayVar(&jsonnetArgs, "arg", nil, "Provide a top-level argument in the form of 'param=value' passed to the Jsonnet template; requires --jsonnet. For multiple args, --arg may be set more than once.")
+	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "Specify that the local docker images should be pushed into the registry (docker by default).")
+	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "Specify an alternative registry to push images to.")
+	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "Specify the username to push images as.")
+	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess all datums that were already processed by previous version of the pipeline.")
+	updatePipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) in which to create the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(updatePipeline, "update pipeline", pipelines))
 
 	runCron := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Run an existing Pachyderm cron pipeline now",
-		Long:  "Run an existing Pachyderm cron pipeline now",
-		Example: `
-		# Run a cron pipeline "clock" now
-		$ {{alias}} clock`,
+		Long:  "This command runs an existing Pachyderm cron pipeline immediately.",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo  --project bar \n",
 		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -876,13 +912,16 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	runCron.Flags().StringVar(&project, "project", project, "Project containing pipeline.")
+	runCron.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the cron pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
 
 	inspectPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Return info about a pipeline.",
-		Long:  "Return info about a pipeline.",
+		Long:  "This command returns info about a pipeline.",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo --project bar \n" +
+			"\t- {{alias}} foo --project bar --raw -o yaml \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -907,7 +946,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
-	inspectPipeline.Flags().StringVar(&project, "project", project, "Project of pipeline to inspect.")
+	inspectPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the inspected pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string
@@ -915,7 +954,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	editPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Edit the manifest for a pipeline in your text editor.",
-		Long:  "Edit the manifest for a pipeline in your text editor.",
+		Long:  "This command edits the manifest for a pipeline in your text editor.",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo --project bar \n" +
+			"\t- {{alias}} foo --project bar --editor vim \n" +
+			"\t- {{alias}} foo --project bar --editor vim --output yaml \n" +
+			"\t- {{alias}} foo --project bar --editor vim --reprocess \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1000,9 +1045,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
-	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
-	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
-	editPipeline.Flags().StringVar(&project, "project", project, "Project of pipeline to edit.")
+	editPipeline.Flags().StringVar(&editor, "editor", "", "Specify the editor to use for modifying the manifest.")
+	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Specify the output format: \"json\" or \"yaml\" (default \"json\")")
+	editPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing pipeline to edit.")
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
