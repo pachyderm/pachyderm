@@ -99,9 +99,12 @@ Permissions: {{ .AuthInfo.Permissions | commafy }}{{end}}
 }
 
 func printTrigger(trigger *pfs.Trigger) string {
-	var conds []string
 	if trigger.CronSpec != "" {
-		conds = append(conds, fmt.Sprintf("Cron(%s)", trigger.CronSpec))
+		return fmt.Sprintf("%s on Cron(%s)", trigger.Branch, trigger.CronSpec)
+	}
+	var conds []string
+	if trigger.RateLimitSpec != "" {
+		conds = append(conds, fmt.Sprintf("Rate Limit(%s)", trigger.RateLimitSpec))
 	}
 	if trigger.Size != "" {
 		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size))
