@@ -112,16 +112,16 @@ determined:
   # oidc (EE-only) enables OpenID Connect Integration, which is only available if enterpriseEdition
   # is true. It allows users to use single sign-on with their organization’s identity provider.
   # clientSecretKey is the key of the secret contained in the secret.
-  # oidc:
-  #   enabled:
-  #   provider:
-  #   idpRecipientUrl:
-  #   idpSsoUrl:
-  #   clientId:
-  #   clientSecretKey:
-  #   clientSecretName:
-  #   authenticationClaim:
-  #   scimAuthenticationAttribute:
+  oidc:
+    enabled: false
+    # provider:
+    # idpRecipientUrl:
+    # idpSsoUrl:
+    # clientId:
+    # clientSecretKey:
+    # clientSecretName:
+    # authenticationClaim:
+    # scimAuthenticationAttribute:
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely
