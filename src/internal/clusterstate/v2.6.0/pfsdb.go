@@ -164,10 +164,11 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			deleteCommits[oldCommitKey(ci.Commit)] = proto.Clone(ci).(*v2_5_0.CommitInfo)
 		}
 	}
-	for i, ci := range deleteCommits {
+	var count int
+	for _, ci := range deleteCommits {
 		log.Info(ctx, "validating deleted alias commit",
 			zap.String("commit", oldCommitKey(ci.Commit)),
-			zap.String("progress", fmt.Sprintf("%v/%v", i, len(deleteCommits))),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(deleteCommits))),
 		)
 		same, err := sameFileSets(ctx, tx, ci.Commit, ci.ParentCommit)
 		if err != nil {
@@ -177,13 +178,15 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than it's first real ancestor.",
 				oldCommitKey(ci.Commit))
 		}
+		count++
 	}
 	realAncestors := make(map[string]*v2_5_0.CommitInfo)
 	childToNewParents := make(map[*pfs.Commit]*pfs.Commit)
-	for i, ci := range deleteCommits {
+	count = 0
+	for _, ci := range deleteCommits {
 		log.Info(ctx, "computing parent / children after deleted alias commit",
 			zap.String("commit", oldCommitKey(ci.Commit)),
-			zap.String("progress", fmt.Sprintf("%v/%v", i, len(deleteCommits))),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(deleteCommits))),
 		)
 		anctsr := oldestAncestor(ci, deleteCommits)
 		if _, ok := realAncestors[oldCommitKey(anctsr)]; !ok {
@@ -210,17 +213,20 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		for _, c := range childSet {
 			ancstrInfo.ChildCommits = append(ancstrInfo.ChildCommits, c)
 		}
+		count++
 	}
-	for i, ci := range realAncestors {
+	count = 0
+	for _, ci := range realAncestors {
 		log.Info(ctx, "updating children after deleted alias commit",
 			zap.String("commit", oldCommitKey(ci.Commit)),
-			zap.String("progress", fmt.Sprintf("%v/%v", i, len(realAncestors))),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(realAncestors))),
 		)
 		if err := resetOldCommitInfo(ctx, tx, ci); err != nil {
 			return errors.Wrapf(err, "reset real ancestor %q", oldCommitKey(ci.Commit))
 		}
+		count++
 	}
-	var count int
+	count = 0
 	for child, parent := range childToNewParents {
 		log.Info(ctx, "updating parent after deleted alias commit",
 			zap.String("commit", oldCommitKey(child)),
@@ -234,16 +240,18 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		count++
 	}
 	// now write out realAncestors and childToNewParents
-	for i, ci := range deleteCommits {
+	count = 0
+	for _, ci := range deleteCommits {
 		log.Info(ctx, "deleting alias commit",
 			zap.String("commit", oldCommitKey(ci.Commit)),
-			zap.String("progress", fmt.Sprintf("%v/%v", i, len(deleteCommits))),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(deleteCommits))),
 		)
 		ancstr := oldestAncestor(ci, deleteCommits)
 		// passing restoreLinks=false because we're already resetting parent/children relationships above
 		if err := deleteCommit(ctx, tx, ci.Commit, ancstr); err != nil {
 			return errors.Wrapf(err, "delete real commit %q with ancestor", oldCommitKey(ci.Commit), oldCommitKey(ancstr))
 		}
+		count++
 	}
 	// now set ci.DirectProvenance for each commit
 	if oldCIs, err = listCollectionProtos(ctx, tx, "commits", &v2_5_0.CommitInfo{}); err != nil {
