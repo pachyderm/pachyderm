@@ -236,7 +236,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 	prev, err := types.TimestampFromProto(ci.Started)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for {
 		next := schedule.Next(prev)
