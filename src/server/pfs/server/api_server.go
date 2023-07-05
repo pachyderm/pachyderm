@@ -320,8 +320,8 @@ func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.AP
 
 // SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {
-	return a.driver.squashCommitSet(txnCtx, request.CommitSet)
+func (a *apiServer) SquashCommitSetInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {
+	return a.driver.squashCommitSet(ctx, txnCtx, request.CommitSet)
 }
 
 // SquashCommitSet implements the protobuf pfs.SquashCommitSet RPC
@@ -337,7 +337,7 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 // DropCommitSet implements the protobuf pfs.DropCommitSet RPC
 func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *emptypb.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.dropCommitSet(txnCtx, request.CommitSet)
+		return a.driver.dropCommitSet(ctx, txnCtx, request.CommitSet)
 	}); err != nil {
 		return nil, err
 	}

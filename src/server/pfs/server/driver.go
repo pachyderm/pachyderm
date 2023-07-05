@@ -354,7 +354,6 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 		d.repos.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.ReposTypeIndex, repoType, ri, col.DefaultOptions(), processFunc), //todo(fahad): write a GetByType() function that uses an index.
 		"could not get repos of type %q: ERROR FROM GetByIndex", repoType,
 	)
-
 }
 
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
@@ -882,8 +881,8 @@ func (d *driver) startCommit(
 	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return nil, err
 	}
-	// Check if repo exists and load it in case we need to add a new branch
-	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, branch.Repo.Name)
+	// Check if repo exists
+	_, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, branch.Repo.Name)
 	if err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, pfsserver.ErrRepoNotFound{Repo: branch.Repo}
@@ -895,12 +894,7 @@ func (d *driver) startCommit(
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(branch, branchInfo, func() error {
 		if branchInfo.Branch == nil {
-			// New branch, update the RepoInfo
-			add(&repoInfo.Branches, branch)
-			// todo(fahad): figure out how to handle branches.
-			if err := pfsdb.UpsertRepo(ctx, txnCtx.SqlTx, repoInfo); err != nil {
-				return errors.EnsureStack(err)
-			}
+			// New branch
 			branchInfo.Branch = branch
 		}
 		// If the parent is unspecified, use the current head of the branch
@@ -959,7 +953,8 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) (int64, error) {
 	repoInfo := new(pfs.RepoInfo)
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repo, repoInfo); err != nil { //todo(fahad): figure out how to handle branches
+	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Name)
+	if err != nil {
 		return 0, errors.EnsureStack(err)
 	}
 	for _, branch := range repoInfo.Branches {
@@ -1543,7 +1538,6 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 
 // TODO(provenance): consider removing this functionality
 func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
-	repoBranches := map[*pfs.Repo][]*pfs.Branch{branch.Repo: {branch}}
 	newRepoCommits := make(map[string]*pfs.Commit)
 	for _, p := range provenance {
 		branchInfo := &pfs.BranchInfo{}
@@ -1561,23 +1555,6 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 					newRepoCommits[pfsdb.RepoKey(branchInfo.Branch.Repo)] = head
 				}
 				branchInfo.Head = head
-				if branches, ok := repoBranches[p.Repo]; ok {
-					add(&branches, p)
-				} else {
-					repoBranches[p.Repo] = []*pfs.Branch{p}
-				}
-			}
-			return nil
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
-	// Add the new branches to their repo infos
-	for repo, branches := range repoBranches {
-		repoInfo := &pfs.RepoInfo{}
-		if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(repo, repoInfo, func() error { //todo(fahad): figure out how to handle branches
-			for _, b := range branches {
-				add(&repoInfo.Branches, b)
 			}
 			return nil
 		}); err != nil {
@@ -2003,15 +1980,6 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Delete(branch); err != nil {
 			return errors.Wrapf(err, "branches.Delete")
-		}
-	}
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(branch.Repo, repoInfo, func() error { // todo(fahad): figure out how to handle branches.
-		del(&repoInfo.Branches, branch)
-		return nil
-	}); err != nil {
-		if !col.IsErrNotFound(err) || !force {
-			return errors.EnsureStack(err)
 		}
 	}
 	txnCtx.DeleteBranch(branch)
