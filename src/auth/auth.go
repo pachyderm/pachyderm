@@ -204,7 +204,7 @@ const errNoRoleBindingMsg = "no role binding exists for"
 
 // ErrNoRoleBinding is returned if no role binding exists for a resource.
 type ErrNoRoleBinding struct {
-	Resource Resource
+	Resource *Resource
 }
 
 func (e *ErrNoRoleBinding) Error() string {
@@ -224,7 +224,7 @@ func IsErrNoRoleBinding(err error) bool {
 type ErrNotAuthorized struct {
 	Subject string // subject trying to perform blocked operation -- always set
 
-	Resource Resource     // Resource that the user is attempting to access
+	Resource *Resource    // Resource that the user is attempting to access
 	Required []Permission // Caller needs 'Required'-level access to 'Resource'
 }
 

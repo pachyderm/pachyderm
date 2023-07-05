@@ -1,13 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 
 	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -23,6 +22,7 @@ const (
 )
 
 type apiServer struct {
+	identity.UnimplementedAPIServer
 	env Env
 	api *dexAPI
 }
@@ -82,8 +82,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "convert IdentityConnectors from YAML to JSON: %q", a.env.Config.IdentityConfig)
 		}
-		err = jsonpb.Unmarshal(bytes.NewReader(jsonBytes), &connectors)
-		if err != nil {
+		if err := json.Unmarshal(jsonBytes, &connectors); err != nil {
 			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config.IdentityConfig)
 		}
 		existing, err := a.ListIDPConnectors(ctx, &identity.ListIDPConnectorsRequest{})
@@ -97,12 +96,12 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		for _, c := range connectors {
 			if oc, ok := oldCons[c.Id]; ok {
 				c.ConfigVersion = oc.ConfigVersion + 1
-				if _, err := a.updateIDPConnector(ctx, &identity.UpdateIDPConnectorRequest{Connector: &c}); err != nil {
+				if _, err := a.updateIDPConnector(ctx, &identity.UpdateIDPConnectorRequest{Connector: c}); err != nil {
 					return errors.Wrapf(err, "update connector with ID: %q", c.Id)
 				}
 				delete(oldCons, c.Id)
 			} else {
-				if _, err := a.createIDPConnector(ctx, &identity.CreateIDPConnectorRequest{Connector: &c}); err != nil {
+				if _, err := a.createIDPConnector(ctx, &identity.CreateIDPConnectorRequest{Connector: c}); err != nil {
 					return errors.Wrapf(err, "create connector with ID: %q", c.Id)
 				}
 			}
@@ -134,7 +133,7 @@ func (a *apiServer) setIdentityServerConfig(ctx context.Context, req *identity.S
 
 func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (resp *identity.GetIdentityServerConfigResponse, retErr error) {
 	var config []*identity.IdentityServerConfig
-	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry, rotation_token_expiry FROM identity.config WHERE id=$1;", configKey)
+	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry AS idtokenexpiry, rotation_token_expiry AS rotationtokenexpiry FROM identity.config WHERE id=$1;", configKey)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

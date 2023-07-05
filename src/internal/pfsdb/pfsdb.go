@@ -4,7 +4,7 @@ package pfsdb
 import (
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -105,7 +105,7 @@ var CommitsBranchlessIndex = &col.Index{
 var CommitsCommitSetIndex = &col.Index{
 	Name: "commitset",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.CommitInfo).Commit.ID
+		return val.(*pfs.CommitInfo).Commit.Id
 	},
 }
 
@@ -115,12 +115,12 @@ func ParseCommit(key string) *pfs.Commit {
 	split := strings.Split(key, "@")
 	return &pfs.Commit{
 		Repo: ParseRepo(split[0]),
-		ID:   split[1],
+		Id:   split[1],
 	}
 }
 
 func CommitKey(commit *pfs.Commit) string {
-	return RepoKey(commit.Repo) + "@" + commit.ID
+	return RepoKey(commit.Repo) + "@" + commit.Id
 }
 
 // Commits returns a collection of commits
@@ -162,6 +162,14 @@ var BranchesRepoIndex = &col.Index{
 }
 
 var branchesIndexes = []*col.Index{BranchesRepoIndex}
+
+func ParseBranch(key string) *pfs.Branch {
+	split := strings.Split(key, "@")
+	return &pfs.Branch{
+		Repo: ParseRepo(split[0]),
+		Name: split[1],
+	}
+}
 
 func BranchKey(branch *pfs.Branch) string {
 	return RepoKey(branch.Repo) + "@" + branch.Name

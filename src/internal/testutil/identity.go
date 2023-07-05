@@ -27,9 +27,9 @@ func OIDCOIDCConfig(host, issuerPort, redirectPort string, local bool) *auth.OID
 
 	return &auth.OIDCConfig{
 		Issuer:          "http://" + host + ":" + issuerPort + "/dex",
-		ClientID:        "pachyderm",
+		ClientId:        "pachyderm",
 		ClientSecret:    "notsecret",
-		RedirectURI:     "http://" + host + ":" + redirectPort + "/authorization-code/callback",
+		RedirectUri:     "http://" + host + ":" + redirectPort + "/authorization-code/callback",
 		LocalhostIssuer: local,
 		Scopes:          auth.DefaultOIDCScopes,
 	}

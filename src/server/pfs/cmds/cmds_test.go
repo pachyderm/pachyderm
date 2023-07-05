@@ -51,8 +51,8 @@ const (
 func mockInspectCluster(env *realenv.RealEnv) {
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		clusterInfo := admin.ClusterInfo{
-			ID:                "dev",
-			DeploymentID:      "dev",
+			Id:                "dev",
+			DeploymentId:      "dev",
 			VersionWarningsOk: true,
 		}
 		return &clusterInfo, nil
@@ -361,7 +361,7 @@ func TestProject(t *testing.T) {
 	// c := env.PachClient
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default ([^-]+ ago) -$'
                 pachctl create project foo
                 pachctl list project | match "foo     ([^-]+ ago) -"
 		`,
@@ -381,7 +381,7 @@ func TestProject(t *testing.T) {
                 `,
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default - -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default ([^-]+ ago) -$'
                 pachctl create project foo
                 `,
 	).Run())

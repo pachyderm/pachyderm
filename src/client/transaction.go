@@ -13,10 +13,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
-	types "github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const transactionMetadataKey = "pach-transaction"
@@ -27,7 +27,7 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	md, _ := metadata.FromOutgoingContext(c.Ctx())
 	md = md.Copy()
 	if txn != nil {
-		md.Set(transactionMetadataKey, txn.ID)
+		md.Set(transactionMetadataKey, txn.Id)
 	} else {
 		md.Set(transactionMetadataKey)
 	}
@@ -74,7 +74,7 @@ func GetTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	} else if len(txns) > 1 {
 		return nil, errors.Errorf("multiple active transactions found in context")
 	}
-	return &transaction.Transaction{ID: txns[0]}, nil
+	return &transaction.Transaction{Id: txns[0]}, nil
 }
 
 // GetTransaction is a helper function to get the active transaction from the
@@ -292,11 +292,11 @@ func (c APIClient) RunBatchInTransaction(cb func(builder *TransactionBuilder) er
 	return c.BatchTransaction(c.Ctx(), &transaction.BatchTransactionRequest{Requests: tb.requests})
 }
 
-func (c *pfsBuilderClient) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *pfsBuilderClient) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreateRepo: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *pfsBuilderClient) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteRepo: req})
 	return nil, nil
 }
@@ -307,31 +307,31 @@ func (c *pfsBuilderClient) StartCommit(ctx context.Context, req *pfs.StartCommit
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{StartCommit: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) FinishCommit(ctx context.Context, req *pfs.FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *pfsBuilderClient) FinishCommit(ctx context.Context, req *pfs.FinishCommitRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{FinishCommit: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) SquashCommitSet(ctx context.Context, req *pfs.SquashCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *pfsBuilderClient) SquashCommitSet(ctx context.Context, req *pfs.SquashCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{SquashCommitSet: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *pfsBuilderClient) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreateBranch: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) DeleteBranch(ctx context.Context, req *pfs.DeleteBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *pfsBuilderClient) DeleteBranch(ctx context.Context, req *pfs.DeleteBranchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteBranch: req})
 	return nil, nil
 }
-func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{StopJob: req})
 	return nil, nil
 }
-func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
 	return nil, nil
 }
-func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipeline: req})
 	return nil, nil
 }

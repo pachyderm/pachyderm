@@ -10,6 +10,7 @@ from tests.utils import count
 
 from pachyderm_sdk.api import pfs
 from pachyderm_sdk.api.pfs.file import PFSFile
+from pachyderm_sdk.api.pfs.extension import ClosedCommit, OpenCommit
 from pachyderm_sdk.constants import MAX_RECEIVE_MESSAGE_SIZE
 
 
@@ -276,6 +277,19 @@ class TestUnitCommit:
         commit_info = client.pfs.list_commit(repo=repo)
         assert count(commit_info) >= 2
 
+    @staticmethod
+    def test_closed_commit(client: TestClient):
+        """Test that an OpenCommit becomes a ClosedCommit when exiting
+        the context manager."""
+        repo = client.new_repo(default_project=False)
+        branch = pfs.Branch(repo=repo, name="master")
+
+        with client.pfs.commit(branch=branch) as commit1:
+            assert isinstance(commit1, OpenCommit)
+
+        assert not isinstance(commit1, OpenCommit)
+        assert isinstance(commit1, ClosedCommit)
+
 
 class TestModifyFile:
     """Tests for the modify file API."""
@@ -376,7 +390,7 @@ class TestModifyFile:
         with client.pfs.commit(branch=branch) as commit2:
             commit2.delete_file(path="/file1.dat")
         assert not client.pfs.path_exists(
-            file=pfs.File.from_uri(f'{commit2.as_uri()}:/file1.dat')
+            file=pfs.File.from_uri(f'{commit2}:/file1.dat')
         )
 
     @staticmethod
@@ -505,7 +519,7 @@ class TestPFSFile:
         """Test that gRPC errors are caught and thrown early."""
         # Arrange
         repo = client.new_repo()
-        invalid_file = pfs.File.from_uri(f"{repo.as_uri()}@master:/NO_FILE.HERE")
+        invalid_file = pfs.File.from_uri(f"{repo}@master:/NO_FILE.HERE")
 
         # Act & Assert
         with pytest.raises(ValueError):

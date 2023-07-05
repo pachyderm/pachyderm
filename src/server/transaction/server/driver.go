@@ -2,10 +2,9 @@ package server
 
 import (
 	"context"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -40,14 +39,6 @@ func newDriver(
 	}, nil
 }
 
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		return &types.Timestamp{}
-	}
-	return t
-}
-
 func (d *driver) batchTransaction(ctx context.Context, req []*transaction.TransactionRequest) (*transaction.TransactionInfo, error) {
 	var result *transaction.TransactionInfo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -55,14 +46,14 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		// there is no need to persist the TransactionInfo to the collection
 		info := &transaction.TransactionInfo{
 			Transaction: &transaction.Transaction{
-				ID: uuid.NewWithoutDashes(),
+				Id: uuid.NewWithoutDashes(),
 			},
 			Requests: req,
-			Started:  now(),
+			Started:  timestamppb.Now(),
 		}
 
 		var err error
-		result, err = d.runTransaction(txnCtx, info)
+		result, err = d.runTransaction(ctx, txnCtx, info)
 		return err
 	}); err != nil {
 		return nil, err
@@ -74,15 +65,15 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	info := &transaction.TransactionInfo{
 		Transaction: &transaction.Transaction{
-			ID: uuid.NewWithoutDashes(),
+			Id: uuid.NewWithoutDashes(),
 		},
 		Requests: []*transaction.TransactionRequest{},
-		Started:  now(),
+		Started:  timestamppb.Now(),
 	}
 
-	if err := dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(sqlTx).Put(
-			info.Transaction.ID,
+			info.Transaction.Id,
 			info,
 		))
 	}); err != nil {
@@ -93,7 +84,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 
 func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	if err := d.transactions.ReadOnly(ctx).Get(txn.ID, info); err != nil {
+	if err := d.transactions.ReadOnly(ctx).Get(txn.Id, info); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return info, nil
@@ -101,7 +92,7 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID))
+		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.Id))
 	})
 }
 
@@ -128,8 +119,8 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *tran
 
 	transactions := d.transactions.ReadWrite(sqlTx)
 	for _, info := range txns {
-		if running == nil || info.Transaction.ID != running.ID {
-			err := transactions.Delete(info.Transaction.ID)
+		if running == nil || info.Transaction.Id != running.Id {
+			err := transactions.Delete(info.Transaction.Id)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -138,7 +129,7 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *tran
 	return nil
 }
 
-func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	result := proto.Clone(info).(*transaction.TransactionInfo)
 	for len(result.Responses) < len(result.Requests) {
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
@@ -146,9 +137,9 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 
 	// Set the transaction's CommitSetID to be the same as the transaction ID, which
 	// will be used for any newly made commits.
-	txnCtx.CommitSetID = info.Transaction.ID
+	txnCtx.CommitSetID = info.Transaction.Id
 
-	directTxn := txnenv.NewDirectTransaction(d.txnEnv, txnCtx)
+	directTxn := txnenv.NewDirectTransaction(ctx, d.txnEnv, txnCtx)
 	for i, request := range info.Requests {
 		var err error
 		response := result.Responses[i]
@@ -186,11 +177,11 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	return d.updateTransaction(ctx, true, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
-		info, err := d.runTransaction(txnCtx, info)
+		info, err := d.runTransaction(ctx, txnCtx, info)
 		if err != nil {
 			return info, err
 		}
-		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.ID); err != nil {
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.Id); err != nil {
 			return info, errors.EnsureStack(err)
 		}
 		// no need to update the transaction, since it's gone
@@ -220,7 +211,7 @@ func (d *driver) appendTransaction(
 		if restarted {
 			info.Requests = append(info.Requests, items...)
 		}
-		return d.runTransaction(txnCtx, info)
+		return d.runTransaction(ctx, txnCtx, info)
 	})
 }
 
@@ -240,7 +231,7 @@ func (d *driver) updateTransaction(
 	attempt := func(txnCtx *txncontext.TransactionContext) error {
 		storedInfo := new(transaction.TransactionInfo)
 		var err error
-		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, storedInfo); err != nil {
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, storedInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
 		restarted := localInfo == nil || storedInfo.Version != localInfo.Version
@@ -261,7 +252,7 @@ func (d *driver) updateTransaction(
 	// prefetch transaction info and add data to refresher ahead of time
 	var prefetch transaction.TransactionInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.ID, &prefetch))
+		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, &prefetch))
 	}); err != nil {
 		return nil, err
 	}
@@ -281,9 +272,9 @@ func (d *driver) updateTransaction(
 		if err == nil {
 			// only persist the transaction if we succeeded, otherwise just update localInfo
 			var storedInfo transaction.TransactionInfo
-			if err = dbutil.WithTx(ctx, d.db, func(sqlTx *pachsql.Tx) error {
+			if err = dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 				// Update the existing transaction with the new requests/responses
-				err := d.transactions.ReadWrite(sqlTx).Update(txn.ID, &storedInfo, func() error {
+				err := d.transactions.ReadWrite(sqlTx).Update(txn.Id, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {
 						return &transactionModifiedError{}
 					}

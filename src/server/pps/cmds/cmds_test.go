@@ -506,7 +506,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		pachctl create pipeline -f - <<EOF
 		pipeline:
 		  name: first
-		  project: 
+		  project:
 		    name: P
 		input:
 		  pfs:
@@ -685,7 +685,7 @@ func TestInspectWaitJob(t *testing.T) {
 	`,
 		"pipeline1", pipeline1,
 		"project", project,
-		"job", jobs[0].Job.GetID(),
+		"job", jobs[0].Job.GetId(),
 	).Run())
 }
 
@@ -719,7 +719,7 @@ func TestYAMLError(t *testing.T) {
 		  stdin:
 		    - "cp /pfs/input/* /pfs/out"
 		EOF
-		) | match "cannot unmarshal string into Go value of type \[\]json.RawMessage"
+		) | match "syntax error"
 		`,
 	).Run())
 }
@@ -1201,7 +1201,7 @@ func TestListJobWithProject(t *testing.T) {
 	projectName := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data 
+		pachctl create repo data
 
 		pachctl create pipeline <<EOF
 		{
@@ -1450,8 +1450,8 @@ func TestListDatumFromFile(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{
-			ID:                "dev",
-			DeploymentID:      "dev",
+			Id:                "dev",
+			DeploymentId:      "dev",
 			VersionWarningsOk: true,
 		}, nil
 	})

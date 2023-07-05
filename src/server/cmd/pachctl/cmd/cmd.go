@@ -44,10 +44,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -326,17 +326,16 @@ func PachctlCmd() (*cobra.Command, error) {
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
-		Long: `Access the Pachyderm API.
-
-Environment variables:
-  PACH_CONFIG=<path>, the path where pachctl will attempt to load your config.
-  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_TRACE
-    is set
-  PACH_TRACE={true,false}, if true, and JAEGER_ENDPOINT is set, attach a Jaeger
-    trace to any outgoing RPCs.
-  PACH_TRACE_DURATION=<duration>, the amount of time for which PPS should trace
-    a pipeline after 'pachctl create-pipeline' (PACH_TRACE must also be set).
-`,
+		Long: "Access the Pachyderm API." +
+			"\n\n" +
+			"PachCTL Environment Variables:" +
+			"\n" +
+			"\t- PACH_CONFIG=<path> | (Req) PachCTL config location. \n" +
+			"\t- PACH_TRACE={true,false} | (Opt) Attach Jaeger trace to outgoing RPCs; JAEGER_ENDPOINT must be specified. \n" +
+			"\t\t[req. PACH_TRACE={true}]: \n" +
+			"\t\t- JAEGER_ENDPOINT=<host>:<port>  | Jaeger server to connect to. \n" +
+			"\t\t- PACH_TRACE_DURATION=<duration> | Duration to trace pipelines after 'pachctl create-pipeline'. \n \n" +
+			"Documentation: https://docs.pachyderm.com/latest/",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if pachctlCfg.Verbose {
 				log.SetLevel(log.DebugLevel)
@@ -411,7 +410,7 @@ Environment variables:
 			defer pachClient.Close()
 			ctx, cancel := context.WithTimeout(mainCtx, time.Second)
 			defer cancel()
-			version, err := pachClient.GetVersion(ctx, &types.Empty{})
+			version, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
@@ -785,7 +784,7 @@ This resets the cluster to its initial state.`,
 
 	getDocs := &cobra.Command{
 		Short: "Get the raw data represented by a Pachyderm resource.",
-		Long:  "Get the raw data represented by a Pachyderm resource.",
+		Long:  `Get the raw data represented by a Pachyderm resource.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(getDocs, "get"))
 

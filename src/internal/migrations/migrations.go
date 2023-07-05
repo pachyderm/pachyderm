@@ -87,7 +87,9 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	ctx, end := log.SpanContextL(ctx, "ApplyMigrations", log.InfoLevel)
 	defer end(log.Errorp(&retErr))
 
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
+	tx, err := db.BeginTxx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSnapshot,
+	})
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

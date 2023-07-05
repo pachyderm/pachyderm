@@ -48,27 +48,27 @@ func TestIsErrNotAuthorized(t *testing.T) {
 	require.False(t, IsErrNotAuthorized(nil))
 	require.True(t, IsErrNotAuthorized(&ErrNotAuthorized{
 		Subject:  "alice",
-		Resource: Resource{Type: ResourceType_REPO, Name: "data"},
+		Resource: &Resource{Type: ResourceType_REPO, Name: "data"},
 		Required: []Permission{},
 	}))
 	require.True(t, IsErrNotAuthorized(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
-		Resource: Resource{Type: ResourceType_REPO, Name: "data"},
+		Resource: &Resource{Type: ResourceType_REPO, Name: "data"},
 		Required: []Permission{},
 	})))
 	require.True(t, IsErrNotAuthorized(&ErrNotAuthorized{
 		Subject:  "alice",
-		Resource: Resource{Type: ResourceType_CLUSTER},
+		Resource: &Resource{Type: ResourceType_CLUSTER},
 		Required: []Permission{},
 	}))
 	require.True(t, IsErrNotAuthorized(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
-		Resource: Resource{Type: ResourceType_CLUSTER},
+		Resource: &Resource{Type: ResourceType_CLUSTER},
 		Required: []Permission{},
 	})))
 	s, ok := status.FromError(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
-		Resource: Resource{Type: ResourceType_CLUSTER},
+		Resource: &Resource{Type: ResourceType_CLUSTER},
 		Required: []Permission{},
 	}))
 	require.True(t, ok, "ErrNotAuthorized should be a gRPC status")
@@ -77,10 +77,10 @@ func TestIsErrNotAuthorized(t *testing.T) {
 
 func TestErrNoRoleBinding(t *testing.T) {
 	require.True(t, IsErrNoRoleBinding(&ErrNoRoleBinding{
-		Resource{Type: ResourceType_REPO, Name: "test"},
+		&Resource{Type: ResourceType_REPO, Name: "test"},
 	}))
 	require.True(t, IsErrNoRoleBinding(grpcify(&ErrNoRoleBinding{
-		Resource{Type: ResourceType_REPO, Name: "test"},
+		&Resource{Type: ResourceType_REPO, Name: "test"},
 	})))
 }
 

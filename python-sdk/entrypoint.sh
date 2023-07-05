@@ -22,11 +22,6 @@ PROTO_FILES=$(find ${OUTDIR} -name "*.proto")
 
 # Remove protobuf extensions, that are Go specific.
 for i in ${PROTO_FILES}; do
-    # remove gogoproto
-    sed -i 's/import.*gogo.proto.*\;//' "${i}"
-    sed -i 's/\[.*gogoproto.*\]//' "${i}"
-    sed -i 's/.*gogoproto.*//' "${i}"
-
     # remove the protoextensions/log.proto
     sed -i 's/import.*protoextensions\/log.proto.*\;//' "${i}"
     sed -i 's/\[.*log.*\]//' "${i}"

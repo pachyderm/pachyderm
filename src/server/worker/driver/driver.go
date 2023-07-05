@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-
 	"os"
 	"os/exec"
 	"os/user"
@@ -16,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -31,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TODO(2.0 optional):
@@ -98,7 +98,7 @@ type Driver interface {
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSQLTx(func(*pachsql.Tx) error) error
+	NewSQLTx(func(context.Context, *pachsql.Tx) error) error
 
 	// Returns the image ID associated with a container running in the worker pod
 	GetContainerImageID(context.Context, string) (string, error)
@@ -322,7 +322,7 @@ func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient.WithCtx(d.ctx)
 }
 
-func (d *driver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+func (d *driver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return dbutil.WithTx(d.ctx, d.env.GetDBClient(), cb)
 }
 
@@ -488,7 +488,7 @@ func (d *driver) RunUserErrorHandlingCode(
 }
 
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
-	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+	return d.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
 			return errors.EnsureStack(err)
@@ -530,7 +530,7 @@ func (d *driver) UserCodeEnv(
 
 	for _, input := range inputs {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
-		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.Id))
 		if input.JoinOn != "" {
 			result = append(result, fmt.Sprintf("PACH_DATUM_%s_JOIN_ON=%s", input.Name, input.JoinOn))
 		}
@@ -582,7 +582,7 @@ func (d *driver) UserCodeEnv(
 	}
 
 	if outputCommit != nil {
-		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.Id))
 	}
 
 	return result
