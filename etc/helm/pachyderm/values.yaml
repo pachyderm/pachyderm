@@ -84,9 +84,9 @@ determined:
 
   # Enable route support for Openshift by setting enabled to true. Configure tls termination (i.e edge) if needed.
   # openshiftRoute:
-    # enabled:
-    # host:
-    # termination:
+  # enabled:
+  # host:
+  # termination:
 
   # tlsSecret enables TLS encryption for all communication made to the Determined master (TLS
   # termination is performed in the Determined master). This includes communication between the
@@ -96,18 +96,18 @@ determined:
   # tlsSecret:
 
   # security:
-    # defaultTask sets the user and group that tasks will run as. For convenience, the default Determined
-    # environments contain an unprivileged user named det-nobody, which does have a writable HOME
-    # directory. The det-nobody user is a suitable default user when using the default Determined
-    # environment images and when running containers as root is not desired.
-    # defaultTask:
-    #   user: det-nobody
-    #   uid: 65533
-    #   group: det-nobody
-    #   gid: 65533
-    # authz option (EE-only) sets the authorization mode.
-    # authz:
-    #   type: rbac
+  # defaultTask sets the user and group that tasks will run as. For convenience, the default Determined
+  # environments contain an unprivileged user named det-nobody, which does have a writable HOME
+  # directory. The det-nobody user is a suitable default user when using the default Determined
+  # environment images and when running containers as root is not desired.
+  # defaultTask:
+  #   user: det-nobody
+  #   uid: 65533
+  #   group: det-nobody
+  #   gid: 65533
+  # authz option (EE-only) sets the authorization mode.
+  # authz:
+  #   type: rbac
 
   # oidc (EE-only) enables OpenID Connect Integration, which is only available if enterpriseEdition
   # is true. It allows users to use single sign-on with their organization’s identity provider.
@@ -172,7 +172,6 @@ determined:
     # resourceType: <secret/configMap>
     # certResourceName: <secret/configMap name>
 
-
   # checkpointStorage controls where checkpoints are stored. Supported types include `shared_fs`,
   # `gcs`, and `s3`.
   checkpointStorage:
@@ -180,7 +179,6 @@ determined:
     saveExperimentBest: 0
     saveTrialBest: 1
     saveTrialLatest: 1
-
 
     # Comment out if not using `shared_fs`. Users are strongly discouraged from using `shared_fs` for
     # storage beyond initial testing as most Kubernetes cluster nodes do not have a shared file
@@ -226,10 +224,10 @@ determined:
   ## For CPU-only clusters, use `slotType: cpu`, and make sure to set `slotResourceRequest` below.
   # slotType: cpu
   # slotResourceRequests:
-    ## Number of cpu units requested for compute slots. Note: since kubernetes may schedule some
-    ## system tasks on the nodes which take up some resources, 8-core node may not always fit
-    ## a `cpu: 8` task container.
-    # cpu: 7
+  ## Number of cpu units requested for compute slots. Note: since kubernetes may schedule some
+  ## system tasks on the nodes which take up some resources, 8-core node may not always fit
+  ## a `cpu: 8` task container.
+  # cpu: 7
 
   # Memory and CPU requirements for the master instance. Should be adjusted for scale.
   masterCpuRequest: 2
@@ -251,7 +249,6 @@ determined:
     # https://docs:determined.ai/latest/topic-guides/custom-pod-specs.html for more details.
     # cpuPodSpec:
     # gpuPodSpec:
-
 
     # Configure default Docker images for all GPU tasks (experiments, notebooks, commands) and
     # CPU tasks (CPU notebooks, TensorBoards, zero-slot commands). If a Docker image is defined
@@ -286,31 +283,31 @@ determined:
 
   ## Configure how trial logs are stored.
   # logging:
-    ## The backend to use. Can be `default` to send logs to the master to store in the PostgreSQL
-    ## database or `elastic` to store logs in an Elasticsearch cluster (without going through the
-    ## master).
-    # type: default
+  ## The backend to use. Can be `default` to send logs to the master to store in the PostgreSQL
+  ## database or `elastic` to store logs in an Elasticsearch cluster (without going through the
+  ## master).
+  # type: default
 
-    ## The remaining options should be provided only for the `elastic` backend.
+  ## The remaining options should be provided only for the `elastic` backend.
 
-    ## The host and port to use to connect to the Elasticsearch cluster.
-    # host: <host>
-    # port: <port>
+  ## The host and port to use to connect to the Elasticsearch cluster.
+  # host: <host>
+  # port: <port>
 
-    ## Authentication and TLS options for making the connection to Elasticsearch.
-    # security:
-      # username: <username>
-      # password: <password>
-      # tls:
-        # enabled: true
-        # skipVerify: false
+  ## Authentication and TLS options for making the connection to Elasticsearch.
+  # security:
+  # username: <username>
+  # password: <password>
+  # tls:
+  # enabled: true
+  # skipVerify: false
 
-        ## The name to use when verifying the certificate, if different from the name used to connect.
-        # certificateName: <name>
+  ## The name to use when verifying the certificate, if different from the name used to connect.
+  # certificateName: <name>
 
-        ## This value must contain the contents of the certificate file, not a path. It may be set
-        ## directly or using `helm install --set-file logging.security.tls.certificate=<path>`.
-        # certificate: <certificate contents>
+  ## This value must contain the contents of the certificate file, not a path. It may be set
+  ## directly or using `helm install --set-file logging.security.tls.certificate=<path>`.
+  # certificate: <certificate contents>
 
   ## Configure the default Determined scheduler
   ## Currently supports "coscheduler" for gang scheduling and "preemption" for priority based
@@ -328,7 +325,6 @@ determined:
     - pool_name: default
   # defaultAuxResourcePool: default
   # defaultComputeResourcePool: default
-
 
 console:
   # enabled controls whether the console manifests are created or not.
