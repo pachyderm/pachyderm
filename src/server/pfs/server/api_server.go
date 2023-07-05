@@ -380,20 +380,12 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 // InspectBranch implements the protobuf pfs.InspectBranch RPC
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
 	request.GetBranch().GetRepo().EnsureProject()
-	branchInfo := &pfs.BranchInfo{}
-	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return branchInfo, nil
+	return a.driver.inspectBranch(ctx, request.Branch)
 }
 
 func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
 	request.GetBranch().GetRepo().EnsureProject()
-	return a.driver.inspectBranch(txnCtx, request.Branch)
+	return a.driver.inspectBranchInTransaction(txnCtx, request.Branch)
 }
 
 // ListBranch implements the protobuf pfs.ListBranch RPC

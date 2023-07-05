@@ -362,6 +362,9 @@ func TestGetClusterDefaults(t *testing.T) {
 	require.NotNil(t, resp.ClusterDefaults)
 	require.NotEqual(t, "", resp.ClusterDefaults.DetailsJson, "details must not be empty")
 	require.NotEqual(t, "", resp.ClusterDefaults.EffectiveDetailsJson, "effective details must not be empty")
+	var cd pps.PipelineSpec
+	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaults.DetailsJson), &cd), "details must unmarshal")
+	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaults.EffectiveDetailsJson), &cd), "effective details must unmarshal")
 }
 
 func TestSetClusterDefaults(t *testing.T) {
