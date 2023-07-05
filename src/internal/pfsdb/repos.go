@@ -3,10 +3,13 @@ package pfsdb
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 
@@ -84,13 +87,18 @@ type RepoIterator struct {
 }
 
 type repoRow struct {
-	ID          uint64    `db:"id"`
-	Name        string    `db:"name"`
-	ProjectID   string    `db:"project_id"`
-	Description string    `db:"description"`
-	RepoType    string    `db:"type"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID                 uint64    `db:"id"`
+	Name               string    `db:"name"`
+	ProjectID          string    `db:"project_id"`
+	ProjectName        string    `db:"proj_name"`
+	ProjectDescription string    `db:"proj_desc"`
+	Description        string    `db:"description"`
+	RepoType           string    `db:"type"`
+	CreatedAt          time.Time `db:"created_at"`
+	UpdatedAt          time.Time `db:"updated_at"`
+	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
+	// Each entry is prefixed with '//x' and entries are delimited by a ','
+	Branches string `db:"branches"`
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
@@ -113,7 +121,11 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 	row := iter.repos[iter.index]
 	proj, err := getProjectFromRepoRow(ctx, iter.tx, &row)
 	if err != nil {
-		return errors.Wrap(err, "list repo")
+		return errors.Wrap(err, "get project from repo row")
+	}
+	branches, err := getBranchesFromRepoRow(&row)
+	if err != nil {
+		return errors.Wrap(err, "get branches from repo row")
 	}
 	*dst = &pfs.RepoInfo{
 		Repo: &pfs.Repo{
@@ -122,6 +134,7 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 			Project: proj.Project,
 		},
 		Description: row.Description,
+		Branches:    branches,
 	}
 	iter.index++
 	return nil
@@ -144,9 +157,12 @@ func ListRepo(ctx context.Context, tx *pachsql.Tx) (*RepoIterator, error) {
 
 func listRepo(ctx context.Context, tx *pachsql.Tx, limit, offset int) ([]repoRow, error) {
 	var page []repoRow
-	if err := tx.SelectContext(ctx, &page, "SELECT name, type, project_id, description FROM pfs.repos ORDER BY id ASC LIMIT $1 OFFSET $2", limit, offset); err != nil {
+	if err := tx.SelectContext(ctx, &page, "SELECT repo.name, repo.type, repo.project_id, repo.description, "+
+		"array_agg(branch.proto) AS branches FROM pfs.repos repo "+
+		"JOIN core.projects project ON repo.project_id = project.id "+
+		"JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "+
+		"GROUP BY repo.id LIMIT $1 OFFSET $2;", limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get repo page")
-
 	}
 	return page, nil
 }
@@ -203,10 +219,15 @@ func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoName string) (*pfs.R
 	return getRepo(ctx, tx, "name", repoName)
 }
 
+// todo(fahad): rewrite branch related code during the branches migration.
+// todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
 func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.RepoInfo, error) {
 	row := &repoRow{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, type, project_id, description FROM pfs.repos WHERE %s = $1",
-		where), whereVal).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT repo.name, repo.type, repo.project_id, "+
+		"repo.description, array_agg(branch.proto) AS branches FROM pfs.repos repo "+
+		"JOIN core.projects project ON repo.project_id = project.id "+
+		"JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "+
+		"WHERE repo.%s = $1 GROUP BY repo.id;", where), whereVal).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
@@ -214,9 +235,16 @@ func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interfa
 			}
 			return nil, ErrRepoNotFound{ID: whereVal.(pachsql.ID)}
 		}
-		return nil, errors.Wrap(err, "get repo: scanning repo row")
+		return nil, errors.Wrap(err, "scanning repo row")
 	}
 	proj, err := getProjectFromRepoRow(ctx, tx, row)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting project from repo row")
+	}
+	branches, err := getBranchesFromRepoRow(row)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting branches from repo row")
+	}
 	repoInfo := &pfs.RepoInfo{
 		Repo: &pfs.Repo{
 			Name:    row.Name,
@@ -224,10 +252,12 @@ func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interfa
 			Project: proj.Project,
 		},
 		Description: row.Description,
+		Branches:    branches,
 	}
 	return repoInfo, nil
 }
 
+// todo(fahad): should this be a join too?
 func getProjectFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs.ProjectInfo, error) {
 	id, err := strconv.ParseUint(row.ProjectID, 10, 64)
 	if err != nil {
@@ -238,6 +268,27 @@ func getProjectFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*
 		return nil, errors.Wrap(err, "get project from repo row: get project")
 	}
 	return projInfo, nil
+}
+
+func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
+	if row == nil {
+		return nil, errors.Wrap(fmt.Errorf("repo row is nil"), "")
+	}
+	branches := make([]*pfs.Branch, 0)
+	// after aggregation, braces, quotes, and leading hex prefixes need to be removed from the encoded strings.
+	for _, branchStr := range strings.Split(strings.Trim(row.Branches, "{}"), ",") {
+		branchHex := strings.Trim(strings.Trim(branchStr, "\""), "\\\\x")
+		decodedString, err := hex.DecodeString(branchHex)
+		if err != nil {
+			return nil, errors.Wrap(err, "branch not hex encoded")
+		}
+		branchInfo := &pfs.BranchInfo{}
+		if err := proto.Unmarshal(decodedString, branchInfo); err != nil {
+			return nil, errors.Wrap(err, "error unmarshalling")
+		}
+		branches = append(branches, branchInfo.Branch)
+	}
+	return branches, nil
 }
 
 // UpsertRepo updates all fields of an existing repo entry in the pfs.repos table by name. If 'upsert' is set to true, UpsertRepo()
