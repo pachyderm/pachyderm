@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -54,7 +54,7 @@ func idRange(start int, end int) []string {
 
 func putItem(item *col.TestItem) func(rw col.ReadWriteCollection) error {
 	return func(rw col.ReadWriteCollection) error {
-		return errors.EnsureStack(rw.Put(item.ID, item))
+		return errors.EnsureStack(rw.Put(item.Id, item))
 	}
 }
 
@@ -94,9 +94,9 @@ func makeID(i int) string {
 // Helper function to instantiate the proto for a row by ID
 func makeProto(id string, value ...string) *col.TestItem {
 	if len(value) > 0 {
-		return &col.TestItem{ID: id, Value: value[0]}
+		return &col.TestItem{Id: id, Value: value[0]}
 	}
-	return &col.TestItem{ID: id, Value: changedValue}
+	return &col.TestItem{Id: id, Value: changedValue}
 }
 
 type RowDiff struct {
@@ -138,8 +138,8 @@ func checkDefaultCollection(t *testing.T, ro col.ReadOnlyCollection, diff RowDif
 }
 
 func checkItem(t *testing.T, item *col.TestItem, id string, value string) error {
-	if item.ID != id {
-		return errors.Errorf("Item has incorrect ID, expected: %s, actual: %s", id, item.ID)
+	if item.Id != id {
+		return errors.Errorf("Item has incorrect ID, expected: %s, actual: %s", id, item.Id)
 	}
 	if item.Value != value {
 		return errors.Errorf("Item has incorrect Value, expected: %s, actual: %s", value, item.Value)
@@ -151,8 +151,8 @@ func checkCollection(t *testing.T, ro col.ReadOnlyCollection, expected map[strin
 	testProto := &col.TestItem{}
 	actual := map[string]string{}
 	require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(id string) error {
-		require.Equal(t, id, testProto.ID)
-		actual[testProto.ID] = testProto.Value
+		require.Equal(t, id, testProto.Id)
+		actual[testProto.Id] = testProto.Value
 		return nil
 	}))
 
@@ -196,7 +196,7 @@ func collectionTests(
 				t.Parallel()
 				testProto := &col.TestItem{}
 				require.NoError(t, defaultRead.Get("5", testProto))
-				require.Equal(t, "5", testProto.ID)
+				require.Equal(t, "5", testProto.Id)
 			})
 		})
 
@@ -217,11 +217,11 @@ func collectionTests(
 				testProto := &col.TestItem{}
 				keys := []string{}
 				err := defaultRead.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
-					require.Equal(t, testProto.ID, key)
+					require.Equal(t, testProto.Id, key)
 					require.Equal(t, testProto.Value, originalValue)
 					keys = append(keys, key)
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
-					testProto.ID = ""
+					testProto.Id = ""
 					testProto.Value = ""
 					return nil
 				})
@@ -264,7 +264,7 @@ func collectionTests(
 				require.NoError(t, partitionedWriter(ctx, func(rw col.ReadWriteCollection) error {
 					for idxVal, ids := range expected {
 						for _, id := range ids {
-							testProto := &col.TestItem{ID: id, Value: idxVal}
+							testProto := &col.TestItem{Id: id, Value: idxVal}
 							if err := rw.Put(id, testProto); err != nil {
 								return errors.EnsureStack(err)
 							}
@@ -277,11 +277,11 @@ func collectionTests(
 					testProto := &col.TestItem{}
 					keys := []string{}
 					err := partitionedRead.GetByIndex(TestSecondaryIndex, idxVal, testProto, col.DefaultOptions(), func(key string) error {
-						require.Equal(t, testProto.ID, key)
+						require.Equal(t, testProto.Id, key)
 						require.Equal(t, testProto.Value, idxVal)
 						keys = append(keys, key)
 						// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
-						testProto.ID = ""
+						testProto.Id = ""
 						testProto.Value = ""
 						return nil
 					})
@@ -308,10 +308,10 @@ func collectionTests(
 				items := map[string]string{}
 				testProto := &col.TestItem{}
 				err := defaultRead.List(testProto, col.DefaultOptions(), func(key string) error {
-					require.Equal(t, testProto.ID, key)
-					items[testProto.ID] = testProto.Value
+					require.Equal(t, testProto.Id, key)
+					items[testProto.Id] = testProto.Value
 					// Clear testProto.ID and testProto.Value just to make sure they get overwritten each time
-					testProto.ID = ""
+					testProto.Id = ""
 					testProto.Value = ""
 					return nil
 				})
@@ -336,7 +336,7 @@ func collectionTests(
 						keys := []string{}
 						testProto := &col.TestItem{}
 						err := ro.List(testProto, &col.Options{Target: target, Order: order}, func(string) error {
-							keys = append(keys, testProto.ID)
+							keys = append(keys, testProto.Id)
 							return nil
 						})
 						require.NoError(t, err)
@@ -375,7 +375,7 @@ func collectionTests(
 					createKeys := []string{"0", "6", "7", "9", "3", "8", "4", "1", "2", "5"}
 					for _, k := range createKeys {
 						err := writer(ctx, func(rw col.ReadWriteCollection) error {
-							testProto := &col.TestItem{ID: k, Value: originalValue}
+							testProto := &col.TestItem{Id: k, Value: originalValue}
 							return errors.EnsureStack(rw.Create(k, testProto))
 						})
 						require.NoError(t, err)
@@ -526,7 +526,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(newID)
-					return errors.EnsureStack(rw.Create(testProto.ID, testProto))
+					return errors.EnsureStack(rw.Create(testProto.Id, testProto))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
@@ -538,7 +538,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
-					return errors.EnsureStack(rw.Create(testProto.ID, testProto))
+					return errors.EnsureStack(rw.Create(testProto.Id, testProto))
 				})
 				require.YesError(t, err)
 				require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
@@ -554,11 +554,11 @@ func collectionTests(
 					overwriteID := makeID(6)
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
 						testProto := makeProto(newID)
-						if err := rw.Create(testProto.ID, testProto); err != nil {
+						if err := rw.Create(testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						testProto = makeProto(overwriteID)
-						return errors.EnsureStack(rw.Create(testProto.ID, testProto))
+						return errors.EnsureStack(rw.Create(testProto.Id, testProto))
 					})
 					require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
 					require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: overwriteID}), "Incorrect error: %v", err)
@@ -568,7 +568,7 @@ func collectionTests(
 					t.Parallel()
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
 						testProto := makeProto(makeID(10))
-						if err := rw.Create(testProto.ID, testProto); err != nil {
+						if err := rw.Create(testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						return &TestError{}
@@ -583,13 +583,13 @@ func collectionTests(
 					readOnly, writer := initCollection(ctx, t, newCollection)
 					err := writer(ctx, func(rw col.ReadWriteCollection) error {
 						testProto := makeProto(overwriteID)
-						if err := rw.Create(testProto.ID, testProto); err == nil {
+						if err := rw.Create(testProto.Id, testProto); err == nil {
 							return errors.New("Expected col.ErrExists, but got no error")
 						} else if !col.IsErrExists(err) {
 							return errors.EnsureStack(err)
 						}
 						testProto = makeProto(newID)
-						return errors.EnsureStack(rw.Create(testProto.ID, testProto))
+						return errors.EnsureStack(rw.Create(testProto.Id, testProto))
 					})
 					require.NoError(t, err)
 					checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
@@ -605,7 +605,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(newID)
-					return errors.EnsureStack(rw.Put(testProto.ID, testProto))
+					return errors.EnsureStack(rw.Put(testProto.Id, testProto))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
@@ -617,7 +617,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
-					return errors.EnsureStack(rw.Put(testProto.ID, testProto))
+					return errors.EnsureStack(rw.Put(testProto.Id, testProto))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Changed: []string{overwriteID}})
@@ -629,11 +629,11 @@ func collectionTests(
 					t.Parallel()
 					err := testRollback(t, func(rw col.ReadWriteCollection) error {
 						testProto := makeProto(makeID(10))
-						if err := rw.Put(testProto.ID, testProto); err != nil {
+						if err := rw.Put(testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						testProto = makeProto(makeID(8))
-						if err := rw.Put(testProto.ID, testProto); err != nil {
+						if err := rw.Put(testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						return &TestError{}
@@ -767,13 +767,13 @@ func collectionTests(
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return errors.EnsureStack(rw.Upsert(newID, testProto, func() error {
-						if testProto.ID != "" {
-							return errors.Errorf("Upsert of new row modified the ID, new value: %s", testProto.ID)
+						if testProto.Id != "" {
+							return errors.Errorf("Upsert of new row modified the ID, new value: %s", testProto.Id)
 						}
 						if testProto.Value != "" {
 							return errors.Errorf("Upsert of new row modified the Value, new value: %s", testProto.Value)
 						}
-						testProto.ID = newID
+						testProto.Id = newID
 						testProto.Value = changedValue
 						return nil
 					}))
@@ -804,8 +804,8 @@ func collectionTests(
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					err := rw.Upsert(overwriteID, testProto, func() error {
-						if testProto.ID != overwriteID {
-							return errors.Errorf("Upsert of existing row does not pass through the ID, expected: %s, actual: %s", overwriteID, testProto.ID)
+						if testProto.Id != overwriteID {
+							return errors.Errorf("Upsert of existing row does not pass through the ID, expected: %s, actual: %s", overwriteID, testProto.Id)
 						}
 						if testProto.Value != originalValue {
 							return errors.Errorf("Upsert of existing row does not pass through the value, expected: %s, actual: %s", originalValue, testProto.Value)

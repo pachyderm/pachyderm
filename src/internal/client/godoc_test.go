@@ -337,7 +337,7 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	if err := c.CreateBranch("default", "test", "new-branch", "", cis[1].Commit.ID, nil); err != nil {
+	if err := c.CreateBranch("default", "test", "new-branch", "", cis[1].Commit.Id, nil); err != nil {
 		panic(err)
 	}
 

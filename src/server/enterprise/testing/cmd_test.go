@@ -307,9 +307,9 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl enterprise sync-contexts
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\""
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
-		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"grpc://pachd.default:1655\""
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\":[[:space:]]+\"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\":[[:space:]]+\"IMPORTED\","
 		`,
 		"id", id,
 		"clusterId", clusterId,
@@ -320,7 +320,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license update-cluster --id {{.id}} --user-address {{.userAddress}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"{{.userAddress}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -335,8 +335,8 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"{{.userAddress}}\""
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\":[[:space:]]+\"{{.clusterId}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -364,7 +364,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		ClientVersion: version.Version,
 	})
 	require.NoError(t, inspectErr)
-	clusterId := clusterInfo.DeploymentID
+	clusterId := clusterInfo.DeploymentId
 
 	host := c.GetAddress().Host
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -377,9 +377,9 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		pachctl enterprise sync-contexts
 
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.list_pach_address}}"
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
-		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"{{.list_pach_address}}"
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\":[[:space:]]+\"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\":[[:space:]]+\"IMPORTED\","
 		`,
 		"id", id,
 		"enterprise_token", enterpriseRootToken,

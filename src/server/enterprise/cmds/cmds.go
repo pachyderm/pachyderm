@@ -12,8 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-
-	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 )
 
@@ -94,7 +92,7 @@ func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 				if inspectErr != nil {
 					return errors.Wrapf(inspectErr, "could not inspect cluster")
 				}
-				clusterId = clusterInfo.DeploymentID
+				clusterId = clusterInfo.DeploymentId
 			}
 
 			enterpriseServer, err := getIsActiveContextEnterpriseServer()
@@ -171,11 +169,7 @@ func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 				fmt.Println("No Pachyderm Enterprise token was found")
 				return nil
 			}
-			ts, err := types.TimestampFromProto(resp.Info.Expires)
-			if err != nil {
-				return errors.Wrapf(err, "activation request succeeded, but could not "+
-					"convert token expiration time to a timestamp")
-			}
+			ts := resp.Info.Expires.AsTime()
 			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\n",
 				resp.State.String(), ts.String())
 			return nil
@@ -210,15 +204,15 @@ func SyncContextsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Com
 			for _, cluster := range resp.Clusters {
 				if context, ok := cfg.V2.Contexts[cluster.Id]; ok {
 					// reset the session token if the context is pointing to a new cluster deployment
-					if cluster.ClusterDeploymentId != context.ClusterDeploymentID {
-						context.ClusterDeploymentID = cluster.ClusterDeploymentId
+					if cluster.ClusterDeploymentId != context.ClusterDeploymentId {
+						context.ClusterDeploymentId = cluster.ClusterDeploymentId
 						context.SessionToken = ""
 					}
 					context.PachdAddress = cluster.Address
 					context.EnterpriseServer = cluster.EnterpriseServer
 				} else {
 					cfg.V2.Contexts[cluster.Id] = &config.Context{
-						ClusterDeploymentID: cluster.ClusterDeploymentId,
+						ClusterDeploymentId: cluster.ClusterDeploymentId,
 						PachdAddress:        cluster.Address,
 						Source:              config.ContextSource_IMPORTED,
 						EnterpriseServer:    cluster.EnterpriseServer,

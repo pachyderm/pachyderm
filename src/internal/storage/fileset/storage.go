@@ -139,7 +139,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 // other than ensuring that they exist.
 func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var result *ID
-	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		result, err = s.ComposeTx(tx, ids, ttl)
 		return err
@@ -369,7 +369,7 @@ func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {
 	var result *ID
-	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		result, err = s.newPrimitiveTx(tx, prim, ttl)
 		return err
@@ -401,7 +401,7 @@ func (s *Storage) newPrimitiveTx(tx *pachsql.Tx, prim *Primitive, ttl time.Durat
 
 func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Duration) (*ID, error) {
 	var result *ID
-	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		result, err = s.newCompositeTx(tx, comp, ttl)
 		return err

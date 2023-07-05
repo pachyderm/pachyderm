@@ -8,8 +8,6 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-import "gogoproto/gogo.proto";
-
 import "pfs/pfs.proto";
 
 import "task/task.proto";
@@ -45,7 +43,7 @@ message TFJob {
   // tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly
   // to a kubernetes cluster on which kubeflow has been installed, instead of
   // creating a pipeline ReplicationController as it normally would.
-  string tf_job = 1 [(gogoproto.customname) = "TFJob"];
+  string tf_job = 1;
 }
 
 message Egress {
@@ -58,7 +56,7 @@ message Egress {
 
 message Job {
   Pipeline pipeline = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
 }
 
 enum JobState {
@@ -82,7 +80,7 @@ message Metadata {
 message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
-  string ip = 3 [(gogoproto.customname) = "IP"];
+  string ip = 3;
   string type = 4;
 }
 
@@ -165,7 +163,7 @@ message InputFile {
 message Datum {
   // ID is the hash computed from all the files
   Job job = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
 }
 
 enum DatumState {
@@ -211,8 +209,8 @@ message AggregateProcessStats {
 }
 
 message WorkerStatus {
-  string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  string worker_id = 1;
+  string job_id = 2;
   DatumStatus datum_status = 3;
 }
 
@@ -421,7 +419,7 @@ message PipelineInfo {
     // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
     // when running in a kubernetes cluster on which kubeflow has been installed.
     // Exactly one of 'tf_job' and 'transform' should be set
-    TFJob tf_job = 2 [(gogoproto.customname) = "TFJob"];
+    TFJob tf_job = 2;
     ParallelismSpec parallelism_spec = 3;
     Egress egress = 4;
     google.protobuf.Timestamp created_at = 5;
@@ -459,6 +457,7 @@ message PipelineInfo {
     ResourceSpec sidecar_resource_requests = 35;
   }
   Details details = 12;
+  string details_json = 13;
 }
 
 message PipelineInfos {
@@ -466,7 +465,7 @@ message PipelineInfos {
 }
 
 message JobSet {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }
 
 message InspectJobSetRequest {
@@ -603,9 +602,9 @@ message LogMessage {
   // is an orphan job, pipeline name and ID will be unset)
   string project_name = 10;
   string pipeline_name = 1;
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
-  string worker_id = 3 [(gogoproto.customname) = "WorkerID"];
-  string datum_id = 4 [(gogoproto.customname) = "DatumID"];
+  string job_id = 2;
+  string worker_id = 3;
+  string datum_id = 4;
   bool master = 5;
 
   // The PFS files being processed (one per pipeline/job input)
@@ -677,7 +676,7 @@ message CreatePipelineRequest {
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
   // Exactly one of 'tf_job' and 'transform' should be set
-  TFJob tf_job = 2 [(gogoproto.customname) = "TFJob"];
+  TFJob tf_job = 2;
   Transform transform = 3;
   ParallelismSpec parallelism_spec = 4;
   Egress egress = 5;
@@ -713,6 +712,12 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
+  string details_json = 36;
+  bool dry_run = 37;
+}
+
+message CreatePipelineResponse {
+  string details_json = 1;
 }
 
 message InspectPipelineRequest {
@@ -752,7 +757,7 @@ message ListPipelineRequest {
 // pipelines in the default project.
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
-  bool all = 2 [deprecated = true];
+  bool all = 2 [deprecated = true]; // Deprecated.
   bool force = 3;
   bool keep_repo = 4;
 }
@@ -784,7 +789,7 @@ message StopPipelineRequest {
 message RunPipelineRequest {
   Pipeline pipeline = 1;
   repeated pfs_v2.Commit provenance = 2;
-  string job_id = 3 [(gogoproto.customname) = "JobID"];
+  string job_id = 3;
 }
 
 message RunCronRequest {
@@ -851,6 +856,30 @@ message LokiRequest {
 
 message LokiLogMessage {
   string message = 1;
+}
+
+message ClusterDefaults {
+  string details_json = 1;
+  string effective_details_json = 2;
+}
+
+
+message GetClusterDefaultsRequest {}
+
+message GetClusterDefaultsResponse {
+  ClusterDefaults cluster_defaults = 1;
+}
+
+message SetClusterDefaultsRequest {
+  ClusterDefaults cluster_defaults = 1;
+  bool regenerate = 2;
+  bool reprocess = 3; // must be false if regenerate is false
+  bool dry_run = 4;
+}
+
+message SetClusterDefaultsResponse {
+  string effective_details_json = 1;
+  repeated Pipeline affected_pipelines = 2;
 }
 
 service API {

@@ -1,8 +1,6 @@
 #!/bin/bash
 set -ex
 
-export GOGO_PROTO_VERSION="v1.3.2"
-
 tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 
 # Make sure the proto compiler is reasonably up-to-date so that our compiled
@@ -28,19 +26,11 @@ for i in $(find src -name "*.proto"); do \
         echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
     fi
     protoc \
-        "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
         -Isrc \
         --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
         --zap_out=":${GOPATH}/src" \
-        --gogofast_out=plugins=grpc,\
-Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
-Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\
-Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types,\
-":${GOPATH}/src" \
+        --go_out=":${GOPATH}/src" \
+        --go-grpc_out=":${GOPATH}/src" \
     "${i}" >/dev/stderr
 done
 
@@ -49,7 +39,6 @@ read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
 protoc \
     --proto_path . \
     --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
-    "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
     --pach_out="../v2/src" \
     "${proto_files[@]}" > /dev/stderr
 

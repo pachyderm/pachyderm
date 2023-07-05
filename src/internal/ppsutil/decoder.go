@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"gopkg.in/yaml.v3"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -42,19 +44,11 @@ func (r *PipelineManifestReader) DisableValidation() *PipelineManifestReader {
 
 type unvalidatedCreatePipelineRequest ppsclient.CreatePipelineRequest
 
-// Reset implements proto.Message.
-func (ucpr *unvalidatedCreatePipelineRequest) Reset() {
-	(*ppsclient.CreatePipelineRequest)(ucpr).Reset()
-}
+var _ proto.Message = new(unvalidatedCreatePipelineRequest)
 
-// String implements proto.Message.
-func (ucpr *unvalidatedCreatePipelineRequest) String() string {
-	return (*ppsclient.CreatePipelineRequest)(ucpr).String()
-}
-
-// ProtoMessage implements proto.Message.
-func (ucpr *unvalidatedCreatePipelineRequest) ProtoMessage() {
-	(*ppsclient.CreatePipelineRequest)(ucpr).ProtoMessage()
+// ProtoReflect implements proto.Message.
+func (ucpr *unvalidatedCreatePipelineRequest) ProtoReflect() protoreflect.Message {
+	return (*ppsclient.CreatePipelineRequest)(ucpr).ProtoReflect()
 }
 
 func (r *PipelineManifestReader) convertRequest(request interface{}) (*ppsclient.CreatePipelineRequest, error) {

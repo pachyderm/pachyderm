@@ -5,9 +5,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -229,10 +230,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	if err != nil {
 		return err
 	}
-	prev, err := types.TimestampFromProto(ci.Started)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
+	prev := protoutil.MustTime(ci.Started)
 	for {
 		next := schedule.Next(prev)
 		if next.IsZero() {
@@ -300,7 +298,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 					return d.finalizeCommit(ctx, commit, "", nil, nil)
 				}
 				compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, cache)
+				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, cache)
 				return errors.EnsureStack(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 					start := time.Now()
 					// Compacting the diff before getting the total allows us to compose the
@@ -320,7 +318,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 						return err
 					}
 					details := &pfs.CommitInfo_Details{
-						CompactingTime: types.DurationProto(time.Since(start)),
+						CompactingTime: durationpb.New(time.Since(start)),
 					}
 					// Validate the commit.
 					start = time.Now()
@@ -332,7 +330,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 					}); err != nil {
 						return err
 					}
-					details.ValidatingTime = types.DurationProto(time.Since(start))
+					details.ValidatingTime = durationpb.New(time.Since(start))
 					// Finish the commit.
 					return d.finalizeCommit(ctx, commit, validationError, details, totalId)
 				}))

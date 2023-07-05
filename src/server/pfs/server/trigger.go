@@ -4,8 +4,7 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -71,8 +70,8 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 			result = result || cond
 		}
 	}
-	if t.Size_ != "" {
-		size, err := units.FromHumanSize(t.Size_)
+	if t.Size != "" {
+		size, err := units.FromHumanSize(t.Size)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
@@ -92,16 +91,10 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 		var oldTime, newTime time.Time
 		if oldHead != nil && oldHead.Finishing != nil {
-			oldTime, err = types.TimestampFromProto(oldHead.Finishing)
-			if err != nil {
-				return false, errors.EnsureStack(err)
-			}
+			oldTime = oldHead.Finishing.AsTime()
 		}
 		if newHead.Finishing != nil {
-			newTime, err = types.TimestampFromProto(newHead.Finishing)
-			if err != nil {
-				return false, errors.EnsureStack(err)
-			}
+			newTime = newHead.Finishing.AsTime()
 		}
 		merge(schedule.Next(oldTime).Before(newTime))
 	}
@@ -110,7 +103,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		var commits int64
 		for commits < t.Commits {
 			commits++
-			if ci.ParentCommit != nil && oldHead.Commit.ID != ci.ParentCommit.ID {
+			if ci.ParentCommit != nil && oldHead.Commit.Id != ci.ParentCommit.Id {
 				var err error
 				ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
 				if err != nil {
@@ -139,7 +132,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if _, err := cronutil.ParseCronExpression(trigger.RateLimitSpec); trigger.RateLimitSpec != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger rate limit spec")
 	}
-	if _, err := units.FromHumanSize(trigger.Size_); trigger.Size_ != "" && err != nil {
+	if _, err := units.FromHumanSize(trigger.Size); trigger.Size != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger size")
 	}
 	if trigger.Commits < 0 {

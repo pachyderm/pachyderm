@@ -3,13 +3,13 @@ package server
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // TODO: Block tmp repo writes.
@@ -105,7 +105,7 @@ func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.A
 	return a.apiServer.GlobFile(request, server)
 }
 
-func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
+func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*emptypb.Empty, error) {
 	if err := checkCommit(req.Commit); err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (a *validatedAPIServer) ListCommit(req *pfs.ListCommitRequest, respServer p
 	return a.apiServer.ListCommit(req, respServer)
 }
 
-func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (*types.Empty, error) {
+func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (*emptypb.Empty, error) {
 	if request.CommitSet == nil {
 		return nil, errors.New("commitset cannot be nil")
 	}
@@ -202,7 +202,7 @@ func (a *validatedAPIServer) DiffFile(request *pfs.DiffFileRequest, server pfs.A
 	return a.apiServer.DiffFile(request, server)
 }
 
-func (a *validatedAPIServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
+func (a *validatedAPIServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *emptypb.Empty, retErr error) {
 	if err := checkCommit(req.Commit); err != nil {
 		return nil, err
 	}

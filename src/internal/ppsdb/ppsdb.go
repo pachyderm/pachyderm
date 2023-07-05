@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	pipelinesCollectionName = "pipelines"
-	jobsCollectionName      = "jobs"
+	pipelinesCollectionName       = "pipelines"
+	jobsCollectionName            = "jobs"
+	clusterDefaultsCollectionName = "cluster_defaults"
 )
 
 // PipelinesVersionIndex records the version numbers of pipelines
@@ -82,9 +83,9 @@ func pipelineCommitKey(commit *pfs.Commit) (string, error) {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
 	if projectName := commit.Repo.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s@%s", projectName, commit.Repo.Name, commit.ID), nil
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Repo.Name, commit.Id), nil
 	}
-	return fmt.Sprintf("%s@%s", commit.Repo.Name, commit.ID), nil
+	return fmt.Sprintf("%s@%s", commit.Repo.Name, commit.Id), nil
 }
 
 // Pipelines returns a PostgresCollection of pipelines
@@ -135,7 +136,7 @@ var JobsTerminalIndex = &col.Index{
 var JobsJobSetIndex = &col.Index{
 	Name: "jobset",
 	Extract: func(val proto.Message) string {
-		return val.(*pps.JobInfo).Job.ID
+		return val.(*pps.JobInfo).Job.Id
 	},
 }
 
@@ -145,7 +146,7 @@ var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetI
 // key.  It will include the project if the project name is not the empty
 // string.
 func JobKey(j *pps.Job) string {
-	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)
+	return fmt.Sprintf("%s@%s", j.Pipeline, j.Id)
 }
 
 // Jobs returns a PostgresCollection of Jobs
@@ -159,6 +160,18 @@ func Jobs(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection 
 	)
 }
 
+// ClusterDefaults returns a PostgresCollection of cluster defaults.  Note that
+// this is a singleton table.
+func ClusterDefaults(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		clusterDefaultsCollectionName,
+		db,
+		listener,
+		&pps.ClusterDefaults{},
+		nil,
+	)
+}
+
 // CollectionsV0 returns a list of all the PPS API collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
@@ -168,5 +181,16 @@ func CollectionsV0() []col.PostgresCollection {
 	return []col.PostgresCollection{
 		col.NewPostgresCollection(pipelinesCollectionName, nil, nil, nil, pipelinesIndexes),
 		col.NewPostgresCollection(jobsCollectionName, nil, nil, nil, jobsIndexes),
+	}
+}
+
+// CollectionsV2_7_0 returns a list of collections for postgres-initialization
+// purposes.  These collections are not usable for querying.
+//
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CollectionsV2_7_0() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(clusterDefaultsCollectionName, nil, nil, nil, nil),
 	}
 }

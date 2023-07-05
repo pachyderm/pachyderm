@@ -3,16 +3,17 @@ package server
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type apiServer struct {
+	transaction.UnimplementedAPIServer
+
 	driver *driver
 }
 
@@ -42,13 +43,13 @@ func (a *apiServer) InspectTransaction(ctx context.Context, request *transaction
 	return a.driver.inspectTransaction(ctx, request.Transaction)
 }
 
-func (a *apiServer) DeleteTransaction(ctx context.Context, request *transaction.DeleteTransactionRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteTransaction(ctx context.Context, request *transaction.DeleteTransactionRequest) (response *emptypb.Empty, retErr error) {
 	err := a.driver.deleteTransaction(ctx, request.Transaction)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) ListTransaction(ctx context.Context, request *transaction.ListTransactionRequest) (response *transaction.TransactionInfos, retErr error) {
@@ -63,14 +64,14 @@ func (a *apiServer) FinishTransaction(ctx context.Context, request *transaction.
 	return a.driver.finishTransaction(ctx, request.Transaction)
 }
 
-func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAllRequest) (response *types.Empty, retErr error) {
-	if err := dbutil.WithTx(ctx, a.driver.db, func(sqlTx *pachsql.Tx) error {
+func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAllRequest) (response *emptypb.Empty, retErr error) {
+	if err := dbutil.WithTx(ctx, a.driver.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return a.driver.deleteAll(ctx, sqlTx, nil)
 	}); err != nil {
 		return nil, err
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // AppendRequest is not an RPC, but is called from other systems in pachd to
