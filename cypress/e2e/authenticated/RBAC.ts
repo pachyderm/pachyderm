@@ -519,6 +519,10 @@ describe('Repo / Pipeline table and DAG view', () => {
 });
 
 describe('Project roles modal', () => {
+  after(() => {
+    cy.exec('pachctl auth set cluster none user:inherited@user.com');
+  });
+
   it('should allow users to add roles from the input form', () => {
     cy.multiLineExec(`
         echo "pizza" | pachctl auth use-auth-token
@@ -681,7 +685,7 @@ describe('Project roles modal', () => {
     }).click();
 
     // filter down to a specific user
-    cy.findAllByRole('row').should('have.length', 6);
+    cy.findAllByRole('row').should('have.length', 4);
     cy.findByRole('button', {name: /open users search/i}).click();
     cy.findByRole('searchbox').type('inherit');
     cy.findAllByRole('row').should('have.length', 2);
@@ -826,7 +830,7 @@ describe('Project roles modal', () => {
       });
   });
 
-  it('show show a read-only roles modal for users without projectOwner', () => {
+  it('should show a read-only roles modal for users without projectOwner', () => {
     cy.multiLineExec(`
         echo "pizza" | pachctl auth use-auth-token
         pachctl create project read
@@ -846,16 +850,6 @@ describe('Project roles modal', () => {
     // validate content
     cy.findByText('You need at least projectOwner to edit roles');
 
-    cy.findByRole('cell', {
-      name: /internal:auth-server/i,
-    });
-    cy.findByRole('cell', {
-      name: /pach:root/i,
-    })
-      .parent()
-      .within(() => {
-        cy.contains('projectOwner').should('exist');
-      });
     cy.findByRole('cell', {
       name: /user:kilgore@kilgore.trout/i,
     })
@@ -924,5 +918,39 @@ describe('Project roles modal', () => {
     cy.findByRole('menuitem', {
       name: /view project roles/i,
     }).should('exist');
+  });
+
+  it('should filter out unwanted user types and ignored roles', () => {
+    cy.multiLineExec(`
+        echo "pizza" | pachctl auth use-auth-token
+        pachctl create project secret
+        pachctl auth set cluster projectOwner allClusterUsers
+        pachctl auth set cluster none user:kilgore@kilgore.trout
+        pachctl auth set cluster secretAdmin user:secretAdmin
+      `);
+
+    cy.login();
+    cy.findByRole('button', {
+      name: /secret overflow menu/i,
+    }).click();
+    cy.findByRole('menuitem', {
+      name: /project roles/i,
+    }).click();
+
+    cy.findByRole('cell', {
+      name: /allclusterusers/i,
+    }).should('exist');
+
+    cy.findByRole('cell', {
+      name: /pach:root/i,
+    }).should('not.exist');
+
+    cy.findByRole('cell', {
+      name: /internal:auth-server/i,
+    }).should('not.exist');
+
+    cy.findByRole('cell', {
+      name: /user:secretAdmin/i,
+    }).should('not.exist');
   });
 });

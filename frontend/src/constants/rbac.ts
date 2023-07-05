@@ -24,3 +24,10 @@ export const IGNORED_CLUSTER_ROLES = [
   'robotUser ',
   'pachdLogReader',
 ];
+
+export const ALLOWED_PRINCIPAL_TYPES = [
+  'user',
+  'group',
+  'robot',
+  'allClusterUsers',
+];

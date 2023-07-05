@@ -1,17 +1,24 @@
 import {GetRolesQuery, Permission, ResourceType} from '@graphqlTypes';
 
+import {ALLOWED_PRINCIPAL_TYPES} from '@dash-frontend/constants/rbac';
 import {GET_AUTHORIZE} from '@dash-frontend/queries/GetAuthorize';
 
 import {Principal, Roles, UserTableRoles} from '../hooks/useRolesModal';
 
-// create mapping of Record<string, string[]> for {principal: roles[]}, filtering out ignored roles
+// create mapping of Record<string, string[]> for {principal: roles[]},
+// filtering out ignored roles and principals
 export const reduceAndFilterRoleBindings = (
   roles: GetRolesQuery['getRoles'],
   roleFilter?: (role: string | null) => boolean,
 ) => {
   const a = roles?.roleBindings?.reduce(
     (acc: Record<string, string[]>, role) => {
-      if (role) {
+      const principalType = role?.principal.split(':')[0];
+      if (
+        role &&
+        principalType &&
+        ALLOWED_PRINCIPAL_TYPES.includes(principalType)
+      ) {
         let filteredRoles = role.roles;
         if (roleFilter) {
           filteredRoles = filteredRoles.filter(roleFilter);
