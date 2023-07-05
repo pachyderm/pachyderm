@@ -1,5 +1,6 @@
 {{- if .Values.determined.db.hostAddress }}
 {{ else }}
+{{- if .Values.determined.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -60,5 +61,6 @@ spec:
         - name: determined-db-storage
           persistentVolumeClaim:
             claimName: determined-db-pvc-{{ .Release.Name }}
+            {{ end }}
       {{ end }}
 {{ end}}

@@ -1,3 +1,4 @@
+{{- if .Values.determined.enabled }}
 {{- if .Values.determined.db.hostAddress }}
 {{ else}}
 apiVersion: v1
@@ -15,4 +16,5 @@ spec:
   type: {{ if (.Values.determined.db.useNodePortForDB | default false) }}NodePort{{ else }}ClusterIP{{ end }}
   selector:
     app: determined-db-{{ .Release.Name }}
+{{ end }}
 {{ end }}

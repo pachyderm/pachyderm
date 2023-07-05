@@ -1,3 +1,4 @@
+{{- if .Values.determined.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,3 +15,4 @@ spec:
   type: {{ if (.Values.determined.useNodePortForMaster | default false) }}NodePort{{ else }}LoadBalancer{{ end }}
   selector:
     app: determined-master-{{ .Release.Name }}
+{{- end }}

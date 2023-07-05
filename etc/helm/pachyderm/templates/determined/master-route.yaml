@@ -1,3 +1,4 @@
+{{- if .Values.determined.enabled }}
 {{- if .Values.determined.openshiftRoute }}
 {{- if .Values.determined.openshiftRoute.enabled }}
 apiVersion: route.openshift.io/v1
@@ -19,5 +20,6 @@ spec:
     name: determined-master-service-{{ .Release.Name }}
     weight: 100
   wildcardPolicy: None
+{{- end }}
 {{- end }}
 {{- end }}

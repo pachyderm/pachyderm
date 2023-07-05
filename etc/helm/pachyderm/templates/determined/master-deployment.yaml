@@ -1,3 +1,4 @@
+{{- if .Values.determined.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -103,3 +104,4 @@ spec:
             secretName: {{ required  "A valid Values.db.certResourceName entry is required!" .Values.determined.db.certResourceName }}
           {{- end }}
         {{ end }}
+{{- end }}
