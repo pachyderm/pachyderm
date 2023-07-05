@@ -583,17 +583,26 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrapf(err, "could not migrate branch %q", branchKey(bi.Branch))
 		}
 	}
-	// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
-	log.Info(ctx, "removing branch from internal keys (this can be an expensive operation)")
+	return branchlessCommitKeysPFS(ctx, tx)
+}
+
+// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
+func branchlessCommitKeysPFS(ctx context.Context, tx *pachsql.Tx) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "branchlessCommitKeysPFS")
+	defer end(log.Errorp(&retErr))
+	log.Info(ctx, "removing branch from pfs.commits")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrapf(err, "update pfs.commits to branchless commit ids")
 	}
+	log.Info(ctx, "removing branch from pfs.commit_totals")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_totals to branchless commit ids")
 	}
+	log.Info(ctx, "removing branch from pfs.commit_diffs")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_diffs to branchless commits ids")
 	}
+	log.Info(ctx, "removing branch from storage.tracker_objects")
 	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '@(.+)=', '@') WHERE str_id LIKE 'commit/%';`); err != nil {
 		return errors.Wrap(err, "update storage.tracker_objects to branchless commit ids")
 	}
