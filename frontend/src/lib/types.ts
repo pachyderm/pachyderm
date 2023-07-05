@@ -1,4 +1,4 @@
-import {NodeState, NodeType} from '@graphqlTypes';
+import {NodeState, NodeType, JobState, PipelineState} from '@graphqlTypes';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 import {CSSProperties} from 'react';
 
@@ -49,8 +49,10 @@ export type Node = {
   type: NodeType;
   x: number;
   y: number;
-  state?: NodeState;
-  jobState?: NodeState;
+  state?: PipelineState;
+  jobState?: JobState;
+  nodeState?: NodeState;
+  jobNodeState?: NodeState;
   access: boolean;
 };
 

@@ -6,10 +6,12 @@ export const GET_DAGS_QUERY = gql`
       id
       name
       state
+      nodeState
       access
       parents
       type
       jobState
+      jobNodeState
       createdAt
     }
   }

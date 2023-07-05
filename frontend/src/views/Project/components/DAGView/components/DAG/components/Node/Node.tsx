@@ -23,7 +23,7 @@ import useNode from './hooks/useNode';
 import styles from './Node.module.css';
 
 interface NodeIconProps extends SVGProps<SVGSVGElement> {
-  state: GraphQLNode['state'];
+  state: GraphQLNode['nodeState'];
 }
 
 const NodeStateIcon = ({state, ...rest}: NodeIconProps) => {
@@ -158,8 +158,10 @@ const Node: React.FC<NodeProps> = ({
   }
 
   const visiblePipelineStatus =
-    node.state &&
-    [NodeState.BUSY, NodeState.ERROR, NodeState.PAUSED].includes(node.state);
+    node.nodeState &&
+    [NodeState.BUSY, NodeState.ERROR, NodeState.PAUSED].includes(
+      node.nodeState,
+    );
 
   return (
     <g id={groupName} transform={`translate (${node.x}, ${node.y})`}>
@@ -168,16 +170,16 @@ const Node: React.FC<NodeProps> = ({
         height={nodeHeight}
         className={classNames(styles.node, {
           [styles.pipelineSimplifiedBox]:
-            showSimple && node.jobState !== NodeState.ERROR,
+            showSimple && node.jobNodeState !== NodeState.ERROR,
           [styles.pipelineSimplifiedBoxError]:
-            showSimple && node.jobState === NodeState.ERROR,
+            showSimple && node.jobNodeState === NodeState.ERROR,
         })}
         rx={showSimple ? 20 : 3}
         ry={showSimple ? 20 : 3}
       />
-      {hideDetails && !showSimple && node.jobState === NodeState.ERROR && (
+      {hideDetails && !showSimple && node.jobNodeState === NodeState.ERROR && (
         <g transform="scale (1.75)">
-          <NodeStateIcon state={node.jobState} x={45} y={17} />
+          <NodeStateIcon state={node.jobNodeState} x={45} y={17} />
           <JobsSVG x={70} y={17} />
         </g>
       )}
@@ -197,7 +199,7 @@ const Node: React.FC<NodeProps> = ({
               role="button"
               aria-label={`${groupName} status`}
               id="pipelineStatusGroup"
-              data-testid={`Node__state-${node.state}`}
+              data-testid={`Node__state-${node.nodeState}`}
               transform={`translate (${
                 nodeWidth - NODE_ICON_X_OFFSET - 8
               }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
@@ -211,17 +213,17 @@ const Node: React.FC<NodeProps> = ({
                 rx={8}
                 ry={8}
               />
-              <NodeStateIcon state={node.state} x={10} y={6} />
+              <NodeStateIcon state={node.nodeState} x={10} y={6} />
               <PipelineSVG x={42} y={6} />
             </g>
           )}
 
-          {node.jobState !== NodeState.IDLE && (
+          {node.jobNodeState !== NodeState.IDLE && (
             <g
               role="button"
               aria-label={`${groupName} logs`}
               id="jobStatusGroup"
-              data-testid={`Node__state-${node.jobState}`}
+              data-testid={`Node__state-${node.jobNodeState}`}
               transform={`translate (${
                 nodeWidth - NODE_ICON_X_OFFSET / 2 - 4
               }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
@@ -235,7 +237,7 @@ const Node: React.FC<NodeProps> = ({
                 rx={8}
                 ry={8}
               />
-              <NodeStateIcon state={node.jobState} x={10} y={6} />
+              <NodeStateIcon state={node.jobNodeState} x={10} y={6} />
               <JobsSVG x={42} y={6} />
             </g>
           )}

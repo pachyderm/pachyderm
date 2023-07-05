@@ -1336,10 +1336,12 @@ export const GetDagDocument = gql`
       id
       name
       state
+      nodeState
       access
       parents
       type
       jobState
+      jobNodeState
       createdAt
     }
   }
@@ -1397,10 +1399,12 @@ export const GetDagsDocument = gql`
       id
       name
       state
+      nodeState
       access
       parents
       type
       jobState
+      jobNodeState
       createdAt
     }
   }

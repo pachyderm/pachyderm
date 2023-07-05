@@ -59,11 +59,11 @@ const normalizeDAGData = async (
         id: objectHash({node: vertex, parentName}),
         sources: [parentName],
         targets: [vertex.id],
-        state: parentVertex?.jobState || undefined,
-        sourceState: parentVertex?.state || undefined,
-        targetState: vertex.state || undefined,
+        state: parentVertex?.jobNodeState || undefined,
+        sourceState: parentVertex?.nodeState || undefined,
+        targetState: vertex.nodeState || undefined,
         sections: [],
-        transferring: vertex.jobState === NodeState.RUNNING,
+        transferring: vertex.jobNodeState === NodeState.RUNNING,
       });
     }
   }
@@ -75,6 +75,8 @@ const normalizeDAGData = async (
     type: node.type,
     state: node.state || undefined,
     jobState: node.jobState || undefined,
+    nodeState: node.nodeState || undefined,
+    jobNodeState: node.jobNodeState || undefined,
     access: node.access,
     x: 0,
     y: 0,
@@ -135,6 +137,8 @@ const normalizeDAGData = async (
     type: node.type,
     state: node.state,
     jobState: node.jobState,
+    nodeState: node.nodeState,
+    jobNodeState: node.jobNodeState,
     access: node.access,
   }));
 

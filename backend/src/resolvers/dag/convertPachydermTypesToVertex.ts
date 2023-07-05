@@ -31,6 +31,8 @@ const convertPachydermRepoToVertex = ({
       : NodeType.INPUT_REPO,
   state: null,
   jobState: null,
+  nodeState: null,
+  jobNodeState: null,
   access: hasRepoReadPermissions(r.authInfo?.permissionsList),
   createdAt: r.created?.seconds,
   // if there is a pipeline with the same name as our repo, it is our only parent
@@ -55,14 +57,16 @@ const convertPachydermPipelineToVertex = ({
     id: pipelineName,
     name: p.pipeline?.name || '',
     type: NodeType.PIPELINE,
-    state: gqlPipelineStateToNodeState(state),
+    state: state,
+    nodeState: gqlPipelineStateToNodeState(state),
     access: p.pipeline
       ? hasRepoReadPermissions(
           repoMap[`${p.pipeline?.project?.name || ''}_${p.pipeline?.name}`]
             ?.authInfo?.permissionsList,
         )
       : false,
-    jobState: gqlJobStateToNodeState(jobState),
+    jobState: jobState,
+    jobNodeState: gqlJobStateToNodeState(jobState),
     createdAt: p.details?.createdAt?.seconds,
     // our parents are any repos found in our input spec
     parents: p.details?.input ? flattenPipelineInput(p.details?.input) : [],
@@ -80,6 +84,8 @@ const convertPachydermPipelineToVertex = ({
     parents: [postfixNameWithRepo(pipelineName)],
     state: null,
     jobState: null,
+    nodeState: null,
+    jobNodeState: null,
     createdAt: p.details?.createdAt?.seconds,
   };
   vertices.push(egressNode);

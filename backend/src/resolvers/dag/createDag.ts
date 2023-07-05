@@ -75,6 +75,8 @@ export const getProjectGlobalIdDAG = async ({
         : NodeType.INPUT_REPO,
       state: null,
       jobState: null,
+      nodeState: null,
+      jobNodeState: null,
       access: true,
       name: postfixNameWithRepo(repo),
     }));
@@ -88,7 +90,9 @@ export const getProjectGlobalIdDAG = async ({
       access: true,
       name: job.job?.pipeline?.name || '',
       state: null,
-      jobState: gqlJobStateToNodeState(toGQLJobState(job.state)),
+      nodeState: null,
+      jobState: toGQLJobState(job.state),
+      jobNodeState: gqlJobStateToNodeState(toGQLJobState(job.state)),
     };
 
     const outputRepoVertex: Vertex = {
@@ -98,6 +102,9 @@ export const getProjectGlobalIdDAG = async ({
       type: NodeType.OUTPUT_REPO,
       access: true,
       state: null,
+      jobState: null,
+      nodeState: null,
+      jobNodeState: null,
       id: postfixNameWithRepo(
         `${job.job?.pipeline?.project?.name || ''}_${job.job?.pipeline?.name}`,
       ),

@@ -1161,10 +1161,12 @@ export type Vertex = {
   access: Scalars['Boolean'];
   createdAt?: Maybe<Scalars['Int']>;
   id: Scalars['String'];
-  jobState?: Maybe<NodeState>;
+  jobNodeState?: Maybe<NodeState>;
+  jobState?: Maybe<JobState>;
   name: Scalars['String'];
+  nodeState?: Maybe<NodeState>;
   parents: Array<Scalars['String']>;
-  state?: Maybe<NodeState>;
+  state?: Maybe<PipelineState>;
   type: NodeType;
 };
 
@@ -2653,14 +2655,28 @@ export type VertexResolvers<
   access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  jobState?: Resolver<
+  jobNodeState?: Resolver<
     Maybe<ResolversTypes['NodeState']>,
     ParentType,
     ContextType
   >;
+  jobState?: Resolver<
+    Maybe<ResolversTypes['JobState']>,
+    ParentType,
+    ContextType
+  >;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  nodeState?: Resolver<
+    Maybe<ResolversTypes['NodeState']>,
+    ParentType,
+    ContextType
+  >;
   parents?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
-  state?: Resolver<Maybe<ResolversTypes['NodeState']>, ParentType, ContextType>;
+  state?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
   type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -3193,11 +3209,13 @@ export type GetDagQuery = {
     __typename?: 'Vertex';
     id: string;
     name: string;
-    state?: NodeState | null;
+    state?: PipelineState | null;
+    nodeState?: NodeState | null;
     access: boolean;
     parents: Array<string>;
     type: NodeType;
-    jobState?: NodeState | null;
+    jobState?: JobState | null;
+    jobNodeState?: NodeState | null;
     createdAt?: number | null;
   }>;
 };
@@ -3212,11 +3230,13 @@ export type GetDagsSubscription = {
     __typename?: 'Vertex';
     id: string;
     name: string;
-    state?: NodeState | null;
+    state?: PipelineState | null;
+    nodeState?: NodeState | null;
     access: boolean;
     parents: Array<string>;
     type: NodeType;
-    jobState?: NodeState | null;
+    jobState?: JobState | null;
+    jobNodeState?: NodeState | null;
     createdAt?: number | null;
   }>;
 };
