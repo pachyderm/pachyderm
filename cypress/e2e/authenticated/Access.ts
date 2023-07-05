@@ -2,6 +2,7 @@ before(() => {
   cy.exec('echo "pizza" | pachctl auth use-auth-token');
   cy.deleteReposAndPipelines();
   cy.setupProject()
+    .exec('pachctl auth set cluster projectViewer user:kilgore@kilgore.trout')
     .exec('pachctl auth set repo images repoReader user:kilgore@kilgore.trout')
     .logout();
 });

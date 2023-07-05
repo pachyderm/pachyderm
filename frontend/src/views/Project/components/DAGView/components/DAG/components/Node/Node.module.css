@@ -1,8 +1,3 @@
-.line {
-  stroke: var(--border-grey);
-  paint-order: stroke;
-}
-
 .node .label.egress {
   border: none;
   box-shadow: none;
@@ -10,39 +5,46 @@
   opacity: 0;
 }
 
-.statusGroup > svg {
-  pointer-events: none;
-}
-
-.statusRect {
+rect.node,
+.buttonGroup rect.node {
   fill: var(--white);
-  paint-order: stroke;
   stroke-width: 2px;
   stroke: var(--border-grey);
+  paint-order: stroke;
+  filter: url('#node-dropshadow');
 }
 
-.buttonGroup rect {
+rect.node.detailedError {
+  stroke: var(--error-red);
+}
+
+/* REPO & PIPELINE BUTTONS */
+
+.repoPipelineButtonsBorder {
+  stroke: var(--border-grey);
+  stroke-width: 1px;
   fill: transparent;
-  paint-order: stroke;
 }
 
 .buttonGroup * {
   user-select: none;
 }
 
-.buttonGroup.selected rect,
-.buttonGroup.interactive.access:hover rect {
-  stroke: var(--cyan);
-  stroke-width: 2px;
+.buttonGroup .roundedButton {
+  fill: transparent;
 }
 
-.statusRect.interactive.access:hover {
+.buttonGroup.selected .roundedButton {
+  fill: var(--cyan-10);
   stroke: var(--cyan);
-  stroke-width: 6px;
+  stroke-width: 4px;
 }
 
-.buttonGroup.interactive.access:hover,
-.statusRect.interactive.access:hover {
+.buttonGroup.interactive.access:hover .roundedButton {
+  fill: var(--cyan-10);
+}
+
+.buttonGroup.interactive.access:hover {
   cursor: pointer;
 }
 
@@ -53,17 +55,51 @@
   fill: var(--pachyderm-black);
 }
 
-.buttonGroup.interactive:not(.access):hover rect {
+.buttonGroup.interactive:not(.access):hover {
   cursor: not-allowed;
 }
 
-rect.node {
+/* STATUS BUTTONS */
+
+.statusGroup * {
+  user-select: none;
+}
+
+.statusGroup .subLabel {
+  font-size: '12px';
+  font-weight: '400';
+  text-anchor: 'start';
+  dominant-baseline: 'middle';
+  font-family: Montserrat, sans-serif;
+  fill: '#666';
+  user-select: none;
+}
+
+.statusGroup .statusRect {
   fill: var(--white);
-  stroke-width: 2px;
-  stroke: var(--border-grey);
   paint-order: stroke;
+}
+
+.statusGroup.interactive.access:hover .statusRect {
+  cursor: pointer;
+  stroke: var(--hover-purple);
+  stroke-width: 2px;
   filter: url('#node-dropshadow');
 }
+
+.statusGroup.interactive:not(.access):hover {
+  cursor: not-allowed;
+}
+
+.statusGroup .errorText {
+  fill: var(--pachyderm-red);
+}
+
+.statusGroup .successText {
+  fill: var(--green);
+}
+
+/* SIMPLIFIED LARGE DAG */
 
 .pipelineSimplifiedBox.node {
   fill: var(--green);
@@ -77,8 +113,9 @@ rect.node {
   opacity: 0.3;
 }
 
-.repoSimplifiedBox.node {
+.buttonGroup rect.node.repoSimplifiedBox.node, .buttonGroup rect.node.repoSimplifiedBox.node:hover {
   fill: var(--pachyderm-green);
   stroke-width: 0;
   opacity: 0.3;
+  cursor: grab;
 }

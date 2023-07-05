@@ -13,7 +13,7 @@ import {useClipboardCopy} from '@pachyderm/components';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
-const LABEL_WIDTH = NODE_WIDTH - 24;
+const LABEL_WIDTH = NODE_WIDTH - 40;
 
 const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   const {
@@ -128,15 +128,15 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
     // create tspans
     const tspan = text
       .append('tspan')
-      .attr('x', node.type === NodeType.INPUT_REPO ? 34 : 12)
-      .attr('y', 24);
+      .attr('x', node.type === NodeType.INPUT_REPO ? 34 : 30)
+      .attr('y', node.type === NodeType.INPUT_REPO ? 24 : 17);
     const normalizedNodeName = deriveRepoNameFromNode(node);
     const nameChars = normalizedNodeName.split('').reverse();
     const line: string[] = [];
     const tspanNode = tspan.node();
 
     const maxWidth =
-      node.type === NodeType.INPUT_REPO ? LABEL_WIDTH - 22 : LABEL_WIDTH;
+      node.type === NodeType.INPUT_REPO ? LABEL_WIDTH - 6 : LABEL_WIDTH;
 
     while (nameChars.length > 0) {
       const char = nameChars.pop();

@@ -1,3 +1,3 @@
-export const NODE_WIDTH = 244;
-export const NODE_HEIGHT = 96;
-export const NODE_INPUT_REPO = 47;
+export const NODE_WIDTH = 256;
+export const NODE_HEIGHT = 128;
+export const NODE_INPUT_REPO = 48;

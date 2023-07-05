@@ -2,6 +2,8 @@ import {NodeState, NodeType} from '@graphqlTypes';
 import classNames from 'classnames';
 import React, {SVGProps} from 'react';
 
+import {readableJobState} from '@dash-frontend/lib/jobs';
+import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {Node as GraphQLNode} from '@dash-frontend/lib/types';
 import {
   NODE_INPUT_REPO,
@@ -15,10 +17,9 @@ import {
   LockSVG,
   JobsSVG,
   StatusPausedSVG,
-  StatusDotsSVG,
   StatusWarningSVG,
   StatusCheckmarkSVG,
-  ChevronRightSVG,
+  SpinnerSVG,
 } from '@pachyderm/components';
 
 import NodeTooltip from './components/NodeTooltip';
@@ -35,11 +36,11 @@ const NodeStateIcon = ({state, ...rest}: NodeIconProps) => {
     case NodeState.ERROR:
       return <StatusWarningSVG color="var(--pachyderm-red)" {...rest} />;
     case NodeState.RUNNING:
-      return <StatusDotsSVG color="var(--icon-green)" {...rest} />;
     case NodeState.BUSY:
-      return <StatusDotsSVG color="var(--pachyderm-yellow)" {...rest} />;
+      return <SpinnerSVG {...rest} />;
     case NodeState.PAUSED:
-      return <StatusPausedSVG color="var(--pachyderm-yellow)" {...rest} />;
+      return <StatusPausedSVG {...rest} />;
+    case NodeState.IDLE:
     case NodeState.SUCCESS:
       return <StatusCheckmarkSVG color="var(--icon-green)" {...rest} />;
     default:
@@ -54,10 +55,25 @@ type NodeProps = {
   showSimple?: boolean;
 };
 
-const NODE_ICON_X_OFFSET = 90;
-const NODE_ICON_Y_OFFSET = -8;
-const BUTTON_HEIGHT = 48;
-const BUTTON_WIDTH = 112;
+const BUTTON_HEIGHT = 32;
+const BUTTON_MARGIN = 4;
+const STATUS_BUTTON_HEIGHT = 48;
+const STATUS_BUTTON_WIDTH = (NODE_WIDTH - BUTTON_MARGIN * 3) / 2;
+
+const BORDER_RADIUS = 3;
+const BUTTON_WIDTH = NODE_WIDTH - BUTTON_MARGIN * 2;
+const BUTTON_X_LENGTH = BUTTON_WIDTH - BORDER_RADIUS * 2;
+const BUTTON_Y_LENGTH = BUTTON_HEIGHT - BORDER_RADIUS;
+
+const BORDER_RADIUS_TOP_LEFT = `q0,-${BORDER_RADIUS} ${BORDER_RADIUS},-${BORDER_RADIUS}`;
+const BORDER_RADIUS_TOP_RIGHT = `q${BORDER_RADIUS},0 ${BORDER_RADIUS},${BORDER_RADIUS}`;
+const BORDER_RADIUS_BOTTOM_RIGHT = `q${BORDER_RADIUS},0 ${BORDER_RADIUS},-${BORDER_RADIUS}`;
+const BORDER_RADIUS_BOTTOM_LEFT = `q0,${BORDER_RADIUS} ${BORDER_RADIUS},${BORDER_RADIUS}`;
+
+const TOP_ROUNDED_BUTTON_PATH = `M0,${
+  BUTTON_Y_LENGTH + BUTTON_MARGIN
+} v-${BUTTON_Y_LENGTH} ${BORDER_RADIUS_TOP_LEFT} h${BUTTON_X_LENGTH} ${BORDER_RADIUS_TOP_RIGHT} v${BUTTON_Y_LENGTH} z`;
+const BOTTOM_ROUNDED_BUTTON_PATH = `M0,0 v${BUTTON_Y_LENGTH} ${BORDER_RADIUS_BOTTOM_LEFT} h${BUTTON_X_LENGTH} ${BORDER_RADIUS_BOTTOM_RIGHT} v-${BUTTON_Y_LENGTH} z`;
 
 const textElementProps = {
   fontSize: '14px',
@@ -97,10 +113,17 @@ const Node: React.FC<NodeProps> = ({
     [styles.access]: node.access,
   });
 
-  const statusClasses = classNames(styles.statusRect, {
+  const statusClasses = classNames(styles.statusGroup, {
     [styles.interactive]: isInteractive,
     [styles.access]: node.access,
   });
+
+  const statusTextClasses = (state?: NodeState) =>
+    classNames({
+      [styles.errorText]: NodeState.ERROR === state,
+      [styles.successText]:
+        state && [NodeState.IDLE, NodeState.SUCCESS].includes(state),
+    });
 
   if (node.type === NodeType.INPUT_REPO) {
     return (
@@ -113,7 +136,7 @@ const Node: React.FC<NodeProps> = ({
         onClick={() => onClick('repo')}
       >
         <rect
-          className={classNames(styles.node, {
+          className={classNames(styles.node, styles.roundedButton, {
             [styles.repoSimplifiedBox]: showSimple,
           })}
           width={NODE_WIDTH}
@@ -157,18 +180,24 @@ const Node: React.FC<NodeProps> = ({
     );
   }
 
-  const visiblePipelineStatus =
-    node.nodeState &&
-    [NodeState.BUSY, NodeState.ERROR, NodeState.PAUSED].includes(
-      node.nodeState,
-    );
-
   return (
     <g id={groupName} transform={`translate (${node.x}, ${node.y})`}>
+      <defs>
+        <path id="topRoundedButton" d={TOP_ROUNDED_BUTTON_PATH} />
+        <path id="bottomRoundedButton" d={BOTTOM_ROUNDED_BUTTON_PATH} />
+        <clipPath id="topRoundedButtonOnly">
+          <use xlinkHref="#topRoundedButton" />
+        </clipPath>
+        <clipPath id="bottomRoundedButtonOnly">
+          <use xlinkHref="#bottomRoundedButton" />
+        </clipPath>
+      </defs>
       <rect
         width={NODE_WIDTH}
         height={NODE_HEIGHT}
         className={classNames(styles.node, {
+          [styles.detailedError]:
+            !showSimple && node.nodeState === NodeState.ERROR,
           [styles.pipelineSimplifiedBox]:
             showSimple && node.jobNodeState !== NodeState.ERROR,
           [styles.pipelineSimplifiedBoxError]:
@@ -185,114 +214,173 @@ const Node: React.FC<NodeProps> = ({
       )}
       {!hideDetails && (
         <>
-          <text {...textElementProps} />
-          <line
-            x1="0"
-            y1={NODE_HEIGHT - BUTTON_HEIGHT}
-            x2={NODE_WIDTH}
-            y2={NODE_HEIGHT - BUTTON_HEIGHT}
-            className={styles.line}
-            stroke="black"
+          {/* wrapper rectangle */}
+          <rect
+            width={BUTTON_WIDTH}
+            height={BUTTON_HEIGHT * 2}
+            className={styles.repoPipelineButtonsBorder}
+            rx={BORDER_RADIUS}
+            ry={BORDER_RADIUS}
+            x={BUTTON_MARGIN}
+            y={BUTTON_MARGIN}
           />
-          {visiblePipelineStatus && (
-            <g
-              role="button"
-              aria-label={`${groupName} status`}
-              id="pipelineStatusGroup"
-              data-testid={`Node__state-${node.nodeState}`}
-              transform={`translate (${
-                NODE_WIDTH - NODE_ICON_X_OFFSET - 8
-              }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
-              onClick={() => onClick('status')}
-              className={styles.statusGroup}
-            >
-              <rect
-                width={44 / 0.6}
-                height={19 / 0.6}
-                className={statusClasses}
-                rx={8}
-                ry={8}
-              />
-              <NodeStateIcon state={node.nodeState} x={10} y={6} />
-              <PipelineSVG x={42} y={6} />
-            </g>
-          )}
 
+          {/* pipeline button */}
+          <g
+            role="button"
+            aria-label={`${groupName} pipeline`}
+            id="pipelineButtonGroup"
+            transform={`translate (${BUTTON_MARGIN}, ${BUTTON_MARGIN - 1})`}
+            onClick={() => onClick('pipeline')}
+            className={pipelineClasses}
+          >
+            <use
+              xlinkHref="#topRoundedButton"
+              clipPath="url(#topRoundedButtonOnly)"
+              className={styles.roundedButton}
+            />
+
+            <g transform="scale(0.75)">
+              {node.access ? (
+                <PipelineSVG x={11} y={12} />
+              ) : (
+                <LockSVG color="var(--disabled-tertiary)" x={11} y={12} />
+              )}
+            </g>
+            <text {...textElementProps} />
+          </g>
+
+          {/* repo button */}
+          <g
+            role="button"
+            aria-label={`${groupName} repo`}
+            id="repoButtonGroup"
+            transform={`translate (${BUTTON_MARGIN}, ${
+              BUTTON_MARGIN + BUTTON_HEIGHT
+            })`}
+            onClick={() => onClick('repo')}
+            className={repoClasses}
+          >
+            <use
+              xlinkHref="#bottomRoundedButton"
+              clipPath="url(#bottomRoundedButtonOnly)"
+              className={styles.roundedButton}
+            />
+
+            <g transform="scale(0.75)">
+              {node.access ? (
+                <RepoSVG x={11} y={11} />
+              ) : (
+                <LockSVG color="var(--disabled-tertiary)" x={11} y={11} />
+              )}
+            </g>
+            <text {...textElementProps} className="" x={30} y={17}>
+              Output
+            </text>
+          </g>
+
+          {/* pipeline status button */}
+          <g
+            role="button"
+            aria-label={`${groupName} status`}
+            id="pipelineStatusGroup"
+            data-testid={`Node__state-${node.nodeState}`}
+            transform={`translate (${
+              BUTTON_MARGIN * 2 + STATUS_BUTTON_WIDTH
+            }, ${BUTTON_MARGIN * 2.5 + BUTTON_HEIGHT * 2})`}
+            onClick={() => onClick('status')}
+            className={statusClasses}
+          >
+            <rect
+              width={STATUS_BUTTON_WIDTH}
+              height={STATUS_BUTTON_HEIGHT}
+              rx={3}
+              ry={3}
+              className={styles.statusRect}
+            />
+            <text
+              style={{
+                fontSize: '12px',
+                fontWeight: '400',
+                textAnchor: 'start',
+                dominantBaseline: 'middle',
+                fontFamily: 'Montserrat',
+                fill: '#666',
+              }}
+              x={BUTTON_MARGIN * 2 + 2}
+              y={16}
+            >
+              Pipeline
+            </text>
+
+            <text
+              x={BUTTON_MARGIN * 2 + 20}
+              y={40}
+              className={statusTextClasses(node.nodeState)}
+            >
+              {node.state && readablePipelineState(node.state)}
+            </text>
+            <g transform="scale(0.6)">
+              <NodeStateIcon
+                state={node.nodeState}
+                x={(BUTTON_MARGIN * 2 + 2) / 0.6}
+                y={48}
+              />
+            </g>
+          </g>
+
+          {/* job status button */}
           {node.jobNodeState !== NodeState.IDLE && (
             <g
               role="button"
               aria-label={`${groupName} logs`}
               id="jobStatusGroup"
               data-testid={`Node__state-${node.jobNodeState}`}
-              transform={`translate (${
-                NODE_WIDTH - NODE_ICON_X_OFFSET / 2 - 4
-              }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
+              transform={`translate (${BUTTON_MARGIN}, ${
+                BUTTON_MARGIN * 2.5 + BUTTON_HEIGHT * 2
+              })`}
               onClick={() => onClick('logs')}
-              className={styles.statusGroup}
+              className={statusClasses}
             >
               <rect
-                width={44 / 0.6}
-                height={19 / 0.6}
-                className={statusClasses}
-                rx={8}
-                ry={8}
+                width={STATUS_BUTTON_WIDTH}
+                height={STATUS_BUTTON_HEIGHT}
+                rx={3}
+                ry={3}
+                className={styles.statusRect}
               />
-              <NodeStateIcon state={node.jobNodeState} x={10} y={6} />
-              <JobsSVG x={42} y={6} />
+              <text
+                style={{
+                  fontSize: '12px',
+                  fontWeight: '400',
+                  textAnchor: 'start',
+                  dominantBaseline: 'middle',
+                  fontFamily: 'Montserrat',
+                  fill: '#666',
+                }}
+                className={styles.subLabel}
+                x={BUTTON_MARGIN * 2 + 2}
+                y={16}
+              >
+                Subjob
+              </text>
+
+              <text
+                x={BUTTON_MARGIN * 2 + 20}
+                y={40}
+                className={statusTextClasses(node.jobNodeState)}
+              >
+                {node.jobState && readableJobState(node.jobState)}
+              </text>
+              <g transform="scale(0.6)">
+                <NodeStateIcon
+                  state={node.jobNodeState}
+                  x={(BUTTON_MARGIN * 2 + 2) / 0.6}
+                  y={48}
+                />
+              </g>
             </g>
           )}
-          <g
-            role="button"
-            aria-label={`${groupName} pipeline`}
-            id="pipelineButtonGroup"
-            transform={`translate (0, ${NODE_HEIGHT - BUTTON_HEIGHT})`}
-            onClick={() => onClick('pipeline')}
-            className={pipelineClasses}
-          >
-            <rect width={BUTTON_WIDTH} height={BUTTON_HEIGHT} rx={3} ry={3} />
-
-            <g transform="scale(0.75)">
-              {node.access ? (
-                <PipelineSVG x={15} y={23} />
-              ) : (
-                <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
-              )}
-            </g>
-            <text {...textElementProps} x={32} y={26}>
-              Pipeline
-            </text>
-          </g>
-
-          <g transform={`scale(0.6)`}>
-            <ChevronRightSVG
-              x={NODE_WIDTH / 2 / 0.6 - 10}
-              y={NODE_HEIGHT / 0.6 - 28 / 0.6}
-            />
-          </g>
-
-          <g
-            role="button"
-            aria-label={`${groupName} repo`}
-            id="repoButtonGroup"
-            transform={`translate (${BUTTON_WIDTH + 20}, ${
-              NODE_HEIGHT - BUTTON_HEIGHT
-            })`}
-            onClick={() => onClick('repo')}
-            className={repoClasses}
-          >
-            <rect width={BUTTON_WIDTH} height={BUTTON_HEIGHT} rx={3} ry={3} />
-
-            <g transform="scale(0.75)">
-              {node.access ? (
-                <RepoSVG x={15} y={23} />
-              ) : (
-                <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
-              )}
-            </g>
-            <text {...textElementProps} x={32} y={26}>
-              Output
-            </text>
-          </g>
         </>
       )}
     </g>
