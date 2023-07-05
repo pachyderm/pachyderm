@@ -522,7 +522,7 @@ func (d *driver) deleteBranches(txnCtx *txncontext.TransactionContext, branchInf
 func (d *driver) listRepoBranches(txnCtx *txncontext.TransactionContext, repo *pfs.RepoInfo) ([]*pfs.BranchInfo, error) {
 	var bis []*pfs.BranchInfo
 	for _, branch := range repo.Branches {
-		bi, err := d.inspectBranch(txnCtx, branch)
+		bi, err := d.inspectBranchInTransaction(txnCtx, branch)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error inspecting branch %s", branch)
 		}
@@ -1901,7 +1901,19 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	return nil
 }
 
-func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+func (d *driver) inspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+	branchInfo := &pfs.BranchInfo{}
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		branchInfo, err = d.inspectBranchInTransaction(txnCtx, branch)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return branchInfo, nil
+}
+
+func (d *driver) inspectBranchInTransaction(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
 	// Validate arguments
 	if branch == nil {
 		return nil, errors.New("branch cannot be nil")
