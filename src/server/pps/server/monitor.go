@@ -8,11 +8,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	opentracing "github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -25,6 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // startMonitor starts a new goroutine running monitorPipeline for
@@ -176,7 +174,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 							pc.env.EtcdClient, pipelineInfo.Pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
-							"commit", ci.Commit.ID)
+							"commit", ci.Commit.Id)
 
 						if err := pc.psDriver.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
@@ -209,7 +207,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 									pc.env.EtcdClient, pipelineInfo.Pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
-									"commit", ci.Commit.ID)
+									"commit", ci.Commit.Id)
 							default:
 								break running
 							}
@@ -385,11 +383,9 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 			return latestTime, err //nolint:wrapcheck
 		}
 		// get cron start time to compare if previous start time was updated
-		startTime, err := types.TimestampFromProto(in.Cron.Start)
+		startTime := in.Cron.Start.AsTime()
 		// return latest time from filename if start time cannot be determined
-		if err != nil {
-			return latestTime, err //nolint:wrapcheck
-		}
+
 		if latestTime.After(startTime) {
 			return latestTime, nil
 		} else {
@@ -397,9 +393,6 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 		}
 	}
 	// otherwise return cron start time since there are no files in cron repo
-	startTime, err := types.TimestampFromProto(in.Cron.Start)
-	if err != nil {
-		return startTime, err //nolint:wrapcheck
-	}
+	startTime := in.Cron.Start.AsTime()
 	return startTime, nil
 }

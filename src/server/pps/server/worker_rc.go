@@ -784,7 +784,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		pipelineNameAnnotation:       pipelineName,
 		pachVersionAnnotation:        version.PrettyVersion(),
 		pipelineVersionAnnotation:    strconv.FormatUint(pipelineInfo.Version, 10),
-		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.ID,
+		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.Id,
 		hashedAuthTokenAnnotation:    hashAuthToken(pipelineInfo.AuthToken),
 	}
 	if projectName != "" {
@@ -859,7 +859,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	return &workerOptions{
 		rcName:                  ppsutil.PipelineRcName(pipelineInfo),
 		s3GatewayPort:           s3GatewayPort,
-		specCommit:              pipelineInfo.SpecCommit.ID,
+		specCommit:              pipelineInfo.SpecCommit.Id,
 		labels:                  labels,
 		annotations:             annotations,
 		parallelism:             int32(0), // pipelines start w/ 0 workers & are scaled up
@@ -926,7 +926,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 	context.SessionToken = pipelineInfo.AuthToken
 	context.PachdAddress = "localhost:1653"
 
-	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
+	rawConfig, err := json.MarshalIndent(&cfg, "", "  ")
 	if err != nil {
 		return errors.Wrapf(err, "error marshaling the config")
 	}

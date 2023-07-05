@@ -9,8 +9,6 @@ import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/any.proto";
 
-import "gogoproto/gogo.proto";
-
 import "auth/auth.proto";
 
 import "task/task.proto";
@@ -86,13 +84,19 @@ message Trigger {
   // All indicates that all conditions must be satisfied before the trigger
   // happens, otherwise any conditions being satisfied will trigger it.
   bool all = 2;
-  // Triggers if the cron spec has been satisfied since the last trigger and
-  // there's been a new commit.
-  string cron_spec = 3;
+  // Triggers if the rate limit spec (cron expression) has been satisfied since
+  // the last trigger.
+  string rate_limit_spec = 3;
   // Triggers if there's been `size` new data added since the last trigger.
   string size = 4;
   // Triggers if there's been `commits` new commits added since the last trigger.
   int64 commits = 5;
+  // Creates a background process which fires the trigger on the schedule
+  // provided by the cron spec.
+  // This condition is mutually exclusive with respect to the others, so
+  // setting this will result with the trigger only firing based on the cron
+  // schedule.
+  string cron_spec = 6;
 }
 
 // These are the different places where a commit may be originated from
@@ -111,7 +115,7 @@ message CommitOrigin {
 // protos)
 message Commit {
   Repo repo = 3;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
   // only used by the client
   Branch branch = 1;
 }
@@ -142,7 +146,7 @@ message CommitInfo {
 }
 
 message CommitSet {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }
 
 message CommitSetInfo {

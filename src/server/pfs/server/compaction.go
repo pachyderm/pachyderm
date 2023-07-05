@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -79,7 +79,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	for _, shard := range shards {
 		log.Info(ctx, "created file set shard", zap.Stringer("range", shard))
 	}
-	var inputs []*types.Any
+	var inputs []*anypb.Any
 	for _, shard := range shards {
 		input, err := serializeShardTask(&ShardTask{
 			Inputs: fileset.IDsToHexStrings(ids),
@@ -94,7 +94,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 		inputs = append(inputs, input)
 	}
 	results := make([][]*CompactTask, len(inputs))
-	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -118,7 +118,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 }
 
 func (c *compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, tasks []*CompactTask) ([]fileset.ID, error) {
-	inputs := make([]*types.Any, len(tasks))
+	inputs := make([]*anypb.Any, len(tasks))
 	for i, task := range tasks {
 		task := proto.Clone(task).(*CompactTask)
 		input, err := serializeCompactTask(task)
@@ -128,7 +128,7 @@ func (c *compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer,
 		inputs[i] = input
 	}
 	results := make([]fileset.ID, len(inputs))
-	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -189,7 +189,7 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 	if err != nil {
 		return "", 0, err
 	}
-	var inputs []*types.Any
+	var inputs []*anypb.Any
 	for _, shard := range shards {
 		input, err := serializeValidateTask(&ValidateTask{
 			Id: id.HexString(),
@@ -205,7 +205,7 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 	}
 	// TODO: Collect all of the errors or fail fast?
 	results := make([]*ValidateTaskResult, len(inputs))
-	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -231,27 +231,27 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 func compactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
 	log.Info(ctx, "running compaction worker")
 	return backoff.RetryUntilCancel(ctx, func() error {
-		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
+		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
-			case types.Is(input, &ShardTask{}):
+			case input.MessageIs(&ShardTask{}):
 				shardTask, err := deserializeShardTask(input)
 				if err != nil {
 					return nil, err
 				}
 				return processShardTask(ctx, storage, shardTask)
-			case types.Is(input, &CompactTask{}):
+			case input.MessageIs(&CompactTask{}):
 				compactTask, err := deserializeCompactTask(input)
 				if err != nil {
 					return nil, err
 				}
 				return processCompactTask(ctx, storage, compactTask)
-			case types.Is(input, &ConcatTask{}):
+			case input.MessageIs(&ConcatTask{}):
 				concatTask, err := deserializeConcatTask(input)
 				if err != nil {
 					return nil, err
 				}
 				return processConcatTask(ctx, storage, concatTask)
-			case types.Is(input, &ValidateTask{}):
+			case input.MessageIs(&ValidateTask{}):
 				validateTask, err := deserializeValidateTask(input)
 				if err != nil {
 					return nil, err
@@ -268,7 +268,7 @@ func compactionWorker(ctx context.Context, taskSource task.Source, storage *file
 	})
 }
 
-func processShardTask(ctx context.Context, storage *fileset.Storage, task *ShardTask) (*types.Any, error) {
+func processShardTask(ctx context.Context, storage *fileset.Storage, task *ShardTask) (*anypb.Any, error) {
 	result := &ShardTaskResult{}
 	if err := log.LogStep(ctx, "processing shard task", func(ctx context.Context) error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
@@ -299,7 +299,7 @@ func processShardTask(ctx context.Context, storage *fileset.Storage, task *Shard
 	return serializeShardTaskResult(result)
 }
 
-func processCompactTask(ctx context.Context, storage *fileset.Storage, task *CompactTask) (*types.Any, error) {
+func processCompactTask(ctx context.Context, storage *fileset.Storage, task *CompactTask) (*anypb.Any, error) {
 	result := &CompactTaskResult{}
 	if err := log.LogStep(ctx, "processCompactTask", func(ctx context.Context) error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
@@ -322,7 +322,7 @@ func processCompactTask(ctx context.Context, storage *fileset.Storage, task *Com
 	return serializeCompactTaskResult(result)
 }
 
-func processConcatTask(ctx context.Context, storage *fileset.Storage, task *ConcatTask) (*types.Any, error) {
+func processConcatTask(ctx context.Context, storage *fileset.Storage, task *ConcatTask) (*anypb.Any, error) {
 	result := &ConcatTaskResult{}
 	if err := log.LogStep(ctx, "processConcatTask", func(ctx context.Context) error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
@@ -343,7 +343,7 @@ func processConcatTask(ctx context.Context, storage *fileset.Storage, task *Conc
 
 // TODO(2.0 optional): Improve the performance of this by doing a logarithmic lookup per new file,
 // rather than a linear scan through all of the files.
-func processValidateTask(ctx context.Context, storage *fileset.Storage, task *ValidateTask) (*types.Any, error) {
+func processValidateTask(ctx context.Context, storage *fileset.Storage, task *ValidateTask) (*anypb.Any, error) {
 	result := &ValidateTaskResult{}
 	if err := log.LogStep(ctx, "validateTask", func(ctx context.Context) error {
 		id, err := fileset.ParseID(task.Id)
@@ -396,154 +396,92 @@ func checkIndex(prev, curr *index.Index) string {
 	return ""
 }
 
-func serializeShardTask(task *ShardTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeShardTask(task *ShardTask) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeShardTask(taskAny *types.Any) (*ShardTask, error) {
+func deserializeShardTask(taskAny *anypb.Any) (*ShardTask, error) {
 	task := &ShardTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeShardTaskResult(task *ShardTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeShardTaskResult(task *ShardTaskResult) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeShardTaskResult(taskAny *types.Any) (*ShardTaskResult, error) {
+func deserializeShardTaskResult(taskAny *anypb.Any) (*ShardTaskResult, error) {
 	task := &ShardTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCompactTask(task *CompactTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeCompactTask(task *CompactTask) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeCompactTask(taskAny *types.Any) (*CompactTask, error) {
+func deserializeCompactTask(taskAny *anypb.Any) (*CompactTask, error) {
 	task := &CompactTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCompactTaskResult(res *CompactTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(res)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(res),
-		Value:   data,
-	}, nil
-}
+func serializeCompactTaskResult(res *CompactTaskResult) (*anypb.Any, error) { return anypb.New(res) }
 
-func deserializeCompactTaskResult(any *types.Any) (*CompactTaskResult, error) {
+func deserializeCompactTaskResult(any *anypb.Any) (*CompactTaskResult, error) {
 	res := &CompactTaskResult{}
-	if err := types.UnmarshalAny(any, res); err != nil {
+	if err := any.UnmarshalTo(res); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return res, nil
 }
 
-func serializeConcatTask(task *ConcatTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeConcatTask(task *ConcatTask) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeConcatTask(taskAny *types.Any) (*ConcatTask, error) {
+func deserializeConcatTask(taskAny *anypb.Any) (*ConcatTask, error) {
 	task := &ConcatTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeConcatTaskResult(task *ConcatTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeConcatTaskResult(task *ConcatTaskResult) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeConcatTaskResult(taskAny *types.Any) (*ConcatTaskResult, error) {
+func deserializeConcatTaskResult(taskAny *anypb.Any) (*ConcatTaskResult, error) {
 	task := &ConcatTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeValidateTask(task *ValidateTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeValidateTask(task *ValidateTask) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeValidateTask(taskAny *types.Any) (*ValidateTask, error) {
+func deserializeValidateTask(taskAny *anypb.Any) (*ValidateTask, error) {
 	task := &ValidateTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeValidateTaskResult(task *ValidateTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeValidateTaskResult(task *ValidateTaskResult) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeValidateTaskResult(taskAny *types.Any) (*ValidateTaskResult, error) {
+func deserializeValidateTaskResult(taskAny *anypb.Any) (*ValidateTaskResult, error) {
 	task := &ValidateTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }

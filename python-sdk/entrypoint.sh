@@ -22,11 +22,6 @@ PROTO_FILES=$(find ${OUTDIR} -name "*.proto")
 
 # Remove protobuf extensions, that are Go specific.
 for i in ${PROTO_FILES}; do
-    # remove gogoproto
-    sed -i 's/import.*gogo.proto.*\;//' "${i}"
-    sed -i 's/\[.*gogoproto.*\]//' "${i}"
-    sed -i 's/.*gogoproto.*//' "${i}"
-
     # remove the protoextensions/log.proto
     sed -i 's/import.*protoextensions\/log.proto.*\;//' "${i}"
     sed -i 's/\[.*log.*\]//' "${i}"
@@ -45,10 +40,6 @@ for i in ${PROTO_FILES}; do
     sed -i 's/versionpb/version/' "${i}"
     sed -i 's/pachyderm.worker/worker/' "${i}"
 done
-
-# Refactor IDP -> Idp, OIDC -> Oidc (for BetterProto)
-sed -i 's/IDP/Idp/g' ${OUTDIR}/identity/identity.proto
-sed -i 's/OIDC/Oidc/g' ${OUTDIR}/identity/identity.proto
 
 # Generate python files.
 echo "${PROTO_FILES}" | xargs python3 -m grpc_tools.protoc -I. --python_betterproto_out=${OUTDIR}

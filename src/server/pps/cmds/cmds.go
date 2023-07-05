@@ -16,12 +16,13 @@ import (
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -99,7 +100,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+			jobInfo, err := client.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, true)
 			if err != nil {
 				return errors.Wrap(err, "error from InspectJob")
 			}
@@ -165,7 +166,7 @@ If the job fails, the output commit will not be populated with data.`,
 				if err != nil {
 					return err
 				}
-				jobInfo, err := client.WaitJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+				jobInfo, err := client.WaitJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, true)
 				if err != nil {
 					return errors.Wrap(err, "error from InspectJob")
 				}
@@ -377,7 +378,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return err
 			}
 			defer client.Close()
-			if err := client.DeleteJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID); err != nil {
+			if err := client.DeleteJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id); err != nil {
 				return errors.Wrap(err, "error from DeleteJob")
 			}
 			return nil
@@ -406,7 +407,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				}
 				if _, err := client.RunBatchInTransaction(func(tb *pachdclient.TransactionBuilder) error {
 					for _, jobInfo := range jobInfos {
-						if err := tb.StopJob(jobInfo.Job.Pipeline.Project.Name, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
+						if err := tb.StopJob(jobInfo.Job.Pipeline.Project.Name, jobInfo.Job.Pipeline.Name, jobInfo.Job.Id); err != nil {
 							return err
 						}
 					}
@@ -419,7 +420,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				if err != nil {
 					return err
 				}
-				if err := client.StopJob(job.Pipeline.Project.Name, job.Pipeline.Name, job.ID); err != nil {
+				if err := client.StopJob(job.Pipeline.Project.Name, job.Pipeline.Name, job.Id); err != nil {
 					return errors.Wrap(err, "error from StopProjectJob")
 				}
 			}
@@ -468,7 +469,7 @@ each datum.`,
 					i++
 				}
 			}
-			return client.RestartDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, datumFilter)
+			return client.RestartDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, datumFilter)
 		}),
 	}
 	restartDatum.Flags().StringVar(&project, "project", project, "Project containing the datum job")
@@ -509,10 +510,11 @@ each datum.`,
 			if pipelineInputPath != "" && len(args) == 1 {
 				return errors.Errorf("can't specify both a job and a pipeline spec")
 			} else if pipelineInputPath != "" {
-				r, err := fileIndicatorToReader(pipelineInputPath)
+				r, err := fileIndicatorToReadCloser(pipelineInputPath)
 				if err != nil {
 					return err
 				}
+				defer r.Close()
 				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 				if err != nil {
 					return err
@@ -535,7 +537,7 @@ each datum.`,
 				if err != nil {
 					return err
 				}
-				return client.ListDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, printF)
+				return client.ListDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, printF)
 			} else {
 				return errors.Errorf("must specify either a job or a pipeline spec")
 			}
@@ -563,7 +565,7 @@ each datum.`,
 				return errors.Wrapf(err, "parse since(%q)", since)
 			}
 			request := pps.LokiRequest{
-				Since: types.DurationProto(since),
+				Since: durationpb.New(since),
 			}
 			kubeEventsClient, err := client.PpsAPIClient.GetKubeEvents(client.Ctx(), &request)
 			if err != nil {
@@ -604,7 +606,7 @@ each datum.`,
 			}
 			request := pps.LokiRequest{
 				Query: query,
-				Since: types.DurationProto(since),
+				Since: durationpb.New(since),
 			}
 			lokiClient, err := client.PpsAPIClient.QueryLoki(client.Ctx(), &request)
 			if err != nil {
@@ -636,7 +638,7 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			datumInfo, err := client.InspectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, args[1])
+			datumInfo, err := client.InspectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, args[1])
 			if err != nil {
 				return err
 			}
@@ -739,7 +741,7 @@ each datum.`,
 					return err
 				}
 				pipelineName = job.Pipeline.Name
-				jobID = job.ID
+				jobID = job.Id
 			}
 
 			// Issue RPC
@@ -747,15 +749,9 @@ each datum.`,
 				since = 0
 			}
 			iter := client.GetLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
-			var buf bytes.Buffer
-			m := &jsonpb.Marshaler{}
 			for iter.Next() {
 				if raw {
-					buf.Reset()
-					if err := m.Marshal(&buf, iter.Message()); err != nil {
-						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
-					}
-					fmt.Println(buf.String())
+					fmt.Println(protojson.Format(iter.Message()))
 				} else if iter.Message().User && !master && !worker {
 					prettyLogsPrinter(iter.Message().Message)
 				} else if iter.Message().Master && master {
@@ -951,10 +947,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editorArgs...); err != nil {
 				return err
 			}
-			r, err := fileIndicatorToReader(f.Name())
+			r, err := fileIndicatorToReadCloser(f.Name())
 			if err != nil {
 				return err
 			}
+			defer r.Close()
 			pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
 			if err != nil {
 				return err
@@ -1039,7 +1036,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			request := &pps.ListPipelineRequest{
 				History:   history,
-				CommitSet: &pfs.CommitSet{ID: commit},
+				CommitSet: &pfs.CommitSet{Id: commit},
 				JqFilter:  filter,
 				Details:   true,
 				Projects:  projectsFilter,
@@ -1112,7 +1109,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				History:   0,
 				JqFilter:  "",
 				Details:   true,
-				CommitSet: &pfs.CommitSet{ID: commitSet},
+				CommitSet: &pfs.CommitSet{Id: commitSet},
 				Projects:  []*pfs.Project{{Name: project}},
 			}
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
@@ -1324,7 +1321,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 			secretInfos, err := client.PpsAPIClient.ListSecret(
 				client.Ctx(),
-				&types.Empty{},
+				&emptypb.Empty{},
 			)
 
 			if err != nil {
@@ -1359,7 +1356,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				}
 			}()
 			if len(args) == 0 {
-				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1447,10 +1444,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Validate pipeline spec.",
 		Long:  "Validate a pipeline spec.  Client-side only; does not check that repos, images &c. exist on the server.",
 		Run: cmdutil.RunFixedArgs(0, func(_ []string) error {
-			r, err := fileIndicatorToReader(pipelinePath)
+			r, err := fileIndicatorToReadCloser(pipelinePath)
 			if err != nil {
 				return err
 			}
+			defer r.Close()
 			pr, err := ppsutil.NewPipelineManifestReader(r)
 			if err != nil {
 				return err
@@ -1471,13 +1469,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	return commands
 }
 
-// fileIndicatorToReader returns an IO reader for a file based on an indicator
+// fileIndicatorToReadCloser returns an IO reader for a file based on an indicator
 // (which may be a local path, a remote URL or "-" for stdin).
 //
 // TODO(msteffen) This is very similar to readConfigBytes in
 // s/s/identity/cmds/cmds.go (which differs only in not supporting URLs),
 // so the two could perhaps be refactored.
-func fileIndicatorToReader(indicator string) (io.Reader, error) {
+func fileIndicatorToReadCloser(indicator string) (io.ReadCloser, error) {
 	if indicator == "-" {
 		cmdutil.PrintStdinReminder()
 		return os.Stdin, nil
@@ -1489,7 +1487,6 @@ func fileIndicatorToReader(indicator string) (io.Reader, error) {
 		if resp.StatusCode != http.StatusOK {
 			return nil, errors.Wrapf(err, "cannot handle HTTP status code %s (%d)", resp.Status, resp.StatusCode)
 		}
-		defer resp.Body.Close()
 		return resp.Body, nil
 	}
 	f, err := os.Open(indicator)
@@ -1500,10 +1497,11 @@ func fileIndicatorToReader(indicator string) (io.Reader, error) {
 }
 
 func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
-	r, err := fileIndicatorToReader(jsonnetPath)
+	r, err := fileIndicatorToReadCloser(jsonnetPath)
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 	templateBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read Jsonnet file %q", jsonnetPath)
@@ -1538,10 +1536,11 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
 	var pipelineReader *ppsutil.PipelineManifestReader
 	if pipelinePath != "" {
-		r, err := fileIndicatorToReader(pipelinePath)
+		r, err := fileIndicatorToReadCloser(pipelinePath)
 		if err != nil {
 			return err
 		}
+		defer r.Close()
 		pipelineReader, err = ppsutil.NewPipelineManifestReader(r)
 		if err != nil {
 			return err

@@ -1,6 +1,8 @@
 package pfs
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -13,7 +15,7 @@ type APIServer interface {
 
 	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
 
-	CreateRepoInTransaction(*txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
+	CreateRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
 	InspectRepoInTransaction(*txncontext.TransactionContext, *pfs_client.InspectRepoRequest) (*pfs_client.RepoInfo, error)
 	DeleteRepoInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteRepoRequest) error
 	DeleteReposInTransaction(*txncontext.TransactionContext, []*pfs_client.Repo, bool) error
@@ -30,5 +32,5 @@ type APIServer interface {
 	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
 
 	AddFileSetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFileSetRequest) error
-	ActivateAuthInTransaction(*txncontext.TransactionContext, *pfs_client.ActivateAuthRequest) (*pfs_client.ActivateAuthResponse, error)
+	ActivateAuthInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.ActivateAuthRequest) (*pfs_client.ActivateAuthResponse, error)
 }

@@ -48,6 +48,7 @@ linters-settings:
             - github.com/pachyderm/pachyderm/v2/src/internal/errors.Invoke1
             - google.golang.org/grpc/status.Error
             - google.golang.org/grpc/status.Errorf
+            - google.golang.org/protobuf/types/known/anypb.New
             - .Wrap(
             - .Wrapf(
             - .WithMessage(
@@ -77,6 +78,18 @@ linters-settings:
             - log: "use the internal/log package"
             - go.uber.org/multierr: "use the internal/errors package"
             - github.com/hashicorp/go-multierror: "use the internal/errors package"
+            - github.com/gogo/protobuf/proto:
+                  "wrong proto package; use google.golang.org/protobuf/proto"
+            - github.com/gogo/protobuf/types:
+                  "wrong proto package; use google.golang.org/protobuf/types/..."
+            - github.com/gogo/protobuf/jsonpb:
+                  "wrong proto package; use google.golang.org/protobuf/encoding/protojson"
+            - github.com/golang/protobuf/proto:
+                  "wrong proto package; use google.golang.org/protobuf/proto"
+            - github.com/golang/protobuf/ptypes:
+                  "wrong proto package; use google.golang.org/protobuf/types/..."
+            - github.com/golang/protobuf/jsonpb:
+                  "wrong proto package; use google.golang.org/protobuf/encoding/protojson"
         ignore-file-rules:
             - "**/src/internal/log/*.go"
             - "**/etc/**/*.go" # /etc cannot import internal/log :(

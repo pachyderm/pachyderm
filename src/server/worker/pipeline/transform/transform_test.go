@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -105,7 +105,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.C
 	testEnv.driver = testEnv.driver.WithContext(ctx)
 	testEnv.PachClient = testEnv.driver.PachClient()
 	// Put the pipeline info into the collection (which is read by the master)
-	err = testEnv.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+	err = testEnv.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		rw := testEnv.driver.Pipelines().ReadWrite(sqlTx)
 		err := rw.Put(specCommit, pipelineInfo) // pipeline/info needs to contain spec
 		return errors.EnsureStack(err)
@@ -157,8 +157,8 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 	// Create a context that the caller can wait on
 	ctx, cancel := pctx.WithCancel(env.PachClient.Ctx())
 	// Mock out the initial ListJob, and InspectJob calls
-	jobInfo := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commit.ID)}
-	jobInfo.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
+	jobInfo := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commit.Id)}
+	jobInfo.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.Id)
 	jobInfo.Details = &pps.JobInfo_Details{
 		Transform:        pi.Details.Transform,
 		ParallelismSpec:  pi.Details.ParallelismSpec,
@@ -178,12 +178,12 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		PodPatch:         pi.Details.PodPatch,
 	}
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
-		if request.Job.ID == jobInfo.OutputCommit.ID {
+		if request.Job.Id == jobInfo.OutputCommit.Id {
 			result := proto.Clone(jobInfo).(*pps.JobInfo)
 			return result, nil
 		}
-		mockJI := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, request.Job.ID)}
-		mockJI.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.ID)
+		mockJI := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, request.Job.Id)}
+		mockJI.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.Id)
 		mockJI.Details = &pps.JobInfo_Details{
 			Transform:        pi.Details.Transform,
 			ParallelismSpec:  pi.Details.ParallelismSpec,
@@ -219,9 +219,9 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		updateJobState(request)
 		return nil
 	})
-	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*emptypb.Empty, error) {
 		updateJobState(request)
-		return &types.Empty{}, nil
+		return &emptypb.Empty{}, nil
 	})
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -247,7 +247,7 @@ func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 		return nil
 	}))
 	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.Id))
 	return commit
 }
 
@@ -257,7 +257,7 @@ func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []strin
 	for _, file := range files {
 		require.NoError(t, env.PachClient.DeleteFile(commit, file))
 	}
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.Id))
 	return commit
 }
 
@@ -270,7 +270,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 	// Ensure the output commit is successful
-	outputCommitID := jobInfo.OutputCommit.ID
+	outputCommitID := jobInfo.OutputCommit.Id
 	outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, outputCommitInfo.Finished)
@@ -392,7 +392,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		// Ensure the output commit is successful
-		outputCommitID := jobInfo.OutputCommit.ID
+		outputCommitID := jobInfo.OutputCommit.Id
 		outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
@@ -434,7 +434,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		// Ensure the output commit is successful
-		outputCommitID := jobInfo.OutputCommit.ID
+		outputCommitID := jobInfo.OutputCommit.Id
 		outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)

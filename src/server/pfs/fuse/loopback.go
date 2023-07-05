@@ -738,8 +738,8 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		n.root().commits[name] = ""
 		return "", nil
 	}
-	n.root().commits[name] = bi.Head.ID
-	return bi.Head.ID, nil
+	n.root().commits[name] = bi.Head.Id
+	return bi.Head.Id, nil
 }
 
 func (n *loopbackNode) namePath(name string) string {

@@ -73,14 +73,13 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: go install ./src/testing/match
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - install-go-releaser
       - run:
           no_output_timeout: 20m
           command: |-
@@ -90,6 +89,7 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
+            --rerun-fails-max-failures=100 \
             --debug \
             -- \
             go test ./... -json \
@@ -209,6 +209,7 @@ jobs:
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --raw-command \
               --rerun-fails \
+              --rerun-fails-max-failures=100 \
               --format standard-verbose \
               --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \
@@ -1461,19 +1462,21 @@ jobs:
           command: |
             helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,proxy.service.httpNodePort=30081,pachd.enterpriseLicenseKey=${ENT_ACT_CODE}
+            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,proxy.service.httpNodePort=30081,pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=roottoken1234
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
             sleep 20
             kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            until poetry run python -c "import pachyderm_sdk; pachyderm_sdk.Client(\"$(minikube ip)\", 30080).get_version()"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
             PACH_PYTHON_TEST_HOST="$(minikube ip)" \
             PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
+            PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
             poetry run pytest -vvv tests

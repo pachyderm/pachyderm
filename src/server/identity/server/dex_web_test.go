@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -153,12 +151,12 @@ func TestUpdateIDP(t *testing.T) {
 		Connector: &identity.IDPConnector{
 			Id:   "conn",
 			Type: "github",
-			Config: &types.Struct{
-				Fields: map[string]*types.Value{
-					"clientID":    {Kind: &types.Value_StringValue{StringValue: "test2"}},
-					"redirectURI": {Kind: &types.Value_StringValue{StringValue: "/callback"}},
+			Config: mustStruct(
+				map[string]any{
+					"clientID":    "test2",
+					"redirectURI": "/callback",
 				},
-			},
+			),
 			ConfigVersion: 1,
 		},
 	})

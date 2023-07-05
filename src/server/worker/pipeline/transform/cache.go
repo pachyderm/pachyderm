@@ -3,11 +3,11 @@ package transform
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type cache struct {
@@ -22,7 +22,7 @@ func newCache(pachClient *client.APIClient, tag string) *cache {
 	}
 }
 
-func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
+func (c *cache) Get(ctx context.Context, key string) (*anypb.Any, error) {
 	resp, err := c.pachClient.PfsAPIClient.GetCache(ctx, &pfs.GetCacheRequest{Key: key})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -30,7 +30,7 @@ func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
 	return resp.Value, nil
 }
 
-func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
+func (c *cache) Put(ctx context.Context, key string, output *anypb.Any) error {
 	var fileSetIds []string
 	switch {
 	case datum.IsTaskResult(output):
@@ -39,20 +39,20 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 		if err != nil {
 			return err
 		}
-	case types.Is(output, &CreateParallelDatumsTaskResult{}):
+	case output.MessageIs(&CreateParallelDatumsTaskResult{}):
 		cpdt, err := deserializeCreateParallelDatumsTaskResult(output)
 		if err != nil {
 			return err
 		}
 		fileSetIds = append(fileSetIds, cpdt.FileSetId)
-	case types.Is(output, &CreateSerialDatumsTaskResult{}):
+	case output.MessageIs(&CreateSerialDatumsTaskResult{}):
 		csdt, err := deserializeCreateSerialDatumsTaskResult(output)
 		if err != nil {
 			return err
 		}
 		fileSetIds = append(fileSetIds, csdt.FileSetId, csdt.OutputDeleteFileSetId, csdt.MetaDeleteFileSetId)
-	case types.Is(output, &CreateDatumSetsTaskResult{}):
-	case types.Is(output, &DatumSetTaskResult{}):
+	case output.MessageIs(&CreateDatumSetsTaskResult{}):
+	case output.MessageIs(&DatumSetTaskResult{}):
 		dst, err := deserializeDatumSetTaskResult(output)
 		if err != nil {
 			return err

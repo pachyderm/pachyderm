@@ -7,10 +7,10 @@ import (
 	"net/url"
 
 	"github.com/docker/go-units"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"gocloud.dev/blob"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -80,7 +80,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 type shardCallback func(paths []string, startOffset, endOffset int64) error
 
 func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dst, tag string, src *pfs.AddFile_URLSource) error {
-	inputChan := make(chan *types.Any)
+	inputChan := make(chan *anypb.Any)
 	eg, ctx := errgroup.WithContext(ctx)
 	doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
 	// Create tasks.
@@ -120,7 +120,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 		if src.Concurrency > maxConcurrency {
 			concurrency = maxConcurrency
 		}
-		return task.DoOrdered(ctx, doer, inputChan, int(concurrency), func(_ int64, output *types.Any, _ error) error {
+		return task.DoOrdered(ctx, doer, inputChan, int(concurrency), func(_ int64, output *anypb.Any, _ error) error {
 			result, err := deserializePutFileURLTaskResult(output)
 			if err != nil {
 				return err
@@ -178,12 +178,12 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	if basePathRange == nil {
 		basePathRange = &pfs.PathRange{}
 	}
-	inputChan := make(chan *types.Any)
+	inputChan := make(chan *anypb.Any)
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		// TODO: Add cache?
 		doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
-		err := doer.Do(ctx, inputChan, func(_ int64, output *types.Any, err error) error { return err })
+		err := doer.Do(ctx, inputChan, func(_ int64, output *anypb.Any, err error) error { return err })
 		return errors.EnsureStack(err)
 	})
 	var bytesWritten int64
