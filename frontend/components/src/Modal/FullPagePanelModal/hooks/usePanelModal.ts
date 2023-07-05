@@ -3,8 +3,16 @@ import {useContext} from 'react';
 import ModalContext from '../contexts/ModalContext';
 
 const usePanelModal = () => {
-  const {show, onHide, onShow, leftOpen, rightOpen, setLeftOpen, setRightOpen} =
-    useContext(ModalContext);
+  const {
+    show,
+    onHide,
+    onShow,
+    leftOpen,
+    rightOpen,
+    setLeftOpen,
+    setRightOpen,
+    hideLeftPanel,
+  } = useContext(ModalContext);
 
   return {
     show,
@@ -14,6 +22,7 @@ const usePanelModal = () => {
     setRightOpen,
     onHide,
     onShow,
+    hideLeftPanel,
   };
 };
 

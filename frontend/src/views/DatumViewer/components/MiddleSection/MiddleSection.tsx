@@ -12,12 +12,13 @@ import styles from './MiddleSection.module.css';
 const MiddleSection = () => {
   const {
     headerText,
+    headerValue,
     job,
     jobId,
-    datumId,
     startTime,
     loading: loadingData,
     isSkippedDatum,
+    isSpout,
   } = useMiddleSection();
 
   const {
@@ -34,11 +35,11 @@ const MiddleSection = () => {
   return (
     <FullPagePanelModal.Body>
       <div className={styles.base}>
-        <DatumHeaderBreadcrumbs jobId={jobId || job?.id} />
+        {!isSpout && <DatumHeaderBreadcrumbs jobId={jobId || job?.id} />}
         <div className={styles.header} data-testid="MiddleSection__title">
           <h6>{headerText}</h6>
           <CaptionText color="black" className={styles.headerId}>
-            {datumId ? datumId : jobId || job?.id}
+            {headerValue}
           </CaptionText>
         </div>
 

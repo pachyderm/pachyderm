@@ -3,6 +3,7 @@ import classnames from 'classnames';
 import React, {useEffect, useMemo, useState} from 'react';
 import {UseFormReturn} from 'react-hook-form';
 
+import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useDownloadText from '@dash-frontend/hooks/useDownloadText';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
@@ -39,8 +40,19 @@ const LogsControls: React.FC<LogsControlsProps> = ({
   formCtx,
 }) => {
   const {pipelineId, datumId} = useUrlState();
+  const {isSpout} = useCurrentPipeline();
 
   const [disableExport, setDisableExport] = useState(true);
+
+  const defaultLabel = useMemo(() => {
+    if (isSpout) {
+      return 'Pipeline Start Time';
+    } else if (datumId) {
+      return 'Datum Start Time';
+    } else {
+      return 'Job Start Time';
+    }
+  }, [datumId, isSpout]);
 
   useEffect(() => {
     setDisableExport(
@@ -126,9 +138,7 @@ const LogsControls: React.FC<LogsControlsProps> = ({
               </div>
 
               <RadioButton id="default" name="selectedTime" value="default">
-                <RadioButton.Label>
-                  {datumId ? 'Datum Start Time' : 'Job Start Time'}
-                </RadioButton.Label>
+                <RadioButton.Label>{defaultLabel}</RadioButton.Label>
               </RadioButton>
               {LOGS_DEFAULT_DROPDOWN_OPTIONS.map((option) => (
                 <RadioButton

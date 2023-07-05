@@ -49,7 +49,7 @@ describe('PipelineInfo', () => {
 
     const outputRepo = screen.getByLabelText('Output Repo');
     expect(outputRepo).toHaveTextContent(pipelineId);
-    expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
+    expect(within(outputRepo).getByRole('link')).toHaveAttribute(
       'href',
       `/lineage/${projectId}/repos/${pipelineId}`,
     );
@@ -62,5 +62,44 @@ describe('PipelineInfo', () => {
     expect(screen.getByLabelText('S3 Output Repo')).toHaveTextContent(
       `s3//${pipelineId}`,
     );
+  });
+
+  it('should display information about a spout pipeline', async () => {
+    const projectId = 'Pipelines-Project';
+    const pipelineId = 'spout-pipeline';
+
+    window.history.replaceState(
+      '',
+      '',
+      `/lineage/${projectId}/pipelines/${pipelineId}`,
+    );
+
+    render(<PipelineInfo />);
+
+    await waitForElementToBeRemoved(
+      screen.queryByTestId('Description__Pipeline TypeSkeleton'),
+    );
+
+    expect(screen.getByTestId('PipelineState__state')).toHaveTextContent(
+      'Running',
+    );
+    expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent('Spout');
+
+    expect(screen.getByLabelText('Description')).toHaveTextContent(
+      'It is a spout',
+    );
+
+    const outputRepo = screen.getByLabelText('Output Repo');
+    expect(outputRepo).toHaveTextContent(pipelineId);
+    expect(within(outputRepo).getByRole('link')).toHaveAttribute(
+      'href',
+      `/lineage/${projectId}/repos/${pipelineId}`,
+    );
+    expect(screen.queryByTestId('Datum Timeout')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('Datum Tries')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('Job Timeout')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Output Branch')).toHaveTextContent('master');
+    expect(screen.queryByTestId('Egress')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('S3 Output Repo')).not.toBeInTheDocument();
   });
 });

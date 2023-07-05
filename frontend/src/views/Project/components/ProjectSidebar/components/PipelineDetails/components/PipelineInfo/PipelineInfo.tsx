@@ -12,7 +12,7 @@ import styles from './PipelineInfo.module.css';
 
 const PipelineInfo: React.FC = () => {
   const {pipelineId} = useUrlState();
-  const {pipeline, loading} = useCurrentPipeline();
+  const {pipeline, loading, isServiceOrSpout} = useCurrentPipeline();
 
   return (
     <dl className={styles.base}>
@@ -40,29 +40,38 @@ const PipelineInfo: React.FC = () => {
         {pipeline?.description ? pipeline.description : 'N/A'}
       </Description>
 
-      <Description term="Datum Timeout" loading={loading}>
-        {pipeline?.datumTimeoutS ? `${pipeline.datumTimeoutS} seconds` : 'N/A'}
-      </Description>
+      {!isServiceOrSpout && (
+        <>
+          <Description term="Datum Timeout" loading={loading}>
+            {pipeline?.datumTimeoutS
+              ? `${pipeline.datumTimeoutS} seconds`
+              : 'N/A'}
+          </Description>
 
-      <Description term="Datum Tries" loading={loading}>
-        {pipeline?.datumTries}
-      </Description>
+          <Description term="Datum Tries" loading={loading}>
+            {pipeline?.datumTries}
+          </Description>
 
-      <Description term="Job Timeout" loading={loading}>
-        {pipeline?.jobTimeoutS ? `${pipeline.jobTimeoutS} seconds` : 'N/A'}
-      </Description>
-
+          <Description term="Job Timeout" loading={loading}>
+            {pipeline?.jobTimeoutS ? `${pipeline.jobTimeoutS} seconds` : 'N/A'}
+          </Description>
+        </>
+      )}
       <Description term="Output Branch" loading={loading}>
         {pipeline?.outputBranch}
       </Description>
 
-      <Description term="Egress" loading={loading}>
-        {pipeline?.egress ? 'Yes' : 'No'}
-      </Description>
+      {!isServiceOrSpout && (
+        <>
+          <Description term="Egress" loading={loading}>
+            {pipeline?.egress ? 'Yes' : 'No'}
+          </Description>
 
-      <Description term="S3 Output Repo" loading={loading}>
-        {pipeline?.s3OutputRepo || 'N/A'}
-      </Description>
+          <Description term="S3 Output Repo" loading={loading}>
+            {pipeline?.s3OutputRepo || 'N/A'}
+          </Description>
+        </>
+      )}
     </dl>
   );
 };

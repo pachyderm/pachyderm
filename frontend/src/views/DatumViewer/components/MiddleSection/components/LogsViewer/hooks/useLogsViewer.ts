@@ -2,6 +2,7 @@ import {Maybe} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
+import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useLogs from '@dash-frontend/hooks/useLogs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -20,8 +21,10 @@ export type LogsViewerFormValues = {
   highlightUserLogs: boolean;
 };
 
-const useLogsViewer = (startTime?: number) => {
+const useLogsViewer = (startTime?: number | null) => {
   const {projectId, pipelineId, jobId, datumId} = useUrlState();
+  const {isServiceOrSpout, pipelineType} = useCurrentPipeline();
+
   const [selectedLogsMap, setSelectedLogsMap] = useState<{
     [key: number]: boolean;
   }>({});
@@ -48,13 +51,17 @@ const useLogsViewer = (startTime?: number) => {
     ...defaultValues,
   };
 
-  const {logs, loading, error} = useLogs({
-    projectId: projectId,
-    pipelineName: pipelineId,
-    jobId: jobId,
-    datumId: datumId,
-    start: dropdownValues[selectedTime],
-  });
+  const {logs, loading, error} = useLogs(
+    {
+      projectId: projectId,
+      pipelineName: pipelineId,
+      jobId: jobId,
+      datumId: datumId,
+      start: dropdownValues[selectedTime],
+      master: isServiceOrSpout,
+    },
+    {skip: !pipelineType},
+  );
 
   useEffect(() => {
     setSelectedLogsMap({});

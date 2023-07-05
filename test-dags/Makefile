@@ -98,6 +98,7 @@ rbac-warthog:
 
 generate-rbac: rbac-setup rbac-root rbac-tomcat rbac-viper rbac-warthog
 	-echo "pizza" | pachctl auth use-auth-token
+	
 setup-service-pipeline:
 	-pachctl create repo service-input
 	-pachctl put file service-input@master:birthday-cake.jpg -f ../etc/testing/files/FOO9q43.jpg

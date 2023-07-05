@@ -161,6 +161,55 @@ export const workspaceLogs = [
     .setMessage('PPS master: processing event for "edges"'),
 ];
 
+const pipelines = [
+  new LogMessage()
+    .setPipelineName('spout-pipeline')
+    .setUser(false)
+    .setMessage('Spout Log')
+    .setMaster(true)
+    .setTs(
+      timestampFromObject({
+        seconds: 1616533099,
+        nanos: 0,
+      }),
+    ),
+  new LogMessage()
+    .setPipelineName('spout-pipeline')
+    .setUser(false)
+    .setMessage('Spout Log 2')
+    .setMaster(true)
+    .setTs(
+      timestampFromObject({
+        seconds: 1616533100,
+        nanos: 0,
+      }),
+    ),
+  new LogMessage()
+    .setPipelineName('service-pipeline')
+    .setUser(false)
+    .setMessage('service log complete')
+    .setJobId('23b9af7d5d4343219bc8e02ff44cd55a')
+
+    .setMaster(true)
+    .setTs(
+      timestampFromObject({
+        seconds: 1616533098,
+        nanos: 0,
+      }),
+    ),
+  new LogMessage()
+    .setPipelineName('service-pipeline')
+    .setUser(false)
+    .setMessage('service log running')
+    .setJobId('5940382d5d4343219bc8e02ff44cd55a')
+    .setMaster(true)
+    .setTs(
+      timestampFromObject({
+        seconds: 1616533098,
+        nanos: 0,
+      }),
+    ),
+];
 const getLoadLogMessages = (count: number) => {
   const now = Math.floor(new Date().getTime() / 1000);
   return [...new Array(count).keys()].map((i) => {
@@ -187,5 +236,6 @@ export const pipelineAndJobLogs: {[projectId: string]: LogMessage[]} = {
   'Empty-Project': [],
   'Trait-Discovery': [],
   'Load-Project': getLoadLogMessages(LOGS),
+  'Pipelines-Project': pipelines,
   default: [...tutorial],
 };

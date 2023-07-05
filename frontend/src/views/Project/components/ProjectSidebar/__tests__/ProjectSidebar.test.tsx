@@ -174,7 +174,7 @@ describe('ProjectSidebar', () => {
       );
       render(<Project />);
 
-      expect(await screen.findByText('Standby')).toBeInTheDocument();
+      expect(await screen.findByText('Running')).toBeInTheDocument();
 
       expect(screen.getByRole('tablist').childNodes).toHaveLength(2);
       expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent(

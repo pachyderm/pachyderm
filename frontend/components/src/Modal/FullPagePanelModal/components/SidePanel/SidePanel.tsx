@@ -67,6 +67,7 @@ const SidePanel: React.FC<SidePanelProps> = ({
         [styles.leftClosed]: !isOpen && isLeft,
         [styles.expanded]: isOpen && isLeft && isExpanded,
       })}
+      data-testid={isLeft ? 'SidePanel__left' : 'SidePanel__right'}
     >
       {!isLeft && (
         <div

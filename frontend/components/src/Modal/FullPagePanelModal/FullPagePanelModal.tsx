@@ -13,6 +13,7 @@ export interface FullPageModalProps
   extends Omit<BootstrapModalProps, 'show' | 'onHide' | 'onShow'> {
   show: boolean;
   hideType?: 'cancel' | 'exit';
+  hideLeftPanel?: boolean;
   onHide?: () => void;
   onShow?: () => void;
 }
@@ -22,6 +23,7 @@ const FullPagePanelModal: React.FC<FullPageModalProps> = ({
   className,
   children,
   hideType = 'cancel',
+  hideLeftPanel = false,
   onHide,
   onShow,
 }) => {
@@ -35,13 +37,14 @@ const FullPagePanelModal: React.FC<FullPageModalProps> = ({
       show,
       leftOpen,
       rightOpen,
+      hideLeftPanel,
       setLeftOpen,
       setRightOpen,
       hideType,
       onHide,
       onShow,
     }),
-    [hideType, leftOpen, onHide, onShow, rightOpen, show],
+    [hideType, leftOpen, onHide, onShow, rightOpen, hideLeftPanel, show],
   );
   return (
     <ModalContext.Provider value={modalContext}>

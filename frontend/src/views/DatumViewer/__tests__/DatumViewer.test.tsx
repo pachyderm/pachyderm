@@ -141,7 +141,9 @@ describe('Datum Viewer', () => {
 
       render(<JobDatumViewer />);
 
-      const codeSpec = screen.getByTestId('ConfigFilePreview__codeElement');
+      const codeSpec = await screen.findByTestId(
+        'ConfigFilePreview__codeElement',
+      );
       expect(
         await within(codeSpec).findAllByText((node) => node.includes('edges')),
       ).toHaveLength(2); // Allow code element to load
@@ -742,12 +744,119 @@ describe('Datum Viewer', () => {
           '/project/Solar-Panel-Data-Sorting/jobs/7798fhje5d4343219bc8e02ff4acd33a/pipeline/montage/logs/datum/987654321dbb460a649a72bf1a1147159737c785f622c0c149ff89d7fcb66747',
         );
         render(<MiddleSection />);
+
+        await waitFor(() => {
+          expect(
+            screen.getByRole('heading', {
+              name: /skipped datum\./i,
+            }),
+          ).toBeInTheDocument();
+        });
+
         expect(
           await screen.findByText(
             'This datum has been successfully processed in a previous job.',
           ),
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Spout Pipeline', () => {
+    beforeEach(() => {
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/Pipelines-Project/pipelines/spout-pipeline/logs',
+      );
+    });
+
+    it('should hide the left panel', async () => {
+      render(<PipelineDatumViewer />);
+      await screen.findByTestId('SidePanel__right');
+      expect(screen.queryByTestId('SidePanel__left')).not.toBeInTheDocument();
+    });
+
+    it('should display correct header', async () => {
+      render(<PipelineDatumViewer />);
+      expect(
+        await screen.findByTestId('MiddleSection__title'),
+      ).toHaveTextContent('Pipeline logs forspout-pipeline');
+    });
+
+    it('should show pipeline info in the right panel', async () => {
+      render(<PipelineDatumViewer />);
+
+      expect(await screen.findByText('Running')).toBeVisible();
+      expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent('Spout');
+    });
+
+    it('should display all logs for a spout pipeline', async () => {
+      render(<MiddleSection />);
+      const rows = await screen.findAllByTestId('LogRow__base');
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toHaveTextContent(
+        `${getStandardDate(1616533099)} Spout Log`,
+      );
+      expect(rows[1]).toHaveTextContent(
+        `${getStandardDate(1616533100)} Spout Log 2`,
+      );
+    });
+  });
+
+  describe('Service Pipeline', () => {
+    beforeEach(() => {
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/Pipelines-Project/pipelines/service-pipeline/jobs/5940382d5d4343219bc8e02ff44cd55a/logs',
+      );
+    });
+
+    it('should hide the datum panel when clicking on a job', async () => {
+      render(<PipelineDatumViewer />);
+      await screen.findByTestId('JobList__list');
+      await click((await screen.findAllByTestId('JobList__listItem'))[1]);
+      expect(screen.queryByTestId('DatumList__list')).not.toBeInTheDocument();
+      await screen.findByTestId('JobList__list');
+    });
+
+    it('should hide the datum filter options in the right panel', async () => {
+      render(<PipelineDatumViewer />);
+
+      await click(await screen.findByText('Filter'));
+      await screen.findByText('Sort Jobs By');
+      expect(
+        screen.queryByText('Filter Datums by Status'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('should display correct header', async () => {
+      render(<PipelineDatumViewer />);
+      expect(
+        await screen.findByTestId('MiddleSection__title'),
+      ).toHaveTextContent('Job Logs for5940382d5d4343219bc8e02ff44cd55a');
+    });
+
+    it('should show pipeline info in the right panel', async () => {
+      render(<PipelineDatumViewer />);
+
+      expect(await screen.findByText('Running')).toBeVisible();
+      expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent(
+        'Service',
+      );
+    });
+
+    it('should display correct logs for a service pipeline', async () => {
+      render(<PipelineDatumViewer />);
+
+      expect(await screen.findByTestId('LogRow__base')).toHaveTextContent(
+        `${getStandardDate(1616533098)} service log running`,
+      );
+      await click((await screen.findAllByTestId('JobList__listItem'))[1]);
+      expect(await screen.findByTestId('LogRow__base')).toHaveTextContent(
+        `${getStandardDate(1616533098)} service log complete`,
+      );
     });
   });
 });

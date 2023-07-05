@@ -13,6 +13,7 @@ import {
   Service,
   Spout,
 } from '@dash-backend/proto';
+import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
 import {
   ObjectStorageEgress,
   Project,
@@ -1544,7 +1545,7 @@ const pipelinesProject = [
         .setProject(new Project().setName('Pipelines-Project')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
-    .setState(PipelineState.PIPELINE_STANDBY)
+    .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
         .setInput(
@@ -1568,7 +1569,14 @@ const pipelinesProject = [
     .setDetails(
       new PipelineInfo.Details()
         .setOutputBranch('master')
-        .setSpout(new Spout()),
+        .setSpout(new Spout())
+        .setDescription('It is a spout')
+        .setCreatedAt(
+          timestampFromObject({
+            seconds: 1616533099,
+            nanos: 0,
+          }),
+        ),
     ),
 ];
 

@@ -21,6 +21,7 @@ const useCurrentPipeline = () => {
     loading,
     isServiceOrSpout,
     isSpout,
+    pipelineType: pipeline?.type,
   };
 };
 

@@ -1,6 +1,7 @@
 import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
+import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -11,16 +12,20 @@ const useDatumViewer = (onCloseRoute: string) => {
   const {projectId, pipelineId, jobId, datumId} = useUrlState();
   const {updateSearchParamsAndGo} = useUrlQueryState();
   const browserHistory = useHistory();
+  const {pipelineType} = useCurrentPipeline();
 
   const {
     job,
     loading: jobLoading,
     error,
-  } = useJob({
-    id: jobId,
-    pipelineName: pipelineId,
-    projectId,
-  });
+  } = useJob(
+    {
+      id: jobId,
+      pipelineName: pipelineId,
+      projectId,
+    },
+    {skip: !jobId},
+  );
 
   const onClose = useCallback(() => {
     closeModal();
@@ -36,6 +41,7 @@ const useDatumViewer = (onCloseRoute: string) => {
     job,
     jobLoading,
     error,
+    pipelineType,
   };
 };
 

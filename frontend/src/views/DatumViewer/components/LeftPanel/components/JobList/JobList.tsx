@@ -4,6 +4,7 @@ import React, {useCallback} from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ListItem from '@dash-frontend/components/ListItem';
+import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   getJobStateColor,
@@ -31,6 +32,7 @@ const JobList: React.FC<jobListProps> = ({
   currentJob,
 }) => {
   const {urlJobId, currentDatumId, updateSelectedJob} = useDatumPath();
+  const {isServiceOrSpout} = useCurrentPipeline();
 
   const deriveState = useCallback(
     (jobId: string) => {
@@ -47,9 +49,11 @@ const JobList: React.FC<jobListProps> = ({
   const onClick = useCallback(
     (jobId: string) => {
       updateSelectedJob(jobId);
-      setIsExpanded(true);
+      if (!isServiceOrSpout) {
+        setIsExpanded(true);
+      }
     },
-    [setIsExpanded, updateSelectedJob],
+    [isServiceOrSpout, setIsExpanded, updateSelectedJob],
   );
 
   if (!loading && !jobs) {
@@ -80,7 +84,7 @@ const JobList: React.FC<jobListProps> = ({
             leftIconColor={
               getJobStateColor(getVisualJobState(job.state)) || undefined
             }
-            RightIconSVG={CaretRightSVG}
+            RightIconSVG={!isServiceOrSpout ? CaretRightSVG : undefined}
             captionText={job.id}
             onClick={() => onClick(job.id)}
           />

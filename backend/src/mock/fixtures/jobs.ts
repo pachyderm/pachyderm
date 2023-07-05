@@ -572,6 +572,23 @@ const multiProjectPipelineB = [
 
 const pipelinesProject = [
   jobInfoFromObject({
+    state: JobState.JOB_RUNNING,
+    created: {seconds: 1616533098, nanos: 100},
+    started: {seconds: 1616533098, nanos: 100},
+    job: {
+      id: '5940382d5d4343219bc8e02ff44cd55a',
+      pipeline: {name: 'service-pipeline'},
+    },
+    input: {
+      pfs: {
+        project: 'Pipelines-Project',
+        repo: 'service-pipeline-input',
+        name: 'service-pipeline-input',
+        branch: 'master',
+      },
+    },
+  }),
+  jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
     created: {seconds: 1616533099, nanos: 100},
     started: {seconds: 1616533100, nanos: 100},

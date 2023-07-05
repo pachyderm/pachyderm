@@ -85,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className={styles.sideBarToolbar}>
             <ButtonGroup>
               <Route path={LINEAGE_PIPELINE_PATH}>
-                <ReadLogsButton buttonText="Inspect Jobs" />
+                <ReadLogsButton />
               </Route>
               <Route path={LINEAGE_REPO_PATH}>
                 <InspectCommitsButton />

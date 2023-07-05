@@ -6,6 +6,7 @@ import React from 'react';
 import {UseFormReturn} from 'react-hook-form';
 
 import {Chip, ChipGroup} from '@dash-frontend/components/Chip';
+import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {readableDatumState} from '@dash-frontend/lib/datums';
 import {
@@ -35,6 +36,8 @@ export type stateOptions = {
 
 export const Filter: React.FC<FilterProps> = ({formCtx}) => {
   const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
+  const {isServiceOrSpout} = useCurrentPipeline();
+
   const filters = searchParams.datumFilters || [];
 
   const {watch, setValue} = formCtx;
@@ -77,22 +80,25 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
                 <RadioButton.Label>Job status</RadioButton.Label>
               </RadioButton>
             </div>
-            <div className={styles.group}>
-              <div className={styles.heading}>
-                <CaptionTextSmall>Filter Datums by Status</CaptionTextSmall>
+
+            {!isServiceOrSpout && (
+              <div className={styles.group}>
+                <div className={styles.heading}>
+                  <CaptionTextSmall>Filter Datums by Status</CaptionTextSmall>
+                </div>
+                {datumFilters.map((state) => (
+                  <PureCheckbox
+                    small
+                    id={state}
+                    key={state}
+                    name={state}
+                    label={readableDatumState(state)}
+                    onClick={() => updateDatumSelection(state)}
+                    selected={filters.includes(state)}
+                  />
+                ))}
               </div>
-              {datumFilters.map((state) => (
-                <PureCheckbox
-                  small
-                  id={state}
-                  key={state}
-                  name={state}
-                  label={readableDatumState(state)}
-                  onClick={() => updateDatumSelection(state)}
-                  selected={filters.includes(state)}
-                />
-              ))}
-            </div>
+            )}
           </Form>
         </Dropdown.Menu>
       </Dropdown>
@@ -103,7 +109,8 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
         >
           {capitalize(jobsSort)}
         </Chip>
-        {filters &&
+        {!isServiceOrSpout &&
+          filters &&
           filters.map((item) => (
             <Chip
               data-testid={`Filter__${item}Chip`}

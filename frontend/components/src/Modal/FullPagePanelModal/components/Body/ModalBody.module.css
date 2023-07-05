@@ -1,5 +1,5 @@
 .base {
-  margin: 16px 16px 0 4rem;
+  margin: 1rem 1rem 0 4rem;
   width: inherit;
   background-color: var(--white);
   border-radius: 3px 3px 0 0;
@@ -12,6 +12,10 @@
 
 .leftPanel {
   margin-left: 19.75rem;
+}
+
+.hideLeftPanel {
+  margin: 1rem 1rem 0 1rem;
 }
 
 @media (--medium-viewport) {
