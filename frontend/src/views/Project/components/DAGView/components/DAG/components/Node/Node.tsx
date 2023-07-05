@@ -3,7 +3,11 @@ import classNames from 'classnames';
 import React, {SVGProps} from 'react';
 
 import {Node as GraphQLNode} from '@dash-frontend/lib/types';
-import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
+import {
+  NODE_INPUT_REPO,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {
   SuccessCheckmark,
   RepoSVG,
@@ -46,8 +50,6 @@ const NodeStateIcon = ({state, ...rest}: NodeIconProps) => {
 type NodeProps = {
   node: GraphQLNode;
   isInteractive: boolean;
-  nodeWidth: number;
-  nodeHeight: number;
   hideDetails?: boolean;
   showSimple?: boolean;
 };
@@ -68,8 +70,6 @@ const textElementProps = {
 const Node: React.FC<NodeProps> = ({
   node,
   isInteractive,
-  nodeHeight,
-  nodeWidth,
   hideDetails = false,
   showSimple = false,
 }) => {
@@ -116,7 +116,7 @@ const Node: React.FC<NodeProps> = ({
           className={classNames(styles.node, {
             [styles.repoSimplifiedBox]: showSimple,
           })}
-          width={nodeWidth}
+          width={NODE_WIDTH}
           height={NODE_INPUT_REPO}
           rx={showSimple ? 15 : 3}
           ry={showSimple ? 15 : 3}
@@ -166,8 +166,8 @@ const Node: React.FC<NodeProps> = ({
   return (
     <g id={groupName} transform={`translate (${node.x}, ${node.y})`}>
       <rect
-        width={nodeWidth}
-        height={nodeHeight}
+        width={NODE_WIDTH}
+        height={NODE_HEIGHT}
         className={classNames(styles.node, {
           [styles.pipelineSimplifiedBox]:
             showSimple && node.jobNodeState !== NodeState.ERROR,
@@ -188,9 +188,9 @@ const Node: React.FC<NodeProps> = ({
           <text {...textElementProps} />
           <line
             x1="0"
-            y1={nodeHeight - BUTTON_HEIGHT}
-            x2={nodeWidth}
-            y2={nodeHeight - BUTTON_HEIGHT}
+            y1={NODE_HEIGHT - BUTTON_HEIGHT}
+            x2={NODE_WIDTH}
+            y2={NODE_HEIGHT - BUTTON_HEIGHT}
             className={styles.line}
             stroke="black"
           />
@@ -201,7 +201,7 @@ const Node: React.FC<NodeProps> = ({
               id="pipelineStatusGroup"
               data-testid={`Node__state-${node.nodeState}`}
               transform={`translate (${
-                nodeWidth - NODE_ICON_X_OFFSET - 8
+                NODE_WIDTH - NODE_ICON_X_OFFSET - 8
               }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
               onClick={() => onClick('status')}
               className={styles.statusGroup}
@@ -225,7 +225,7 @@ const Node: React.FC<NodeProps> = ({
               id="jobStatusGroup"
               data-testid={`Node__state-${node.jobNodeState}`}
               transform={`translate (${
-                nodeWidth - NODE_ICON_X_OFFSET / 2 - 4
+                NODE_WIDTH - NODE_ICON_X_OFFSET / 2 - 4
               }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
               onClick={() => onClick('logs')}
               className={styles.statusGroup}
@@ -245,7 +245,7 @@ const Node: React.FC<NodeProps> = ({
             role="button"
             aria-label={`${groupName} pipeline`}
             id="pipelineButtonGroup"
-            transform={`translate (0, ${nodeHeight - BUTTON_HEIGHT})`}
+            transform={`translate (0, ${NODE_HEIGHT - BUTTON_HEIGHT})`}
             onClick={() => onClick('pipeline')}
             className={pipelineClasses}
           >
@@ -265,8 +265,8 @@ const Node: React.FC<NodeProps> = ({
 
           <g transform={`scale(0.6)`}>
             <ChevronRightSVG
-              x={nodeWidth / 2 / 0.6 - 10}
-              y={nodeHeight / 0.6 - 28 / 0.6}
+              x={NODE_WIDTH / 2 / 0.6 - 10}
+              y={NODE_HEIGHT / 0.6 - 28 / 0.6}
             />
           </g>
 
@@ -275,7 +275,7 @@ const Node: React.FC<NodeProps> = ({
             aria-label={`${groupName} repo`}
             id="repoButtonGroup"
             transform={`translate (${BUTTON_WIDTH + 20}, ${
-              nodeHeight - BUTTON_HEIGHT
+              NODE_HEIGHT - BUTTON_HEIGHT
             })`}
             onClick={() => onClick('repo')}
             className={repoClasses}

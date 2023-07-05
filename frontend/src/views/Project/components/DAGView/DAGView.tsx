@@ -317,8 +317,6 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
                   data={dag}
                   key={dag.id}
                   id={dag.id}
-                  nodeWidth={NODE_WIDTH}
-                  nodeHeight={NODE_HEIGHT}
                   dagsToShow={dags.length}
                   dagDirection={dagDirection}
                   rotateDag={rotateDag}

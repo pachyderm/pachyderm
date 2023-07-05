@@ -19,8 +19,6 @@ type DagProps = {
   dagsToShow: number;
   data: Dag;
   id: string;
-  nodeWidth: number;
-  nodeHeight: number;
   isInteractive?: boolean;
   rotateDag: () => void;
   dagDirection: DagDirection;
@@ -31,30 +29,15 @@ type DagProps = {
 const DAG: React.FC<DagProps> = ({
   data,
   id,
-  nodeWidth,
-  nodeHeight,
   isInteractive = true,
   dagDirection,
   largeDagMode = false,
   forceFullRender = false,
 }) => {
-  const {rectBox, translateX, translateY, scale, svgWidth, svgHeight} = useDag({
-    data,
-    id,
-    nodeHeight,
-    nodeWidth,
-    dagDirection,
-  });
+  const {translateX, translateY, scale, svgWidth, svgHeight} = useDag();
 
   return (
     <g id={id} className={styles.graph}>
-      <rect
-        className="borderRect"
-        x={rectBox.x}
-        y={rectBox.y}
-        width={rectBox.width}
-        height={rectBox.height}
-      />
       {/* Ordering of links and nodes in DOM is important so nodes are on top layer */}
       {(!largeDagMode || forceFullRender || scale >= SIMPLE_DAG_THRESHOLD) &&
         data.links.map((link) => {
@@ -93,8 +76,6 @@ const DAG: React.FC<DagProps> = ({
             <Node
               key={node.id}
               node={node}
-              nodeHeight={NODE_HEIGHT}
-              nodeWidth={NODE_WIDTH}
               isInteractive={
                 (!largeDagMode || scale >= HIDE_DETAILS_THRESHOLD) &&
                 isInteractive
