@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/iam"
@@ -140,8 +141,8 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("error creating tls secret: %w", err))
 	}
-	redirectURI := fmt.Sprintf("https://%s.workspace.pachyderm.com/dex/callback", ctx.Stack())
-	host := fmt.Sprintf("%s.workspace.pachyderm.com", ctx.Stack())
+	redirectURI := fmt.Sprintf("https://%s.workspace.pachyderm.com/dex/callback", strings.ToLower(ctx.Stack()))
+	host := fmt.Sprintf("%s.workspace.pachyderm.com", strings.ToLower(ctx.Stack()))
 	values := pulumi.Map{
 		"proxy": pulumi.Map{
 			"host":    pulumi.String(host),
@@ -194,6 +195,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 				"enabled": pulumi.Bool(true),
 			},
 			"enterpriseLicenseKey": pulumi.String(enterpriseKey),
+			"rootToken":            pulumi.String("test"),
 			"activateEnterprise":   pulumi.Bool(true),
 		},
 		"deployTarget": pulumi.String("AMAZON"),

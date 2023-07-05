@@ -486,8 +486,6 @@ jobs:
     steps:
       - attach_workspace:
           at: /tmp/workspace
-      - run: |
-          cat /tmp/workspace/bash.env > $BASH_ENV
       - checkout
       - gcp-cli/initialize
       - go/install:
@@ -1135,8 +1133,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: /tmp/workspace
-      - run: |
-          cat /tmp/workspace/bash.env > $BASH_ENV
       - run:
           name: echo bins
           command: |
@@ -1208,15 +1204,7 @@ jobs:
                   pulumi stack output kubeconfig > kubeconfig.yml
                   KUBECONFIG=./kubeconfig.yml kubectl get nodes
                   PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
-                  echo $PACHD_IP
-                  echo "export PACHD_IP=$PACHD_IP" >> $BASH_ENV
-                  mkdir -p workspace
-                  cp $BASH_ENV workspace/bash.env
                   gcloud dns --project=pulumi-ci-334619 record-sets update << parameters.env >>.workspace.pachyderm.com. --type="CNAME" --zone="sandbox" --rrdatas="$PACHD_IP." --ttl="300"
-            - persist_to_workspace:
-                root: etc/testing/circle/workloads/pulumi/aws/workspace
-                paths:
-                  - bash.env
       - when:
           condition:
             and:
@@ -1242,8 +1230,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: /tmp/workspace
-      - run: |
-          cat /tmp/workspace/bash.env > $BASH_ENV
       - run:
           name: echo bins
           command: |
