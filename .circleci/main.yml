@@ -1953,6 +1953,7 @@ workflows:
           requires:
             - test-python-sdk
             - python-sdk-test-publish
+            - sign-off
           filters: *only-release-tags
   nightly-release:
     jobs:
