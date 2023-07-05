@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
@@ -15,6 +17,7 @@ func branchlessCommitsPPS(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "collecting jobs")
 	}
 	for _, ji := range jis {
+		log.Info(ctx, "removing branch from job output commit", zap.String("job", jobKey(ji.Job)))
 		// TODO(provenance): nil commit.Branch field in storage
 		ji.OutputCommit.Repo = ji.OutputCommit.Branch.Repo
 		if err := updateCollectionProto(ctx, tx, "jobs", jobKey(ji.Job), jobKey(ji.Job), ji); err != nil {
