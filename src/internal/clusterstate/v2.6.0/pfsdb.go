@@ -165,6 +165,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	var count int
+	notSame := make([]string, 0)
 	for _, ci := range deleteCommits {
 		log.Info(ctx, "validating deleted alias commit",
 			zap.String("commit", oldCommitKey(ci.Commit)),
@@ -175,10 +176,13 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			return err
 		}
 		if !same {
-			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than it's first real ancestor.",
-				oldCommitKey(ci.Commit))
+			notSame = append(notSame, oldCommitKey(ci.Commit))
+		} else {
+			count++
 		}
-		count++
+	}
+	if len(notSame) > 0 {
+		return errors.Errorf("commits %q are listed as ALIAS but have a different ID than their first real ancestor.", notSame)
 	}
 	realAncestors := make(map[string]*v2_5_0.CommitInfo)
 	childToNewParents := make(map[*pfs.Commit]*pfs.Commit)
