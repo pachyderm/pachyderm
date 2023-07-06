@@ -167,7 +167,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			return err
 		}
 		if !same {
-			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than it's first real ancestor.",
+			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than its first real ancestor",
 				oldCommitKey(ci.Commit))
 		}
 	}
