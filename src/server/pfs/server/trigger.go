@@ -4,6 +4,7 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -58,7 +59,7 @@ func (d *driver) triggerCommit(
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
 func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
-	if t == nil {
+	if t == nil || t.CronSpec != "" {
 		return false, nil
 	}
 	result := t.All
@@ -81,9 +82,9 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 		merge(newHead.Details.SizeBytes-oldSize >= size)
 	}
-	if t.CronSpec != "" {
+	if t.RateLimitSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress
-		schedule, err := cronutil.ParseCronExpression(t.CronSpec)
+		schedule, err := cronutil.ParseCronExpression(t.RateLimitSpec)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
@@ -128,8 +129,8 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if err := ancestry.ValidateName(trigger.Branch); err != nil {
 		return err
 	}
-	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
-		return errors.Wrapf(err, "invalid trigger cron spec")
+	if _, err := cronutil.ParseCronExpression(trigger.RateLimitSpec); trigger.RateLimitSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger rate limit spec")
 	}
 	if _, err := units.FromHumanSize(trigger.Size); trigger.Size != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger size")
@@ -137,10 +138,13 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if trigger.Commits < 0 {
 		return errors.Errorf("can't trigger on a negative number of commits")
 	}
+	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger cron spec")
+	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
 	if err := d.listBranchInTransaction(txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
-		biMaps[bi.Branch.Name] = bi
+		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {
 		return err
