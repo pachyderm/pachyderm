@@ -188,6 +188,7 @@ func TestListRepos(t *testing.T) {
 	}))
 }
 
+// todo(fahad): this isn't working so fix it. ListRepoByIdxType is likely also broken.
 func TestListReposByIdxType(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)

@@ -242,8 +242,6 @@ func DeleteAllRepos(ctx context.Context, tx *pachsql.Tx) error {
 	return errors.Wrap(err, "could not delete all repo rows")
 }
 
-// todo(fahad): GetByIndex() Repo Type
-
 // GetRepo is like GetRepoByName, but retrieves an entry using the row id.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
 	return getRepo(ctx, tx, "id", id)
