@@ -85,7 +85,7 @@ message Pod {
 message App {
   string name = 1;
   repeated Pod pods = 2;
-  int64 timeout = 3;
+  google.protobuf.Duration timeout = 3;
   Pipeline pipeline = 4;  
 }
 
@@ -104,7 +104,7 @@ message DumpV2Request {
   System system = 1;
   repeated Pipeline pipelines = 2;
   bool input_repos = 3;
-  int64 timeout = 4;
+  google.protobuf.Duration timeout = 4;
 }
 
 message DumpContent {

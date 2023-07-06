@@ -220,7 +220,11 @@ func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_Du
 	}
 	c := s.env.GetPachClient(server.Context())
 	tasks := s.makeTasks(server.Context(), request, server)
-	return s.dump(c, server, tasks, time.Duration(request.Timeout))
+	var d time.Duration
+	if request.Timeout != nil {
+		d = request.Timeout.AsDuration()
+	}
+	return s.dump(c, server, tasks, d)
 }
 
 func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Request, server debug.Debug_DumpV2Server) []taskFunc {
@@ -304,9 +308,9 @@ func (s *debugServer) makeDescribesTask(app *debug.App, rp incProgressFunc) task
 	return func(ctx context.Context, dfs DumpFS) error {
 		defer rp(ctx)
 		var errs error
-		if app.Timeout != 0 {
+		if app.Timeout != nil {
 			var cf context.CancelFunc
-			ctx, cf = context.WithTimeout(ctx, time.Duration(app.Timeout))
+			ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
 			defer cf()
 		}
 		for _, pod := range app.Pods {
@@ -324,9 +328,9 @@ func (s *debugServer) makeLogsTask(app *debug.App, rp incProgressFunc) taskFunc 
 		if len(app.Pods) == 0 {
 			return nil
 		}
-		if app.Timeout != 0 {
+		if app.Timeout != nil {
 			var cf context.CancelFunc
-			ctx, cf = context.WithTimeout(ctx, time.Duration(app.Timeout))
+			ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
 			defer cf()
 		}
 		var errs error
@@ -344,9 +348,9 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 		if !s.hasLoki() {
 			return nil
 		}
-		if app.Timeout != 0 {
+		if app.Timeout != nil {
 			var cf context.CancelFunc
-			ctx, cf = context.WithTimeout(ctx, time.Duration(app.Timeout))
+			ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
 			defer cf()
 		}
 		ctx, end := log.SpanContext(ctx, "collectLokiLogs")
@@ -394,9 +398,9 @@ func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 		rp := recordProgress(server, "profiles", len(apps))
 		for _, app := range apps {
 			func() {
-				if app.Timeout != 0 {
+				if app.Timeout != nil {
 					var cf context.CancelFunc
-					ctx, cf = context.WithTimeout(ctx, time.Duration(app.Timeout))
+					ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
 					defer cf()
 				}
 				defer rp(ctx)
@@ -423,9 +427,9 @@ func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 		rp := recordProgress(server, "binaries", len(apps))
 		for _, app := range apps {
 			func() {
-				if app.Timeout != 0 {
+				if app.Timeout != nil {
 					var cf context.CancelFunc
-					ctx, cf = context.WithTimeout(ctx, time.Duration(app.Timeout))
+					ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
 					defer cf()
 				}
 				defer rp(ctx)
