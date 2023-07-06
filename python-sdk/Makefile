@@ -1,6 +1,9 @@
 
+protos:
+	./proto/generate-protos.sh
+
 test:
 	poetry run pytest -vvv tests
 
 .PHONY: \
-	test
+	protos test
