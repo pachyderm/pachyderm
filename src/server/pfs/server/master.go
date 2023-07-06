@@ -123,23 +123,24 @@ func (d *driver) manageRepos(ctx context.Context) error {
 					backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 						ctx, cancel := pctx.WithCancel(ctx)
 						defer cancel()
-						lockCtx, err := ring.Lock(ctx, lockPrefix)
+						var err error
+						ctx, err = ring.Lock(ctx, lockPrefix)
 						if err != nil {
 							return errors.Wrap(err, "error locking repo lock")
 						}
 						defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
 						var eg errgroup.Group
 						eg.Go(func() error {
-							return backoff.RetryUntilCancel(lockCtx, func() error {
-								return d.manageBranches(lockCtx, key)
+							return backoff.RetryUntilCancel(ctx, func() error {
+								return d.manageBranches(ctx, key)
 							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 								log.Error(ctx, "error managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 								return nil
 							})
 						})
 						eg.Go(func() error {
-							return backoff.RetryUntilCancel(lockCtx, func() error {
-								return d.finishRepoCommits(lockCtx, key)
+							return backoff.RetryUntilCancel(ctx, func() error {
+								return d.finishRepoCommits(ctx, key)
 							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 								log.Error(ctx, "error finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 								return nil
