@@ -881,8 +881,14 @@
                 "lokiDeploy": {
                     "type": "boolean"
                 },
+                "lokiHost": {
+                    "type": "string"
+                },
                 "lokiLogging": {
                     "type": "boolean"
+                },
+                "lokiPort": {
+                    "type": "integer"
                 },
                 "metrics": {
                     "type": "object",

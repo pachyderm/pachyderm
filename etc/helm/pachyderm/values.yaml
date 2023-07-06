@@ -423,6 +423,11 @@ pachd:
   lokiDeploy: true
   # lokiLogging enables Loki logging if set.
   lokiLogging: true
+  # lokiHost and lokiPort should only be set when using an external Loki instance. lokiDeploy should be false.
+  # lokiHost should be the hostname of the Loki instance to use.
+  lokiHost: ""
+  # lokiPort should be the port of the Loki instance to use.
+  lokiPort: 0
   metrics:
     # enabled sets the METRICS environment variable if set.
     enabled: true
