@@ -5,6 +5,7 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -39,7 +40,7 @@ func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo
 func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
 	// pfs schema already exists, but this SQL is idempotent
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS pfs;`); err != nil {
-		return errors.Wrap(err, "error creating core schema")
+		return errors.Wrap(err, "creating core schema")
 	}
 
 	return nil
@@ -50,7 +51,7 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 		DROP TYPE IF EXISTS pfs.repo_type;
 		CREATE TYPE pfs.repo_type AS ENUM ('unknown', 'user', 'meta', 'spec');
 	`); err != nil {
-		return errors.Wrap(err, "error creating repo_type enum")
+		return errors.Wrap(err, "creating repo_type enum")
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS pfs.repos (
@@ -64,14 +65,19 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 			UNIQUE (name, project_id)
 		);
 	`); err != nil {
-		return errors.Wrap(err, "error creating pfs.repos table")
+		return errors.Wrap(err, "creating pfs.repos table")
+	}
+	if _, err := tx.ExecContext(ctx, `
+		CREATE INDEX name_type_idx ON pfs.repos (name, type);
+	`); err != nil {
+		return errors.Wrap(err, "creating index on type and name")
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TRIGGER set_updated_at
 			BEFORE UPDATE ON pfs.repos
 			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
 	`); err != nil {
-		return errors.Wrap(err, "error creating set_updated_at trigger")
+		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
 	// Create a trigger that notifies on changes to pfs.repos
 	// This is used by the PPS API to watch for changes to repos
@@ -98,14 +104,14 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 		END;
 		$$ LANGUAGE plpgsql;
 	`); err != nil {
-		return errors.Wrap(err, "error creating notify trigger on pfs.repos")
+		return errors.Wrap(err, "creating notify trigger on pfs.repos")
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TRIGGER notify
 			AFTER INSERT OR UPDATE OR DELETE ON pfs.repos
 			FOR EACH ROW EXECUTE PROCEDURE pfs.notify_repos();
 	`); err != nil {
-		return errors.Wrap(err, "error creating notify trigger on pfs.repos")
+		return errors.Wrap(err, "creating notify trigger on pfs.repos")
 	}
 	return nil
 }

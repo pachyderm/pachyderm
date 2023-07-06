@@ -22,6 +22,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+const (
+	getRepoAndBranches = "SELECT repo.name, repo.type, repo.project_id, " +
+		"repo.description, array_agg(branch.proto) AS branches FROM pfs.repos repo " +
+		"JOIN core.projects project ON repo.project_id = project.id " +
+		"JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
+)
+
 // ErrRepoNotFound is returned by GetRepo() when a repo is not found in postgres.
 type ErrRepoNotFound struct {
 	Project string
@@ -79,11 +86,13 @@ func IsErrRepoAlreadyExists(err error) bool {
 
 // RepoIterator batches a page of repoRow entries. Entries can be retrieved using iter.Next().
 type RepoIterator struct {
-	limit  int
-	offset int
-	repos  []repoRow
-	index  int
-	tx     *pachsql.Tx
+	limit    int
+	offset   int
+	repos    []repoRow
+	index    int
+	tx       *pachsql.Tx
+	where    string
+	whereVal interface{}
 }
 
 type repoRow struct {
@@ -103,6 +112,7 @@ type repoRow struct {
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
 func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
+	fmt.Println("calling next")
 	if dst == nil {
 		return errors.Wrap(fmt.Errorf("repo is nil"), "get next repo")
 	}
@@ -110,11 +120,12 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 	if iter.index >= len(iter.repos) {
 		iter.index = 0
 		iter.offset += iter.limit
-		iter.repos, err = listRepo(ctx, iter.tx, iter.limit, iter.offset)
+		iter.repos, err = listRepo(ctx, iter.tx, iter.limit, iter.offset, iter.where, iter.whereVal)
 		if err != nil {
 			return errors.Wrap(err, "list repo page")
 		}
 		if len(iter.repos) == 0 {
+			fmt.Println("no more entries")
 			return stream.EOS()
 		}
 	}
@@ -143,25 +154,49 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
 func ListRepo(ctx context.Context, tx *pachsql.Tx) (*RepoIterator, error) {
 	limit := 100
-	page, err := listRepo(ctx, tx, limit, 0)
+	page, err := listRepo(ctx, tx, limit, 0, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
 	iter := &RepoIterator{
-		repos: page,
-		limit: limit,
-		tx:    tx,
+		repos:    page,
+		limit:    limit,
+		tx:       tx,
+		where:    "",
+		whereVal: nil,
 	}
 	return iter, nil
 }
 
-func listRepo(ctx context.Context, tx *pachsql.Tx, limit, offset int) ([]repoRow, error) {
+// ListRepoByIdxType returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
+func ListRepoByIdxType(ctx context.Context, tx *pachsql.Tx, repoType string) (*RepoIterator, error) {
+	limit := 100
+	page, err := listRepo(ctx, tx, limit, 0, "type", repoType)
+	if err != nil {
+		return nil, errors.Wrap(err, "list repos")
+	}
+	iter := &RepoIterator{
+		repos:    page,
+		limit:    limit,
+		tx:       tx,
+		where:    "type",
+		whereVal: repoType,
+	}
+	return iter, nil
+}
+
+func listRepo(ctx context.Context, tx *pachsql.Tx, limit, offset int, where string, whereVal interface{}) ([]repoRow, error) {
 	var page []repoRow
-	if err := tx.SelectContext(ctx, &page, "SELECT repo.name, repo.type, repo.project_id, repo.description, "+
-		"array_agg(branch.proto) AS branches FROM pfs.repos repo "+
-		"JOIN core.projects project ON repo.project_id = project.id "+
-		"JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "+
-		"GROUP BY repo.id LIMIT $1 OFFSET $2;", limit, offset); err != nil {
+	if where != "" && whereVal != nil {
+		if err := tx.SelectContext(ctx, &page,
+			fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id LIMIT $2 OFFSET $3;", getRepoAndBranches, where),
+			whereVal, limit, offset); err != nil {
+			return nil, errors.Wrap(err, "could not get repo page")
+		}
+		return page, nil
+	}
+	err := tx.SelectContext(ctx, &page, getRepoAndBranches+"GROUP BY repo.id LIMIT $1 OFFSET $2", limit, offset)
+	if err != nil {
 		return nil, errors.Wrap(err, "could not get repo page")
 	}
 	return page, nil
@@ -223,11 +258,7 @@ func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoName string) (*pfs.R
 // todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
 func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.RepoInfo, error) {
 	row := &repoRow{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT repo.name, repo.type, repo.project_id, "+
-		"repo.description, array_agg(branch.proto) AS branches FROM pfs.repos repo "+
-		"JOIN core.projects project ON repo.project_id = project.id "+
-		"JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "+
-		"WHERE repo.%s = $1 GROUP BY repo.id;", where), whereVal).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id;", getRepoAndBranches, where), whereVal).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {

@@ -177,11 +177,48 @@ func TestListRepos(t *testing.T) {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
 			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, expectedInfos[i], repo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
 			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
 			require.Equal(t, expectedInfos[i].Description, repo.Description)
 			require.Equal(t, len(expectedInfos[i].Branches), len(repo.Branches))
 			i++
+			return nil
+		}))
+		return nil
+	}))
+}
+
+func TestListReposByIdxType(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewTestDB(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		size := 210
+		expectedInfos := make([]*pfs.RepoInfo, 0)
+		for i := 0; i < size; i++ {
+			createInfo := testRepo(fmt.Sprintf("%s%d", testRepoName, i), "unknown")
+			if i%2 == 0 {
+				createInfo.Repo.Type = "user"
+				expectedInfos = append(expectedInfos, createInfo)
+			}
+			require.NoError(t, pfsdb.CreateRepo(ctx, tx, createInfo), "should be able to create repo")
+		}
+		iter, err := pfsdb.ListRepoByIdxType(cbCtx, tx, "user")
+		require.NoError(t, err, "should be able to list repos")
+		i := 0
+		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+			if err != nil {
+				require.NoError(t, err, "should be able to iterate over repos")
+			}
+			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
+			require.Equal(t, "user", repo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repo.Description)
+			require.Equal(t, len(expectedInfos[i].Branches), len(repo.Branches))
+			i++
+			fmt.Println(i)
 			return nil
 		}))
 		return nil
