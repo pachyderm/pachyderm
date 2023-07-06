@@ -21,6 +21,7 @@ type CollectionRecord struct {
 	UpdatedAt time.Time `db:"updatedat"`
 }
 
+// Project is a row in the new relational core.projects table.
 type Project struct {
 	ID          uint64    `db:"id"`
 	Name        string    `db:"name"`
@@ -42,7 +43,14 @@ func ListProjectsFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]P
 		if err := proto.Unmarshal(row.Proto, &projectInfo); err != nil {
 			return nil, errors.Wrap(err, "unmarshalling project")
 		}
-		projects = append(projects, Project{ID: uint64(i + 1), Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+		createdAt := row.CreatedAt
+		if projectInfo.CreatedAt != nil {
+			if projectInfo.CreatedAt.AsTime().Sub(createdAt) > time.Second {
+				return nil, errors.Errorf("project %s's proto created at %s differs from database created at %s", projectInfo.Project.Name, projectInfo.CreatedAt.AsTime(), createdAt)
+			}
+			createdAt = projectInfo.CreatedAt.AsTime().UTC()
+		}
+		projects = append(projects, Project{ID: uint64(i + 1), Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: createdAt, UpdatedAt: row.UpdatedAt})
 	}
 	return projects, nil
 }
