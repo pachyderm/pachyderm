@@ -45,7 +45,7 @@ func ListProjectsFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]P
 		}
 		createdAt := row.CreatedAt
 		if projectInfo.CreatedAt != nil {
-			createdAt = projectInfo.CreatedAt.AsTime()
+			createdAt = projectInfo.CreatedAt.AsTime().UTC()
 		}
 		projects = append(projects, Project{ID: uint64(i + 1), Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: createdAt, UpdatedAt: row.UpdatedAt})
 	}
