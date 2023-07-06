@@ -70,11 +70,14 @@ oidc:
       name: determined-local
       secret: "123"
       redirect_uris:
+        # - http://determined-master-service-pachyderm.default.svc.cluster.local:8282
         - http://localhost:8282/oauth/callback/?inline=true
 
 determined:
+  imageRegistry: registry-1.docker.io/determinedai
   maxSlotsPerPod: 0
   enabled: true
+  enterpriseEdition: true
   useNodePortForMaster: false
   useNodePortForDB: false
   detVersion: 0.23.1
@@ -82,7 +85,7 @@ determined:
   oidc:
     enabled: true 
     idpRecipientUrl: http://localhost:8282
-    idpSsoUrl: "http://pachd.default.svc.cluster.local:30658/dex"
+    idpSsoUrl: "http://localhost:8283" #"http://pachd.default.svc.cluster.local:30658/dex"
     clientId: "determined-local"
     clientSecret: "123"
  
