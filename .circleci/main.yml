@@ -1481,6 +1481,43 @@ jobs:
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
             poetry run pytest -vvv tests
 
+  python-sdk-test-publish:
+    executor: python
+    working_directory: ~/project/python-sdk
+    parameters:
+      version:
+        type: string
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - install-poetry
+      - run:
+          name: Publish
+          command: |
+            poetry config repositories.test-pypi https://test.pypi.org/legacy/
+            poetry version << parameters.version >>
+            poetry publish --build --repository test-pypi --username "$PYPI_USERNAME" --password "$TEST_PYPI_PASSWORD"
+
+  python-sdk-publish:
+    executor: python
+    working_directory: ~/project/python-sdk
+    parameters:
+      version:
+        type: string
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - install-poetry
+      - run:
+          name: Publish
+          command: |
+            poetry version << parameters.version >>
+            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD"
+
 workflows:
   integration-tests:
     when: << pipeline.parameters.run-core-jobs >>
@@ -1759,6 +1796,11 @@ workflows:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
+      - test-python-sdk:
+          filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
       - pulumi-aws-test-env:
           name: aws-prerelease-testing-env-1
           env: qa1
@@ -1901,6 +1943,18 @@ workflows:
           requires:
             - sign-off
             - jupyter-extension-docker-build
+          filters: *only-release-tags
+      - python-sdk-test-publish:
+          version: ${CIRCLE_TAG:1}
+          requires:
+            - test-python-sdk
+          filters: *only-release-tags
+      - python-sdk-publish:
+          version: ${CIRCLE_TAG:1}
+          requires:
+            - test-python-sdk
+            - python-sdk-test-publish
+            - sign-off
           filters: *only-release-tags
   nightly-release:
     jobs:

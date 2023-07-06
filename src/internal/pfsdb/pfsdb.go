@@ -163,6 +163,14 @@ var BranchesRepoIndex = &col.Index{
 
 var branchesIndexes = []*col.Index{BranchesRepoIndex}
 
+func ParseBranch(key string) *pfs.Branch {
+	split := strings.Split(key, "@")
+	return &pfs.Branch{
+		Repo: ParseRepo(split[0]),
+		Name: split[1],
+	}
+}
+
 func BranchKey(branch *pfs.Branch) string {
 	return RepoKey(branch.Repo) + "@" + branch.Name
 }
