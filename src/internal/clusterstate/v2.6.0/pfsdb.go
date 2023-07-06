@@ -182,7 +182,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	if len(notSame) > 0 {
-		return errors.Errorf("commits %q are listed as ALIAS but have a different ID than their first real ancestor.", notSame)
+		return errors.Errorf("commits %v are listed as ALIAS but have a different ID than their first real ancestor.", notSame)
 	}
 	realAncestors := make(map[string]*v2_5_0.CommitInfo)
 	childToNewParents := make(map[*pfs.Commit]*pfs.Commit)
