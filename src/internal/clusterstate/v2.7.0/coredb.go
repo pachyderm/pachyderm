@@ -45,6 +45,9 @@ func ListProjectsFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]P
 		}
 		createdAt := row.CreatedAt
 		if projectInfo.CreatedAt != nil {
+			if projectInfo.CreatedAt.AsTime().Sub(createdAt) > time.Second {
+				return nil, errors.Errorf("project %s's proto created at %s differs from database created at %s", projectInfo.Project.Name, projectInfo.CreatedAt.AsTime(), createdAt)
+			}
 			createdAt = projectInfo.CreatedAt.AsTime().UTC()
 		}
 		projects = append(projects, Project{ID: uint64(i + 1), Name: projectInfo.Project.Name, Description: projectInfo.Description, CreatedAt: createdAt, UpdatedAt: row.UpdatedAt})
