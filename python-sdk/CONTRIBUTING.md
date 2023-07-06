@@ -33,6 +33,7 @@ Code layout, as of Jun. 30, 2023:
 │   └── interceptor.py - gRPC interceptor implementation.
 ├── proto/ - Code generation of the protobuf files.
 ├── tests/ - Pytests
+│   ├── fixtures.py - Location for pytest fixtures used throughout tests.
 ├── Dockerfile.datum-batching-test - Dockerfile used to build image for datum-batching test.
 ├── poetry.lock - Lock file for this packages dependencies.
 └── pyproject.toml - Package specification file.
