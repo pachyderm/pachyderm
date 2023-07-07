@@ -17,6 +17,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -3647,4 +3648,72 @@ func mergePatch(target, patch any) any {
 	default:
 		return patch
 	}
+}
+
+func badRequest(ctx context.Context, msg string, violations []*errdetails.BadRequest_FieldViolation) error {
+	s, err := status.New(codes.InvalidArgument, msg).WithDetails(&errdetails.BadRequest{
+		FieldViolations: violations,
+	})
+	if err != nil {
+		log.Error(ctx, "could not add bad-request details", zap.Error(err))
+		s = status.New(codes.Internal, "could not add bad-request details")
+	}
+	return s.Err()
+}
+
+func unknownError(ctx context.Context, msg string, err error) error {
+	var stack []string
+	errors.ForEachStackFrame(err, func(f errors.Frame) {
+		stack = append(stack, fmt.Sprintf("%s:%d (%n)", f, f, f))
+	})
+	s, err := status.Newf(codes.Unknown, "unknown error: %s", msg).WithDetails(&errdetails.DebugInfo{
+		StackEntries: stack,
+		Detail:       err.Error(),
+	})
+	if err != nil {
+		log.Error(ctx, "could not add debug info details", zap.Error(err))
+		s = status.New(codes.Internal, "could not add unknown-error details")
+	}
+	return s.Err()
+}
+
+func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
+	var (
+		cd      = req.GetClusterDefaults()
+		details = cd.GetDetailsJson()
+		err     error
+	)
+	if err := pps.ValidateJSONPipelineSpec(details); err != nil {
+		if errors.Is(err, pps.ErrInvalidPipelineSpec) {
+			return nil, badRequest(ctx, "invalid pipeline details", []*errdetails.BadRequest_FieldViolation{
+				{Field: "cluster_defaults.details_json", Description: err.Error()},
+			})
+		}
+		return nil, status.Convert(err).Err()
+	}
+
+	cd.EffectiveDetailsJson, err = jsonMergePatch(emptyPipelineSpecJSON, cd.GetDetailsJson())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to merge empty pipeline spec with cluster defaults")
+	}
+	if err := pps.ValidateJSONPipelineSpec(details); err != nil {
+		if errors.Is(err, pps.ErrInvalidPipelineSpec) {
+			return nil, badRequest(ctx, "invalid effective pipeline details", []*errdetails.BadRequest_FieldViolation{
+				{Field: "cluster_defaults.details_json", Description: err.Error()},
+			})
+		}
+		return nil, status.Convert(err).Err()
+	}
+
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", cd); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, unknownError(ctx, "could not write cluster defaults", err)
+	}
+	return &pps.SetClusterDefaultsResponse{
+		EffectiveDetailsJson: cd.EffectiveDetailsJson,
+	}, nil
 }

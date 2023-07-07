@@ -11,7 +11,7 @@ import (
 // grpcify returns an error e such that e.Error() is similar to what grpc
 // errors emit (though this doesn't convert 'error' to an actual GRPC error)
 func grpcify(err error) error {
-	return status.Convert(err).Err() //nolint:wrapcheck
+	return status.Convert(err).Err()
 }
 
 func TestIsErrNotActivated(t *testing.T) {
