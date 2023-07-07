@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/limit"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -202,32 +204,42 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 
 func (reg *registry) superviseJob(pj *pendingJob) error {
 	defer pj.cancel()
-	_, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
-		&pfs.InspectCommitRequest{
-			Commit: pj.ji.OutputCommit,
-			Wait:   pfs.CommitState_FINISHED,
-		})
-	if err != nil {
-		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-			// Stop the job and clean up any job state in the registry
-			if err := reg.killJob(pj, "output commit missing"); err != nil {
-				return err
-			}
-			// Output commit was deleted. Delete job as well
-			// TODO: This should be handled through a transaction defer when the commit is squashed.
-			if err := pj.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
-				// Delete the job if no other worker has deleted it yet
-				jobInfo := &pps.JobInfo{}
-				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
+	// wrap InspectCommit() in a retry to mitigate database connection flakiness.
+	if err := backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+		_, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
+			&pfs.InspectCommitRequest{
+				Commit: pj.ji.OutputCommit,
+				Wait:   pfs.CommitState_FINISHED,
+			})
+		if err != nil {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+				// Stop the job and clean up any job state in the registry
+				if err := reg.killJob(pj, "output commit missing"); err != nil {
+					return err
+				}
+				// Output commit was deleted. Delete job as well
+				// TODO: This should be handled through a transaction defer when the commit is squashed.
+				if err := pj.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
+					// Delete the job if no other worker has deleted it yet
+					jobInfo := &pps.JobInfo{}
+					if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
+						return errors.EnsureStack(err)
+					}
+					return errors.EnsureStack(pj.driver.DeleteJob(sqlTx, jobInfo))
+				}); err != nil && !col.IsErrNotFound(err) {
 					return errors.EnsureStack(err)
 				}
-				return errors.EnsureStack(pj.driver.DeleteJob(sqlTx, jobInfo))
-			}); err != nil && !col.IsErrNotFound(err) {
-				return errors.EnsureStack(err)
+				return nil
 			}
-			return nil
+			if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF") {
+				log.Info(pj.driver.PachClient().Ctx(), "retry InspectCommit() in registry.superviseJob()", zap.Error(err))
+				return backoff.ErrContinue
+			}
+			return errors.EnsureStack(err)
 		}
-		return errors.EnsureStack(err)
+		return nil
+	}, backoff.RetryEvery(time.Second), nil); err != nil {
+		return err
 	}
 	return nil
 

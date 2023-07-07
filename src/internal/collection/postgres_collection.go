@@ -12,11 +12,14 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -180,6 +183,10 @@ func (c *postgresCollection) mapSQLError(err error, key string) error {
 	return nil
 }
 
+func mappedSQLError(err error) bool {
+	return errors.As(err, &ErrNotFound{}) || errors.As(err, &ErrExists{})
+}
+
 type postgresReadOnlyCollection struct {
 	*postgresCollection
 	ctx context.Context
@@ -188,8 +195,22 @@ type postgresReadOnlyCollection struct {
 func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (*model, error) {
 	result := &model{}
 	queryString := fmt.Sprintf("select proto, updatedat from collections.%s where key = $1;", c.table)
-	if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
-		return nil, c.mapSQLError(err, key)
+	// wrap sqlx.GetContext() in a retry to mitigate database connection flakiness.
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
+			mappedErr := c.mapSQLError(err, key)
+			if mappedSQLError(mappedErr) {
+				return mappedErr
+			}
+			if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF") {
+				log.Info(ctx, "retrying database get query", zap.String("key", key), zap.Error(err))
+				return backoff.ErrContinue
+			}
+			return mappedErr
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second), nil); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
