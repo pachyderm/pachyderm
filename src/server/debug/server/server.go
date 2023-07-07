@@ -208,15 +208,20 @@ func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error 
 }
 
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
-	// fill the pod info for all the pods referenced in request.System Apps
-	var apps []*debug.App
-	apps = append(apps, request.System.Binaries...)
-	apps = append(apps, request.System.Describes...)
-	apps = append(apps, request.System.Logs...)
-	apps = append(apps, request.System.LokiLogs...)
-	apps = append(apps, request.System.Profiles...)
-	if err := s.fillApps(server.Context(), apps); err != nil {
-		return err
+	if request == nil {
+		return errors.New("nil debug.DumpV2Request")
+	}
+	if request.System != nil {
+		var apps []*debug.App
+		// fill the pod info for all the pods referenced in request.System Apps
+		apps = append(apps, request.System.Binaries...)
+		apps = append(apps, request.System.Describes...)
+		apps = append(apps, request.System.Logs...)
+		apps = append(apps, request.System.LokiLogs...)
+		apps = append(apps, request.System.Profiles...)
+		if err := s.fillApps(server.Context(), apps); err != nil {
+			return err
+		}
 	}
 	return s.dump(s.env.GetPachClient(server.Context()), server, s.makeTasks(server.Context(), request, server))
 }
