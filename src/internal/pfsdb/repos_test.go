@@ -184,11 +184,11 @@ func TestListRepos(t *testing.T) {
 			i++
 			return nil
 		}))
+		require.Equal(t, size, i)
 		return nil
 	}))
 }
 
-// todo(fahad): this isn't working so fix it. ListRepoByIdxType is likely also broken.
 func TestListReposByIdxType(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
@@ -214,14 +214,14 @@ func TestListReposByIdxType(t *testing.T) {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
 			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, "user", repo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
 			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
 			require.Equal(t, expectedInfos[i].Description, repo.Description)
 			require.Equal(t, len(expectedInfos[i].Branches), len(repo.Branches))
 			i++
-			fmt.Println(i)
 			return nil
 		}))
+		require.Equal(t, size/2, i)
 		return nil
 	}))
 }

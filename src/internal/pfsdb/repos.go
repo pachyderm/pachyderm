@@ -25,8 +25,9 @@ import (
 const (
 	getRepoAndBranches = "SELECT repo.name, repo.type, repo.project_id, " +
 		"repo.description, array_agg(branch.proto) AS branches FROM pfs.repos repo " +
-		"JOIN core.projects project ON repo.project_id = project.id " +
-		"JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
+		"LEFT JOIN core.projects project ON repo.project_id = project.id " +
+		"LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
+	noBranches = "{NULL}"
 )
 
 // ErrRepoNotFound is returned by GetRepo() when a repo is not found in postgres.
@@ -112,7 +113,6 @@ type repoRow struct {
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
 func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
-	fmt.Println("calling next")
 	if dst == nil {
 		return errors.Wrap(fmt.Errorf("repo is nil"), "get next repo")
 	}
@@ -125,7 +125,6 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 			return errors.Wrap(err, "list repo page")
 		}
 		if len(iter.repos) == 0 {
-			fmt.Println("no more entries")
 			return stream.EOS()
 		}
 	}
@@ -304,6 +303,9 @@ func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
 		return nil, errors.Wrap(fmt.Errorf("repo row is nil"), "")
 	}
 	branches := make([]*pfs.Branch, 0)
+	if row.Branches == noBranches {
+		return branches, nil
+	}
 	// after aggregation, braces, quotes, and leading hex prefixes need to be removed from the encoded strings.
 	for _, branchStr := range strings.Split(strings.Trim(row.Branches, "{}"), ",") {
 		branchHex := strings.Trim(strings.Trim(branchStr, "\""), "\\\\x")
