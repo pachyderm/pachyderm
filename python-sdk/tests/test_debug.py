@@ -8,7 +8,7 @@ from pachyderm_sdk.api import debug
 def test_dump(client: TestClient):
     message = next(client.debug.dump())
     assert isinstance(message.content.content, bytes)
-    assert len(message.content.content) > 0
+    assert len(message.progress.progress) > 0
 
 
 def test_profile_cpu(client: TestClient):
