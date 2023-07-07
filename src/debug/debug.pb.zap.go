@@ -155,7 +155,7 @@ func (x *App) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("pods", zapcore.ArrayMarshalerFunc(podsArrMarshaller))
-	enc.AddInt64("timeout", x.Timeout)
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	enc.AddObject("pipeline", x.Pipeline)
 	return nil
 }
@@ -218,7 +218,7 @@ func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddArray("pipelines", zapcore.ArrayMarshalerFunc(pipelinesArrMarshaller))
 	enc.AddBool("input_repos", x.InputRepos)
-	enc.AddInt64("timeout", x.Timeout)
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	return nil
 }
 
