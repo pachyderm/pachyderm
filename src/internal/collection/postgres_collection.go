@@ -198,18 +198,16 @@ func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.Queryer
 	// wrap sqlx.GetContext() in a retry to mitigate database connection flakiness.
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
-			mappedErr := c.mapSQLError(err, key)
-			if mappedSQLError(mappedErr) {
-				return mappedErr
-			}
-			if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF") {
-				log.Info(ctx, "retrying database get query", zap.String("key", key), zap.Error(err))
-				return backoff.ErrContinue
-			}
-			return mappedErr
+			return c.mapSQLError(err, key)
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second), nil); err != nil {
+	}, backoff.RetryEvery(time.Second), func(err error, d time.Duration) error {
+		if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF") {
+			log.Info(ctx, "retrying database get query", zap.String("key", key), zap.Error(err))
+			return nil
+		}
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return result, nil
