@@ -15,13 +15,19 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"go.uber.org/zap"
+	"gocloud.dev/blob"
 )
 
 const chunkPrefix = "chunk/"
 
 type Env struct {
-	DB          *pachsql.DB
+	DB *pachsql.DB
+	// ObjectStore is a client from the obj package
 	ObjectStore obj.Client
+
+	// Bucket is an object storage bucket from the Go CDK packages.
+	// If set, it takes priority over ObjectStore
+	Bucket *blob.Bucket
 }
 
 // Server contains the storage layer servers.
@@ -43,7 +49,13 @@ func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	store := kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
+
+	var store kv.Store
+	if env.Bucket != nil {
+		store = kv.NewFromBucket(env.Bucket, maxKeySize, chunk.DefaultMaxChunkSize)
+	} else {
+		store = kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
+	}
 	store = wrapStore(&config, store)
 	store = kv.NewPrefixed(store, []byte(chunkPrefix))
 	chunkStorageOpts := makeChunkOptions(&config)
