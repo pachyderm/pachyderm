@@ -1,4 +1,7 @@
 
+docs:
+	./docs/generate.py
+
 protos:
 	./proto/generate-protos.sh
 

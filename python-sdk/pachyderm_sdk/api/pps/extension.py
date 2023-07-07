@@ -1,3 +1,4 @@
+"""Handwritten classes/methods that augment the existing PPS API."""
 import base64
 import json
 from typing import Dict

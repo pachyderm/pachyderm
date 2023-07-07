@@ -1,3 +1,5 @@
+#!usr/bin/env python3
+"""Script to generate the documentation for the pachyderm_sdk package."""
 from pathlib import Path
 from shutil import rmtree
 
@@ -15,7 +17,7 @@ CONFIG = {
 
 
 def main():
-    rmtree(OUTPUT_DIR / MODULE)
+    rmtree(OUTPUT_DIR / MODULE, ignore_errors=True)
     pdoc.tpl_lookup.directories.insert(0, TEMPLATE_DIR)
     module = pdoc.Module(MODULE, docfilter=None, skip_errors=False)
     pdoc.link_inheritance()

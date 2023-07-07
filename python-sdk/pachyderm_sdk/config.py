@@ -1,3 +1,4 @@
+"""Functionality for parsing Pachyderm config files."""
 import json
 import os
 from base64 import b64decode
@@ -9,16 +10,25 @@ from .errors import ConfigError
 
 
 class ConfigFile:
+    """A parsed Pachyderm config file."""
     def __init__(self, config_file: Union[Path, str]):
+        """
+        Parameters
+        ----------
+        config_file : str
+            The path to the config file.
+        """
         config_file = Path(os.path.expanduser(config_file)).resolve()
         self._config_file_data = json.loads(config_file.read_bytes())
 
     @property
     def user_id(self) -> str:
+        """The user ID of the config file."""
         return self._config_file_data["user_id"]
 
     @property
     def active_context(self) -> "Context":
+        """The currently-active context."""
         active_context_name = self._config_file_data["v2"]["active_context"]
         contexts = self._config_file_data["v2"]["contexts"]
         if active_context_name not in contexts:
@@ -27,6 +37,7 @@ class ConfigFile:
 
     @property
     def active_enterprise_context(self) -> "Context":
+        """The currently-active context that is enterprise-enabled."""
         context_name = self._config_file_data["v2"].get("active_enterprise_context")
         if context_name is None:
             raise ConfigError("active enterprise context is not specified")
@@ -38,6 +49,9 @@ class ConfigFile:
 
 @dataclass
 class Context:
+    """A context contains all the information needed to connect to a pachyderm
+    instance. Not all fields need to be present for the context to be valid."""
+
     source: Optional[int] = None
     """An integer that specifies where the config came from. 
     This parameter is for internal use only and should not be modified."""
@@ -80,7 +94,7 @@ class Context:
 
     @property
     def active_pachd_address(self) -> str:
-        """This pachd factors in port-forwarding."""
+        """This pachd address factors in port-forwarding."""
         if self.pachd_address is None:
             port = 30650
             if self.port_forwarders:
