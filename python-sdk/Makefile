@@ -9,4 +9,4 @@ test:
 	poetry run pytest -vvv tests
 
 .PHONY: \
-	protos test
+	docs protos test

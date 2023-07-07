@@ -1,4 +1,4 @@
-#!usr/bin/env python3
+#!/usr/bin/env python3
 """Script to generate the documentation for the pachyderm_sdk package."""
 from pathlib import Path
 from shutil import rmtree
