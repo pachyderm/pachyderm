@@ -52,6 +52,15 @@ to run properly:
 * PACH_PYTHON_TEST_PORT_ENTERPRISE - Port over which to connect to your enterprise-enabled cluster
 * PACH_PYTHON_AUTH_TOKEN - Auth token for your enterprise cluster (found in .pachyderm/config.json)
 
+### Formatting
+
+This project uses the [black](https://github.com/psf/black) code formatter.
+Pytest will automatically check that your code changes pass the black formatter.
+To run the black formatter:
+```bash
+black <file-or-directory>
+```
+
 ## Releasing
 Releasing the package is done through CircleCI.
 In the event you need to cut a manual release, you need to set the proper package version
