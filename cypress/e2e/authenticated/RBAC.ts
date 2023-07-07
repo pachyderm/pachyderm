@@ -730,6 +730,55 @@ describe('Project roles modal', () => {
       });
   });
 
+  it('should allow users to add the allClusterUsers principal', () => {
+    cy.multiLineExec(`
+      echo "pizza" | pachctl auth use-auth-token
+      pachctl create project cluster
+      pachctl auth set cluster none allClusterUsers
+      pachctl auth set cluster clusterAdmin user:kilgore@kilgore.trout
+    `);
+
+    cy.login();
+    cy.findByRole('button', {
+      name: /cluster overflow menu/i,
+    }).click();
+    cy.findByRole('menuitem', {
+      name: /edit project roles/i,
+    }).click();
+
+    // add allClusterUsers from new role binding form
+    cy.findByRole('cell', {
+      name: /allClusterUsers/i,
+    }).should('not.exist');
+
+    cy.findByRole('button', {
+      name: 'user',
+    }).click();
+    cy.findByRole('menuitem', {
+      name: 'allClusterUsers',
+    }).click();
+
+    cy.findByRole('button', {
+      name: 'Add',
+    }).click();
+
+    cy.findByRole('cell', {
+      name: /allClusterUsers/i,
+    })
+      .parent()
+      .within(() => {
+        cy.contains('projectViewer').should('exist');
+      });
+
+    // confirm that allClusterUsers is no longer available from the dropdown
+    cy.findByRole('button', {
+      name: 'user',
+    }).click();
+    cy.findByRole('menuitem', {
+      name: 'allClusterUsers',
+    }).should('not.exist');
+  });
+
   it('should allow users to remove all roles and undo removing all roles', () => {
     cy.multiLineExec(`
       echo "pizza" | pachctl auth use-auth-token

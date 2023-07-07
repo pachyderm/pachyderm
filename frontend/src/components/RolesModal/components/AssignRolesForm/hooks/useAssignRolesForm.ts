@@ -39,7 +39,12 @@ const useAssignRolesForm = (
   });
 
   const onSubmit = async () => {
-    if (!email) {
+    const user =
+      userType === 'allClusterUsers'
+        ? 'allClusterUsers'
+        : `${userType}:${email}`;
+
+    if (!email && userType !== 'allClusterUsers') {
       setValidationError('A name or email is required');
       return;
     }
@@ -52,26 +57,31 @@ const useAssignRolesForm = (
             name: resourceName,
             type: resourceType,
           },
-          principal: `${userType}:${email}`,
+          principal: user,
           rolesList: [
-            ...(userTableRoles[`${userType}:${email}`] || {unlockedRoles: []})
-              .unlockedRoles,
+            ...(userTableRoles[user] || {unlockedRoles: []}).unlockedRoles,
             role,
           ],
         },
       },
       onCompleted: () => {
         const updatedDeletedRoles = {...deletedRoles};
-        delete updatedDeletedRoles[`${userType}:${email}`];
+        delete updatedDeletedRoles[user];
         setDeletedRoles(updatedDeletedRoles);
       },
     });
 
     setEmail('');
+    if (userType === 'allClusterUsers') {
+      setUserType(USER_TYPES[0]);
+    }
     if (inputRef.current) {
       inputRef.current.value = '';
     }
   };
+
+  const hasAllClusterUsers =
+    Object.keys(userTableRoles).includes('allClusterUsers');
 
   return {
     inputRef,
@@ -85,6 +95,7 @@ const useAssignRolesForm = (
     error,
     loading,
     onSubmit,
+    hasAllClusterUsers,
   };
 };
 

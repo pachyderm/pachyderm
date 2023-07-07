@@ -17,6 +17,12 @@
   border-bottom-left-radius: 6px;
 }
 
+.typeDropdown.allClusterUsers {
+  border: solid 1px var(--border-grey);
+  border-radius: 6px;
+  flex: 1;
+}
+
 .emailInput {
   padding: 0rem 0.5rem;
   border: solid 1px var(--border-grey);

@@ -1,4 +1,5 @@
 import {ResourceType, ModifyRolesArgs} from '@graphqlTypes';
+import classNames from 'classnames';
 import React from 'react';
 
 import {
@@ -51,6 +52,7 @@ export const AssignRolesForm: React.FC<AssignRolesFormProps> = ({
     error,
     loading,
     onSubmit,
+    hasAllClusterUsers,
   } = useAssignRolesForm(
     resourceName,
     resourceType,
@@ -60,14 +62,21 @@ export const AssignRolesForm: React.FC<AssignRolesFormProps> = ({
     setDeletedRoles,
   );
 
+  const userTypeOptions = [...USER_TYPES];
+  if (!hasAllClusterUsers) {
+    userTypeOptions.push('allClusterUsers');
+  }
+
   return (
     <>
       <Label label="Assign roles" htmlFor="email" />
       <Group spacing={8} className={styles.base}>
         <span className={styles.mainInput}>
           <DefaultDropdown
-            className={styles.typeDropdown}
-            items={USER_TYPES.map((type) => ({
+            className={classNames(styles.typeDropdown, {
+              [styles.allClusterUsers]: userType === 'allClusterUsers',
+            })}
+            items={userTypeOptions.map((type) => ({
               id: type,
               content: type,
               closeOnClick: true,
@@ -80,13 +89,15 @@ export const AssignRolesForm: React.FC<AssignRolesFormProps> = ({
           >
             {userType}
           </DefaultDropdown>
-          <input
-            ref={inputRef}
-            autoComplete="off"
-            placeholder="Add a single name or email address"
-            className={styles.emailInput}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          {userType !== 'allClusterUsers' && (
+            <input
+              ref={inputRef}
+              autoComplete="off"
+              placeholder="Add a single name or email address"
+              className={styles.emailInput}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          )}
         </span>
         <DefaultDropdown
           items={roles.map((role) => ({
