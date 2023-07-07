@@ -5,11 +5,10 @@ from pachyderm_sdk.constants import AUTH_TOKEN_ENV
 
 
 @pytest.mark.skipif(
-        not os.environ.get(AUTH_TOKEN_ENV),
-        reason="auth code not available",
-    )
+    not os.environ.get(AUTH_TOKEN_ENV),
+    reason="auth code not available",
+)
 class TestEnterprise:
-
     @staticmethod
     def test_enterprise(auth_client: TestClient):
         """Testing the enterprise specific features."""

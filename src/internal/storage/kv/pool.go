@@ -36,7 +36,7 @@ func (p *Pool) GetF(ctx context.Context, s Getter, key []byte, cb ValueCallback)
 }
 
 func (p *Pool) acquire() *[]byte {
-	return (p.pool.Get().(*[]byte))
+	return p.pool.Get().(*[]byte)
 }
 
 func (p *Pool) release(x *[]byte) {

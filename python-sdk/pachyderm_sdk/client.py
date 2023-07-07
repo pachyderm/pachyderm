@@ -1,18 +1,14 @@
 import contextlib
 import os
-import json
-from base64 import b64decode
-from dataclasses import dataclass
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 from urllib.parse import urlparse
 
 import grpc
 
 from .api.admin.extension import ApiStub as _AdminStub
 from .api.auth import ApiStub as _AuthStub
-from .api.debug import DebugStub as _DebugStub
+from .api.debug.extension import ApiStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub
 from .api.identity import ApiStub as _IdentityStub
 from .api.license import ApiStub as _LicenseStub
@@ -34,10 +30,10 @@ from .constants import (
     PACHD_SERVICE_PORT_ENV,
     WORKER_PORT_ENV,
 )
-from .errors import AuthServiceNotActivated, BadClusterDeploymentID, ConfigError
+from .errors import AuthServiceNotActivated, BadClusterDeploymentID
 from .interceptor import MetadataClientInterceptor, MetadataType
 
-__all__ = ("Client", )
+__all__ = ("Client",)
 
 
 class Client:
@@ -133,9 +129,7 @@ class Client:
 
     @classmethod
     def new_in_cluster(
-        cls,
-        auth_token: Optional[str] = None,
-        transaction_id: Optional[str] = None
+        cls, auth_token: Optional[str] = None, transaction_id: Optional[str] = None
     ) -> "Client":
         """Creates a Pachyderm client that operates within a Pachyderm cluster.
 
@@ -224,7 +218,7 @@ class Client:
         )
 
     @classmethod
-    def from_config(cls, config_file: Union[Path, str]=CONFIG_PATH_LOCAL) -> "Client":
+    def from_config(cls, config_file: Union[Path, str] = CONFIG_PATH_LOCAL) -> "Client":
         """Creates a Pachyderm client from a config file.
 
         Parameters
@@ -306,9 +300,7 @@ class Client:
                 )
             # Note: This channel does not go through the metadata interceptor.
             channel = _create_channel(
-                address=f"localhost:{port}",
-                root_certs=None,
-                options=GRPC_CHANNEL_OPTIONS
+                address=f"localhost:{port}", root_certs=None, options=GRPC_CHANNEL_OPTIONS
             )
             self._worker = _WorkerStub(channel)
         return self._worker
