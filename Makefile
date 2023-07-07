@@ -229,7 +229,7 @@ test-proto-static:
 
 proto: docker-build-proto
 	./etc/proto/build.sh
-	./python-sdk/generate-protos.sh
+	./python-sdk/proto/generate-protos.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps
