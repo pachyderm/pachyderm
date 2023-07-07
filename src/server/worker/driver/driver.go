@@ -96,6 +96,8 @@ type Driver interface {
 	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
 
+	GetJobInfo(job *pps.Job) (*pps.JobInfo, error)
+
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
 	NewSQLTx(func(context.Context, *pachsql.Tx) error) error
@@ -495,6 +497,14 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 		}
 		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
+}
+
+func (d *driver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
+	jobInfo := &pps.JobInfo{}
+	if err := d.Jobs().ReadOnly(d.ctx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return jobInfo, nil
 }
 
 // DeleteJob is identical to updateJobState, except that jobInfo points to a job

@@ -98,7 +98,7 @@ func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func
 	return errors.EnsureStack(td.inner.WithActiveData(inputs, dir, cb))
 }
 func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, authToken string, pachToken string) []string {
-	return td.inner.UserCodeEnv(jobID, commit, inputs, authToken, "")
+	return td.inner.UserCodeEnv(jobID, commit, inputs, authToken, pachToken)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserCode(ctx, logger, env))
@@ -111,6 +111,10 @@ func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
 }
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
+}
+func (td *testDriver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
+	res, err := td.inner.GetJobInfo(job)
+	return res, errors.EnsureStack(err)
 }
 func (td *testDriver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))

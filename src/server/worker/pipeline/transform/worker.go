@@ -374,6 +374,10 @@ type datumCallback = func(ctx context.Context, logger logs.TaggedLogger, env []s
 
 // TODO: There are way too many parameters here. Consider grouping them into a reasonable struct or storing some of these in the driver.
 func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, cb datumCallback) error {
+	jobInfo, err := driver.GetJobInfo(task.Job)
+	if err != nil {
+		return errors.Wrap(err, "could not get job info from datum set task job")
+	}
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -389,7 +393,8 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 			meta.ImageId = userImageID
 			inputs := meta.Inputs
 			logger := baseLogger.WithData(inputs)
-			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, driver.PipelineInfo().GetAuthToken(), "")
+
+			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, driver.PipelineInfo().GetAuthToken(), jobInfo.GetAuthToken())
 			opts := []datum.Option{datum.WithEnv(env)}
 			if driver.PipelineInfo().Details.DatumTimeout != nil {
 				timeout := driver.PipelineInfo().Details.DatumTimeout.AsDuration()
