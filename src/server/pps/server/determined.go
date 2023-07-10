@@ -162,7 +162,7 @@ func validateWorkspacePermsByUser(ctx context.Context, dc det.DeterminedClient, 
 		for _, w := range workspaceMap {
 			workspaces = append(workspaces, w.Name)
 		}
-		return errors.Errorf("user %q doesn't have editor access for determined workspaces: %v", workspaces)
+		return errors.Errorf("user %q doesn't have editor access for determined workspaces: %v", user, workspaces)
 	}
 	return nil
 }
@@ -243,7 +243,7 @@ func assignDeterminedPipelineRole(ctx context.Context, dc det.DeterminedClient, 
 	}
 	if _, err := dc.AssignRoles(ctx, &det.AssignRolesRequest{
 		UserRoleAssignments: roleAssignments,
-	}); err != nil {
+	}); err != nil && !strings.Contains(err.Error(), "already exists") {
 		return errors.Wrap(err, "assign pipeline's determined user editor role")
 	}
 	return nil

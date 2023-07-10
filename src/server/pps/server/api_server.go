@@ -2166,6 +2166,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.validateSecret(ctx, request); err != nil {
 		return nil, err
 	}
+	if request.Determined != nil {
+		resp, err := a.CreateDetPipelineSideEffects(ctx, &pps.CreateDetPipelineSideEffectsRequest{
+			Pipeline:   request.Pipeline,
+			Workspaces: request.Determined.Workspaces,
+			Password:   request.Determined.Password,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "create det pipeline side effects")
+		}
+		request.Determined.Password = resp.Password
+	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}); err != nil {
@@ -2207,7 +2218,12 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, req *pps.C
 	if err != nil {
 		return nil, errors.Wrap(err, "who am i")
 	}
-	if err := a.hookDeterminedPipeline(ctx, req.Pipeline, req.Workspaces, password, whoAmI.Username); err != nil {
+	splits := strings.Split(whoAmI.Username, ":")
+	if len(splits) != 2 {
+		return nil, errors.Errorf("subject %q expected to be segmented by one ':'", whoAmI.Username)
+	}
+	username := splits[1]
+	if err := a.hookDeterminedPipeline(ctx, req.Pipeline, req.Workspaces, password, username); err != nil {
 		return nil, errors.Wrapf(err, "failed to connect pipeline %q to determined", req.Pipeline.String())
 	}
 	s := &v1.Secret{
