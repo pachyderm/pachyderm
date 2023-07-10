@@ -6,6 +6,10 @@ This example showcases the python-pachyderm analogs of common `pachctl` commands
 
 **Prerequisites:**
 - A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/)
+- pachyderm-sdk installed. A pip package is coming soon, but for now, you can run from the python-sdk directory:```
+poetry install
+source .venv/bin/activate
+```
 
 **To run:**
 ```shell
