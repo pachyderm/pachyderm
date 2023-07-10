@@ -41,8 +41,18 @@ func Migrate(state migrations.State) migrations.State {
 			return nil
 		}).
 		Apply("validate existing DAGs", func(ctx context.Context, env migrations.Env) error {
-			// locking the following tables is necessary for the following 4 migration "Apply"s:
-			// "Add commit_provenance table", "Remove Alias Commits", "Remove branch from the Commit key"
+			cis, err := listCollectionProtos(ctx, env.Tx, "commits", &v2_5_0.CommitInfo{})
+			if err != nil {
+				return errors.Wrap(err, "list commits for DAG validation")
+			}
+			return validateExistingDAGs(cis)
+		}).
+		Apply("Add commit_provenance table", func(ctx context.Context, env migrations.Env) error {
+			return pfsdb.SetupCommitProvenanceV0(ctx, env.Tx)
+		}).
+		Apply("Remove Alias Commits", func(ctx context.Context, env migrations.Env) error {
+			// locking the following tables is necessary for the following 2 migration "Apply"s:
+			// "Remove Alias Commits", "Remove branch from the Commit key"
 			for _, table := range []string{
 				"collections.repos",
 				"collections.branches",
@@ -59,16 +69,6 @@ func Migrate(state migrations.State) migrations.State {
 					return errors.EnsureStack(err)
 				}
 			}
-			cis, err := listCollectionProtos(ctx, env.Tx, "commits", &v2_5_0.CommitInfo{})
-			if err != nil {
-				return errors.Wrap(err, "list commits for DAG validation")
-			}
-			return validateExistingDAGs(cis)
-		}).
-		Apply("Add commit_provenance table", func(ctx context.Context, env migrations.Env) error {
-			return pfsdb.SetupCommitProvenanceV0(ctx, env.Tx)
-		}).
-		Apply("Remove Alias Commits", func(ctx context.Context, env migrations.Env) error {
 			return removeAliasCommits(ctx, env.Tx)
 		}).
 		Apply("Remove branch from the Commit key", func(ctx context.Context, env migrations.Env) error {
