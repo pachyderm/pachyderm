@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
@@ -13,18 +14,22 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
@@ -98,14 +103,10 @@ func (d *driver) manageRepos(ctx context.Context) error {
 	}()
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
-			// todo(fahad): replace with watch logic.
-			err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
-				if ev.Type == watch.EventError {
-					return ev.Err
-				}
-				key := string(ev.Key)
+			watchFunc := func(ctx context.Context, ev *postgres.Event) error {
+				key := ev.NaturalKey
 				lockPrefix := path.Join("repos", key)
-				if ev.Type == watch.EventDelete {
+				if ev.EventType == postgres.EventDelete {
 					if cancel, ok := repos[key]; ok {
 						if err := ring.Unlock(lockPrefix); err != nil {
 							return err
@@ -154,8 +155,36 @@ func (d *driver) manageRepos(ctx context.Context) error {
 					})
 				}()
 				return nil
-			})
-			return errors.EnsureStack(err)
+			}
+			// get existing entries before watching for new ones.
+			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+				iter, err := pfsdb.ListRepo(ctx, tx)
+				if err != nil {
+					return errors.Wrap(err, "create list repo iterator")
+				}
+				return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
+					event := &postgres.Event{
+						EventType:  postgres.EventInsert,
+						NaturalKey: fmt.Sprintf("%s/%s.%s", repo.Repo.Project, repo.Repo.Name, repo.Repo.Type),
+					}
+					return watchFunc(ctx, event)
+				}), "list repo for pfs master")
+			}); err != nil {
+				return errors.Wrap(err, "get all repos")
+			}
+			// watch for new repo events.
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
+			if err != nil {
+				return errors.Wrap(err, "new watcher for pfs master")
+			}
+			go func() {
+				for event := range watcher.Watch() {
+					err = errors.Wrap(watchFunc(ctx, event), "watch repo event in pfs master")
+					return
+				}
+				return
+			}()
+			return err
 		},
 	)
 }
