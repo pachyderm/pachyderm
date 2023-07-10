@@ -1453,7 +1453,7 @@ jobs:
       - install-kubectl
       - start-minikube
       - attach_workspace:
-            at: ./
+          at: ./
       - run:
           name: Install pachctl
           command: |
