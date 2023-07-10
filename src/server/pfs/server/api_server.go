@@ -168,7 +168,7 @@ func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoS
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) ([]*pfs.Repo, error) {
 	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
 }
 
@@ -190,17 +190,23 @@ func (a *apiServer) DeleteReposInTransaction(txnCtx *txncontext.TransactionConte
 }
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
-func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *emptypb.Empty, retErr error) {
+func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *pfs.DeleteRepoResponse, retErr error) {
 	request.GetRepo().EnsureProject()
 	if request.GetRepo() == nil {
 		return nil, status.Error(codes.InvalidArgument, "no repo specified")
 	}
+	result := &pfs.DeleteRepoResponse{}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.DeleteRepo(request))
+		repos, err := txn.DeleteRepo(request)
+		if err != nil {
+			return errors.Wrap(err, "delete repo")
+		}
+		result.DeletedRepos = repos
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	return result, nil
 }
 
 // DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
