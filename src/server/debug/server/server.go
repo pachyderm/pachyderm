@@ -177,6 +177,9 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 }
 
 func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error {
+	if len(reqApps) == 0 {
+		return nil
+	}
 	apps, err := s.listApps(ctx)
 	if err != nil {
 		return err
@@ -208,13 +211,22 @@ func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error 
 }
 
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
-	// fill the pod info for all the pods referenced in request.System Apps
+	if request == nil {
+		return errors.New("nil debug.DumpV2Request")
+	}
 	var apps []*debug.App
-	apps = append(apps, request.System.Binaries...)
-	apps = append(apps, request.System.Describes...)
-	apps = append(apps, request.System.Logs...)
-	apps = append(apps, request.System.LokiLogs...)
-	apps = append(apps, request.System.Profiles...)
+	for _, l := range [][]*debug.App{
+		request.GetSystem().GetBinaries(),
+		request.GetSystem().GetDescribes(),
+		request.GetSystem().GetLogs(),
+		request.GetSystem().GetLokiLogs(),
+		request.GetSystem().GetProfiles(),
+	} {
+		if len(l) > 0 {
+			apps = append(apps, l...)
+		}
+	}
+	// fill the pod info for all the pods referenced in request.System Apps
 	if err := s.fillApps(server.Context(), apps); err != nil {
 		return err
 	}
