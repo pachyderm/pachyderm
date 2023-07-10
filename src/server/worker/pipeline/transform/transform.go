@@ -3,12 +3,10 @@ package transform
 import (
 	"time"
 
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -40,7 +38,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 				},
 			)
 			if errutil.IsDatabaseDisconnect(err) {
-				log.Info(driver.PachClient().Ctx(), "retry SubscribeJob() in transform.Run()", zap.Error(err))
+				logger.Logf("retry SubscribeJob() in transform.Run(); err: %v", err)
 				return backoff.ErrContinue
 			}
 			return err

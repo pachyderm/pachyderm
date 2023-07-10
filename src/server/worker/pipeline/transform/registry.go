@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -231,7 +230,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				return nil
 			}
 			if errutil.IsDatabaseDisconnect(err) {
-				pj.logger.Logf("retry InspectCommit() in registry.superviseJob()", zap.Error(err))
+				pj.logger.Logf("retry InspectCommit() in registry.superviseJob(); err %v", err)
 				return backoff.ErrContinue
 			}
 			return errors.EnsureStack(err)
