@@ -14,7 +14,6 @@ from . import (
 
 
 class ApiStub(_GeneratedApiStub):
-
     def inspect_pipeline(
         self,
         *,
@@ -54,9 +53,7 @@ class ApiStub(_GeneratedApiStub):
         """
         if history:
             response = self.list_pipeline(
-                pipeline=pipeline,
-                history=history,
-                details=details
+                pipeline=pipeline, history=history, details=details
             )
             try:
                 return next(response)
@@ -115,7 +112,7 @@ class ApiStub(_GeneratedApiStub):
         name: str,
         data: Dict,
         labels: Dict[str, str] = None,
-        annotations: Dict[str, str] = None
+        annotations: Dict[str, str] = None,
     ) -> Empty:
         """Creates a new secret.
 

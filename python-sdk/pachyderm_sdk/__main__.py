@@ -7,10 +7,7 @@ from .errors import RpcError
 def check_connection():
     parser = ArgumentParser()
     parser.add_argument(
-        'address',
-        nargs='?',
-        type=str,
-        help="Address of the pachd instance."
+        "address", nargs="?", type=str, help="Address of the pachd instance."
     )
     args = parser.parse_args()
 

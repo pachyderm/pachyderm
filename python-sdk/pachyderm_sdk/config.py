@@ -7,6 +7,7 @@ from typing import Dict, Optional, Union
 
 from .errors import ConfigError
 
+
 class ConfigFile:
     def __init__(self, config_file: Union[Path, str]):
         config_file = Path(os.path.expanduser(config_file)).resolve()
@@ -33,7 +34,8 @@ class ConfigFile:
         if context_name not in contexts:
             raise ConfigError(f"active enterprise context not found: {context_name}")
         return Context(**contexts[context_name])
-    
+
+
 @dataclass
 class Context:
     source: Optional[int] = None
@@ -78,11 +80,11 @@ class Context:
 
     @property
     def active_pachd_address(self) -> str:
-        """This pachd factors in port-forwarding. """
+        """This pachd factors in port-forwarding."""
         if self.pachd_address is None:
             port = 30650
             if self.port_forwarders:
-                port = self.port_forwarders.get('pachd', 30650)
+                port = self.port_forwarders.get("pachd", 30650)
             return f"grpc://localhost:{port}"
         return self.pachd_address
 
