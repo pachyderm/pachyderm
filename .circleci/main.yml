@@ -1446,14 +1446,14 @@ jobs:
       image: ubuntu-2004:202107-02
     working_directory: ~/project/python-sdk
     steps:
-      - attach_workspace:
-          at: ./
       - checkout:
           path: ~/project
       - install-minikube
       - install-helm
       - install-kubectl
       - start-minikube
+      - attach_workspace:
+            at: ./
       - run:
           name: Install pachctl
           command: |
