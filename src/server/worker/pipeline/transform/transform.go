@@ -1,8 +1,12 @@
 package transform
 
 import (
+	"time"
+
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -15,20 +19,28 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		return err
 	}
 	logger.Logf("transform spawner started")
-
-	return driver.PachClient().SubscribeProjectJob(
-		driver.PipelineInfo().Pipeline.Project.GetName(),
-		driver.PipelineInfo().Pipeline.Name,
-		true,
-		func(jobInfo *pps.JobInfo) error {
-			if jobInfo.PipelineVersion != driver.PipelineInfo().Version {
-				// Skip this job - we should be shut down soon, but don't error out in the meantime
-				return nil
+	// wrap SubscribeJob() in a retry to mitigate database connection flakiness.
+	return backoff.RetryUntilCancel(driver.PachClient().Ctx(),
+		func() error {
+			err := driver.PachClient().SubscribeProjectJob(
+				driver.PipelineInfo().Pipeline.Project.GetName(),
+				driver.PipelineInfo().Pipeline.Name,
+				true,
+				func(jobInfo *pps.JobInfo) error {
+					if jobInfo.PipelineVersion != driver.PipelineInfo().Version {
+						// Skip this job - we should be shut down soon, but don't error out in the meantime
+						return nil
+					}
+					if jobInfo.State == pps.JobState_JOB_FINISHING {
+						return nil
+					}
+					return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
+				},
+			)
+			if errutil.IsDatabaseDisconnect(err) {
+				logger.Logf("retry SubscribeProjectJob() in transform.Run(); err: %v", err)
+				return backoff.ErrContinue
 			}
-			if jobInfo.State == pps.JobState_JOB_FINISHING {
-				return nil
-			}
-			return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
-		},
-	)
+			return err
+		}, backoff.RetryEvery(time.Second), nil)
 }
