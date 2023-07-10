@@ -350,8 +350,14 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 			return errors.Wrap(err, "could not list repos of all types")
 		}
 	}
+	repoTypeIter, err := pfsdb.ListRepoByIdxType(ctx, txnCtx.SqlTx, repoType)
+	if err != nil {
+		return errors.Wrap(err, "list repo by type")
+	}
 	return errors.Wrapf(
-		d.repos.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.ReposTypeIndex, repoType, ri, col.DefaultOptions(), processFunc), //todo(fahad): write a GetByType() function that uses an index.
+		stream.ForEach[*pfs.RepoInfo](ctx, repoTypeIter, func(repo *pfs.RepoInfo) error {
+			return errors.Wrap(processFunc(repo.Repo.Name), "list repos")
+		}),
 		"could not get repos of type %q: ERROR FROM GetByIndex", repoType,
 	)
 }
@@ -525,10 +531,12 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 		return []*pfs.RepoInfo{ri}, nil
 	}
 	var related []*pfs.RepoInfo
-	otherRepo := &pfs.RepoInfo{}
-	repos := d.repos.ReadWrite(txnCtx.SqlTx) // todo(fahad): write get by index for repo on repo name.
-	if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(repo), otherRepo, col.DefaultOptions(), func(key string) error {
-		related = append(related, proto.Clone(otherRepo).(*pfs.RepoInfo))
+	iter, err := pfsdb.ListRepoByIdxName(ctx, txnCtx.SqlTx, repo.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "list repo by name")
+	}
+	if err := stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
+		related = append(related, repo)
 		return nil
 	}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): !NotFound may be unnecessary
 		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)

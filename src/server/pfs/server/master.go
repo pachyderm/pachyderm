@@ -98,6 +98,7 @@ func (d *driver) manageRepos(ctx context.Context) error {
 	}()
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
+			// todo(fahad): replace with watch logic.
 			err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
 				if ev.Type == watch.EventError {
 					return ev.Err

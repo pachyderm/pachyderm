@@ -62,7 +62,7 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 			description text NOT NULL DEFAULT '',
 			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
-			UNIQUE (name, project_id)
+			UNIQUE (name, project_id, type)
 		);
 	`); err != nil {
 		return errors.Wrap(err, "creating pfs.repos table")

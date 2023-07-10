@@ -61,12 +61,13 @@ func (err ErrRepoNotFound) GRPCStatus() *status.Status {
 type ErrRepoAlreadyExists struct {
 	Project string
 	Name    string
+	Type    string
 }
 
 // Error satisfies the error interface.
 func (err ErrRepoAlreadyExists) Error() string {
-	if n := err.Name; n != "" {
-		return fmt.Sprintf("repo %q already exists", n)
+	if n, t := err.Name, err.Type; n != "" && t != "" {
+		return fmt.Sprintf("repo %s.%s already exists", n, t)
 	}
 
 	return "repo already exists"
@@ -120,7 +121,7 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 	if iter.index >= len(iter.repos) {
 		iter.index = 0
 		iter.offset += iter.limit
-		iter.repos, err = listRepo(ctx, iter.tx, iter.limit, iter.offset, iter.where, iter.whereVal)
+		iter.repos, err = listRepoPage(ctx, iter.tx, iter.limit, iter.offset, iter.where, iter.whereVal)
 		if err != nil {
 			return errors.Wrap(err, "list repo page")
 		}
@@ -152,39 +153,39 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
 func ListRepo(ctx context.Context, tx *pachsql.Tx) (*RepoIterator, error) {
-	limit := 100
-	page, err := listRepo(ctx, tx, limit, 0, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "list repos")
-	}
-	iter := &RepoIterator{
-		repos:    page,
-		limit:    limit,
-		tx:       tx,
-		where:    "",
-		whereVal: nil,
-	}
-	return iter, nil
+	return listRepo(ctx, tx, "", nil)
 }
 
-// ListRepoByIdxType returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
+// ListRepoByIdxType is like ListRepo but only iterates over repo.type = repoType.
 func ListRepoByIdxType(ctx context.Context, tx *pachsql.Tx, repoType string) (*RepoIterator, error) {
+	return listRepo(ctx, tx, "type", repoType)
+}
+
+// ListRepoByIdxName is like ListRepo but only iterates over repo.name = name.
+func ListRepoByIdxName(ctx context.Context, tx *pachsql.Tx, repoName string) (*RepoIterator, error) {
+	return listRepo(ctx, tx, "name", repoName)
+}
+
+// ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
+func listRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*RepoIterator, error) {
 	limit := 100
-	page, err := listRepo(ctx, tx, limit, 0, "type", repoType)
+	page, err := listRepoPage(ctx, tx, limit, 0, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
 	iter := &RepoIterator{
-		repos:    page,
-		limit:    limit,
-		tx:       tx,
-		where:    "type",
-		whereVal: repoType,
+		repos: page,
+		limit: limit,
+		tx:    tx,
+	}
+	if where != "" && whereVal != nil {
+		iter.where = where
+		iter.whereVal = whereVal
 	}
 	return iter, nil
 }
 
-func listRepo(ctx context.Context, tx *pachsql.Tx, limit, offset int, where string, whereVal interface{}) ([]repoRow, error) {
+func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, where string, whereVal interface{}) ([]repoRow, error) {
 	var page []repoRow
 	if where != "" && whereVal != nil {
 		if err := tx.SelectContext(ctx, &page,
@@ -211,7 +212,6 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects where name=$3), $4);",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description)
-	//todo: figure out how to handle branches?
 	if err != nil && IsErrRepoAlreadyExists(err) {
 		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name}
 	}

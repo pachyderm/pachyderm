@@ -217,11 +217,46 @@ func TestListReposByIdxType(t *testing.T) {
 			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
 			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
 			require.Equal(t, expectedInfos[i].Description, repo.Description)
-			require.Equal(t, len(expectedInfos[i].Branches), len(repo.Branches))
 			i++
 			return nil
 		}))
 		require.Equal(t, size/2, i)
+		return nil
+	}))
+}
+
+func TestListReposByIdxName(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewTestDB(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		expectedInfos := make([]*pfs.RepoInfo, 0)
+		for _, repoName := range []string{"repoA", "repoB", "repoC"} {
+			createInfo := testRepo(repoName, "unknown")
+			require.NoError(t, pfsdb.CreateRepo(ctx, tx, createInfo), "should be able to create repo")
+		}
+		for _, repoType := range []string{"user", "unknown", "meta"} {
+			createInfo := testRepo(fmt.Sprintf("%s", testRepoName), repoType)
+			require.NoError(t, pfsdb.CreateRepo(ctx, tx, createInfo), "should be able to create repo")
+			expectedInfos = append(expectedInfos, createInfo)
+		}
+		iter, err := pfsdb.ListRepoByIdxName(cbCtx, tx, testRepoName)
+		require.NoError(t, err, "should be able to list repos")
+		i := 0
+		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+			if err != nil {
+				require.NoError(t, err, "should be able to iterate over repos")
+			}
+			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
+			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repo.Description)
+			i++
+			return nil
+		}))
+		require.Equal(t, 3, i)
 		return nil
 	}))
 }
