@@ -6,3 +6,4 @@ __pycache__
 .venv
 dist
 docs/*.zip
+docs/pachyderm_sdk
