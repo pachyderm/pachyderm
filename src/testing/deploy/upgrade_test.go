@@ -267,6 +267,7 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{"2.5.0", "2.6.0"}
+	files := []string{"file1", "file2", "file3", "file4"}
 	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { // preUpgrade
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
@@ -311,17 +312,35 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 				}},
 				"master",
 				false))
-			require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo1", "master", ""), "/file1", strings.NewReader("foo bar\n")))
+			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, "repo1", "master", ""), func(mf client.ModifyFile) error {
+				for _, f := range files {
+					if err := mf.PutFile("/"+f, strings.NewReader(f)); err != nil {
+						return err
+					}
+				}
+				return nil
+			}))
 			t.Log("before upgrade: waiting for commit")
 			commitInfo, err := c.WaitCommit("project1", "pipeline3", "master", "")
 			require.NoError(t, err)
 			var buf bytes.Buffer
-			require.NoError(t, c.GetFile(commitInfo.Commit, "/file1", &buf))
-			require.Equal(t, "foo bar\nfoo bar\nfoo bar\nfoo bar\n", buf.String())
+			for _, f := range files {
+				require.NoError(t, c.GetFile(commitInfo.Commit, "/"+f, &buf))
+				require.Equal(t, strings.Repeat(f, 4), buf.String()) // repeats 4 times because we concatenated twice
+				buf.Reset()
+			}
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { // postUpgrade
-			// TODO
-			require.NoError(t, nil)
+			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
+			commitInfo, err := c.InspectCommit("project1", "pipeline3", "master", "")
+			require.NoError(t, err)
+
+			var buf bytes.Buffer
+			for _, f := range files {
+				require.NoError(t, c.GetFile(commitInfo.Commit, "/"+f, &buf))
+				require.Equal(t, strings.Repeat(f, 4), buf.String()) // repeats 4 times because we concatenated twice
+				buf.Reset()
+			}
 		})
 }
 
