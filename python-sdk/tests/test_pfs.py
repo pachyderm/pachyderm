@@ -122,9 +122,7 @@ class TestUnitCommit:
         assert commit.branch.repo.name == repo.name
 
         # cannot start new commit before the previous one is finished
-        with pytest.raises(
-            grpc.RpcError, match=r"parent commit .* has not been finished"
-        ):
+        with pytest.raises(grpc.RpcError, match=r"parent commit .* has not been finished"):
             client.pfs.start_commit(branch=branch)
 
         client.pfs.finish_commit(commit=commit)
@@ -389,9 +387,7 @@ class TestModifyFile:
 
         with client.pfs.commit(branch=branch) as commit2:
             commit2.delete_file(path="/file1.dat")
-        assert not client.pfs.path_exists(
-            file=pfs.File.from_uri(f'{commit2}:/file1.dat')
-        )
+        assert not client.pfs.path_exists(file=pfs.File.from_uri(f"{commit2}:/file1.dat"))
 
     @staticmethod
     def test_walk_file(client: TestClient, default_project: bool):
@@ -403,9 +399,7 @@ class TestModifyFile:
             commit.put_file_from_bytes(path="/a/file2.dat", data=b"DATA")
             commit.put_file_from_bytes(path="/a/b/file3.dat", data=b"DATA")
 
-        files = list(
-            client.pfs.walk_file(file=pfs.File(commit=commit, path="/a"))
-        )
+        files = list(client.pfs.walk_file(file=pfs.File(commit=commit, path="/a")))
         assert len(files) == 4
         assert files[0].file.path == "/a/"
         assert files[1].file.path == "/a/b/"
@@ -468,7 +462,6 @@ class TestModifyFile:
 
 
 class TestPFSFile:
-
     @staticmethod
     def test_get_large_file(client: TestClient):
         """Test that a large file (requires >1 gRPC message to stream)
@@ -566,6 +559,7 @@ class TestPFSFile:
 
         # Test that we can feed it into stdlib functionality (csv reader).
         import csv
+
         with client.pfs.pfs_file(file=file) as pfs_file:
             with io.TextIOWrapper(pfs_file, encoding="utf-8") as text_file:
                 print(list(csv.reader(text_file)))

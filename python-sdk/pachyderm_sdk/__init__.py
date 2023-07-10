@@ -1,10 +1,4 @@
-# Python version compatibility.
-try:
-    # >= 3.8
-    import importlib.metadata as metadata
-except ImportError:
-    #  < 3.8
-    import importlib_metadata as metadata  # type: ignore
+import importlib.metadata as metadata
 
 __version__ = ""
 try:
