@@ -57,7 +57,7 @@ def main():
             cmd=["sh"],
             image="v4tech/imagemagick",
             stdin=[
-                "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"
+                "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs ! -name .env -type f | sort) /pfs/out/montage.png"
             ],
         ),
         input=pps.Input(
@@ -72,11 +72,16 @@ def main():
         # Add some images, recursively inserting content from the images
         # directory. Alternatively, you could use `client.put_file_url` or
         # `client_put_file_bytes`.
-        source = None  # TODO: Add correct path
+        source = relpath("images")
         client.pfs.put_files(commit=commit, source=source, path="/")
 
     # Wait for the commit (and its downstream commits) to finish
     commit.wait_set()
+
+    job = pps.Job(pipeline=pps.Pipeline(name="montage"), id=commit.id)
+    if client.pps.inspect_job(job=job).state != pps.JobState.JOB_SUCCESS:
+        print("Montage job failed, aborting. Check the pipeline logs for more details.")
+        exit(1)
 
     # Get the montage
     source_file = client.pfs.pfs_file(file=pfs.File.from_uri("montage@master:/montage.png"))
@@ -94,5 +99,5 @@ def clean():
 
 
 if __name__ == "__main__":
-    # clean()
+    clean()
     main()
