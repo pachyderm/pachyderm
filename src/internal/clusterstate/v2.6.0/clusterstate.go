@@ -52,7 +52,7 @@ func Migrate(state migrations.State) migrations.State {
 		Apply("Remove Alias Commits", func(ctx context.Context, env migrations.Env) error {
 			// locking the following tables is necessary for the following 2 migration "Apply"s:
 			// "Remove Alias Commits", "Remove branch from the Commit key"
-			for _, table := range []string{
+			if err := env.LockTables(ctx,
 				"collections.repos",
 				"collections.branches",
 				"collections.commits",
@@ -63,10 +63,8 @@ func Migrate(state migrations.State) migrations.State {
 				"pfs.commit_provenance",
 				"collections.pipelines",
 				"collections.jobs",
-			} {
-				if err := env.LockTable(ctx, table); err != nil {
-					return errors.EnsureStack(err)
-				}
+			); err != nil {
+				return errors.EnsureStack(err)
 			}
 			return removeAliasCommits(ctx, env.Tx)
 		}).

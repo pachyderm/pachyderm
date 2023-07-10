@@ -25,12 +25,14 @@ type Env struct {
 	WithTableLocks bool
 }
 
-func (env Env) LockTable(ctx context.Context, table string) error {
+func (env Env) LockTables(ctx context.Context, tables ...string) error {
 	if !env.WithTableLocks {
 		return nil
 	}
-	if _, err := env.Tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s IN EXCLUSIVE MODE", table)); err != nil {
-		return errors.EnsureStack(err)
+	for _, table := range tables {
+		if _, err := env.Tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s IN EXCLUSIVE MODE", table)); err != nil {
+			return errors.EnsureStack(err)
+		}
 	}
 	return nil
 }
