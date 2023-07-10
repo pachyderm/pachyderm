@@ -54,7 +54,7 @@ func Migrate(state migrations.State) migrations.State {
 				"collections.pipelines",
 				"collections.jobs",
 			} {
-				if _, err := env.Tx.ExecContext(ctx, `LOCK TABLE %s IN EXCLUSIVE MODE`, table); err != nil {
+				if _, err := env.Tx.ExecContext(ctx, `LOCK TABLE $1 IN EXCLUSIVE MODE`, table); err != nil {
 					return errors.EnsureStack(err)
 				}
 			}
