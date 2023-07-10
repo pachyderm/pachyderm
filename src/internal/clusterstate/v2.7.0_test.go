@@ -4,10 +4,12 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -26,7 +28,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	defer tx.Rollback()
 	projectNames := []string{"testProject1", "testProject2", "testProject3", strings.Repeat("A", 51)}
 	for _, name := range projectNames {
-		projectInfo := pfs.ProjectInfo{Project: &pfs.Project{Name: name}, Description: "test project"}
+		projectInfo := pfs.ProjectInfo{Project: &pfs.Project{Name: name}, Description: "test project", CreatedAt: timestamppb.Now()}
 		b, err := proto.Marshal(&projectInfo)
 		require.NoError(t, err)
 		_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, projectInfo.Project.String(), b)
@@ -58,7 +60,11 @@ func Test_v2_7_0_ClusterState(t *testing.T) {
 	var gotProjects []v2_7_0.Project
 	require.NoError(t, db.SelectContext(ctx, &gotProjects, `SELECT id, name, description, created_at, updated_at FROM core.projects ORDER BY id`))
 	require.Equal(t, len(expectedProjects), len(gotProjects))
-	if diff := cmp.Diff(expectedProjects, gotProjects); diff != "" {
+	if diff := cmp.Diff(expectedProjects, gotProjects, cmp.Comparer(func(t1, t2 time.Time) bool {
+		// Ignore sub-microsecond differences becaues postgres stores timestamps with microsecond precision
+		return t1.Sub(t2) < time.Microsecond
+
+	})); diff != "" {
 		t.Errorf("projects differ: (-want +got)\n%s", diff)
 	}
 	// Test project names can only be 51 characters long

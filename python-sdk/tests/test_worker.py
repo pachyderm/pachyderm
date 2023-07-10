@@ -1,8 +1,5 @@
 import io
-import os
 from typing import Callable
-
-import pytest
 
 from tests.fixtures import *
 from tests.utils import count
@@ -30,9 +27,9 @@ def generate_stdin(func: Callable[[], None]):
     from textwrap import dedent
 
     test_script = (
-        f'{dedent(getsource(func))}\n\n'
+        f"{dedent(getsource(func))}\n\n"
         'if __name__ == "__main__":\n'
-        f'    {func.__name__}()\n'
+        f"    {func.__name__}()\n"
     )
     return [
         f"echo '{test_script}' > main.py",
@@ -63,7 +60,10 @@ def test_datum_batching(client: TestClient):
             datum_files = os.listdir("/pfs/batch_datums_input")
             print(datum_files)
             assert len(datum_files) == 1
-            shutil.copy(f"/pfs/batch_datums_input/{datum_files[0]}", f"/pfs/out/{datum_files[0]}")
+            shutil.copy(
+                f"/pfs/batch_datums_input/{datum_files[0]}", f"/pfs/out/{datum_files[0]}"
+            )
+
         return main()
 
     repo = client.new_repo()
@@ -86,11 +86,11 @@ def test_datum_batching(client: TestClient):
                 )
             ),
             transform=pps.Transform(
-                cmd=["bash", ],
+                cmd=["bash"],
                 datum_batching=True,
                 image=IMAGE_NAME,
-                stdin=generate_stdin(user_code)
-            )
+                stdin=generate_stdin(user_code),
+            ),
         )
         job_info = next(client.pps.list_job(pipeline=pipeline))
         client.pps.inspect_job(job=job_info.job, wait=True)
@@ -112,6 +112,7 @@ def test_datum_batching_errors(client: TestClient):
       the pipeline job should finish successfully and the output repo should
       be empty.
     """
+
     def user_code_errors():
         """Raises an Exception for every datum."""
         from pachyderm_sdk import Client
@@ -138,18 +139,20 @@ def test_datum_batching_errors(client: TestClient):
                 )
             ),
             transform=pps.Transform(
-                cmd=["bash", ],
-                err_cmd=["true", ],  # Note err_cmd set.
+                cmd=["bash"],
+                err_cmd=["true"],  # Note err_cmd set.
                 datum_batching=True,
                 image=IMAGE_NAME,
-                stdin=generate_stdin(user_code_errors)
-            )
+                stdin=generate_stdin(user_code_errors),
+            ),
         )
         started_job = next(client.pps.list_job(pipeline=pipeline))
         completed_job = client.pps.inspect_job(job=started_job.job, wait=True)
         assert completed_job.state == pps.JobState.JOB_SUCCESS
 
-        output_files = client.pfs.list_file(file=pfs.File(commit=completed_job.output_commit))
+        output_files = client.pfs.list_file(
+            file=pfs.File(commit=completed_job.output_commit)
+        )
         assert count(output_files) == 0
     finally:  # Cleanup our manually defined test pipeline.
         if client.pps.pipeline_exists(pipeline):
