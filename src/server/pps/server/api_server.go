@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
@@ -2193,7 +2192,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		Version:  1,
 		Details: &pps.PipelineInfo_Details{
 			Transform:               details.Transform,
-			TfJob:                   details.TFJob,
+			TfJob:                   details.TfJob,
 			ParallelismSpec:         details.ParallelismSpec,
 			Input:                   details.Input,
 			OutputBranch:            details.OutputBranch,
@@ -2208,6 +2207,8 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Service:                 details.Service,
 			Spout:                   details.Spout,
 			DatumSetSpec:            details.DatumSetSpec,
+			DatumTimeout:            details.DatumTimeout,
+			JobTimeout:              details.JobTimeout,
 			DatumTries:              details.DatumTries,
 			SchedulingSpec:          details.SchedulingSpec,
 			PodSpec:                 details.PodSpec,
@@ -2218,12 +2219,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Autoscaling:             details.Autoscaling,
 			Tolerations:             request.Tolerations,
 		},
-	}
-	if details.DatumTimeout != 0 {
-		pipelineInfo.Details.DatumTimeout = durationpb.New(details.DatumTimeout)
-	}
-	if details.JobTimeout != 0 {
-		pipelineInfo.Details.JobTimeout = durationpb.New(details.JobTimeout)
 	}
 
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
@@ -3579,7 +3574,7 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 var emptyPipelineSpecJSON string
 
 func init() {
-	var spec pps.PipelineSpec
+	var spec = new(pps.PipelineSpec)
 	b, err := json.Marshal(spec)
 	if err != nil {
 		panic(fmt.Sprint("could not marshal empty pipeline spec: ", err))
