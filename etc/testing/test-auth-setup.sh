@@ -7,8 +7,8 @@ set -euxo pipefail
 # Bill: projectViewer for ellie-project and joel-project
 # All are projectOwners(can read/write) for their respective projects
 
-export ROOT_TOKEN="db643083a0424318a2576049d3d60a7e" # not a real token, for local testing only
-pachctl auth rotate-root-token --supply-token "$ROOT_TOKEN"
+export ROOT_TOKEN="pizza" # not a real token, for local testing only
+# pachctl auth rotate-root-token --supply-token "$ROOT_TOKEN"
 echo "$ROOT_TOKEN" | pachctl auth use-auth-token
 
 # writer on joel project only

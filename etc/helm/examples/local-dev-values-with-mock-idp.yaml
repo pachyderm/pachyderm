@@ -4,7 +4,7 @@ deployTarget: custom
 
 pachd:
   image:
-    tag: local
+    tag: 3060a3bd07de6c26a8a2ff711c85164c1a246687
   resources:
     requests:
       cpu: 250m
@@ -14,9 +14,9 @@ pachd:
   metrics:
     enabled: false
   clusterDeploymentID: dev
-  pachAuthClusterRoleBindings:
-    allClusterUsers:
-      ["debugger", "projectOwner", "projectCreator", "repoOwner", "robotUser", "secretAdmin", "pachdLogReader"]
+  # pachAuthClusterRoleBindings:
+  #   allClusterUsers:
+  #     ["debugger", "projectOwner", "projectCreator", "repoOwner", "robotUser", "secretAdmin", "pachdLogReader"]
   # to enable enterprise features pass in pachd.activateEnterprise=true, and a valid pachd.enterpriseLicenseKey
   activateEnterprise: true
   additionalTrustedPeers:
@@ -52,7 +52,7 @@ postgresql:
 console:
   enabled: true
   image:
-    tag: 49648661011fa26986a6f71ffabe77d1f286eef3 
+    tag: ba12ac3ef3f6ea537ca5bf32f0f225a361a2a18a 
   config:  
     oauthRedirectURI: http://localhost:8283/oauth/callback/?inline=true 
     oauthClientSecret: "123"
@@ -61,6 +61,31 @@ console:
 oidc:
   issuerURI: "http://pachd.default.svc.cluster.local:30658/dex"
   userAccessibleOauthIssuerHost: "http://localhost:8283"
-  
+  # additionalClients:
+  #   - id: console-local
+  #     name: console-local
+  #     secret: "123"
+  #     redirect_uris:
+  #       - http://localhost:4000/oauth/callback/?inline=true
+  #   - id: determined-local
+  #     name: determined-local
+  #     secret: "123"
+  #     redirect_uris:
+  #       - http://localhost:8282/oauth/callback/?inline=true # - http://determined-master-service-pachyderm.default.svc.cluster.local:8282
 
+# determined:
+#   imageRegistry: registry-1.docker.io/determinedai
+#   maxSlotsPerPod: 0
+#   enabled: true
+#   enterpriseEdition: true
+#   useNodePortForMaster: false
+#   useNodePortForDB: false
+#   detVersion: 0.23.1
+#   masterPort: 8282
+#   oidc:
+#     enabled: true 
+#     idpRecipientUrl: http://localhost:8282
+#   #   # idpSsoUrl: "http://localhost:8283" #"http://pachd.default.svc.cluster.local:30658/dex"
+#     clientId: "determined-local"
+  #   clientSecret: "123"
  

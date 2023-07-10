@@ -4,7 +4,7 @@ deployTarget: custom
 
 pachd:
   image:
-    tag: local
+    tag: 2.6.0
   resources:
     requests:
       cpu: 250m

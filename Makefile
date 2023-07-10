@@ -187,7 +187,7 @@ launch: install check-kubectl
 launch-dev: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl apply -f etc/testing/minio.yaml --namespace=default
-	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values-with-mock-idp.yaml --set pachd.enterpriseLicenseKey=$(ENT_ACT_CODE)
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
