@@ -3567,8 +3567,8 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 var emptyPipelineSpecJSON string
 
 func init() {
-	var spec pps.PipelineSpec
-	b, err := json.Marshal(spec)
+	var spec = new(pps.PipelineSpec)
+	b, err := protojson.Marshal(spec)
 	if err != nil {
 		panic(fmt.Sprint("could not marshal empty pipeline spec: ", err))
 	}
