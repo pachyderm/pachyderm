@@ -40,6 +40,24 @@ func Migrate(state migrations.State) migrations.State {
 			return nil
 		}).
 		Apply("validate existing DAGs", func(ctx context.Context, env migrations.Env) error {
+			// locking the following tables is necessary for the following 4 migration "Apply"s:
+			// "Add commit_provenance table", "Remove Alias Commits", "Remove branch from the Commit key"
+			for _, table := range []string{
+				"collections.repos",
+				"collections.branches",
+				"collections.commits",
+				"pfs.commit_diffs",
+				"pfs.commit_totals",
+				"storage.tracker_objects",
+				"pfs.commits",
+				"pfs.commit_provenance",
+				"collections.pipelines",
+				"collections.jobs",
+			} {
+				if _, err := env.Tx.ExecContext(ctx, `LOCK TABLE %s IN EXCLUSIVE MODE`, table); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
 			cis, err := listCollectionProtos(ctx, env.Tx, "commits", &v2_5_0.CommitInfo{})
 			if err != nil {
 				return errors.Wrap(err, "list commits for DAG validation")
