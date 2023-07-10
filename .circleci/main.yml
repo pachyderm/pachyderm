@@ -1717,7 +1717,11 @@ workflows:
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
   python-sdk:
-    when: << pipeline.parameters.run-python-sdk-jobs >>
+    when:
+      condition:
+        or:
+          - << pipeline.parameters.run-python-sdk-jobs >>
+          - << pipeline.parameters.run-core-jobs >>
     jobs:
       - test-python-sdk:
           requires:
