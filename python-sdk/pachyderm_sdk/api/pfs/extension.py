@@ -38,7 +38,7 @@ __all__ = ("ApiStub", "ClosedCommit", "OpenCommit")
 
 def transaction_incompatible(pfs_method: Callable) -> Callable:
     """Decorator for marking methods of the PFS API which are
-    not allowed to occur during a transaction. """
+    not allowed to occur during a transaction."""
 
     @wraps(pfs_method)
     def wrapper(stub: "ApiStub", *args, **kwargs):
@@ -69,10 +69,9 @@ class ClosedCommit(Commit):
 
         # This is required to maintain serialization capabilities while being
         #   future compatible with any new fields to the pfs.Commit message.
-        super().__init__(**{
-            field.name: getattr(commit, field.name)
-            for field in fields(commit)
-        })
+        super().__init__(
+            **{field.name: getattr(commit, field.name) for field in fields(commit)}
+        )
 
     def wait(self) -> "CommitInfo":
         """Waits until the commit is finished being created.
@@ -127,12 +126,7 @@ class OpenCommit(ClosedCommit):
         """Transform an OpenCommit into a ClosedCommit."""
         self.__class__ = ClosedCommit
 
-    def put_file_from_bytes(
-        self,
-        path: str,
-        data: bytes,
-        append: bool = False
-    ) -> "File":
+    def put_file_from_bytes(self, path: str, data: bytes, append: bool = False) -> "File":
         """Uploads a PFS file from a bytestring.
 
         Parameters
@@ -157,9 +151,7 @@ class OpenCommit(ClosedCommit):
         >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as commit:
         >>>     commit.put_file_from_bytes(path="/file.txt", data=b"SOME BYTES")
         """
-        self._stub.put_file_from_bytes(
-            commit=self, path=path, data=data, append=append
-        )
+        self._stub.put_file_from_bytes(commit=self, path=path, data=data, append=append)
         return File(commit=self._commit, path=path)
 
     def put_file_from_url(
@@ -195,17 +187,11 @@ class OpenCommit(ClosedCommit):
         >>>         path="/index.html", url="https://www.pachyderm.com/index.html"
         >>>     )
         """
-        self._stub.put_file_from_url(
-            commit=self, path=path, url=url, recursive=recursive
-        )
+        self._stub.put_file_from_url(commit=self, path=path, url=url, recursive=recursive)
         return File(commit=self._commit, path=path)
 
     def put_file_from_file(
-        self,
-        *,
-        path: str,
-        file: "SupportsRead[bytes]",
-        append: bool = False
+        self, *, path: str, file: "SupportsRead[bytes]", append: bool = False
     ) -> "File":
         """Uploads a PFS file from an open file object.
 
@@ -232,18 +218,10 @@ class OpenCommit(ClosedCommit):
         >>>     with open("local_file.dat", "rb") as source:
         >>>         commit.put_file_from_file(path="/index.html", file=source)
         """
-        self._stub.put_file_from_file(
-            commit=self, path=path, file=file, append=append
-        )
+        self._stub.put_file_from_file(commit=self, path=path, file=file, append=append)
         return File(commit=self._commit, path=path)
 
-    def copy_file(
-        self,
-        *,
-        src: "File",
-        dst: str,
-        append: bool = True
-    ) -> "File":
+    def copy_file(self, *, src: "File", dst: str, append: bool = True) -> "File":
         """Copies a file within PFS
 
         Parameters
@@ -371,9 +349,7 @@ class ApiStub(_GeneratedApiStub):
         return list(self.inspect_commit_set(commit_set=commit_set, wait=True))
 
     @transaction_incompatible
-    def put_files(
-        self, *, commit: "Commit", source: Union[Path, str], path: str
-    ) -> None:
+    def put_files(self, *, commit: "Commit", source: Union[Path, str], path: str) -> None:
         """Recursively insert the contents of source into the open commit under path,
         matching the directory structure of source.
 
@@ -410,12 +386,7 @@ class ApiStub(_GeneratedApiStub):
 
     @transaction_incompatible
     def put_file_from_bytes(
-        self,
-        *,
-        commit: "Commit",
-        path: str,
-        data: bytes,
-        append: bool = False
+        self, *, commit: "Commit", path: str, data: bytes, append: bool = False
     ) -> Empty:
         """Uploads a PFS file from a bytestring.
 
@@ -483,10 +454,9 @@ class ApiStub(_GeneratedApiStub):
             ModifyFileRequest(delete_file=DeleteFile(path=path)),
             ModifyFileRequest(
                 add_file=AddFile(
-                    path=path,
-                    url=AddFileUrlSource(url=url, recursive=recursive)
+                    path=path, url=AddFileUrlSource(url=url, recursive=recursive)
                 )
-            )
+            ),
         ]
         return self.modify_file(iter(operations))
 
@@ -497,7 +467,7 @@ class ApiStub(_GeneratedApiStub):
         commit: "Commit",
         path: str,
         file: "SupportsRead[bytes]",
-        append: bool = False
+        append: bool = False,
     ) -> Empty:
         """Uploads a PFS file from an open file object.
 
@@ -524,6 +494,7 @@ class ApiStub(_GeneratedApiStub):
         >>>             commit=c, path="/index.html", file=source
         >>>         )
         """
+
         # TODO: Can we verify that the file is outputting bytes?
         def operations() -> Iterable[ModifyFileRequest]:
             yield ModifyFileRequest(set_commit=commit)
@@ -535,16 +506,12 @@ class ApiStub(_GeneratedApiStub):
                 if len(data) == 0:
                     return
                 yield ModifyFileRequest(add_file=AddFile(path=path, raw=data))
+
         return self.modify_file(operations())
 
     @transaction_incompatible
     def copy_file(
-        self,
-        *,
-        commit: "Commit",
-        src: "File",
-        dst: str,
-        append: bool = True
+        self, *, commit: "Commit", src: "File", dst: str, append: bool = True
     ) -> Empty:
         """Copies a file within PFS
 
@@ -571,9 +538,7 @@ class ApiStub(_GeneratedApiStub):
         """
         operations = [
             ModifyFileRequest(set_commit=commit),
-            ModifyFileRequest(
-                copy_file=CopyFile(dst=dst, src=src, append=append)
-            )
+            ModifyFileRequest(copy_file=CopyFile(dst=dst, src=src, append=append)),
         ]
         return self.modify_file(iter(operations))
 
