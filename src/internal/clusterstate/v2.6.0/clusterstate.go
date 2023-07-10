@@ -2,7 +2,6 @@ package v2_6_0
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 
@@ -65,7 +64,7 @@ func Migrate(state migrations.State) migrations.State {
 				"collections.pipelines",
 				"collections.jobs",
 			} {
-				if _, err := env.Tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s IN EXCLUSIVE MODE", table)); err != nil {
+				if err := env.LockTable(ctx, table); err != nil {
 					return errors.EnsureStack(err)
 				}
 			}

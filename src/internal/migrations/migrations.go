@@ -19,9 +19,20 @@ import (
 // The Tx field will be overwritten with the transaction that the migration should be performed in.
 type Env struct {
 	// TODO: etcd
-	ObjectClient obj.Client
-	Tx           *pachsql.Tx
-	EtcdClient   *clientv3.Client
+	ObjectClient   obj.Client
+	Tx             *pachsql.Tx
+	EtcdClient     *clientv3.Client
+	WithTableLocks bool
+}
+
+func (env Env) LockTable(ctx context.Context, table string) error {
+	if !env.WithTableLocks {
+		return nil
+	}
+	if _, err := env.Tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s IN EXCLUSIVE MODE", table)); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // MakeEnv returns a new Env
@@ -29,8 +40,9 @@ type Env struct {
 // You can also create an Env using a struct literal.
 func MakeEnv(objC obj.Client, etcdC *clientv3.Client) Env {
 	return Env{
-		ObjectClient: objC,
-		EtcdClient:   etcdC,
+		ObjectClient:   objC,
+		EtcdClient:     etcdC,
+		WithTableLocks: true,
 	}
 }
 
