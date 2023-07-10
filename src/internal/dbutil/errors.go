@@ -19,6 +19,6 @@ func IsUniqueViolation(err error) bool {
 }
 
 // IsErrDatabaseConnection returns true if the error occurs during database connection flakiness
-func IsErrDatabaseConnection(err error) bool {
+func IsDatabaseDisconnect(err error) bool {
 	return strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF")
 }

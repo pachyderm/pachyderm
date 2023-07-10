@@ -198,7 +198,7 @@ func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.Queryer
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second), func(err error, d time.Duration) error {
-		if dbutil.IsErrDatabaseConnection(err) {
+		if dbutil.IsDatabaseDisconnect(err) {
 			log.Info(ctx, "retrying database get query", zap.String("key", key), zap.Error(err))
 			return nil
 		}

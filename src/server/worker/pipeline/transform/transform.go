@@ -39,7 +39,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 					return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 				},
 			)
-			if dbutil.IsErrDatabaseConnection(err) {
+			if dbutil.IsDatabaseDisconnect(err) {
 				log.Info(driver.PachClient().Ctx(), "retry SubscribeJob() in transform.Run()", zap.Error(err))
 				return backoff.ErrContinue
 			}

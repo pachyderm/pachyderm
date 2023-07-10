@@ -152,7 +152,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 		}
 		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
-		if dbutil.IsErrDatabaseConnection(err) {
+		if dbutil.IsDatabaseDisconnect(err) {
 			log.Info(ctx, "retrying transaction following retryable error", zap.Error(err))
 			return nil
 		}

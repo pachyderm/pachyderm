@@ -232,7 +232,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				}
 				return nil
 			}
-			if dbutil.IsErrDatabaseConnection(err) {
+			if dbutil.IsDatabaseDisconnect(err) {
 				log.Info(pj.driver.PachClient().Ctx(), "retry InspectCommit() in registry.superviseJob()", zap.Error(err))
 				return backoff.ErrContinue
 			}
