@@ -183,10 +183,6 @@ func (c *postgresCollection) mapSQLError(err error, key string) error {
 	return nil
 }
 
-func mappedSQLError(err error) bool {
-	return errors.As(err, &ErrNotFound{}) || errors.As(err, &ErrExists{})
-}
-
 type postgresReadOnlyCollection struct {
 	*postgresCollection
 	ctx context.Context
@@ -202,7 +198,7 @@ func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.Queryer
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second), func(err error, d time.Duration) error {
-		if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF") {
+		if dbutil.IsErrDatabaseConnection(err) {
 			log.Info(ctx, "retrying database get query", zap.String("key", key), zap.Error(err))
 			return nil
 		}

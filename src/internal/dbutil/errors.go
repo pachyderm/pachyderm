@@ -1,6 +1,8 @@
 package dbutil
 
 import (
+	"strings"
+
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 
@@ -14,4 +16,9 @@ func IsUniqueViolation(err error) bool {
 		return pgErr.Code == pgerrcode.UniqueViolation
 	}
 	return false
+}
+
+// IsErrDatabaseConnection returns true if the error occurs during database connection flakiness
+func IsErrDatabaseConnection(err error) bool {
+	return strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF")
 }

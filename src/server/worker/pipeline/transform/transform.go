@@ -1,13 +1,13 @@
 package transform
 
 import (
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -39,7 +39,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 					return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 				},
 			)
-			if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF") {
+			if dbutil.IsErrDatabaseConnection(err) {
 				log.Info(driver.PachClient().Ctx(), "retry SubscribeJob() in transform.Run()", zap.Error(err))
 				return backoff.ErrContinue
 			}

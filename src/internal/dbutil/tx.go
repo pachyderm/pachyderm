@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -151,7 +152,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 		}
 		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
-		if isRetryableError(err) {
+		if dbutil.IsErrDatabaseConnection(err) {
 			log.Info(ctx, "retrying transaction following retryable error", zap.Error(err))
 			return nil
 		}
@@ -196,10 +197,6 @@ func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(cbCtx context.Contex
 	}
 	underlyingTxFinishMetric.WithLabelValues("commit_ok").Inc()
 	return nil
-}
-
-func isRetryableError(err error) bool {
-	return strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF")
 }
 
 func isTransactionError(err error) bool {

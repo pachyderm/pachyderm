@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/limit"
@@ -231,7 +232,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				}
 				return nil
 			}
-			if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF") {
+			if dbutil.IsErrDatabaseConnection(err) {
 				log.Info(pj.driver.PachClient().Ctx(), "retry InspectCommit() in registry.superviseJob()", zap.Error(err))
 				return backoff.ErrContinue
 			}
