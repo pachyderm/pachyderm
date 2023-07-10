@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/limit"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -232,7 +231,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 				return nil
 			}
 			if errutil.IsDatabaseDisconnect(err) {
-				log.Info(pj.driver.PachClient().Ctx(), "retry InspectCommit() in registry.superviseJob()", zap.Error(err))
+				pj.logger.Logf("retry InspectCommit() in registry.superviseJob()", zap.Error(err))
 				return backoff.ErrContinue
 			}
 			return errors.EnsureStack(err)
