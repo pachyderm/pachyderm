@@ -207,32 +207,42 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 
 func (reg *registry) superviseJob(pj *pendingJob) error {
 	defer pj.cancel()
-	_, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
-		&pfs.InspectCommitRequest{
-			Commit: pj.ji.OutputCommit,
-			Wait:   pfs.CommitState_FINISHED,
-		})
-	if err != nil {
-		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-			// Stop the job and clean up any job state in the registry
-			if err := reg.killJob(pj, "output commit missing"); err != nil {
-				return err
-			}
-			// Output commit was deleted. Delete job as well
-			// TODO: This should be handled through a transaction defer when the commit is squashed.
-			if err := pj.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
-				// Delete the job if no other worker has deleted it yet
-				jobInfo := &pps.JobInfo{}
-				if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
+	// wrap InspectCommit() in a retry to mitigate database connection flakiness.
+	if err := backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+		_, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
+			&pfs.InspectCommitRequest{
+				Commit: pj.ji.OutputCommit,
+				Wait:   pfs.CommitState_FINISHED,
+			})
+		if err != nil {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+				// Stop the job and clean up any job state in the registry
+				if err := reg.killJob(pj, "output commit missing"); err != nil {
+					return err
+				}
+				// Output commit was deleted. Delete job as well
+				// TODO: This should be handled through a transaction defer when the commit is squashed.
+				if err := pj.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+					// Delete the job if no other worker has deleted it yet
+					jobInfo := &pps.JobInfo{}
+					if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
+						return errors.EnsureStack(err)
+					}
+					return errors.EnsureStack(pj.driver.DeleteJob(sqlTx, jobInfo))
+				}); err != nil && !col.IsErrNotFound(err) {
 					return errors.EnsureStack(err)
 				}
-				return errors.EnsureStack(pj.driver.DeleteJob(sqlTx, jobInfo))
-			}); err != nil && !col.IsErrNotFound(err) {
-				return errors.EnsureStack(err)
+				return nil
 			}
-			return nil
+			if errutil.IsDatabaseDisconnect(err) {
+				pj.logger.Logf("retry InspectCommit() in registry.superviseJob(); err %v", err)
+				return backoff.ErrContinue
+			}
+			return errors.EnsureStack(err)
 		}
-		return errors.EnsureStack(err)
+		return nil
+	}, backoff.RetryEvery(time.Second), nil); err != nil {
+		return err
 	}
 	return nil
 
