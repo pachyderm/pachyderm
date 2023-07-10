@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -39,7 +39,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 					return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 				},
 			)
-			if dbutil.IsDatabaseDisconnect(err) {
+			if errutil.IsDatabaseDisconnect(err) {
 				log.Info(driver.PachClient().Ctx(), "retry SubscribeJob() in transform.Run()", zap.Error(err))
 				return backoff.ErrContinue
 			}
