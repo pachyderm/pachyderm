@@ -7,11 +7,10 @@ from pachyderm_sdk.constants import AUTH_TOKEN_ENV
 
 
 @pytest.mark.skipif(
-        not os.environ.get(AUTH_TOKEN_ENV),
-        reason="auth code not available",
-    )
+    not os.environ.get(AUTH_TOKEN_ENV),
+    reason="auth code not available",
+)
 class TestUnitAuth:
-
     @staticmethod
     def test_auth_configuration(auth_client: TestClient):
         response = auth_client.auth.get_configuration()
@@ -24,9 +23,7 @@ class TestUnitAuth:
         assert response.binding.entries["pach:root"].roles["clusterAdmin"]
 
         auth_client.auth.modify_role_binding(
-            resource=cluster_resource,
-            principal="robot:someuser",
-            roles=["clusterAdmin"]
+            resource=cluster_resource, principal="robot:someuser", roles=["clusterAdmin"]
         )
         response = auth_client.auth.get_role_binding(resource=cluster_resource)
         assert response.binding.entries["robot:someuser"].roles["clusterAdmin"]
@@ -34,10 +31,7 @@ class TestUnitAuth:
     @staticmethod
     def test_authorize(auth_client: TestClient):
         auth_client.auth.authorize(
-            resource=auth.Resource(
-                type=auth.ResourceType.REPO,
-                name="foobar"
-            ),
+            resource=auth.Resource(type=auth.ResourceType.REPO, name="foobar"),
             permissions=[auth.Permission.REPO_READ],
         )
 
@@ -63,9 +57,7 @@ class TestUnitAuth:
     @staticmethod
     def test_robot_token(auth_client: TestClient):
         username = "robot:root"
-        auth_token = auth_client.auth.get_robot_token(
-            robot="robot:root", ttl=30
-        ).token
+        auth_token = auth_client.auth.get_robot_token(robot="robot:root", ttl=30).token
         auth_client.auth_token = auth_token
         assert auth_client.auth.who_am_i().username == username
         auth_client.auth.revoke_auth_token(token=auth_token)
@@ -77,9 +69,7 @@ class TestUnitAuth:
         username = auth_client.auth.who_am_i().username
         group = "testgroup"
         assert auth_client.auth.get_groups().groups == []
-        auth_client.auth.set_groups_for_user(
-            username=username, groups=[group]
-        )
+        auth_client.auth.set_groups_for_user(username=username, groups=[group])
         assert auth_client.auth.get_groups().groups == [group]
         assert auth_client.auth.get_users(group=group).usernames == [username]
         auth_client.auth.modify_members(group=group, remove=[username])

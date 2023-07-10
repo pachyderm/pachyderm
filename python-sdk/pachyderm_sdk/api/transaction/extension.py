@@ -11,7 +11,6 @@ from . import (
 
 
 class ApiStub(_GeneratedApiStub):
-
     def __init__(
         self,
         channel: grpc.Channel,
@@ -29,9 +28,7 @@ class ApiStub(_GeneratedApiStub):
         self._set_transaction_id(response.id)
         return response
 
-    def finish_transaction(
-        self, *, transaction: "Transaction" = None
-    ) -> "TransactionInfo":
+    def finish_transaction(self, *, transaction: "Transaction" = None) -> "TransactionInfo":
         # TODO: Should we do this?
         response = super().finish_transaction(transaction=transaction)
         self._set_transaction_id("")
