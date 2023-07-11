@@ -14,22 +14,19 @@ from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
 
 
-def relpath(path):
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
-
-
 def main():
-    # Connects to a pachyderm cluster on the default host:port
-    # (`localhost:30650`). This will work for certain environments (e.g. k8s
-    # running on docker for mac), as well as when port forwarding is being
-    # used. For other setups, you'll want one of the alternatives:
+    # Connects to a pachyderm cluster using the pachctl config file located
+    # at ~/.pachyderm/config.json. For other setups, you'll want one of the 
+    # alternatives:
     # 1) To connect to pachyderm when this script is running inside the
     #    cluster, use `Client.new_in_cluster()`.
     # 2) To connect to pachyderm via a pachd address, use
     #    `Client.new_from_pachd_address`.
     # 3) To explicitly set the host and port, pass parameters into
-    #   `Client()`.
-    client = Client()
+    #    `Client()`.
+    # 4) To use a config file located elsewhere, pass in the path to that
+    #    config file to Client.from_config()
+    client = Client.from_config()
 
     # Create a repo called images
     images = pfs.Repo.from_uri("images")
@@ -70,17 +67,19 @@ def main():
 
     with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as commit:
         # Add some images, recursively inserting content from the images
-        # directory. Alternatively, you could use `client.put_file_url` or
+        # directory. Alternatively, you could use `client.put_file_from_file` or
         # `client_put_file_bytes`.
-        source = relpath("images")
-        client.pfs.put_files(commit=commit, source=source, path="/")
+        client.pfs.put_file_from_url(commit=commit, path="/", url="https://docs.pachyderm.com/images/opencv/liberty.jpg")
+        client.pfs.put_file_from_url(commit=commit, path="/", url="https://docs.pachyderm.com/images/opencv/kitten.jpg")
+        client.pfs.put_file_from_url(commit=commit, path="/", url="https://docs.pachyderm.com/images/opencv/robot.jpg")
 
     # Wait for the commit (and its downstream commits) to finish
     commit.wait_set()
 
     job = pps.Job(pipeline=pps.Pipeline(name="montage"), id=commit.id)
     if client.pps.inspect_job(job=job).state != pps.JobState.JOB_SUCCESS:
-        print("Montage job failed, aborting. Check the pipeline logs for more details.")
+        print("Montage job failed, aborting. Check the pipeline logs for more details:")
+        print("pachctl logs --pipeline=montage")
         exit(1)
 
     # Get the montage
@@ -91,7 +90,7 @@ def main():
 
 
 def clean():
-    client = Client()
+    client = Client.from_config()
     client.pps.delete_pipeline(pipeline=pps.Pipeline(name="montage"))
     client.pps.delete_pipeline(pipeline=pps.Pipeline(name="edges"))
 

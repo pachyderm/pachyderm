@@ -5,11 +5,8 @@ This is a reproduction of Pachyderm's opencv example in python. A walkthrough is
 This example showcases the pachyderm-sdk analogs of common `pachctl` commands, such as creating repos and pipelines or getting a file.
 
 **Prerequisites:**
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/)
-- pachyderm-sdk installed. A pip package is coming soon, but for now, you can run from the python-sdk directory:```
-poetry install
-source .venv/bin/activate
-```
+- A running [Pachyderm cluster](https://docs.pachyderm.com/latest/get-started/)
+- Install the latest package of pachyderm-sdk
 
 **To run:**
 ```shell
