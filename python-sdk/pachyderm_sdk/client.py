@@ -313,26 +313,6 @@ class Client:
             metadata.append(("pach-transaction", self._transaction_id))
         return metadata
 
-    def delete_all(self) -> None:
-        """Delete all repos, commits, files, pipelines, and jobs.
-        This resets the cluster to its initial state.
-        """
-        # Try removing all identities if auth is activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.identity.delete_all()
-
-        # Try deactivating auth if activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.auth.deactivate()
-
-        # Try removing all licenses if auth is activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.license.delete_all()
-
-        self.pps.delete_all()
-        self.pfs.delete_all()
-        self.transaction.delete_all()
-
     def get_version(self) -> Version:
         return self._version_api.get_version()
 

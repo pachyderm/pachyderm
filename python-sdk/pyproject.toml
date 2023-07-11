@@ -29,6 +29,7 @@ python-dotenv = "1.0"
 
 [tool.poetry.dev-dependencies]
 black = "^23.3.0"
+pandas = "2.0.3"
 pytest = "^7.2.1"
 pytest-black-ng = "^0.4.1"
 
