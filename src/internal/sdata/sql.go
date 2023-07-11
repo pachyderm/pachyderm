@@ -38,7 +38,7 @@ func (m *SQLTupleWriter) Flush() error {
 	// flatten list of Tuple
 	var values Tuple
 	for r := range m.buf {
-		for c := range m.buf[r] {
+		for c := range m.buf[r] { //nolint:gosimple
 			values = append(values, m.buf[r][c])
 		}
 	}

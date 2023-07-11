@@ -4477,6 +4477,7 @@ func TestPFS(suite *testing.T) {
 		},
 		}
 		for i, test := range tests {
+			test := test
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 				t.Parallel()
 				ctx := pctx.TestContext(t)
