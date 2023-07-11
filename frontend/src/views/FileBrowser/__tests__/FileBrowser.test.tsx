@@ -342,7 +342,10 @@ describe('File Browser', () => {
         }),
       );
 
-      expect(deleteButton).toBeEnabled();
+      await waitFor(() => {
+        expect(deleteButton).toBeEnabled();
+      });
+
       await click(deleteButton);
 
       const modal = await screen.findByRole('dialog');

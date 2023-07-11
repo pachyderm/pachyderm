@@ -2,7 +2,7 @@ import {File} from '@graphqlTypes';
 import {useState} from 'react';
 import {useHistory} from 'react-router';
 
-import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import useCurrentRepoWithLinkedPipeline from '@dash-frontend/hooks/useCurrentRepoWithLinkedPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getProxyEnabled} from '@dash-frontend/lib/runtimeVariables';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -27,7 +27,7 @@ const useFileActions = (
     viewSourceSupported,
   } = useFileDisplay(file);
   const browserHistory = useHistory();
-  const {loading: repoLoading, repo} = useCurrentRepo();
+  const {loading: repoLoading, repo} = useCurrentRepoWithLinkedPipeline();
   const {repoId, branchId, projectId, commitId} = useUrlState();
 
   const deleteDisabled = Boolean(repo?.linkedPipeline) || repoLoading;

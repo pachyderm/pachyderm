@@ -17,7 +17,9 @@ type ReposTableProps = {
 
 const ReposTable: React.FC<ReposTableProps> = ({filtersExpanded}) => {
   const {projectId} = useUrlState();
-  const {repos, loading, error} = useReposWithCommit({projectId});
+  const {repos, loading, error} = useReposWithCommit({
+    projectId,
+  });
   const {sortedRepos, formCtx, staticFilterKeys} = useRepoFilters({repos});
 
   return (

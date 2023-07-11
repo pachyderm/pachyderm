@@ -1,7 +1,7 @@
 import {gql} from '@apollo/client';
 
-export const RepoFragment = gql`
-  fragment RepoFragment on Repo {
+export const RepoWithLinkedPipelineFragment = gql`
+  fragment RepoWithLinkedPipelineFragment on Repo {
     branches {
       name
     }
@@ -13,6 +13,10 @@ export const RepoFragment = gql`
     sizeBytes
     access
     projectId
+    linkedPipeline {
+      id
+      name
+    }
     authInfo {
       rolesList
     }

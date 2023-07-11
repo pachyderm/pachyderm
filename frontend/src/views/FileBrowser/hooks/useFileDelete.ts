@@ -3,7 +3,7 @@ import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
 import {useDeleteFilesMutation} from '@dash-frontend/generated/hooks';
-import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import useCurrentRepoWithLinkedPipeline from '@dash-frontend/hooks/useCurrentRepoWithLinkedPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useModal} from '@pachyderm/components';
@@ -17,7 +17,7 @@ const useFileDelete = (file: File) => {
   const {repoId, branchId, projectId} = useUrlState();
   const [deleteFilesMutation, {loading: deleteLoading, error}] =
     useDeleteFilesMutation();
-  const {loading: repoLoading, repo} = useCurrentRepo();
+  const {loading: repoLoading, repo} = useCurrentRepoWithLinkedPipeline();
   const browserHistory = useHistory();
 
   const deleteFile = useCallback(async () => {

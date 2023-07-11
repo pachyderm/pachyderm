@@ -2,7 +2,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {useDeleteFilesMutation} from '@dash-frontend/generated/hooks';
-import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import useCurrentRepoWithLinkedPipeline from '@dash-frontend/hooks/useCurrentRepoWithLinkedPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getProxyEnabled} from '@dash-frontend/lib/runtimeVariables';
 import useArchiveDownload from '@dash-frontend/views/FileBrowser/hooks/useArchiveDownload';
@@ -14,7 +14,7 @@ const useListViewTable = () => {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const browserHistory = useHistory();
 
-  const {loading: repoLoading, repo} = useCurrentRepo();
+  const {loading: repoLoading, repo} = useCurrentRepoWithLinkedPipeline();
   const deleteDisabled =
     Boolean(repo?.linkedPipeline) || repoLoading || selectedFiles.length === 0;
 

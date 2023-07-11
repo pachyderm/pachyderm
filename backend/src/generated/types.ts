@@ -2871,6 +2871,23 @@ export type RepoFragmentFragment = {
   access: boolean;
   projectId: string;
   branches: Array<{__typename?: 'Branch'; name: string}>;
+  authInfo?: {
+    __typename?: 'AuthInfo';
+    rolesList?: Array<string | null> | null;
+  } | null;
+};
+
+export type RepoWithLinkedPipelineFragmentFragment = {
+  __typename?: 'Repo';
+  createdAt: number;
+  description: string;
+  id: string;
+  name: string;
+  sizeDisplay: string;
+  sizeBytes: number;
+  access: boolean;
+  projectId: string;
+  branches: Array<{__typename?: 'Branch'; name: string}>;
   linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
   authInfo?: {
     __typename?: 'AuthInfo';
@@ -3866,7 +3883,6 @@ export type RepoQuery = {
     access: boolean;
     projectId: string;
     branches: Array<{__typename?: 'Branch'; name: string}>;
-    linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
     authInfo?: {
       __typename?: 'AuthInfo';
       rolesList?: Array<string | null> | null;
@@ -3904,6 +3920,30 @@ export type RepoWithCommitQuery = {
       branch?: {__typename?: 'Branch'; name: string} | null;
     } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;
+    authInfo?: {
+      __typename?: 'AuthInfo';
+      rolesList?: Array<string | null> | null;
+    } | null;
+  };
+};
+
+export type RepoWithLinkedPipelineQueryVariables = Exact<{
+  args: RepoQueryArgs;
+}>;
+
+export type RepoWithLinkedPipelineQuery = {
+  __typename?: 'Query';
+  repo: {
+    __typename?: 'Repo';
+    createdAt: number;
+    description: string;
+    id: string;
+    name: string;
+    sizeDisplay: string;
+    sizeBytes: number;
+    access: boolean;
+    projectId: string;
+    branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
     authInfo?: {
       __typename?: 'AuthInfo';
@@ -3929,7 +3969,6 @@ export type ReposQuery = {
     access: boolean;
     projectId: string;
     branches: Array<{__typename?: 'Branch'; name: string}>;
-    linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
     authInfo?: {
       __typename?: 'AuthInfo';
       rolesList?: Array<string | null> | null;
@@ -3966,6 +4005,30 @@ export type ReposWithCommitQuery = {
       hasLinkedJob: boolean;
       branch?: {__typename?: 'Branch'; name: string} | null;
     } | null;
+    branches: Array<{__typename?: 'Branch'; name: string}>;
+    authInfo?: {
+      __typename?: 'AuthInfo';
+      rolesList?: Array<string | null> | null;
+    } | null;
+  } | null>;
+};
+
+export type ReposWithLinkedPipelineQueryVariables = Exact<{
+  args: ReposQueryArgs;
+}>;
+
+export type ReposWithLinkedPipelineQuery = {
+  __typename?: 'Query';
+  repos: Array<{
+    __typename?: 'Repo';
+    createdAt: number;
+    description: string;
+    id: string;
+    name: string;
+    sizeDisplay: string;
+    sizeBytes: number;
+    access: boolean;
+    projectId: string;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
     authInfo?: {

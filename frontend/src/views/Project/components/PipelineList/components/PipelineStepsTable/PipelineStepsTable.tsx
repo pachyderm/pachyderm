@@ -6,7 +6,7 @@ import {
   TableViewLoadingDots,
 } from '@dash-frontend/components/TableView';
 import usePipelines from '@dash-frontend/hooks/usePipelines';
-import useRepos from '@dash-frontend/hooks/useRepos';
+import useReposWithLinkedPipeline from '@dash-frontend/hooks/useReposWithLinkedPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form} from '@pachyderm/components';
 
@@ -26,7 +26,7 @@ const PipelineStepsTable: React.FC<PipelineStepsTableProps> = ({
     repos,
     loading: reposLoading,
     error: reposError,
-  } = useRepos({projectId});
+  } = useReposWithLinkedPipeline({projectId});
   const {sortedPipelines, formCtx, staticFilterKeys, clearableFiltersMap} =
     usePipelineFilters({pipelines});
 
