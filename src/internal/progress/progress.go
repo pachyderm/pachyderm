@@ -33,18 +33,41 @@ func WriteProgress(bar string, completion int64, total int64) {
 	b, ok := bars[bar]
 	if !ok {
 		b = container.AddBar(int64(total),
-			// progress bar filler with customized style
 			mpb.PrependDecorators(
 				// display our name with one space on the right
 				decor.Name(bar, decor.WC{W: len(bar) + 1, C: decor.DidentRight}),
-				// replace ETA decorator with "done" message, OnComplete event
-				decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_GO, 60), "done"),
+				decor.Elapsed(decor.ET_STYLE_GO),
 			),
 			mpb.AppendDecorators(decor.Percentage()),
 		)
 		bars[bar] = b
 	}
 	b.SetCurrent(completion)
+}
+
+func WriteProgressCountBytes(bar string, current int64, final bool, priority int) {
+	initContainer()
+	b, ok := bars[bar]
+	if !ok {
+		var total int64
+		b = container.AddBar(total,
+			mpb.PrependDecorators(
+				decor.Name(bar, decor.WC{W: len(bar) + 1, C: decor.DidentRight}),
+				decor.Counters(decor.UnitKiB, "% .1f / % .1f"),
+			),
+			mpb.AppendDecorators(
+				decor.Elapsed(decor.ET_STYLE_GO),
+			),
+		)
+		bars[bar] = b
+	}
+	b.SetPriority(priority)
+	b.SetTotal(current+1, final)
+	if final {
+		b.SetCurrent(current + 1)
+	} else {
+		b.SetCurrent(current)
+	}
 }
 
 // Disable turns off printing of progress bars.

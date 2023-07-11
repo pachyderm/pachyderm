@@ -13,6 +13,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -151,6 +152,10 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 		}
 		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
+		if errutil.IsDatabaseDisconnect(err) {
+			log.Info(ctx, "retrying transaction following retryable error", zap.Error(err))
+			return nil
+		}
 		if isTransactionError(err) {
 			return nil
 		}
