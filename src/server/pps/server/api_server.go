@@ -3174,9 +3174,13 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			return errors.EnsureStack(err)
 		}
 
-		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineInfo.Pipeline)
-		if err != nil {
-			return errors.EnsureStack(err)
+		token := ""
+		if _, err := txnCtx.WhoAmI(); err == nil {
+			// If auth is active, generate an auth token for the job
+			token, err = a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineInfo.Pipeline)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
