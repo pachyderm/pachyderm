@@ -345,16 +345,11 @@ func (env *TransactionEnv) PreTxOps(ctx context.Context, reqs []*transaction.Tra
 	for _, r := range reqs {
 		if r.CreatePipeline != nil {
 			if r.CreatePipeline.Determined != nil {
-				req := &pps.CreateDetPipelineSideEffectsRequest{
-					Pipeline:   r.CreatePipeline.Pipeline,
-					Workspaces: r.CreatePipeline.Determined.Workspaces,
-					Password:   r.CreatePipeline.Determined.Password,
-				}
-				resp, err := env.serviceEnv.PpsServer().CreateDetPipelineSideEffects(ctx, req)
+				password, err := env.serviceEnv.PpsServer().CreateDetPipelineSideEffects(ctx, r.CreatePipeline.Pipeline, r.CreatePipeline.Determined.Workspaces, r.CreatePipeline.Determined.Password)
 				if err != nil {
 					return errors.Wrap(err, "apply determined pipeline side effects")
 				}
-				r.CreatePipeline.Determined.Password = resp.Password
+				r.CreatePipeline.Determined.Password = password
 			}
 		}
 	}

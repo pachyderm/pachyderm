@@ -1,6 +1,8 @@
 package pps
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pps_client "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -23,4 +25,5 @@ type APIServer interface {
 	// pipeline.  Note that the pipeline name may include ancestry syntax.
 	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps_client.PipelineInfo, error)
 	ActivateAuthInTransaction(*txncontext.TransactionContext, *pps_client.ActivateAuthRequest) (*pps_client.ActivateAuthResponse, error)
+	CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string, password string) (string, error)
 }

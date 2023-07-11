@@ -1086,27 +1086,3 @@ func (x *LokiLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("message", x.Message)
 	return nil
 }
-
-func (x *CreateDetPipelineSideEffectsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddObject("pipeline", x.Pipeline)
-	workspacesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Workspaces {
-			enc.AppendString(v)
-		}
-		return nil
-	}
-	enc.AddArray("workspaces", zapcore.ArrayMarshalerFunc(workspacesArrMarshaller))
-	enc.AddString("password", x.Password)
-	return nil
-}
-
-func (x *CreateDetPipelineSideEffectsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddString("password", x.Password)
-	return nil
-}

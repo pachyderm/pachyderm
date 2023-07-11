@@ -2167,15 +2167,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 	if request.Determined != nil {
-		resp, err := a.CreateDetPipelineSideEffects(ctx, &pps.CreateDetPipelineSideEffectsRequest{
-			Pipeline:   request.Pipeline,
-			Workspaces: request.Determined.Workspaces,
-			Password:   request.Determined.Password,
-		})
+		pw, err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces, request.Determined.Password)
 		if err != nil {
 			return nil, errors.Wrap(err, "create det pipeline side effects")
 		}
-		request.Determined.Password = resp.Password
+		request.Determined.Password = pw
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
@@ -2185,21 +2181,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &types.Empty{}, nil
 }
 
-// CreateDetPipelineSideEffects implements the protobuf pps.CreateDetPipelineSideEffects RPC
-// Modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
+// CreateDetPipelineSideEffects modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
 // Provisions a determined user on representing the pipeline, and stores its password in a kubernetes secret named "{project}/{pipeline}-det"
 //
 // Implementation Notes:
 // - This method must be idempotent, as it interfaces with Pachyderm's Transaction API that may run this multiple times
 //
 // TODO: set up garbage collection for the records stored outside the DB
-func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, req *pps.CreateDetPipelineSideEffectsRequest) (*pps.CreateDetPipelineSideEffectsResponse, error) {
+func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string, pw string) (string, error) {
 	// check if pipeline's creds secret exists
-	secretName := req.Pipeline.Project.Name + "-" + req.Pipeline.Name + "-det"
-	password := req.Password
+	secretName := pipeline.Project.Name + "-" + pipeline.Name + "-det"
+	password := pw
 	if sec, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, secretName, metav1.GetOptions{}); err != nil {
 		if !errutil.IsNotFoundError(err) {
-			return nil, errors.Wrapf(err, "get k8s secret %q", secretName)
+			return "", errors.Wrapf(err, "get k8s secret %q", secretName)
 		}
 	} else {
 		if p, ok := sec.StringData["password"]; ok {
@@ -2207,7 +2202,7 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, req *pps.C
 				password = p
 			} else if password == p {
 				// state is already applied, exit early
-				return &pps.CreateDetPipelineSideEffectsResponse{Password: password}, nil
+				return password, nil
 			}
 		}
 	}
@@ -2216,15 +2211,15 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, req *pps.C
 	}
 	whoAmI, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil {
-		return nil, errors.Wrap(err, "who am i")
+		return "", errors.Wrap(err, "who am i")
 	}
 	splits := strings.Split(whoAmI.Username, ":")
 	if len(splits) != 2 {
-		return nil, errors.Errorf("subject %q expected to be segmented by one ':'", whoAmI.Username)
+		return "", errors.Errorf("subject %q expected to be segmented by one ':'", whoAmI.Username)
 	}
 	username := splits[1]
-	if err := a.hookDeterminedPipeline(ctx, req.Pipeline, req.Workspaces, password, username); err != nil {
-		return nil, errors.Wrapf(err, "failed to connect pipeline %q to determined", req.Pipeline.String())
+	if err := a.hookDeterminedPipeline(ctx, pipeline, workspaces, password, username); err != nil {
+		return "", errors.Wrapf(err, "failed to connect pipeline %q to determined", pipeline.String())
 	}
 	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2239,11 +2234,9 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, req *pps.C
 		"suite": "pachyderm",
 	})
 	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, s, metav1.CreateOptions{}); err != nil {
-		return nil, errors.Wrapf(err, "failed to create pipeline's determined secret")
+		return "", errors.Wrapf(err, "failed to create pipeline's determined secret")
 	}
-	return &pps.CreateDetPipelineSideEffectsResponse{
-		Password: password,
-	}, nil
+	return password, nil
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
