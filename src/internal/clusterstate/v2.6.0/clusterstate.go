@@ -50,6 +50,22 @@ func Migrate(state migrations.State) migrations.State {
 			return pfsdb.SetupCommitProvenanceV0(ctx, env.Tx)
 		}).
 		Apply("Remove Alias Commits", func(ctx context.Context, env migrations.Env) error {
+			// locking the following tables is necessary for the following 2 migration "Apply"s:
+			// "Remove Alias Commits", "Remove branch from the Commit key"
+			if err := env.LockTables(ctx,
+				"collections.repos",
+				"collections.branches",
+				"collections.commits",
+				"pfs.commit_diffs",
+				"pfs.commit_totals",
+				"storage.tracker_objects",
+				"pfs.commits",
+				"pfs.commit_provenance",
+				"collections.pipelines",
+				"collections.jobs",
+			); err != nil {
+				return errors.EnsureStack(err)
+			}
 			return removeAliasCommits(ctx, env.Tx)
 		}).
 		Apply("Remove branch from the Commit key", func(ctx context.Context, env migrations.Env) error {

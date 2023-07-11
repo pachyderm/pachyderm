@@ -248,6 +248,7 @@ func Cmds(ctx context.Context) []*cobra.Command {
 			states := migrations.CollectStates(nil, clusterstate.DesiredClusterState)
 			env := migrations.MakeEnv(nil, etcdClient)
 			env.Tx = txx
+			env.WithTableLocks = false
 			var errs error
 			for _, s := range states {
 				if err := migrations.ApplyMigrationTx(ctx, env, s); err != nil {
