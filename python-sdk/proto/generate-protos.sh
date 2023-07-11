@@ -6,7 +6,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd "${SCRIPT_DIR}"
 docker build -t pachyderm_python_proto:python-sdk .
 
-cd ..
+cd ../..
 find src -regex ".*\.proto" \
   | grep -v 'internal' \
   | grep -v 'server' \

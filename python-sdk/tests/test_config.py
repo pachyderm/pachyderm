@@ -1,5 +1,4 @@
 import pytest
-from tempfile import NamedTemporaryFile
 
 from pachyderm_sdk.config import ConfigFile
 from pachyderm_sdk.errors import ConfigError
@@ -50,7 +49,8 @@ TEST_CONFIG_INVALID_CONTEXT = """
 }
 """
 
-class TestConfig():
+
+class TestConfig:
     @staticmethod
     def test_from_file(tmp_path):
         config_path = tmp_path / "config.json"
@@ -63,7 +63,7 @@ class TestConfig():
             assert context.session_token == "token"
             assert context.cluster_deployment_id == "id"
             assert context.project == "default"
-    
+
     @staticmethod
     def test_invalid_context(tmp_path):
         config_path = tmp_path / "config.json"
@@ -73,4 +73,4 @@ class TestConfig():
             with pytest.raises(ConfigError) as e:
                 c = ConfigFile(config_file=config_file.name)
                 context = c.active_context
-            assert("active context not found: invalid_context" in str(e.value))
+            assert "active context not found: invalid_context" in str(e.value)

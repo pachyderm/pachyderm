@@ -118,12 +118,13 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	if oldCIs, err = listCollectionProtos(ctx, tx, "commits", &v2_5_0.CommitInfo{}); err != nil {
 		return errors.Wrap(err, "populate the pfs.commits table")
 	}
-	for _, ci := range oldCIs {
+	for i, ci := range oldCIs {
 		log.Info(ctx, "add old commit to pfs.commits",
 			zap.String("commit", fmt.Sprintf("%s@%s=%s",
 				repoKey(ci.Commit.Branch.Repo),
 				ci.Commit.Branch.GetName(),
 				ci.Commit.Id)),
+			zap.String("progress", fmt.Sprintf("%v/%v", i, len(oldCIs))),
 		)
 		if err := addCommit(ctx, tx, ci.Commit); err != nil {
 			return err
@@ -134,15 +135,17 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		oldCIMap[oldCommitKey(ci.Commit)] = struct{}{}
 	}
 	deleteCommits := make(map[string]*v2_5_0.CommitInfo)
-	for _, ci := range oldCIs {
+	for i, ci := range oldCIs {
 		log.Info(ctx, "branch provenance for commit",
 			zap.String("commit", oldCommitKey(ci.Commit)),
 			zap.Any("branch provenance", ci.DirectProvenance),
+			zap.String("progress", fmt.Sprintf("%v/%v", i, len(oldCIs))),
 		)
-		for _, b := range ci.DirectProvenance {
+		for j, b := range ci.DirectProvenance {
 			log.Info(ctx, "add commit provenance",
 				zap.String("from", oldCommitKey(ci.Commit)),
 				zap.String("to", oldCommitKey(b.NewCommit(ci.Commit.Id))),
+				zap.String("progress", fmt.Sprintf("%v/%v", j, len(ci.DirectProvenance))),
 			)
 			// if the provenant commit's repo was deleted, it's reference may
 			// still exist in the old provenance, so we skip mapping it over to the new model
@@ -161,19 +164,30 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			deleteCommits[oldCommitKey(ci.Commit)] = proto.Clone(ci).(*v2_5_0.CommitInfo)
 		}
 	}
+	var count int
 	for _, ci := range deleteCommits {
+		log.Info(ctx, "validating deleted alias commit",
+			zap.String("commit", oldCommitKey(ci.Commit)),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(deleteCommits))),
+		)
 		same, err := sameFileSets(ctx, tx, ci.Commit, ci.ParentCommit)
 		if err != nil {
 			return err
 		}
 		if !same {
-			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than it's first real ancestor.",
+			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than its first real ancestor",
 				oldCommitKey(ci.Commit))
 		}
+		count++
 	}
 	realAncestors := make(map[string]*v2_5_0.CommitInfo)
 	childToNewParents := make(map[*pfs.Commit]*pfs.Commit)
+	count = 0
 	for _, ci := range deleteCommits {
+		log.Info(ctx, "computing parent / children after deleted alias commit",
+			zap.String("commit", oldCommitKey(ci.Commit)),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(deleteCommits))),
+		)
 		anctsr := oldestAncestor(ci, deleteCommits)
 		if _, ok := realAncestors[oldCommitKey(anctsr)]; !ok {
 			ci := &v2_5_0.CommitInfo{}
@@ -199,39 +213,60 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		for _, c := range childSet {
 			ancstrInfo.ChildCommits = append(ancstrInfo.ChildCommits, c)
 		}
+		count++
 	}
+	count = 0
 	for _, ci := range realAncestors {
+		log.Info(ctx, "updating children after deleted alias commit",
+			zap.String("commit", oldCommitKey(ci.Commit)),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(realAncestors))),
+		)
 		if err := resetOldCommitInfo(ctx, tx, ci); err != nil {
 			return errors.Wrapf(err, "reset real ancestor %q", oldCommitKey(ci.Commit))
 		}
+		count++
 	}
+	count = 0
 	for child, parent := range childToNewParents {
+		log.Info(ctx, "updating parent after deleted alias commit",
+			zap.String("commit", oldCommitKey(child)),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(childToNewParents))),
+		)
 		if err := updateOldCommit_V2_5(ctx, tx, child, func(ci *v2_5_0.CommitInfo) {
 			ci.ParentCommit = parent
 		}); err != nil {
 			return errors.Wrapf(err, "update child commit %q", oldCommitKey(child))
 		}
+		count++
 	}
 	// now write out realAncestors and childToNewParents
+	count = 0
 	for _, ci := range deleteCommits {
+		log.Info(ctx, "deleting alias commit",
+			zap.String("commit", oldCommitKey(ci.Commit)),
+			zap.String("progress", fmt.Sprintf("%v/%v", count, len(deleteCommits))),
+		)
 		ancstr := oldestAncestor(ci, deleteCommits)
 		// passing restoreLinks=false because we're already resetting parent/children relationships above
 		if err := deleteCommit(ctx, tx, ci.Commit, ancstr); err != nil {
 			return errors.Wrapf(err, "delete real commit %q with ancestor", oldCommitKey(ci.Commit), oldCommitKey(ancstr))
 		}
+		count++
 	}
 	// now set ci.DirectProvenance for each commit
 	if oldCIs, err = listCollectionProtos(ctx, tx, "commits", &v2_5_0.CommitInfo{}); err != nil {
 		return errors.Wrap(err, "recollect commits")
 	}
 	// re-write V2_5 commits to V2_6
-	for _, oldCI := range oldCIs {
+	for i, oldCI := range oldCIs {
 		var err error
 		ci := convertCommitInfoToV2_6_0(oldCI)
 		ci.DirectProvenance, err = commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.Id)
 		log.Info(ctx, "collect commit provenance",
 			zap.String("commit", oldCommitKey(ci.Commit)),
-			zap.Any("provenance", ci.DirectProvenance))
+			zap.Any("provenance", ci.DirectProvenance),
+			zap.String("progress", fmt.Sprintf("%v/%v", i, len(oldCIs))),
+		)
 		if err != nil {
 			return err
 		}
@@ -475,10 +510,11 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 	if cis, err = listCollectionProtos(ctx, tx, "commits", &pfs.CommitInfo{}); err != nil {
 		return err
 	}
-	for _, ci := range cis {
+	for i, ci := range cis {
 		log.Info(ctx, "view commit provenance",
 			zap.String("commit", oldCommitKey(ci.Commit)),
 			zap.Any("branch provenance", ci.DirectProvenance),
+			zap.String("progress", fmt.Sprintf("%v/%v", i, len(cis))),
 		)
 		// TODO(provenance): is this deferred/trigger handling correct?
 		if ci.ParentCommit != nil && branchKey(ci.ParentCommit.Branch) != branchKey(ci.Commit.Branch) {
@@ -534,7 +570,11 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 	if err != nil {
 		return err
 	}
-	for _, oldCommit := range oldCommits {
+	for i, oldCommit := range oldCommits {
+		log.Info(ctx, "removing branch from commit",
+			zap.String("commit", oldCommitKey(oldCommit.Commit)),
+			zap.String("progress", fmt.Sprintf("%v/%v", i, len(oldCommits))),
+		)
 		if oldCommit.Commit.Repo == nil {
 			oldCommit.Commit.Repo = oldCommit.Commit.Branch.Repo
 		}
@@ -577,16 +617,26 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrapf(err, "could not migrate branch %q", branchKey(bi.Branch))
 		}
 	}
-	// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
+	return branchlessCommitKeysPFS(ctx, tx)
+}
+
+// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
+func branchlessCommitKeysPFS(ctx context.Context, tx *pachsql.Tx) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "branchlessCommitKeysPFS")
+	defer end(log.Errorp(&retErr))
+	log.Info(ctx, "removing branch from pfs.commits")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrapf(err, "update pfs.commits to branchless commit ids")
 	}
+	log.Info(ctx, "removing branch from pfs.commit_totals")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_totals to branchless commit ids")
 	}
+	log.Info(ctx, "removing branch from pfs.commit_diffs")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '@(.+)=', '@');`); err != nil {
 		return errors.Wrap(err, "update pfs.commit_diffs to branchless commits ids")
 	}
+	log.Info(ctx, "removing branch from storage.tracker_objects")
 	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '@(.+)=', '@') WHERE str_id LIKE 'commit/%';`); err != nil {
 		return errors.Wrap(err, "update storage.tracker_objects to branchless commit ids")
 	}
@@ -662,6 +712,7 @@ func addCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 }
 
 func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) error {
+	log.Info(ctx, "checking for dangling commits")
 	parseRepo := func(key string) *pfs.Repo {
 		slashSplit := strings.Split(key, "/")
 		dotSplit := strings.Split(slashSplit[1], ".")
@@ -743,7 +794,11 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) error {
 	if len(dangCommitKeys) > 0 {
 		log.Info(ctx, "detected dangling commit references", zap.Any("references", dangCommitKeys))
 	}
-	for _, id := range dangCommitKeys {
+	for i, id := range dangCommitKeys {
+		log.Info(ctx, "deleting dangling commit",
+			zap.String("commit", id),
+			zap.String("progress", fmt.Sprintf("%v/%v", i, len(dangCommitKeys))),
+		)
 		if _, err := tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, id); err != nil {
 			return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", id)
 		}
