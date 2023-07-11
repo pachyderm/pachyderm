@@ -1055,7 +1055,16 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	listPipeline := &cobra.Command{
 		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
-		Long:  "Return info about all pipelines.",
+		Long: "This command returns information about all pipelines. \n \n" +
+			"\t- To return pipelines with a specific state, use the `--state` flag. \n" +
+			"\t- To return pipelines as they existed at a specific commit, use the `--commit` flag. \n" +
+			"\t- To return a history of pipeline revisions, use the `--history` flag. \n",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} --spec --output yaml \n" +
+			"\t- {{alias}} --commit 5f93d03b65fa421996185e53f7f8b1e4 \n" +
+			"\t- {{alias}} --state crashing \n" +
+			"\t- {{alias}} --project foo \n" +
+			"\t- {{alias}} --project foo --state restarting \n",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			// validate flags
 			if raw && spec {
@@ -1139,10 +1148,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(timestampFlags)
-	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	listPipeline.Flags().StringVar(&history, "history", "none", "Specify results should include revision history for pipelines.")
 	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
-	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
-	listPipeline.Flags().StringVar(&project, "project", project, "Project containing pipelines.")
+	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Specify results should include only pipelines with the specified state (starting, running, restarting, failure, paused, standby, crashing); can be repeated for multiple states.")
+	listPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the pipelines.")
 	listPipeline.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show pipelines form all projects.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
@@ -1152,7 +1161,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	draw := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Draw a DAG",
-		Long:  "Draw a DAG",
+		Long:  "This command draws a DAG",
+		Example: "\t- {{alias}} --commit 5f93d03b65fa421996185e53f7f8b1e4" +
+			"\t- {{alias}} --box-width 20" +
+			"\t- {{alias}} --edge-height 8" +
+			"\t- {{alias}} --project foo" +
+			"\t- {{alias}} --box-width 20 --edge-height 8 --commit 5f93d03b65fa421996185e53f7f8b1e4",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1196,7 +1210,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	deletePipeline := &cobra.Command{
 		Use:   "{{alias}} (<pipeline>|--all)",
 		Short: "Delete a pipeline.",
-		Long:  "Delete a pipeline.",
+		Long:  "This command deletes a pipeline.",
+		Example: "\t- {{alias}} foo" +
+			"\t- {{alias}} --all" +
+			"\t- {{alias}} foo --force" +
+			"\t- {{alias}} foo --keep-repo" +
+			"\t- {{alias}} foo --project bar --keep-repo",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1234,17 +1253,19 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			return nil
 		}),
 	}
-	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
-	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
-	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo data around (the pipeline cannot be recreated later with the same name unless the repo is deleted)")
-	deletePipeline.Flags().StringVar(&project, "project", project, "project containing project")
-	deletePipeline.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "delete pipelines from all projects; only valid with --all")
+	deletePipeline.Flags().BoolVar(&all, "all", false, "Delete all pipelines")
+	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "Delete the pipeline regardless of errors; use with care")
+	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "Specify that the pipeline's output repo should be saved after pipeline deletion; to reuse this pipeline's name, you'll also need to delete this output repo.")
+	deletePipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing project")
+	deletePipeline.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Delete pipelines from all projects; only valid with --all")
 	commands = append(commands, cmdutil.CreateAliases(deletePipeline, "delete pipeline", pipelines))
 
 	startPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Restart a stopped pipeline.",
-		Long:  "Restart a stopped pipeline.",
+		Long:  "This command restarts a stopped pipeline.",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo --project bar \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1263,7 +1284,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	stopPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Stop a running pipeline.",
-		Long:  "Stop a running pipeline.",
+		Long:  "This command stops a running pipeline.",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo --project bar \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1281,8 +1304,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 	var file string
 	createSecret := &cobra.Command{
-		Short: "Create a secret on the cluster.",
-		Long:  "Create a secret on the cluster.",
+		Short:   "Create a secret on the cluster.",
+		Long:    "This command creates a secret on the cluster.",
+		Example: "\t- {{alias}} --file my-secret.json",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1310,8 +1334,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAliases(createSecret, "create secret", secrets))
 
 	deleteSecret := &cobra.Command{
-		Short: "Delete a secret from the cluster.",
-		Long:  "Delete a secret from the cluster.",
+		Short:   "Delete a secret from the cluster.",
+		Long:    "This command deletes a secret from the cluster.",
+		Example: "\t- {{alias}} my-secret \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1336,8 +1361,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAliases(deleteSecret, "delete secret", secrets))
 
 	inspectSecret := &cobra.Command{
-		Short: "Inspect a secret from the cluster.",
-		Long:  "Inspect a secret from the cluster.",
+		Short:   "Inspect a secret from the cluster.",
+		Long:    "This command inspects a secret from the cluster.",
+		Example: "\t- {{alias}} my-secret \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1364,8 +1390,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAliases(inspectSecret, "inspect secret", secrets))
 
 	listSecret := &cobra.Command{
-		Short: "List all secrets from a namespace in the cluster.",
-		Long:  "List all secrets from a namespace in the cluster.",
+		Short:   "List all secrets from a namespace in the cluster.",
+		Long:    "This command lists all secrets from a namespace in the cluster.",
+		Example: "\t- {{alias}} \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1398,7 +1425,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	runLoadTest := &cobra.Command{
 		Use:   "{{alias}} <spec-file> ",
 		Short: "Run a PPS load test.",
-		Long:  "Run a PPS load test.",
+		Long:  "This command runs a PPS load test for a specified pipeline specification file.",
+		Example: "\t- {{alias}} --dag myspec.json \n" +
+			"\t- {{alias}} --dag myspec.json --seed 1 \n" +
+			"\t- {{alias}} --dag myspec.json  --parallelism 3 \n" +
+			"\t- {{alias}} --dag myspec.json  --pod-patch patch.json \n" +
+			"\t- {{alias}} --dag myspec.json --state-id xyz\n",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1466,18 +1498,19 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			return errors.EnsureStack(err)
 		}),
 	}
-	runLoadTest.Flags().StringVarP(&dagSpecFile, "dag", "d", "", "The DAG specification file to use for the load test")
-	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
-	runLoadTest.Flags().Int64VarP(&parallelism, "parallelism", "p", 0, "The parallelism to use for the pipelines.")
-	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "The pod patch file to use for the pipelines.")
-	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
+	runLoadTest.Flags().StringVarP(&dagSpecFile, "dag", "d", "", "Provide DAG specification file to use for the load test")
+	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "Specify the seed to use for generating the load.")
+	runLoadTest.Flags().Int64VarP(&parallelism, "parallelism", "p", 0, "Set the parallelism count to use for the pipelines.")
+	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "Provide pod patch file to use for the pipelines.")
+	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "Provide the ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	var errStr string
 	nextDatum := &cobra.Command{
-		Use:   "{{alias}}",
-		Short: "Used internally for datum batching",
-		Long:  "Used internally for datum batching",
+		Use:     "{{alias}}",
+		Short:   "Used internally for datum batching",
+		Long:    "This command is used internally for datum batching",
+		Example: "\t- {{alias}}",
 		Run: cmdutil.Run(func(_ []string) error {
 			c, err := workerserver.NewClient("127.0.0.1")
 			if err != nil {
@@ -1494,9 +1527,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
 
 	validatePipeline := &cobra.Command{
-		Use:   "{{alias}}",
-		Short: "Validate pipeline spec.",
-		Long:  "Validate a pipeline spec.  Client-side only; does not check that repos, images &c. exist on the server.",
+		Use:     "{{alias}}",
+		Short:   "Validate pipeline spec.",
+		Long:    "This command validates a pipeline spec.  Client-side only; does not check that repos, images, etc exist on the server.",
+		Example: "\t- {{alias}} --file spec.json",
 		Run: cmdutil.RunFixedArgs(0, func(_ []string) error {
 			r, err := fileIndicatorToReadCloser(pipelinePath)
 			if err != nil {
