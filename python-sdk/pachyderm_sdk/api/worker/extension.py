@@ -8,8 +8,7 @@ from . import WorkerStub as _GeneratedWorkerStub
 
 
 class WorkerStub(_GeneratedWorkerStub):
-
-    __error: Optional[str] = None   # used by batch_datums
+    __error: Optional[str] = None  # used by batch_datums
 
     @contextmanager
     def batch_datum(self) -> ContextManager:

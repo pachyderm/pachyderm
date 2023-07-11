@@ -94,7 +94,7 @@ spec:
           value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_HOST)"
         {{- end }}
         - name: LOKI_SERVICE_PORT
-        {{- if .Values.pachd.lokiPort }}
+        {{- if ne 0 (int .Values.pachd.lokiPort) }}
           value:  {{ .Values.pachd.lokiPort | quote}}
         {{ else }}
           value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_PORT)"

@@ -101,17 +101,11 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 		return nil, err
 	}
 	// App could have oneof label selector or list of specifics
-	var lokiApps []*debug.App
 	var pachApps []*debug.App
 	for _, app := range apps {
-		lokiApps = append(lokiApps, &debug.App{Name: app.Name, Pipeline: app.Pipeline})
+		app.Pods = nil // clear pods
 		if app.Pipeline != nil || app.Name == "pachd" {
-			// Listing all the loki pods requires querying the logs which is too expensive to compute at template time.
-			// Since we don't actually know the pods, we only populate the App names.
 			pachApps = append(pachApps, app)
-			lokiApps = append(lokiApps, &debug.App{Name: app.Name, Pipeline: app.Pipeline})
-		} else {
-			lokiApps = append(lokiApps, app)
 		}
 	}
 	return &debug.GetDumpV2TemplateResponse{
@@ -122,7 +116,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Version:   true,
 				Describes: apps,
 				Logs:      apps,
-				LokiLogs:  lokiApps,
+				LokiLogs:  apps,
 				Binaries:  pachApps,
 				Profiles:  pachApps,
 			},
@@ -132,7 +126,6 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	}, nil
 }
 
-// TODO: don't include pods in templates...?
 func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr error) {
 	ctx, end := log.SpanContext(ctx, "listApps")
 	defer end(log.Errorp(&retErr))
@@ -183,11 +176,67 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	return res, nil
 }
 
-// TODO
-// remove pods from templates?
-// top level errors colliding?
+func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error {
+	if len(reqApps) == 0 {
+		return nil
+	}
+	apps, err := s.listApps(ctx)
+	if err != nil {
+		return err
+	}
+	appMap := make(map[string]*debug.App)
+	for _, a := range apps {
+		appMap[a.Name] = a
+	}
+	for _, reqApp := range reqApps {
+		if app, ok := appMap[reqApp.Name]; ok {
+			if len(reqApp.Pods) == 0 {
+				reqApp.Pods = app.Pods
+			} else {
+				appPods := make(map[string]*debug.Pod)
+				for _, p := range app.Pods {
+					appPods[p.Name] = p
+				}
+				for _, reqPod := range reqApp.Pods {
+					if pod, ok := appPods[reqPod.Name]; ok {
+						reqPod.Ip = pod.Ip
+					} else {
+						return errors.Errorf("Requested pod %q of app %q not found", reqPod.Name, reqApp.Name)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
-	return s.dump(s.env.GetPachClient(server.Context()), server, s.makeTasks(server.Context(), request, server))
+	if request == nil {
+		return errors.New("nil debug.DumpV2Request")
+	}
+	var apps []*debug.App
+	for _, l := range [][]*debug.App{
+		request.GetSystem().GetBinaries(),
+		request.GetSystem().GetDescribes(),
+		request.GetSystem().GetLogs(),
+		request.GetSystem().GetLokiLogs(),
+		request.GetSystem().GetProfiles(),
+	} {
+		if len(l) > 0 {
+			apps = append(apps, l...)
+		}
+	}
+	// fill the pod info for all the pods referenced in request.System Apps
+	if err := s.fillApps(server.Context(), apps); err != nil {
+		return err
+	}
+	c := s.env.GetPachClient(server.Context())
+	tasks := s.makeTasks(server.Context(), request, server)
+	var d time.Duration
+	if request.Timeout != nil {
+		d = request.Timeout.AsDuration()
+	}
+	return s.dump(c, server, tasks, d)
 }
 
 func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Request, server debug.Debug_DumpV2Server) []taskFunc {
@@ -271,6 +320,11 @@ func (s *debugServer) makeDescribesTask(app *debug.App, rp incProgressFunc) task
 	return func(ctx context.Context, dfs DumpFS) error {
 		defer rp(ctx)
 		var errs error
+		if app.Timeout != nil {
+			var cf context.CancelFunc
+			ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
+			defer cf()
+		}
 		for _, pod := range app.Pods {
 			if err := s.collectDescribe(ctx, dfs, app, pod); err != nil {
 				errors.JoinInto(&errs, errors.Wrapf(err, "describe pod %q", pod.Name))
@@ -286,6 +340,11 @@ func (s *debugServer) makeLogsTask(app *debug.App, rp incProgressFunc) taskFunc 
 		if len(app.Pods) == 0 {
 			return nil
 		}
+		if app.Timeout != nil {
+			var cf context.CancelFunc
+			ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
+			defer cf()
+		}
 		var errs error
 		for _, pod := range app.Pods {
 			if err := s.kubeLogs(ctx, dfs, app, pod); err != nil {
@@ -300,6 +359,11 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 	return func(ctx context.Context, dfs DumpFS) (retErr error) {
 		if !s.hasLoki() {
 			return nil
+		}
+		if app.Timeout != nil {
+			var cf context.CancelFunc
+			ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
+			defer cf()
 		}
 		ctx, end := log.SpanContext(ctx, "collectLokiLogs")
 		defer end(log.Errorp(&retErr))
@@ -345,16 +409,23 @@ func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 		var errs error
 		rp := recordProgress(server, "profiles", len(apps))
 		for _, app := range apps {
-			for _, pod := range app.Pods {
-				for _, c := range pod.Containers {
-					for _, profile := range []string{"heap", "goroutine"} {
-						if err := collectProfle(ctx, dfs, app, pod, c, profile); err != nil {
-							errors.JoinInto(&errs, err)
+			func() {
+				if app.Timeout != nil {
+					var cf context.CancelFunc
+					ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
+					defer cf()
+				}
+				defer rp(ctx)
+				for _, pod := range app.Pods {
+					for _, c := range pod.Containers {
+						for _, profile := range []string{"heap", "goroutine"} {
+							if err := collectProfle(ctx, dfs, app, pod, c, profile); err != nil {
+								errors.JoinInto(&errs, err)
+							}
 						}
 					}
 				}
-			}
-			rp(ctx)
+			}()
 		}
 		log.Error(ctx, "profile errors", zap.Error(errs))
 		return errs
@@ -367,46 +438,53 @@ func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 		var errs error
 		rp := recordProgress(server, "binaries", len(apps))
 		for _, app := range apps {
-			for _, pod := range app.Pods {
-				if pod.Ip == "" {
-					log.Info(ctx, "skipping debug bindary for pod with empty IP", zap.String("pod", pod.Name))
-					continue
+			func() {
+				if app.Timeout != nil {
+					var cf context.CancelFunc
+					ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
+					defer cf()
 				}
-				if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "binary"), func(w io.Writer) (retErr error) {
-					if app.Name == "pachd" {
-						f, err := os.Open(os.Args[0])
-						if err != nil {
-							return errors.Wrap(err, "open file")
+				defer rp(ctx)
+				for _, pod := range app.Pods {
+					if pod.Ip == "" {
+						log.Info(ctx, "skipping debug bindary for pod with empty IP", zap.String("pod", pod.Name))
+						continue
+					}
+					if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "binary"), func(w io.Writer) (retErr error) {
+						if app.Name == "pachd" {
+							f, err := os.Open(os.Args[0])
+							if err != nil {
+								return errors.Wrap(err, "open file")
+							}
+							defer func() {
+								if err := f.Close(); err != nil {
+									errors.JoinInto(&retErr, err)
+								}
+							}()
+							_, err = io.Copy(w, f)
+							return errors.Wrap(err, "write local binary")
 						}
+						c, err := workerserver.NewClient(pod.Ip)
+						if err != nil {
+							return errors.Wrapf(err, "create worker client for IP %q", pod.Ip)
+						}
+						binaryC, err := c.Binary(ctx, &debug.BinaryRequest{})
+						if err != nil {
+							return errors.Wrap(err, "binary client")
+						}
+						r := grpcutil.NewStreamingBytesReader(binaryC, nil)
 						defer func() {
-							if err := f.Close(); err != nil {
-								errors.JoinInto(&retErr, err)
+							if err := r.Close(); err != nil {
+								errors.JoinInto(&retErr, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
 							}
 						}()
-						_, err = io.Copy(w, f)
-						return errors.Wrap(err, "write local binary")
+						_, err = io.Copy(w, r)
+						return errors.Wrap(err, "write binary")
+					}); err != nil {
+						errors.JoinInto(&errs, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
 					}
-					c, err := workerserver.NewClient(pod.Ip)
-					if err != nil {
-						return errors.Wrapf(err, "create worker client for IP %q", pod.Ip)
-					}
-					binaryC, err := c.Binary(ctx, &debug.BinaryRequest{})
-					if err != nil {
-						return errors.Wrap(err, "binary client")
-					}
-					r := grpcutil.NewStreamingBytesReader(binaryC, nil)
-					defer func() {
-						if err := r.Close(); err != nil {
-							errors.JoinInto(&retErr, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
-						}
-					}()
-					_, err = io.Copy(w, r)
-					return errors.Wrap(err, "write binary")
-				}); err != nil {
-					errors.JoinInto(&errs, errors.Wrapf(err, "close binary writer for pod %q", pod.Name))
 				}
-			}
-			rp(ctx)
+			}()
 		}
 		return errs
 	}
@@ -454,7 +532,7 @@ func recordProgress(server debug.Debug_DumpV2Server, task string, total int) inc
 }
 
 // TODO: sharpen timeouts
-func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server, tasks []taskFunc) (retErr error) {
+func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server, tasks []taskFunc, timeout time.Duration) (retErr error) {
 	ctx := c.Ctx() // this context has authorization credentials we need
 	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
 	if err := os.Mkdir(dumpRoot, 0744); err != nil {
@@ -463,18 +541,20 @@ func (s *debugServer) dump(c *client.APIClient, server debug.Debug_DumpV2Server,
 	defer func() {
 		errors.JoinInto(&retErr, os.RemoveAll(dumpRoot))
 	}()
-	if deadline, ok := server.Context().Deadline(); ok {
-		d := time.Until(deadline)
-		// Time out our own operations at ~90% of the client-set deadline. (22 minutes of
-		// server-side processing for every 25 minutes of debug dumping.)
-		var cf context.CancelFunc
-		ctx, cf = context.WithTimeout(ctx, time.Duration(22)*d/time.Duration(25))
-		defer cf()
-	} else {
-		var cf context.CancelFunc
-		ctx, cf = context.WithTimeout(ctx, 25*time.Minute) // If no client-side deadline set, use 25 minutes.
-		defer cf()
+	to := 25 * time.Minute
+	if timeout != 0 {
+		to = timeout
 	}
+	if deadline, ok := server.Context().Deadline(); ok {
+		if d := time.Until(deadline); d < to {
+			to = d
+		}
+	}
+	var cf context.CancelFunc
+	// Time out our own operations at ~90% of the client-set deadline. (22 minutes of
+	// server-side processing for every 25 minutes of debug dumping.)
+	ctx, cf = context.WithTimeout(ctx, time.Duration(22)*to/time.Duration(25))
+	defer cf()
 	eg, ctx := errgroup.WithContext(ctx)
 	var mu sync.Mutex // to synchronize writes to the tar stream
 	dumpContent := &dumpContentServer{server: server}

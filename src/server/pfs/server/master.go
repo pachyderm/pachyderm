@@ -123,7 +123,8 @@ func (d *driver) manageRepos(ctx context.Context) error {
 					backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 						ctx, cancel := pctx.WithCancel(ctx)
 						defer cancel()
-						lockCtx, err := ring.Lock(ctx, lockPrefix)
+						var err error
+						ctx, err = ring.Lock(ctx, lockPrefix)
 						if err != nil {
 							return errors.Wrap(err, "error locking repo lock")
 						}
@@ -131,7 +132,7 @@ func (d *driver) manageRepos(ctx context.Context) error {
 						var eg errgroup.Group
 						eg.Go(func() error {
 							return backoff.RetryUntilCancel(ctx, func() error {
-								return d.manageBranches(lockCtx, key)
+								return d.manageBranches(ctx, key)
 							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 								log.Error(ctx, "error managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 								return nil
@@ -139,7 +140,7 @@ func (d *driver) manageRepos(ctx context.Context) error {
 						})
 						eg.Go(func() error {
 							return backoff.RetryUntilCancel(ctx, func() error {
-								return d.finishRepoCommits(lockCtx, key)
+								return d.finishRepoCommits(ctx, key)
 							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 								log.Error(ctx, "error finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 								return nil
