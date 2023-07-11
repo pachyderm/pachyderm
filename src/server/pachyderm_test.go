@@ -1344,22 +1344,27 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
+	rc := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	dataRepo := tu.UniqueString("TestPipelineJobAuthToken_data")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, rc.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err := rc.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, rc.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, rc.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+	require.NoError(t, rc.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
 			fmt.Sprintf("echo PACH_TOKEN=$PACH_TOKEN"),
+			fmt.Sprintf("echo $PACH_TOKEN | pachctl auth use-auth-token"),
+			fmt.Sprintf("pachctl config update context --pachd-address 'grpc://pachd.test-cluster-1.svc.cluster.local:30660'"),
+			fmt.Sprintf("pachctl auth whoami"),
+			fmt.Sprintf("pachctl list repo"),
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -1377,18 +1382,9 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	iter := c.GetLogs(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.Id, nil, "", false, false, 0)
-	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.Id, false)
+	jobInfo, err := rc.WaitJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-	token := ""
-	for iter.Next() {
-		msg := iter.Message().Message
-		if strings.Contains(msg, "PACH_TOKEN=") {
-			token = strings.Split(msg, "=")[1]
-		}
-	}
-	require.NotEqual(t, "", token)
 }
 
 func TestPipelineFailure(t *testing.T) {
