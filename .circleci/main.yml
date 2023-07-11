@@ -1452,6 +1452,12 @@ jobs:
       - install-helm
       - install-kubectl
       - start-minikube
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
@@ -1717,7 +1723,11 @@ workflows:
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
   python-sdk:
-    when: << pipeline.parameters.run-python-sdk-jobs >>
+    when:
+      condition:
+        or:
+          - << pipeline.parameters.run-python-sdk-jobs >>
+          - << pipeline.parameters.run-core-jobs >>
     jobs:
       - test-python-sdk:
           requires:
