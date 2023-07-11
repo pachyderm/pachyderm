@@ -25,6 +25,8 @@ Code layout, as of Jun. 30, 2023:
 ├── pachderm_sdk/
 │   ├── __main__.py - Location for package scripts (cli)
 │   ├── api/ - Generated API code. `extension.py` files are hand-written.
+│   │   ├── _additions.py - patches to generated proto objects.
+│   │   ├── extension.py - Manually-written additions to the generated API stubs.
 │   ├── client.py - The higher-level `Client` class.
 │   ├── config.py - Config file parsing code.
 │   ├── constants.py - Centralized location for constant values.

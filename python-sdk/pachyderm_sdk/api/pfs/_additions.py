@@ -1,3 +1,12 @@
+""" This file patches methods onto the PFS Noun objects.
+
+This is done, as opposed to subclassing them, for these methods
+  to automatically be accessible on any objects included in the
+  response from the API.
+
+Note: These are internally patched and this file should
+  not be imported directly by users.
+"""
 import re
 
 from . import Branch, Commit, File, Project, Repo
