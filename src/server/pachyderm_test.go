@@ -1360,11 +1360,11 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("echo PACH_TOKEN=$PACH_TOKEN"),
-			fmt.Sprintf("echo $PACH_TOKEN | pachctl auth use-auth-token"),
-			fmt.Sprintf("pachctl config update context --pachd-address 'grpc://pachd.test-cluster-1.svc.cluster.local:30660'"),
-			fmt.Sprintf("pachctl auth whoami"),
-			fmt.Sprintf("pachctl list repo"),
+			"echo PACH_TOKEN=$PACH_TOKEN",
+			"echo $PACH_TOKEN | pachctl auth use-auth-token",
+			"pachctl config update context --pachd-address 'grpc://pachd.test-cluster-1.svc.cluster.local:30660'",
+			"pachctl auth whoami",
+			"pachctl list repo",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
