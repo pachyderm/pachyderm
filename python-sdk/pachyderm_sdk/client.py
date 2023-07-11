@@ -254,6 +254,7 @@ class Client:
 
     @property
     def auth_token(self):
+        """The authentication token. Used if authentication is enabled on the cluster."""
         return self._auth_token
 
     @auth_token.setter
@@ -270,6 +271,7 @@ class Client:
 
     @property
     def transaction_id(self):
+        """The ID of the transaction to run operations on."""
         return self._transaction_id
 
     @transaction_id.setter
@@ -334,6 +336,7 @@ class Client:
         self.transaction.delete_all()
 
     def get_version(self) -> Version:
+        """Requests version information from the pachd cluster."""
         return self._version_api.get_version()
 
 

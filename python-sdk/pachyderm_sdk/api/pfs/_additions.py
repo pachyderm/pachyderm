@@ -9,7 +9,7 @@ uuid_re = re.compile(r"^[\da-f]{12}4[\da-f]{19}$")
 def _Repo_from_uri(uri: str) -> Repo:
     """
     Parses the following format:
-        [project/]<repo>
+        [project/]repo
 
     If no project is specified it defaults to "default".
     """
@@ -34,7 +34,7 @@ Repo.as_uri = Repo.__str__ = _Repo_as_uri
 def _Branch_from_uri(uri: str) -> Branch:
     """
     Parses the following format:
-        [project/]<repo>@branch
+        [project/]repo@branch
 
     If no project is specified it defaults to "default".
 
@@ -63,12 +63,12 @@ Branch.as_uri = Branch.__str__ = _Branch_as_uri
 def _Commit_from_uri(uri: str) -> Commit:
     """
     Parses the following format:
-        [project/]<repo>@<branch-or-commit>
-    where @<branch-or-commit> can take the form:
+        [project/]repo@branch-or-commit
+    where @branch-or-commit can take the form:
         @branch
         @branch=commit
         @commit
-    Additionally @<branch-or-commit> can be augmented with caret notation:
+    Additionally @branch-or-commit can be augmented with caret notation:
         @branch^2
 
     All unspecified components will default to None, except for an unspecified
@@ -114,12 +114,12 @@ Commit.as_uri = Commit.__str__ = _Commit_as_uri
 def _File_from_uri(uri: str) -> File:
     """
     Parses the following format:
-        [project/]<repo>@<branch-or-commit>[:<path/in/pfs>]
-    where @<branch-or-commit> can take the form:
+        [project/]repo@branch-or-commit[:path/in/pfs]
+    where @branch-or-commit can take the form:
         @branch
         @branch=commit
         @commit
-    Additionally @<branch-or-commit> can be augmented with caret notation:
+    Additionally @branch-or-commit can be augmented with caret notation:
         @branch^2
 
     All unspecified components will default to None, except for an unspecified
