@@ -114,7 +114,7 @@ class Pod(betterproto.Message):
 class App(betterproto.Message):
     name: str = betterproto.string_field(1)
     pods: List["Pod"] = betterproto.message_field(2)
-    timeout: int = betterproto.int64_field(3)
+    timeout: timedelta = betterproto.message_field(3)
     pipeline: "Pipeline" = betterproto.message_field(4)
 
 
@@ -135,7 +135,7 @@ class DumpV2Request(betterproto.Message):
     system: "System" = betterproto.message_field(1)
     pipelines: List["Pipeline"] = betterproto.message_field(2)
     input_repos: bool = betterproto.bool_field(3)
-    timeout: int = betterproto.int64_field(4)
+    timeout: timedelta = betterproto.message_field(4)
 
 
 @dataclass(eq=False, repr=False)
@@ -255,7 +255,7 @@ class DebugStub:
         system: "System" = None,
         pipelines: Optional[List["Pipeline"]] = None,
         input_repos: bool = False,
-        timeout: int = 0
+        timeout: timedelta = None
     ) -> Iterator["DumpChunk"]:
         pipelines = pipelines or []
 
@@ -265,7 +265,8 @@ class DebugStub:
         if pipelines is not None:
             request.pipelines = pipelines
         request.input_repos = input_repos
-        request.timeout = timeout
+        if timeout is not None:
+            request.timeout = timeout
 
         for response in self.__rpc_dump_v2(request):
             yield response
@@ -317,7 +318,7 @@ class DebugBase:
         system: "System",
         pipelines: Optional[List["Pipeline"]],
         input_repos: bool,
-        timeout: int,
+        timeout: timedelta,
         context: "grpc.ServicerContext",
     ) -> Iterator["DumpChunk"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
