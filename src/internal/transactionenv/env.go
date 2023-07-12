@@ -3,7 +3,7 @@ package transactionenv
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -110,14 +110,16 @@ type Transaction interface {
 type directTransaction struct {
 	txnEnv *TransactionEnv
 	txnCtx *txncontext.TransactionContext
+	ctx    context.Context
 }
 
 // NewDirectTransaction is a helper function to instantiate a directTransaction
 // object.  It is exposed so that the transaction API server can run a direct
 // transaction even though there is an active transaction in the context (which
 // is why it cannot use `WithTransaction`).
-func NewDirectTransaction(txnEnv *TransactionEnv, txnCtx *txncontext.TransactionContext) Transaction {
+func NewDirectTransaction(ctx context.Context, txnEnv *TransactionEnv, txnCtx *txncontext.TransactionContext) Transaction {
 	return &directTransaction{
+		ctx:    ctx,
 		txnEnv: txnEnv,
 		txnCtx: txnCtx,
 	}
@@ -125,7 +127,7 @@ func NewDirectTransaction(txnEnv *TransactionEnv, txnCtx *txncontext.Transaction
 
 func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 	req := proto.Clone(original).(*pfs.CreateRepoRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
@@ -177,7 +179,7 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -276,7 +278,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		directTxn := NewDirectTransaction(env, txnCtx)
+		directTxn := NewDirectTransaction(ctx, env, txnCtx)
 		return cb(directTxn)
 	})
 
@@ -318,7 +320,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
-	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }

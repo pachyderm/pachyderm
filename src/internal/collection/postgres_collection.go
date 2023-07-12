@@ -8,15 +8,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/jackc/pgerrcode"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -144,7 +147,7 @@ func (c *postgresCollection) ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollecti
 // NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
 func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(*pachsql.Tx) error) error {
-	err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := apply(tx); err != nil {
 			return err
 		}
@@ -188,8 +191,20 @@ type postgresReadOnlyCollection struct {
 func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (*model, error) {
 	result := &model{}
 	queryString := fmt.Sprintf("select proto, updatedat from collections.%s where key = $1;", c.table)
-	if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
-		return nil, c.mapSQLError(err, key)
+	// wrap sqlx.GetContext() in a retry to mitigate database connection flakiness.
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		if err := sqlx.GetContext(ctx, q, result, queryString, key); err != nil {
+			return c.mapSQLError(err, key)
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second), func(err error, d time.Duration) error {
+		if errutil.IsDatabaseDisconnect(err) {
+			log.Info(ctx, "retrying database get query", zap.String("key", key), zap.Error(err))
+			return nil
+		}
+		return err
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

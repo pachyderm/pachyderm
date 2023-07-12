@@ -1,18 +1,14 @@
 import contextlib
 import os
-import json
-from base64 import b64decode
-from dataclasses import dataclass
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 from urllib.parse import urlparse
 
 import grpc
 
 from .api.admin.extension import ApiStub as _AdminStub
 from .api.auth import ApiStub as _AuthStub
-from .api.debug import DebugStub as _DebugStub
+from .api.debug.extension import ApiStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub
 from .api.identity import ApiStub as _IdentityStub
 from .api.license import ApiStub as _LicenseStub
@@ -26,16 +22,18 @@ from .constants import (
     AUTH_TOKEN_ENV,
     CONFIG_PATH_LOCAL,
     CONFIG_PATH_SPOUT,
+    DEFAULT_HOST,
+    DEFAULT_PORT,
     GRPC_CHANNEL_OPTIONS,
     OIDC_TOKEN_ENV,
     PACHD_SERVICE_HOST_ENV,
     PACHD_SERVICE_PORT_ENV,
     WORKER_PORT_ENV,
 )
-from .errors import AuthServiceNotActivated, BadClusterDeploymentID, ConfigError
+from .errors import AuthServiceNotActivated, BadClusterDeploymentID
 from .interceptor import MetadataClientInterceptor, MetadataType
 
-__all__ = ("Client", )
+__all__ = ("Client",)
 
 
 class Client:
@@ -48,8 +46,8 @@ class Client:
 
     def __init__(
         self,
-        host: str = 'localhost',
-        port: int = 30650,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
         auth_token: Optional[str] = None,
         root_certs: Optional[bytes] = None,
         transaction_id: str = None,
@@ -77,6 +75,8 @@ class Client:
             Whether TLS should be used. If `root_certs` are specified, they are
             used. Otherwise, we use the certs provided by certifi.
         """
+        host = host or DEFAULT_HOST
+        port = port or DEFAULT_PORT
         if auth_token is None:
             auth_token = os.environ.get(AUTH_TOKEN_ENV)
 
@@ -114,7 +114,10 @@ class Client:
         self.enterprise = _EnterpriseStub(self._channel)
         self.identity = _IdentityStub(self._channel)
         self.license = _LicenseStub(self._channel)
-        self.pfs = _PfsStub(self._channel)
+        self.pfs = _PfsStub(
+            self._channel,
+            get_transaction_id=lambda: self.transaction_id,
+        )
         self.pps = _PpsStub(self._channel)
         self.transaction = _TransactionStub(
             self._channel,
@@ -126,9 +129,7 @@ class Client:
 
     @classmethod
     def new_in_cluster(
-        cls,
-        auth_token: Optional[str] = None,
-        transaction_id: Optional[str] = None
+        cls, auth_token: Optional[str] = None, transaction_id: Optional[str] = None
     ) -> "Client":
         """Creates a Pachyderm client that operates within a Pachyderm cluster.
 
@@ -217,7 +218,7 @@ class Client:
         )
 
     @classmethod
-    def from_config(cls, config_file: Union[Path, str]=CONFIG_PATH_LOCAL) -> "Client":
+    def from_config(cls, config_file: Union[Path, str] = CONFIG_PATH_LOCAL) -> "Client":
         """Creates a Pachyderm client from a config file.
 
         Parameters
@@ -299,9 +300,7 @@ class Client:
                 )
             # Note: This channel does not go through the metadata interceptor.
             channel = _create_channel(
-                address=f"localhost:{port}",
-                root_certs=None,
-                options=GRPC_CHANNEL_OPTIONS
+                address=f"localhost:{port}", root_certs=None, options=GRPC_CHANNEL_OPTIONS
             )
             self._worker = _WorkerStub(channel)
         return self._worker
@@ -313,26 +312,6 @@ class Client:
         if self._transaction_id is not None:
             metadata.append(("pach-transaction", self._transaction_id))
         return metadata
-
-    def delete_all(self) -> None:
-        """Delete all repos, commits, files, pipelines, and jobs.
-        This resets the cluster to its initial state.
-        """
-        # Try removing all identities if auth is activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.identity.delete_all()
-
-        # Try deactivating auth if activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.auth.deactivate()
-
-        # Try removing all licenses if auth is activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.license.delete_all()
-
-        self.pps.delete_all()
-        self.pfs.delete_all()
-        self.transaction.delete_all()
 
     def get_version(self) -> Version:
         return self._version_api.get_version()

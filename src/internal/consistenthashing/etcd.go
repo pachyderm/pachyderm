@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -123,7 +123,7 @@ func ring(client *etcd.Client, prefix string, id string) *Ring {
 
 // createNode creates a lease, inserts itself as a key to etcd, keeps the lease alive in the background.
 func (ring *Ring) createNode(ctx context.Context, col collection.EtcdCollection, id string) error {
-	if err := col.Claim(ctx, id, &types.BoolValue{Value: true},
+	if err := col.Claim(ctx, id, wrapperspb.Bool(true),
 		func(ctx context.Context) error {
 			// keep the lease alive until the context is canceled.
 			<-ctx.Done()

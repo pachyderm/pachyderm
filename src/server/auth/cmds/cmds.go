@@ -33,7 +33,7 @@ func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	authURL = loginInfo.LoginURL
+	authURL = loginInfo.LoginUrl
 	state := loginInfo.State
 
 	// print the prepared URL and promp the user to click on it
@@ -162,9 +162,9 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
 						Issuer:          issuer,
-						ClientID:        clientId,
+						ClientId:        clientId,
 						ClientSecret:    oidcClient.Client.Secret,
-						RedirectURI:     redirect,
+						RedirectUri:     redirect,
 						LocalhostIssuer: true,
 						Scopes:          scopes,
 					}}); err != nil {
@@ -203,9 +203,9 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
 						Issuer:          idCfg.Config.Issuer,
-						ClientID:        clientId,
+						ClientId:        clientId,
 						ClientSecret:    oidcClient.Client.Secret,
-						RedirectURI:     redirect,
+						RedirectUri:     redirect,
 						LocalhostIssuer: false,
 						Scopes:          scopes,
 					}}); err != nil {
@@ -311,7 +311,7 @@ func LoginCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 					fmt.Println("Retrieving Pachyderm token...")
 					resp, authErr = c.Authenticate(
 						c.Ctx(),
-						&auth.AuthenticateRequest{OIDCState: state})
+						&auth.AuthenticateRequest{OidcState: state})
 					if authErr != nil {
 						return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
 							"authorization failed (OIDC state token: %q; Pachyderm logs may "+
@@ -392,9 +392,9 @@ func WhoamiCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 			}
-			fmt.Printf("You are \"%s\"\n", resp.Username)
-			if resp.Expiration != nil {
-				fmt.Printf("session expires: %v\n", resp.Expiration.Format(time.RFC822))
+			fmt.Printf("You are %q\n", resp.Username)
+			if e := resp.Expiration; e != nil {
+				fmt.Printf("session expires: %v\n", e.AsTime().Format(time.RFC822))
 			}
 			return nil
 		}),
@@ -428,7 +428,7 @@ func GetRobotTokenCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 				if err != nil {
 					return errors.Wrapf(err, "could not parse duration %q", ttl)
 				}
-				req.TTL = int64(d.Seconds())
+				req.Ttl = int64(d.Seconds())
 			}
 			resp, err := c.GetRobotToken(c.Ctx(), req)
 			if err != nil {

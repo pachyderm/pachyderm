@@ -8,18 +8,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"google.golang.org/protobuf/proto"
 )
 
 // TODO(acohen4): signature should accept a branch seperate from the commit
@@ -27,7 +28,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
 		branch := proto.Clone(commit.Branch).(*pfs.Branch)
-		commitID := commit.ID
+		commitID := commit.Id
 		if branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
 			branch.Name = commitID
 			commitID = ""
@@ -116,7 +117,7 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 
 func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
 	if commit.AccessRepo().Name == fileSetsRepo {
-		fsid, err := fileset.ParseID(commit.ID)
+		fsid, err := fileset.ParseID(commit.Id)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -173,9 +174,9 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, fileset.Clean(srcPath, true))
 	})
 	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
-		idx2 := *idx
+		idx2 := protoutil.Clone(idx)
 		idx2.Path = pathTransform(idx2.Path)
-		return &idx2
+		return idx2
 	})
 	return uw.Copy(ctx, fs, tag, appendFile, index.WithPrefix(srcPath), index.WithDatum(src.Datum))
 }
@@ -403,7 +404,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		opts = append(opts, WithPathRange(pathRange))
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
+	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.Id, p))
 	if number == 0 {
 		number = math.MaxInt64
 	}

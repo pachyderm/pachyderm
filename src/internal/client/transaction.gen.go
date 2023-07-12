@@ -19,8 +19,8 @@ import (
 	transaction_v2 "github.com/pachyderm/pachyderm/v2/src/transaction"
 	versionpb_v2 "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
-	types "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func unsupportedError(name string) error {
@@ -293,7 +293,7 @@ func (c *unsupportedPfsBuilderClient) ActivateAuth(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("ActivateAuth")
 }
 
-func (c *unsupportedPfsBuilderClient) AddFileSet(_ context.Context, _ *pfs_v2.AddFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) AddFileSet(_ context.Context, _ *pfs_v2.AddFileSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("AddFileSet")
 }
 
@@ -301,11 +301,11 @@ func (c *unsupportedPfsBuilderClient) CheckStorage(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("CheckStorage")
 }
 
-func (c *unsupportedPfsBuilderClient) ClearCache(_ context.Context, _ *pfs_v2.ClearCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) ClearCache(_ context.Context, _ *pfs_v2.ClearCacheRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("ClearCache")
 }
 
-func (c *unsupportedPfsBuilderClient) ClearCommit(_ context.Context, _ *pfs_v2.ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) ClearCommit(_ context.Context, _ *pfs_v2.ClearCommitRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("ClearCommit")
 }
 
@@ -313,7 +313,7 @@ func (c *unsupportedPfsBuilderClient) ComposeFileSet(_ context.Context, _ *pfs_v
 	return nil, unsupportedError("ComposeFileSet")
 }
 
-func (c *unsupportedPfsBuilderClient) CreateBranch(_ context.Context, _ *pfs_v2.CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) CreateBranch(_ context.Context, _ *pfs_v2.CreateBranchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreateBranch")
 }
 
@@ -321,27 +321,27 @@ func (c *unsupportedPfsBuilderClient) CreateFileSet(_ context.Context, opts ...g
 	return nil, unsupportedError("CreateFileSet")
 }
 
-func (c *unsupportedPfsBuilderClient) CreateProject(_ context.Context, _ *pfs_v2.CreateProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) CreateProject(_ context.Context, _ *pfs_v2.CreateProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreateProject")
 }
 
-func (c *unsupportedPfsBuilderClient) CreateRepo(_ context.Context, _ *pfs_v2.CreateRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) CreateRepo(_ context.Context, _ *pfs_v2.CreateRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreateRepo")
 }
 
-func (c *unsupportedPfsBuilderClient) DeleteAll(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) DeleteAll(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
 }
 
-func (c *unsupportedPfsBuilderClient) DeleteBranch(_ context.Context, _ *pfs_v2.DeleteBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) DeleteBranch(_ context.Context, _ *pfs_v2.DeleteBranchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteBranch")
 }
 
-func (c *unsupportedPfsBuilderClient) DeleteProject(_ context.Context, _ *pfs_v2.DeleteProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) DeleteProject(_ context.Context, _ *pfs_v2.DeleteProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteProject")
 }
 
-func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.DeleteRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteRepo")
 }
 
@@ -353,7 +353,7 @@ func (c *unsupportedPfsBuilderClient) DiffFile(_ context.Context, _ *pfs_v2.Diff
 	return nil, unsupportedError("DiffFile")
 }
 
-func (c *unsupportedPfsBuilderClient) DropCommitSet(_ context.Context, _ *pfs_v2.DropCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) DropCommitSet(_ context.Context, _ *pfs_v2.DropCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DropCommitSet")
 }
 
@@ -365,7 +365,7 @@ func (c *unsupportedPfsBuilderClient) FindCommits(_ context.Context, _ *pfs_v2.F
 	return nil, unsupportedError("FindCommits")
 }
 
-func (c *unsupportedPfsBuilderClient) FinishCommit(_ context.Context, _ *pfs_v2.FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) FinishCommit(_ context.Context, _ *pfs_v2.FinishCommitRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("FinishCommit")
 }
 
@@ -449,11 +449,11 @@ func (c *unsupportedPfsBuilderClient) ModifyFile(_ context.Context, opts ...grpc
 	return nil, unsupportedError("ModifyFile")
 }
 
-func (c *unsupportedPfsBuilderClient) PutCache(_ context.Context, _ *pfs_v2.PutCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) PutCache(_ context.Context, _ *pfs_v2.PutCacheRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("PutCache")
 }
 
-func (c *unsupportedPfsBuilderClient) RenewFileSet(_ context.Context, _ *pfs_v2.RenewFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) RenewFileSet(_ context.Context, _ *pfs_v2.RenewFileSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("RenewFileSet")
 }
 
@@ -461,7 +461,7 @@ func (c *unsupportedPfsBuilderClient) RunLoadTest(_ context.Context, _ *pfs_v2.R
 	return nil, unsupportedError("RunLoadTest")
 }
 
-func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pfs_v2.RunLoadTestResponse, error) {
+func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*pfs_v2.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 
@@ -469,7 +469,7 @@ func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("ShardFileSet")
 }
 
-func (c *unsupportedPfsBuilderClient) SquashCommitSet(_ context.Context, _ *pfs_v2.SquashCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPfsBuilderClient) SquashCommitSet(_ context.Context, _ *pfs_v2.SquashCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("SquashCommitSet")
 }
 
@@ -491,23 +491,23 @@ func (c *unsupportedPpsBuilderClient) ActivateAuth(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("ActivateAuth")
 }
 
-func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v2.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v2.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreatePipeline")
 }
 
-func (c *unsupportedPpsBuilderClient) CreateSecret(_ context.Context, _ *pps_v2.CreateSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) CreateSecret(_ context.Context, _ *pps_v2.CreateSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreateSecret")
 }
 
-func (c *unsupportedPpsBuilderClient) DeleteAll(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) DeleteAll(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
 }
 
-func (c *unsupportedPpsBuilderClient) DeleteJob(_ context.Context, _ *pps_v2.DeleteJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) DeleteJob(_ context.Context, _ *pps_v2.DeleteJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteJob")
 }
 
-func (c *unsupportedPpsBuilderClient) DeletePipeline(_ context.Context, _ *pps_v2.DeletePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) DeletePipeline(_ context.Context, _ *pps_v2.DeletePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeletePipeline")
 }
 
@@ -515,7 +515,7 @@ func (c *unsupportedPpsBuilderClient) DeletePipelines(_ context.Context, _ *pps_
 	return nil, unsupportedError("DeletePipelines")
 }
 
-func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.DeleteSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteSecret")
 }
 
@@ -563,7 +563,7 @@ func (c *unsupportedPpsBuilderClient) ListPipeline(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("ListPipeline")
 }
 
-func (c *unsupportedPpsBuilderClient) ListSecret(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pps_v2.SecretInfos, error) {
+func (c *unsupportedPpsBuilderClient) ListSecret(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*pps_v2.SecretInfos, error) {
 	return nil, unsupportedError("ListSecret")
 }
 
@@ -579,11 +579,11 @@ func (c *unsupportedPpsBuilderClient) RenderTemplate(_ context.Context, _ *pps_v
 	return nil, unsupportedError("RenderTemplate")
 }
 
-func (c *unsupportedPpsBuilderClient) RestartDatum(_ context.Context, _ *pps_v2.RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) RestartDatum(_ context.Context, _ *pps_v2.RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("RestartDatum")
 }
 
-func (c *unsupportedPpsBuilderClient) RunCron(_ context.Context, _ *pps_v2.RunCronRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) RunCron(_ context.Context, _ *pps_v2.RunCronRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("RunCron")
 }
 
@@ -591,23 +591,23 @@ func (c *unsupportedPpsBuilderClient) RunLoadTest(_ context.Context, _ *pps_v2.R
 	return nil, unsupportedError("RunLoadTest")
 }
 
-func (c *unsupportedPpsBuilderClient) RunLoadTestDefault(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pps_v2.RunLoadTestResponse, error) {
+func (c *unsupportedPpsBuilderClient) RunLoadTestDefault(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*pps_v2.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 
-func (c *unsupportedPpsBuilderClient) RunPipeline(_ context.Context, _ *pps_v2.RunPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) RunPipeline(_ context.Context, _ *pps_v2.RunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("RunPipeline")
 }
 
-func (c *unsupportedPpsBuilderClient) StartPipeline(_ context.Context, _ *pps_v2.StartPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) StartPipeline(_ context.Context, _ *pps_v2.StartPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("StartPipeline")
 }
 
-func (c *unsupportedPpsBuilderClient) StopJob(_ context.Context, _ *pps_v2.StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) StopJob(_ context.Context, _ *pps_v2.StopJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("StopJob")
 }
 
-func (c *unsupportedPpsBuilderClient) StopPipeline(_ context.Context, _ *pps_v2.StopPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) StopPipeline(_ context.Context, _ *pps_v2.StopPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("StopPipeline")
 }
 
@@ -615,7 +615,7 @@ func (c *unsupportedPpsBuilderClient) SubscribeJob(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("SubscribeJob")
 }
 
-func (c *unsupportedPpsBuilderClient) UpdateJobState(_ context.Context, _ *pps_v2.UpdateJobStateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedPpsBuilderClient) UpdateJobState(_ context.Context, _ *pps_v2.UpdateJobStateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("UpdateJobState")
 }
 
@@ -631,11 +631,11 @@ func (c *unsupportedTransactionBuilderClient) BatchTransaction(_ context.Context
 	return nil, unsupportedError("BatchTransaction")
 }
 
-func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *transaction_v2.DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *transaction_v2.DeleteAllRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
 }
 
-func (c *unsupportedTransactionBuilderClient) DeleteTransaction(_ context.Context, _ *transaction_v2.DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *unsupportedTransactionBuilderClient) DeleteTransaction(_ context.Context, _ *transaction_v2.DeleteTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DeleteTransaction")
 }
 
@@ -657,6 +657,6 @@ func (c *unsupportedTransactionBuilderClient) StartTransaction(_ context.Context
 
 type unsupportedVersionpbBuilderClient struct{}
 
-func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*versionpb_v2.Version, error) {
+func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*versionpb_v2.Version, error) {
 	return nil, unsupportedError("GetVersion")
 }

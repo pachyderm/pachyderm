@@ -5,19 +5,21 @@ import (
 	"path"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -76,7 +78,7 @@ func (d *driver) master(ctx context.Context) {
 			})
 		}
 		eg.Go(func() error {
-			return d.finishCommits(ctx)
+			return d.manageRepos(ctx)
 		})
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -85,7 +87,7 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) finishCommits(ctx context.Context) (retErr error) {
+func (d *driver) manageRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	repos := make(map[string]context.CancelFunc)
@@ -108,8 +110,8 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 							return err
 						}
 						cancel()
+						delete(repos, key)
 					}
-					delete(repos, key)
 					return nil
 				}
 				if _, ok := repos[key]; ok {
@@ -118,17 +120,35 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 				ctx, cancel := pctx.WithCancel(ctx)
 				repos[key] = cancel
 				go func() {
-					backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+					backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 						ctx, cancel := pctx.WithCancel(ctx)
 						defer cancel()
-						lockCtx, err := ring.Lock(ctx, lockPrefix)
+						var err error
+						ctx, err = ring.Lock(ctx, lockPrefix)
 						if err != nil {
 							return errors.Wrap(err, "error locking repo lock")
 						}
 						defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
-						return d.finishRepoCommits(lockCtx, key)
+						var eg errgroup.Group
+						eg.Go(func() error {
+							return backoff.RetryUntilCancel(ctx, func() error {
+								return d.manageBranches(ctx, key)
+							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+								log.Error(ctx, "error managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+								return nil
+							})
+						})
+						eg.Go(func() error {
+							return backoff.RetryUntilCancel(ctx, func() error {
+								return d.finishRepoCommits(ctx, key)
+							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+								log.Error(ctx, "error finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+								return nil
+							})
+						})
+						return errors.EnsureStack(eg.Wait())
 					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-						log.Error(ctx, "error finishing commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+						log.Error(ctx, "error managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 						return nil
 					})
 				}()
@@ -137,6 +157,112 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 			return errors.EnsureStack(err)
 		},
 	)
+}
+
+func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
+	ctx, cancel := pctx.WithCancel(ctx)
+	defer cancel()
+	type cronTrigger struct {
+		cancel context.CancelFunc
+		spec   string
+	}
+	cronTriggers := make(map[string]*cronTrigger)
+	defer func() {
+		for _, ct := range cronTriggers {
+			ct.cancel()
+		}
+	}()
+	return d.branches.ReadOnly(ctx).WatchByIndexF(pfsdb.BranchesRepoIndex, repoKey, func(ev *watch.Event) error {
+		if ev.Type == watch.EventError {
+			return ev.Err
+		}
+		key := string(ev.Key)
+		if ev.Type == watch.EventDelete {
+			if ct, ok := cronTriggers[key]; ok {
+				ct.cancel()
+				delete(cronTriggers, key)
+			}
+			return nil
+		}
+		branchInfo, err := d.inspectBranch(ctx, pfsdb.ParseBranch(key))
+		if err != nil {
+			return err
+		}
+		// Only create a new goroutine if one doesn't already exist or the spec changed.
+		if ct, ok := cronTriggers[key]; ok {
+			if branchInfo.Trigger != nil && ct.spec == branchInfo.Trigger.CronSpec {
+				return nil
+			}
+			ct.cancel()
+			delete(cronTriggers, key)
+		}
+		if branchInfo.Trigger == nil || branchInfo.Trigger.CronSpec == "" {
+			return nil
+		}
+		ctx, cancel := pctx.WithCancel(ctx)
+		cronTriggers[key] = &cronTrigger{
+			cancel: cancel,
+			spec:   branchInfo.Trigger.CronSpec,
+		}
+		go func() {
+			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+				return d.runCronTrigger(ctx, branchInfo.Branch)
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				log.Error(ctx, "error running cron trigger", zap.String("branch", key), zap.Error(err), zap.Duration("retryAfter", d))
+				return nil
+			})
+		}()
+		return nil
+	})
+}
+
+func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
+	branchInfo, err := d.inspectBranch(ctx, branch)
+	if err != nil {
+		return err
+	}
+	schedule, err := cronutil.ParseCronExpression(branchInfo.Trigger.CronSpec)
+	if err != nil {
+		return err
+	}
+	// Use the current head commit start time as the previous tick.
+	// This prevents the timer from restarting if the master restarts.
+	ci, err := d.inspectCommit(ctx, branchInfo.Head, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	prev := protoutil.MustTime(ci.Started)
+	for {
+		next := schedule.Next(prev)
+		if next.IsZero() {
+			log.Debug(ctx, "no more scheduled ticks; exiting loop")
+			return nil
+		}
+		log.Info(ctx, "waiting for next cron tick", zap.Time("next", next), zap.Time("prev", prev))
+		select {
+		case <-time.After(time.Until(next)):
+		case <-ctx.Done():
+			return errors.EnsureStack(context.Cause(ctx))
+		}
+		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			trigBI, err := d.inspectBranchInTransaction(txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
+			if err != nil {
+				return err
+			}
+			var bi pfs.BranchInfo
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(branchInfo.Branch, &bi, func() error {
+				bi.Head = trigBI.Head
+				return nil
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
+			return txnCtx.PropagateBranch(bi.Branch)
+		}); err != nil {
+			return err
+		}
+		log.Info(ctx, "cron tick completed", zap.Time("next", next))
+		prev = next
+	}
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
@@ -173,7 +299,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 					return d.finalizeCommit(ctx, commit, "", nil, nil)
 				}
 				compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, cache)
+				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, cache)
 				return errors.EnsureStack(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 					start := time.Now()
 					// Compacting the diff before getting the total allows us to compose the
@@ -193,7 +319,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 						return err
 					}
 					details := &pfs.CommitInfo_Details{
-						CompactingTime: types.DurationProto(time.Since(start)),
+						CompactingTime: durationpb.New(time.Since(start)),
 					}
 					// Validate the commit.
 					start = time.Now()
@@ -205,7 +331,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 					}); err != nil {
 						return err
 					}
-					details.ValidatingTime = types.DurationProto(time.Since(start))
+					details.ValidatingTime = durationpb.New(time.Since(start))
 					// Finish the commit.
 					return d.finalizeCommit(ctx, commit, validationError, details, totalId)
 				}))

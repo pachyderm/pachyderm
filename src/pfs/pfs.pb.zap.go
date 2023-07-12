@@ -125,9 +125,10 @@ func (x *Trigger) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("branch", x.Branch)
 	enc.AddBool("all", x.All)
-	enc.AddString("cron_spec", x.CronSpec)
-	enc.AddString("size", x.Size_)
+	enc.AddString("rate_limit_spec", x.RateLimitSpec)
+	enc.AddString("size", x.Size)
 	enc.AddInt64("commits", x.Commits)
+	enc.AddString("cron_spec", x.CronSpec)
 	return nil
 }
 
@@ -144,7 +145,7 @@ func (x *Commit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("repo", x.Repo)
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	enc.AddObject("branch", x.Branch)
 	return nil
 }
@@ -194,7 +195,7 @@ func (x *CommitSet) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 

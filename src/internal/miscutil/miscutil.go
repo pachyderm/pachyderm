@@ -100,3 +100,31 @@ func CacheFunc[K comparable, V any](f func(K) V, size int) func(K) V {
 		return v
 	}
 }
+
+// ReadInto reads into dst until the end of the stream.
+// If the stream has more than len(dst) bytes, an io.ErrShortBuffer error is returned.
+func ReadInto(dst []byte, r io.Reader) (int, error) {
+	var n int
+	for n < len(dst) {
+		n2, err := r.Read(dst[n:])
+		if errors.Is(err, io.EOF) || n2 == 0 {
+			n += n2
+			return n, nil
+		}
+		if err != nil {
+			return 0, errors.EnsureStack(err)
+		}
+		n += n2
+	}
+	// If we got here, it means the buffer is full.
+	// Now to check if there is anything more to read.
+	// If we get io.EOF, and nothing else, then we don't need to error.
+	extraBuf := [1]byte{}
+	if n2, err := r.Read(extraBuf[:]); errors.Is(err, io.EOF) && n2 == 0 {
+		return n, nil
+	} else if err != nil {
+		return n, errors.EnsureStack(err)
+	}
+	// We filled the buffer, and there was another byte afterwards, return a short buffer error
+	return n, errors.Wrapf(io.ErrShortBuffer, "len(dst)=%d", io.ErrShortBuffer, len(dst))
+}

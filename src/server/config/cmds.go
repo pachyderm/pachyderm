@@ -1,9 +1,7 @@
 package cmds
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,9 +15,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 )
 
@@ -268,19 +266,14 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				}
 			}
 
-			var context config.Context
 			cmdutil.PrintStdinReminder()
 
-			var buf bytes.Buffer
-			var decoder *json.Decoder
-
-			contextReader := io.TeeReader(os.Stdin, &buf)
-			decoder = json.NewDecoder(contextReader)
-
-			if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
-				if errors.Is(err, io.EOF) {
-					return errors.New("unexpected EOF")
-				}
+			var context config.Context
+			in, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return errors.Wrap(err, "read stdin")
+			}
+			if err := protojson.Unmarshal(in, &context); err != nil {
 				return errors.Wrapf(err, "malformed context")
 			}
 
@@ -421,7 +414,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				context.AuthInfo = authInfo
 			}
 			if updateContext.Flags().Changed("server-cas") {
-				context.ServerCAs = serverCAs
+				context.ServerCas = serverCAs
 			}
 			if updateContext.Flags().Changed("namespace") {
 				context.Namespace = namespace
@@ -430,7 +423,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				context.Project = project
 			}
 			if removeClusterDeploymentID {
-				context.ClusterDeploymentID = ""
+				context.ClusterDeploymentId = ""
 			}
 
 			return cfg.Write()

@@ -8,16 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestActivate tests that we can activate the license server
@@ -52,11 +52,10 @@ func TestExpired(t *testing.T) {
 	tu.ActivateEnterprise(t, client, peerPort)
 
 	expires := time.Now().Add(-30 * time.Second)
-	expiresProto, err := types.TimestampProto(expires)
-	require.NoError(t, err)
+	expiresProto := timestamppb.New(expires)
 
 	// Activate Enterprise with an expiration in the past
-	_, err = client.License.Activate(context.Background(),
+	_, err := client.License.Activate(context.Background(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,
@@ -371,7 +370,7 @@ func TestHeartbeat(t *testing.T) {
 	require.Equal(t, 1, len(newClusters.Clusters))
 	require.Equal(t, true, newClusters.Clusters[0].AuthEnabled)
 	require.Equal(t, "some weird version", newClusters.Clusters[0].Version)
-	require.True(t, newClusters.Clusters[0].LastHeartbeat.After(*clusters.Clusters[0].LastHeartbeat))
+	require.True(t, protoutil.MustTime(newClusters.Clusters[0].LastHeartbeat).After(protoutil.MustTime(clusters.Clusters[0].LastHeartbeat)))
 }
 
 // TestHeartbeatWrongSecret tests that Heartbeat doesn't update the record if the shared secret is incorrect

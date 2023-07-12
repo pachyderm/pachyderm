@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -22,10 +22,8 @@ const (
 	RootToken = "iamroot"
 )
 
-func TSProtoOrDie(t testing.TB, ts time.Time) *types.Timestamp {
-	proto, err := types.TimestampProto(ts)
-	require.NoError(t, err)
-	return proto
+func TSProtoOrDie(t testing.TB, ts time.Time) *timestamppb.Timestamp {
+	return timestamppb.New(ts)
 }
 
 func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string) {

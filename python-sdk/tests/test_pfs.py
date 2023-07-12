@@ -10,6 +10,7 @@ from tests.utils import count
 
 from pachyderm_sdk.api import pfs
 from pachyderm_sdk.api.pfs.file import PFSFile
+from pachyderm_sdk.api.pfs.extension import ClosedCommit, OpenCommit
 from pachyderm_sdk.constants import MAX_RECEIVE_MESSAGE_SIZE
 
 
@@ -121,9 +122,7 @@ class TestUnitCommit:
         assert commit.branch.repo.name == repo.name
 
         # cannot start new commit before the previous one is finished
-        with pytest.raises(
-            grpc.RpcError, match=r"parent commit .* has not been finished"
-        ):
+        with pytest.raises(grpc.RpcError, match=r"parent commit .* has not been finished"):
             client.pfs.start_commit(branch=branch)
 
         client.pfs.finish_commit(commit=commit)
@@ -276,6 +275,19 @@ class TestUnitCommit:
         commit_info = client.pfs.list_commit(repo=repo)
         assert count(commit_info) >= 2
 
+    @staticmethod
+    def test_closed_commit(client: TestClient):
+        """Test that an OpenCommit becomes a ClosedCommit when exiting
+        the context manager."""
+        repo = client.new_repo(default_project=False)
+        branch = pfs.Branch(repo=repo, name="master")
+
+        with client.pfs.commit(branch=branch) as commit1:
+            assert isinstance(commit1, OpenCommit)
+
+        assert not isinstance(commit1, OpenCommit)
+        assert isinstance(commit1, ClosedCommit)
+
 
 class TestModifyFile:
     """Tests for the modify file API."""
@@ -375,9 +387,7 @@ class TestModifyFile:
 
         with client.pfs.commit(branch=branch) as commit2:
             commit2.delete_file(path="/file1.dat")
-        assert not client.pfs.path_exists(
-            file=pfs.File.from_uri(f'{commit2.as_uri()}:/file1.dat')
-        )
+        assert not client.pfs.path_exists(file=pfs.File.from_uri(f"{commit2}:/file1.dat"))
 
     @staticmethod
     def test_walk_file(client: TestClient, default_project: bool):
@@ -389,9 +399,7 @@ class TestModifyFile:
             commit.put_file_from_bytes(path="/a/file2.dat", data=b"DATA")
             commit.put_file_from_bytes(path="/a/b/file3.dat", data=b"DATA")
 
-        files = list(
-            client.pfs.walk_file(file=pfs.File(commit=commit, path="/a"))
-        )
+        files = list(client.pfs.walk_file(file=pfs.File(commit=commit, path="/a")))
         assert len(files) == 4
         assert files[0].file.path == "/a/"
         assert files[1].file.path == "/a/b/"
@@ -454,7 +462,6 @@ class TestModifyFile:
 
 
 class TestPFSFile:
-
     @staticmethod
     def test_get_large_file(client: TestClient):
         """Test that a large file (requires >1 gRPC message to stream)
@@ -505,7 +512,7 @@ class TestPFSFile:
         """Test that gRPC errors are caught and thrown early."""
         # Arrange
         repo = client.new_repo()
-        invalid_file = pfs.File.from_uri(f"{repo.as_uri()}@master:/NO_FILE.HERE")
+        invalid_file = pfs.File.from_uri(f"{repo}@master:/NO_FILE.HERE")
 
         # Act & Assert
         with pytest.raises(ValueError):
@@ -547,14 +554,21 @@ class TestPFSFile:
             file = commit.put_file_from_bytes(path="/test.csv", data=data)
 
         # Act & Assert
-        with client.pfs.pfs_file(file=file) as pfs_file:
+        with client.pfs.pfs_file(file) as pfs_file:
             assert pfs_file.readlines() == expected_lines
 
         # Test that we can feed it into stdlib functionality (csv reader).
         import csv
-        with client.pfs.pfs_file(file=file) as pfs_file:
+
+        with client.pfs.pfs_file(file) as pfs_file:
             with io.TextIOWrapper(pfs_file, encoding="utf-8") as text_file:
-                print(list(csv.reader(text_file)))
+                assert len(list(csv.reader(text_file))) > 0
+
+        # Test that we can feed it into a pandas dataframe.
+        import pandas as pd
+
+        with client.pfs.pfs_file(file) as pfs_file:
+            assert len(pd.read_csv(pfs_file)) > 0
 
     @staticmethod
     def test_get_file_tar(client: TestClient, tmp_path: Path):
