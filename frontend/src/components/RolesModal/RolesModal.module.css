@@ -28,11 +28,9 @@
 
 .userCell {
   vertical-align: middle;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: inline-flex;
   align-items: center;
+  word-break: break-all;
 }
 
 .userRow {
