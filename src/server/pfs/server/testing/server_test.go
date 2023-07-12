@@ -4477,6 +4477,7 @@ func TestPFS(suite *testing.T) {
 		},
 		}
 		for i, test := range tests {
+			test := test
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 				t.Parallel()
 				ctx := pctx.TestContext(t)
@@ -5357,10 +5358,10 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, bucket.WriteAll(ctx, path, []byte(path), nil))
 		}
 		for _, p := range paths {
-			objURL := url + "/" + p
+			objURL := url + p
 			require.NoError(t, env.PachClient.PutFileURL(commit, p, objURL, false))
 		}
-		srcURL := url + "/files"
+		srcURL := url + "files"
 		require.NoError(t, env.PachClient.PutFileURL(commit, "recursive", srcURL, true))
 		check := func() {
 			cis, err := env.PachClient.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), nil, nil, 0)

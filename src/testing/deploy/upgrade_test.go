@@ -111,7 +111,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				))
 
 			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", "" /* commitID */), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "http://i.imgur.com/46Q8nDz.png", false))
+				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "https://docs.pachyderm.com/images/opencv/liberty.jpg", false))
 			}))
 
 			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
@@ -136,7 +136,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
 			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://i.imgur.com/g2QnNqa.png", false))
+				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://docs.pachyderm.com/images/opencv/kitten.jpg", false))
 			}))
 
 			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
