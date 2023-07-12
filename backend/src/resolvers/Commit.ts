@@ -120,7 +120,6 @@ const commitResolver: CommitResolver = {
       return {
         ...commit,
         diff,
-        hasLinkedJob: commit.id ? jobSetIds.has(commit.id) : false,
       };
     },
     commits: async (
@@ -191,13 +190,7 @@ const commitResolver: CommitResolver = {
       }
 
       return {
-        items: commits.map((c) => {
-          const gqlCommit = commitInfoToGQLCommit(c);
-          gqlCommit.hasLinkedJob = c.commit?.id
-            ? jobSetIds.has(c.commit?.id)
-            : false;
-          return gqlCommit;
-        }),
+        items: commits.map((c) => commitInfoToGQLCommit(c)),
         cursor: nextCursor && nextCursor.started,
         parentCommit: nextCursor && nextCursor.parentCommit?.id,
       };

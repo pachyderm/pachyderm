@@ -21,7 +21,6 @@ export const commitInfoToGQLCommit = (
     started: commit.started?.seconds || -1,
     sizeBytes: getSizeBytes(commit),
     sizeDisplay: formatBytes(getSizeBytes(commit)),
-    hasLinkedJob: false,
   };
 };
 

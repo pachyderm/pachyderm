@@ -39,7 +39,6 @@ describe('resolvers/Commits', () => {
       expect(data?.commit?.branch?.name).toBe('master');
       expect(data?.commit?.description).toBe('added mako');
       expect(data?.commit?.originKind).toBe('AUTO');
-      expect(data?.commit?.hasLinkedJob).toBeFalsy();
       expect(data?.commit?.started).toBe(1614136389);
       expect(data?.commit?.finished).toBe(1614136391);
       expect(data?.commit?.sizeBytes).toBe(44276);
@@ -209,7 +208,6 @@ describe('resolvers/Commits', () => {
       expect(errors).toHaveLength(0);
       const commits = data?.commits.items;
       expect(commits).toHaveLength(6);
-      expect(commits?.[0].hasLinkedJob).toBeFalsy();
     });
 
     it('should return commits for a given branch', async () => {

@@ -83,7 +83,6 @@ export type Commit = {
   description?: Maybe<Scalars['String']>;
   diff?: Maybe<Diff>;
   finished: Scalars['Int'];
-  hasLinkedJob: Scalars['Boolean'];
   id: Scalars['ID'];
   originKind?: Maybe<OriginKind>;
   repoName: Scalars['String'];
@@ -1592,7 +1591,6 @@ export type CommitResolvers<
   >;
   diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
   finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  hasLinkedJob?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   originKind?: Resolver<
     Maybe<ResolversTypes['OriginKind']>,
@@ -2756,7 +2754,6 @@ export type CommitFragmentFragment = {
   finished: number;
   sizeBytes: number;
   sizeDisplay: string;
-  hasLinkedJob: boolean;
   branch?: {__typename?: 'Branch'; name: string} | null;
 };
 
@@ -3148,7 +3145,6 @@ export type CommitQuery = {
     finished: number;
     sizeBytes: number;
     sizeDisplay: string;
-    hasLinkedJob: boolean;
     diff?: {
       __typename?: 'Diff';
       size: number;
@@ -3185,7 +3181,6 @@ export type CommitSearchQuery = {
     finished: number;
     sizeBytes: number;
     sizeDisplay: string;
-    hasLinkedJob: boolean;
     branch?: {__typename?: 'Branch'; name: string} | null;
   } | null;
 };
@@ -3209,7 +3204,6 @@ export type GetCommitsQuery = {
       finished: number;
       sizeBytes: number;
       sizeDisplay: string;
-      hasLinkedJob: boolean;
       branch?: {__typename?: 'Branch'; name: string} | null;
     }>;
     cursor?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
@@ -3916,7 +3910,6 @@ export type RepoWithCommitQuery = {
       finished: number;
       sizeBytes: number;
       sizeDisplay: string;
-      hasLinkedJob: boolean;
       branch?: {__typename?: 'Branch'; name: string} | null;
     } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;
@@ -4002,7 +3995,6 @@ export type ReposWithCommitQuery = {
       finished: number;
       sizeBytes: number;
       sizeDisplay: string;
-      hasLinkedJob: boolean;
       branch?: {__typename?: 'Branch'; name: string} | null;
     } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;

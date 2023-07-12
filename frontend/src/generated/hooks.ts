@@ -24,7 +24,6 @@ export const CommitFragmentFragmentDoc = gql`
     finished
     sizeBytes
     sizeDisplay
-    hasLinkedJob
   }
 `;
 export const DatumFragmentDoc = gql`

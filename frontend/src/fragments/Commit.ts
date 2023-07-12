@@ -13,6 +13,5 @@ export const CommitFragment = gql`
     finished
     sizeBytes
     sizeDisplay
-    hasLinkedJob
   }
 `;

@@ -204,7 +204,6 @@ type Commit {
   branch: Branch
   description: String
   originKind: OriginKind
-  hasLinkedJob: Boolean!
   id: ID!
   started: Int!
   finished: Int!
