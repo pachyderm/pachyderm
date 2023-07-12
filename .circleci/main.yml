@@ -113,7 +113,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -239,7 +239,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
