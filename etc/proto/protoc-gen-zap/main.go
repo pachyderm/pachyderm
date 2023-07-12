@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 const (
@@ -273,6 +274,9 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 
 func main() {
 	protogen.Options{}.Run(func(plugin *protogen.Plugin) error {
+		// Optional fields are represented internally as oneof fields;
+		// generatePrimitiveField handles these appropriately.
+		plugin.SupportedFeatures |= uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 		for _, file := range plugin.FilesByPath {
 			if !file.Generate {
 				continue
