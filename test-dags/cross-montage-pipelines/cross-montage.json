@@ -1,0 +1,47 @@
+{
+  "pipeline": {
+    "name": "montage-cross"
+  },
+  "description": "A pipeline that combines images from four crossed repositories into a montage.",
+  "input": {
+    "union": [
+      {
+        "cross": [
+          {
+            "pfs": {
+              "glob": "/",
+              "repo": "images"
+            }
+          },
+          {
+            "pfs": {
+              "glob": "/",
+              "repo": "edgesA"
+            }
+          }
+        ]
+      },
+      {
+        "cross": [
+          {
+            "pfs": {
+              "glob": "/",
+              "repo": "images"
+            }
+          },
+          {
+            "pfs": {
+              "glob": "/",
+              "repo": "edgesB"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "image": "dpokidov/imagemagick:7.1.0-23",
+    "stdin": [ "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L /pfs/edgesA /pfs/edgesB -type f | sort) /pfs/out/montage.png" ]
+  }
+}

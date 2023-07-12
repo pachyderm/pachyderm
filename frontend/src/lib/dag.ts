@@ -34,7 +34,8 @@ const normalizeDAGData = async (
   // create elk edges
   const elkEdges: LinkInputData[] = [];
   for (const vertex of vertices) {
-    for (const vertexParentName of vertex.parents) {
+    const uniqueParents = new Set(vertex.parents);
+    uniqueParents.forEach((vertexParentName) => {
       let parentName = vertexParentName;
       if (vertex.type === NodeType.PIPELINE) {
         parentName =
@@ -51,7 +52,7 @@ const normalizeDAGData = async (
       // edge case: if pipeline has input repos that cannot be found, the link is not valid
       // it might be in another project
       if (vertex.type === NodeType.PIPELINE && !(parentName in nodeIndexMap)) {
-        continue;
+        return;
       }
 
       elkEdges.push({
@@ -65,7 +66,7 @@ const normalizeDAGData = async (
         sections: [],
         transferring: vertex.jobNodeState === NodeState.RUNNING,
       });
-    }
+    });
   }
 
   // create elk children

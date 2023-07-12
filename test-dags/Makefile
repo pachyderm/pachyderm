@@ -111,4 +111,10 @@ setup-spout-pipeline:
 setup-spout-service-pipeline:
 	-pachctl create pipeline -f ./pipelines/spout-and-service.json
 	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/spouts/spout101/pipelines/processor.json
+
+cross-montage:
+	-pachctl create repo images
+	-pachctl create pipeline -f ./cross-montage-pipelines/edges-a.json
+	-pachctl create pipeline -f ./cross-montage-pipelines/edges-b.json
+	-pachctl create pipeline -f ./cross-montage-pipelines/cross-montage.json
 	
