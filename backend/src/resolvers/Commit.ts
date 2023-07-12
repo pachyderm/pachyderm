@@ -7,7 +7,7 @@ import {
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
 import formatDiff, {formatDiffOnlyTotals} from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
-import {NotFoundError, PachClient} from '@dash-backend/lib/types';
+import {NotFoundError} from '@dash-backend/lib/types';
 import {CommitState} from '@dash-backend/proto';
 import {
   MutationResolvers,
@@ -22,6 +22,7 @@ interface CommitResolver {
   Query: {
     commits: QueryResolvers['commits'];
     commit: QueryResolvers['commit'];
+    commitDiff: QueryResolvers['commitDiff'];
     commitSearch: QueryResolvers['commitSearch'];
     findCommits: QueryResolvers['findCommits'];
   };
@@ -31,36 +32,14 @@ interface CommitResolver {
   };
 }
 
-const getJobSetIds = async ({
-  projectId,
-  pachClient,
-}: {
-  projectId: string;
-  pachClient: PachClient;
-}) => {
-  try {
-    const jobSets = await pachClient
-      .pps()
-      .listJobSets({projectIds: [projectId], details: false});
-    return jobSets.reduce((memo, {jobSet}) => {
-      memo.add(jobSet?.id);
-      return memo;
-    }, new Set());
-  } catch (err) {
-    return Promise.resolve(new Set());
-  }
-};
-
 const commitResolver: CommitResolver = {
   Query: {
     commit: async (
       _parent,
-      {args: {projectId, id, repoName, branchName, withDiff}},
+      {args: {projectId, id, repoName, branchName}},
       {pachClient},
     ) => {
-      let diff: Diff | undefined;
       let commit: Commit;
-      const jobSetIds = await getJobSetIds({pachClient, projectId});
 
       if (!id) {
         try {
@@ -98,18 +77,26 @@ const commitResolver: CommitResolver = {
           }),
         );
       }
-      if (
-        withDiff &&
-        commit.originKind !== OriginKind.ALIAS &&
-        commit.finished !== -1
-      ) {
+
+      return {
+        ...commit,
+      };
+    },
+    commitDiff: async (
+      _parent,
+      {args: {projectId, commitId, repoName, branchName}},
+      {pachClient},
+    ) => {
+      let diff: Diff | null = null;
+
+      if (commitId && repoName && branchName) {
         const diffResponse = await pachClient.pfs().diffFile({
           projectId,
           newFileObject: {
-            commitId: id || commit.id,
+            commitId: commitId,
             path: '/',
             branch: {
-              name: commit.branch?.name || 'master',
+              name: branchName || 'master',
               repo: {name: repoName},
             },
           },
@@ -117,10 +104,7 @@ const commitResolver: CommitResolver = {
         diff = formatDiff(diffResponse).diff;
       }
 
-      return {
-        ...commit,
-        diff,
-      };
+      return diff;
     },
     commits: async (
       _parent,
@@ -155,7 +139,6 @@ const commitResolver: CommitResolver = {
         );
       }
 
-      const jobSetIds = await getJobSetIds({projectId, pachClient});
       const commits = await pachClient.pfs().listCommit({
         projectId,
         repo: {

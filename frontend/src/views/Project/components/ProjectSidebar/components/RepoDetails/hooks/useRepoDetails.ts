@@ -1,5 +1,6 @@
-import {Permission, ResourceType} from '@graphqlTypes';
+import {Permission, ResourceType, OriginKind} from '@graphqlTypes';
 
+import {useCommitDiffQuery} from '@dash-frontend/generated/hooks';
 import useCommit from '@dash-frontend/hooks/useCommit';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
@@ -20,8 +21,25 @@ const useRepoDetails = () => {
       projectId,
       repoName: repoId,
       id: commitId ? commitId : '',
-      withDiff: true,
     },
+  });
+  const {
+    data: commitDiff,
+    loading: diffLoading,
+    error: diffError,
+  } = useCommitDiffQuery({
+    variables: {
+      args: {
+        projectId,
+        commitId: commit?.id,
+        branchName: commit?.branch?.name,
+        repoName: commit?.repoName,
+      },
+    },
+    skip:
+      !commit ||
+      commit.finished === -1 ||
+      commit.originKind === OriginKind.ALIAS,
   });
 
   const {isAuthorizedAction: editRolesPermission} = useVerifiedAuthorization({
@@ -39,6 +57,9 @@ const useRepoDetails = () => {
     commit,
     currentRepoLoading,
     commitError,
+    commitDiff,
+    diffLoading,
+    diffError,
     repoError,
     editRolesPermission,
     getPathToFileBrowser,

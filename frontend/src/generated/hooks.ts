@@ -16,6 +16,10 @@ export const CommitFragmentFragmentDoc = gql`
     repoName
     branch {
       name
+      repo {
+        name
+        type
+      }
     }
     description
     originKind
@@ -1165,17 +1169,70 @@ export type GetBranchesQueryResult = Apollo.QueryResult<
   Types.GetBranchesQuery,
   Types.GetBranchesQueryVariables
 >;
+export const CommitDiffDocument = gql`
+  query commitDiff($args: CommitDiffQueryArgs!) {
+    commitDiff(args: $args) {
+      ...DiffFragment
+    }
+  }
+  ${DiffFragmentFragmentDoc}
+`;
+
+/**
+ * __useCommitDiffQuery__
+ *
+ * To run a query within a React component, call `useCommitDiffQuery` and pass it any options that fit your needs.
+ * When your component renders, `useCommitDiffQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useCommitDiffQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useCommitDiffQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.CommitDiffQuery,
+    Types.CommitDiffQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.CommitDiffQuery, Types.CommitDiffQueryVariables>(
+    CommitDiffDocument,
+    options,
+  );
+}
+export function useCommitDiffLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.CommitDiffQuery,
+    Types.CommitDiffQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.CommitDiffQuery,
+    Types.CommitDiffQueryVariables
+  >(CommitDiffDocument, options);
+}
+export type CommitDiffQueryHookResult = ReturnType<typeof useCommitDiffQuery>;
+export type CommitDiffLazyQueryHookResult = ReturnType<
+  typeof useCommitDiffLazyQuery
+>;
+export type CommitDiffQueryResult = Apollo.QueryResult<
+  Types.CommitDiffQuery,
+  Types.CommitDiffQueryVariables
+>;
 export const CommitDocument = gql`
   query commit($args: CommitQueryArgs!) {
     commit(args: $args) {
       ...CommitFragment
-      diff {
-        ...DiffFragment
-      }
     }
   }
   ${CommitFragmentFragmentDoc}
-  ${DiffFragmentFragmentDoc}
 `;
 
 /**

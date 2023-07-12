@@ -1,14 +1,16 @@
 import formatBytes from '@dash-backend/lib/formatBytes';
-import {RepoQuery, CommitQuery} from '@graphqlTypes';
+import {RepoQuery, CommitQuery, CommitDiffQuery} from '@graphqlTypes';
 import React from 'react';
 
-import {CaptionTextSmall} from '@pachyderm/components';
+import {CaptionTextSmall, LoadingDots} from '@pachyderm/components';
 
 import styles from './CommitDetails.module.css';
 
 type CommitDetailsProps = {
   repo?: RepoQuery['repo'];
   commit: CommitQuery['commit'];
+  commitDiff?: CommitDiffQuery['commitDiff'];
+  diffLoading: boolean;
 };
 
 const getDeltaSymbol = (val?: number, symbol?: boolean) => {
@@ -21,17 +23,21 @@ const getDeltaSymbol = (val?: number, symbol?: boolean) => {
   }
 };
 
-const CommitDetails: React.FC<CommitDetailsProps> = ({commit}) => {
+const CommitDetails: React.FC<CommitDetailsProps> = ({
+  commit,
+  commitDiff,
+  diffLoading,
+}) => {
   if (!commit) return null;
 
   const diffFiles = [
-    {label: 'New', ...commit.diff?.filesAdded},
-    {label: 'Deleted', ...commit.diff?.filesDeleted},
-    {label: 'Updated', ...commit.diff?.filesUpdated},
+    {label: 'New', ...commitDiff?.filesAdded},
+    {label: 'Deleted', ...commitDiff?.filesDeleted},
+    {label: 'Updated', ...commitDiff?.filesUpdated},
   ];
 
   const parentCommitSize = formatBytes(
-    commit.sizeBytes - (commit.diff?.size || 0),
+    commit.sizeBytes - (commitDiff?.size || 0),
   );
 
   return (
@@ -40,12 +46,12 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commit}) => {
         {commit.sizeDisplay}
         <CaptionTextSmall>
           {parentCommitSize}{' '}
-          {commit.diff?.size !== 0 && (
+          {commitDiff?.size !== 0 && (
             <CaptionTextSmall
-              className={styles[`delta${getDeltaSymbol(commit.diff?.size)}`]}
+              className={styles[`delta${getDeltaSymbol(commitDiff?.size)}`]}
             >
-              {getDeltaSymbol(commit.diff?.size, true)}{' '}
-              {commit.diff?.sizeDisplay?.replace('-', '')}
+              {getDeltaSymbol(commitDiff?.size, true)}{' '}
+              {commitDiff?.sizeDisplay?.replace('-', '')}
             </CaptionTextSmall>
           )}
         </CaptionTextSmall>
@@ -54,6 +60,11 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commit}) => {
         <CaptionTextSmall>@{commit.branch?.name}</CaptionTextSmall>
       </div>
       <div className={styles.commitCardBody}>
+        {diffLoading && (
+          <div className={styles.diffLoadingContainer}>
+            <LoadingDots />
+          </div>
+        )}
         {diffFiles.map(({label, count, sizeDelta}) =>
           count && count > 0 ? (
             <div className={styles.commitCardMetric} key={label}>

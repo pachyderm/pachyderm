@@ -223,10 +223,11 @@ describe('ProjectSidebar', () => {
       render(<Project />);
 
       const repoName = await screen.findByTestId('Title__name');
-      const size = screen.getByText('543.22 kB');
-
+      await waitFor(() => {
+        // We are waiting for there to be one element instead of two
+        expect(screen.getByText('543.22 kB')).toBeInTheDocument();
+      });
       expect(repoName).toHaveTextContent('cron');
-      expect(size).toBeInTheDocument();
       await screen.findByText('9d5daa0918ac4c43a476b86e3bb5e88e');
       expect(screen.getByText('484.57 kB')).toBeInTheDocument();
 

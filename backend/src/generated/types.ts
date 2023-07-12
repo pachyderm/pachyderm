@@ -81,7 +81,6 @@ export type Commit = {
   __typename?: 'Commit';
   branch?: Maybe<Branch>;
   description?: Maybe<Scalars['String']>;
-  diff?: Maybe<Diff>;
   finished: Scalars['Int'];
   id: Scalars['ID'];
   originKind?: Maybe<OriginKind>;
@@ -89,6 +88,13 @@ export type Commit = {
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
   started: Scalars['Int'];
+};
+
+export type CommitDiffQueryArgs = {
+  branchName?: InputMaybe<Scalars['String']>;
+  commitId?: InputMaybe<Scalars['ID']>;
+  projectId: Scalars['String'];
+  repoName?: InputMaybe<Scalars['String']>;
 };
 
 export type CommitInput = {
@@ -101,7 +107,6 @@ export type CommitQueryArgs = {
   id?: InputMaybe<Scalars['ID']>;
   projectId: Scalars['String'];
   repoName: Scalars['String'];
-  withDiff?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type CommitSearchQueryArgs = {
@@ -852,6 +857,7 @@ export type Query = {
   branch: Branch;
   branches: Array<Maybe<Branch>>;
   commit?: Maybe<Commit>;
+  commitDiff?: Maybe<Diff>;
   commitSearch?: Maybe<Commit>;
   commits: PageableCommit;
   dag: Array<Vertex>;
@@ -894,6 +900,10 @@ export type QueryBranchesArgs = {
 
 export type QueryCommitArgs = {
   args: CommitQueryArgs;
+};
+
+export type QueryCommitDiffArgs = {
+  args: CommitDiffQueryArgs;
 };
 
 export type QueryCommitSearchArgs = {
@@ -1295,6 +1305,7 @@ export type ResolversTypes = ResolversObject<{
   BranchQueryArgs: BranchQueryArgs;
   BranchesQueryArgs: BranchesQueryArgs;
   Commit: ResolverTypeWrapper<Commit>;
+  CommitDiffQueryArgs: CommitDiffQueryArgs;
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
   CommitSearchQueryArgs: CommitSearchQueryArgs;
@@ -1420,6 +1431,7 @@ export type ResolversParentTypes = ResolversObject<{
   BranchQueryArgs: BranchQueryArgs;
   BranchesQueryArgs: BranchesQueryArgs;
   Commit: Commit;
+  CommitDiffQueryArgs: CommitDiffQueryArgs;
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
   CommitSearchQueryArgs: CommitSearchQueryArgs;
@@ -1589,7 +1601,6 @@ export type CommitResolvers<
     ParentType,
     ContextType
   >;
-  diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
   finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   originKind?: Resolver<
@@ -2280,6 +2291,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryCommitArgs, 'args'>
   >;
+  commitDiff?: Resolver<
+    Maybe<ResolversTypes['Diff']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryCommitDiffArgs, 'args'>
+  >;
   commitSearch?: Resolver<
     Maybe<ResolversTypes['Commit']>,
     ParentType,
@@ -2754,7 +2771,15 @@ export type CommitFragmentFragment = {
   finished: number;
   sizeBytes: number;
   sizeDisplay: string;
-  branch?: {__typename?: 'Branch'; name: string} | null;
+  branch?: {
+    __typename?: 'Branch';
+    name: string;
+    repo?: {
+      __typename?: 'RepoInfo';
+      name?: string | null;
+      type?: string | null;
+    } | null;
+  } | null;
 };
 
 export type DatumFragment = {
@@ -3129,6 +3154,22 @@ export type GetBranchesQuery = {
   } | null>;
 };
 
+export type CommitDiffQueryVariables = Exact<{
+  args: CommitDiffQueryArgs;
+}>;
+
+export type CommitDiffQuery = {
+  __typename?: 'Query';
+  commitDiff?: {
+    __typename?: 'Diff';
+    size: number;
+    sizeDisplay: string;
+    filesUpdated: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
+    filesAdded: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
+    filesDeleted: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
+  } | null;
+};
+
 export type CommitQueryVariables = Exact<{
   args: CommitQueryArgs;
 }>;
@@ -3145,23 +3186,15 @@ export type CommitQuery = {
     finished: number;
     sizeBytes: number;
     sizeDisplay: string;
-    diff?: {
-      __typename?: 'Diff';
-      size: number;
-      sizeDisplay: string;
-      filesUpdated: {
-        __typename?: 'DiffCount';
-        count: number;
-        sizeDelta: number;
-      };
-      filesAdded: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
-      filesDeleted: {
-        __typename?: 'DiffCount';
-        count: number;
-        sizeDelta: number;
-      };
+    branch?: {
+      __typename?: 'Branch';
+      name: string;
+      repo?: {
+        __typename?: 'RepoInfo';
+        name?: string | null;
+        type?: string | null;
+      } | null;
     } | null;
-    branch?: {__typename?: 'Branch'; name: string} | null;
   } | null;
 };
 
@@ -3181,7 +3214,15 @@ export type CommitSearchQuery = {
     finished: number;
     sizeBytes: number;
     sizeDisplay: string;
-    branch?: {__typename?: 'Branch'; name: string} | null;
+    branch?: {
+      __typename?: 'Branch';
+      name: string;
+      repo?: {
+        __typename?: 'RepoInfo';
+        name?: string | null;
+        type?: string | null;
+      } | null;
+    } | null;
   } | null;
 };
 
@@ -3204,7 +3245,15 @@ export type GetCommitsQuery = {
       finished: number;
       sizeBytes: number;
       sizeDisplay: string;
-      branch?: {__typename?: 'Branch'; name: string} | null;
+      branch?: {
+        __typename?: 'Branch';
+        name: string;
+        repo?: {
+          __typename?: 'RepoInfo';
+          name?: string | null;
+          type?: string | null;
+        } | null;
+      } | null;
     }>;
     cursor?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
   };
@@ -3910,7 +3959,15 @@ export type RepoWithCommitQuery = {
       finished: number;
       sizeBytes: number;
       sizeDisplay: string;
-      branch?: {__typename?: 'Branch'; name: string} | null;
+      branch?: {
+        __typename?: 'Branch';
+        name: string;
+        repo?: {
+          __typename?: 'RepoInfo';
+          name?: string | null;
+          type?: string | null;
+        } | null;
+      } | null;
     } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     authInfo?: {
@@ -3995,7 +4052,15 @@ export type ReposWithCommitQuery = {
       finished: number;
       sizeBytes: number;
       sizeDisplay: string;
-      branch?: {__typename?: 'Branch'; name: string} | null;
+      branch?: {
+        __typename?: 'Branch';
+        name: string;
+        repo?: {
+          __typename?: 'RepoInfo';
+          name?: string | null;
+          type?: string | null;
+        } | null;
+      } | null;
     } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     authInfo?: {

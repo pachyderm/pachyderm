@@ -209,7 +209,6 @@ type Commit {
   finished: Int!
   sizeBytes: Float!
   sizeDisplay: String!
-  diff: Diff
 }
 
 type AuthInfo {
@@ -439,7 +438,13 @@ input CommitQueryArgs {
   repoName: String!
   branchName: String
   projectId: String!
-  withDiff: Boolean
+}
+
+input CommitDiffQueryArgs {
+  projectId: String!
+  commitId: ID
+  branchName: String
+  repoName: String
 }
 
 input CommitSearchQueryArgs {
@@ -863,6 +868,7 @@ type Query {
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
   commit(args: CommitQueryArgs!): Commit
+  commitDiff(args: CommitDiffQueryArgs!): Diff
   commitSearch(args: CommitSearchQueryArgs!): Commit
   commits(args: CommitsQueryArgs!): PageableCommit!
   findCommits(args: FindCommitsQueryArgs!): PageableFoundCommits!

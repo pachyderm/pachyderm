@@ -28,7 +28,6 @@ describe('resolvers/Commits', () => {
             projectId,
             repoName,
             id,
-            withDiff: true,
           },
         },
       );
@@ -54,7 +53,6 @@ describe('resolvers/Commits', () => {
           args: {
             projectId,
             repoName,
-            withDiff: true,
           },
         },
       );

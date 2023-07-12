@@ -1,8 +1,13 @@
-.base {
+.base,
+.loadingContainer {
   filter: drop-shadow(2px 2px 8px var(--border-grey));
   margin: 0 1rem;
   border-radius: 3px;
   background-color: var(--white);
+}
+
+.loadingContainer {
+  height: 11.25rem;
 }
 
 .commitCardHeader {
@@ -35,9 +40,14 @@
 }
 
 .deltaPositive {
-  color: var(--icon-green)
+  color: var(--icon-green);
 }
 
 .deltaNegative {
-  color: var(--error-red)
+  color: var(--error-red);
+}
+
+.diffLoadingContainer {
+  height: 2rem;
+  width: 100%;
 }

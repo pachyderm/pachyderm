@@ -5,6 +5,10 @@ export const CommitFragment = gql`
     repoName
     branch {
       name
+      repo {
+        name
+        type
+      }
     }
     description
     originKind

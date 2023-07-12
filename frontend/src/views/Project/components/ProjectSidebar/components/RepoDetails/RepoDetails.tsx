@@ -37,6 +37,8 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     commit,
     repoError,
     currentRepoLoading,
+    commitDiff,
+    diffLoading,
     projectId,
     repoId,
     editRolesPermission,
@@ -192,7 +194,12 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
               <Route>Selected Commit Stats</Route>
             </Switch>
           </CaptionTextSmall>
-          <CommitDetails commit={commit} repo={repo} />
+          <CommitDetails
+            commit={commit}
+            diffLoading={diffLoading}
+            commitDiff={commitDiff?.commitDiff}
+            repo={repo}
+          />
         </>
       )}
 
