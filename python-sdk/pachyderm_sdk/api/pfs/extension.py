@@ -255,7 +255,7 @@ class OpenCommit(ClosedCommit):
         self._stub.put_file_from_file(commit=self, path=path, file=file, append=append)
         return File(commit=self._commit, path=path)
 
-    def copy_file(self, *, src: "File", dst: str, append: bool = True) -> "File":
+    def copy_file(self, *, src: "File", dst: str, append: bool = False) -> "File":
         """Copies a file within PFS
 
         Parameters
@@ -557,7 +557,7 @@ class ApiStub(_GeneratedApiStub):
 
     @transaction_incompatible
     def copy_file(
-        self, *, commit: "Commit", src: "File", dst: str, append: bool = True
+        self, *, commit: "Commit", src: "File", dst: str, append: bool = False
     ) -> Empty:
         """Copies a file within PFS
 
