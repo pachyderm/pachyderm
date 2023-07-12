@@ -121,6 +121,30 @@ class OpenCommit(ClosedCommit):
         """Transform an OpenCommit into a ClosedCommit."""
         self.__class__ = ClosedCommit
 
+    def put_files(self, *, source: Union[Path, str], path: str) -> None:
+        """Recursively insert the contents of source into the open commit under path,
+        matching the directory structure of source.
+
+        This is roughly equivalent to ``pachctl put file -r``
+
+        Parameters
+        ----------
+        source : Union[Path, str]
+            The directory to recursively insert content from.
+        path : str
+            The destination path in PFS.
+
+        Examples
+        --------
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pfs
+        >>> client: Client
+        >>> branch = pfs.Branch.from_uri("images@master")
+        >>> with client.pfs.commit(branch=branch) as commit:
+        >>>     commit.put_files(source="path/to/local/files", path="/")
+        """
+        self._stub.put_files(commit=self._commit, source=source, path=path)
+
     def put_file_from_bytes(self, path: str, data: bytes, append: bool = False) -> "File":
         """Uploads a PFS file from a bytestring.
 
@@ -372,6 +396,10 @@ class ApiStub(_GeneratedApiStub):
         matching the directory structure of source.
 
         This is roughly equivalent to ``pachctl put file -r``
+
+        Note: This method opens multiple gRPC streams and this appears to break in
+          some REPL environment (such as those based in IDEs). If you encounter this
+          problem, please try a different REPL environment or run as a script.
 
         Parameters
         ----------

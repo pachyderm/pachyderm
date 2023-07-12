@@ -460,6 +460,25 @@ class TestModifyFile:
                 file=pfs.File.from_uri("fake_repo@master:/dir")
             )
 
+    @staticmethod
+    def test_put_files(client: TestClient, default_project: bool, tmp_path: Path):
+        """Test that put_files """
+        source = tmp_path / "data"
+        source.mkdir()
+        (source / "file1.dat").write_bytes(b"DATA1")
+        (source / "file2.dat").write_bytes(b"DATA2")
+        (source / "file3.dat").write_bytes(b"DATA3")
+
+        repo = client.new_repo(default_project)
+        branch = pfs.Branch(repo=repo, name="master")
+
+        with client.pfs.commit(branch=branch) as commit:
+            commit.put_files(source=source, path="/")
+
+        assert client.pfs.path_exists(file=pfs.File(commit=commit, path="/file1.dat"))
+        assert client.pfs.path_exists(file=pfs.File(commit=commit, path="/file2.dat"))
+        assert client.pfs.path_exists(file=pfs.File(commit=commit, path="/file3.dat"))
+
 
 class TestPFSFile:
     @staticmethod
