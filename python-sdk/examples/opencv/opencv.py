@@ -66,12 +66,12 @@ def main():
     )
 
     with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as commit:
-        # Add some images, recursively inserting content from the images
-        # directory. Alternatively, you could use `client.put_file_from_file` or
+        # Add some images from urls.
+        # Alternatively, you could use `client.put_file_from_file` or
         # `client_put_file_bytes`.
-        client.pfs.put_file_from_url(commit=commit, path="/", url="https://docs.pachyderm.com/images/opencv/liberty.jpg")
-        client.pfs.put_file_from_url(commit=commit, path="/", url="https://docs.pachyderm.com/images/opencv/kitten.jpg")
-        client.pfs.put_file_from_url(commit=commit, path="/", url="https://docs.pachyderm.com/images/opencv/robot.jpg")
+        client.pfs.put_file_from_url(commit=commit, path="/liberty.jpg", url="https://docs.pachyderm.com/images/opencv/liberty.jpg")
+        client.pfs.put_file_from_url(commit=commit, path="/kitten.jpg", url="https://docs.pachyderm.com/images/opencv/kitten.jpg")
+        client.pfs.put_file_from_url(commit=commit, path="/robot.jpg", url="https://docs.pachyderm.com/images/opencv/robot.jpg")
 
     # Wait for the commit (and its downstream commits) to finish
     commit.wait_set()
