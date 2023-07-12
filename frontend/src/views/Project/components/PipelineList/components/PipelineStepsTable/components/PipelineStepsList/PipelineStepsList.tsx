@@ -1,5 +1,5 @@
 import {ApolloError} from '@apollo/client';
-import {Pipeline, ReposWithCommitQuery} from '@graphqlTypes';
+import {Pipeline, ReposQuery} from '@graphqlTypes';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
@@ -14,7 +14,7 @@ type PipelineStepsListProps = {
   loading: boolean;
   totalPipelinesLength: number;
   pipelines?: (Pipeline | null)[];
-  pipelineRepoMap: Record<string, ReposWithCommitQuery['repos'][0]>;
+  pipelineRepoMap: Record<string, ReposQuery['repos'][0]>;
 };
 
 const PipelineStepsList: React.FC<PipelineStepsListProps> = ({

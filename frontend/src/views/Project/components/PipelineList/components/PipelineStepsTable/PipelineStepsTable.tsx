@@ -1,4 +1,3 @@
-import {ReposWithCommitQuery} from '@graphqlTypes';
 import React, {useMemo} from 'react';
 
 import {
@@ -6,7 +5,7 @@ import {
   TableViewLoadingDots,
 } from '@dash-frontend/components/TableView';
 import usePipelines from '@dash-frontend/hooks/usePipelines';
-import useReposWithLinkedPipeline from '@dash-frontend/hooks/useReposWithLinkedPipeline';
+import useRepos from '@dash-frontend/hooks/useRepos';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form} from '@pachyderm/components';
 
@@ -26,19 +25,33 @@ const PipelineStepsTable: React.FC<PipelineStepsTableProps> = ({
     repos,
     loading: reposLoading,
     error: reposError,
-  } = useReposWithLinkedPipeline({projectId});
+  } = useRepos({projectId});
   const {sortedPipelines, formCtx, staticFilterKeys, clearableFiltersMap} =
     usePipelineFilters({pipelines});
 
-  const pipelineRepoMap = useMemo(() => {
-    const obj: Record<string, ReposWithCommitQuery['repos'][0]> = {};
-    repos?.forEach((repo) => {
-      if (repo?.linkedPipeline?.id) {
-        obj[repo?.linkedPipeline?.id] = repo;
+  const pipelineRepoMap =
+    useMemo(() => {
+      if (pipelines && repos) {
+        const pipelineMap = pipelines.reduce<
+          Record<string, (typeof pipelines)[0]>
+        >((map, pipeline) => {
+          if (map && pipeline && pipeline.id) {
+            map[pipeline.id] = pipeline;
+          }
+          return map;
+        }, {});
+
+        // pipeline id -> repo
+        return repos.reduce<Record<string, (typeof repos)[0]>>((obj, repo) => {
+          const repoProjectAndId = `${repo?.projectId}_${repo?.id}`;
+          const linkedPipeline = pipelineMap && pipelineMap[repoProjectAndId];
+          if (linkedPipeline) {
+            obj[linkedPipeline?.id] = repo;
+          }
+          return obj;
+        }, {});
       }
-    });
-    return obj;
-  }, [repos]);
+    }, [repos, pipelines]) || {};
 
   return (
     <Form formContext={formCtx}>
