@@ -646,7 +646,6 @@ func (kd *kubeDriver) getDeterminedEnvVars(pipelineInfo *pps.PipelineInfo) []v1.
 		},
 		{
 			Name: "DET_PASSWORD",
-			//pipelineInfo.Details.Determined.Password
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{
