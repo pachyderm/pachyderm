@@ -14,20 +14,7 @@ from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
 
 
-def main():
-    # Connects to a pachyderm cluster using the pachctl config file located
-    # at ~/.pachyderm/config.json. For other setups, you'll want one of the 
-    # alternatives:
-    # 1) To connect to pachyderm when this script is running inside the
-    #    cluster, use `Client.new_in_cluster()`.
-    # 2) To connect to pachyderm via a pachd address, use
-    #    `Client.new_from_pachd_address`.
-    # 3) To explicitly set the host and port, pass parameters into
-    #    `Client()`.
-    # 4) To use a config file located elsewhere, pass in the path to that
-    #    config file to Client.from_config()
-    client = Client.from_config()
-
+def main(client: Client):
     # Create a repo called images
     images = pfs.Repo.from_uri("images")
     client.pfs.create_repo(repo=images)
@@ -89,14 +76,25 @@ def main():
         print("montage written to {}".format(dest_file.name))
 
 
-def clean():
-    client = Client.from_config()
+def clean(client: Client):
     client.pps.delete_pipeline(pipeline=pps.Pipeline(name="montage"))
     client.pps.delete_pipeline(pipeline=pps.Pipeline(name="edges"))
-
     client.pfs.delete_repo(repo=pfs.Repo.from_uri("images"), force=True)
 
 
 if __name__ == "__main__":
-    clean()
-    main()
+    # Connects to a pachyderm cluster using the pachctl config file located
+    # at ~/.pachyderm/config.json. For other setups, you'll want one of the 
+    # alternatives:
+    # 1) To connect to pachyderm when this script is running inside the
+    #    cluster, use `Client.new_in_cluster()`.
+    # 2) To connect to pachyderm via a pachd address, use
+    #    `Client.new_from_pachd_address`.
+    # 3) To explicitly set the host and port, pass parameters into
+    #    `Client()`.
+    # 4) To use a config file located elsewhere, pass in the path to that
+    #    config file to Client.from_config()
+    client = Client.from_config()
+
+    clean(client)
+    main(client)
