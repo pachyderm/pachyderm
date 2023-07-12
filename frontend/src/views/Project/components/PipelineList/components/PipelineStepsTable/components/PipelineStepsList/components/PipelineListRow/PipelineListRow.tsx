@@ -37,6 +37,7 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
     rolesModalOpen,
     closeRolesModal,
     editRolesPermission,
+    checkRolesPermission,
   } = usePipelineListRow(pipeline?.name || '');
   const {searchParams, toggleSearchParamsListEntry} = useUrlQueryState();
 
@@ -59,6 +60,7 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
       hasCheckbox={Boolean(pipelineRepoMap[pipeline?.id || '']?.access)}
       overflowMenuItems={iconItems}
       dropdownOnSelect={onOverflowMenuSelect(pipeline?.name || '')}
+      openOnClick={checkRolesPermission}
     >
       <Table.DataCell>{pipeline?.name}</Table.DataCell>
       <Table.DataCell>

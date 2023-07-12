@@ -2,7 +2,7 @@ import {Permission, ResourceType} from '@graphqlTypes';
 import {useHistory} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
+import {useVerifiedAuthorizationLazy} from '@dash-frontend/hooks/useVerifiedAuthorizationLazy';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 import {DropdownItem, useModal} from '@pachyderm/components';
 
@@ -15,11 +15,14 @@ const usePipelineListRow = (pipelineName: string) => {
     isOpen: rolesModalOpen,
   } = useModal(false);
 
-  const {isAuthorizedAction: editRolesPermission, isAuthActive} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.REPO_MODIFY_BINDINGS],
-      resource: {type: ResourceType.REPO, name: `${projectId}/${pipelineName}`},
-    });
+  const {
+    checkRolesPermission,
+    isAuthorizedAction: editRolesPermission,
+    isAuthActive,
+  } = useVerifiedAuthorizationLazy({
+    permissionsList: [Permission.REPO_MODIFY_BINDINGS],
+    resource: {type: ResourceType.REPO, name: `${projectId}/${pipelineName}`},
+  });
 
   const onOverflowMenuSelect = (pipelineId: string) => (id: string) => {
     switch (id) {
@@ -52,6 +55,7 @@ const usePipelineListRow = (pipelineName: string) => {
   }
 
   return {
+    checkRolesPermission,
     projectId,
     iconItems,
     onOverflowMenuSelect,

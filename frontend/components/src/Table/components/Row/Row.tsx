@@ -26,6 +26,7 @@ export interface RowProps extends HTMLAttributes<HTMLTableRowElement> {
   onClick?: () => void;
   overflowMenuItems?: DropdownItem[];
   dropdownOnSelect?: (id: string) => void;
+  openOnClick?: () => void;
 }
 
 const Row: React.FC<RowProps> = ({
@@ -39,6 +40,7 @@ const Row: React.FC<RowProps> = ({
   overflowMenuItems,
   dropdownOnSelect,
   onClick,
+  openOnClick,
   ...rest
 }) => {
   return (
@@ -85,6 +87,7 @@ const Row: React.FC<RowProps> = ({
         {overflowMenuItems && (
           <DataCell sticky isSelected={isSelected}>
             <DefaultDropdown
+              openOnClick={openOnClick}
               items={overflowMenuItems}
               onSelect={dropdownOnSelect}
               storeSelected

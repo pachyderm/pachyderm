@@ -133,6 +133,7 @@ interface DefaultDropdownProps extends DropdownProps {
   buttonOpts?: DropdownButtonProps;
   menuOpts?: DropdownMenuProps;
   'aria-label'?: string;
+  openOnClick?: () => void;
 }
 
 export const DefaultDropdown: React.FC<DefaultDropdownProps> = ({
@@ -141,11 +142,16 @@ export const DefaultDropdown: React.FC<DefaultDropdownProps> = ({
   buttonOpts,
   menuOpts,
   'aria-label': ariaLabel,
+  openOnClick,
   ...rest
 }) => {
   return (
     <Dropdown {...rest}>
-      <DropdownButton aria-label={ariaLabel} {...buttonOpts}>
+      <DropdownButton
+        aria-label={ariaLabel}
+        openOnClick={openOnClick}
+        {...buttonOpts}
+      >
         {children}
       </DropdownButton>
 

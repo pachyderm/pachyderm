@@ -17,6 +17,7 @@ export type DropdownButtonProps = Omit<
   'href' | 'to' | 'download' | 'buttonRef'
 > & {
   hideChevron?: boolean;
+  openOnClick?: () => void;
 };
 
 export const DropdownButton: React.FC<DropdownButtonProps> = ({
@@ -26,6 +27,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   disabled = false,
   buttonType = 'dropdown',
   IconSVG,
+  openOnClick,
   ...rest
 }) => {
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
@@ -63,7 +65,10 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
       aria-expanded={isOpen}
       buttonType={buttonType}
       className={mergedClasses}
-      onClick={(e) => toggleDropdown(e)}
+      onClick={(e) => {
+        openOnClick && openOnClick();
+        toggleDropdown(e);
+      }}
       onKeyDown={handleKeyDown}
       type="button"
       disabled={disabled}
