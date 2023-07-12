@@ -459,7 +459,7 @@ class TestModifyFile:
 
     @staticmethod
     def test_put_files(client: TestClient, default_project: bool, tmp_path: Path):
-        """Test that put_files """
+        """Test that put_files"""
         source = tmp_path / "data"
         source.mkdir()
         (source / "file1.dat").write_bytes(b"DATA1")
