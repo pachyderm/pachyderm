@@ -562,7 +562,7 @@ describe('services/pfs', () => {
 
       const updatedProjects = await client.pfs().listProject();
       expect(updatedProjects).toHaveLength(2);
-      expect(updatedProjects[0]).toEqual(
+      expect(updatedProjects[1]).toEqual(
         expect.objectContaining({
           project: {
             name: 'name',
