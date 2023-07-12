@@ -275,7 +275,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 	var ci *pfs.CommitInfo
 	var err error
 	// Wait for the base job to finish.
-	backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, func() error {
 		ci, err = pachClient.WaitCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.Id)
 		if errutil.IsDatabaseDisconnect(err) {
 			return backoff.ErrContinue
@@ -284,7 +284,9 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 			return err
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second), nil)
+	}, backoff.RetryEvery(time.Second), nil); err != nil {
+		return "", errors.Wrapf(err, "wait for meta commit %q", pj.baseMetaCommit.String())
+	}
 	if ci.Error != "" {
 		return "", pfsserver.ErrCommitError{Commit: ci.Commit}
 	}
