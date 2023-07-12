@@ -93,7 +93,6 @@ def _Commit_from_uri(uri: str) -> Commit:
     All unspecified components will default to None, except for an unspecified
       project which defaults to "default".
     """
-    # TODO: Can we do more error checking here?
     if "@" not in uri:
         raise ValueError(
             "Could not parse branch/commit. URI must have the form: "

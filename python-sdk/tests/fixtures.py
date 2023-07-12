@@ -45,9 +45,6 @@ def auth_client(request) -> "TestClient":
 class TestClient(_Client):
     """This is a test client that keeps track of the resources created and
     cleans them up once the test is complete.
-
-    TODO:
-        * Add resource names when using verbosity
     """
 
     __test__ = False
@@ -127,7 +124,7 @@ class TestClient(_Client):
                 .replace("/", "-")
                 .replace(":", "-")
                 .replace(".py", "")
-        )[:40]  # TODO: Make this the maximum it can be.
+        )[:40]
         # fmt: on
         name = f"{name[:name.find('[')]}-{random.randint(100, 999)}"
         return name

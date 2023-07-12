@@ -81,7 +81,7 @@ class ClosedCommit(Commit):
         """
         return self._stub.wait_commit(self)
 
-    def wait_set(self) -> List["CommitInfo"]:  # TODO: Better name?
+    def wait_all(self) -> List["CommitInfo"]:
         """Similar to Commit.wait but streams back the pfs.CommitInfo
         from all the downstream jobs that were initiated by this commit.
         """
@@ -289,7 +289,7 @@ class OpenCommit(ClosedCommit):
         self._stub.copy_file(commit=self, src=src, dst=dst, append=append)
         return File(commit=self._commit, path=dst)
 
-    def delete_file(self, *, path: str) -> "File":  # TODO: Should we return anything?
+    def delete_file(self, *, path: str) -> "File":
         """Copies a file within PFS
 
         Parameters
@@ -540,17 +540,27 @@ class ApiStub(_GeneratedApiStub):
         >>>             commit=c, path="/index.html", file=source
         >>>         )
         """
+        check = file.read(BUFFER_SIZE)
+        if len(check) > 0:
+            if not isinstance(check, bytes):
+                raise TypeError("File must output bytes")
 
-        # TODO: Can we verify that the file is outputting bytes?
+        def file_iterator():
+            if not check:
+                return
+            yield check
+            while True:
+                data = file.read(BUFFER_SIZE)
+                if len(data) == 0:
+                    return
+                yield data
+
         def operations() -> Iterable[ModifyFileRequest]:
             yield ModifyFileRequest(set_commit=commit)
             if not append:
                 yield ModifyFileRequest(delete_file=DeleteFile(path=path))
             yield ModifyFileRequest(add_file=AddFile(path=path, raw=b""))
-            while True:
-                data = file.read(BUFFER_SIZE)
-                if len(data) == 0:
-                    return
+            for data in file_iterator():
                 yield ModifyFileRequest(add_file=AddFile(path=path, raw=data))
 
         return self.modify_file(operations())
@@ -733,7 +743,7 @@ class ApiStub(_GeneratedApiStub):
                 return False
             raise err
 
-    def pfs_file(self, file: "File") -> "PFSFile":  # TODO: Naming?
+    def pfs_file(self, file: "File") -> "PFSFile":
         """Wraps the response stream of a client.pfs.get_file() call with a
         PFSFile object. This wrapper class allows you to interact with the
         file stream as a normal file object.
@@ -756,7 +766,7 @@ class ApiStub(_GeneratedApiStub):
         stream = self.get_file(file=file)
         return PFSFile(stream)
 
-    def pfs_tar_file(self, file: "File") -> "PFSTarFile":  # TODO: Naming?
+    def pfs_tar_file(self, file: "File") -> "PFSTarFile":
         """Wraps the response stream of a client.pfs.get_tar_file() call with a
         PFSTarFile object. This wrapper class allows you to interact with the
         file stream as a standard tarfile.TarFile object.
