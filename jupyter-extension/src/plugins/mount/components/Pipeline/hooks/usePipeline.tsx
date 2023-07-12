@@ -64,6 +64,7 @@ export const usePipeline = (
       setInputSpec('');
     }
     setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
+    setPipelinePort(ppsContext?.metadata?.config.port ?? '');
   }, [ppsContext]);
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export const usePipeline = (
         image: imageName,
         requirements: requirements,
         input_spec: inputSpec,
-        port: pipelinePort
+        port: pipelinePort,
       },
     };
   };
