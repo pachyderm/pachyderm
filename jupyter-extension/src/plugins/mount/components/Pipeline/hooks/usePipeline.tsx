@@ -70,7 +70,14 @@ export const usePipeline = (
   useEffect(() => {
     const ppsMetadata: PpsMetadata = buildMetadata();
     saveNotebookMetaData(ppsMetadata);
-  }, [pipelineName, pipelineProject, imageName, requirements, inputSpec, pipelinePort]);
+  }, [
+    pipelineName,
+    pipelineProject,
+    imageName,
+    requirements,
+    inputSpec,
+    pipelinePort,
+  ]);
 
   let callCreatePipeline: () => Promise<void>;
   if (ppsContext?.notebookModel) {
