@@ -6,7 +6,7 @@ import {useHistory} from 'react-router';
 
 import ActiveProjectModal from '@dash-frontend/components/ActiveProjectModal';
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
+import {useVerifiedAuthorizationLazy} from '@dash-frontend/hooks/useVerifiedAuthorizationLazy';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Button,
@@ -59,23 +59,30 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     isOpen: deleteModalIsOpen,
   } = useModal(false);
 
-  const {isAuthorizedAction: deleteProjectIsAuthorizedAction} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.PROJECT_DELETE],
-      resource: {type: ResourceType.PROJECT, name: project.id},
-    });
+  const {
+    checkRolesPermission: checkRolesPermissionDeleteProject,
+    isAuthorizedAction: deleteProjectIsAuthorizedAction,
+  } = useVerifiedAuthorizationLazy({
+    permissionsList: [Permission.PROJECT_DELETE],
+    resource: {type: ResourceType.PROJECT, name: project.id},
+  });
 
-  const {isAuthorizedAction: editProjectIsAuthorizedAction} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.PROJECT_CREATE],
-      resource: {type: ResourceType.PROJECT, name: project.id},
-    });
+  const {
+    checkRolesPermission: checkRolesPermissionEditProject,
+    isAuthorizedAction: editProjectIsAuthorizedAction,
+  } = useVerifiedAuthorizationLazy({
+    permissionsList: [Permission.PROJECT_CREATE],
+    resource: {type: ResourceType.PROJECT, name: project.id},
+  });
 
-  const {isAuthorizedAction: editProjectRoleIsAuthorizedAction, isAuthActive} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
-      resource: {type: ResourceType.PROJECT, name: project.id},
-    });
+  const {
+    checkRolesPermission: checkRolesPermissionEditProjectRole,
+    isAuthorizedAction: editProjectRoleIsAuthorizedAction,
+    isAuthActive,
+  } = useVerifiedAuthorizationLazy({
+    permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
+    resource: {type: ResourceType.PROJECT, name: project.id},
+  });
 
   const onClick = () =>
     browserHistory.push(lineageRoute({projectId: project.id}));
@@ -163,6 +170,11 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
                   buttonType: 'ghost',
                 }}
                 menuOpts={{pin: 'right'}}
+                openOnClick={() => {
+                  checkRolesPermissionDeleteProject();
+                  checkRolesPermissionEditProject();
+                  checkRolesPermissionEditProjectRole();
+                }}
               />
             </Group>
           </Group>
