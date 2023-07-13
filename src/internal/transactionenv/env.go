@@ -148,7 +148,7 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 
 func (t *directTransaction) SquashCommitSet(original *pfs.SquashCommitSetRequest) error {
 	req := proto.Clone(original).(*pfs.SquashCommitSetRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
