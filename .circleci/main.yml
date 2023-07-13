@@ -1522,7 +1522,7 @@ jobs:
           name: Publish
           command: |
             poetry version << parameters.version >>
-            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD"
+            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
 
 workflows:
   integration-tests:
