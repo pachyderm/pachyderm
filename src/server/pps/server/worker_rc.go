@@ -277,7 +277,9 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 	}
-
+	if pipelineInfo.Details.Determined != nil {
+		workerEnv = append(workerEnv, kd.getDeterminedEnvVars(pipelineInfo)...)
+	}
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
@@ -632,6 +634,30 @@ func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v
 	return result
 }
 
+func (kd *kubeDriver) getDeterminedEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
+	return []v1.EnvVar{
+		{
+			Name:  "DET_MASTER",
+			Value: kd.config.DeterminedURL,
+		},
+		{
+			Name:  "DET_USER",
+			Value: pipelineInfo.Pipeline.String(), // TODO: call common util for determined pipeline user name
+		},
+		{
+			Name: "DET_PASSWORD",
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: pipelineInfo.Pipeline.Project.Name + "-" + pipelineInfo.Pipeline.Name + "-det",
+					},
+					Key: "password",
+				},
+			},
+		},
+	}
+}
+
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
 // visible to any user with k8s cluster access
 // Note: This hash shouldn't be used for authentication in any way. We just use
@@ -926,7 +952,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 	context.SessionToken = pipelineInfo.AuthToken
 	context.PachdAddress = "localhost:1653"
 
-	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
+	rawConfig, err := json.MarshalIndent(&cfg, "", "  ")
 	if err != nil {
 		return errors.Wrapf(err, "error marshaling the config")
 	}

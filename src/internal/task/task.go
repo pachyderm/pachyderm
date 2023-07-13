@@ -3,7 +3,7 @@ package task
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Service manages the distributed processing of tasks.
@@ -48,7 +48,7 @@ type Doer interface {
 	// by the input channel. The client should close the input channel when all tasks have
 	// been sent (it does not need to be closed if the context is canceled). For each
 	// task, the collect function will be called with the results.
-	Do(ctx context.Context, inputChan chan *types.Any, cb CollectFunc) error
+	Do(ctx context.Context, inputChan chan *anypb.Any, cb CollectFunc) error
 }
 
 // Source is a source of tasks.
@@ -61,14 +61,14 @@ type Source interface {
 
 // CollectFunc is the type of a function that is used for collecting the output of a stream / batch of tasks.
 // Index is the index of a task with respect to the order in which the task was created in the stream / batch.
-type CollectFunc = func(index int64, output *types.Any, _ error) error
+type CollectFunc = func(index int64, output *anypb.Any, _ error) error
 
 // ProcessFunc is the type of a function that is use for processing a task.
 // If an error occurs, then it should be returned.
 // This error will be propagated back to the Doer that created the task.
-type ProcessFunc = func(ctx context.Context, input *types.Any) (output *types.Any, _ error)
+type ProcessFunc = func(ctx context.Context, input *anypb.Any) (output *anypb.Any, _ error)
 
 type Cache interface {
-	Get(ctx context.Context, key string) (output *types.Any, _ error)
-	Put(ctx context.Context, key string, output *types.Any) error
+	Get(ctx context.Context, key string) (output *anypb.Any, _ error)
+	Put(ctx context.Context, key string, output *anypb.Any) error
 }

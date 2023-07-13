@@ -73,14 +73,13 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: go install ./src/testing/match
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - install-go-releaser
       - run:
           no_output_timeout: 20m
           command: |-
@@ -90,6 +89,7 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
+            --rerun-fails-max-failures=100 \
             --debug \
             -- \
             go test ./... -json \
@@ -113,7 +113,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -209,6 +209,7 @@ jobs:
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --raw-command \
               --rerun-fails \
+              --rerun-fails-max-failures=100 \
               --format standard-verbose \
               --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \
@@ -238,7 +239,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -1451,6 +1452,12 @@ jobs:
       - install-helm
       - install-kubectl
       - start-minikube
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
@@ -1479,6 +1486,43 @@ jobs:
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
             poetry run pytest -vvv tests
+
+  python-sdk-test-publish:
+    executor: python
+    working_directory: ~/project/python-sdk
+    parameters:
+      version:
+        type: string
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - install-poetry
+      - run:
+          name: Publish
+          command: |
+            poetry config repositories.test-pypi https://test.pypi.org/legacy/
+            poetry version << parameters.version >>
+            poetry publish --build --repository test-pypi --username "$PYPI_USERNAME" --password "$TEST_PYPI_PASSWORD"
+
+  python-sdk-publish:
+    executor: python
+    working_directory: ~/project/python-sdk
+    parameters:
+      version:
+        type: string
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - install-poetry
+      - run:
+          name: Publish
+          command: |
+            poetry version << parameters.version >>
+            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD"
 
 workflows:
   integration-tests:
@@ -1679,7 +1723,11 @@ workflows:
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
   python-sdk:
-    when: << pipeline.parameters.run-python-sdk-jobs >>
+    when:
+      condition:
+        or:
+          - << pipeline.parameters.run-python-sdk-jobs >>
+          - << pipeline.parameters.run-core-jobs >>
     jobs:
       - test-python-sdk:
           requires:
@@ -1757,6 +1805,11 @@ workflows:
           filters: *only-release-tags
           requires:
             - jupyter-extension-build
+            - build-pachctl-bin
+      - test-python-sdk:
+          filters: *only-release-tags
+          requires:
+            - build-docker-images
             - build-pachctl-bin
       - pulumi-aws-test-env:
           name: aws-prerelease-testing-env-1
@@ -1900,6 +1953,18 @@ workflows:
           requires:
             - sign-off
             - jupyter-extension-docker-build
+          filters: *only-release-tags
+      - python-sdk-test-publish:
+          version: ${CIRCLE_TAG:1}
+          requires:
+            - test-python-sdk
+          filters: *only-release-tags
+      - python-sdk-publish:
+          version: ${CIRCLE_TAG:1}
+          requires:
+            - test-python-sdk
+            - python-sdk-test-publish
+            - sign-off
           filters: *only-release-tags
   nightly-release:
     jobs:

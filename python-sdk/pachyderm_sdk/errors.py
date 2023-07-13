@@ -43,6 +43,7 @@ class InvalidTransactionOperation(RuntimeError):
     """Error triggered when an invalid operation (i.e. file write)
     is called when inside a transaction.
     """
+
     def __init__(self):
         super().__init__(
             "File operations are not permitted within a pachyderm transaction."

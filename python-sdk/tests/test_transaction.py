@@ -15,9 +15,7 @@ class TestTransaction:
 
         def create_repo_request(repo_name):
             return transaction.TransactionRequest(
-                create_repo=pfs.CreateRepoRequest(
-                    repo=pfs.Repo.from_uri(repo_name)
-                )
+                create_repo=pfs.CreateRepoRequest(repo=pfs.Repo.from_uri(repo_name))
             )
 
         try:
@@ -88,10 +86,10 @@ class TestTransaction:
 
     @staticmethod
     def test_file_operations_within_transaction(client: TestClient, default_project: bool):
-        """Ensure that file operations """
+        """Ensure that file operations"""
         repo = client.new_repo(default_project)
         branch = pfs.Branch(repo=repo, name="master")
-        test_file = pfs.File.from_uri(f"{repo.project.name}/{repo.name}@master:/file.dat")
+        test_file = pfs.File.from_uri(f"{branch}:/file.dat")
 
         with client.transaction.transaction() as _txn:
             repo_txn = client.new_repo(default_project)

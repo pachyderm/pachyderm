@@ -11,6 +11,7 @@ import "google/protobuf/wrappers.proto";
 import "pfs/pfs.proto";
 
 import "task/task.proto";
+import "protoextensions/log.proto";
 
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
@@ -52,6 +53,11 @@ message Egress {
     pfs_v2.ObjectStorageEgress object_storage = 2;
     pfs_v2.SQLDatabaseEgress sql_database = 3;
   }
+}
+
+message Determined {
+  repeated string workspaces = 1;
+  string password = 2 [(log.mask) = true]; 
 }
 
 message Job {
@@ -455,6 +461,7 @@ message PipelineInfo {
     bool autoscaling = 33;
     repeated Toleration tolerations = 34;
     ResourceSpec sidecar_resource_requests = 35;
+    Determined determined = 36;
   }
   Details details = 12;
   string details_json = 13;
@@ -714,6 +721,7 @@ message CreatePipelineRequest {
   ResourceSpec sidecar_resource_requests = 35;
   string details_json = 36;
   bool dry_run = 37;
+  Determined determined = 38;
 }
 
 message CreatePipelineResponse {

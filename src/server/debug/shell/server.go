@@ -5,7 +5,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -34,10 +34,9 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func NewDumpServer(filePath string, port uint16) *debugDump {
@@ -170,9 +169,9 @@ func (d *debugDump) globTarProtos(glob string, template proto.Message, onProto f
 	var found bool
 	err := d.globTar(glob, func(path string, r io.Reader) error {
 		found = true
-		dec := json.NewDecoder(r)
+		dec := protoutil.NewProtoJSONDecoder(r, protojson.UnmarshalOptions{})
 		for dec.More() {
-			if err := jsonpb.UnmarshalNext(dec, template); err != nil {
+			if err := dec.UnmarshalNext(template); err != nil {
 				return err
 			}
 			if err := onProto(); err != nil {
@@ -318,7 +317,7 @@ func (d *debugDump) listCommitSet(req *pfs.ListCommitSetRequest, srv pfs.API_Lis
 	latestMap := make(map[string]time.Time)
 	if _, err := d.globTarProtos(glob, &info, func() error {
 		commitMap[info.Commit.Id] = append(commitMap[info.Commit.Id], proto.Clone(&info).(*pfs.CommitInfo))
-		asTime, _ := types.TimestampFromProto(info.Started)
+		asTime := info.Started.AsTime()
 		if latestMap[info.Commit.Id].Before(asTime) {
 			latestMap[info.Commit.Id] = asTime
 		}
@@ -516,7 +515,7 @@ func (d *debugDump) listJobSet(req *pps.ListJobSetRequest, srv pps.API_ListJobSe
 	latestMap := make(map[string]time.Time)
 	if _, err := d.globTarProtos(glob, &info, func() error {
 		jobMap[info.Job.Id] = append(jobMap[info.Job.Id], proto.Clone(&info).(*pps.JobInfo))
-		asTime, _ := types.TimestampFromProto(info.Started)
+		asTime := info.Started.AsTime()
 		if latestMap[info.Job.Id].Before(asTime) {
 			latestMap[info.Job.Id] = asTime
 		}
@@ -554,7 +553,7 @@ func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_Ins
 	return err
 }
 
-func (d *debugDump) getVersion(context.Context, *types.Empty) (*versionpb.Version, error) {
+func (d *debugDump) getVersion(context.Context, *emptypb.Empty) (*versionpb.Version, error) {
 	var version *versionpb.Version
 	err := d.globTar("pachd/*/pachd/version.txt", func(_ string, r io.Reader) error {
 		b, err := io.ReadAll(r)

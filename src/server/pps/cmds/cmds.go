@@ -16,12 +16,13 @@ import (
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -582,7 +583,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return errors.Wrapf(err, "parse since(%q)", since)
 			}
 			request := pps.LokiRequest{
-				Since: types.DurationProto(since),
+				Since: durationpb.New(since),
 			}
 			kubeEventsClient, err := client.PpsAPIClient.GetKubeEvents(client.Ctx(), &request)
 			if err != nil {
@@ -625,7 +626,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			request := pps.LokiRequest{
 				Query: query,
-				Since: types.DurationProto(since),
+				Since: durationpb.New(since),
 			}
 			lokiClient, err := client.PpsAPIClient.QueryLoki(client.Ctx(), &request)
 			if err != nil {
@@ -778,15 +779,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				since = 0
 			}
 			iter := client.GetLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
-			var buf bytes.Buffer
-			m := &jsonpb.Marshaler{}
 			for iter.Next() {
 				if raw {
-					buf.Reset()
-					if err := m.Marshal(&buf, iter.Message()); err != nil {
-						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
-					}
-					fmt.Println(buf.String())
+					fmt.Println(protojson.Format(iter.Message()))
 				} else if iter.Message().User && !master && !worker {
 					prettyLogsPrinter(iter.Message().Message)
 				} else if iter.Message().Master && master {
@@ -1402,7 +1397,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 			secretInfos, err := client.PpsAPIClient.ListSecret(
 				client.Ctx(),
-				&types.Empty{},
+				&emptypb.Empty{},
 			)
 
 			if err != nil {
@@ -1445,7 +1440,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				}
 			}()
 			if len(args) == 0 {
-				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}

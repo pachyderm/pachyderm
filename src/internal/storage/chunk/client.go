@@ -87,13 +87,13 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 		pointsTo = append(pointsTo, cid.TrackerID())
 	}
 	chunkTID := chunkID.TrackerID()
-	if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) (retErr error) {
+	if err := dbutil.WithTx(ctx, c.db, func(cbCtx context.Context, tx *pachsql.Tx) (retErr error) {
 		needUpload, gen = false, 0
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return errors.EnsureStack(err)
 		}
 		var ents []Entry
-		if err := tx.Select(&ents, `
+		if err := tx.SelectContext(cbCtx, &ents, `
 		SELECT chunk_id, gen
 		FROM storage.chunk_objects
 		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1`, chunkID); err != nil {
@@ -103,7 +103,7 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 			needUpload = false
 			return nil
 		}
-		if err := tx.Get(&gen, `
+		if err := tx.GetContext(cbCtx, &gen, `
 		INSERT INTO storage.chunk_objects (chunk_id, size)
 		VALUES ($1, $2)
 		RETURNING gen

@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -19,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestActivate tests that we can activate the license server
@@ -53,11 +52,10 @@ func TestExpired(t *testing.T) {
 	tu.ActivateEnterprise(t, client, peerPort)
 
 	expires := time.Now().Add(-30 * time.Second)
-	expiresProto, err := types.TimestampProto(expires)
-	require.NoError(t, err)
+	expiresProto := timestamppb.New(expires)
 
 	// Activate Enterprise with an expiration in the past
-	_, err = client.License.Activate(context.Background(),
+	_, err := client.License.Activate(context.Background(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,

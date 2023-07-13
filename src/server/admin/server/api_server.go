@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -13,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Env is the set of dependencies required by an APIServer
@@ -53,6 +53,7 @@ func NewAPIServer(env Env) APIServer {
 }
 
 type apiServer struct {
+	admin.UnimplementedAPIServer
 	clusterInfo *admin.ClusterInfo
 }
 

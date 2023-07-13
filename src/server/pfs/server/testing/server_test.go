@@ -22,13 +22,14 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -378,7 +379,7 @@ func TestPFS(suite *testing.T) {
 				err := c.CreateProject(tc.projectName)
 				if tc.errMatch != "" {
 					require.YesError(t, err)
-					require.Matches(t, tc.errMatch, err.Error())
+					require.ErrorContains(t, err, tc.errMatch)
 				} else {
 					require.NoError(t, err)
 				}
@@ -1499,28 +1500,20 @@ func TestPFS(suite *testing.T) {
 
 		commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
 		require.NoError(t, err)
-
-		tStarted, err := types.TimestampFromProto(commitInfo.Started)
-		require.NoError(t, err)
-
+		tStarted := commitInfo.Started.AsTime()
 		require.Equal(t, commit, commitInfo.Commit)
 		require.Nil(t, commitInfo.Finished)
 		require.Equal(t, &pfs.CommitInfo_Details{}, commitInfo.Details) // no details for an unfinished commit
 		require.True(t, started.Before(tStarted))
 		require.Nil(t, commitInfo.Finished)
-
 		finished := time.Now()
+
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
 
 		commitInfo, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
 		require.NoError(t, err)
-
-		tStarted, err = types.TimestampFromProto(commitInfo.Started)
-		require.NoError(t, err)
-
-		tFinished, err := types.TimestampFromProto(commitInfo.Finished)
-		require.NoError(t, err)
-
+		tStarted = commitInfo.Started.AsTime()
+		tFinished := commitInfo.Finished.AsTime()
 		require.Equal(t, commit, commitInfo.Commit)
 		require.NotNil(t, commitInfo.Finished)
 		require.Equal(t, len(fileContent), int(commitInfo.Details.SizeBytes))
@@ -5981,8 +5974,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		ri, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
-		created, err := types.TimestampFromProto(ri.Created)
-		require.NoError(t, err)
+		created := ri.Created.AsTime()
 		desc := "foo"
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(
 			env.PachClient.Ctx(),
@@ -5995,8 +5987,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		ri, err = env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)
-		newCreated, err := types.TimestampFromProto(ri.Created)
-		require.NoError(t, err)
+		newCreated := ri.Created.AsTime()
 		require.Equal(t, created, newCreated)
 		require.Equal(t, desc, ri.Description)
 	})
@@ -6343,7 +6334,7 @@ func TestPFS(suite *testing.T) {
 		t.Log("Random seed is", seed)
 		r := rand.New(rand.NewSource(seed))
 
-		_, err := env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		_, err := env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
 		nOps := 300
 		opShares := []int{
@@ -6502,7 +6493,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.FsckFastExit())
 		}
 		// make sure we can delete at the end
-		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
 	})
 
@@ -6575,19 +6566,21 @@ func TestPFS(suite *testing.T) {
 		c := env.PachClient
 
 		t.Run("Simple", func(t *testing.T) {
+			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "test"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "test", "master", "", "", &pfs.Trigger{
 				Branch: "staging",
-				Size_:  "1B",
+				Size:   "1B",
 			}))
 			require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "test", "staging", ""), "file", strings.NewReader("small")))
 		})
 
 		t.Run("SizeWithProvenance", func(t *testing.T) {
+			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "in"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
-				Size_:  "1K",
+				Size:   "1K",
 			}))
 			inCommit := client.NewCommit(pfs.DefaultProjectName, "in", "master", "")
 			bis, err := c.ListBranch(pfs.DefaultProjectName, "in")
@@ -6599,7 +6592,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "out", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
-				Size_:  "1K",
+				Size:   "1K",
 			}))
 			// Write a small file, too small to trigger
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader("small")))
@@ -6654,41 +6647,76 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("Cron", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "cron"))
-			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "cron", "trigger", "", "", &pfs.Trigger{
+			t.Parallel()
+			repo := tu.UniqueString("Cron")
+			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *", // every minute
 			}))
-			cronCommit := client.NewCommit(pfs.DefaultProjectName, "cron", "master", "")
-			// The first commit should always trigger a cron
-			require.NoError(t, c.PutFile(cronCommit, "file1", strings.NewReader("foo")))
-			_, err := c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
+			// Create initial commit.
+			commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
+			require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 			require.NoError(t, err)
-			bi, err := c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
-			require.NoError(t, err)
-			require.NotNil(t, bi.Head)
 			head := bi.Head.Id
-
-			// Second commit should not trigger the cron because less than a
-			// minute has passed
-			require.NoError(t, c.PutFile(cronCommit, "file2", strings.NewReader("bar")))
-			_, err = c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
-			require.NoError(t, err)
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
+			// Ensure that the trigger fired after a minute.
+			time.Sleep(time.Minute)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.Id)
-
+			// Ensure that the trigger branch remains unchanged after another minute (no new commmit).
 			time.Sleep(time.Minute)
-			// Third commit should trigger the cron because a minute has passed
-			require.NoError(t, c.PutFile(cronCommit, "file3", strings.NewReader("fizz")))
-			_, err = c.WaitCommit(pfs.DefaultProjectName, "cron", "master", "")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
 			require.NoError(t, err)
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "cron", "trigger")
+			require.Equal(t, head, bi.Head.Id)
+			// Ensure that the trigger still works after another commmit.
+			require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+			require.NoError(t, err)
+			head = bi.Head.Id
+			time.Sleep(time.Minute)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.Id)
+		})
+
+		t.Run("CronUpdate", func(t *testing.T) {
+			t.Parallel()
+			repo := tu.UniqueString("CronUpdate")
+			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+			// Create the initial trigger for every minute, then update it to every January.
+			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
+				Branch:   "master",
+				CronSpec: "* * * * *", // every minute
+			}))
+			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
+				Branch:   "master",
+				CronSpec: "* * * 1 *", // every January
+			}))
+			// Create initial commit and ensure that it doesn't fire in a minute.
+			commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
+			require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+			require.NoError(t, err)
+			head := bi.Head.Id
+			time.Sleep(time.Minute)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.Id)
+			// Update the trigger back to one minute and ensure that the trigger fires.
+			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
+				Branch:   "master",
+				CronSpec: "* * * * *", // every minute
+			}))
+			time.Sleep(3 * time.Second)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.Id)
 		})
 
 		t.Run("Count", func(t *testing.T) {
+			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "count"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "count", "trigger", "", "", &pfs.Trigger{
 				Branch:  "master",
@@ -6746,12 +6774,13 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("Or", func(t *testing.T) {
+			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "or"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "or", "trigger", "", "", &pfs.Trigger{
-				Branch:   "master",
-				CronSpec: "* * * * *",
-				Size_:    "100",
-				Commits:  3,
+				Branch:        "master",
+				RateLimitSpec: "* * * * *",
+				Size:          "100",
+				Commits:       3,
 			}))
 			orCommit := client.NewCommit(pfs.DefaultProjectName, "or", "master", "")
 			// This triggers, because the cron is satisfied
@@ -6820,13 +6849,14 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("And", func(t *testing.T) {
+			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "and"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "and", "trigger", "", "", &pfs.Trigger{
-				Branch:   "master",
-				All:      true,
-				CronSpec: "* * * * *",
-				Size_:    "100",
-				Commits:  3,
+				Branch:        "master",
+				All:           true,
+				RateLimitSpec: "* * * * *",
+				Size:          "100",
+				Commits:       3,
 			}))
 			andCommit := client.NewCommit(pfs.DefaultProjectName, "and", "master", "")
 			// Doesn't trigger because all 3 conditions must be met
@@ -6894,15 +6924,16 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("Chain", func(t *testing.T) {
+			t.Parallel()
 			// a triggers b which triggers c
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "chain"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "chain", "b", "", "", &pfs.Trigger{
 				Branch: "a",
-				Size_:  "100",
+				Size:   "100",
 			}))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "chain", "c", "", "", &pfs.Trigger{
 				Branch: "b",
-				Size_:  "200",
+				Size:   "200",
 			}))
 			aCommit := client.NewCommit(pfs.DefaultProjectName, "chain", "a", "")
 			// Triggers nothing
@@ -6977,10 +7008,11 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("BranchMovement", func(t *testing.T) {
+			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "branch-movement"))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",
-				Size_:  "100",
+				Size:   "100",
 			}))
 			moveCommit := client.NewCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
 
@@ -7026,17 +7058,17 @@ func TestPFS(suite *testing.T) {
 		// Must specify a branch
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "master", "", "", &pfs.Trigger{
 			Branch: "",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// Can't trigger a branch on itself
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "master", "", "", &pfs.Trigger{
 			Branch: "master",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// Size doesn't parse
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "trigger", "", "", &pfs.Trigger{
 			Branch: "master",
-			Size_:  "this is not a size",
+			Size:   "this is not a size",
 		}))
 		// Can't have negative commit count
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "trigger", "", "", &pfs.Trigger{
@@ -7047,12 +7079,12 @@ func TestPFS(suite *testing.T) {
 		// a -> b (valid, sets up the next test)
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "b", "", "", &pfs.Trigger{
 			Branch: "a",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// Can't have circular triggers
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "a", "", "", &pfs.Trigger{
 			Branch: "b",
-			Size_:  "1K",
+			Size:   "1K",
 		}))
 		// CronSpec doesn't parse
 		require.YesError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "trigger", "", "", &pfs.Trigger{
@@ -7066,7 +7098,7 @@ func TestPFS(suite *testing.T) {
 				Branch: client.NewBranch(pfs.DefaultProjectName, "repo", "master"),
 				Trigger: &pfs.Trigger{
 					Branch: "master",
-					Size_:  "1K",
+					Size:   "1K",
 				},
 				Provenance: []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")},
 			})
@@ -7150,7 +7182,7 @@ func TestPFS(suite *testing.T) {
 						AddFile: &pfs.AddFile{
 							Path: file,
 							Source: &pfs.AddFile_Raw{
-								Raw: &types.BytesValue{},
+								Raw: &wrapperspb.BytesValue{},
 							},
 						},
 					},
@@ -7184,7 +7216,7 @@ func TestPFS(suite *testing.T) {
 					AddFile: &pfs.AddFile{
 						Path: filePath,
 						Source: &pfs.AddFile_Raw{
-							Raw: &types.BytesValue{Value: []byte(fileContent)},
+							Raw: wrapperspb.Bytes([]byte(fileContent)),
 						},
 					},
 				},

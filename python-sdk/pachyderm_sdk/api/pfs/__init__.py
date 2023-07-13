@@ -173,10 +173,10 @@ class Trigger(betterproto.Message):
     happens, otherwise any conditions being satisfied will trigger it.
     """
 
-    cron_spec: str = betterproto.string_field(3)
+    rate_limit_spec: str = betterproto.string_field(3)
     """
-    Triggers if the cron spec has been satisfied since the last trigger and
-    there's been a new commit.
+    Triggers if the rate limit spec (cron expression) has been satisfied since
+    the last trigger.
     """
 
     size: str = betterproto.string_field(4)
@@ -188,6 +188,14 @@ class Trigger(betterproto.Message):
     """
     Triggers if there's been `commits` new commits added since the last
     trigger.
+    """
+
+    cron_spec: str = betterproto.string_field(6)
+    """
+    Creates a background process which fires the trigger on the schedule
+    provided by the cron spec. This condition is mutually exclusive with
+    respect to the others, so setting this will result with the trigger only
+    firing based on the cron schedule.
     """
 
 

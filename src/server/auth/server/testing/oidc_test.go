@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -17,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
@@ -93,7 +92,7 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	// Expire Enterprise License
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	// set Enterprise Token value to have expired
-	ts := &types.Timestamp{Seconds: time.Now().Unix() - 100}
+	ts := &timestamppb.Timestamp{Seconds: time.Now().Unix() - 100}
 	resp, err := adminClient.License.Activate(adminClient.Ctx(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),

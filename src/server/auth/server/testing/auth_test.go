@@ -14,7 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -1327,11 +1328,11 @@ func TestDeleteAllRepos(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, aliceRepo))
 
 	// alice tries to delete all repos, but is not allowed to delete admin's repo
-	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &types.Empty{})
+	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &emptypb.Empty{})
 	require.ErrorContains(t, err, "not authorized")
 
 	// admin can delete all repos
-	_, err = adminClient.PfsAPIClient.DeleteAll(adminClient.Ctx(), &types.Empty{})
+	_, err = adminClient.PfsAPIClient.DeleteAll(adminClient.Ctx(), &emptypb.Empty{})
 	require.NoError(t, err)
 
 	listResp, err := aliceClient.ListRepo()
@@ -2011,7 +2012,7 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	require.Equal(t, 1, len(repoInfo))
 
 	// set Enterprise Token value to have expired
-	ts := &types.Timestamp{Seconds: time.Now().Unix() - 100}
+	ts := &timestamppb.Timestamp{Seconds: time.Now().Unix() - 100}
 	resp, err := adminClient.License.Activate(adminClient.Ctx(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
@@ -2078,7 +2079,7 @@ func TestLoad(t *testing.T) {
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
-	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &types.Empty{})
+	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &emptypb.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
@@ -2561,26 +2562,26 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 
 	tests := map[string]struct {
 		client         *client.APIClient
-		resource       auth.Resource
+		resource       *auth.Resource
 		expectedErrMsg string
 	}{
-		"ClusterAdminCanModifyCluster":               {clusterAdmin, clusterResource, ""},
-		"ClusterAdminCanModifyProject":               {clusterAdmin, aliceProject, ""},
-		"ClusterAdminCanModifyRepo":                  {clusterAdmin, aliceRepoInAliceProject, ""},
-		"ProjectOwnerCanModifyProject":               {aliceClient, aliceProject, ""},
-		"ProjectOwnerCanModifyAnyRepoWithinProject":  {aliceClient, bobRepoInAliceProject, ""},
-		"RepoOwnerCanModifyRepo":                     {bobClient, bobRepoInAliceProject, ""},
-		"ProjectOwnerCannotModifyProjectTheyDontOwn": {aliceClient, bobProject, "needs permissions [PROJECT_MODIFY_BINDINGS]"},
-		"ProjectOwnerCannotModifyCluster":            {aliceClient, clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
-		"RepoOwnerCannotModifyCluster":               {aliceClient, clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
-		"RepoOwnerCannotModifyRepoTheyDontOwn":       {bobClient, aliceRepoInAliceProject, "needs permissions [REPO_MODIFY_BINDINGS]"},
+		"ClusterAdminCanModifyCluster":               {clusterAdmin, &clusterResource, ""},
+		"ClusterAdminCanModifyProject":               {clusterAdmin, &aliceProject, ""},
+		"ClusterAdminCanModifyRepo":                  {clusterAdmin, &aliceRepoInAliceProject, ""},
+		"ProjectOwnerCanModifyProject":               {aliceClient, &aliceProject, ""},
+		"ProjectOwnerCanModifyAnyRepoWithinProject":  {aliceClient, &bobRepoInAliceProject, ""},
+		"RepoOwnerCanModifyRepo":                     {bobClient, &bobRepoInAliceProject, ""},
+		"ProjectOwnerCannotModifyProjectTheyDontOwn": {aliceClient, &bobProject, "needs permissions [PROJECT_MODIFY_BINDINGS]"},
+		"ProjectOwnerCannotModifyCluster":            {aliceClient, &clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
+		"RepoOwnerCannotModifyCluster":               {aliceClient, &clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
+		"RepoOwnerCannotModifyRepoTheyDontOwn":       {bobClient, &aliceRepoInAliceProject, "needs permissions [REPO_MODIFY_BINDINGS]"},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			_, err := tc.client.ModifyRoleBinding(tc.client.Ctx(), &auth.ModifyRoleBindingRequest{
 				Principal: tu.Robot("marvin"),
 				Roles:     []string{},
-				Resource:  &tc.resource,
+				Resource:  tc.resource,
 			})
 			if tc.expectedErrMsg == "" {
 				require.NoError(t, err)
