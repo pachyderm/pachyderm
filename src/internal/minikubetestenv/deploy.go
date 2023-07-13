@@ -368,26 +368,30 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	if enterpriseServer {
 		label = "app=pach-enterprise"
 	}
-	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
-		rs, err := kubeClient.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
-		if err != nil {
-			return errors.Wrap(err, "error on ReplicaSet list")
-		} else if rs.Size() != 1 {
-			return errors.Wrap(err, "unexpected ReplicaSet found")
-		}
 		var unacceptablePachds []string
+		var acceptablePachds []string
 		for _, p := range pachds.Items {
-			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == int(*rs.Items[0].Spec.Replicas) {
-				return nil
+			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready {
+				acceptablePachds = append(acceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
+			} else {
+				unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
 			}
-			unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
 		}
-		return errors.Errorf("deployment in progress: pachds: %v", strings.Join(unacceptablePachds, "; "))
-	})
+		if len(acceptablePachds) > 0 && (len(unacceptablePachds) == 0) {
+			return nil
+		}
+		return errors.Errorf("deployment in progress pachds ready:\n %v unacceptable pachds: %v \n %v acceptable pachds: %v",
+			len(unacceptablePachds),
+			strings.Join(unacceptablePachds, "; "),
+			len(acceptablePachds),
+			strings.Join(acceptablePachds, "; "),
+		)
+	}, 5*time.Second)
 }
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
