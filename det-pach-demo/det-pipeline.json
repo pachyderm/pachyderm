@@ -1,0 +1,23 @@
+{
+    "pipeline": {
+      "name": "det"
+    },
+    "description": "Detects changed files into a repository and triggers a retraining on that dataset",
+    "input": {
+      "pfs": {
+        "name": "data",
+        "repo": "input",
+        "branch": "master",
+        "glob": "/",
+        "empty_files": true
+      }
+    },
+    "transform": {
+      "cmd": ["/bin/sh"],
+      "stdin": ["pip install determined && det model list -w party --json > /pfs/out/party.txt"],
+      "image": "python:3.8",
+    },
+    "determined": {
+	"workspaces": ["party"]
+    }
+  }
