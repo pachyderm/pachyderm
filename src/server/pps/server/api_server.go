@@ -2653,7 +2653,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 				}
 			} else {
 				if info.Details.Service.Type == "LoadBalancer" {
-					info.Details.Service.IP = service.Spec.LoadBalancerIP
+					info.Details.Service.IP = strings.Join(service.Spec.ExternalIPs, "")
 				} else {
 					info.Details.Service.IP = service.Spec.ClusterIP
 				}
