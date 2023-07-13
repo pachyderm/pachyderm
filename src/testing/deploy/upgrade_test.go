@@ -270,7 +270,7 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 	}
 	fromVersions := []string{"2.5.0", "2.6.0"}
 	files := []string{"file1", "file2", "file3", "file4"}
-	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { // preUpgrade
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			// Create projects
