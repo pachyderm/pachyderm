@@ -376,7 +376,7 @@ type datumCallback = func(ctx context.Context, logger logs.TaggedLogger, env []s
 func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, cb datumCallback) error {
 	jobInfo, err := driver.GetJobInfo(task.Job)
 	if err != nil {
-		return errors.Wrap(err, "could not get job info from datum set task job")
+		return errors.Wrapf(err, "load datum set's job info for job %q", task.Job.String())
 	}
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
@@ -394,7 +394,7 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 			inputs := meta.Inputs
 			logger := baseLogger.WithData(inputs)
 
-			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, driver.PipelineInfo().GetAuthToken(), jobInfo.GetAuthToken())
+			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, jobInfo.GetAuthToken())
 			opts := []datum.Option{datum.WithEnv(env)}
 			if driver.PipelineInfo().Details.DatumTimeout != nil {
 				timeout := driver.PipelineInfo().Details.DatumTimeout.AsDuration()

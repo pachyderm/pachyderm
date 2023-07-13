@@ -1360,10 +1360,9 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"echo PACH_TOKEN=$PACH_TOKEN",
 			"echo $PACH_TOKEN | pachctl auth use-auth-token",
-			"pachctl config update context --pachd-address 'grpc://pachd.test-cluster-1.svc.cluster.local:30660'",
-			"pachctl auth whoami",
+			"pachctl config update context --pachd-address 'grpc://localhost:30660'",
+			"echo $(pachctl auth whoami) > /pfs/out/result.txt",
 			"pachctl list repo",
 		},
 		&pps.ParallelismSpec{
