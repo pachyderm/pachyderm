@@ -57,6 +57,10 @@ func (err ErrRepoNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
+func IsErrRepoNotFound(err error) bool {
+	return strings.Contains(err.Error(), "not found")
+}
+
 // ErrRepoAlreadyExists is returned by CreateRepo() when a repo with the same name already exists in postgres.
 type ErrRepoAlreadyExists struct {
 	Project string

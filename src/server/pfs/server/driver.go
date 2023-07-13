@@ -150,14 +150,14 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	// calling "createRepo" on a repo that already exists).
 	existingRepoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Name)
 	if err != nil {
-		if !col.IsErrNotFound(err) {
+		if !pfsdb.IsErrRepoNotFound(err) {
 			return errors.Wrapf(err, "error checking whether repo %q exists", repo)
 		}
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
 			baseRepo := &pfs.Repo{Project: &pfs.Project{Name: repo.Project.GetName()}, Name: repo.GetName(), Type: pfs.UserRepoType}
 			if existingRepoInfo, err = pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, baseRepo.Name); err != nil {
-				if !col.IsErrNotFound(err) {
+				if !pfsdb.IsErrRepoNotFound(err) {
 					return errors.Wrapf(err, "error checking whether user repo for %q exists", baseRepo)
 				}
 				return errors.Wrap(err, "cannot create a system repo without a corresponding 'user' repo")
@@ -219,7 +219,7 @@ func (d *driver) inspectRepo(ctx context.Context, txnCtx *txncontext.Transaction
 	}
 	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Name)
 	if err != nil {
-		if col.IsErrNotFound(err) {
+		if pfsdb.IsErrRepoNotFound(err) {
 			return nil, pfsserver.ErrRepoNotFound{Repo: repo}
 		}
 		return nil, errors.EnsureStack(err)
@@ -423,7 +423,7 @@ func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.Trans
 
 func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Name); err != nil {
-		if !col.IsErrNotFound(err) {
+		if !pfsdb.IsErrRepoNotFound(err) {
 			return errors.Wrapf(err, "error checking whether %q exists", repo)
 		}
 		return nil
@@ -510,7 +510,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if err := pfsdb.DeleteRepo(ctx, txnCtx.SqlTx, ri.Repo.Name); err != nil && !col.IsErrNotFound(err) {
+	if err := pfsdb.DeleteRepo(ctx, txnCtx.SqlTx, ri.Repo.Name); err != nil && !pfsdb.IsErrRepoNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
 	}
 	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
@@ -538,7 +538,7 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 	if err := stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
 		related = append(related, repo)
 		return nil
-	}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): !NotFound may be unnecessary
+	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
 		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
 	}
 	return related, nil
@@ -892,7 +892,7 @@ func (d *driver) startCommit(
 	// Check if repo exists
 	_, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, branch.Repo.Name)
 	if err != nil {
-		if col.IsErrNotFound(err) {
+		if pfsdb.IsErrRepoNotFound(err) {
 			return nil, pfsserver.ErrRepoNotFound{Repo: branch.Repo}
 		}
 		return nil, errors.EnsureStack(err)
@@ -1338,7 +1338,7 @@ func (d *driver) listCommit(
 	if repo.Name != "" {
 		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 			if _, err := pfsdb.GetRepoByName(ctx, tx, repo.Name); err != nil {
-				if col.IsErrNotFound(err) {
+				if pfsdb.IsErrRepoNotFound(err) {
 					return pfsserver.ErrRepoNotFound{Repo: repo}
 				}
 				return errors.EnsureStack(err)
@@ -1936,7 +1936,7 @@ func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext
 	// Make sure that the repo exists
 	if repo.Name != "" {
 		if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Name); err != nil {
-			if col.IsErrNotFound(err) {
+			if pfsdb.IsErrRepoNotFound(err) {
 				return pfsserver.ErrRepoNotFound{Repo: repo}
 			}
 			return errors.EnsureStack(err)
