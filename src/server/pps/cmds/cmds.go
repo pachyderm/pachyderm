@@ -72,7 +72,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	jobDocs := &cobra.Command{
 		Short: "Docs for jobs.",
 		Long: "Jobs are the basic units of computation in Pachyderm and are created by pipelines. \n \n" +
-			"When created, a job runs a containerized workload over a set of finished input commits; once completed, they  write the output to a commit in the pipeline's output repo. \n" +
+			"When created, a job runs a containerized workload over a set of finished input commits; once completed, they  write the output to a commit in the pipeline's output repo. " +
 			"Jobs can have multiple datums, each processed independently, with the results merged together at the end. \n \n" +
 			"If a job fails, the output commit will not be populated with data.",
 	}
@@ -84,7 +84,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return info about a job.",
 		Long: "This command returns detailed info about a job, including processing stats, inputs, and transformation configuration (the image and commands used). \n \n" +
 			"If you pass in a job set ID (without the `pipeline@`), it will defer you to using the `pachctl list job <id>` command. See examples for proper use. \n \n" +
-			"\t- To specify the project where the parent pipeline lives, use the `--project` flag. \n" +
+			"\t- To specify the project where the parent pipeline lives, use the `--project` flag \n" +
 			"\t- To specify the output should be raw JSON or YAML, use the `--raw` flag along with `--output`",
 		Example: "\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
@@ -152,7 +152,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
-			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml\n",
+			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -442,7 +442,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long: "Datums are the smallest independent unit of processing for a Job. " +
 			"Datums are defined by applying a glob pattern in the pipeline spec to the file paths in an input repo, and they can include any number of files and directories. \n \n" +
 			"Datums within a job are processed independently -- and sometimes distributed across separate workers (see `datum_set_spec` and `parallelism_spec` options for pipeline specification).\n \n" +
-			"A separate execution of user code will be run for each datum unless datum batching is utilized.`",
+			"A separate execution of user code will be run for each datum unless datum batching is utilized.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(datumDocs, "datum", " datum$", datums))
 
@@ -845,10 +845,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long: "This command creates a new pipeline from a pipeline specification. \n \n" +
 			"You can create a pipeline using a JSON/YAML file or a jsonnet template file -- via either a local filepath or URL. Multiple pipelines can be created from one file." +
 			"For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/. \n \n" +
-			"\t- To create a pipeline from a JSON/YAML file, use the `--file` flag. \n" +
-			"\t- To create a pipeline from a jsonnet template file, use the `--jsonnet` flag. You can optionally pay multiple arguments separately using `--arg` \n" +
-			"\t- To push your local images to docker registry, use the `--push-images` and `--username` flags. \n" +
-			"\t- To push your local images to custom registry, use the `--push-images`, `--registry`, and `--username` flags. \n",
+			"\t- To create a pipeline from a JSON/YAML file, use the `--file` flag \n" +
+			"\t- To create a pipeline from a jsonnet template file, use the `--jsonnet` flag; you can optionally pay multiple arguments separately using `--arg` \n" +
+			"\t- To push your local images to docker registry, use the `--push-images` and `--username` flags \n" +
+			"\t- To push your local images to custom registry, use the `--push-images`, `--registry`, and `--username` flags \n",
 		Example: "\t {{alias}} -file regression.json \n" +
 			"\t {{alias}} -file foo.json --project bar \n" +
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
@@ -870,11 +870,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updatePipeline := &cobra.Command{
 		Short: "Update an existing Pachyderm pipeline.",
 		Long: "This command updates a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline-spec/ \n \n" +
-			"\t- To update a pipeline from a JSON/YAML file, use the `--file` flag. \n" +
+			"\t- To update a pipeline from a JSON/YAML file, use the `--file` flag \n" +
 			"\t- To update a pipeline from a jsonnet template file, use the `--jsonnet` flag. You can optionally pay multiple arguments separately using `--arg` \n" +
-			"\t- To reprocess all data in the pipeline, use the `--reprocess` flag. \n" +
-			"\t- To push your local images to docker registry, use the `--push-images` and `--username` flags. \n" +
-			"\t- To push your local images to custom registry, use the `--push-images`, `--registry`, and `--username` flags. \n",
+			"\t- To reprocess all data in the pipeline, use the `--reprocess` flag \n" +
+			"\t- To push your local images to docker registry, use the `--push-images` and `--username` flags \n" +
+			"\t- To push your local images to custom registry, use the `--push-images`, `--registry`, and `--username` flags \n",
 		Example: "\t {{alias}} -file regression.json \n" +
 			"\t {{alias}} -file foo.json --project bar \n" +
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
@@ -1056,9 +1056,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
 		Long: "This command returns information about all pipelines. \n \n" +
-			"\t- To return pipelines with a specific state, use the `--state` flag. \n" +
-			"\t- To return pipelines as they existed at a specific commit, use the `--commit` flag. \n" +
-			"\t- To return a history of pipeline revisions, use the `--history` flag. \n",
+			"\t- To return pipelines with a specific state, use the `--state` flag \n" +
+			"\t- To return pipelines as they existed at a specific commit, use the `--commit` flag \n" +
+			"\t- To return a history of pipeline revisions, use the `--history` flag \n",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} --spec --output yaml \n" +
 			"\t- {{alias}} --commit 5f93d03b65fa421996185e53f7f8b1e4 \n" +
@@ -1425,7 +1425,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	runLoadTest := &cobra.Command{
 		Use:   "{{alias}} <spec-file> ",
 		Short: "Run a PPS load test.",
-		Long:  "This command runs a PPS load test for a specified pipeline specification file.",
+		Long: "This command runs a PPS load test for a specified pipeline specification file. \n" +
+			"\t- To run a load test with a specific seed, use the `--seed` flag \n" +
+			"\t- To run a load test with a specific parallelism count, use the `--parallelism` flag \n" +
+			"\t- To run a load test with a specific pod patch, use the `--pod-patch` flag",
 		Example: "\t- {{alias}} --dag myspec.json \n" +
 			"\t- {{alias}} --dag myspec.json --seed 1 \n" +
 			"\t- {{alias}} --dag myspec.json  --parallelism 3 \n" +
