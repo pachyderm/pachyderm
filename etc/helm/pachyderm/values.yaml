@@ -71,7 +71,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.7.0-alpha.2"
+    tag: "2.7.0-alpha.5"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
@@ -423,6 +423,11 @@ pachd:
   lokiDeploy: true
   # lokiLogging enables Loki logging if set.
   lokiLogging: true
+  # lokiHost and lokiPort should only be set when using an external Loki instance. lokiDeploy should be false.
+  # lokiHost should be the hostname of the Loki instance to use.
+  lokiHost: ""
+  # lokiPort should be the port of the Loki instance to use.
+  lokiPort: 0
   metrics:
     # enabled sets the METRICS environment variable if set.
     enabled: true
@@ -712,6 +717,33 @@ pachd:
   defaultSidecarCPURequest: ""
   defaultSidecarMemoryRequest: ""
   defaultSidecarStorageRequest: ""
+  determined:
+    # a determined's cluster API URL
+    apiEndpoint: ""
+    # the name of the kubernetes secret containing the credentials for the determined user representing pachyderm.
+    # the secret is expected to contain the keys "determined-username" & "determined-password"
+    credentialsSecretName: ""
+  # readinessProbe, livenessProbe, startupProbe: Configure the probe settings.
+  # Acceptable inputs for each probe include initialDelaySeconds, timeoutSeconds, periodSeconds, successThreshold, and failureThreshold.
+  readinessProbe:
+    initialDelaySeconds: 0
+    timeoutSeconds: 1
+    periodSeconds: 10
+    successThreshold: 1
+    failureThreshold: 3
+  livenessProbe:
+    initialDelaySeconds: 0
+    failureThreshold: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 30
+  startupProbe:
+    initialDelaySeconds: 0
+    failureThreshold: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 30
+
 kubeEventTail:
   # Deploys a lightweight app that watches kubernetes events and echos them to logs.
   enabled: true

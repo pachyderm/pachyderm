@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"os/signal"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
@@ -12,13 +11,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"go.uber.org/zap"
 )
 
 func main() {
 	log.InitPachctlLogger()
 	log.SetLevel(log.DebugLevel)
-	ctx, cancel := signal.NotifyContext(pctx.Background(""), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
 	defer cancel()
 
 	pc := &pachctl.Config{Verbose: true}

@@ -12,13 +12,22 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"go.uber.org/zap"
+	"gocloud.dev/blob"
 )
 
+const chunkPrefix = "chunk/"
+
 type Env struct {
-	DB          *pachsql.DB
+	DB *pachsql.DB
+	// ObjectStore is a client from the obj package
 	ObjectStore obj.Client
+
+	// Bucket is an object storage bucket from the Go CDK packages.
+	// If set, it takes priority over ObjectStore
+	Bucket *blob.Bucket
 }
 
 // Server contains the storage layer servers.
@@ -31,19 +40,29 @@ type Server struct {
 
 // New creates a new Server
 func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
-	// Setup tracker and chunk / fileset storage.
+	// Setup tracker
 	tracker := track.NewPostgresTracker(env.DB)
-	chunkStorageOpts, err := makeChunkOptions(&config)
-	if err != nil {
-		return nil, err
-	}
+
+	// chunk
 	keyStore := chunk.NewPostgresKeyStore(env.DB)
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
 		return nil, err
 	}
+
+	var store kv.Store
+	if env.Bucket != nil {
+		store = kv.NewFromBucket(env.Bucket, maxKeySize, chunk.DefaultMaxChunkSize)
+	} else {
+		store = kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
+	}
+	store = wrapStore(&config, store)
+	store = kv.NewPrefixed(store, []byte(chunkPrefix))
+	chunkStorageOpts := makeChunkOptions(&config)
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
-	chunkStorage := chunk.NewStorage(env.ObjectStore, env.DB, tracker, chunkStorageOpts...)
+	chunkStorage := chunk.NewStorage(store, env.DB, tracker, chunkStorageOpts...)
+
+	// fileset
 	filesetStorage := fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, makeFilesetOptions(&config)...)
 
 	return &Server{

@@ -35,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -610,16 +611,15 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		defer req.Body.Close()
-		pipelineBytes, err := io.ReadAll(req.Body)
+		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+		// TODO(INT-1006): This is a bit of a hack: the body is a tagged
+		// pipeline input spec, not a full pipeline.  In order for
+		// parsing to succeed, the next line disables spec validation.
+		pipelineReader.DisableValidation()
 		pipelineReq, err := pipelineReader.NextCreatePipelineRequest()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -644,7 +644,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.ID))
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
 		mis := mm.datumToMounts(datums[0], datumAlias)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
@@ -665,7 +665,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}()
 
 		resp := MountDatumResponse{
-			Id:        datums[0].Datum.ID,
+			Id:        datums[0].Datum.Id,
 			Idx:       0,
 			NumDatums: len(datums),
 		}
@@ -708,7 +708,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if id != "" {
 			foundDatum := false
 			for idx, di = range mm.Datums {
-				if di.Datum.ID == id {
+				if di.Datum.Id == id {
 					foundDatum = true
 					break
 				}
@@ -741,7 +741,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}()
 
 		resp := MountDatumResponse{
-			Id:        di.Datum.ID,
+			Id:        di.Datum.Id,
 			Idx:       idx,
 			NumDatums: len(mm.Datums),
 		}
@@ -866,7 +866,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, "no authentication providers configured", http.StatusInternalServerError)
 			return
 		}
-		authUrl := loginInfo.LoginURL
+		authUrl := loginInfo.LoginUrl
 		state := loginInfo.State
 
 		r := map[string]string{"auth_url": authUrl, "oidc_state": state}
@@ -887,7 +887,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: string(oidcState)})
+		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OidcState: string(oidcState)})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -952,7 +952,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
+		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
 		case <-sopts.Unmount:
@@ -1048,7 +1048,7 @@ func updateConfig(cfgReq ConfigRequest) error {
 	}
 	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	cfg.V2.ActiveContext = "mount-server"
-	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
+	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCas: cfgReq.ServerCas}
 	if err = cfg.Write(); err != nil {
 		return err
 	}
@@ -1296,7 +1296,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	if err != nil {
 		return err
 	}
-	m.LatestCommit = commitInfos[0].Commit.ID
+	m.LatestCommit = commitInfos[0].Commit.Id
 
 	// reverse slice
 	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
@@ -1307,8 +1307,8 @@ func (m *MountStateMachine) RefreshMountState() error {
 	log.Info(pctx.TODO(), "mounting", zap.String("name", m.Name))
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
-		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.ID), zap.String("actualMountedCommitID", m.ActualMountedCommit))
-		if commitInfo.Commit.ID == m.ActualMountedCommit {
+		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.Id), zap.String("actualMountedCommitID", m.ActualMountedCommit))
+		if commitInfo.Commit.Id == m.ActualMountedCommit {
 			indexOfCurrentCommit = i
 			break
 		}
@@ -1518,7 +1518,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		if err != nil {
 			return err
 		}
-		m.manager.root.commits[m.Name] = commitInfos[0].Commit.ID
+		m.manager.root.commits[m.Name] = commitInfos[0].Commit.Id
 		return nil
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the

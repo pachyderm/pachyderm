@@ -94,7 +94,7 @@ spec:
           value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_HOST)"
         {{- end }}
         - name: LOKI_SERVICE_PORT
-        {{- if .Values.pachd.lokiPort }}
+        {{- if ne 0 (int .Values.pachd.lokiPort) }}
           value:  {{ .Values.pachd.lokiPort | quote}}
         {{ else }}
           value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_PORT)"
@@ -396,6 +396,22 @@ spec:
         - name: PIPELINE_DEFAULT_STORAGE_REQUEST
           value: {{ .Values.pachd.defaultPipelineStorageRequest | quote }}
         {{- end }}
+        {{- if ne .Values.pachd.determined.credentialsSecretName "" }}
+        - name: DETERMINED_USERNAME
+          valueFrom:          
+            secretKeyRef:
+              name: {{ .Values.pachd.determined.credentialsSecretName }}
+              key: determined-username
+        - name: DETERMINED_PASSWORD
+          valueFrom:          
+            secretKeyRef:
+              name: {{ .Values.pachd.determined.credentialsSecretName }}              
+              key: determined-password          
+        {{- end }}
+        {{- if ne .Values.pachd.determined.apiEndpoint "" }}
+        - name: DETERMINED_API_URL
+          value: {{ .Values.pachd.determined.apiEndpoint | quote }}
+        {{- end }}        
         {{- if ne .Values.pachd.defaultSidecarCPURequest "" }}
         - name: SIDECAR_DEFAULT_CPU_REQUEST
           value: {{ .Values.pachd.defaultSidecarCPURequest | quote }}
@@ -455,20 +471,31 @@ spec:
             command:
             - /pachd
             - --readiness
+          initialDelaySeconds: {{ .Values.pachd.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.pachd.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.pachd.readinessProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.pachd.readinessProbe.failureThreshold }}
         livenessProbe:
           exec:
             command:
             - /pachd
             - --readiness
-          failureThreshold: 10
-          timeoutSeconds: 30
+          initialDelaySeconds: {{ .Values.pachd.livenessProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.pachd.livenessProbe.failureThreshold }}
+          periodSeconds: {{ .Values.pachd.livenessProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.livenessProbe.successThreshold }}
+          timeoutSeconds: {{ .Values.pachd.livenessProbe.timeoutSeconds }}
         startupProbe:
           exec:
             command:
             - /pachd
             - --readiness
-          failureThreshold: 10
-          timeoutSeconds: 30
+          initialDelaySeconds: {{ .Values.pachd.startupProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.pachd.startupProbe.failureThreshold }}
+          periodSeconds: {{ .Values.pachd.startupProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.startupProbe.successThreshold }}
+          timeoutSeconds: {{ .Values.pachd.startupProbe.timeoutSeconds }}
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}

@@ -5,15 +5,16 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -110,8 +111,11 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 func fetchCachedConfig(p string) error {
 	cachedConfig = &Config{}
 	if raw, err := os.ReadFile(p); err == nil {
-		err = serde.Decode(raw, cachedConfig)
-		if err != nil {
+		if len(raw) == 0 {
+			// It's OK if the file is empty.
+			return nil
+		}
+		if err := serde.Decode(raw, cachedConfig); err != nil {
 			return errors.Wrapf(err, "could not parse config json at %q", p)
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
@@ -128,10 +132,10 @@ func fetchCachedConfig(p string) error {
 // pachctl), indicating that their on-disk config is invalid.
 func validateCachedConfig() (bool, error) {
 	var updated bool
-	if cachedConfig.UserID == "" {
+	if cachedConfig.UserId == "" {
 		updated = true
 		log.Debug(pctx.TODO(), "No UserID present in config - generating new one.")
-		cachedConfig.UserID = uuid.NewWithoutDashes()
+		cachedConfig.UserId = uuid.NewWithoutDashes()
 	}
 
 	if cachedConfig.V2 == nil {
@@ -183,9 +187,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		}
 	}
 
-	cloned := proto.Clone(cachedConfig).(*Config)
-	// In the case of an empty map, `proto.Clone` clones `Contexts` as nil. This
-	// fixes the issue.
+	cloned := protoutil.Clone(cachedConfig)
 	if cloned.V2.Contexts == nil {
 		cloned.V2.Contexts = map[string]*Context{}
 	}
@@ -205,7 +207,7 @@ func (c *Config) InitV2() error {
 		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
 			PachdAddress:      c.V1.PachdAddress,
-			ServerCAs:         c.V1.ServerCAs,
+			ServerCas:         c.V1.ServerCas,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,
 		}

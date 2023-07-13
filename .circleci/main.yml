@@ -73,14 +73,13 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: go install ./src/testing/match
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - install-go-releaser
       - run:
           no_output_timeout: 20m
           command: |-
@@ -90,6 +89,7 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
+            --rerun-fails-max-failures=100 \
             --debug \
             -- \
             go test ./... -json \
@@ -113,7 +113,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -209,6 +209,7 @@ jobs:
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --raw-command \
               --rerun-fails \
+              --rerun-fails-max-failures=100 \
               --format standard-verbose \
               --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \
@@ -238,7 +239,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -1447,19 +1448,81 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - install-minikube
+      - install-helm
+      - install-kubectl
+      - start-minikube
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
-      - install-python-test-deps
-
-      # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
-      # export export PACH_PYTHON_AUTH_TOKEN=iamroot
+      - wait-for-minikube
+      - run:
+          name: Install pach
+          command: |
+            helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
+            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
+            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,proxy.service.httpNodePort=30081,pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=roottoken1234
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
-            nohup pachctl port-forward &
-            PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 poetry run pytest -vvv tests
+            PACH_PYTHON_TEST_HOST="$(minikube ip)" \
+            PACH_PYTHON_TEST_PORT="30080" \
+            PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
+            PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
+            ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
+            PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
+            poetry run pytest -vvv tests
+
+  python-sdk-test-publish:
+    executor: python
+    working_directory: ~/project/python-sdk
+    parameters:
+      version:
+        type: string
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - install-poetry
+      - run:
+          name: Publish
+          command: |
+            poetry config repositories.test-pypi https://test.pypi.org/legacy/
+            poetry version << parameters.version >>
+            poetry publish --build --repository test-pypi --username "$PYPI_USERNAME" --password "$TEST_PYPI_PASSWORD"
+
+  python-sdk-publish:
+    executor: python
+    working_directory: ~/project/python-sdk
+    parameters:
+      version:
+        type: string
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - install-poetry
+      - run:
+          name: Publish
+          command: |
+            poetry version << parameters.version >>
+            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD"
 
 workflows:
   integration-tests:
@@ -1660,7 +1723,11 @@ workflows:
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
   python-sdk:
-    when: << pipeline.parameters.run-python-sdk-jobs >>
+    when:
+      condition:
+        or:
+          - << pipeline.parameters.run-python-sdk-jobs >>
+          - << pipeline.parameters.run-core-jobs >>
     jobs:
       - test-python-sdk:
           requires:
@@ -1738,6 +1805,11 @@ workflows:
           filters: *only-release-tags
           requires:
             - jupyter-extension-build
+            - build-pachctl-bin
+      - test-python-sdk:
+          filters: *only-release-tags
+          requires:
+            - build-docker-images
             - build-pachctl-bin
       - pulumi-aws-test-env:
           name: aws-prerelease-testing-env-1
@@ -1882,6 +1954,18 @@ workflows:
             - sign-off
             - jupyter-extension-docker-build
           filters: *only-release-tags
+      - python-sdk-test-publish:
+          version: ${CIRCLE_TAG:1}
+          requires:
+            - test-python-sdk
+          filters: *only-release-tags
+      - python-sdk-publish:
+          version: ${CIRCLE_TAG:1}
+          requires:
+            - test-python-sdk
+            - python-sdk-test-publish
+            - sign-off
+          filters: *only-release-tags
   nightly-release:
     jobs:
       - helm-tests:
@@ -1965,6 +2049,38 @@ workflows:
             - aws-prerelease-testing
 
 commands:
+  install-helm:
+    steps:
+      - run:
+          name: Install helm
+          command: |
+            ARCH=amd64
+            if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
+            wget https://get.helm.sh/helm-v3.7.1-linux-${ARCH}.tar.gz && \
+            tar -zxvf helm-v3.7.1-linux-${ARCH}.tar.gz && \
+            chmod +x linux-amd64/helm && \
+            sudo mv linux-amd64/helm /usr/local/bin/helm
+  install-kubectl:
+    steps:
+      - run:
+          name: Install kubectl
+          command: |
+            ARCH=amd64
+            if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" && \
+            chmod +x kubectl && \
+            sudo mv kubectl /usr/local/bin/kubectl
+  install-minikube:
+    steps:
+      - run:
+          name: Install minikube
+          command: |
+            ARCH=amd64
+            if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
+            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.30.1/minikube-linux-${ARCH} && \
+            chmod +x ./minikube && \
+            sudo mv ./minikube /usr/local/bin/minikube
+
   install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
@@ -1979,19 +2095,8 @@ commands:
             curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
             && chmod +x ./kind-linux-amd64 \
             && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
-      - run:
-          name: Install helm
-          command: |
-            wget https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz && \
-            tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
-            chmod +x linux-amd64/helm && \
-            sudo mv linux-amd64/helm /usr/local/bin/helm
-      - run:
-          name: Install kubectl
-          command: |
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-            chmod +x kubectl && \
-            sudo mv kubectl /usr/local/bin/kubectl
+      - install-helm
+      - install-kubectl
       - run:
           name: Install pachctl and mount-server
           command: |
@@ -2054,6 +2159,16 @@ commands:
           name: Start minikube
           command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
           background: true
+  wait-for-minikube:
+    steps:
+      - run:
+          name: Wait for minikube
+          command: ~/project/etc/testing/circle/wait-minikube.sh
+  wait-for-pachd:
+    steps:
+      - run:
+          name: Wait for pachd
+          command: until pachctl inspect cluster; do sleep 5; done
   collect-test-results:
     steps:
       - run:

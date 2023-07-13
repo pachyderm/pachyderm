@@ -6,7 +6,7 @@ import pytest
 
 from pachyderm_sdk.api import pfs, pps
 from pachyderm_sdk.client import Client as _Client
-from pachyderm_sdk.constants import ENTERPRISE_CODE_ENV
+from pachyderm_sdk.constants import AUTH_TOKEN_ENV
 
 
 @pytest.fixture(params=[True, False])
@@ -21,7 +21,23 @@ def default_project(request) -> bool:
 
 @pytest.fixture
 def client(request) -> "TestClient":
-    client = TestClient(nodeid=request.node.nodeid)
+    client = TestClient(
+        nodeid=request.node.nodeid,
+        host=os.environ.get("PACH_PYTHON_TEST_HOST"),
+        port=os.environ.get("PACH_PYTHON_TEST_PORT"),
+    )
+    yield client
+    client.tear_down()
+
+
+@pytest.fixture
+def auth_client(request) -> "TestClient":
+    client = TestClient(
+        nodeid=request.node.nodeid,
+        host=os.environ.get("PACH_PYTHON_TEST_HOST"),
+        port=os.environ.get("PACH_PYTHON_TEST_PORT_ENTERPRISE"),
+        auth_token=os.environ.get(AUTH_TOKEN_ENV),
+    )
     yield client
     client.tear_down()
 
@@ -67,7 +83,7 @@ class TestClient(_Client):
         repo = pfs.Repo(name=self._generate_name(), type="user", project=project)
         self.pfs.delete_repo(repo=repo, force=True)
         self.pfs.create_repo(repo=repo, description=self.id)
-        self.pfs.create_branch(branch=pfs.Branch.from_uri(f"{repo.as_uri()}@master"))
+        self.pfs.create_branch(branch=pfs.Branch.from_uri(f"{repo}@master"))
         self.repos.append(repo)
         return repo
 
@@ -81,10 +97,8 @@ class TestClient(_Client):
             pipeline=pipeline,
             input=pps.Input(pfs=pps.PfsInput(glob="/*", repo=repo.name)),
             transform=pps.Transform(
-                cmd=["sh"],
-                image="alpine",
-                stdin=[f"cp /pfs/{repo.name}/*.dat /pfs/out/"]
-            )
+                cmd=["sh"], image="alpine", stdin=[f"cp /pfs/{repo.name}/*.dat /pfs/out/"]
+            ),
         )
         self.pipelines.append(pipeline)
 
@@ -107,11 +121,13 @@ class TestClient(_Client):
                 self.pfs.delete_project(project=project, force=True)
 
     def _generate_name(self) -> str:
+        # fmt: off
         name: str = (
             self.id
                 .replace("/", "-")
                 .replace(":", "-")
                 .replace(".py", "")
         )[:40]  # TODO: Make this the maximum it can be.
+        # fmt: on
         name = f"{name[:name.find('[')]}-{random.randint(100, 999)}"
         return name

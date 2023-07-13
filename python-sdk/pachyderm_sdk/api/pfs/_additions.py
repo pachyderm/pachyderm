@@ -28,7 +28,7 @@ def _Repo_as_uri(self: "Repo") -> str:
 
 
 Repo.from_uri = _Repo_from_uri
-Repo.as_uri = _Repo_as_uri
+Repo.as_uri = Repo.__str__ = _Repo_as_uri
 
 
 def _Branch_from_uri(uri: str) -> Branch:
@@ -57,7 +57,7 @@ def _Branch_as_uri(self: "Branch") -> str:
 
 
 Branch.from_uri = _Branch_from_uri
-Branch.as_uri = _Branch_as_uri
+Branch.as_uri = Branch.__str__ = _Branch_as_uri
 
 
 def _Commit_from_uri(uri: str) -> Commit:
@@ -81,19 +81,20 @@ def _Commit_from_uri(uri: str) -> Commit:
             "[project/]<repo>@(branch|branch=commit|commit)"
         )
     project_repo, branch_or_commit = uri.split("@", 1)
+    repo = Repo.from_uri(project_repo)
     if "=" in branch_or_commit:
         branch, commit = branch_or_commit.split("=", 1)
     elif uuid_re.match(branch_or_commit) or not branch_re.match(branch_or_commit):
         branch, commit = None, branch_or_commit
     else:
         branch, commit = branch_or_commit, None
+    # TODO: Commits are no longer pinned to branches.
+    #       When officially deprecated, the `branch` field will be removed.
     return Commit(
-            branch=Branch(
-                name=branch,
-                repo=Repo.from_uri(project_repo)
-            ),
-            id=commit
-        )
+        branch=Branch(name=branch, repo=repo),
+        id=commit,
+        repo=repo,
+    )
 
 
 def _Commit_as_uri(self: "Commit") -> str:
@@ -107,7 +108,7 @@ def _Commit_as_uri(self: "Commit") -> str:
 
 
 Commit.from_uri = _Commit_from_uri
-Commit.as_uri = _Commit_as_uri
+Commit.as_uri = Commit.__str__ = _Commit_as_uri
 
 
 def _File_from_uri(uri: str) -> File:
@@ -140,4 +141,4 @@ def _File_as_uri(self: "File") -> str:
 
 
 File.from_uri = _File_from_uri
-File.as_uri = _File_as_uri
+File.as_uri = File.__str__ = _File_as_uri

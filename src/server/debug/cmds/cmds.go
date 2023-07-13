@@ -10,9 +10,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
+	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -44,9 +43,9 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 			defer client.Close()
-			var d *types.Duration
+			var d *durationpb.Duration
 			if duration != 0 {
-				d = types.DurationProto(duration)
+				d = durationpb.New(duration)
 			}
 			p := &debug.Profile{
 				Name:     args[0],
@@ -101,7 +100,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 			defer client.Close()
-			r, err := client.GetDumpV2Template(mainCtx, &debug.GetDumpV2TemplateRequest{})
+			r, err := client.GetDumpV2Template(client.Ctx(), &debug.GetDumpV2TemplateRequest{})
 			if err != nil {
 				return err
 			}
@@ -128,22 +127,22 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			defer client.Close()
 			var req *debug.DumpV2Request
 			if template == "" {
-				r, err := client.DebugClient.GetDumpV2Template(mainCtx, &debug.GetDumpV2TemplateRequest{})
+				r, err := client.DebugClient.GetDumpV2Template(client.Ctx(), &debug.GetDumpV2TemplateRequest{})
 				if err != nil {
 					return errors.Wrap(err, "get dump template")
 				}
 				req = r.Request
 			} else {
-				f, err := os.Open(template)
+				bytes, err := os.ReadFile(template)
 				if err != nil {
 					return errors.Wrap(err, "open template file")
 				}
 				req = &debug.DumpV2Request{}
-				if err := jsonpb.Unmarshal(f, req); err != nil {
+				if err := serde.Decode(bytes, req); err != nil {
 					return errors.Wrap(err, "unmarhsal template to DumpV2Request")
 				}
 			}
-			ctx, cf := context.WithCancel(mainCtx)
+			ctx, cf := context.WithCancel(client.Ctx())
 			defer cf()
 			c, err := client.DebugClient.DumpV2(ctx, req)
 			if err != nil {
@@ -151,6 +150,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			return withFile(args[0], func(f *os.File) error {
 				var d *debug.DumpChunk
+				bytesWritten := int64(0)
 				for d, err = c.Recv(); !errors.Is(err, io.EOF); d, err = c.Recv() {
 					if err != nil {
 						return err
@@ -159,12 +159,15 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 						if _, err = f.Write(content.Content); err != nil {
 							return errors.Wrap(err, "write dump contents")
 						}
+						bytesWritten += int64(len(content.Content))
+						progress.WriteProgressCountBytes("Downloaded", bytesWritten, false, 100)
 					}
 					// erroring here should not stop the dump from working
 					if prgs := d.GetProgress(); prgs != nil {
 						progress.WriteProgress(prgs.Task, prgs.Progress, prgs.Total)
 					}
 				}
+				progress.WriteProgressCountBytes("Downloaded", bytesWritten, true, 100)
 				return nil
 			})
 		}),
@@ -204,7 +207,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return errors.Errorf("no log level %v", want)
 			}
 			req := &debug.SetLogLevelRequest{
-				Duration: types.DurationProto(levelChangeDuration),
+				Duration: durationpb.New(levelChangeDuration),
 				Recurse:  recursivelySetLogLevel,
 			}
 			if setGRPCLevel {

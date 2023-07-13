@@ -12,8 +12,8 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
-	enc.AddString("deployment_id", x.DeploymentID)
+	enc.AddString("id", x.Id)
+	enc.AddString("deployment_id", x.DeploymentId)
 	enc.AddBool("version_warnings_ok", x.VersionWarningsOk)
 	version_warningsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.VersionWarnings {

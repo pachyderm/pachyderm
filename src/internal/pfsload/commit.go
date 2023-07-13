@@ -3,11 +3,11 @@ package pfsload
 import (
 	"bytes"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"google.golang.org/protobuf/proto"
 )
 
 func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.Branch, spec *CommitSpec, seed int64, stateID string) (string, error) {
@@ -37,7 +37,7 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 				return "", err
 			}
 		}
-		if err := pachClient.FinishCommit(project, repo, branch.Name, commit.ID); err != nil {
+		if err := pachClient.FinishCommit(project, repo, branch.Name, commit.Id); err != nil {
 			return "", err
 		}
 		validator := env.Validator()

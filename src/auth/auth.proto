@@ -3,7 +3,6 @@ syntax = "proto3";
 package auth_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/auth";
 
-import "gogoproto/gogo.proto";
 import "google/protobuf/timestamp.proto";
 import "protoextensions/log.proto";
 
@@ -59,9 +58,9 @@ message RotateRootTokenResponse {
 // Configure Pachyderm's auth system with an OIDC provider
 message OIDCConfig{
   string issuer = 1;
-  string client_id = 2 [(gogoproto.customname) = "ClientID"];
+  string client_id = 2;
   string client_secret = 3 [(log.mask) = true];
-  string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
+  string redirect_uri = 4;
   repeated string scopes = 5;
   bool require_email_verified = 6;
 
@@ -93,8 +92,8 @@ message TokenInfo {
   // Subject (i.e. Pachyderm account) that a given token authorizes.
   // See the note at the top of the doc for an explanation of subject structure.
   string subject = 1;
-  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
-  string hashed_token = 3 [(gogoproto.moretags) = "db:\"token_hash\""];
+  google.protobuf.Timestamp expiration = 2;
+  string hashed_token = 3;
 }
 
 //// Authentication API
@@ -104,7 +103,7 @@ message AuthenticateRequest {
 
   // This is the session state that Pachyderm creates in order to keep track of
   // information related to the current OIDC session.
-  string oidc_state = 1 [(gogoproto.customname) = "OIDCState", (log.half) = true];
+  string oidc_state = 1 [(log.half) = true];
 
   // This is an ID Token issued by the OIDC provider.
   string id_token = 2 [(log.half) = true];
@@ -121,7 +120,7 @@ message WhoAmIRequest {}
 
 message WhoAmIResponse {
   string username = 1;
-  google.protobuf.Timestamp expiration = 2 [(gogoproto.moretags) = "db:\"expiration\"", (gogoproto.stdtime) = true];
+  google.protobuf.Timestamp expiration = 2;
 }
 
 message GetRolesForPermissionRequest {
@@ -256,7 +255,13 @@ message Groups {
 message Role {
   string name = 1;
   repeated Permission permissions = 2;
-  repeated ResourceType resource_types = 3;
+  // Resources this role can be bound to.  For example, you can't apply clusterAdmin to a repo, so
+  // REPO would not be listed here.
+  repeated ResourceType can_be_bound_to = 3;
+  // Resources this role is returned for.  For example, a principal might have clusterAdmin
+  // permissions on the cluster, and this is what allows them to write to a repo.  So, clusterAdmin
+  // is returned for the repo, even though it cannot be bound to a repo.
+  repeated ResourceType returned_for = 4;
 }
 
 //// Authorization API
@@ -369,7 +374,7 @@ message GetOIDCLoginRequest {
 
 message GetOIDCLoginResponse {
   // The login URL generated for the OIDC object
-  string login_url = 1 [(gogoproto.customname) = "LoginURL", (log.half) = true];
+  string login_url = 1 [(log.half) = true];
   string state = 2 [(log.half) = true];
 }
 
@@ -382,7 +387,7 @@ message GetRobotTokenRequest {
 
   // ttl indicates the requested (approximate) remaining lifetime of this token,
   // in seconds
-  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+  int64 ttl = 2;
 }
 
 message GetRobotTokenResponse {

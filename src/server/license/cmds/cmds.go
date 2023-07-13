@@ -12,8 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-
-	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 )
 
@@ -66,7 +64,7 @@ func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 					Id:                  "localhost",
 					Address:             "grpc://localhost:1653",
 					UserAddress:         "grpc://localhost:1653",
-					ClusterDeploymentId: clusterInfo.DeploymentID,
+					ClusterDeploymentId: clusterInfo.DeploymentId,
 					EnterpriseServer:    true,
 				})
 			if err != nil {
@@ -249,10 +247,7 @@ func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 				fmt.Println("No Pachyderm Enterprise license is configured")
 				return nil
 			}
-			ts, err := types.TimestampFromProto(resp.GetInfo().GetExpires())
-			if err != nil {
-				return errors.Wrapf(err, "expiration timestamp could not be parsed")
-			}
+			ts := resp.GetInfo().GetExpires().AsTime()
 			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\nLicense: %s\n",
 				resp.State.String(), ts.String(), resp.ActivationCode)
 			return nil

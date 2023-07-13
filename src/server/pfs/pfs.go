@@ -3,8 +3,10 @@ package pfs
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
 
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -163,7 +165,7 @@ var (
 )
 
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo, e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo, e.File.Commit.Id)
 }
 
 func (e ErrFileNotFound) GRPCStatus() *status.Status {
@@ -227,7 +229,7 @@ func (e ErrCommitNotFound) GRPCStatus() *status.Status {
 }
 
 func (e ErrCommitSetNotFound) Error() string {
-	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
+	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.Id)
 }
 
 func (e ErrCommitSetNotFound) GRPCStatus() *status.Status {
@@ -270,8 +272,17 @@ func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit)
 }
 
-func (e ErrCommitNotFinished) GRPCStatus() *status.Status {
-	return status.New(codes.Unavailable, e.Error())
+func (err ErrCommitNotFinished) GRPCStatus() *status.Status {
+	s, sErr := status.New(codes.Unavailable, fmt.Sprintf("commit %v not finished", err.Commit)).WithDetails(&epb.ResourceInfo{
+		ResourceType: "pfs:commit",
+		ResourceName: err.Commit.Id,
+		Description:  "commit not finished",
+	})
+	if sErr != nil {
+		_, filename, line, _ := runtime.Caller(0)
+		return status.New(codes.Internal, fmt.Sprintf("internal server error in %s:%d: %v", filename, line, sErr))
+	}
+	return s
 }
 
 func (e ErrBaseCommitNotFinished) Error() string {

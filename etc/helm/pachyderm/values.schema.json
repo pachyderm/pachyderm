@@ -759,6 +759,17 @@
                 "defaultSidecarStorageRequest": {
                     "type": "string"
                 },
+                "determined": {
+                    "type": "object",
+                    "properties": {
+                        "apiEndpoint": {
+                            "type": "string"
+                        },
+                        "credentialsSecretName": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "developmentLogger": {
                     "type": "boolean"
                 },
@@ -841,6 +852,26 @@
                         }
                     }
                 },
+                "livenessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "failureThreshold": {
+                            "type": "integer"
+                        },
+                        "initialDelaySeconds": {
+                            "type": "integer"
+                        },
+                        "periodSeconds": {
+                            "type": "integer"
+                        },
+                        "successThreshold": {
+                            "type": "integer"
+                        },
+                        "timeoutSeconds": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "localhostIssuer": {
                     "type": "string"
                 },
@@ -850,8 +881,14 @@
                 "lokiDeploy": {
                     "type": "boolean"
                 },
+                "lokiHost": {
+                    "type": "string"
+                },
                 "lokiLogging": {
                     "type": "boolean"
+                },
+                "lokiPort": {
+                    "type": "integer"
                 },
                 "metrics": {
                     "type": "object",
@@ -904,6 +941,26 @@
                     "properties": {
                         "create": {
                             "type": "boolean"
+                        }
+                    }
+                },
+                "readinessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "failureThreshold": {
+                            "type": "integer"
+                        },
+                        "initialDelaySeconds": {
+                            "type": "integer"
+                        },
+                        "periodSeconds": {
+                            "type": "integer"
+                        },
+                        "successThreshold": {
+                            "type": "integer"
+                        },
+                        "timeoutSeconds": {
+                            "type": "integer"
                         }
                     }
                 },
@@ -967,6 +1024,26 @@
                 },
                 "sqlQueryLogs": {
                     "type": "boolean"
+                },
+                "startupProbe": {
+                    "type": "object",
+                    "properties": {
+                        "failureThreshold": {
+                            "type": "integer"
+                        },
+                        "initialDelaySeconds": {
+                            "type": "integer"
+                        },
+                        "periodSeconds": {
+                            "type": "integer"
+                        },
+                        "successThreshold": {
+                            "type": "integer"
+                        },
+                        "timeoutSeconds": {
+                            "type": "integer"
+                        }
+                    }
                 },
                 "storage": {
                     "type": "object",

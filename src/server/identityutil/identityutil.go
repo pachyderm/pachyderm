@@ -1,15 +1,13 @@
 package identityutil
 
 import (
-	"bytes"
+	"encoding/json"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-
-	proto "github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -18,16 +16,15 @@ const (
 
 // PickConfig determines whether to use the config or jsonConfig.
 // JsonConfig should only be used for backwards compatibility.
-func PickConfig(config *types.Struct, jsonConfig string) ([]byte, error) {
+func PickConfig(config *structpb.Struct, jsonConfig string) ([]byte, error) {
 	switch {
 	case config != nil && config.Fields != nil:
-		marshaler := jsonpb.Marshaler{}
-		buf := bytes.Buffer{}
-		err := marshaler.Marshal(&buf, config)
+		marshaler := protojson.MarshalOptions{}
+		result, err := marshaler.Marshal(config)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		return buf.Bytes(), nil
+		return result, nil
 	case jsonConfig != "" && jsonConfig != "null":
 		return []byte(jsonConfig), nil
 	default:
@@ -36,8 +33,21 @@ func PickConfig(config *types.Struct, jsonConfig string) ([]byte, error) {
 }
 
 // IDPConnectors satisfies the interface for proto.Message so they can be deserialized using jsonpb.Unmarshal().
-type IDPConnectors []identity.IDPConnector
+type IDPConnectors []*identity.IDPConnector
 
-func (m *IDPConnectors) Reset()         { *m = IDPConnectors{} }
-func (m *IDPConnectors) String() string { return proto.CompactTextString(m) }
-func (*IDPConnectors) ProtoMessage()    {}
+func (out *IDPConnectors) UnmarshalJSON(in []byte) error {
+	var parts []json.RawMessage
+	if err := json.Unmarshal(in, &parts); err != nil {
+		return errors.Wrap(err, "unmarshal into slice of JSON messages")
+	}
+	var errs error
+	for i, part := range parts {
+		var msg identity.IDPConnector
+		if err := protojson.Unmarshal(part, &msg); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "unmarshal connector %d/%d", i+1, len(parts)))
+			continue
+		}
+		*out = append(*out, &msg)
+	}
+	return errs
+}

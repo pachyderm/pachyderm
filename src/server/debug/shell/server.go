@@ -5,7 +5,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -34,10 +34,9 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func NewDumpServer(filePath string, port uint16) *debugDump {
@@ -79,7 +78,7 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 		return nil, auth.ErrNotActivated
 	})
 	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
-		return &admin.ClusterInfo{ID: "debug", VersionWarningsOk: true}, nil
+		return &admin.ClusterInfo{Id: "debug", VersionWarningsOk: true}, nil
 	})
 
 	return d
@@ -170,9 +169,9 @@ func (d *debugDump) globTarProtos(glob string, template proto.Message, onProto f
 	var found bool
 	err := d.globTar(glob, func(path string, r io.Reader) error {
 		found = true
-		dec := json.NewDecoder(r)
+		dec := protoutil.NewProtoJSONDecoder(r, protojson.UnmarshalOptions{})
 		for dec.More() {
-			if err := jsonpb.UnmarshalNext(dec, template); err != nil {
+			if err := dec.UnmarshalNext(template); err != nil {
 				return err
 			}
 			if err := onProto(); err != nil {
@@ -209,7 +208,7 @@ func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommi
 }
 
 func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	targetID, ancestors, err := ancestry.Parse(req.Commit.ID)
+	targetID, ancestors, err := ancestry.Parse(req.Commit.Id)
 	var targetBranch string
 	if err != nil {
 		return nil, err
@@ -229,7 +228,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 			// assume the first we see on this branch is the current head
 			match = info.Commit.Branch.Name == targetBranch
 		} else {
-			match = info.Commit.ID == targetID
+			match = info.Commit.Id == targetID
 		}
 		if match {
 			if ancestors == 0 {
@@ -239,7 +238,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 				// this will fail for negative/future ancestry, but I doubt people use that anyway
 				ancestors--
 				targetBranch = ""
-				targetID = info.ParentCommit.ID
+				targetID = info.ParentCommit.Id
 			}
 		}
 		return nil
@@ -317,10 +316,10 @@ func (d *debugDump) listCommitSet(req *pfs.ListCommitSetRequest, srv pfs.API_Lis
 	commitMap := make(map[string][]*pfs.CommitInfo)
 	latestMap := make(map[string]time.Time)
 	if _, err := d.globTarProtos(glob, &info, func() error {
-		commitMap[info.Commit.ID] = append(commitMap[info.Commit.ID], proto.Clone(&info).(*pfs.CommitInfo))
-		asTime, _ := types.TimestampFromProto(info.Started)
-		if latestMap[info.Commit.ID].Before(asTime) {
-			latestMap[info.Commit.ID] = asTime
+		commitMap[info.Commit.Id] = append(commitMap[info.Commit.Id], proto.Clone(&info).(*pfs.CommitInfo))
+		asTime := info.Started.AsTime()
+		if latestMap[info.Commit.Id].Before(asTime) {
+			latestMap[info.Commit.Id] = asTime
 		}
 		return nil
 	}); err != nil {
@@ -348,7 +347,7 @@ func (d *debugDump) inspectCommitSet(req *pfs.InspectCommitSetRequest, srv pfs.A
 	glob := fmt.Sprintf(commitPatternFormatString, "*")
 	var info pfs.CommitInfo
 	_, err := d.globTarProtos(glob, &info, func() error {
-		if info.Commit.ID != req.CommitSet.ID {
+		if info.Commit.Id != req.CommitSet.Id {
 			return nil
 		}
 		return srv.Send(&info)
@@ -515,10 +514,10 @@ func (d *debugDump) listJobSet(req *pps.ListJobSetRequest, srv pps.API_ListJobSe
 	jobMap := make(map[string][]*pps.JobInfo)
 	latestMap := make(map[string]time.Time)
 	if _, err := d.globTarProtos(glob, &info, func() error {
-		jobMap[info.Job.ID] = append(jobMap[info.Job.ID], proto.Clone(&info).(*pps.JobInfo))
-		asTime, _ := types.TimestampFromProto(info.Started)
-		if latestMap[info.Job.ID].Before(asTime) {
-			latestMap[info.Job.ID] = asTime
+		jobMap[info.Job.Id] = append(jobMap[info.Job.Id], proto.Clone(&info).(*pps.JobInfo))
+		asTime := info.Started.AsTime()
+		if latestMap[info.Job.Id].Before(asTime) {
+			latestMap[info.Job.Id] = asTime
 		}
 		return nil
 	}); err != nil {
@@ -546,7 +545,7 @@ func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_Ins
 	glob := fmt.Sprintf(jobPatternFormatString, "*")
 	var info pps.JobInfo
 	_, err := d.globTarProtos(glob, &info, func() error {
-		if info.Job.ID != req.JobSet.ID {
+		if info.Job.Id != req.JobSet.Id {
 			return nil
 		}
 		return srv.Send(&info)
@@ -554,7 +553,7 @@ func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_Ins
 	return err
 }
 
-func (d *debugDump) getVersion(context.Context, *types.Empty) (*versionpb.Version, error) {
+func (d *debugDump) getVersion(context.Context, *emptypb.Empty) (*versionpb.Version, error) {
 	var version *versionpb.Version
 	err := d.globTar("pachd/*/pachd/version.txt", func(_ string, r io.Reader) error {
 		b, err := io.ReadAll(r)

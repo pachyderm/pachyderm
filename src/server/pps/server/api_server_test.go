@@ -29,8 +29,8 @@ func TestListDatum(t *testing.T) {
 	for i := 0; i < 9; i++ {
 		require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))
 	}
-	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
-	_, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, "master", commit1.ID)
+	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.Id))
+	_, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, "master", commit1.Id)
 	require.NoError(t, err)
 
 	input := &pps.Input{Pfs: &pps.PFSInput{Repo: repo, Glob: "/*"}}
@@ -42,7 +42,7 @@ func TestListDatum(t *testing.T) {
 	require.Equal(t, 9, len(dis))
 	var datumIDs []string
 	for _, di := range dis {
-		datumIDs = append(datumIDs, di.Datum.ID)
+		datumIDs = append(datumIDs, di.Datum.Id)
 	}
 	// Test getting the datums in three pages of 3
 	var pagedDatumIDs []string
@@ -53,23 +53,23 @@ func TestListDatum(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(dis))
 	for _, di := range dis {
-		pagedDatumIDs = append(pagedDatumIDs, di.Datum.ID)
+		pagedDatumIDs = append(pagedDatumIDs, di.Datum.Id)
 	}
 	// get next two pages
 	for i := 0; i < 2; i++ {
-		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.ID}
+		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.Id}
 		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
 		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(dis))
 		for _, di := range dis {
-			pagedDatumIDs = append(pagedDatumIDs, di.Datum.ID)
+			pagedDatumIDs = append(pagedDatumIDs, di.Datum.Id)
 		}
 	}
 	// we should have gotten all the datums
 	require.ElementsEqual(t, datumIDs, pagedDatumIDs)
-	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.ID}
+	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.Id}
 	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
 	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
@@ -85,21 +85,21 @@ func TestListDatum(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(dis))
 	for _, di := range dis {
-		reverseDatumIDs = append(reverseDatumIDs, di.Datum.ID)
+		reverseDatumIDs = append(reverseDatumIDs, di.Datum.Id)
 	}
 	// get previous two pages
 	for i := 0; i < 2; i++ {
-		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.ID, Reverse: true}
+		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.Id, Reverse: true}
 		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
 		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(dis))
 		for _, di := range dis {
-			reverseDatumIDs = append(reverseDatumIDs, di.Datum.ID)
+			reverseDatumIDs = append(reverseDatumIDs, di.Datum.Id)
 		}
 	}
-	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.ID, Reverse: true}
+	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.Id, Reverse: true}
 	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
 	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
@@ -173,6 +173,21 @@ func TestParseLokiLine(t *testing.T) {
 		{
 			name:        "native json with extra fields",
 			line:        `{"message":"ok","extraField":42}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "native json with duplicate field",
+			line:        `{"message":"ok","message":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "CRI with duplicate field",
+			line:        `2022-01-01T00:00:00.1234 stdout F {"message":"ok","message":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "docker json with duplicate field",
+			line:        `{"log":"{\"message\":\"ok\",\"message\":\"ok\"}"}`,
 			wantMessage: "ok",
 		},
 		{
@@ -321,7 +336,7 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit1, "/foo", strings.NewReader("foo")))
-	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
+	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.Id))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "pin", "master", "", nil))
 	require.NoError(t, env.PachClient.CreatePipeline(
 		pfs.DefaultProjectName,
