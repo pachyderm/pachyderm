@@ -496,9 +496,16 @@ export type Log = {
   user: Scalars['Boolean'];
 };
 
+export type LogCursor = {
+  message: Scalars['String'];
+  timestamp: TimestampInput;
+};
+
 export type LogsArgs = {
+  cursor?: InputMaybe<LogCursor>;
   datumId?: InputMaybe<Scalars['String']>;
   jobId?: InputMaybe<Scalars['String']>;
+  limit?: InputMaybe<Scalars['Int']>;
   master?: InputMaybe<Scalars['Boolean']>;
   pipelineName: Scalars['String'];
   projectId: Scalars['String'];
@@ -1361,6 +1368,7 @@ export type ResolversTypes = ResolversObject<{
   JobsByPipelineQueryArgs: JobsByPipelineQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Log: ResolverTypeWrapper<Log>;
+  LogCursor: LogCursor;
   LogsArgs: LogsArgs;
   ModifyRolesArgs: ModifyRolesArgs;
   Mutation: ResolverTypeWrapper<{}>;
@@ -1480,6 +1488,7 @@ export type ResolversParentTypes = ResolversObject<{
   JobsByPipelineQueryArgs: JobsByPipelineQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Log: Log;
+  LogCursor: LogCursor;
   LogsArgs: LogsArgs;
   ModifyRolesArgs: ModifyRolesArgs;
   Mutation: {};

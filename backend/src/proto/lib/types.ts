@@ -62,6 +62,7 @@ export type GetLogsRequestArgs = {
   since?: number;
   follow?: boolean;
   master?: boolean;
+  limit?: number;
 };
 
 export type ListCommitArgs = {

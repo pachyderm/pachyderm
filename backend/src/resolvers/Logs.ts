@@ -1,3 +1,4 @@
+import {ApolloError} from 'apollo-server-errors';
 import {default as reverseArray} from 'lodash/reverse';
 import {v4 as uuid} from 'uuid';
 
@@ -65,10 +66,67 @@ const logsResolver: LogsResolver = {
           start,
           reverse = false,
           master = false,
+          cursor,
+          limit,
         },
       },
       {pachClient},
     ) => {
+      // Paged logs can not be reversed.
+      if (cursor && reverse) {
+        throw new ApolloError(
+          "'cursor' and 'reverse' cannot be used together.",
+          'INVALID_ARGUMENT',
+        );
+      }
+
+      if (cursor) {
+        const logsStream = await pachClient.pps().getLogsStream({
+          projectId,
+          pipelineName: pipelineName,
+          since: calculateSince(cursor.timestamp.seconds),
+          jobId: jobId || undefined,
+          datumId: datumId || undefined,
+          master: master || undefined,
+        });
+
+        let foundCursor = false;
+        let count = 0;
+
+        const data = await new Promise<LogMessage.AsObject[]>(
+          (resolve, reject) => {
+            const data: LogMessage.AsObject[] = [];
+
+            logsStream.on('data', (chunk: LogMessage) => {
+              const obj = chunk.toObject();
+
+              if (
+                obj.message === cursor.message &&
+                obj.ts &&
+                obj.ts.seconds === cursor.timestamp.seconds &&
+                obj.ts.nanos === cursor.timestamp.nanos
+              ) {
+                foundCursor = true;
+              } else if (foundCursor) {
+                data.push(obj);
+                count++;
+              }
+              if (count === limit) {
+                logsStream.destroy();
+              }
+            });
+            logsStream.on('end', () => resolve(data));
+            logsStream.on('close', () => resolve(data));
+            logsStream.on('error', (err) => reject(err));
+          },
+        );
+
+        if (!foundCursor) {
+          throw new ApolloError('could not find cursor', 'INVALID_ARGUMENT');
+        }
+
+        return data.map(logMessageToGQLLog);
+      }
       const logs = await pachClient.pps().getLogs({
         projectId,
         pipelineName: pipelineName,
@@ -76,8 +134,10 @@ const logsResolver: LogsResolver = {
         jobId: jobId || undefined,
         datumId: datumId || undefined,
         master: master || undefined,
+        limit: limit || undefined,
       });
 
+      // can't page and use reverse.
       return reverse
         ? reverseArray(logs.map(logMessageToGQLLog))
         : logs.map(logMessageToGQLLog);

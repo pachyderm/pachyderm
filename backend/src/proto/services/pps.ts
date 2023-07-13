@@ -466,6 +466,7 @@ const pps = ({
       since,
       follow = false,
       master = false,
+      limit,
     }: GetLogsRequestArgs) => {
       const getLogsRequest = getLogsRequestFromArgs({
         projectId,
@@ -481,7 +482,10 @@ const pps = ({
         deadline: Date.now() + RPC_DEADLINE_MS,
       });
 
-      return streamToObjectArray<LogMessage, LogMessage.AsObject>(stream);
+      return streamToObjectArray<LogMessage, LogMessage.AsObject>(
+        stream,
+        limit,
+      );
     },
 
     getLogsStream: ({
