@@ -874,6 +874,52 @@ class SchedulingSpec(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class PipelineSpec(betterproto.Message):
+    pipeline: "Pipeline" = betterproto.message_field(1)
+    tf_job: "TfJob" = betterproto.message_field(2)
+    """
+    tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
+    when running in a kubernetes cluster on which kubeflow has been installed.
+    Exactly one of 'tf_job' and 'transform' should be set
+    """
+
+    transform: "Transform" = betterproto.message_field(3)
+    parallelism_spec: "ParallelismSpec" = betterproto.message_field(4)
+    egress: "Egress" = betterproto.message_field(5)
+    output_branch: str = betterproto.string_field(7)
+    s3_out: bool = betterproto.bool_field(8)
+    """
+    s3_out, if set, requires a pipeline's user to write to its output repo via
+    Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3 gateway
+    API at http://<pipeline>-s3.<namespace>/<job id>.out/my/file). In this mode
+    /pfs/out won't be walked or uploaded, and the s3 gateway service in the
+    workers will allow writes to the job's output commit
+    """
+
+    resource_requests: "ResourceSpec" = betterproto.message_field(9)
+    resource_limits: "ResourceSpec" = betterproto.message_field(10)
+    sidecar_resource_limits: "ResourceSpec" = betterproto.message_field(11)
+    input: "Input" = betterproto.message_field(12)
+    description: str = betterproto.string_field(13)
+    service: "Service" = betterproto.message_field(17)
+    spout: "Spout" = betterproto.message_field(18)
+    datum_set_spec: "DatumSetSpec" = betterproto.message_field(19)
+    datum_timeout: timedelta = betterproto.message_field(20)
+    job_timeout: timedelta = betterproto.message_field(21)
+    salt: str = betterproto.string_field(22)
+    datum_tries: int = betterproto.int64_field(23)
+    scheduling_spec: "SchedulingSpec" = betterproto.message_field(24)
+    pod_spec: str = betterproto.string_field(25)
+    pod_patch: str = betterproto.string_field(26)
+    spec_commit: "_pfs__.Commit" = betterproto.message_field(27)
+    metadata: "Metadata" = betterproto.message_field(28)
+    reprocess_spec: str = betterproto.string_field(29)
+    autoscaling: bool = betterproto.bool_field(30)
+    tolerations: List["Toleration"] = betterproto.message_field(34)
+    sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
+
+
+@dataclass(eq=False, repr=False)
 class CreatePipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     tf_job: "TfJob" = betterproto.message_field(2)
@@ -1319,6 +1365,11 @@ class ApiStub:
             "/pps_v2.API/QueryLoki",
             request_serializer=LokiRequest.SerializeToString,
             response_deserializer=LokiLogMessage.FromString,
+        )
+        self.__rpc_get_cluster_defaults = channel.unary_unary(
+            "/pps_v2.API/GetClusterDefaults",
+            request_serializer=GetClusterDefaultsRequest.SerializeToString,
+            response_deserializer=GetClusterDefaultsResponse.FromString,
         )
 
     def inspect_job(
@@ -1852,6 +1903,11 @@ class ApiStub:
         for response in self.__rpc_query_loki(request):
             yield response
 
+    def get_cluster_defaults(self) -> "GetClusterDefaultsResponse":
+        request = GetClusterDefaultsRequest()
+
+        return self.__rpc_get_cluster_defaults(request)
+
 
 class ApiBase:
     def inspect_job(
@@ -2194,6 +2250,13 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def get_cluster_defaults(
+        self, context: "grpc.ServicerContext"
+    ) -> "GetClusterDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "pps_v2.API"
 
     @property
@@ -2363,5 +2426,10 @@ class ApiBase:
                 self.query_loki,
                 request_deserializer=LokiRequest.FromString,
                 response_serializer=LokiRequest.SerializeToString,
+            ),
+            "GetClusterDefaults": grpc.unary_unary_rpc_method_handler(
+                self.get_cluster_defaults,
+                request_deserializer=GetClusterDefaultsRequest.FromString,
+                response_serializer=GetClusterDefaultsRequest.SerializeToString,
             ),
         }
