@@ -18,6 +18,55 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+var schemaUpdate = `
+       ALTER TABLE pfs.commits ADD CONSTRAINT fk_col_commit
+                  FOREIGN KEY(commit_id)
+                  REFERENCES collections.commits(key)
+                  ON DELETE CASCADE
+`
+
+func SetupCommitProvenanceV01(ctx context.Context, tx *pachsql.Tx) error {
+	_, err := tx.ExecContext(ctx, schemaUpdate)
+	return errors.EnsureStack(err)
+}
+
+func SetupCommitProvenanceV0(ctx context.Context, tx *pachsql.Tx) error {
+	_, err := tx.ExecContext(ctx, schema)
+	return errors.EnsureStack(err)
+}
+
+// TODO(acohen4): verify how postgres behaves when does altering a table affect foreign key constraints?
+var schema = `
+	CREATE TABLE pfs.commits (
+		int_id BIGSERIAL PRIMARY KEY,
+		commit_id VARCHAR(4096) UNIQUE,
+                commit_set_id VARCHAR(4096) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE pfs.commit_provenance (
+		from_id BIGSERIAL NOT NULL,
+		to_id BIGSERIAL NOT NULL,
+		PRIMARY KEY (from_id, to_id),
+                CONSTRAINT fk_from_commit
+                  FOREIGN KEY(from_id)
+	          REFERENCES pfs.commits(int_id)
+	          ON DELETE CASCADE,
+                CONSTRAINT fk_to_commit
+                  FOREIGN KEY(to_id)
+	          REFERENCES pfs.commits(int_id)
+	          ON DELETE CASCADE
+	);
+
+	CREATE INDEX ON pfs.commit_provenance (
+		from_id
+	);
+
+	CREATE INDEX ON pfs.commit_provenance (
+		to_id
+	);
+`
+
 func updateOldCommit(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit, f func(ci *pfs.CommitInfo)) error {
 	k := oldCommitKey(c)
 	ci := &pfs.CommitInfo{}
