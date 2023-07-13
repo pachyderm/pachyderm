@@ -91,10 +91,10 @@ def _Commit_from_uri(uri: str) -> Commit:
     # TODO: Commits are no longer pinned to branches.
     #       When officially deprecated, the `branch` field will be removed.
     return Commit(
-            branch=Branch(name=branch, repo=repo),
-            id=commit,
-            repo=repo,
-        )
+        branch=Branch(name=branch, repo=repo),
+        id=commit,
+        repo=repo,
+    )
 
 
 def _Commit_as_uri(self: "Commit") -> str:

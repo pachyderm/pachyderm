@@ -23,8 +23,8 @@ def default_project(request) -> bool:
 def client(request) -> "TestClient":
     client = TestClient(
         nodeid=request.node.nodeid,
-        host=os.environ.get('PACH_PYTHON_TEST_HOST'),
-        port=os.environ.get('PACH_PYTHON_TEST_PORT'),
+        host=os.environ.get("PACH_PYTHON_TEST_HOST"),
+        port=os.environ.get("PACH_PYTHON_TEST_PORT"),
     )
     yield client
     client.tear_down()
@@ -34,9 +34,9 @@ def client(request) -> "TestClient":
 def auth_client(request) -> "TestClient":
     client = TestClient(
         nodeid=request.node.nodeid,
-        host=os.environ.get('PACH_PYTHON_TEST_HOST'),
-        port=os.environ.get('PACH_PYTHON_TEST_PORT_ENTERPRISE'),
-        auth_token=os.environ.get(AUTH_TOKEN_ENV)
+        host=os.environ.get("PACH_PYTHON_TEST_HOST"),
+        port=os.environ.get("PACH_PYTHON_TEST_PORT_ENTERPRISE"),
+        auth_token=os.environ.get(AUTH_TOKEN_ENV),
     )
     yield client
     client.tear_down()
@@ -97,10 +97,8 @@ class TestClient(_Client):
             pipeline=pipeline,
             input=pps.Input(pfs=pps.PfsInput(glob="/*", repo=repo.name)),
             transform=pps.Transform(
-                cmd=["sh"],
-                image="alpine",
-                stdin=[f"cp /pfs/{repo.name}/*.dat /pfs/out/"]
-            )
+                cmd=["sh"], image="alpine", stdin=[f"cp /pfs/{repo.name}/*.dat /pfs/out/"]
+            ),
         )
         self.pipelines.append(pipeline)
 
@@ -123,11 +121,13 @@ class TestClient(_Client):
                 self.pfs.delete_project(project=project, force=True)
 
     def _generate_name(self) -> str:
+        # fmt: off
         name: str = (
             self.id
                 .replace("/", "-")
                 .replace(":", "-")
                 .replace(".py", "")
         )[:40]  # TODO: Make this the maximum it can be.
+        # fmt: on
         name = f"{name[:name.find('[')]}-{random.randint(100, 999)}"
         return name

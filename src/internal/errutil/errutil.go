@@ -64,3 +64,8 @@ func IsNetRetryable(err error) bool {
 	var netErr net.Error
 	return errors.As(err, &netErr) && netErr.Temporary() //nolint:staticcheck
 }
+
+// IsDatabseDisconnect returns true if the error represents a database disconnect
+func IsDatabaseDisconnect(err error) bool {
+	return strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "unexpected EOF")
+}
