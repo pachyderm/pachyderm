@@ -247,6 +247,9 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				if c.Id == a.env.Config.ConsoleOAuthID {
 					c.Secret = a.env.Config.ConsoleOAuthSecret
 				}
+				if c.Id == a.env.Config.DeterminedOAuthID {
+					c.Secret = a.env.Config.DeterminedOAuthSecret
+				}
 				if !a.env.Config.EnterpriseMember {
 					if _, err := a.env.GetIdentityServer().CreateOIDCClient(ctx, &identity.CreateOIDCClientRequest{Client: c}); err != nil {
 						if !identity.IsErrAlreadyExists(err) {
