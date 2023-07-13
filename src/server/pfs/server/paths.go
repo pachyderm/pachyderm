@@ -47,12 +47,13 @@ func pathIsChild(parent, child string) bool {
 var validRangeRegex = regexp.MustCompile("^[ -~]+$")
 
 func ValidateFilename(p string) error {
-	pBytes := []byte(p)
-	if !validRangeRegex.Match(pBytes) {
+	switch {
+	case !validRangeRegex.Match([]byte(p)):
 		return errors.Errorf("path (%v) invalid: only printable ASCII characters allowed", p)
-	}
-	if globRegex.Match(pBytes) {
+	case globRegex.Match([]byte(p)):
 		return errors.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", p, globRegex.FindString(p))
+	case strings.HasSuffix(p, "/"):
+		return errors.Errorf("path (%v) invalid: trailing slash not allowed in path", p)
 	}
 	for _, elem := range strings.Split(p, "/") {
 		if elem == "." || elem == ".." {

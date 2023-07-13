@@ -3511,6 +3511,10 @@ func TestPFS(suite *testing.T) {
 
 		// Glob character test
 		require.YesError(t, env.PachClient.PutFile(commit, "foobar*", strings.NewReader("foobar\n")))
+
+		// Trailing slash test
+		require.YesError(t, env.PachClient.PutFile(commit, "/", strings.NewReader("foobar\n")))
+		require.YesError(t, env.PachClient.PutFile(commit, "foo/", strings.NewReader("foobar\n")))
 	})
 
 	suite.Run("PutFileValidPaths", func(t *testing.T) {
