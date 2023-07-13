@@ -19,25 +19,9 @@ const (
 	commitsCollectionName  = "commits"
 )
 
-var ReposTypeIndex = &col.Index{
-	Name: "type",
-	Extract: func(val proto.Message) string {
-		return val.(*pfs.RepoInfo).Repo.Type
-	},
+func ProjectKey(project *pfs.Project) string {
+	return project.Name
 }
-
-func ReposNameKey(repo *pfs.Repo) string {
-	return repo.Project.Name + "/" + repo.Name
-}
-
-var ReposNameIndex = &col.Index{
-	Name: "name",
-	Extract: func(val proto.Message) string {
-		return ReposNameKey(val.(*pfs.RepoInfo).Repo)
-	},
-}
-
-var reposIndexes = []*col.Index{ReposNameIndex, ReposTypeIndex}
 
 func RepoKey(repo *pfs.Repo) string {
 	return repo.Project.Name + "/" + repo.Name + "." + repo.Type
