@@ -169,7 +169,7 @@ func ListRepoByIdxName(ctx context.Context, tx *pachsql.Tx, repoName string) (*R
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
 func listRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*RepoIterator, error) {
 	limit := 100
-	page, err := listRepoPage(ctx, tx, limit, 0, "", nil)
+	page, err := listRepoPage(ctx, tx, limit, 0, where, whereVal)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
