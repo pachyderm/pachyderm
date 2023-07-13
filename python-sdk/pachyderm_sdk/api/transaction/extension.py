@@ -26,7 +26,7 @@ class ApiStub(_GeneratedApiStub):
     def start_transaction(self) -> "Transaction":
         """Starts a transaction and sets the transaction ID within the client.
         This will make all subsequent resource operations performed by the client
-          occur within the returned transaction, until the transaction is finished.
+        occur within the returned transaction, until the transaction is finished.
         """
         response = super().start_transaction()
         self._set_transaction_id(response.id)

@@ -154,7 +154,7 @@ def _File_from_uri(uri: str) -> File:
 
 
 def _File_as_uri(self: "File") -> str:
-    """Returns the URI for the Commit object in one of the following formats:
+    """Returns the URI for the File object in one of the following formats:
         project/repo@branch:/path
         project/repo@branch=commit:/path
         project/repo@commit:/path
