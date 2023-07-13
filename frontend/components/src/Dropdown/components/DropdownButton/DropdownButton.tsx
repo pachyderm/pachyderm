@@ -66,7 +66,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
       buttonType={buttonType}
       className={mergedClasses}
       onClick={(e) => {
-        openOnClick && openOnClick();
+        openOnClick && !isOpen && openOnClick();
         toggleDropdown(e);
       }}
       onKeyDown={handleKeyDown}

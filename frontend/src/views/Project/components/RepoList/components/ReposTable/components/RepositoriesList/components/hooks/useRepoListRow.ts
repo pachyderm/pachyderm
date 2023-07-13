@@ -8,7 +8,7 @@ import {useHistory} from 'react-router';
 
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
+import {useVerifiedAuthorizationLazy} from '@dash-frontend/hooks/useVerifiedAuthorizationLazy';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 import {DropdownItem, useModal} from '@pachyderm/components';
 
@@ -22,11 +22,14 @@ const useRepoListRow = (repoId: string) => {
     isOpen: rolesModalOpen,
   } = useModal(false);
 
-  const {isAuthorizedAction: editRolesPermission, isAuthActive} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.REPO_MODIFY_BINDINGS],
-      resource: {type: ResourceType.REPO, name: `${projectId}/${repoId}`},
-    });
+  const {
+    checkRolesPermission,
+    isAuthorizedAction: editRolesPermission,
+    isAuthActive,
+  } = useVerifiedAuthorizationLazy({
+    permissionsList: [Permission.REPO_MODIFY_BINDINGS],
+    resource: {type: ResourceType.REPO, name: `${projectId}/${repoId}`},
+  });
 
   const inspectCommitRedirect = (commit: Commit | null | undefined) => {
     if (commit) {
@@ -83,6 +86,7 @@ const useRepoListRow = (repoId: string) => {
   };
 
   return {
+    checkRolesPermission,
     projectId,
     generateIconItems,
     onOverflowMenuSelect,

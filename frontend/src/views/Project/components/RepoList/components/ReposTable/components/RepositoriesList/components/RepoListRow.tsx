@@ -23,6 +23,7 @@ const RepoListRow: React.FC<RepoListRowProps> = ({repo}) => {
     rolesModalOpen,
     closeRolesModal,
     editRolesPermission,
+    checkRolesPermission,
   } = useRepoListRow(repo?.id || '');
   const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
 
@@ -66,6 +67,7 @@ const RepoListRow: React.FC<RepoListRowProps> = ({repo}) => {
       lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}
       overflowMenuItems={generateIconItems(repo?.lastCommit?.id)}
       dropdownOnSelect={onOverflowMenuSelect(repo)}
+      openOnClick={checkRolesPermission}
     >
       <Table.DataCell>{repo?.name}</Table.DataCell>
       <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>
