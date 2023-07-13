@@ -193,6 +193,12 @@ class Egress(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class Determined(betterproto.Message):
+    workspaces: List[str] = betterproto.string_field(1)
+    password: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class Job(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     id: str = betterproto.string_field(2)
@@ -592,6 +598,7 @@ class PipelineInfoDetails(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(33)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
+    determined: "Determined" = betterproto.message_field(36)
 
 
 @dataclass(eq=False, repr=False)
@@ -926,6 +933,7 @@ class CreatePipelineRequest(betterproto.Message):
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
     details_json: str = betterproto.string_field(36)
     dry_run: bool = betterproto.bool_field(37)
+    determined: "Determined" = betterproto.message_field(38)
 
 
 @dataclass(eq=False, repr=False)
@@ -1510,7 +1518,8 @@ class ApiStub:
         tolerations: Optional[List["Toleration"]] = None,
         sidecar_resource_requests: "ResourceSpec" = None,
         details_json: str = "",
-        dry_run: bool = False
+        dry_run: bool = False,
+        determined: "Determined" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1566,6 +1575,8 @@ class ApiStub:
             request.sidecar_resource_requests = sidecar_resource_requests
         request.details_json = details_json
         request.dry_run = dry_run
+        if determined is not None:
+            request.determined = determined
 
         return self.__rpc_create_pipeline(request)
 
@@ -1989,6 +2000,7 @@ class ApiBase:
         sidecar_resource_requests: "ResourceSpec",
         details_json: str,
         dry_run: bool,
+        determined: "Determined",
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

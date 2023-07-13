@@ -215,16 +215,17 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/ActivateAuth":    clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
 	"/pps_v2.API/DeleteAll":       authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
 
-	"/pps_v2.API/CreateSecret":       authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_CREATE_SECRET)),
-	"/pps_v2.API/ListSecret":         authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LIST_SECRETS)),
-	"/pps_v2.API/DeleteSecret":       authDisabledOr(clusterPermissions(auth.Permission_SECRET_DELETE)),
-	"/pps_v2.API/InspectSecret":      authDisabledOr(clusterPermissions(auth.Permission_SECRET_INSPECT)),
-	"/pps_v2.API/RunLoadTest":        authDisabledOr(authenticated),
-	"/pps_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
-	"/pps_v2.API/RenderTemplate":     authDisabledOr(authenticated),
-	"/pps_v2.API/ListTask":           authDisabledOr(authenticated),
-	"/pps_v2.API/GetKubeEvents":      authDisabledOr(authenticated),
-	"/pps_v2.API/QueryLoki":          authDisabledOr(authenticated),
+	"/pps_v2.API/CreateSecret":                 authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_CREATE_SECRET)),
+	"/pps_v2.API/ListSecret":                   authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LIST_SECRETS)),
+	"/pps_v2.API/DeleteSecret":                 authDisabledOr(clusterPermissions(auth.Permission_SECRET_DELETE)),
+	"/pps_v2.API/InspectSecret":                authDisabledOr(clusterPermissions(auth.Permission_SECRET_INSPECT)),
+	"/pps_v2.API/RunLoadTest":                  authDisabledOr(authenticated),
+	"/pps_v2.API/RunLoadTestDefault":           authDisabledOr(authenticated),
+	"/pps_v2.API/RenderTemplate":               authDisabledOr(authenticated),
+	"/pps_v2.API/ListTask":                     authDisabledOr(authenticated),
+	"/pps_v2.API/GetKubeEvents":                authDisabledOr(authenticated),
+	"/pps_v2.API/QueryLoki":                    authDisabledOr(authenticated),
+	"/pps_v2.API/CreateDetPipelineSideEffects": authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI

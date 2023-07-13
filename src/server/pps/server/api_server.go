@@ -2161,13 +2161,77 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.validateSecret(ctx, request); err != nil {
 		return nil, err
 	}
-
+	if request.Determined != nil {
+		pw, err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces, request.Determined.Password)
+		if err != nil {
+			return nil, errors.Wrap(err, "create det pipeline side effects")
+		}
+		request.Determined.Password = pw
+	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// CreateDetPipelineSideEffects modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
+// Provisions a determined user on representing the pipeline, and stores its password in a kubernetes secret named "{project}/{pipeline}-det"
+//
+// Implementation Notes:
+// - This method must be idempotent, as it interfaces with Pachyderm's Transaction API that may run this multiple times
+//
+// TODO: set up garbage collection for the records stored outside the DB
+func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string, pw string) (string, error) {
+	// check if pipeline's creds secret exists
+	secretName := pipeline.Project.Name + "-" + pipeline.Name + "-det"
+	password := pw
+	if sec, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, secretName, metav1.GetOptions{}); err != nil {
+		if !errutil.IsNotFoundError(err) {
+			return "", errors.Wrapf(err, "get k8s secret %q", secretName)
+		}
+	} else {
+		if p, ok := sec.StringData["password"]; ok {
+			if password == "" {
+				password = p
+			} else if password == p {
+				// state is already applied, exit early
+				return password, nil
+			}
+		}
+	}
+	if password == "" {
+		password = uuid.NewWithoutDashes()
+	}
+	whoAmI, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if err != nil {
+		return "", errors.Wrap(err, "who am i")
+	}
+	splits := strings.Split(whoAmI.Username, ":")
+	if len(splits) != 2 {
+		return "", errors.Errorf("subject %q expected to be segmented by one ':'", whoAmI.Username)
+	}
+	username := splits[1]
+	if err := a.hookDeterminedPipeline(ctx, pipeline, workspaces, password, username); err != nil {
+		return "", errors.Wrapf(err, "failed to connect pipeline %q to determined", pipeline.String())
+	}
+	s := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: a.namespace,
+		},
+		StringData: map[string]string{
+			"password": password,
+		},
+	}
+	s.SetLabels(map[string]string{
+		"suite": "pachyderm",
+	})
+	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, s, metav1.CreateOptions{}); err != nil {
+		return "", errors.Wrapf(err, "failed to create pipeline's determined secret")
+	}
+	return password, nil
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
@@ -2178,7 +2242,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
 	}
-
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline: request.Pipeline,
 		Version:  1,
@@ -2212,7 +2275,13 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Tolerations:             request.Tolerations,
 		},
 	}
-
+	// TODO: revisit this structure
+	if request.Determined != nil {
+		if pipelineInfo.Details.Determined == nil {
+			pipelineInfo.Details.Determined = &pps.Determined{}
+		}
+		pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
+	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
 	}
@@ -2220,7 +2289,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if err := a.validatePipeline(pipelineInfo); err != nil {
 		return nil, err
 	}
-
 	if oldPipelineInfo != nil {
 		// Modify pipelineInfo (increment Version, and *preserve Stopped* so
 		// that updating a pipeline doesn't restart it)
@@ -2230,6 +2298,9 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		}
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
+		}
+		if oldPipelineInfo.Details.Determined != nil {
+			pipelineInfo.Details.Determined.Password = oldPipelineInfo.Details.Determined.Password
 		}
 	}
 
@@ -2246,13 +2317,11 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		// silently ignore pipeline not found, old info will be nil
 		return err
 	}
-
 	if oldPipelineInfo != nil && !request.Update {
 		return ppsServer.ErrPipelineAlreadyExists{
 			Pipeline: request.Pipeline,
 		}
 	}
-
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
 	if err != nil {
 		return err
@@ -2285,7 +2354,6 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	}); visitErr != nil {
 		return visitErr
 	}
-
 	update := request.Update && oldPipelineInfo != nil
 	// Authorize pipeline creation
 	operation := pipelineOpCreate
@@ -2364,7 +2432,6 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			return errors.EnsureStack(err)
 		}
 	}
-
 	// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 	if err := func() error {
 		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline)
@@ -2375,12 +2442,10 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			return errors.EnsureStack(err)
 		}
 		newPipelineInfo.AuthToken = token
-
 		return nil
 	}(); err != nil {
 		return err
 	}
-
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
 		return errors.EnsureStack(err)

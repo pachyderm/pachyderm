@@ -307,6 +307,15 @@ spec:
               name: {{ default ("pachyderm-console-secret") .Values.console.config.oauthClientSecretSecretName  }}
               key: OAUTH_CLIENT_SECRET
         {{- end }}
+        {{- if and .Values.determined.enabled .Values.determined.enterpriseEdition   (not .Values.determined.oidc.clientSecretName) -}}
+        - name: DETERMINED_OAUTH_ID
+          value: {{ default .Values.determined.oidc.clientId "determined" }}
+        - name: DETERMINED_OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ default .Values.determined.oidc.clientSecretName "det-oidc-client-secret" }}
+              key: {{ default .Values.determined.oidc.clientSecretKey "oidc-client-secret" }}
+        {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
           value: {{ .Values.global.proxy }}
@@ -423,6 +432,22 @@ spec:
         {{- if ne .Values.pachd.defaultSidecarStorageRequest "" }}
         - name: SIDECAR_DEFAULT_STORAGE_REQUEST
           value: {{ .Values.pachd.defaultSidecarStorageRequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.determined.credentialsSecretName "" }}
+        - name: DETERMINED_USERNAME
+          valueFrom:          
+            secretKeyRef:
+              name: {{ .Values.pachd.determined.credentialsSecretName }}
+              key: determined-username
+        - name: DETERMINED_PASSWORD
+          valueFrom:          
+            secretKeyRef:
+              name: {{ .Values.pachd.determined.credentialsSecretName }}              
+              key: determined-password          
+        {{- end }}
+        {{- if ne .Values.pachd.determined.apiEndpoint "" }}
+        - name: DETERMINED_API_URL
+          value: {{ .Values.pachd.determined.apiEndpoint | quote }}
         {{- end }}
         - name: GOCOVERDIR
           value: /tmp

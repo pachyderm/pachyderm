@@ -251,6 +251,11 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Inp
 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
 func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
+	var det *pps.Determined
+	if pipelineInfo.Details.Determined != nil {
+		// avoid copying Determined.Password
+		det = &pps.Determined{Workspaces: pipelineInfo.Details.Determined.Workspaces}
+	}
 	return &pps.CreatePipelineRequest{
 		Pipeline:                pipelineInfo.Pipeline,
 		Transform:               pipelineInfo.Details.Transform,
@@ -278,6 +283,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		ReprocessSpec:           pipelineInfo.Details.ReprocessSpec,
 		Autoscaling:             pipelineInfo.Details.Autoscaling,
 		Tolerations:             pipelineInfo.Details.Tolerations,
+		Determined:              det,
 	}
 }
 
