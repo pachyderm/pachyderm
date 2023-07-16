@@ -452,6 +452,7 @@ class JobInfo(betterproto.Message):
     started: datetime = betterproto.message_field(14)
     finished: datetime = betterproto.message_field(15)
     details: "JobInfoDetails" = betterproto.message_field(16)
+    auth_token: str = betterproto.string_field(17)
 
 
 @dataclass(eq=False, repr=False)
