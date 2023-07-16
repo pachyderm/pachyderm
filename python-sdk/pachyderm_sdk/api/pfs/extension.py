@@ -1,3 +1,4 @@
+"""Handwritten classes/methods that augment the existing PFS API."""
 import io
 import os
 from contextlib import contextmanager
@@ -76,19 +77,13 @@ class ClosedCommit(Commit):
     def wait(self) -> "CommitInfo":
         """Waits until the commit is finished being created.
 
-        This method is intended to be called on a closed commit, but provided
-        with this class to be used following the commit context.
-        (See example in class docstring)
+        See OpenCommit docstring for an example.
         """
         return self._stub.wait_commit(self)
 
     def wait_set(self) -> List["CommitInfo"]:  # TODO: Better name?
         """Similar to Commit.wait but streams back the pfs.CommitInfo
         from all the downstream jobs that were initiated by this commit.
-
-        This method is intended to be called on a closed commit, but provided
-        with this class to be used following the commit context.
-        (See example in class docstring)
         """
         return self._stub.wait_commit_set(CommitSet(id=self._commit.id))
 
@@ -143,6 +138,11 @@ class OpenCommit(ClosedCommit):
         ------
         ValueError: If the commit is closed.
 
+        Returns
+        -------
+        A pfs.File object that that points to the uploaded file.
+        NOTE: The commit must be closed before you can read this file.
+
         Examples
         --------
         >>> from pachyderm_sdk import Client
@@ -177,6 +177,11 @@ class OpenCommit(ClosedCommit):
         ------
         ValueError: If the commit is closed.
 
+        Returns
+        -------
+        A pfs.File object that that points to the uploaded file.
+        NOTE: The commit must be closed before you can read this file.
+
         Examples
         --------
         >>> from pachyderm_sdk import Client
@@ -209,6 +214,11 @@ class OpenCommit(ClosedCommit):
         ------
         ValueError: If the commit is closed.
 
+        Returns
+        -------
+        A pfs.File object that that points to the uploaded file.
+        NOTE: The commit must be closed before you can read this file.
+
         Examples
         --------
         >>> from pachyderm_sdk import Client
@@ -238,6 +248,11 @@ class OpenCommit(ClosedCommit):
         ------
         ValueError: If the commit is closed.
 
+        Returns
+        -------
+        A pfs.File object that that points to the new file.
+        NOTE: The commit must be closed before you can read this file.
+
         Examples
         --------
         >>> from pachyderm_sdk import Client
@@ -261,6 +276,10 @@ class OpenCommit(ClosedCommit):
         Raises
         ------
         ValueError: If the commit is closed.
+
+        Returns
+        -------
+        A pfs.File object that that points to the deleted file.
 
         Examples
         --------
@@ -302,18 +321,17 @@ class ApiStub(_GeneratedApiStub):
 
         When inside this context, the returned object is an OpenCommit which accepts
           write-operations. Upon exiting the context, the commit is closed and the
-          OpenCommit becomes a ClosedCommit, no longer allowing write-operations
-          to the commit.
+          OpenCommit becomes a ClosedCommit and no longer allowing write-operations.
 
         Parameters
         ----------
-        parent : pfs.Commit
+        parent : pfs.Commit, optional
             The parent commit of the new commit. parent may be empty in which case
             the commit that Branch points to will be used as the parent.
             If the branch does not exist, the commit will have no parent.
         description : str, optional
             A description of the commit.
-        branch : pfs.Branch
+        branch : pfs.Branch, optional
             The branch where the commit is created.
 
         Yields
