@@ -1361,8 +1361,8 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 		[]string{"bash"},
 		[]string{
 			"echo $PACH_TOKEN | pachctl auth use-auth-token",
-			"pachctl config update context --pachd-address 'grpc://localhost:30660'",
-			"echo $(pachctl auth whoami) > /pfs/out/result.txt",
+			"pachctl config update context --pachd-address $(echo grpc://pachd.$PACH_NAMESPACE.svc.cluster.local:30660)",
+			"echo $(pachctl auth whoami) >/pfs/out/file2",
 			"pachctl list repo",
 		},
 		&pps.ParallelismSpec{
@@ -1384,6 +1384,9 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 	jobInfo, err := rc.WaitJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "file2", &buffer))
+	require.Equal(t, fmt.Sprintf("You are \"pipeline:default/%s\"\n", jobInfo.Job.Pipeline.Name), buffer.String())
 }
 
 func TestPipelineFailure(t *testing.T) {
