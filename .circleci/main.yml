@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.20.5"
+    default: "1.20.6"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -1522,7 +1522,7 @@ jobs:
           name: Publish
           command: |
             poetry version << parameters.version >>
-            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD"
+            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
 
 workflows:
   integration-tests:

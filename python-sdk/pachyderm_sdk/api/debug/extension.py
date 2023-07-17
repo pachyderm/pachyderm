@@ -1,3 +1,4 @@
+"""Handwritten classes/methods that augment the existing Debug API."""
 from typing import Iterator, List, Optional, TYPE_CHECKING
 
 from . import DebugStub
