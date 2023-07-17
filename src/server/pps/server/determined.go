@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"strings"
 	"time"
@@ -14,7 +13,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
@@ -32,10 +31,7 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 	errCnt := 0
 	// right now the entire integration is specifc to auth, so first check that auth is active
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
-		}
-		tlsOpt := grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
+		tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
 		conn, err := grpc.DialContext(ctx, a.env.Config.DeterminedURL, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
 		if err != nil {
 			return errors.Wrapf(err, "dialing determined at %q", a.env.Config.DeterminedURL)
@@ -213,7 +209,7 @@ func validateWorkspacePermissions(ctx context.Context, dc det.DeterminedClient, 
 
 func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClient, p *pps.Pipeline, password string) (int32, error) {
 	resp, err := dc.PostUser(ctx, &det.PostUserRequest{
-		User:     &userv1.User{Username: pipelineUserName(p)},
+		User:     &userv1.User{Username: pipelineUserName(p), Active: true},
 		Password: password,
 	})
 	if err != nil {
@@ -256,5 +252,5 @@ func assignDeterminedPipelineRole(ctx context.Context, dc det.DeterminedClient, 
 }
 
 func pipelineUserName(p *pps.Pipeline) string {
-	return p.String()
+	return strings.ReplaceAll(p.String(), "/", "_")
 }

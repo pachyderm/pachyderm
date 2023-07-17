@@ -642,7 +642,7 @@ func (kd *kubeDriver) getDeterminedEnvVars(pipelineInfo *pps.PipelineInfo) []v1.
 		},
 		{
 			Name:  "DET_USER",
-			Value: pipelineInfo.Pipeline.String(), // TODO: call common util for determined pipeline user name
+			Value: strings.ReplaceAll(pipelineInfo.Pipeline.String(), "/", "_"), // TODO: call common util for determined pipeline user name
 		},
 		{
 			Name: "DET_PASS",

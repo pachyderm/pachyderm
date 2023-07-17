@@ -14,7 +14,7 @@
     },
     "transform": {
       "cmd": ["/bin/sh"],
-      "stdin": ["pip install determined && det model list -w party --json > /pfs/out/party.txt"],
+      "stdin": ["pip install determined && echo $DET_PASS | det user login $DET_USER && det model list -w party  > /pfs/out/party.txt"],
       "image": "python:3.8",
     },
     "determined": {
