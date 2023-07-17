@@ -645,7 +645,7 @@ func (kd *kubeDriver) getDeterminedEnvVars(pipelineInfo *pps.PipelineInfo) []v1.
 			Value: pipelineInfo.Pipeline.String(), // TODO: call common util for determined pipeline user name
 		},
 		{
-			Name: "DET_PASSWORD",
+			Name: "DET_PASS",
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{
