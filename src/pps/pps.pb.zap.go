@@ -796,47 +796,6 @@ func (x *SchedulingSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *PipelineSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddObject("pipeline", x.Pipeline)
-	enc.AddObject("tf_job", x.TfJob)
-	enc.AddObject("transform", x.Transform)
-	enc.AddObject("parallelism_spec", x.ParallelismSpec)
-	enc.AddObject("egress", x.Egress)
-	enc.AddString("output_branch", x.OutputBranch)
-	enc.AddBool("s3_out", x.S3Out)
-	enc.AddObject("resource_requests", x.ResourceRequests)
-	enc.AddObject("resource_limits", x.ResourceLimits)
-	enc.AddObject("sidecar_resource_limits", x.SidecarResourceLimits)
-	enc.AddObject("input", x.Input)
-	enc.AddString("description", x.Description)
-	enc.AddObject("service", x.Service)
-	enc.AddObject("spout", x.Spout)
-	enc.AddObject("datum_set_spec", x.DatumSetSpec)
-	protoextensions.AddDuration(enc, "datum_timeout", x.DatumTimeout)
-	protoextensions.AddDuration(enc, "job_timeout", x.JobTimeout)
-	enc.AddString("salt", x.Salt)
-	enc.AddInt64("datum_tries", x.DatumTries)
-	enc.AddObject("scheduling_spec", x.SchedulingSpec)
-	enc.AddString("pod_spec", x.PodSpec)
-	enc.AddString("pod_patch", x.PodPatch)
-	enc.AddObject("spec_commit", x.SpecCommit)
-	enc.AddObject("metadata", x.Metadata)
-	enc.AddString("reprocess_spec", x.ReprocessSpec)
-	enc.AddBool("autoscaling", x.Autoscaling)
-	tolerationsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Tolerations {
-			enc.AppendObject(v)
-		}
-		return nil
-	}
-	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
-	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
-	return nil
-}
-
 func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -877,17 +836,8 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
 	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
-	enc.AddString("details_json", x.DetailsJson)
 	enc.AddBool("dry_run", x.DryRun)
 	enc.AddObject("determined", x.Determined)
-	return nil
-}
-
-func (x *CreatePipelineResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddString("details_json", x.DetailsJson)
 	return nil
 }
 
@@ -1143,8 +1093,7 @@ func (x *ClusterDefaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("details_json", x.DetailsJson)
-	enc.AddString("effective_details_json", x.EffectiveDetailsJson)
+	enc.AddString("create_pipeline_request_json", x.CreatePipelineRequestJson)
 	return nil
 }
 

@@ -678,7 +678,7 @@ message SchedulingSpec {
   string priority_class_name = 2;
 }
 
-message PipelineSpec {
+message CreatePipelineRequest {
   Pipeline pipeline = 1;
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
@@ -687,6 +687,7 @@ message PipelineSpec {
   Transform transform = 3;
   ParallelismSpec parallelism_spec = 4;
   Egress egress = 5;
+  bool update = 6;
   string output_branch = 7;
   // s3_out, if set, requires a pipeline's user to write to its output repo
   // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
@@ -699,6 +700,9 @@ message PipelineSpec {
   ResourceSpec sidecar_resource_limits = 11;
   Input input = 12;
   string description = 13;
+  // Reprocess forces the pipeline to reprocess all datums.
+  // It only has meaning if Update is true
+  bool reprocess = 15;
   Service service = 17;
   Spout spout = 18;
   DatumSetSpec datum_set_spec = 19;
@@ -708,63 +712,15 @@ message PipelineSpec {
   int64 datum_tries = 23;
   SchedulingSpec scheduling_spec = 24;
   string pod_spec = 25; // deprecated, use pod_patch below
-  string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before it's created;
+  string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before its created;
   pfs_v2.Commit spec_commit = 27;
   Metadata metadata = 28;
   string reprocess_spec = 29;
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
-}
-
-message CreatePipelineRequest {
-  Pipeline pipeline = 1; // TODO(CORE-1706): deprecate
-  // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
-  // when running in a kubernetes cluster on which kubeflow has been installed.
-  // Exactly one of 'tf_job' and 'transform' should be set
-  TFJob tf_job = 2; // TODO(CORE-1706): deprecate
-  Transform transform = 3; // TODO(CORE-1706): deprecate
-  ParallelismSpec parallelism_spec = 4; // TODO(CORE-1706): deprecate
-  Egress egress = 5; // TODO(CORE-1706): deprecate
-  bool update = 6;
-  string output_branch = 7; // TODO(CORE-1706): deprecate
-  // s3_out, if set, requires a pipeline's user to write to its output repo
-  // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
-  // gateway API at http://<pipeline>-s3.<namespace>/<job id>.out/my/file).
-  // In this mode /pfs_v2/out won't be walked or uploaded, and the s3 gateway
-  // service in the workers will allow writes to the job's output commit
-  bool s3_out = 8; // TODO(CORE-1706): deprecate
-  ResourceSpec resource_requests = 9; // TODO(CORE-1706): deprecate
-  ResourceSpec resource_limits = 10; // TODO(CORE-1706): deprecate
-  ResourceSpec sidecar_resource_limits = 11; // TODO(CORE-1706): deprecate
-  Input input = 12; // TODO(CORE-1706): deprecate
-  string description = 13; // TODO(CORE-1706): deprecate
-  // Reprocess forces the pipeline to reprocess all datums.
-  // It only has meaning if Update is true
-  bool reprocess = 15;
-  Service service = 17; // TODO(CORE-1706): deprecate
-  Spout spout = 18; // TODO(CORE-1706): deprecate
-  DatumSetSpec datum_set_spec = 19; // TODO(CORE-1706): deprecate
-  google.protobuf.Duration datum_timeout = 20; // TODO(CORE-1706): deprecate
-  google.protobuf.Duration job_timeout = 21; // TODO(CORE-1706): deprecate
-  string salt = 22; // TODO(CORE-1706): deprecate
-  int64 datum_tries = 23; // TODO(CORE-1706): deprecate
-  SchedulingSpec scheduling_spec = 24; // TODO(CORE-1706): deprecate
-  string pod_spec = 25; // TODO(CORE-1706): deprecate; deprecated, use pod_patch below
-  string pod_patch = 26; // TODO(CORE-1706): deprecate; a json patch will be applied to the pipeline's pod_spec before its created;
-  pfs_v2.Commit spec_commit = 27; // TODO(CORE-1706): deprecate
-  Metadata metadata = 28; // TODO(CORE-1706): deprecate
-  string reprocess_spec = 29; // TODO(CORE-1706): deprecate
-  bool autoscaling = 30; // TODO(CORE-1706): deprecate
-  repeated Toleration tolerations = 34; // TODO(CORE-1706): deprecate
-  ResourceSpec sidecar_resource_requests = 35; // TODO(CORE-1706): deprecate
-  string details_json = 36;  // a JSON-encoded PipelineSpec message
   bool dry_run = 37;
   Determined determined = 38;
-}
-
-message CreatePipelineResponse {
-  string details_json = 1;
 }
 
 message InspectPipelineRequest {
@@ -906,8 +862,8 @@ message LokiLogMessage {
 }
 
 message ClusterDefaults {
-  string details_json = 1;
-  string effective_details_json = 2;
+  // CreatePipelineRequestJSON contains the default JSON CreatePipelineRequest.
+  string create_pipeline_request_json = 1;
 }
 
 

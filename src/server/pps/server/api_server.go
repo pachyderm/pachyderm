@@ -3626,34 +3626,14 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	}, nil
 }
 
-// emptyPipelineSpecJSON is the result of marshalling a zero pps.PipelineSpec
-// value.  It is used in case any of the PipelineSpec fields are marshaled even
-// if empty.
-var emptyPipelineSpecJSON string
-
-func init() {
-	var spec = new(pps.PipelineSpec)
-	b, err := protojson.Marshal(spec)
-	if err != nil {
-		panic(fmt.Sprint("could not marshal empty pipeline spec: ", err))
-	}
-	emptyPipelineSpecJSON = string(b)
-}
-
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	var clusterDefaults pps.ClusterDefaults
 	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, errors.Wrap(err, "could not read cluster defaults")
 		}
-		clusterDefaults.DetailsJson = "{}"
+		clusterDefaults.CreatePipelineRequestJson = "{}"
 	}
-
-	var err error
-	if clusterDefaults.EffectiveDetailsJson, err = jsonMergePatch(emptyPipelineSpecJSON, clusterDefaults.DetailsJson); err != nil {
-		return nil, errors.Wrap(err, "could not merge empty spec with cluster default details")
-	}
-
 	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
 }
 

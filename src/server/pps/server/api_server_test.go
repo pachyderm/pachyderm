@@ -358,9 +358,7 @@ func TestGetClusterDefaults(t *testing.T) {
 	resp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	require.NoError(t, err, "GetClusterDefaults failed")
 	require.NotNil(t, resp.ClusterDefaults)
-	require.NotEqual(t, "", resp.ClusterDefaults.DetailsJson, "details must not be empty")
-	require.NotEqual(t, "", resp.ClusterDefaults.EffectiveDetailsJson, "effective details must not be empty")
-	var cd pps.PipelineSpec
-	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaults.DetailsJson), &cd), "details must unmarshal")
-	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaults.EffectiveDetailsJson), &cd), "effective details must unmarshal")
+	require.NotEqual(t, "", resp.ClusterDefaults.CreatePipelineRequestJson, "create pipeline request must not be empty")
+	var cpr pps.CreatePipelineRequest
+	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaults.CreatePipelineRequestJson), &cpr), "create pipeline request must unmarshal")
 }

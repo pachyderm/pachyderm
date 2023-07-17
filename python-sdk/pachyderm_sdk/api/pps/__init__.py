@@ -881,52 +881,6 @@ class SchedulingSpec(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class PipelineSpec(betterproto.Message):
-    pipeline: "Pipeline" = betterproto.message_field(1)
-    tf_job: "TfJob" = betterproto.message_field(2)
-    """
-    tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
-    when running in a kubernetes cluster on which kubeflow has been installed.
-    Exactly one of 'tf_job' and 'transform' should be set
-    """
-
-    transform: "Transform" = betterproto.message_field(3)
-    parallelism_spec: "ParallelismSpec" = betterproto.message_field(4)
-    egress: "Egress" = betterproto.message_field(5)
-    output_branch: str = betterproto.string_field(7)
-    s3_out: bool = betterproto.bool_field(8)
-    """
-    s3_out, if set, requires a pipeline's user to write to its output repo via
-    Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3 gateway
-    API at http://<pipeline>-s3.<namespace>/<job id>.out/my/file). In this mode
-    /pfs/out won't be walked or uploaded, and the s3 gateway service in the
-    workers will allow writes to the job's output commit
-    """
-
-    resource_requests: "ResourceSpec" = betterproto.message_field(9)
-    resource_limits: "ResourceSpec" = betterproto.message_field(10)
-    sidecar_resource_limits: "ResourceSpec" = betterproto.message_field(11)
-    input: "Input" = betterproto.message_field(12)
-    description: str = betterproto.string_field(13)
-    service: "Service" = betterproto.message_field(17)
-    spout: "Spout" = betterproto.message_field(18)
-    datum_set_spec: "DatumSetSpec" = betterproto.message_field(19)
-    datum_timeout: timedelta = betterproto.message_field(20)
-    job_timeout: timedelta = betterproto.message_field(21)
-    salt: str = betterproto.string_field(22)
-    datum_tries: int = betterproto.int64_field(23)
-    scheduling_spec: "SchedulingSpec" = betterproto.message_field(24)
-    pod_spec: str = betterproto.string_field(25)
-    pod_patch: str = betterproto.string_field(26)
-    spec_commit: "_pfs__.Commit" = betterproto.message_field(27)
-    metadata: "Metadata" = betterproto.message_field(28)
-    reprocess_spec: str = betterproto.string_field(29)
-    autoscaling: bool = betterproto.bool_field(30)
-    tolerations: List["Toleration"] = betterproto.message_field(34)
-    sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
-
-
-@dataclass(eq=False, repr=False)
 class CreatePipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     tf_job: "TfJob" = betterproto.message_field(2)
@@ -977,14 +931,8 @@ class CreatePipelineRequest(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(30)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
-    details_json: str = betterproto.string_field(36)
     dry_run: bool = betterproto.bool_field(37)
     determined: "Determined" = betterproto.message_field(38)
-
-
-@dataclass(eq=False, repr=False)
-class CreatePipelineResponse(betterproto.Message):
-    details_json: str = betterproto.string_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -1179,8 +1127,10 @@ class LokiLogMessage(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ClusterDefaults(betterproto.Message):
-    details_json: str = betterproto.string_field(1)
-    effective_details_json: str = betterproto.string_field(2)
+    create_pipeline_request_json: str = betterproto.string_field(1)
+    """
+    CreatePipelineRequestJSON contains the default JSON CreatePipelineRequest.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -1568,7 +1518,6 @@ class ApiStub:
         autoscaling: bool = False,
         tolerations: Optional[List["Toleration"]] = None,
         sidecar_resource_requests: "ResourceSpec" = None,
-        details_json: str = "",
         dry_run: bool = False,
         determined: "Determined" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
@@ -1624,7 +1573,6 @@ class ApiStub:
             request.tolerations = tolerations
         if sidecar_resource_requests is not None:
             request.sidecar_resource_requests = sidecar_resource_requests
-        request.details_json = details_json
         request.dry_run = dry_run
         if determined is not None:
             request.determined = determined
@@ -2054,7 +2002,6 @@ class ApiBase:
         autoscaling: bool,
         tolerations: Optional[List["Toleration"]],
         sidecar_resource_requests: "ResourceSpec",
-        details_json: str,
         dry_run: bool,
         determined: "Determined",
         context: "grpc.ServicerContext",
