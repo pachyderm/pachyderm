@@ -172,7 +172,7 @@ func (d *driver) manageRepos(ctx context.Context) error {
 				return errors.Wrap(err, "get all repos")
 			}
 			// watch for new repo events.
-			watcher, err := postgres.NewWatcher(ctx, d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
 			if err != nil {
 				return errors.Wrap(err, "new watcher for pfs master")
 			}

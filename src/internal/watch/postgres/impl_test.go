@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -31,8 +32,9 @@ func TestWatchRepos(t *testing.T) {
 	// Create a watcher. The Watcher interfaces with the listener and already starts buffering events.
 	dsn := dbutil.GetDSN(dbOpts...)
 	listener := collection.NewPostgresListener(dsn)
-	watcher, err := postgresWatcher.NewWatcher(ctx, db, listener, t.Name(), "pfs.repos", postgresWatcher.WithBufferSize(10))
+	watcher, err := postgresWatcher.NewWatcher(db, listener, t.Name(), "pfs.repos", postgresWatcher.WithBufferSize(10))
 	require.NoError(t, err)
+	defer watcher.Close()
 
 	// Generate events by creating repos in the default project.
 	var projectID uint64
@@ -51,9 +53,23 @@ func TestWatchRepos(t *testing.T) {
 		require.Equal(t, postgresWatcher.EventInsert, event.EventType)
 		require.Equal(t, uint64(i+1), event.Id)
 		results = append(results, event)
-		if i == 9 {
-			cancel()
-		}
 	}
 	require.Len(t, results, 10)
+	watcher.Close()
+
+	// Error handling for when the channel is blocked.
+	newWatcher, err := postgresWatcher.NewWatcher(db, listener, t.Name(), "pfs.repos", postgresWatcher.WithBufferSize(0))
+	require.NoError(t, err)
+	defer newWatcher.Close()
+
+	_, err = db.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id) VALUES ($1, $2, $3)", fmt.Sprintf("repo%d", 10), "user", projectID)
+	require.NoError(t, err)
+	// Sleep to ensure channel is blocked before we start consuming events.
+	time.Sleep(100 * time.Millisecond)
+
+	events = newWatcher.Watch()
+	event := <-events
+	require.Equal(t, postgresWatcher.EventError, event.EventType)
+	require.ErrorContains(t, event.Error, fmt.Sprintf("failed to send event, watcher %s is blocked", t.Name()))
+	newWatcher.Close()
 }
