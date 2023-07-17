@@ -329,6 +329,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				res, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
 				if len(res.GetDeletedRepos()) == 0 {
 					fmt.Fprintf(os.Stderr, "no repos deleted\n")
 				} else {
