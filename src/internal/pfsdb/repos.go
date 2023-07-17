@@ -180,13 +180,13 @@ func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, where 
 	var page []repoRow
 	if where != "" && whereVal != nil {
 		if err := tx.SelectContext(ctx, &page,
-			fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id LIMIT $2 OFFSET $3;", getRepoAndBranches, where),
+			fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id ORDER BY repo.id ASC LIMIT $2 OFFSET $3;", getRepoAndBranches, where),
 			whereVal, limit, offset); err != nil {
 			return nil, errors.Wrap(err, "could not get repo page")
 		}
 		return page, nil
 	}
-	err := tx.SelectContext(ctx, &page, getRepoAndBranches+"GROUP BY repo.id LIMIT $1 OFFSET $2", limit, offset)
+	err := tx.SelectContext(ctx, &page, getRepoAndBranches+"GROUP BY repo.id ORDER BY repo.id ASC LIMIT $1 OFFSET $2 ;", limit, offset)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get repo page")
 	}
