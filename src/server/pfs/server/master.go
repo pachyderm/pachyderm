@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"time"
 
@@ -165,7 +164,7 @@ func (d *driver) manageRepos(ctx context.Context) error {
 				return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
 					event := &postgres.Event{
 						EventType:  postgres.EventInsert,
-						NaturalKey: fmt.Sprintf("%s/%s.%s", repo.Repo.Project, repo.Repo.Name, repo.Repo.Type),
+						NaturalKey: repo.Repo.String(),
 					}
 					return watchFunc(ctx, event)
 				}), "list repo for pfs master")
@@ -173,7 +172,7 @@ func (d *driver) manageRepos(ctx context.Context) error {
 				return errors.Wrap(err, "get all repos")
 			}
 			// watch for new repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
+			watcher, err := postgres.NewWatcher(ctx, d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
 			if err != nil {
 				return errors.Wrap(err, "new watcher for pfs master")
 			}
@@ -182,7 +181,6 @@ func (d *driver) manageRepos(ctx context.Context) error {
 				for event := range watcher.Watch() {
 					err = errors.Wrap(watchFunc(ctx, event), "watch repo event in pfs master")
 				}
-				return
 			}()
 			return err
 		},

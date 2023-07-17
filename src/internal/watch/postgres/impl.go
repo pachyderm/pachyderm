@@ -1,7 +1,7 @@
 package postgres
 
 import (
-	"fmt"
+	"context"
 	"strconv"
 	"strings"
 
@@ -24,8 +24,12 @@ const (
 	EventError
 )
 
+const (
+	DefaultBufferSize = 1000
+)
+
 type Event struct {
-	Id         int
+	Id         uint64
 	NaturalKey string
 	EventType  EventType
 	err        error
@@ -37,24 +41,38 @@ type watcher struct {
 	db       *pachsql.DB
 	listener collection.PostgresListener
 	events   chan *Event
-	done     chan struct{}
+	done     <-chan struct{}
 	id       string
 	channel  string
 }
 
-func NewWatcher(db *pachsql.DB, listener collection.PostgresListener, id string, channel string) (*watcher, error) {
+type WatcherOption func(*watcher)
+
+func NewWatcher(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, id string, channel string, opts ...WatcherOption) (*watcher, error) {
 	w := &watcher{
 		db:       db,
 		listener: listener,
-		events:   make(chan *Event),
-		done:     make(chan struct{}),
+		done:     ctx.Done(),
 		id:       id,
 		channel:  channel,
 	}
+	for _, opt := range opts {
+		opt(w)
+	}
+	if w.events == nil {
+		w.events = make(chan *Event, DefaultBufferSize)
+	}
+
 	if err := listener.Register(w); err != nil {
 		return nil, err
 	}
 	return w, nil
+}
+
+func WithBufferSize(size int) WatcherOption {
+	return func(w *watcher) {
+		w.events = make(chan *Event, size)
+	}
 }
 
 // Implement Watcher Interface
@@ -63,7 +81,7 @@ func (w *watcher) Watch() <-chan *Event {
 }
 
 func (w *watcher) Close() {
-	close(w.done)
+	close(w.events)
 	w.listener.Unregister(w) //nolint:errcheck
 }
 
@@ -89,12 +107,14 @@ func (w *watcher) Error(err error) {
 func (w *watcher) send(event *Event) {
 	select {
 	case w.events <- event:
+	case <-w.done:
+		w.Close()
 	default:
-		// Sending is blocked
+		// Sending is blocked and no explicit cancellation signal.
 		go func() {
-			fmt.Println("qqq send is blocked, unregister watcher")
 			w.listener.Unregister(w) //nolint:errcheck
 
+			// Attempt to send an error event to consumer, or await for cancellation signal.
 			select {
 			case w.events <- &Event{err: errors.Errorf("failed to send event, watcher %s is blocked", w.id)}:
 			case <-w.done:
@@ -105,7 +125,7 @@ func (w *watcher) send(event *Event) {
 
 func parseNotification(payload string) Event {
 	parts := strings.Split(payload, " ")
-	// TG_OP, id, key
+	// The payload is a string that consists of: "<TG_OP> <id> <key>"
 	if len(parts) != 3 {
 		return Event{err: errors.Errorf("failed to parse notification payload '%s', wrong number of parts: %d", payload, len(parts))}
 	}
@@ -124,7 +144,7 @@ func parseNotification(payload string) Event {
 	if err != nil {
 		return Event{err: errors.Wrap(err, "failed to parse notification payload's id")}
 	}
-	event.Id = id
+	event.Id = uint64(id)
 	event.NaturalKey = parts[2]
 	return event
 }
