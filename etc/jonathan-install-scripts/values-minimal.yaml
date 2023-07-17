@@ -1,0 +1,8 @@
+deployTarget: LOCAL
+pachd:
+    clusterDeploymentID: dev
+    logFormat: json
+postgresql:
+    enabled: true
+    postgresqlPassword: "abc123321cba"
+    postgresqlPostgresPassword: "npLvsvhGcF"
