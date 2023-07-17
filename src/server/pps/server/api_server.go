@@ -2164,13 +2164,77 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.validateSecret(ctx, request); err != nil {
 		return nil, err
 	}
-
+	if request.Determined != nil {
+		pw, err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces, request.Determined.Password)
+		if err != nil {
+			return nil, errors.Wrap(err, "create det pipeline side effects")
+		}
+		request.Determined.Password = pw
+	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// CreateDetPipelineSideEffects modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
+// Provisions a determined user on representing the pipeline, and stores its password in a kubernetes secret named "{project}/{pipeline}-det"
+//
+// Implementation Notes:
+// - This method must be idempotent, as it interfaces with Pachyderm's Transaction API that may run this multiple times
+//
+// TODO: set up garbage collection for the records stored outside the DB
+func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string, pw string) (string, error) {
+	// check if pipeline's creds secret exists
+	secretName := pipeline.Project.Name + "-" + pipeline.Name + "-det"
+	password := pw
+	if sec, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, secretName, metav1.GetOptions{}); err != nil {
+		if !errutil.IsNotFoundError(err) {
+			return "", errors.Wrapf(err, "get k8s secret %q", secretName)
+		}
+	} else {
+		if p, ok := sec.StringData["password"]; ok {
+			if password == "" {
+				password = p
+			} else if password == p {
+				// state is already applied, exit early
+				return password, nil
+			}
+		}
+	}
+	if password == "" {
+		password = uuid.NewWithoutDashes()
+	}
+	whoAmI, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if err != nil {
+		return "", errors.Wrap(err, "who am i")
+	}
+	splits := strings.Split(whoAmI.Username, ":")
+	if len(splits) != 2 {
+		return "", errors.Errorf("subject %q expected to be segmented by one ':'", whoAmI.Username)
+	}
+	username := splits[1]
+	if err := a.hookDeterminedPipeline(ctx, pipeline, workspaces, password, username); err != nil {
+		return "", errors.Wrapf(err, "failed to connect pipeline %q to determined", pipeline.String())
+	}
+	s := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: a.namespace,
+		},
+		StringData: map[string]string{
+			"password": password,
+		},
+	}
+	s.SetLabels(map[string]string{
+		"suite": "pachyderm",
+	})
+	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, s, metav1.CreateOptions{}); err != nil {
+		return "", errors.Wrapf(err, "failed to create pipeline's determined secret")
+	}
+	return password, nil
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
@@ -2181,46 +2245,46 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
 	}
-
-	details, err := request.PipelineSpec()
-	if err != nil {
-		return nil, err
-	}
-
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline: request.Pipeline,
 		Version:  1,
 		Details: &pps.PipelineInfo_Details{
-			Transform:               details.Transform,
-			TfJob:                   details.TfJob,
-			ParallelismSpec:         details.ParallelismSpec,
-			Input:                   details.Input,
-			OutputBranch:            details.OutputBranch,
-			Egress:                  details.Egress,
+			Transform:               request.Transform,
+			TfJob:                   request.TfJob,
+			ParallelismSpec:         request.ParallelismSpec,
+			Input:                   request.Input,
+			OutputBranch:            request.OutputBranch,
+			Egress:                  request.Egress,
 			CreatedAt:               timestamppb.Now(),
-			ResourceRequests:        details.ResourceRequests,
-			ResourceLimits:          details.ResourceLimits,
-			SidecarResourceLimits:   details.SidecarResourceLimits,
-			SidecarResourceRequests: details.SidecarResourceRequests,
-			Description:             details.Description,
-			Salt:                    details.Salt,
-			Service:                 details.Service,
-			Spout:                   details.Spout,
-			DatumSetSpec:            details.DatumSetSpec,
-			DatumTimeout:            details.DatumTimeout,
-			JobTimeout:              details.JobTimeout,
-			DatumTries:              details.DatumTries,
-			SchedulingSpec:          details.SchedulingSpec,
-			PodSpec:                 details.PodSpec,
-			PodPatch:                details.PodPatch,
-			S3Out:                   details.S3Out,
-			Metadata:                details.Metadata,
-			ReprocessSpec:           details.ReprocessSpec,
-			Autoscaling:             details.Autoscaling,
+			ResourceRequests:        request.ResourceRequests,
+			ResourceLimits:          request.ResourceLimits,
+			SidecarResourceLimits:   request.SidecarResourceLimits,
+			SidecarResourceRequests: request.SidecarResourceRequests,
+			Description:             request.Description,
+			Salt:                    request.Salt,
+			Service:                 request.Service,
+			Spout:                   request.Spout,
+			DatumSetSpec:            request.DatumSetSpec,
+			DatumTimeout:            request.DatumTimeout,
+			JobTimeout:              request.JobTimeout,
+			DatumTries:              request.DatumTries,
+			SchedulingSpec:          request.SchedulingSpec,
+			PodSpec:                 request.PodSpec,
+			PodPatch:                request.PodPatch,
+			S3Out:                   request.S3Out,
+			Metadata:                request.Metadata,
+			ReprocessSpec:           request.ReprocessSpec,
+			Autoscaling:             request.Autoscaling,
 			Tolerations:             request.Tolerations,
 		},
 	}
-
+	// TODO: revisit this structure
+	if request.Determined != nil {
+		if pipelineInfo.Details.Determined == nil {
+			pipelineInfo.Details.Determined = &pps.Determined{}
+		}
+		pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
+	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
 	}
@@ -2228,7 +2292,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if err := a.validatePipeline(pipelineInfo); err != nil {
 		return nil, err
 	}
-
 	if oldPipelineInfo != nil {
 		// Modify pipelineInfo (increment Version, and *preserve Stopped* so
 		// that updating a pipeline doesn't restart it)
@@ -2238,6 +2301,9 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		}
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
+		}
+		if oldPipelineInfo.Details.Determined != nil {
+			pipelineInfo.Details.Determined.Password = oldPipelineInfo.Details.Determined.Password
 		}
 	}
 
@@ -2254,13 +2320,11 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		// silently ignore pipeline not found, old info will be nil
 		return err
 	}
-
 	if oldPipelineInfo != nil && !request.Update {
 		return ppsServer.ErrPipelineAlreadyExists{
 			Pipeline: request.Pipeline,
 		}
 	}
-
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
 	if err != nil {
 		return err
@@ -2293,7 +2357,6 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	}); visitErr != nil {
 		return visitErr
 	}
-
 	update := request.Update && oldPipelineInfo != nil
 	// Authorize pipeline creation
 	operation := pipelineOpCreate
@@ -2372,7 +2435,6 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			return errors.EnsureStack(err)
 		}
 	}
-
 	// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 	if err := func() error {
 		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline)
@@ -2383,12 +2445,10 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			return errors.EnsureStack(err)
 		}
 		newPipelineInfo.AuthToken = token
-
 		return nil
 	}(); err != nil {
 		return err
 	}
-
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
 		return errors.EnsureStack(err)
@@ -3568,34 +3628,14 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	}, nil
 }
 
-// emptyPipelineSpecJSON is the result of marshalling a zero pps.PipelineSpec
-// value.  It is used in case any of the PipelineSpec fields are marshaled even
-// if empty.
-var emptyPipelineSpecJSON string
-
-func init() {
-	var spec = new(pps.PipelineSpec)
-	b, err := json.Marshal(spec)
-	if err != nil {
-		panic(fmt.Sprint("could not marshal empty pipeline spec: ", err))
-	}
-	emptyPipelineSpecJSON = string(b)
-}
-
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	var clusterDefaults pps.ClusterDefaults
 	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, errors.Wrap(err, "could not read cluster defaults")
 		}
-		clusterDefaults.DetailsJson = "{}"
+		clusterDefaults.CreatePipelineRequestJson = "{}"
 	}
-
-	var err error
-	if clusterDefaults.EffectiveDetailsJson, err = jsonMergePatch(emptyPipelineSpecJSON, clusterDefaults.DetailsJson); err != nil {
-		return nil, errors.Wrap(err, "could not merge empty spec with cluster default details")
-	}
-
 	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
 }
 
@@ -3674,30 +3714,13 @@ func unknownError(ctx context.Context, msg string, err error) error {
 
 func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
 	var (
-		cd      = req.GetClusterDefaults()
-		details = cd.GetDetailsJson()
-		err     error
+		cd  = req.GetClusterDefaults()
+		crp pps.CreatePipelineRequest
 	)
-	if err := pps.ValidateJSONPipelineSpec(details); err != nil {
-		if errors.Is(err, pps.ErrInvalidPipelineSpec) {
-			return nil, badRequest(ctx, "invalid pipeline details", []*errdetails.BadRequest_FieldViolation{
-				{Field: "cluster_defaults.details_json", Description: err.Error()},
-			})
-		}
-		return nil, status.Convert(err).Err()
-	}
-
-	cd.EffectiveDetailsJson, err = jsonMergePatch(emptyPipelineSpecJSON, cd.GetDetailsJson())
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to merge empty pipeline spec with cluster defaults")
-	}
-	if err := pps.ValidateJSONPipelineSpec(details); err != nil {
-		if errors.Is(err, pps.ErrInvalidPipelineSpec) {
-			return nil, badRequest(ctx, "invalid effective pipeline details", []*errdetails.BadRequest_FieldViolation{
-				{Field: "cluster_defaults.details_json", Description: err.Error()},
-			})
-		}
-		return nil, status.Convert(err).Err()
+	if err := protojson.Unmarshal([]byte(cd.GetCreatePipelineRequestJson()), &crp); err != nil {
+		return nil, badRequest(ctx, "invalid pipeline details", []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults.details_json", Description: err.Error()},
+		})
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -3709,6 +3732,6 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
 	return &pps.SetClusterDefaultsResponse{
-		EffectiveDetailsJson: cd.EffectiveDetailsJson,
+		EffectiveDetailsJson: cd.CreatePipelineRequestJson,
 	}, nil
 }

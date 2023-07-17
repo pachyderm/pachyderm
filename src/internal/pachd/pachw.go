@@ -95,11 +95,11 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.printVersion,
 		pachwb.initJaeger,
 		pachwb.initKube,
-		pachwb.setupDB,
+		pachwb.waitForDBState,
 		pachwb.initInternalServer,
 		pachwb.registerEnterpriseServer,
 		pachwb.registerAuthServer,
-		pachwb.registerPFSServer, // PFS seems to need a non-nil auth server.
+		pachwb.registerPFSServer, // PFS needs a non-nil auth server.
 		pachwb.registerTransactionServer,
 		pachwb.registerDebugServer,
 		pachwb.registerHealthServer,

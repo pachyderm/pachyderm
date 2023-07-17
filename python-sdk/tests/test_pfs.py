@@ -554,15 +554,21 @@ class TestPFSFile:
             file = commit.put_file_from_bytes(path="/test.csv", data=data)
 
         # Act & Assert
-        with client.pfs.pfs_file(file=file) as pfs_file:
+        with client.pfs.pfs_file(file) as pfs_file:
             assert pfs_file.readlines() == expected_lines
 
         # Test that we can feed it into stdlib functionality (csv reader).
         import csv
 
-        with client.pfs.pfs_file(file=file) as pfs_file:
+        with client.pfs.pfs_file(file) as pfs_file:
             with io.TextIOWrapper(pfs_file, encoding="utf-8") as text_file:
-                print(list(csv.reader(text_file)))
+                assert len(list(csv.reader(text_file))) > 0
+
+        # Test that we can feed it into a pandas dataframe.
+        import pandas as pd
+
+        with client.pfs.pfs_file(file) as pfs_file:
+            assert len(pd.read_csv(pfs_file)) > 0
 
     @staticmethod
     def test_get_file_tar(client: TestClient, tmp_path: Path):

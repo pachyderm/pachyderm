@@ -13,8 +13,9 @@ PACHD_SERVICE_HOST_ENV = "PACHD_PEER_SERVICE_HOST"
 PACHD_SERVICE_PORT_ENV = "PACHD_PEER_SERVICE_PORT"
 WORKER_PORT_ENV = "PPS_WORKER_GRPC_PORT"
 
+# `~` used below to make docs look better.
+CONFIG_PATH_LOCAL = Path("~").joinpath(".pachyderm", "config.json")
 CONFIG_PATH_SPOUT = Path("/").joinpath("pachctl", "config.json")
-CONFIG_PATH_LOCAL = Path.home().joinpath(".pachyderm", "config.json")
 DOTENV_PATH_WORKER = Path("/pfs/.env")
 
 MAX_RECEIVE_MESSAGE_SIZE = 20 * 1024**2  # 20MB

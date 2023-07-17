@@ -193,6 +193,12 @@ class Egress(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class Determined(betterproto.Message):
+    workspaces: List[str] = betterproto.string_field(1)
+    password: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class Job(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     id: str = betterproto.string_field(2)
@@ -592,6 +598,7 @@ class PipelineInfoDetails(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(33)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
+    determined: "Determined" = betterproto.message_field(36)
 
 
 @dataclass(eq=False, repr=False)
@@ -926,11 +933,7 @@ class CreatePipelineRequest(betterproto.Message):
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
     details_json: str = betterproto.string_field(36)
     dry_run: bool = betterproto.bool_field(37)
-
-
-@dataclass(eq=False, repr=False)
-class CreatePipelineResponse(betterproto.Message):
-    details_json: str = betterproto.string_field(1)
+    determined: "Determined" = betterproto.message_field(38)
 
 
 @dataclass(eq=False, repr=False)
@@ -1125,8 +1128,10 @@ class LokiLogMessage(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ClusterDefaults(betterproto.Message):
-    details_json: str = betterproto.string_field(1)
-    effective_details_json: str = betterproto.string_field(2)
+    create_pipeline_request_json: str = betterproto.string_field(1)
+    """
+    CreatePipelineRequestJSON contains the default JSON CreatePipelineRequest.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -1320,6 +1325,16 @@ class ApiStub:
             request_serializer=LokiRequest.SerializeToString,
             response_deserializer=LokiLogMessage.FromString,
         )
+        self.__rpc_get_cluster_defaults = channel.unary_unary(
+            "/pps_v2.API/GetClusterDefaults",
+            request_serializer=GetClusterDefaultsRequest.SerializeToString,
+            response_deserializer=GetClusterDefaultsResponse.FromString,
+        )
+        self.__rpc_set_cluster_defaults = channel.unary_unary(
+            "/pps_v2.API/SetClusterDefaults",
+            request_serializer=SetClusterDefaultsRequest.SerializeToString,
+            response_deserializer=SetClusterDefaultsResponse.FromString,
+        )
 
     def inspect_job(
         self, *, job: "Job" = None, wait: bool = False, details: bool = False
@@ -1510,7 +1525,8 @@ class ApiStub:
         tolerations: Optional[List["Toleration"]] = None,
         sidecar_resource_requests: "ResourceSpec" = None,
         details_json: str = "",
-        dry_run: bool = False
+        dry_run: bool = False,
+        determined: "Determined" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1566,6 +1582,8 @@ class ApiStub:
             request.sidecar_resource_requests = sidecar_resource_requests
         request.details_json = details_json
         request.dry_run = dry_run
+        if determined is not None:
+            request.determined = determined
 
         return self.__rpc_create_pipeline(request)
 
@@ -1852,6 +1870,28 @@ class ApiStub:
         for response in self.__rpc_query_loki(request):
             yield response
 
+    def get_cluster_defaults(self) -> "GetClusterDefaultsResponse":
+        request = GetClusterDefaultsRequest()
+
+        return self.__rpc_get_cluster_defaults(request)
+
+    def set_cluster_defaults(
+        self,
+        *,
+        cluster_defaults: "ClusterDefaults" = None,
+        regenerate: bool = False,
+        reprocess: bool = False,
+        dry_run: bool = False
+    ) -> "SetClusterDefaultsResponse":
+        request = SetClusterDefaultsRequest()
+        if cluster_defaults is not None:
+            request.cluster_defaults = cluster_defaults
+        request.regenerate = regenerate
+        request.reprocess = reprocess
+        request.dry_run = dry_run
+
+        return self.__rpc_set_cluster_defaults(request)
+
 
 class ApiBase:
     def inspect_job(
@@ -1989,6 +2029,7 @@ class ApiBase:
         sidecar_resource_requests: "ResourceSpec",
         details_json: str,
         dry_run: bool,
+        determined: "Determined",
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2194,6 +2235,25 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def get_cluster_defaults(
+        self, context: "grpc.ServicerContext"
+    ) -> "GetClusterDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def set_cluster_defaults(
+        self,
+        cluster_defaults: "ClusterDefaults",
+        regenerate: bool,
+        reprocess: bool,
+        dry_run: bool,
+        context: "grpc.ServicerContext",
+    ) -> "SetClusterDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "pps_v2.API"
 
     @property
@@ -2363,5 +2423,15 @@ class ApiBase:
                 self.query_loki,
                 request_deserializer=LokiRequest.FromString,
                 response_serializer=LokiRequest.SerializeToString,
+            ),
+            "GetClusterDefaults": grpc.unary_unary_rpc_method_handler(
+                self.get_cluster_defaults,
+                request_deserializer=GetClusterDefaultsRequest.FromString,
+                response_serializer=GetClusterDefaultsRequest.SerializeToString,
+            ),
+            "SetClusterDefaults": grpc.unary_unary_rpc_method_handler(
+                self.set_cluster_defaults,
+                request_deserializer=SetClusterDefaultsRequest.FromString,
+                response_serializer=SetClusterDefaultsRequest.SerializeToString,
             ),
         }

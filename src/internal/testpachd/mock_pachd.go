@@ -1493,6 +1493,7 @@ type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
+type createDetPipelineSideEffectsFunc func(context.Context, *pps.Pipeline, []string, string) (string, error)
 type getClusterDefaultsFunc func(context.Context, *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error)
 type setClusterDefaultsFunc func(context.Context, *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error)
 
@@ -1529,6 +1530,9 @@ type mockRenderTemplate struct{ handler renderTemplateFunc }
 type mockListTaskPPS struct{ handler listTaskPPSFunc }
 type mockGetKubeEvents struct{ handler getKubeEventsFunc }
 type mockQueryLoki struct{ handler queryLokiFunc }
+type mockCreateDetPipelineSideEffects struct {
+	handler createDetPipelineSideEffectsFunc
+}
 type mockGetClusterDefaults struct{ handler getClusterDefaultsFunc }
 type mockSetClusterDefaults struct{ handler setClusterDefaultsFunc }
 
@@ -1565,8 +1569,11 @@ func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.
 func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.handler = cb }
 func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.handler = cb }
-func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc)       { mock.handler = cb }
-func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc)       { mock.handler = cb }
+func (mock *mockCreateDetPipelineSideEffects) Use(cb createDetPipelineSideEffectsFunc) {
+	mock.handler = cb
+}
+func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc) { mock.handler = cb }
+func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc) { mock.handler = cb }
 
 type ppsServerAPI struct {
 	pps.UnimplementedAPIServer
@@ -1574,42 +1581,43 @@ type ppsServerAPI struct {
 }
 
 type mockPPSServer struct {
-	api                ppsServerAPI
-	InspectJob         mockInspectJob
-	ListJob            mockListJob
-	SubscribeJob       mockSubscribeJob
-	DeleteJob          mockDeleteJob
-	StopJob            mockStopJob
-	UpdateJobState     mockUpdateJobState
-	InspectJobSet      mockInspectJobSet
-	ListJobSet         mockListJobSet
-	InspectDatum       mockInspectDatum
-	ListDatum          mockListDatum
-	RestartDatum       mockRestartDatum
-	CreatePipeline     mockCreatePipeline
-	InspectPipeline    mockInspectPipeline
-	ListPipeline       mockListPipeline
-	DeletePipeline     mockDeletePipeline
-	DeletePipelines    mockDeletePipelines
-	StartPipeline      mockStartPipeline
-	StopPipeline       mockStopPipeline
-	RunPipeline        mockRunPipeline
-	RunCron            mockRunCron
-	CreateSecret       mockCreateSecret
-	DeleteSecret       mockDeleteSecret
-	InspectSecret      mockInspectSecret
-	ListSecret         mockListSecret
-	DeleteAll          mockDeleteAllPPS
-	GetLogs            mockGetLogs
-	ActivateAuth       mockActivateAuthPPS
-	RunLoadTest        mockRunLoadTestPPS
-	RunLoadTestDefault mockRunLoadTestDefaultPPS
-	RenderTemplate     mockRenderTemplate
-	ListTask           mockListTaskPPS
-	GetKubeEvents      mockGetKubeEvents
-	QueryLoki          mockQueryLoki
-	GetClusterDefaults mockGetClusterDefaults
-	SetClusterDefaults mockSetClusterDefaults
+	api                          ppsServerAPI
+	InspectJob                   mockInspectJob
+	ListJob                      mockListJob
+	SubscribeJob                 mockSubscribeJob
+	DeleteJob                    mockDeleteJob
+	StopJob                      mockStopJob
+	UpdateJobState               mockUpdateJobState
+	InspectJobSet                mockInspectJobSet
+	ListJobSet                   mockListJobSet
+	InspectDatum                 mockInspectDatum
+	ListDatum                    mockListDatum
+	RestartDatum                 mockRestartDatum
+	CreatePipeline               mockCreatePipeline
+	InspectPipeline              mockInspectPipeline
+	ListPipeline                 mockListPipeline
+	DeletePipeline               mockDeletePipeline
+	DeletePipelines              mockDeletePipelines
+	StartPipeline                mockStartPipeline
+	StopPipeline                 mockStopPipeline
+	RunPipeline                  mockRunPipeline
+	RunCron                      mockRunCron
+	CreateSecret                 mockCreateSecret
+	DeleteSecret                 mockDeleteSecret
+	InspectSecret                mockInspectSecret
+	ListSecret                   mockListSecret
+	DeleteAll                    mockDeleteAllPPS
+	GetLogs                      mockGetLogs
+	ActivateAuth                 mockActivateAuthPPS
+	RunLoadTest                  mockRunLoadTestPPS
+	RunLoadTestDefault           mockRunLoadTestDefaultPPS
+	RenderTemplate               mockRenderTemplate
+	ListTask                     mockListTaskPPS
+	GetKubeEvents                mockGetKubeEvents
+	QueryLoki                    mockQueryLoki
+	CreateDetPipelineSideEffects mockCreateDetPipelineSideEffects
+	GetClusterDefaults           mockGetClusterDefaults
+	SetClusterDefaults           mockSetClusterDefaults
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1809,6 +1817,12 @@ func (api *ppsServerAPI) QueryLoki(req *pps.LokiRequest, server pps.API_QueryLok
 		return api.mock.QueryLoki.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pps.QueryLoki")
+}
+func (api *ppsServerAPI) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string, password string) (string, error) {
+	if api.mock.CreateDetPipelineSideEffects.handler != nil {
+		return api.mock.CreateDetPipelineSideEffects.handler(ctx, pipeline, workspaces, password)
+	}
+	return "", errors.Errorf("unhandled pachd mock pps.CreateDetPipelineSideEffects")
 }
 func (api *ppsServerAPI) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	if api.mock.GetClusterDefaults.handler != nil {
