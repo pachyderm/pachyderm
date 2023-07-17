@@ -16,7 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 )
 
-func TestWatcRepos(t *testing.T) {
+func TestWatchRepos(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	dbOpts := dockertestenv.NewTestDirectDBOptions(t)
 	db := testutil.OpenDB(t, dbOpts...)

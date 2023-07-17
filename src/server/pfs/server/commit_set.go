@@ -260,7 +260,7 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	// update branch heads
 	headlessBranches := make([]*pfs.BranchInfo, 0)
-	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, ci.Commit.Repo.Name)
+	repoInfo, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, ci.Commit.Repo.Name, ci.Commit.Repo.Type)
 	if err != nil {
 		return err
 	}

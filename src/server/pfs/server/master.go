@@ -177,10 +177,10 @@ func (d *driver) manageRepos(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrap(err, "new watcher for pfs master")
 			}
+			defer watcher.Close()
 			go func() {
 				for event := range watcher.Watch() {
 					err = errors.Wrap(watchFunc(ctx, event), "watch repo event in pfs master")
-					return
 				}
 				return
 			}()

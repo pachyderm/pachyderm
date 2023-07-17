@@ -134,22 +134,9 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 		}
 	}
 	row := iter.repos[iter.index]
-	proj, err := getProjectFromRepoRow(ctx, iter.tx, &row)
+	*dst, err = getRepoFromRepoRow(ctx, iter.tx, &row)
 	if err != nil {
-		return errors.Wrap(err, "get project from repo row")
-	}
-	branches, err := getBranchesFromRepoRow(&row)
-	if err != nil {
-		return errors.Wrap(err, "get branches from repo row")
-	}
-	*dst = &pfs.RepoInfo{
-		Repo: &pfs.Repo{
-			Name:    row.Name,
-			Type:    row.RepoType,
-			Project: proj.Project,
-		},
-		Description: row.Description,
-		Branches:    branches,
+		return errors.Wrap(err, "getting repoInfo from repo row")
 	}
 	iter.index++
 	return nil
@@ -245,30 +232,25 @@ func DeleteAllRepos(ctx context.Context, tx *pachsql.Tx) error {
 	return errors.Wrap(err, "could not delete all repo rows")
 }
 
-// GetRepo is like GetRepoByName, but retrieves an entry using the row id.
+// GetRepo retrieves an entry from the pfs.repos table by using the row id.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
 	return getRepo(ctx, tx, "id", id)
 }
 
-// GetRepoByName retrieves an entry from the pfs.repos table by repo name.
-func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoName string) (*pfs.RepoInfo, error) {
-	return getRepo(ctx, tx, "name", repoName)
-}
-
-// todo(fahad): rewrite branch related code during the branches migration.
-// todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
-func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.RepoInfo, error) {
+// GetRepoByNameAndType retrieves an entry from the pfs.repos table by repo name and type.
+func GetRepoByNameAndType(ctx context.Context, tx *pachsql.Tx, repoName string, repoType string) (*pfs.RepoInfo, error) {
 	row := &repoRow{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id;", getRepoAndBranches, where), whereVal).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.name = $1 AND repo.type = $2 GROUP BY repo.id;", getRepoAndBranches), repoName, repoType).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			if name, ok := whereVal.(string); ok {
-				return nil, ErrRepoNotFound{Name: name}
-			}
-			return nil, ErrRepoNotFound{ID: whereVal.(pachsql.ID)}
+			return nil, ErrRepoNotFound{Name: repoName}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
 	}
+	return getRepoFromRepoRow(ctx, tx, row)
+}
+
+func getRepoFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs.RepoInfo, error) {
 	proj, err := getProjectFromRepoRow(ctx, tx, row)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting project from repo row")
@@ -287,6 +269,23 @@ func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interfa
 		Branches:    branches,
 	}
 	return repoInfo, nil
+}
+
+// todo(fahad): rewrite branch related code during the branches migration.
+// todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
+func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.RepoInfo, error) {
+	row := &repoRow{}
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id;", getRepoAndBranches, where), whereVal).StructScan(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			if name, ok := whereVal.(string); ok {
+				return nil, ErrRepoNotFound{Name: name}
+			}
+			return nil, ErrRepoNotFound{ID: whereVal.(pachsql.ID)}
+		}
+		return nil, errors.Wrap(err, "scanning repo row")
+	}
+	return getRepoFromRepoRow(ctx, tx, row)
 }
 
 // todo(fahad): should this be a join too?

@@ -21,7 +21,7 @@ func (d *driver) triggerCommit(
 	txnCtx *txncontext.TransactionContext,
 	commit *pfs.Commit,
 ) error {
-	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, commit.Repo.Name)
+	repoInfo, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, commit.Repo.Name, commit.Repo.Type)
 	if err != nil {
 		return errors.Wrap(err, "trigger commit: get repo")
 	}
