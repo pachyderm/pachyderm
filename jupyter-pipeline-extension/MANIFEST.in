@@ -1,0 +1,39 @@
+include LICENSE
+include *.md
+include pyproject.toml
+recursive-include jupyter-config *.json
+include jupyterlab_pachyderm/tests/data/*
+
+exclude ci-requirements.txt
+exclude .circleci/*
+exclude cypress/*
+exclude cypress.json
+exclude Dockerfile
+exclude scripts/*
+exclude infra/*
+exclude svg-images/*
+
+include package.json
+include install.json
+include ts*.json
+include schema/*.json
+include webpack.config.js
+include *.config.js
+
+graft jupyterlab_pachyderm/labextension
+
+# Javascript files
+graft src
+graft style
+prune **/node_modules
+prune lib
+prune .circleci
+prune cypress
+prune cypress.json
+
+# Patterns to exclude from any directory
+global-exclude *~
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude .git
+global-exclude .ipynb_checkpoints
