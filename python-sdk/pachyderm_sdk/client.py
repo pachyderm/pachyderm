@@ -1,3 +1,4 @@
+"""The Client used to interact with a Pachyderm instance."""
 import contextlib
 import os
 from pathlib import Path
@@ -37,11 +38,17 @@ __all__ = ("Client",)
 
 
 class Client:
-    """The :class:`.Client` class that users will primarily interact with.
-    Initialize an instance with ``python_pachyderm.Client()``.
+    """The Client used to interact with a Pachyderm instance.
 
-    To see documentation on the methods :class:`.Client` can call, refer to the
-    `mixins` module.
+    Examples
+    --------
+    Connect to a pachyderm instance using your local config file:
+    >>> from pachyderm_sdk import Client
+    >>> client = Client.from_config()
+
+    Connect to a pachyderm instance using a URL/address:
+    >>> from pachyderm_sdk import Client
+    >>> client = Client.from_pachd_address("test.work.com:30080")
     """
 
     def __init__(
@@ -54,8 +61,7 @@ class Client:
         tls: bool = False,
     ):
         """
-        Creates a Pachyderm client. If both files don't exist, a client
-        with default settings is created.
+        Creates a Pachyderm client.
 
         Parameters
         ----------
@@ -254,6 +260,7 @@ class Client:
 
     @property
     def auth_token(self):
+        """The authentication token. Used if authentication is enabled on the cluster."""
         return self._auth_token
 
     @auth_token.setter
@@ -270,6 +277,7 @@ class Client:
 
     @property
     def transaction_id(self):
+        """The ID of the transaction to run operations on."""
         return self._transaction_id
 
     @transaction_id.setter
@@ -314,6 +322,7 @@ class Client:
         return metadata
 
     def get_version(self) -> Version:
+        """Requests version information from the pachd cluster."""
         return self._version_api.get_version()
 
 
