@@ -82,7 +82,7 @@ func (d *driver) master(ctx context.Context) {
 			})
 		}
 		eg.Go(func() error {
-			return d.manageRepos(ctx)
+			return d.watchRepos(ctx)
 		})
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -91,7 +91,69 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) manageRepos(ctx context.Context) error {
+func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[string]context.CancelFunc, ev *postgres.Event) error {
+	var repo *pfs.RepoInfo
+	var err error
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		repo, err = pfsdb.GetRepo(ctx, tx, pachsql.ID(ev.Id))
+		return errors.Wrap(err, "get repo from event id")
+	}); err != nil {
+		return errors.Wrap(err, "get repo")
+	}
+	key := pfsdb.RepoKey(repo.Repo)
+	lockPrefix := path.Join("repos", key)
+	if ev.EventType == postgres.EventDelete {
+		if cancel, ok := repos[key]; ok {
+			if err := ring.Unlock(lockPrefix); err != nil {
+				return err
+			}
+			cancel()
+			delete(repos, key)
+		}
+		return nil
+	}
+	if _, ok := repos[key]; ok {
+		return nil
+	}
+	ctx, cancel := pctx.WithCancel(ctx)
+	repos[key] = cancel
+	go func() {
+		backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+			ctx, cancel := pctx.WithCancel(ctx)
+			defer cancel()
+			var err error
+			ctx, err = ring.Lock(ctx, lockPrefix)
+			if err != nil {
+				return errors.Wrap(err, "locking repo lock")
+			}
+			defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
+			var eg errgroup.Group
+			eg.Go(func() error {
+				return backoff.RetryUntilCancel(ctx, func() error {
+					return d.manageBranches(ctx, key)
+				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+					log.Error(ctx, "managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+					return nil
+				})
+			})
+			eg.Go(func() error {
+				return backoff.RetryUntilCancel(ctx, func() error {
+					return d.finishRepoCommits(ctx, key)
+				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+					log.Error(ctx, "finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+					return nil
+				})
+			})
+			return errors.EnsureStack(eg.Wait())
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			log.Error(ctx, "managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+			return nil
+		})
+	}()
+	return nil
+}
+
+func (d *driver) watchRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	repos := make(map[string]context.CancelFunc)
@@ -102,60 +164,26 @@ func (d *driver) manageRepos(ctx context.Context) error {
 	}()
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
-			watchFunc := func(ctx context.Context, ev *postgres.Event) error {
-				key := ev.NaturalKey
-				lockPrefix := path.Join("repos", key)
-				if ev.EventType == postgres.EventDelete {
-					if cancel, ok := repos[key]; ok {
-						if err := ring.Unlock(lockPrefix); err != nil {
-							return err
-						}
-						cancel()
-						delete(repos, key)
-					}
-					return nil
-				}
-				if _, ok := repos[key]; ok {
-					return nil
-				}
-				ctx, cancel := pctx.WithCancel(ctx)
-				repos[key] = cancel
-				go func() {
-					backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
-						ctx, cancel := pctx.WithCancel(ctx)
-						defer cancel()
-						var err error
-						ctx, err = ring.Lock(ctx, lockPrefix)
-						if err != nil {
-							return errors.Wrap(err, "error locking repo lock")
-						}
-						defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
-						var eg errgroup.Group
-						eg.Go(func() error {
-							return backoff.RetryUntilCancel(ctx, func() error {
-								return d.manageBranches(ctx, key)
-							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-								log.Error(ctx, "error managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-								return nil
-							})
-						})
-						eg.Go(func() error {
-							return backoff.RetryUntilCancel(ctx, func() error {
-								return d.finishRepoCommits(ctx, key)
-							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-								log.Error(ctx, "error finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-								return nil
-							})
-						})
-						return errors.EnsureStack(eg.Wait())
-					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-						log.Error(ctx, "error managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-						return nil
-					})
-				}()
-				return nil
+			// watch for new repo events.
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
+			if err != nil {
+				return errors.Wrap(err, "new watcher")
 			}
-			// get existing entries before watching for new ones.
+			defer watcher.Close()
+			var eg errgroup.Group
+			eg.Go(func() error {
+				for {
+					select {
+					case event := <-watcher.Watch():
+						if err := d.manageRepos(ctx, ring, repos, event); err != nil {
+							return errors.Wrap(err, "watch repo event")
+						}
+					case <-ctx.Done():
+						return nil
+					}
+				}
+			})
+			// get existing entries.
 			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 				iter, err := pfsdb.ListRepo(ctx, tx)
 				if err != nil {
@@ -166,23 +194,12 @@ func (d *driver) manageRepos(ctx context.Context) error {
 						EventType:  postgres.EventInsert,
 						NaturalKey: repo.Repo.String(),
 					}
-					return watchFunc(ctx, event)
-				}), "list repo for pfs master")
+					return d.manageRepos(ctx, ring, repos, event)
+				}), "create event for each repo")
 			}); err != nil {
-				return errors.Wrap(err, "get all repos")
+				return errors.Wrap(err, "list repos")
 			}
-			// watch for new repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
-			if err != nil {
-				return errors.Wrap(err, "new watcher for pfs master")
-			}
-			defer watcher.Close()
-			go func() {
-				for event := range watcher.Watch() {
-					err = errors.Wrap(watchFunc(ctx, event), "watch repo event in pfs master")
-				}
-			}()
-			return err
+			return errors.Wrap(eg.Wait(), "waiting for manageRepos goroutines to finish")
 		},
 	)
 }
