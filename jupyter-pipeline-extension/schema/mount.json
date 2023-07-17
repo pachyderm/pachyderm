@@ -1,0 +1,14 @@
+{
+  "title": "Mount for Pachyderm",
+  "description": "Mount for Pachyderm.",
+  "properties": {
+    "defaultPipelineImage": {
+      "type": "string",
+      "title": "Default Pipeline Image",
+      "description": "The default value of the Container Image field of the Pipeline Extension.",
+      "default": "python:3.10"
+    }
+  },
+  "additionalProperties": false,
+  "type": "object"
+}

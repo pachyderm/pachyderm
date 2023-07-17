@@ -1,0 +1,18 @@
+@import url('../src/plugins/help/help.css');
+@import url('../src/plugins/mount/mount.css');
+@import url('./components/button.css');
+@import url('./components/input.css');
+
+@import url('../src/utils/components/Circle/circle.css');
+@import url('../src/utils/components/LoadingDots/loadingDots.css');
+
+:root {
+  --dropshadow-grey: #c6c6c6;
+  --success-green: #00dbb4;
+  --highlight-yellow: #ffd256;
+  --error-red: #e02020;
+
+  --pachyderm-plum: #582f6b;
+  --pachyderm-hover-plum: #781696;
+  --pachyderm-white: #ffffff;
+}

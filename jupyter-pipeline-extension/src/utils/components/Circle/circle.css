@@ -1,0 +1,21 @@
+.jp-circle-base {
+  height: 0.625rem;
+  width: 0.625rem;
+  border-radius: 100%;
+}
+
+.jp-circle-green {
+  background-color: var(--success-green);
+}
+
+.jp-circle-yellow {
+  background-color: var(--highlight-yellow);
+}
+
+.jp-circle-red {
+  background-color: var(--error-red);
+}
+
+.jp-circle-gray {
+  background-color: var(--dropshadow-grey);
+}

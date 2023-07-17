@@ -1,0 +1,5 @@
+{
+  "disabledExtensions": {
+    "jupyterlab-pachyderm:examples": false
+  }
+}

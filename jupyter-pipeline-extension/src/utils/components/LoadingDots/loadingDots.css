@@ -1,0 +1,49 @@
+@keyframes dotPulse {
+  0% {
+    box-shadow: 0 0 0 0px var(--jp-layout-color4);
+  }
+  30% {
+    box-shadow: 0 0 0 5px var(--jp-layout-color4);
+  }
+  60%,
+  100% {
+    box-shadow: 0 0 0 0px var(--jp-layout-color4);
+  }
+}
+
+.jp-dots-container {
+  background-color: var(--jp-layout-color1);
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.jp-dots-base,
+.jp-dots-base::before,
+.jp-dots-base::after {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background-color: var(--jp-layout-color4);
+  animation: dotPulse 1s infinite ease-in;
+}
+
+.jp-dots-base {
+  text-align: left;
+  animation-delay: 0.25s;
+}
+
+.jp-dots-base::before {
+  content: '';
+  margin-left: -30px;
+  animation-delay: 0s;
+}
+
+.jp-dots-base::after {
+  content: '';
+  margin-left: 30px;
+  animation-delay: 0.5s;
+}

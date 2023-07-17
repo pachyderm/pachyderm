@@ -14,11 +14,11 @@ for the frontend extension.
 - JupyterLab >= 3.0
 
 - Python >=3.7,<4
-    - [pyenv](https://github.com/pyenv/pyenv) is a great way to manage and install different versions of python. You can check which version you are using by running `pyenv versions`. Our Python extension is built to be compatible with Python versions 3.7 to 3.10. Therefore, it is best to run the lowest version (3.7.x) for highest compatibility.
+
+  - [pyenv](https://github.com/pyenv/pyenv) is a great way to manage and install different versions of python. You can check which version you are using by running `pyenv versions`. Our Python extension is built to be compatible with Python versions 3.7 to 3.10. Therefore, it is best to run the lowest version (3.7.x) for highest compatibility.
 
 - Node
-    - If you are using [nvm](https://github.com/nvm-sh/nvm) first run `nvm install`. This will install and switch the version of node to the one defined in the `.nvmrc`. If you are upgrading the version of node used in the project, please check and make sure that the versions defined in the `.nvmrc`.
-
+  - If you are using [nvm](https://github.com/nvm-sh/nvm) first run `nvm install`. This will install and switch the version of node to the one defined in the `.nvmrc`. If you are upgrading the version of node used in the project, please check and make sure that the versions defined in the `.nvmrc`.
 
 # Development Environment
 
@@ -53,6 +53,8 @@ Install the project in editable mode, and start JupyterLab
 
 ```
 pip install -e .
+needed to run pip install jupyterlab
+needed to install jupyter-packaging
 jupyter labextension develop --overwrite
 
 # Server extension must be manually installed in develop mode, for example
@@ -93,7 +95,8 @@ docker cp /home/luke/gocode/bin/pachctl jupyterlab_pachyderm_frontend_dev:/usr/l
 docker exec -ti jupyterlab_pachyderm_frontend_dev pkill -f pachctl
 ```
 
-## Local Virtual Environment Setup 
+## Local Virtual Environment Setup
+
 When developing in python, it is good practice to set up a virtual environment. A simple guid to set up a virtual environment is as follows:
 create a virtual environment using venv
 
@@ -103,7 +106,7 @@ Activate the environment
 
 `source venv/bin/activate`
 
-When you are done using the environment you can close your shell or deactivate the environment: 
+When you are done using the environment you can close your shell or deactivate the environment:
 `deactivate`
 
 ## Development install
@@ -158,12 +161,14 @@ folder is located. Then you can remove the symlink named `jupyterlab-pachyderm` 
 Useful if iterating on the Dockerfile locally or iterating on changes to a version of mount-server.
 
 Create & activate venv:
+
 ```
 python3 -m venv venv
 source venv/bin/activate
 ```
 
 Build `dist` directory:
+
 ```
 python -m pip install --upgrade pip
 python -m pip install -r ci-requirements.txt
@@ -171,6 +176,7 @@ python -m build
 ```
 
 Build docker image:
+
 ```
 export PACHCTL_VERSION=aaa7434c714fab6130c3982ebdaa8f279bd850c2 # or whichever version you want
 docker build --build-arg PACHCTL_VERSION=$PACHCTL_VERSION -t pachyderm/notebooks-user:dev .
@@ -194,7 +200,6 @@ To remove the extension, execute:
 ```bash
 pip uninstall jupyterlab_pachyderm
 ```
-
 
 ## Server extension
 
@@ -234,13 +239,15 @@ API endpoints can be accessed via `localhost:8888/pachyderm/v2`
 The frontend can access the endpoints via `/v2`, for example:
 
 ```js
-requestAPI<any>('/v2/repos')
-      .then(data => {
-        console.log(data);
-      })
-      .catch(reason => {
-        console.error(reason);
-      });
+requestAPI <
+  any >
+  '/v2/repos'
+    .then((data) => {
+      console.log(data);
+    })
+    .catch((reason) => {
+      console.error(reason);
+    });
 ```
 
 You can also access it via `localhost:8888/v2`
@@ -250,16 +257,19 @@ You can also access it via `localhost:8888/v2`
 We are leveraging [svgr](https://react-svgr.com/) to simplify the use of non icon svgs in in the project. Svg images that are to be converted live in the `svg-images` folder and get output to the `src/utils/components/Svgs` folder. If you want to add a new image to the project simply add the svg to the `svg-images` folder and run `npm run build:svg`. We have spent some time trying to get svgr to work through the `@svgr/webpack` plugin but have not been successful as of yet.
 
 # Project Structure
+
 Jupyter extensions are composed of several plugins. These plugins can be selectively enabled or disabled. Because of this we have decided separate the functionality in the extension using plugins. Plugins exported in this extension are as follows.
 
 ### Hub
+
 This plugin contains custom styling and other features only used by hub. By default this extension is disabled.
 
 ### Mount
+
 This plugin contains the mount feature currently under development.
 
-
 ## Plugin settings
+
 You can disable certain plugins by specifying the following config data in the `<jupyter_config_path>/labconfig/page_config.json`:
 
 ```
@@ -267,16 +277,18 @@ You can disable certain plugins by specifying the following config data in the `
   "disabledExtensions": {
     "jupyterlab-pachyderm:examples": true
   }
-} 
+}
 ```
+
 You can check your config paths by running `jupyter --paths`. Setting this config file is not part of the built extension and needs to be done by the user.
 
 Adding the following to the package.json in the `jupyterlab` object will disable the examples plugin by default.
+
 ```
 "disabledExtensions": ["jupyterlab-pachyderm:examples"]
 ```
-So we can build the extension with hub features turned off and override the setting for hub.
 
+So we can build the extension with hub features turned off and override the setting for hub.
 
 ## Troubleshoot
 
