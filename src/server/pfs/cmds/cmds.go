@@ -333,7 +333,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 					return errors.EnsureStack(err)
 				}
 				if len(res.GetDeletedRepos()) == 0 {
-					fmt.Fprintf(os.Stderr, "no repos deleted\n")
+					return errors.New("No repos deleted.")
 				} else {
 					var deleted []string
 					for _, repo := range res.GetDeletedRepos() {
