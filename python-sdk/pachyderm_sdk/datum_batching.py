@@ -1,3 +1,4 @@
+"""A high-level decorator for pipeline code that uses the datum-batching feature."""
 from functools import wraps
 from typing import Callable
 
