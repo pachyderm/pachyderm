@@ -336,30 +336,25 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	repoSize := func(r *pfs.Repo) (int64, error) {
 		return d.repoSize(ctx, txnCtx, r)
 	}
-	ri := &pfs.RepoInfo{}
-	processFunc := d.processListRepoInfo(ri, includeAuth && authActive, projects, checkAccess, collectPerms, repoSize, cb)
+	forEach := func(iter *pfsdb.RepoIterator) error {
+		return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
+			processFunc := d.processListRepoInfo(repo, includeAuth && authActive, projects, checkAccess, collectPerms, repoSize, cb)
+			return errors.Wrap(processFunc(repo.Repo.Name), "list repos")
+		}), "could not get repos")
+	}
 	if repoType == "" {
 		// blank type means return all
 		repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx)
 		if err != nil {
 			return errors.Wrap(err, "could not list repos of all types")
 		}
-		if err := stream.ForEach[*pfs.RepoInfo](ctx, repoIter, func(repo *pfs.RepoInfo) error {
-			return errors.Wrap(processFunc(repo.Repo.Name), "list repos")
-		}); err != nil {
-			return errors.Wrap(err, "could not list repos of all types")
-		}
+		return errors.Wrap(forEach(repoIter), "for each repo")
 	}
 	repoTypeIter, err := pfsdb.ListRepoByIdxType(ctx, txnCtx.SqlTx, repoType)
 	if err != nil {
 		return errors.Wrap(err, "list repo by type")
 	}
-	return errors.Wrapf(
-		stream.ForEach[*pfs.RepoInfo](ctx, repoTypeIter, func(repo *pfs.RepoInfo) error {
-			return errors.Wrap(processFunc(repo.Repo.Name), "list repos")
-		}),
-		"could not get repos of type %q: ERROR FROM GetByIndex", repoType,
-	)
+	return errors.Wrapf(forEach(repoTypeIter), "could not get repos of type %q", repoType)
 }
 
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
