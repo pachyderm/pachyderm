@@ -336,3 +336,24 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }
+
+// PreTxOps defines what operations to run related to the transaction, but before the physical database
+// transaction is opened. If doing any I/O as a part of a transaction is necessary, this is the place for it.
+//
+// NOTES:
+// - PreTxOps may be called multiple times for a Pachyderm Transaction and should therefore be idempotent
+// - in most cases some background job will also be necessary to cleanup resources created here
+func (env *TransactionEnv) PreTxOps(ctx context.Context, reqs []*transaction.TransactionRequest) error {
+	for _, r := range reqs {
+		if r.CreatePipeline != nil {
+			if r.CreatePipeline.Determined != nil {
+				password, err := env.serviceEnv.PpsServer().CreateDetPipelineSideEffects(ctx, r.CreatePipeline.Pipeline, r.CreatePipeline.Determined.Workspaces, r.CreatePipeline.Determined.Password)
+				if err != nil {
+					return errors.Wrap(err, "apply determined pipeline side effects")
+				}
+				r.CreatePipeline.Determined.Password = password
+			}
+		}
+	}
+	return nil
+}

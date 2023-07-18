@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.20.5"
+    default: "1.20.6"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -113,7 +113,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -239,7 +239,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -1442,6 +1442,12 @@ jobs:
       - install-helm
       - install-kubectl
       - start-minikube
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
@@ -1506,7 +1512,7 @@ jobs:
           name: Publish
           command: |
             poetry version << parameters.version >>
-            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD"
+            poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
 
 workflows:
   integration-tests:
@@ -1707,7 +1713,11 @@ workflows:
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
   python-sdk:
-    when: << pipeline.parameters.run-python-sdk-jobs >>
+    when:
+      condition:
+        or:
+          - << pipeline.parameters.run-python-sdk-jobs >>
+          - << pipeline.parameters.run-core-jobs >>
     jobs:
       - test-python-sdk:
           requires:

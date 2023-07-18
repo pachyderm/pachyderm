@@ -40,6 +40,9 @@ func newDriver(
 }
 
 func (d *driver) batchTransaction(ctx context.Context, req []*transaction.TransactionRequest) (*transaction.TransactionInfo, error) {
+	if err := d.txnEnv.PreTxOps(ctx, req); err != nil {
+		return nil, errors.Wrap(err, "run pre-transaction operations")
+	}
 	var result *transaction.TransactionInfo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// Because we're building and running the entire transaction atomically here,
@@ -203,10 +206,12 @@ func (d *driver) appendTransaction(
 	txn *transaction.Transaction,
 	items []*transaction.TransactionRequest,
 ) (*transaction.TransactionInfo, error) {
+	if err := d.txnEnv.PreTxOps(ctx, items); err != nil {
+		return nil, errors.Wrap(err, "run pre-transaction operations")
+	}
 	// We do a dryrun of the transaction to
 	// 1. make sure the appended request is valid
 	// 2. Capture the result of the request to be returned
-
 	return d.updateTransaction(ctx, false, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
 		if restarted {
 			info.Requests = append(info.Requests, items...)

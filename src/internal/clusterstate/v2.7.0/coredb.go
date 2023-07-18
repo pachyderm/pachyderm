@@ -9,8 +9,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"go.uber.org/zap"
 )
 
 // CollectionRecord is a record in a collections table.
@@ -82,6 +84,7 @@ func createCoreSchema(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
+	log.Info(ctx, "create core.projects table")
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS core.projects (
 			id bigserial PRIMARY KEY,
@@ -109,12 +112,14 @@ func migrateProjects(ctx context.Context, tx *pachsql.Tx) error {
 	if err != nil {
 		return errors.Wrap(err, "listing projects from collection")
 	}
+	log.Info(ctx, "migrating collections.projects to core.projects", zap.String("completed", fmt.Sprintf("0/%d", len(projects))))
 	// Note that although it is more efficient to batch insert multiple rows in a single statement,
 	// we don't need it here because this is a one-time migration, and we don't expect users to have a large number of projects.
-	for _, project := range projects {
+	for i, project := range projects {
 		if _, err := insertStmt.ExecContext(ctx, project.Name, project.Description, project.CreatedAt, project.UpdatedAt); err != nil {
 			return errors.Wrap(err, "inserting project")
 		}
+		log.Info(ctx, "migrating collections.projects to core.projects", zap.String("completed", fmt.Sprintf("%d/%d", i+1, len(projects))))
 	}
 	return nil
 }
