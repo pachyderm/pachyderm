@@ -228,6 +228,12 @@ func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClien
 			if len(usersResp.Users) == 0 {
 				return 0, errors.Wrapf(err, "no determined users return for user %q", pipelineUserName(p))
 			}
+			if _, err := dc.SetUserPassword(ctx, &det.SetUserPasswordRequest{
+				UserId:   usersResp.Users[0].Id,
+				Password: password,
+			}); err != nil {
+				return 0, errors.Wrapf(err, "set password for user %q", pipelineUserName(p))
+			}
 			return usersResp.Users[0].Id, nil
 		}
 		return 0, errors.Wrap(err, "provision determined user")
