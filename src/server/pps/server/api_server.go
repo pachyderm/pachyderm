@@ -2118,8 +2118,35 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 	}
 }
 
-func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (*pps.CreatePipelineV2Response, error) {
-	return nil, status.Error(codes.Unimplemented, "CreatePipelineV2 not yet implemented")
+func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (resp *pps.CreatePipelineV2Response, err error) {
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+
+	clusterDefaults, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "could not get cluster defaults")
+	}
+	s, err := jsonMergePatch(clusterDefaults.ClusterDefaults.GetCreatePipelineRequestJson(), request.GetCreatePipelineRequestJson())
+	if err != nil {
+		return nil, badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		})
+	}
+
+	var cpr pps.CreatePipelineRequest
+	if err := protojson.Unmarshal([]byte(s), &cpr); err != nil {
+		return nil, badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		})
+	}
+	cpr.Update = request.Update
+	cpr.Reprocess = request.Reprocess
+	if _, err := a.CreatePipeline(ctx, &cpr); err != nil {
+		return nil, err
+	}
+	return &pps.CreatePipelineV2Response{
+		EffectiveCreatePipelineRequestJson: s,
+	}, nil
 }
 
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
@@ -2314,7 +2341,11 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	return pipelineInfo, nil
 }
 
-func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
+func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineV2Request) error {
+	var request pps.CreatePipelineRequest
+	if err := protojson.Unmarshal([]byte(req.CreatePipelineRequestJson), &request); err != nil {
+		return errors.Wrap(err, "could not unmarshal Create Pipeline Request JSON")
+	}
 	var (
 		projectName          = request.Pipeline.Project.GetName()
 		pipelineName         = request.Pipeline.Name
@@ -2329,7 +2360,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			Pipeline: request.Pipeline,
 		}
 	}
-	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(&request, oldPipelineInfo)
 	if err != nil {
 		return err
 	}

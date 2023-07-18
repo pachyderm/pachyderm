@@ -938,7 +938,7 @@ class CreatePipelineRequest(betterproto.Message):
 class CreatePipelineV2Request(betterproto.Message):
     create_pipeline_request_json: str = betterproto.string_field(1)
     dry_run: bool = betterproto.bool_field(2)
-    regenerate: bool = betterproto.bool_field(3)
+    update: bool = betterproto.bool_field(3)
     reprocess: bool = betterproto.bool_field(4)
 
 
@@ -1604,13 +1604,13 @@ class ApiStub:
         *,
         create_pipeline_request_json: str = "",
         dry_run: bool = False,
-        regenerate: bool = False,
+        update: bool = False,
         reprocess: bool = False
     ) -> "CreatePipelineV2Response":
         request = CreatePipelineV2Request()
         request.create_pipeline_request_json = create_pipeline_request_json
         request.dry_run = dry_run
-        request.regenerate = regenerate
+        request.update = update
         request.reprocess = reprocess
 
         return self.__rpc_create_pipeline_v2(request)
@@ -2066,7 +2066,7 @@ class ApiBase:
         self,
         create_pipeline_request_json: str,
         dry_run: bool,
-        regenerate: bool,
+        update: bool,
         reprocess: bool,
         context: "grpc.ServicerContext",
     ) -> "CreatePipelineV2Response":

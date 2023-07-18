@@ -727,7 +727,7 @@ message CreatePipelineRequest {
 message CreatePipelineV2Request {
   string create_pipeline_request_json = 1;  // a JSON-encoded CreatePipelineRequest
   bool dry_run = 2;
-  bool regenerate = 3;
+  bool update = 3;
   bool reprocess = 4;
 }
 

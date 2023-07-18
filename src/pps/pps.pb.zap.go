@@ -846,7 +846,7 @@ func (x *CreatePipelineV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	}
 	enc.AddString("create_pipeline_request_json", x.CreatePipelineRequestJson)
 	enc.AddBool("dry_run", x.DryRun)
-	enc.AddBool("regenerate", x.Regenerate)
+	enc.AddBool("update", x.Update)
 	enc.AddBool("reprocess", x.Reprocess)
 	return nil
 }
