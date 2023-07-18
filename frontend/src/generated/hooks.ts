@@ -3141,65 +3141,6 @@ export type ReposWithCommitQueryResult = Apollo.QueryResult<
   Types.ReposWithCommitQuery,
   Types.ReposWithCommitQueryVariables
 >;
-export const ReposWithLinkedPipelineDocument = gql`
-  query reposWithLinkedPipeline($args: ReposQueryArgs!) {
-    repos(args: $args) {
-      ...RepoWithLinkedPipelineFragment
-    }
-  }
-  ${RepoWithLinkedPipelineFragmentFragmentDoc}
-`;
-
-/**
- * __useReposWithLinkedPipelineQuery__
- *
- * To run a query within a React component, call `useReposWithLinkedPipelineQuery` and pass it any options that fit your needs.
- * When your component renders, `useReposWithLinkedPipelineQuery` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = useReposWithLinkedPipelineQuery({
- *   variables: {
- *      args: // value for 'args'
- *   },
- * });
- */
-export function useReposWithLinkedPipelineQuery(
-  baseOptions: Apollo.QueryHookOptions<
-    Types.ReposWithLinkedPipelineQuery,
-    Types.ReposWithLinkedPipelineQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<
-    Types.ReposWithLinkedPipelineQuery,
-    Types.ReposWithLinkedPipelineQueryVariables
-  >(ReposWithLinkedPipelineDocument, options);
-}
-export function useReposWithLinkedPipelineLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.ReposWithLinkedPipelineQuery,
-    Types.ReposWithLinkedPipelineQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<
-    Types.ReposWithLinkedPipelineQuery,
-    Types.ReposWithLinkedPipelineQueryVariables
-  >(ReposWithLinkedPipelineDocument, options);
-}
-export type ReposWithLinkedPipelineQueryHookResult = ReturnType<
-  typeof useReposWithLinkedPipelineQuery
->;
-export type ReposWithLinkedPipelineLazyQueryHookResult = ReturnType<
-  typeof useReposWithLinkedPipelineLazyQuery
->;
-export type ReposWithLinkedPipelineQueryResult = Apollo.QueryResult<
-  Types.ReposWithLinkedPipelineQuery,
-  Types.ReposWithLinkedPipelineQueryVariables
->;
 export const GetRolesDocument = gql`
   query getRoles($args: GetRolesArgs!) {
     getRoles(args: $args) {

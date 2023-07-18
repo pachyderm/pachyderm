@@ -4079,31 +4079,6 @@ export type ReposWithCommitQuery = {
   } | null>;
 };
 
-export type ReposWithLinkedPipelineQueryVariables = Exact<{
-  args: ReposQueryArgs;
-}>;
-
-export type ReposWithLinkedPipelineQuery = {
-  __typename?: 'Query';
-  repos: Array<{
-    __typename?: 'Repo';
-    createdAt: number;
-    description: string;
-    id: string;
-    name: string;
-    sizeDisplay: string;
-    sizeBytes: number;
-    access: boolean;
-    projectId: string;
-    branches: Array<{__typename?: 'Branch'; name: string}>;
-    linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
-    authInfo?: {
-      __typename?: 'AuthInfo';
-      rolesList?: Array<string | null> | null;
-    } | null;
-  } | null>;
-};
-
 export type GetRolesQueryVariables = Exact<{
   args: GetRolesArgs;
 }>;
