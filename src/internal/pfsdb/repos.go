@@ -34,18 +34,16 @@ const (
 type ErrRepoNotFound struct {
 	Project string
 	Name    string
+	Type    string
 	ID      pachsql.ID
 }
 
 // Error satisfies the error interface.
 func (err ErrRepoNotFound) Error() string {
-	if n := err.Name; n != "" {
-		return fmt.Sprintf("repo %q not found", n)
-	}
 	if id := err.ID; id != 0 {
 		return fmt.Sprintf("repo id=%d not found", id)
 	}
-	return "repo not found"
+	return fmt.Sprintf("repo %s/%s.%s not found", err.Project, err.Name, err.Type)
 }
 
 func (err ErrRepoNotFound) Is(other error) bool {
@@ -220,9 +218,7 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repo
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		return ErrRepoNotFound{
-			Name: repoName,
-		}
+		return ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
 	}
 	return nil
 }
@@ -240,19 +236,29 @@ func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName
 	if repoProject == "" {
 		repoProject = "default"
 	}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id = (SELECT id from core.projects where name=$1) AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrRepoNotFound{Name: repoName}
+			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
 	}
 	return row, nil
 }
 
+// todo(fahad): rewrite branch related code during the branches migration.
+// todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
 // GetRepo retrieves an entry from the pfs.repos table by using the row id.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
-	return getRepo(ctx, tx, "id", id)
+	row := &repoRow{}
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id;", getRepoAndBranches), id).StructScan(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrRepoNotFound{ID: id}
+		}
+		return nil, errors.Wrap(err, "scanning repo row")
+	}
+	return getRepoFromRepoRow(ctx, tx, row)
 }
 
 // GetRepoByName retrieves an entry from the pfs.repos table by project, repo name, and type.
@@ -283,23 +289,6 @@ func getRepoFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs
 		Branches:    branches,
 	}
 	return repoInfo, nil
-}
-
-// todo(fahad): rewrite branch related code during the branches migration.
-// todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
-func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.RepoInfo, error) {
-	row := &repoRow{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.%s=$1 GROUP BY repo.id;", getRepoAndBranches, where), whereVal).StructScan(row)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			if name, ok := whereVal.(string); ok {
-				return nil, ErrRepoNotFound{Name: name}
-			}
-			return nil, ErrRepoNotFound{ID: whereVal.(pachsql.ID)}
-		}
-		return nil, errors.Wrap(err, "scanning repo row")
-	}
-	return getRepoFromRepoRow(ctx, tx, row)
 }
 
 // todo(fahad): should this be a join too?
@@ -360,10 +349,17 @@ func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID, repo *pfs.Re
 	if repo.Repo.Project == nil {
 		repo.Repo.Project = &pfs.Project{Name: "default"}
 	}
-	_, err := tx.ExecContext(ctx, "UPDATE pfs.repos SET name=$1, type=$2::pfs.repo_type, project_id=(SELECT id FROM core.projects WHERE name=$3), description=$4 WHERE repo.id=$5;",
+	res, err := tx.ExecContext(ctx, "UPDATE pfs.repos SET name=$1, type=$2::pfs.repo_type, project_id=(SELECT id FROM core.projects WHERE name=$3), description=$4 WHERE id=$5;",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, id)
 	if err != nil {
 		return errors.Wrap(err, "update repo")
+	}
+	numRows, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "get affected rows")
+	}
+	if numRows == 0 {
+		return ErrRepoNotFound{Project: repo.Repo.Project.Name, Name: repo.Repo.Name, Type: repo.Repo.Type}
 	}
 	return nil
 }

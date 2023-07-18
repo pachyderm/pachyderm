@@ -71,10 +71,10 @@ func TestDeleteRepo(t *testing.T) {
 		require.NoError(t, pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type), "should be able to delete repo")
 		_, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, "unknown")
 		require.YesError(t, err, "get repo should not find row")
-		require.True(t, pfsdb.ErrRepoNotFound{Name: testRepoName}.Is(err))
+		require.True(t, pfsdb.ErrRepoNotFound{Project: "default", Name: testRepoName, Type: "unknown"}.Is(err))
 		err = pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type)
 		require.YesError(t, err, "double delete should be an error")
-		require.True(t, pfsdb.ErrRepoNotFound{Name: testRepoName}.Is(err))
+		require.True(t, pfsdb.ErrRepoNotFound{Project: createInfo.Repo.Project.Name, Name: testRepoName, Type: createInfo.Repo.Type}.Is(err))
 		return nil
 	}))
 }
@@ -252,6 +252,7 @@ func TestUpdateRepo(t *testing.T) {
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// test upsert correctness
 		require.YesError(t, pfsdb.UpdateRepo(cbCtx, tx, 99, repoInfo), "should not be able to update repo with an id out of range")
+		// test upsert correctness
 		require.NoError(t, pfsdb.UpsertRepo(cbCtx, tx, repoInfo), "should be able to create repo with upsert")
 		repoInfo.Description = "new desc"
 		require.NoError(t, pfsdb.UpsertRepo(cbCtx, tx, repoInfo), "should be able to update repo with upsert")
