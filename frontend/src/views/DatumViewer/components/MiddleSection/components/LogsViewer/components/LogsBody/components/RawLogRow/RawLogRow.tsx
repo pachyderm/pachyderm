@@ -11,7 +11,7 @@ type LogRowProps = {
   index: number;
   style: CSSProperties;
   width: number;
-  logs: GetLogsQuery['logs'];
+  logs: GetLogsQuery['logs']['items'];
   highlightUserLogs: boolean;
   setSize: (index: number, size: number) => void;
 };

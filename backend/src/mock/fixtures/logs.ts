@@ -70,12 +70,6 @@ const tutorial = [
     .setUser(true)
     .setMessage(
       '/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.',
-    )
-    .setTs(
-      timestampFromObject({
-        seconds: 1616533101,
-        nanos: 0,
-      }),
     ),
   new LogMessage()
     .setPipelineName('montage')

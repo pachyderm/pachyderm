@@ -2325,7 +2325,16 @@ export type GetWorkspaceLogsQueryResult = Apollo.QueryResult<
 export const GetLogsDocument = gql`
   query getLogs($args: LogsArgs!) {
     logs(args: $args) {
-      ...LogFields
+      items {
+        ...LogFields
+      }
+      cursor {
+        timestamp {
+          seconds
+          nanos
+        }
+        message
+      }
     }
   }
   ${LogFieldsFragmentDoc}

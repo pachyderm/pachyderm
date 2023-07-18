@@ -17,7 +17,7 @@ import RawLogRow from './components/RawLogRow';
 import styles from './LogsBody.module.css';
 
 type LogsBodyProps = {
-  logs: GetLogsQuery['logs'];
+  logs: GetLogsQuery['logs']['items'];
   loading: boolean;
   highlightUserLogs: boolean;
   rawLogs: boolean;

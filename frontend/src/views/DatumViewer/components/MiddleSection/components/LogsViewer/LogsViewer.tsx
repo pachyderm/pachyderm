@@ -8,7 +8,7 @@ import styles from './LogsViewer.module.css';
 
 export type LogsViewerProps = {
   loading: boolean;
-  logs: GetLogsQuery['logs'];
+  logs: GetLogsQuery['logs']['items'];
   highlightUserLogs: boolean;
   selectedLogsMap: {[key: number]: boolean};
   setSelectedLogsMap: React.Dispatch<

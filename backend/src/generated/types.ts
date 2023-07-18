@@ -497,12 +497,18 @@ export type Log = {
 };
 
 export type LogCursor = {
+  __typename?: 'LogCursor';
+  message: Scalars['String'];
+  timestamp: Timestamp;
+};
+
+export type LogInputCursor = {
   message: Scalars['String'];
   timestamp: TimestampInput;
 };
 
 export type LogsArgs = {
-  cursor?: InputMaybe<LogCursor>;
+  cursor?: InputMaybe<LogInputCursor>;
   datumId?: InputMaybe<Scalars['String']>;
   jobId?: InputMaybe<Scalars['String']>;
   limit?: InputMaybe<Scalars['Int']>;
@@ -692,6 +698,12 @@ export type PageableJobSet = {
   cursor?: Maybe<Timestamp>;
   hasNextPage?: Maybe<Scalars['Boolean']>;
   items: Array<JobSet>;
+};
+
+export type PageableLogs = {
+  __typename?: 'PageableLogs';
+  cursor?: Maybe<LogCursor>;
+  items: Array<Log>;
 };
 
 export enum Permission {
@@ -884,7 +896,7 @@ export type Query = {
   jobs: PageableJob;
   jobsByPipeline: Array<Job>;
   loggedIn: Scalars['Boolean'];
-  logs: Array<Maybe<Log>>;
+  logs: PageableLogs;
   pipeline: Pipeline;
   pipelines: Array<Maybe<Pipeline>>;
   project: Project;
@@ -1368,7 +1380,8 @@ export type ResolversTypes = ResolversObject<{
   JobsByPipelineQueryArgs: JobsByPipelineQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Log: ResolverTypeWrapper<Log>;
-  LogCursor: LogCursor;
+  LogCursor: ResolverTypeWrapper<LogCursor>;
+  LogInputCursor: LogInputCursor;
   LogsArgs: LogsArgs;
   ModifyRolesArgs: ModifyRolesArgs;
   Mutation: ResolverTypeWrapper<{}>;
@@ -1387,6 +1400,7 @@ export type ResolversTypes = ResolversObject<{
   PageableFoundCommits: ResolverTypeWrapper<PageableFoundCommits>;
   PageableJob: ResolverTypeWrapper<PageableJob>;
   PageableJobSet: ResolverTypeWrapper<PageableJobSet>;
+  PageableLogs: ResolverTypeWrapper<PageableLogs>;
   Permission: Permission;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   PipelineQueryArgs: PipelineQueryArgs;
@@ -1489,6 +1503,7 @@ export type ResolversParentTypes = ResolversObject<{
   JobsQueryArgs: JobsQueryArgs;
   Log: Log;
   LogCursor: LogCursor;
+  LogInputCursor: LogInputCursor;
   LogsArgs: LogsArgs;
   ModifyRolesArgs: ModifyRolesArgs;
   Mutation: {};
@@ -1504,6 +1519,7 @@ export type ResolversParentTypes = ResolversObject<{
   PageableFoundCommits: PageableFoundCommits;
   PageableJob: PageableJob;
   PageableJobSet: PageableJobSet;
+  PageableLogs: PageableLogs;
   Pipeline: Pipeline;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelinesQueryArgs: PipelinesQueryArgs;
@@ -1955,6 +1971,15 @@ export type LogResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type LogCursorResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['LogCursor'] = ResolversParentTypes['LogCursor'],
+> = ResolversObject<{
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  timestamp?: Resolver<ResolversTypes['Timestamp'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type MutationResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
@@ -2177,6 +2202,19 @@ export type PageableJobSetResolvers<
     ContextType
   >;
   items?: Resolver<Array<ResolversTypes['JobSet']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type PageableLogsResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PageableLogs'] = ResolversParentTypes['PageableLogs'],
+> = ResolversObject<{
+  cursor?: Resolver<
+    Maybe<ResolversTypes['LogCursor']>,
+    ParentType,
+    ContextType
+  >;
+  items?: Resolver<Array<ResolversTypes['Log']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2415,7 +2453,7 @@ export type QueryResolvers<
   >;
   loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   logs?: Resolver<
-    Array<Maybe<ResolversTypes['Log']>>,
+    ResolversTypes['PageableLogs'],
     ParentType,
     ContextType,
     RequireFields<QueryLogsArgs, 'args'>
@@ -2730,6 +2768,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Job?: JobResolvers<ContextType>;
   JobSet?: JobSetResolvers<ContextType>;
   Log?: LogResolvers<ContextType>;
+  LogCursor?: LogCursorResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   NodeSelector?: NodeSelectorResolvers<ContextType>;
   OpenCommit?: OpenCommitResolvers<ContextType>;
@@ -2741,6 +2780,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   PageableFoundCommits?: PageableFoundCommitsResolvers<ContextType>;
   PageableJob?: PageableJobResolvers<ContextType>;
   PageableJobSet?: PageableJobSetResolvers<ContextType>;
+  PageableLogs?: PageableLogsResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
@@ -3719,16 +3759,24 @@ export type GetLogsQueryVariables = Exact<{
 
 export type GetLogsQuery = {
   __typename?: 'Query';
-  logs: Array<{
-    __typename?: 'Log';
-    user: boolean;
-    message: string;
-    timestamp?: {
-      __typename?: 'Timestamp';
-      seconds: number;
-      nanos: number;
+  logs: {
+    __typename?: 'PageableLogs';
+    items: Array<{
+      __typename?: 'Log';
+      user: boolean;
+      message: string;
+      timestamp?: {
+        __typename?: 'Timestamp';
+        seconds: number;
+        nanos: number;
+      } | null;
+    }>;
+    cursor?: {
+      __typename?: 'LogCursor';
+      message: string;
+      timestamp: {__typename?: 'Timestamp'; seconds: number; nanos: number};
     } | null;
-  } | null>;
+  };
 };
 
 export type GetWorkspaceLogStreamSubscriptionVariables = Exact<{

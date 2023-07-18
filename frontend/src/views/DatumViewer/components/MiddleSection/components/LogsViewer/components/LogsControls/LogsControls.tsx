@@ -29,7 +29,7 @@ import styles from './LogsControls.module.css';
 
 type LogsControlsProps = {
   selectedLogsMap: {[key: number]: boolean};
-  logs: GetLogsQuery['logs'];
+  logs: GetLogsQuery['logs']['items'];
 
   formCtx: UseFormReturn<LogsViewerFormValues>;
 };

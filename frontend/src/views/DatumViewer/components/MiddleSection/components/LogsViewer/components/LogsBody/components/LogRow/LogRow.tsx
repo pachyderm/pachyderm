@@ -19,7 +19,7 @@ type LogRowProps = {
   index: number;
   style: CSSProperties;
   width: number;
-  logs: GetLogsQuery['logs'];
+  logs: GetLogsQuery['logs']['items'];
   selectedLogsMap: {[key: number]: boolean};
   setSelectedLogsMap: React.Dispatch<
     React.SetStateAction<{[key: number]: boolean}>

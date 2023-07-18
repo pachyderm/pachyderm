@@ -495,7 +495,7 @@ input WorkspaceLogsArgs {
   projectId: String!
 }
 
-input LogCursor {
+input LogInputCursor {
   message: String!
   timestamp: TimestampInput!
 }
@@ -508,7 +508,7 @@ input LogsArgs {
   datumId: String
   start: Int
   reverse: Boolean
-  cursor: LogCursor
+  cursor: LogInputCursor
   limit: Int
 }
 
@@ -608,6 +608,16 @@ type Log {
   message: String!
   timestamp: Timestamp
   user: Boolean!
+}
+
+type LogCursor {
+  message: String!
+  timestamp: Timestamp!
+}
+
+type PageableLogs {
+  items: [Log!]!
+  cursor: LogCursor
 }
 
 type Datum {
@@ -873,7 +883,7 @@ type Query {
   jobSet(args: JobSetQueryArgs!): JobSet!
   jobSets(args: JobSetsQueryArgs!): PageableJobSet!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
-  logs(args: LogsArgs!): [Log]!
+  logs(args: LogsArgs!): PageableLogs!
   commit(args: CommitQueryArgs!): Commit
   commitDiff(args: CommitDiffQueryArgs!): Diff
   commitSearch(args: CommitSearchQueryArgs!): Commit

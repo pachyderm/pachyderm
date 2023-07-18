@@ -12,7 +12,7 @@ type LogsListHeaderProps = {
   setSelectedLogsMap: React.Dispatch<
     React.SetStateAction<{[key: number]: boolean}>
   >;
-  logs: GetLogsQuery['logs'];
+  logs: GetLogsQuery['logs']['items'];
   loading: boolean;
 };
 

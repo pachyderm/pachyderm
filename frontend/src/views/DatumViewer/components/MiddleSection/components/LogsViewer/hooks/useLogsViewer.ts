@@ -60,7 +60,7 @@ const useLogsViewer = (startTime?: number | null) => {
       start: dropdownValues[selectedTime],
       master: isServiceOrSpout,
     },
-    {skip: !pipelineType},
+    {skip: !pipelineType || !dropdownValues[selectedTime]},
   );
 
   useEffect(() => {

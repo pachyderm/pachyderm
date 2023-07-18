@@ -241,12 +241,16 @@ const pps = () => {
             }
 
             filteredLogs.slice(-call.request.getTail() || 0).forEach((log) => {
-              const now = Math.floor(Date.now() / 1000);
-              const timeGap =
-                (call.request.getSince()?.getSeconds() || DEFAULT_SINCE_TIME) +
-                (log.getTs()?.getSeconds() || 0);
-              if (timeGap >= now) {
+              if (!log.getTs()?.getSeconds()) {
                 call.write(log);
+              } else {
+                const now = Math.floor(Date.now() / 1000);
+                const timeGap =
+                  (call.request.getSince()?.getSeconds() ||
+                    DEFAULT_SINCE_TIME) + (log.getTs()?.getSeconds() || 0);
+                if (timeGap >= now) {
+                  call.write(log);
+                }
               }
             });
           }

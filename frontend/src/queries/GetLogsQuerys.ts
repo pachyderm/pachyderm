@@ -14,7 +14,16 @@ export const GET_WORKSPACE_LOGS_QUERY = gql`
 export const GET_LOGS_QUERY = gql`
   query getLogs($args: LogsArgs!) {
     logs(args: $args) {
-      ...LogFields
+      items {
+        ...LogFields
+      }
+      cursor {
+        timestamp {
+          seconds
+          nanos
+        }
+        message
+      }
     }
   }
   ${LogFragment}

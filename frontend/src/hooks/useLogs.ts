@@ -11,7 +11,7 @@ const useLogs = (args: LogsArgs, opts?: QueryFunctionOptions) => {
 
   return {
     error,
-    logs: data?.logs || [],
+    logs: data?.logs.items || [],
     loading,
   };
 };

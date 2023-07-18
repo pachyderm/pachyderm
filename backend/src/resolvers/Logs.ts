@@ -1,5 +1,5 @@
 import {ApolloError} from 'apollo-server-errors';
-import {default as reverseArray} from 'lodash/reverse';
+import findLastIndex from 'lodash/findLastIndex';
 import {v4 as uuid} from 'uuid';
 
 import withStream from '@dash-backend/lib/withStream';
@@ -64,7 +64,6 @@ const logsResolver: LogsResolver = {
           jobId,
           datumId,
           start,
-          reverse = false,
           master = false,
           cursor,
           limit,
@@ -72,14 +71,7 @@ const logsResolver: LogsResolver = {
       },
       {pachClient},
     ) => {
-      // Paged logs can not be reversed.
-      if (cursor && reverse) {
-        throw new ApolloError(
-          "'cursor' and 'reverse' cannot be used together.",
-          'INVALID_ARGUMENT',
-        );
-      }
-
+      let logs;
       if (cursor) {
         const logsStream = await pachClient.pps().getLogsStream({
           projectId,
@@ -93,54 +85,67 @@ const logsResolver: LogsResolver = {
         let foundCursor = false;
         let count = 0;
 
-        const data = await new Promise<LogMessage.AsObject[]>(
-          (resolve, reject) => {
-            const data: LogMessage.AsObject[] = [];
+        logs = await new Promise<LogMessage.AsObject[]>((resolve, reject) => {
+          const data: LogMessage.AsObject[] = [];
 
-            logsStream.on('data', (chunk: LogMessage) => {
-              const obj = chunk.toObject();
+          logsStream.on('data', (chunk: LogMessage) => {
+            const obj = chunk.toObject();
 
-              if (
-                obj.message === cursor.message &&
-                obj.ts &&
-                obj.ts.seconds === cursor.timestamp.seconds &&
-                obj.ts.nanos === cursor.timestamp.nanos
-              ) {
-                foundCursor = true;
-              } else if (foundCursor) {
-                data.push(obj);
-                count++;
-              }
-              if (count === limit) {
-                logsStream.destroy();
-              }
-            });
-            logsStream.on('end', () => resolve(data));
-            logsStream.on('close', () => resolve(data));
-            logsStream.on('error', (err) => reject(err));
-          },
-        );
+            if (
+              obj.message === cursor.message &&
+              obj.ts &&
+              obj.ts.seconds === cursor.timestamp.seconds &&
+              obj.ts.nanos === cursor.timestamp.nanos
+            ) {
+              foundCursor = true;
+            } else if (foundCursor) {
+              data.push(obj);
+              count++;
+            }
+            if (count === limit) {
+              logsStream.destroy();
+            }
+          });
+          logsStream.on('end', () => resolve(data));
+          logsStream.on('close', () => resolve(data));
+          logsStream.on('error', (err) => reject(err));
+        });
 
         if (!foundCursor) {
           throw new ApolloError('could not find cursor', 'INVALID_ARGUMENT');
         }
-
-        return data.map(logMessageToGQLLog);
+      } else {
+        logs = await pachClient.pps().getLogs({
+          projectId,
+          pipelineName: pipelineName,
+          since: calculateSince(start),
+          jobId: jobId || undefined,
+          datumId: datumId || undefined,
+          master: master || undefined,
+          limit: limit || undefined,
+        });
       }
-      const logs = await pachClient.pps().getLogs({
-        projectId,
-        pipelineName: pipelineName,
-        since: calculateSince(start),
-        jobId: jobId || undefined,
-        datumId: datumId || undefined,
-        master: master || undefined,
-        limit: limit || undefined,
-      });
 
-      // can't page and use reverse.
-      return reverse
-        ? reverseArray(logs.map(logMessageToGQLLog))
-        : logs.map(logMessageToGQLLog);
+      let nextCursor = undefined;
+      // Logs are not guaranteed to have a timestamp. We want to look for the last log with one.
+      if (logs.length !== 0) {
+        const cursorIndex = findLastIndex(
+          logs,
+          (item) => typeof item.ts !== 'undefined',
+        );
+        const foundCursor = logs[cursorIndex];
+        if (foundCursor && typeof foundCursor.ts !== 'undefined') {
+          nextCursor = {
+            message: foundCursor.message,
+            timestamp: foundCursor.ts,
+          };
+        }
+      }
+
+      return {
+        items: logs.map(logMessageToGQLLog),
+        cursor: nextCursor,
+      };
     },
   },
 
