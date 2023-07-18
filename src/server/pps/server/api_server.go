@@ -2201,6 +2201,11 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *
 			}
 		}
 	}
+	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(ctx, secretName, metav1.DeleteOptions{}); err != nil {
+		if !errutil.IsNotFoundError(err) {
+			return "", errors.Wrapf(err, "clear pipeline's determined secret")
+		}
+	}
 	if password == "" {
 		password = uuid.NewWithoutDashes()
 	}
