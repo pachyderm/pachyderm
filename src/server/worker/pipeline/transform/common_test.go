@@ -113,8 +113,8 @@ func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason st
 	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
 }
 func (td *testDriver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
-	res, err := td.inner.GetJobInfo(job)
-	return res, errors.EnsureStack(err)
+	res := &pps.JobInfo{}
+	return res, nil
 }
 func (td *testDriver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
