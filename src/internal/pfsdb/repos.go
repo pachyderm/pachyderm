@@ -237,7 +237,7 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo,
 	return getRepo(ctx, tx, "id", id)
 }
 
-// GetRepoByName retrieves an entry from the pfs.repos table by repo name and type.
+// GetRepoByName retrieves an entry from the pfs.repos table by project, repo name, and type.
 func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*pfs.RepoInfo, error) {
 	row := &repoRow{}
 	if repoProject == "" {
