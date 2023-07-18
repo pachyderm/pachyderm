@@ -68,11 +68,11 @@ func TestDeleteRepo(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create repo")
-		require.NoError(t, pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Name), "should be able to delete repo")
+		require.NoError(t, pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type), "should be able to delete repo")
 		_, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, "unknown")
 		require.YesError(t, err, "get repo should not find row")
 		require.True(t, pfsdb.ErrRepoNotFound{Name: testRepoName}.Is(err))
-		err = pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Name)
+		err = pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type)
 		require.YesError(t, err, "double delete should be an error")
 		require.True(t, pfsdb.ErrRepoNotFound{Name: testRepoName}.Is(err))
 		return nil

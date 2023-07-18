@@ -496,7 +496,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if err := pfsdb.DeleteRepo(ctx, txnCtx.SqlTx, ri.Repo.Name); err != nil && !pfsdb.IsErrRepoNotFound(err) {
+	if err := pfsdb.DeleteRepo(ctx, txnCtx.SqlTx, ri.Repo.Project.Name, ri.Repo.Name, ri.Repo.Type); err != nil && !pfsdb.IsErrRepoNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
 	}
 	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway

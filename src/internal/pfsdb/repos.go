@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	getRepoAndBranches = "SELECT repo.name, repo.type, repo.project_id, " +
+	getRepoAndBranches = "SELECT repo.id, repo.name, repo.type, repo.project_id, " +
 		"repo.description, array_agg(branch.proto) AS branches FROM pfs.repos repo " +
 		"LEFT JOIN core.projects project ON repo.project_id = project.id " +
 		"LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
@@ -210,8 +210,8 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 }
 
 // DeleteRepo deletes an entry in the pfs.repos table.
-func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoName string) error {
-	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.repos WHERE name = $1;", repoName)
+func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) error {
+	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.repos WHERE project_id = (SELECT id FROM core.projects WHERE name=$1) AND name=$2 AND type=$3;", repoProject, repoName, repoType)
 	if err != nil {
 		return errors.Wrap(err, "delete repo")
 	}
@@ -227,6 +227,29 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoName string) error {
 	return nil
 }
 
+func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (pachsql.ID, error) {
+	row, err := getRepoRowByName(ctx, tx, repoProject, repoName, repoType)
+	if err != nil {
+		return pachsql.ID(0), err
+	}
+	return pachsql.ID(row.ID), nil
+}
+
+func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*repoRow, error) {
+	row := &repoRow{}
+	if repoProject == "" {
+		repoProject = "default"
+	}
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id = (SELECT id from core.projects where name=$1) AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrRepoNotFound{Name: repoName}
+		}
+		return nil, errors.Wrap(err, "scanning repo row")
+	}
+	return row, nil
+}
+
 // GetRepo retrieves an entry from the pfs.repos table by using the row id.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
 	return getRepo(ctx, tx, "id", id)
@@ -234,16 +257,9 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo,
 
 // GetRepoByName retrieves an entry from the pfs.repos table by project, repo name, and type.
 func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*pfs.RepoInfo, error) {
-	row := &repoRow{}
-	if repoProject == "" {
-		repoProject = "default"
-	}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id = (SELECT id from core.projects where name=$1) AND repo.name = $2 AND repo.type = $3 GROUP BY repo.id;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
+	row, err := getRepoRowByName(ctx, tx, repoProject, repoName, repoType)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrRepoNotFound{Name: repoName}
-		}
-		return nil, errors.Wrap(err, "scanning repo row")
+		return nil, err
 	}
 	return getRepoFromRepoRow(ctx, tx, row)
 }
@@ -273,7 +289,7 @@ func getRepoFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs
 // todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
 func getRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.RepoInfo, error) {
 	row := &repoRow{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id;", getRepoAndBranches, where), whereVal).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.%s=$1 GROUP BY repo.id;", getRepoAndBranches, where), whereVal).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
@@ -326,36 +342,28 @@ func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
 // UpsertRepo updates all fields of an existing repo entry in the pfs.repos table by name. If 'upsert' is set to true, UpsertRepo()
 // will attempt to call CreateRepo() if the entry does not exist.
 func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
-	return updateRepo(ctx, tx, repo, "name", repo.Repo.Name, true)
+	id, err := GetRepoID(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
+	if err != nil {
+		if IsErrRepoNotFound(err) {
+			return errors.Wrap(CreateRepo(ctx, tx, repo), "create repo if not exists")
+		}
+		return errors.Wrap(err, "get repo id")
+	}
+	return errors.Wrap(UpdateRepo(ctx, tx, id, repo), "update existing repo")
 }
 
 // UpdateRepo overwrites an existing repo entry by pachsql.ID.
 func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID, repo *pfs.RepoInfo) error {
-	return updateRepo(ctx, tx, repo, "id", id, false)
-}
-
-func updateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo, where string, whereVal interface{}, upsert bool) error {
 	if repo.Repo.Type == "" {
 		repo.Repo.Type = "unknown"
 	}
 	if repo.Repo.Project == nil {
 		repo.Repo.Project = &pfs.Project{Name: "default"}
 	}
-	res, err := tx.ExecContext(ctx,
-		fmt.Sprintf("UPDATE pfs.repos SET name = $1, type = $2::pfs.repo_type, project_id = (SELECT id FROM core.projects WHERE name = $3), description = $4 WHERE %s = $5;", where),
-		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, whereVal)
+	_, err := tx.ExecContext(ctx, "UPDATE pfs.repos SET name=$1, type=$2::pfs.repo_type, project_id=(SELECT id FROM core.projects WHERE name=$3), description=$4 WHERE repo.id=$5;",
+		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, id)
 	if err != nil {
 		return errors.Wrap(err, "update repo")
-	}
-	numRows, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "get affected rows")
-	}
-	if numRows == 0 {
-		if upsert {
-			return CreateRepo(ctx, tx, repo)
-		}
-		return errors.New(fmt.Sprintf("%s not found in pfs.repos", repo.Repo.Name))
 	}
 	return nil
 }
