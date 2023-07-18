@@ -147,7 +147,7 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	// Check if 'repo' already exists. If so, return that error.  Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
 	// calling "createRepo" on a repo that already exists).
-	existingRepoInfo, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, repo.Name, repo.Type)
+	existingRepoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 	if err != nil {
 		if !pfsdb.IsErrRepoNotFound(err) {
 			return errors.Wrapf(err, "error checking whether repo %q exists", repo)
@@ -155,7 +155,7 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
 			baseRepo := &pfs.Repo{Project: &pfs.Project{Name: repo.Project.GetName()}, Name: repo.GetName(), Type: pfs.UserRepoType}
-			ri, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, baseRepo.Name, baseRepo.Type)
+			ri, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, baseRepo.Project.Name, baseRepo.Name, baseRepo.Type)
 			if err != nil {
 				if !pfsdb.IsErrRepoNotFound(err) {
 					return errors.Wrapf(err, "error checking whether user repo for %q exists", baseRepo)
@@ -218,7 +218,7 @@ func (d *driver) inspectRepo(ctx context.Context, txnCtx *txncontext.Transaction
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
 	}
-	repoInfo, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, repo.Name, repo.Type)
+	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 	if err != nil {
 		if pfsdb.IsErrRepoNotFound(err) {
 			return nil, pfsserver.ErrRepoNotFound{Repo: repo}
@@ -409,7 +409,7 @@ func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.Trans
 }
 
 func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
-	if _, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, repo.Name, repo.Type); err != nil {
+	if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type); err != nil {
 		if !pfsdb.IsErrRepoNotFound(err) {
 			return errors.Wrapf(err, "error checking whether %q exists", repo)
 		}
@@ -511,7 +511,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 
 func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
 	if repo.Type != pfs.UserRepoType {
-		ri, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, repo.Name, repo.Type)
+		ri, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 		if err != nil {
 			return nil, err
 		}
@@ -877,7 +877,7 @@ func (d *driver) startCommit(
 		return nil, err
 	}
 	// Check if repo exists
-	_, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, branch.Repo.Name, branch.Repo.Type)
+	_, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type)
 	if err != nil {
 		if pfsdb.IsErrRepoNotFound(err) {
 			return nil, pfsserver.ErrRepoNotFound{Repo: branch.Repo}
@@ -947,7 +947,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 }
 
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) (int64, error) {
-	repoInfo, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, repo.Name, repo.Type)
+	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 	if err != nil {
 		return 0, errors.EnsureStack(err)
 	}
@@ -1323,7 +1323,7 @@ func (d *driver) listCommit(
 	// Make sure that the repo exists
 	if repo.Name != "" {
 		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			if _, err := pfsdb.GetRepoByNameAndType(ctx, tx, repo.Name, repo.Type); err != nil {
+			if _, err := pfsdb.GetRepoByName(ctx, tx, repo.Project.Name, repo.Name, repo.Type); err != nil {
 				if pfsdb.IsErrRepoNotFound(err) {
 					return pfsserver.ErrRepoNotFound{Repo: repo}
 				}
@@ -1921,7 +1921,7 @@ func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext
 
 	// Make sure that the repo exists
 	if repo.Name != "" {
-		if _, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, repo.Name, repo.Type); err != nil {
+		if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type); err != nil {
 			if pfsdb.IsErrRepoNotFound(err) {
 				return pfsserver.ErrRepoNotFound{Repo: repo}
 			}

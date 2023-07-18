@@ -237,10 +237,13 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo,
 	return getRepo(ctx, tx, "id", id)
 }
 
-// GetRepoByNameAndType retrieves an entry from the pfs.repos table by repo name and type.
-func GetRepoByNameAndType(ctx context.Context, tx *pachsql.Tx, repoName string, repoType string) (*pfs.RepoInfo, error) {
+// GetRepoByName retrieves an entry from the pfs.repos table by repo name and type.
+func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*pfs.RepoInfo, error) {
 	row := &repoRow{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.name = $1 AND repo.type = $2 GROUP BY repo.id;", getRepoAndBranches), repoName, repoType).StructScan(row)
+	if repoProject == "" {
+		repoProject = "default"
+	}
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id = (SELECT id from core.projects where name=$1) AND repo.name = $2 AND repo.type = $3 GROUP BY repo.id;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrRepoNotFound{Name: repoName}
