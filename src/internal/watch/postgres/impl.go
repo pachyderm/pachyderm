@@ -81,8 +81,8 @@ func (w *watcher) Watch() <-chan *Event {
 
 func (w *watcher) Close() {
 	w.once.Do(func() {
-		close(w.events)
 		w.listener.Unregister(w) //nolint:errcheck
+		close(w.events)
 	})
 }
 
@@ -105,14 +105,16 @@ func (w *watcher) Error(err error) {
 	w.send(&Event{Error: err})
 }
 
+// Send the given event to the watcher, but abort the watcher if the send would
+// block. If this happens, the watcher is not keeping up with events. Spawn a
+// goroutine to write an error, then close the watcher.
 func (w *watcher) send(event *Event) {
 	select {
 	case w.events <- event:
 	default:
-		// Sending is blocked.
 		go func() {
+			w.listener.Unregister(w) //nolint:errcheck
 			w.events <- &Event{EventType: EventError, Error: errors.Errorf("failed to send event, watcher %s is blocked", w.id)}
-			w.Close()
 		}()
 	}
 }
