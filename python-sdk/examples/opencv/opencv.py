@@ -7,7 +7,6 @@ It makes heavy use of python_pachyderm's higher-level utility functionality
  (`create_python_pipeline`, `put_files`), as well as more run-of-the-mill
  functionality (`create_repo`, `create_pipeline`).
 """
-import os
 import shutil
 import tempfile
 from pachyderm_sdk import Client
