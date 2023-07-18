@@ -2263,14 +2263,8 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			ReprocessSpec:           request.ReprocessSpec,
 			Autoscaling:             request.Autoscaling,
 			Tolerations:             request.Tolerations,
+			Determined:              request.Determined,
 		},
-	}
-	// TODO: revisit this structure
-	if request.Determined != nil {
-		if pipelineInfo.Details.Determined == nil {
-			pipelineInfo.Details.Determined = &pps.Determined{}
-		}
-		pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
