@@ -238,7 +238,7 @@ func TestListReposByIdxName(t *testing.T) {
 			require.NoError(t, pfsdb.CreateRepo(ctx, tx, createInfo), "should be able to create repo")
 		}
 		for _, repoType := range []string{"user", "unknown", "meta"} {
-			createInfo := testRepo(fmt.Sprintf("%s", testRepoName), repoType)
+			createInfo := testRepo(testRepoName, repoType)
 			require.NoError(t, pfsdb.CreateRepo(ctx, tx, createInfo), "should be able to create repo")
 			expectedInfos = append(expectedInfos, createInfo)
 		}

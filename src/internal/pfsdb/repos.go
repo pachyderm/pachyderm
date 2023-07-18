@@ -311,7 +311,7 @@ func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
 	}
 	// after aggregation, braces, quotes, and leading hex prefixes need to be removed from the encoded branch strings.
 	for _, branchStr := range strings.Split(strings.Trim(row.Branches, "{}"), ",") {
-		branchHex := strings.Trim(strings.Trim(branchStr, "\""), "\\\\x")
+		branchHex := strings.Trim(strings.Trim(branchStr, "\""), "\\x")
 		decodedString, err := hex.DecodeString(branchHex)
 		if err != nil {
 			return nil, errors.Wrap(err, "branch not hex encoded")

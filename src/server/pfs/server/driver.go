@@ -78,7 +78,6 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos    col.PostgresCollection
 	commits  col.PostgresCollection
 	branches col.PostgresCollection
 
@@ -156,12 +155,14 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
 			baseRepo := &pfs.Repo{Project: &pfs.Project{Name: repo.Project.GetName()}, Name: repo.GetName(), Type: pfs.UserRepoType}
-			if existingRepoInfo, err = pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, baseRepo.Name, baseRepo.Type); err != nil {
+			ri, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, baseRepo.Name, baseRepo.Type)
+			if err != nil {
 				if !pfsdb.IsErrRepoNotFound(err) {
 					return errors.Wrapf(err, "error checking whether user repo for %q exists", baseRepo)
 				}
 				return errors.Wrap(err, "cannot create a system repo without a corresponding 'user' repo")
 			}
+			existingRepoInfo = ri
 		}
 
 		// New repo case
@@ -237,15 +238,6 @@ func (d *driver) inspectRepo(ctx context.Context, txnCtx *txncontext.Transaction
 		repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	}
 	return repoInfo, nil
-}
-
-func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
-	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: repo.AuthResource()})
-	if err != nil {
-		return nil, nil, errors.EnsureStack(err)
-	}
-
-	return resp.Permissions, resp.Roles, nil
 }
 
 func (d *driver) getPermissionsInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]auth.Permission, []string, error) {
@@ -955,7 +947,6 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 }
 
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) (int64, error) {
-	repoInfo := new(pfs.RepoInfo)
 	repoInfo, err := pfsdb.GetRepoByNameAndType(ctx, txnCtx.SqlTx, repo.Name, repo.Type)
 	if err != nil {
 		return 0, errors.EnsureStack(err)
