@@ -2118,6 +2118,10 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 	}
 }
 
+func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (*pps.CreatePipelineV2Response, error) {
+	return nil, status.Error(codes.Unimplemented, "CreatePipelineV2 not yet implemented")
+}
+
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
 //
 // Implementation note:
