@@ -521,8 +521,10 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
-	if err := stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
-		related = append(related, repo)
+	if err := stream.ForEach[*pfs.RepoInfo](ctx, iter, func(otherRepo *pfs.RepoInfo) error {
+		if otherRepo.Repo.Project.Name == repo.Project.Name {
+			related = append(related, otherRepo)
+		}
 		return nil
 	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
 		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
