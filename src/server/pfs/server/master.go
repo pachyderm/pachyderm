@@ -92,7 +92,21 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[string]context.CancelFunc, ev *postgres.Event) error {
+func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
+	lockPrefix := path.Join("repos", fmt.Sprintf("%d", ev.Id))
+	if ev.EventType == postgres.EventDelete {
+		if cancel, ok := repos[ev.Id]; ok {
+			if err := ring.Unlock(lockPrefix); err != nil {
+				return err
+			}
+			cancel()
+			delete(repos, ev.Id)
+		}
+		return nil
+	}
+	if _, ok := repos[ev.Id]; ok {
+		return nil
+	}
 	var repo *pfs.RepoInfo
 	var err error
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
@@ -102,22 +116,8 @@ func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, 
 		return errors.Wrap(err, "get repo")
 	}
 	key := pfsdb.RepoKey(repo.Repo)
-	lockPrefix := path.Join("repos", key)
-	if ev.EventType == postgres.EventDelete {
-		if cancel, ok := repos[key]; ok {
-			if err := ring.Unlock(lockPrefix); err != nil {
-				return err
-			}
-			cancel()
-			delete(repos, key)
-		}
-		return nil
-	}
-	if _, ok := repos[key]; ok {
-		return nil
-	}
 	ctx, cancel := pctx.WithCancel(ctx)
-	repos[key] = cancel
+	repos[ev.Id] = cancel
 	go func() {
 		backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 			ctx, cancel := pctx.WithCancel(ctx)
@@ -157,7 +157,7 @@ func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, 
 func (d *driver) watchRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	repos := make(map[string]context.CancelFunc)
+	repos := make(map[uint64]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
 			cancel()

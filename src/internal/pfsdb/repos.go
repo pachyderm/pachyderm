@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,7 @@ import (
 
 const (
 	getRepoAndBranches = "SELECT repo.id, repo.name, repo.type, repo.project_id, " +
-		"repo.description, array_agg(branch.proto) AS branches FROM pfs.repos repo " +
+		"repo.description, array_agg(branch.proto) AS branches, repo.created_at, repo.updated_at FROM pfs.repos repo " +
 		"LEFT JOIN core.projects project ON repo.project_id = project.id " +
 		"LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
 	noBranches = "{NULL}"
@@ -209,7 +210,7 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 
 // DeleteRepo deletes an entry in the pfs.repos table.
 func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) error {
-	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.repos WHERE project_id = (SELECT id FROM core.projects WHERE name=$1) AND name=$2 AND type=$3;", repoProject, repoName, repoType)
+	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.repos WHERE project_id=(SELECT id FROM core.projects WHERE name=$1) AND name=$2 AND type=$3;", repoProject, repoName, repoType)
 	if err != nil {
 		return errors.Wrap(err, "delete repo")
 	}
@@ -287,6 +288,7 @@ func getRepoFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs
 		},
 		Description: row.Description,
 		Branches:    branches,
+		Created:     timestamppb.New(row.CreatedAt),
 	}
 	return repoInfo, nil
 }
