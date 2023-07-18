@@ -414,6 +414,7 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	protoextensions.AddTimestamp(enc, "finished", x.Finished)
 	enc.AddObject("details", x.Details)
+	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }
 

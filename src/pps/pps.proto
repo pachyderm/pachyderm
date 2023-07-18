@@ -306,6 +306,7 @@ message JobInfo {
     ResourceSpec sidecar_resource_requests = 19;
   }
   Details details = 16;
+  string auth_token = 17;
 }
 
 enum WorkerState {
