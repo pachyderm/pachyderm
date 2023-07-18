@@ -2289,9 +2289,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
 		}
-		if oldPipelineInfo.Details.Determined != nil {
-			pipelineInfo.Details.Determined.Password = oldPipelineInfo.Details.Determined.Password
-		}
 	}
 
 	return pipelineInfo, nil
