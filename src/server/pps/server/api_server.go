@@ -903,6 +903,10 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return nil
 		}
 
+		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
+		// won't use this function to get their auth token)
+		jobInfo.AuthToken = ""
+
 		if err := resp.Send(jobInfo); err != nil {
 			return errors.Wrap(err, "error sending job")
 		}
@@ -3240,6 +3244,15 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			return errors.EnsureStack(err)
 		}
 
+		token := ""
+		if _, err := txnCtx.WhoAmI(); err == nil {
+			// If auth is active, generate an auth token for the job
+			token, err = a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineInfo.Pipeline)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
+
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
 		jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 		jobPtr := &pps.JobInfo{
@@ -3247,6 +3260,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			PipelineVersion: pipelineInfo.Version,
 			OutputCommit:    commitInfo.Commit,
 			Stats:           &pps.ProcessStats{},
+			AuthToken:       token,
 			Created:         timestamppb.Now(),
 		}
 		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
