@@ -10,7 +10,7 @@ import {jqSelect, jqIn, jqCombine} from '../lib/jqHelpers';
 import {
   jobInfosToGQLJobSet,
   jobInfoToGQLJob,
-  jobSetsToGQLJobSets,
+  jobsMapToGQLJobSets,
 } from './builders/pps';
 interface PipelineJobResolver {
   Query: {
@@ -134,6 +134,7 @@ const pipelineJobResolver: PipelineJobResolver = {
 
       return pipelineJobs.flat().map(jobInfoToGQLJob);
     },
+    // TODO: is this also a problem? Who calls this?
     jobSet: async (_parent, {args: {id, projectId}}, {pachClient}) => {
       return jobInfosToGQLJobSet(
         await getJobsFromJobSet({
@@ -146,32 +147,18 @@ const pipelineJobResolver: PipelineJobResolver = {
         id,
       );
     },
-    jobSets: async (
-      _parent,
-      {args: {projectId, cursor, limit, reverse}},
-      {pachClient},
-    ) => {
-      limit = limit || DEFAULT_JOBS_LIMIT;
-
-      const jobSets = await pachClient.pps().listJobSets({
-        projectIds: [projectId],
-        details: false,
-        cursor: cursor || undefined,
-        number: limit + 1,
-        reverse: reverse || undefined,
-      });
-      let nextCursor = undefined;
-
-      //If jobSets.length is not greater than limit there are no pages left
-      if (jobSets.length > limit) {
-        jobSets.pop(); //remove the extra job from the response
-        nextCursor = jobSets[jobSets.length - 1].jobsList[0].created;
-      }
+    jobSets: async (_parent, {args: {projectId, limit}}, {pachClient}) => {
+      const jobsMap = await pachClient
+        .pps()
+        .listJobSetServerDerivedFromListJobs({
+          projectId,
+          limit: limit || DEFAULT_JOBS_LIMIT,
+        });
 
       return {
-        items: jobSetsToGQLJobSets(jobSets),
-        cursor: nextCursor,
-        hasNextPage: !!nextCursor,
+        items: jobsMapToGQLJobSets(jobsMap),
+        cursor: undefined,
+        hasNextPage: false,
       };
     },
   },

@@ -302,7 +302,7 @@ describe('Jobs', () => {
     it('should return the earliest created and latest finished job times', async () => {
       const {data} = await executeQuery<JobSetsQuery>(JOB_SETS_QUERY, {
         args: {
-          projectId: '1',
+          projectId: 'Solar-Panel-Data-Sorting',
         },
       });
 

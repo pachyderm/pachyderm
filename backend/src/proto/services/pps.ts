@@ -234,14 +234,16 @@ const pps = ({
     },
     listPipeline: ({
       projectIds,
+      details = true,
       jq = '',
     }: {
       projectIds: string[];
+      details?: boolean;
       jq?: string;
     }) => {
       const listPipelineRequest = new ListPipelineRequest()
         .setJqfilter(jq)
-        .setDetails(true)
+        .setDetails(details)
         .setProjectsList(
           projectIds.map((projectName) => new Project().setName(projectName)),
         );
@@ -401,6 +403,62 @@ const pps = ({
       );
 
       return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream);
+    },
+
+    listJobSetServerDerivedFromListJobs: async ({
+      projectId,
+      limit = 10,
+    }: {
+      projectId: string;
+      limit?: number;
+    }) => {
+      const listJobRequest = new ListJobRequest();
+
+      listJobRequest.setDetails(false);
+      listJobRequest.setProjectsList([new Project().setName(projectId)]);
+      listJobRequest.setHistory(-1);
+
+      const stream = client.listJob(listJobRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
+
+      /**
+       * This function converts a stream of JobInfo data into a Map where the key is the JobSetId and the value is an array of jobs.
+       *
+       * There is a limit parameter that restricts the Map to only contain the first 'limit' number of unique JobSets. However, the
+       * function continues scanning through the remaining jobs in the stream in order to add jobs to the existing job sets, if they
+       * belong there. This is because the job sets in the stream might not be sequential.
+       */
+      const streamToObjectArray = (stream: ClientReadableStream<JobInfo>) => {
+        return new Promise<Map<string, JobInfo.AsObject[]>>(
+          (resolve, reject) => {
+            const jobsMap = new Map<string, JobInfo.AsObject[]>();
+
+            stream.on('data', (chunk: JobInfo) => {
+              const job = chunk.toObject();
+
+              const addNewJobSets = jobsMap.size < limit;
+
+              if (job?.job?.id) {
+                const jobId = job.job.id;
+
+                if (!addNewJobSets && !jobsMap.has(jobId)) {
+                  return;
+                }
+
+                const jobsInJobSet = jobsMap.get(jobId) || [];
+                jobsInJobSet.push(job);
+                jobsMap.set(jobId, jobsInJobSet);
+              }
+            });
+            stream.on('end', () => resolve(jobsMap));
+            stream.on('close', () => resolve(jobsMap));
+            stream.on('error', (err) => reject(err));
+          },
+        );
+      };
+
+      return streamToObjectArray(stream);
     },
 
     listJobSets: (

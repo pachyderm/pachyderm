@@ -223,6 +223,17 @@ export const jobInfosToGQLJobSet = (
   };
 };
 
+export const jobsMapToGQLJobSets = (
+  jobsMap: Map<string, JobInfo.AsObject[]>,
+): JobSet[] => {
+  const data = [];
+  for (const [jobId, jobs] of jobsMap) {
+    data.push(jobInfosToGQLJobSet(jobs, jobId));
+  }
+
+  return data;
+};
+
 export const jobSetsToGQLJobSets = (
   jobSet: JobSetInfo.AsObject[],
 ): JobSet[] => {

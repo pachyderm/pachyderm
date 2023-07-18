@@ -26,8 +26,13 @@ type ProjectPreviewProps = {
   project: Project;
 };
 
+const JOB_SET_LIMIT = 10;
+
 const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
-  const {projectDetails, loading, error} = useProjectDetails(project.id, 10);
+  const {projectDetails, loading, error} = useProjectDetails(
+    project.id,
+    JOB_SET_LIMIT,
+  );
   const sidebarRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLHeadingElement>(null);
   const isStuck = useIntersection(subtitleRef.current, sidebarRef.current);

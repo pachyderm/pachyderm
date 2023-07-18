@@ -1,3 +1,4 @@
+import classnames from 'classnames';
 import React, {ReactNode} from 'react';
 
 import {Link, ExternalLinkSVG, Icon} from '@pachyderm/components';
@@ -29,7 +30,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   renderButton,
 }) => {
   return (
-    <div className={`${styles.base} ${className}`}>
+    <div className={classnames(styles.base, className)}>
       {error ? <BrandedErrorIcon /> : <BrandedEmptyIcon />}
       {title && (
         <span className={styles.title}>

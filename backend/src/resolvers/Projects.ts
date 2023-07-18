@@ -7,7 +7,7 @@ import {PipelineInfo, PipelineState} from '@dash-backend/proto';
 import {ProjectInfo} from '@dash-backend/proto/proto/pfs/pfs_pb';
 import {MutationResolvers, ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
-import {jobSetsToGQLJobSets} from './builders/pps';
+import {jobsMapToGQLJobSets} from './builders/pps';
 
 interface ProjectsResolver {
   Query: {
@@ -59,7 +59,7 @@ const projectsResolver: ProjectsResolver = {
         // TODO: Improve this from N+1 to 2 lookups.
         const pipelines = await pachClient
           .pps()
-          .listPipeline({projectIds: [projectId]});
+          .listPipeline({projectIds: [projectId], details: false});
         return rpcToGraphqlProject(
           await pachClient.pfs().inspectProject(projectId),
           pipelines,
@@ -76,13 +76,14 @@ const projectsResolver: ProjectsResolver = {
         event: 'returning project details',
       });
 
-      const [repos, pipelines, jobSets] = await Promise.all([
+      const [repos, pipelines, jobsMap] = await Promise.all([
         pachClient.pfs().listRepo({projectIds: [projectId]}),
-        pachClient.pps().listPipeline({projectIds: [projectId]}),
-        pachClient.pps().listJobSets({
-          projectIds: [projectId],
-          number: jobSetsLimit || DEFAULT_JOBS_LIMIT,
-          details: false,
+        pachClient
+          .pps()
+          .listPipeline({projectIds: [projectId], details: false}),
+        pachClient.pps().listJobSetServerDerivedFromListJobs({
+          projectId,
+          limit: jobSetsLimit || DEFAULT_JOBS_LIMIT,
         }),
       ]);
 
@@ -93,7 +94,7 @@ const projectsResolver: ProjectsResolver = {
         sizeDisplay: formatBytes(totalSizeBytes),
         repoCount: repos.length,
         pipelineCount: pipelines.length,
-        jobSets: jobSetsToGQLJobSets(jobSets),
+        jobSets: jobsMapToGQLJobSets(jobsMap),
         status: getProjectHealth(pipelines),
       };
     },
