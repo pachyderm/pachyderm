@@ -1,9 +1,9 @@
 package postgres
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -24,11 +24,15 @@ const (
 	EventError
 )
 
+const (
+	DefaultBufferSize = 1000
+)
+
 type Event struct {
-	Id         int
+	Id         uint64
 	NaturalKey string
 	EventType  EventType
-	err        error
+	Error      error
 }
 
 // New version of postgresWatcher
@@ -37,24 +41,37 @@ type watcher struct {
 	db       *pachsql.DB
 	listener collection.PostgresListener
 	events   chan *Event
-	done     chan struct{}
 	id       string
 	channel  string
+	once     sync.Once
 }
 
-func NewWatcher(db *pachsql.DB, listener collection.PostgresListener, id string, channel string) (*watcher, error) {
+type WatcherOption func(*watcher)
+
+func NewWatcher(db *pachsql.DB, listener collection.PostgresListener, id string, channel string, opts ...WatcherOption) (*watcher, error) {
 	w := &watcher{
 		db:       db,
 		listener: listener,
-		events:   make(chan *Event),
-		done:     make(chan struct{}),
 		id:       id,
 		channel:  channel,
 	}
+	for _, opt := range opts {
+		opt(w)
+	}
+	if w.events == nil {
+		w.events = make(chan *Event, DefaultBufferSize)
+	}
+
 	if err := listener.Register(w); err != nil {
 		return nil, err
 	}
 	return w, nil
+}
+
+func WithBufferSize(size int) WatcherOption {
+	return func(w *watcher) {
+		w.events = make(chan *Event, size)
+	}
 }
 
 // Implement Watcher Interface
@@ -63,8 +80,10 @@ func (w *watcher) Watch() <-chan *Event {
 }
 
 func (w *watcher) Close() {
-	close(w.done)
-	w.listener.Unregister(w) //nolint:errcheck
+	w.once.Do(func() {
+		w.listener.Unregister(w) //nolint:errcheck
+		close(w.events)
+	})
 }
 
 // Implement Notifier Interface
@@ -83,31 +102,28 @@ func (w *watcher) Notify(m *pq.Notification) {
 }
 
 func (w *watcher) Error(err error) {
-	w.send(&Event{err: err})
+	w.send(&Event{Error: err})
 }
 
+// Send the given event to the watcher, but abort the watcher if the send would
+// block. If this happens, the watcher is not keeping up with events. Spawn a
+// goroutine to write an error, then close the watcher.
 func (w *watcher) send(event *Event) {
 	select {
 	case w.events <- event:
 	default:
-		// Sending is blocked
 		go func() {
-			fmt.Println("qqq send is blocked, unregister watcher")
 			w.listener.Unregister(w) //nolint:errcheck
-
-			select {
-			case w.events <- &Event{err: errors.Errorf("failed to send event, watcher %s is blocked", w.id)}:
-			case <-w.done:
-			}
+			w.events <- &Event{EventType: EventError, Error: errors.Errorf("failed to send event, watcher %s is blocked", w.id)}
 		}()
 	}
 }
 
 func parseNotification(payload string) Event {
 	parts := strings.Split(payload, " ")
-	// TG_OP, id, key
+	// The payload is a string that consists of: "<TG_OP> <id> <key>"
 	if len(parts) != 3 {
-		return Event{err: errors.Errorf("failed to parse notification payload '%s', wrong number of parts: %d", payload, len(parts))}
+		return Event{Error: errors.Errorf("failed to parse notification payload '%s', wrong number of parts: %d", payload, len(parts))}
 	}
 	event := Event{}
 	switch parts[0] {
@@ -118,13 +134,13 @@ func parseNotification(payload string) Event {
 	case "DELETE":
 		event.EventType = EventDelete
 	default:
-		return Event{err: errors.Errorf("failed to parse notification payload '%s', unknown TG_OP: %s", payload, parts[0])}
+		return Event{Error: errors.Errorf("failed to parse notification payload '%s', unknown TG_OP: %s", payload, parts[0])}
 	}
 	id, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return Event{err: errors.Wrap(err, "failed to parse notification payload's id")}
+		return Event{Error: errors.Wrap(err, "failed to parse notification payload's id")}
 	}
-	event.Id = id
+	event.Id = uint64(id)
 	event.NaturalKey = parts[2]
 	return event
 }
