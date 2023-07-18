@@ -79,25 +79,6 @@ func TestDeleteRepo(t *testing.T) {
 	}))
 }
 
-func TestDeleteAllRepos(t *testing.T) {
-	t.Parallel()
-	ctx := pctx.TestContext(t)
-	db := dockertestenv.NewTestDB(t)
-	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		require.NoError(t, migrations.ApplyMigrations(cbCtx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-		size := 3
-		for i := 0; i < size; i++ {
-			createInfo := testRepo(fmt.Sprintf("%s%d", testRepoName, i), "")
-			require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create project %d", i)
-		}
-		require.NoError(t, pfsdb.DeleteAllRepos(cbCtx, tx))
-		_, err := pfsdb.GetRepo(cbCtx, tx, 1)
-		require.YesError(t, err, "should not have any project entries")
-		return nil
-	}))
-}
-
 func TestGetRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)

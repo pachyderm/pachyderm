@@ -166,11 +166,6 @@ func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) erro
 	return nil
 }
 
-func DeleteAllProjects(ctx context.Context, tx *pachsql.Tx) error {
-	_, err := tx.ExecContext(ctx, "TRUNCATE core.projects;")
-	return errors.Wrap(err, "could not delete all project rows")
-}
-
 // GetProject is like GetProjectByName, but retrieves an entry using the row id.
 func GetProject(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.ProjectInfo, error) {
 	return getProject(ctx, tx, "id", id)
