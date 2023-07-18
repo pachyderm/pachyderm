@@ -257,5 +257,6 @@ func assignDeterminedPipelineRole(ctx context.Context, dc det.DeterminedClient, 
 }
 
 func pipelineUserName(p *pps.Pipeline) string {
+	// users with names containing '/' don't work correctly in determined.
 	return strings.ReplaceAll(p.String(), "/", "_")
 }
