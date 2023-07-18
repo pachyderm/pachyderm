@@ -2341,11 +2341,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	return pipelineInfo, nil
 }
 
-func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineV2Request) error {
-	var request pps.CreatePipelineRequest
-	if err := protojson.Unmarshal([]byte(req.CreatePipelineRequestJson), &request); err != nil {
-		return errors.Wrap(err, "could not unmarshal Create Pipeline Request JSON")
-	}
+func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
 	var (
 		projectName          = request.Pipeline.Project.GetName()
 		pipelineName         = request.Pipeline.Name
@@ -2360,7 +2356,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			Pipeline: request.Pipeline,
 		}
 	}
-	newPipelineInfo, err := a.initializePipelineInfo(&request, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
 	if err != nil {
 		return err
 	}
