@@ -28,6 +28,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -303,6 +304,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 		if jobInfo.Started == nil {
 			jobInfo.Started = timestamppb.Now()
 		}
+		jobInfo.AuthToken = ""
 		jobInfo.Finished = timestamppb.Now()
 	}
 	jobInfo.State = state
@@ -341,6 +343,13 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 			Force:  true,
 		}); err != nil {
 			return errors.EnsureStack(err)
+		}
+		if jobInfo.AuthToken != "" {
+			if _, err := pachClient.AuthAPIClient.RevokeAuthToken(pachClient.Ctx(), &auth.RevokeAuthTokenRequest{
+				Token: jobInfo.AuthToken,
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 		log.Debug(ctx, "writing job info", log.Proto("jobInfo", jobInfo))
 		return WriteJobInfo(&builder.APIClient, jobInfo)

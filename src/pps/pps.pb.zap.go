@@ -119,7 +119,6 @@ func (x *Determined) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("workspaces", zapcore.ArrayMarshalerFunc(workspacesArrMarshaller))
-	enc.AddString("password", "[MASKED]")
 	return nil
 }
 
@@ -414,6 +413,7 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	protoextensions.AddTimestamp(enc, "finished", x.Finished)
 	enc.AddObject("details", x.Details)
+	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }
 

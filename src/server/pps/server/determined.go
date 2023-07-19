@@ -208,7 +208,7 @@ func validateWorkspacePermissions(ctx context.Context, dc det.DeterminedClient, 
 
 func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClient, p *pps.Pipeline, password string) (int32, error) {
 	resp, err := dc.PostUser(ctx, &det.PostUserRequest{
-		User:     &userv1.User{Username: pipelineUserName(p)},
+		User:     &userv1.User{Username: pipelineUserName(p), Active: true},
 		Password: password,
 	})
 	if err != nil {
@@ -219,6 +219,12 @@ func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClien
 			}
 			if len(usersResp.Users) == 0 {
 				return 0, errors.Wrapf(err, "no determined users return for user %q", pipelineUserName(p))
+			}
+			if _, err := dc.SetUserPassword(ctx, &det.SetUserPasswordRequest{
+				UserId:   usersResp.Users[0].Id,
+				Password: password,
+			}); err != nil {
+				return 0, errors.Wrapf(err, "set password for user %q", pipelineUserName(p))
 			}
 			return usersResp.Users[0].Id, nil
 		}
@@ -251,5 +257,6 @@ func assignDeterminedPipelineRole(ctx context.Context, dc det.DeterminedClient, 
 }
 
 func pipelineUserName(p *pps.Pipeline) string {
-	return p.String()
+	// users with names containing '/' don't work correctly in determined.
+	return strings.ReplaceAll(p.String(), "/", "_")
 }

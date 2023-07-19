@@ -25,5 +25,5 @@ type APIServer interface {
 	// pipeline.  Note that the pipeline name may include ancestry syntax.
 	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps_client.PipelineInfo, error)
 	ActivateAuthInTransaction(*txncontext.TransactionContext, *pps_client.ActivateAuthRequest) (*pps_client.ActivateAuthResponse, error)
-	CreateDetPipelineSideEffects(context.Context, *pps.Pipeline, []string, string) (string, error)
+	CreateDetPipelineSideEffects(context.Context, *pps.Pipeline, []string) error
 }
