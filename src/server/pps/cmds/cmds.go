@@ -1466,37 +1466,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	validatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
 	commands = append(commands, cmdutil.CreateAliases(validatePipeline, "validate pipeline", pipelines))
 
-	var cluster bool
-	inspectDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster | --project PROJECT]",
-		Short: "Return defaults.",
-		Long:  "Return cluster or project defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			if cluster {
-				resp, err := client.PpsAPIClient.GetClusterDefaults(mainCtx, &pps.GetClusterDefaultsRequest{})
-				if err != nil {
-					return errors.Wrap(err, "could not get cluster defaults")
-				}
-				b, err := protojson.Marshal(resp.ClusterDefaults)
-				if err != nil {
-					return errors.Wrap(err, "could not marshal cluster defaults")
-				}
-				fmt.Println(string(b))
-				return nil
-			}
-			return errors.New("--cluster must be specified")
-		}),
-		Hidden: true,
-	}
-	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
-	//inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
-	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults"))
-
 	return commands
 }
 
