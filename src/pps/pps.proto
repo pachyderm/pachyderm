@@ -711,8 +711,8 @@ message CreatePipelineRequest {
   string salt = 22;
   int64 datum_tries = 23;
   SchedulingSpec scheduling_spec = 24;
-  string pod_spec = 25;; // deprecated, use pod_patch below
-  string pod_patch = 26;; // a json patch will be applied to the pipeline's pod_spec before its created;
+  string pod_spec = 25; // deprecated, use pod_patch below
+  string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before its created;
   pfs_v2.Commit spec_commit = 27;
   Metadata metadata = 28;
   string reprocess_spec = 29;
@@ -885,15 +885,16 @@ message GetClusterDefaultsResponse {
 message SetClusterDefaultsRequest {
   reserved 1;
   reserved "effective_details_json";
+  bool regenerate = 2;
+  bool reprocess = 3; // must be false if regenerate is false
+  bool dry_run = 4;
   // A JSON-encoded ClusterDefaults message, this will be stored verbatim.
-  string cluster_defaults_json = 2;
-  bool regenerate = 3;
-  bool reprocess = 4; // must be false if regenerate is false
-  bool dry_run = 5;
+  string cluster_defaults_json = 5;
 }
 
 message SetClusterDefaultsResponse {
-  string effective_defaults_json = 1;
+  reserved 1;
+  reserved "effective_defaults_json";
   repeated Pipeline affected_pipelines = 2;
 }
 
@@ -956,7 +957,4 @@ service API {
 
   // GetClusterDefaults returns the current cluster defaults.
   rpc GetClusterDefaults(GetClusterDefaultsRequest) returns (GetClusterDefaultsResponse) {}
-
-  // SetClusterDefaults returns the current cluster defaults.
-  rpc SetClusterDefaults(SetClusterDefaultsRequest) returns (SetClusterDefaultsResponse) {}
 }

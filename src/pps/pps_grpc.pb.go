@@ -55,7 +55,6 @@ const (
 	API_GetKubeEvents_FullMethodName      = "/pps_v2.API/GetKubeEvents"
 	API_QueryLoki_FullMethodName          = "/pps_v2.API/QueryLoki"
 	API_GetClusterDefaults_FullMethodName = "/pps_v2.API/GetClusterDefaults"
-	API_SetClusterDefaults_FullMethodName = "/pps_v2.API/SetClusterDefaults"
 )
 
 // APIClient is the client API for API service.
@@ -109,8 +108,6 @@ type APIClient interface {
 	QueryLoki(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_QueryLokiClient, error)
 	// GetClusterDefaults returns the current cluster defaults.
 	GetClusterDefaults(ctx context.Context, in *GetClusterDefaultsRequest, opts ...grpc.CallOption) (*GetClusterDefaultsResponse, error)
-	// SetClusterDefaults returns the current cluster defaults.
-	SetClusterDefaults(ctx context.Context, in *SetClusterDefaultsRequest, opts ...grpc.CallOption) (*SetClusterDefaultsResponse, error)
 }
 
 type aPIClient struct {
@@ -657,15 +654,6 @@ func (c *aPIClient) GetClusterDefaults(ctx context.Context, in *GetClusterDefaul
 	return out, nil
 }
 
-func (c *aPIClient) SetClusterDefaults(ctx context.Context, in *SetClusterDefaultsRequest, opts ...grpc.CallOption) (*SetClusterDefaultsResponse, error) {
-	out := new(SetClusterDefaultsResponse)
-	err := c.cc.Invoke(ctx, API_SetClusterDefaults_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -717,8 +705,6 @@ type APIServer interface {
 	QueryLoki(*LokiRequest, API_QueryLokiServer) error
 	// GetClusterDefaults returns the current cluster defaults.
 	GetClusterDefaults(context.Context, *GetClusterDefaultsRequest) (*GetClusterDefaultsResponse, error)
-	// SetClusterDefaults returns the current cluster defaults.
-	SetClusterDefaults(context.Context, *SetClusterDefaultsRequest) (*SetClusterDefaultsResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -827,9 +813,6 @@ func (UnimplementedAPIServer) QueryLoki(*LokiRequest, API_QueryLokiServer) error
 }
 func (UnimplementedAPIServer) GetClusterDefaults(context.Context, *GetClusterDefaultsRequest) (*GetClusterDefaultsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterDefaults not implemented")
-}
-func (UnimplementedAPIServer) SetClusterDefaults(context.Context, *SetClusterDefaultsRequest) (*SetClusterDefaultsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetClusterDefaults not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -1486,24 +1469,6 @@ func _API_GetClusterDefaults_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_SetClusterDefaults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetClusterDefaultsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(APIServer).SetClusterDefaults(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: API_SetClusterDefaults_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).SetClusterDefaults(ctx, req.(*SetClusterDefaultsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1606,10 +1571,6 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetClusterDefaults",
 			Handler:    _API_GetClusterDefaults_Handler,
-		},
-		{
-			MethodName: "SetClusterDefaults",
-			Handler:    _API_SetClusterDefaults_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
