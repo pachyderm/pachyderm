@@ -209,7 +209,7 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
     pipeline = dict(name=config.pipeline.name)
     if config.pipeline.project and config.pipeline.project.name:
         pipeline['project'] = dict(name=config.pipeline.project.name)
-    piplineSpec =  dict(
+    pipelineSpec =  dict(
         pipeline=pipeline,
         description="Auto-generated from notebook",
         transform=dict(
@@ -222,13 +222,13 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
         reprocess=True,
     )
     if config.port:
-        piplineSpec['service'] = dict(
+        pipelineSpec['service'] = dict(
             external_port=config.port,
             internal_port=config.port,
             type="LoadBalancer"
         )
 
-    return piplineSpec
+    return pipelineSpec
 
 
 def upload_environment(
