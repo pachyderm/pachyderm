@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -39,9 +40,14 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 				InsecureSkipVerify: true,
 			}))
 		}
-		conn, err := grpc.DialContext(ctx, a.env.Config.DeterminedURL, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+		determinedURL, err := url.Parse(a.env.Config.DeterminedURL)
 		if err != nil {
-			return errors.Wrapf(err, "dialing determined at %q", a.env.Config.DeterminedURL)
+			return errors.Wrapf(err, "parsing determined url %q", a.env.Config.DeterminedURL)
+		}
+		determinedURL.Scheme = ""
+		conn, err := grpc.DialContext(ctx, determinedURL.String(), tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+		if err != nil {
+			return errors.Wrapf(err, "dialing determined at %q", determinedURL.String())
 		}
 		defer conn.Close()
 		dc := det.NewDeterminedClient(conn)
