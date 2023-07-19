@@ -2,6 +2,7 @@ package v2_7_0
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/protobuf/proto"
@@ -9,6 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+)
+
+const (
+	ReposPgChannel = "repos"
 )
 
 func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo, error) {
@@ -46,6 +51,27 @@ func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+func triggerFunctionStatement(schema, table string) string {
+	template := `
+	CREATE OR REPLACE FUNCTION %s.notify_%s() RETURNS TRIGGER AS $$
+	DECLARE
+		row record;
+		payload text;
+	BEGIN
+		IF TG_OP = 'DELETE' THEN
+			row := OLD;
+		ELSE
+			row := NEW;
+		END IF;
+		payload := TG_OP || ' ' || row.id::text;
+		PERFORM pg_notify('%s', payload);
+		return row;
+	END;
+	$$ LANGUAGE plpgsql;
+	`
+	return fmt.Sprintf(template, schema, table, table)
+}
+
 func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `
 		DROP TYPE IF EXISTS pfs.repo_type;
@@ -81,29 +107,23 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// Create a trigger that notifies on changes to pfs.repos
 	// This is used by the PPS API to watch for changes to repos
-	if _, err := tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		CREATE OR REPLACE FUNCTION pfs.notify_repos() RETURNS TRIGGER AS $$
 		DECLARE
 			row record;
-			base_channel text;
 			payload text;
-			key text;
 		BEGIN
 			IF TG_OP = 'DELETE' THEN
 				row := OLD;
 			ELSE
 				row := NEW;
 			END IF;
-			SELECT project.name || '/' || row.name INTO key
-			FROM core.projects project
-			WHERE project.id = row.project_id;
-			base_channel := 'pfs.repos';
-			payload := TG_OP || ' ' || row.id::text || ' ' || key;
-			PERFORM pg_notify(base_channel, payload);
+			payload := TG_OP || ' ' || row.id::text;
+			PERFORM pg_notify('%s', payload::text);
 			return row;
 		END;
 		$$ LANGUAGE plpgsql;
-	`); err != nil {
+	`, ReposPgChannel)); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.repos")
 	}
 	if _, err := tx.ExecContext(ctx, `

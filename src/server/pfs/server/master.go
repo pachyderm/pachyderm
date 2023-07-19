@@ -166,7 +166,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			// watch for new repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "repos")
 			if err != nil {
 				return errors.Wrap(err, "new watcher")
 			}
@@ -192,8 +192,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				}
 				return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
 					event := &postgres.Event{
-						EventType:  postgres.EventInsert,
-						NaturalKey: fmt.Sprintf("%s/%s.%s", repo.Repo.Project, repo.Repo.Name, repo.Repo.Type),
+						EventType: postgres.EventInsert,
 					}
 					return d.manageRepos(ctx, ring, repos, event)
 				}), "create event for each repo")
