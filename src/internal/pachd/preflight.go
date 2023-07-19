@@ -38,7 +38,7 @@ func (pb *preflightBuilder) everythingOK(ctx context.Context) error {
 }
 
 func (pb *preflightBuilder) buildAndRun(ctx context.Context) error {
-	return pb.apply(ctx, pb.printVersion, pb.initServiceEnv, pb.setupDB, pb.testMigrations, pb.everythingOK)
+	return pb.apply(ctx, pb.printVersion, pb.tweakResources, pb.initServiceEnv, pb.setupDB, pb.testMigrations, pb.everythingOK)
 }
 
 // PreflightMode runs pachd's preflight checks.  It is safe to run these at any time, even for a

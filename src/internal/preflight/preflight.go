@@ -72,7 +72,6 @@ func TestMigrations(ctx context.Context, db *pachsql.DB) (retErr error) {
 	env := migrations.MakeEnv(nil, etcdClient)
 	env.Tx = txx
 	env.WithTableLocks = false
-	var errs error
 	for _, s := range states {
 		if err := migrations.ApplyMigrationTx(ctx, env, s); err != nil {
 			log.Error(ctx, "migration did not apply; continuing", zap.Error(err))
@@ -80,5 +79,5 @@ func TestMigrations(ctx context.Context, db *pachsql.DB) (retErr error) {
 		}
 	}
 	log.Info(ctx, "done applying migrations")
-	return errs
+	return
 }
