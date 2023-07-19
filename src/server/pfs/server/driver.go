@@ -1954,7 +1954,7 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {
-		if !col.IsErrNotFound(err) {
+		if !col.IsErrNotFound(err) || (col.IsErrNotFound(err) && !force) {
 			return errors.Wrapf(err, "get branch %q", pfsdb.BranchKey(branch))
 		}
 	}
