@@ -44,10 +44,9 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 		if err != nil {
 			return errors.Wrapf(err, "parsing determined url %q", a.env.Config.DeterminedURL)
 		}
-		determinedURL.Scheme = ""
-		conn, err := grpc.DialContext(ctx, determinedURL.String(), tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+		conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
 		if err != nil {
-			return errors.Wrapf(err, "dialing determined at %q", determinedURL.String())
+			return errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 		}
 		defer conn.Close()
 		dc := det.NewDeterminedClient(conn)
