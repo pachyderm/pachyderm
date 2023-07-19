@@ -1949,12 +1949,21 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
 	}
+	if branch.Repo.Project == nil {
+		return errors.New("branch repo.Project cannot be nil")
+	}
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
+	// make sure repo exists.
+	if _, err := pfsdb.GetRepoID(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type); err != nil {
+		if !pfsdb.IsErrRepoNotFound(err) || !force {
+			return errors.Wrapf(err, "repo %q does not exist", pfsdb.RepoKey(branch.Repo))
+		}
+	}
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {
-		if !col.IsErrNotFound(err) || (col.IsErrNotFound(err) && !force) {
+		if !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "get branch %q", pfsdb.BranchKey(branch))
 		}
 	}
