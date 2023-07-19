@@ -1949,9 +1949,7 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
 	}
-	if branch.Repo.Project == nil {
-		return errors.New("branch repo.Project cannot be nil")
-	}
+	branch.Repo.EnsureProject()
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
