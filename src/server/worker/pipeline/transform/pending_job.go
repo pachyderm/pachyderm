@@ -279,7 +279,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 	var err error
 	// Wait for the base job to finish.
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		ci, err = pachClient.WaitProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.Id)
+		ci, err = pachClient.WaitProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 		if errutil.IsDatabaseDisconnect(err) {
 			return backoff.ErrContinue
 		}
