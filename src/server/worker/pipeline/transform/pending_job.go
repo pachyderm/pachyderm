@@ -2,11 +2,14 @@ package transform
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -273,10 +276,20 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 	if pj.baseMetaCommit == nil {
 		return datum.CreateEmptyFileSet(pachClient)
 	}
+	var ci *pfs.CommitInfo
+	var err error
 	// Wait for the base job to finish.
-	ci, err := pachClient.WaitProjectCommit(pj.baseMetaCommit.Branch.Repo.Project.GetName(), pj.baseMetaCommit.Branch.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
-	if err != nil {
-		return "", err
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		ci, err = pachClient.WaitProjectCommit(pj.baseMetaCommit.Branch.Repo.Project.GetName(), pj.baseMetaCommit.Branch.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+		if errutil.IsDatabaseDisconnect(err) {
+			return backoff.ErrContinue
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second), nil); err != nil {
+		return "", errors.Wrapf(err, "wait for meta commit %q", pj.baseMetaCommit.String())
 	}
 	if ci.Error != "" {
 		return "", pfsserver.ErrCommitError{Commit: ci.Commit}
