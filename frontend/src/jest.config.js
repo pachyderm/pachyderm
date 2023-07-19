@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-const {pathsToModuleNameMapper} = require('ts-jest/utils');
+const {pathsToModuleNameMapper} = require('ts-jest');
 
-const baseConfig = require('../../jest.config.js');
+const baseConfig = require('../../jest.config.base.js');
 const tsConfig = require('../tsconfig.json');
 
 const moduleNameMapper = pathsToModuleNameMapper(
@@ -18,4 +18,25 @@ baseConfig.moduleNameMapper = {
   ...moduleNameMapper,
 };
 
-module.exports = baseConfig;
+module.exports = {
+  testTimeout: baseConfig.testTimeout, // testTimeout doesn't get picked up inside of projects https://github.com/jestjs/jest/issues/9696
+  projects: [
+    {
+      displayName: 'mock-server',
+      ...baseConfig,
+      testMatch: ['**/__tests__/**/*.test.tsx'],
+    },
+    {
+      displayName: 'msw',
+      ...baseConfig,
+      testMatch: ['**/__tests__/**/*.new-test.tsx'],
+      setupFilesAfterEnv: ['./setupTests.new.ts'],
+    },
+    {
+      displayName: 'unit',
+      ...baseConfig,
+      testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.unit.ts'],
+      setupFilesAfterEnv: ['./setupTests.new.ts'],
+    },
+  ],
+};

@@ -500,7 +500,7 @@ describe('Landing', () => {
       });
 
       expect(await within(row2).findByText('new desc')).toBeInTheDocument();
-    });
+    }, 20_000);
   });
 
   describe('Delete Project Modal', () => {

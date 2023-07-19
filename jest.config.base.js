@@ -15,7 +15,6 @@ const baseConfig = {
     '^d3-(.*)$': `d3-$1/dist/d3-$1`,
   },
   setupFilesAfterEnv: ['./setupTests.ts'],
-  testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
   testTimeout: 20000,
   timers: 'real',
   transform: {
