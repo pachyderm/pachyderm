@@ -16,7 +16,7 @@ import {Signal} from '@lumino/signaling';
 import {SplitPanel, Widget} from '@lumino/widgets';
 
 import {mountLogoIcon} from '../../utils/icons';
-import {PollMounts} from './pollMounts';
+//import {PollMounts} from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
 import {
   AuthConfig,
@@ -47,32 +47,31 @@ export const METADATA_KEY = 'pachyderm_pps';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
-  private _loader: ReactWidget;
-  private _fullPageError: ReactWidget;
-  private _config: ReactWidget;
+  //private _loader: ReactWidget;
+  //private _fullPageError: ReactWidget;
+  //private _config: ReactWidget;
   private _pipeline: ReactWidget;
   private _pipelineSplash: ReactWidget;
-  private _mountedList: ReactWidget;
-  private _unmountedList: ReactWidget;
-  private _datum: ReactWidget;
-  private _mountBrowser: FileBrowser;
-  private _poller: PollMounts;
+ // private _mountedList: ReactWidget;
+ // private _unmountedList: ReactWidget;
+ // private _datum: ReactWidget;
+ // private _mountBrowser: FileBrowser;
   private _panel: SplitPanel;
   private _widgetTracker: ILabShell;
 
-  private _showConfig = false;
-  private _showConfigSignal = new Signal<this, boolean>(this);
+  //private _showConfig = false;
+  //private _showConfigSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
-  private _showDatum = false;
+ //private _showDatum = false;
   private _showPipeline = false;
-  private _keepMounted = false;
-  private _currentDatumInfo: CurrentDatumResponse | undefined;
-  private _showDatumSignal = new Signal<this, boolean>(this);
-  private _repoViewInputSpec: CrossInputSpec | PfsInput = {};
-  private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
-    this,
-  );
+  //private _keepMounted = false;
+  //private _currentDatumInfo: CurrentDatumResponse | undefined;
+  //private _showDatumSignal = new Signal<this, boolean>(this);
+  //private _repoViewInputSpec: CrossInputSpec | PfsInput = {};
+  //private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
+  //  this,
+  //);
   private _showPipelineSignal = new Signal<this, boolean>(this);
   private _ppsContextSignal = new Signal<this, PpsContext>(this);
 
@@ -85,19 +84,21 @@ export class MountPlugin implements IMountPlugin {
     widgetTracker: ILabShell,
   ) {
     this._app = app;
-    this._poller = new PollMounts('PollMounts');
-    this._repoViewInputSpec = {};
+    //this._poller = new PollMounts('PollMounts');
+    //this._repoViewInputSpec = {};
     this._widgetTracker = widgetTracker;
 
+
     // This is used to detect if the config goes bad (pachd address changes)
-    this._poller.configSignal.connect((_, config) => {
+    
+    /*this._poller.configSignal.connect((_, config) => {
       if (config.cluster_status === 'INVALID' && !this._showConfig) {
         this.setShowConfig(true);
       }
-    });
+    });*/
 
     // This is used to detect if the user becomes unauthenticated of there are errors on the server
-    this._poller.statusSignal.connect((_, status) => {
+    /*this._poller.statusSignal.connect((_, status) => {
       if (status.code === 500) {
         this.setShowFullPageError(true);
       }
@@ -105,11 +106,11 @@ export class MountPlugin implements IMountPlugin {
       if (status.code === 401 && !this._showConfig) {
         this.setShowConfig(true);
       }
-    });
+    });*/
 
-    this._readyPromise = this.setup();
+    //this._readyPromise = this.setup();
 
-    this._config = ReactWidget.create(
+    /*this._config = ReactWidget.create(
       <UseSignal signal={this._showConfigSignal}>
         {(_, showConfig) => (
           <UseSignal signal={this._poller.configSignal}>
@@ -234,7 +235,7 @@ export class MountPlugin implements IMountPlugin {
       </UseSignal>,
     );
     this._datum.addClass('pachyderm-mount-datum-wrapper');
-
+    */
     this._pipeline = ReactWidget.create(
       <UseSignal signal={this._ppsContextSignal}>
         {(_, context) => (
@@ -256,11 +257,11 @@ export class MountPlugin implements IMountPlugin {
     this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
     this._pipelineSplash.addClass('pachyderm-mount-pipeline-wrapper');
 
-    this._loader = ReactWidget.create(<LoadingDots />);
+    //this._loader = ReactWidget.create(<LoadingDots />);
 
-    this._loader.addClass('pachyderm-mount-react-wrapper');
+    //this._loader.addClass('pachyderm-mount-react-wrapper');
 
-    this._fullPageError = ReactWidget.create(
+    /*this._fullPageError = ReactWidget.create(
       <UseSignal signal={this._poller.statusSignal}>
         {(_, status) => (
           <FullPageError status={status ? status : this._poller.status} />
@@ -268,11 +269,13 @@ export class MountPlugin implements IMountPlugin {
       </UseSignal>,
     );
     this._fullPageError.addClass('pachyderm-mount-react-wrapper');
+    */
 
-    this._mountBrowser = createCustomFileBrowser(app, manager, factory);
-    this._poller.mountedSignal.connect(this.verifyBrowserPath);
-    this._poller.mountedSignal.connect(this.refresh);
-    this._poller.unmountedSignal.connect(this.refresh);
+    //this._mountBrowser = createCustomFileBrowser(app, manager, factory);
+    
+    //this._poller.mountedSignal.connect(this.verifyBrowserPath);
+    //this._poller.mountedSignal.connect(this.refresh);
+    //this._poller.unmountedSignal.connect(this.refresh);
 
     this._widgetTracker.currentChanged.connect(this.handleWidgetChanged, this);
 
@@ -282,27 +285,28 @@ export class MountPlugin implements IMountPlugin {
     this._panel.title.icon = mountLogoIcon;
     this._panel.title.caption = 'Pachyderm Mount';
     this._panel.id = 'pachyderm-mount';
-    this._panel.addWidget(this._mountedList);
-    this._panel.addWidget(this._unmountedList);
-    this._panel.addWidget(this._datum);
+
+    //this._panel.addWidget(this._mountedList);
+    //this._panel.addWidget(this._unmountedList);
+    //this._panel.addWidget(this._datum);
     this._panel.addWidget(this._pipelineSplash);
     this._panel.addWidget(this._pipeline);
-    this._panel.addWidget(this._mountBrowser);
+    //this._panel.addWidget(this._mountBrowser);
     this._panel.setRelativeSizes([1, 1, 3, 3]);
 
-    this._panel.addWidget(this._loader);
-    this._panel.addWidget(this._config);
-    this._panel.addWidget(this._fullPageError);
+    //this._panel.addWidget(this._loader);
+    //this._panel.addWidget(this._config);
+    //this._panel.addWidget(this._fullPageError);
 
     //default view: hide all till ready
-    this._config.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._mountedList.setHidden(true);
-    this._unmountedList.setHidden(true);
-    this._datum.setHidden(true);
+    //this._config.setHidden(true);
+    //this._fullPageError.setHidden(true);
+    //this._mountedList.setHidden(true);
+    //this._unmountedList.setHidden(true);
+    //this._datum.setHidden(true);
     this._pipelineSplash.setHidden(true);
     this._pipeline.setHidden(true);
-    this._mountBrowser.setHidden(true);
+    //this._mountBrowser.setHidden(true);
 
     window.addEventListener('resize', () => {
       this._panel.update();
@@ -315,6 +319,10 @@ export class MountPlugin implements IMountPlugin {
 
     app.shell.add(tabs, 'left', {rank: 100});
   }
+  //mountedRepos: Mount[];
+  //unmountedRepos: Repo[];
+
+
 
   /**
    * Checks if the widget currently in focus is a NotebookPanel.
@@ -419,13 +427,13 @@ export class MountPlugin implements IMountPlugin {
       path: MOUNT_BROWSER_NAME + path,
     });
   };
-
+  /*
   refresh = async (_: PollMounts, _data: Mount[] | Repo[]): Promise<void> => {
     await this._mountBrowser.model.refresh();
-  };
+  };*/
 
   // Change back to root directory if in a mount that no longer exists
-  verifyBrowserPath = (_: PollMounts, mounted: Mount[]): void => {
+  /*verifyBrowserPath = (_: PollMounts, mounted: Mount[]): void => {
     if (this._mountBrowser.model.path === this._mountBrowser.model.rootPath) {
       return;
     }
@@ -433,8 +441,9 @@ export class MountPlugin implements IMountPlugin {
     if (!this.isValidBrowserPath(this._mountBrowser.model.path, mounted)) {
       this.open('');
     }
-  };
+  };*/
 
+  /*
   isValidBrowserPath = (path: string, mounted: Mount[]): boolean => {
     const currentMountDir = path.split(MOUNT_BROWSER_NAME)[1].split('/')[0];
     if (currentMountDir === 'out') {
@@ -447,7 +456,9 @@ export class MountPlugin implements IMountPlugin {
     }
     return false;
   };
+  */
 
+  /*
   setShowDatum = async (shouldShow: boolean): Promise<void> => {
     if (shouldShow) {
       this._datum.setHidden(false);
@@ -466,8 +477,9 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.setHidden(true);
     this._showDatum = shouldShow;
     this._showDatumSignal.emit(shouldShow);
-  };
+  };*/
 
+  /*
   saveMountedReposList = (): void => {
     const mounted = this._poller.mounted;
     const pfsInputs: PfsInput[] = [];
@@ -504,8 +516,9 @@ export class MountPlugin implements IMountPlugin {
     }
 
     this._saveInputSpecSignal.emit(this._repoViewInputSpec);
-  };
+  };*/
 
+  /*
   restoreMountedReposList = async (): Promise<void> => {
     const mounts: JSONObject[] = [];
     // Restoring from cross of multiple mounts
@@ -545,41 +558,43 @@ export class MountPlugin implements IMountPlugin {
       this._poller.updateData(res);
     }
     this.open('');
-  };
+  };*/
 
   setShowPipeline = (shouldShow: boolean): void => {
     if (shouldShow) {
       if (this.isCurrentWidgetNotebook()) {
         this._pipeline.setHidden(false);
         this._pipelineSplash.setHidden(true);
-        this._mountedList.setHidden(true);
-        this._unmountedList.setHidden(true);
-        this._mountBrowser.setHidden(true);
+        //this._mountedList.setHidden(true);
+        //this._unmountedList.setHidden(true);
+        //this._mountBrowser.setHidden(true);
       } else {
         this._pipeline.setHidden(true);
         this._pipelineSplash.setHidden(false);
-        this._mountedList.setHidden(true);
-        this._unmountedList.setHidden(true);
-        this._mountBrowser.setHidden(true);
+        //this._mountedList.setHidden(true);
+        //this._unmountedList.setHidden(true);
+        //this._mountBrowser.setHidden(true);
       }
     } else {
       this._pipeline.setHidden(true);
       this._pipelineSplash.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._mountBrowser.setHidden(false);
+      //this._mountedList.setHidden(false);
+      //this._unmountedList.setHidden(false);
+      //this._mountBrowser.setHidden(false);
     }
-    this._config.setHidden(true);
-    this._datum.setHidden(true);
-    this._fullPageError.setHidden(true);
+    //this._config.setHidden(true);
+    //this._datum.setHidden(true);
+    //this._fullPageError.setHidden(true);
     this._showPipeline = shouldShow;
     this._showPipelineSignal.emit(shouldShow);
   };
 
+  /*
   setKeepMounted = (keep: boolean): void => {
     this._keepMounted = keep;
-  };
+  };*/
 
+  /*
   setShowConfig = (shouldShow: boolean): void => {
     if (shouldShow) {
       this._config.setHidden(false);
@@ -597,8 +612,9 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.setHidden(true);
     this._showConfig = shouldShow;
     this._showConfigSignal.emit(shouldShow);
-  };
+  };*/
 
+  /*
   setShowFullPageError = (shouldShow: boolean): void => {
     if (shouldShow) {
       this._fullPageError.setHidden(false);
@@ -617,12 +633,14 @@ export class MountPlugin implements IMountPlugin {
       this._mountBrowser.setHidden(false);
       this._pipeline.setHidden(false);
     }
-  };
+  };*/
 
+  /*
   updateConfig = (config: AuthConfig): void => {
     this._poller.config = config;
-  };
+  };*/
 
+  /*
   setup = async (): Promise<void> => {
     await this._poller.refresh();
 
@@ -648,17 +666,19 @@ export class MountPlugin implements IMountPlugin {
       }
     }
     this._loader.setHidden(true);
-  };
+  };*/
 
+  /*
   get mountedRepos(): Mount[] {
     this._poller.poll.tick;
     return this._poller.mounted;
-  }
-
+  }*/
+  
+  /*
   get unmountedRepos(): Repo[] {
     this._poller.poll.tick;
     return this._poller.unmounted;
-  }
+  }*/
 
   get layout(): SplitPanel {
     return this._panel;

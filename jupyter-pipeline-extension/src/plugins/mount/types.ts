@@ -99,8 +99,8 @@ export type AuthConfig = {
 };
 
 export interface IMountPlugin {
-  mountedRepos: Mount[];
-  unmountedRepos: Repo[];
+  //mountedRepos: Mount[];
+  //unmountedRepos: Repo[];
   layout: SplitPanel;
   ready: Promise<void>;
 }
