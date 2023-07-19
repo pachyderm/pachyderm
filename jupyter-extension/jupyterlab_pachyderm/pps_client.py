@@ -135,7 +135,7 @@ class PpsConfig:
     requirements: Optional[str]
     port: str
     gpu_mode: str
-    resource_spec: str
+    resource_spec: dict
     input_spec: dict  # We may be able to use the pachyderm SDK to parse and validate.
 
     @classmethod
@@ -181,9 +181,7 @@ class PpsConfig:
         gpu_mode = config.get('gpu_mode')
         resource_spec_str = config.get('resource_spec')
 
-        if resource_spec_str is None:
-            raise ValueError('field resource_spec is not set')
-        resource_spec = yaml.safe_load(resource_spec_str)
+        resource_spec = dict() if resource_spec_str is None else yaml.safe_load(resource_spec_str)
 
 
         return cls(
