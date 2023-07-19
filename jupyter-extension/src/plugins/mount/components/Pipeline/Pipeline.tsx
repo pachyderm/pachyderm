@@ -174,7 +174,7 @@ const Pipeline: React.FC<PipelineProps> = ({
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
         <label className="pachyderm-pipeline-input-label" htmlFor="port">
-          *Port:{'  '}
+          Port:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
