@@ -38,6 +38,7 @@ import PipelineSplash from './components/Pipeline/Splash';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
+import CreateTabs from './tabs';
 import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
@@ -240,7 +241,7 @@ export class MountPlugin implements IMountPlugin {
           <Pipeline
             ppsContext={context}
             settings={settings}
-            setShowPipeline={this.setShowPipeline}
+            //setShowPipeline={this.setShowPipeline}
             saveNotebookMetadata={this.saveNotebookMetadata}
             saveNotebookToDisk={this.saveNotebookToDisk}
           />
@@ -306,9 +307,13 @@ export class MountPlugin implements IMountPlugin {
     window.addEventListener('resize', () => {
       this._panel.update();
     });
+    var tabs = CreateTabs()
+    tabs.title.icon = mountLogoIcon;
+    tabs.title.caption = 'Pachyderm Mount';
+    tabs.id = 'pachyderm-mount';
+    //restorer.add(this._panel, 'jupyterlab-pachyderm');
 
-    restorer.add(this._panel, 'jupyterlab-pachyderm');
-    app.shell.add(this._panel, 'left', {rank: 100});
+    app.shell.add(tabs, 'left', {rank: 100});
   }
 
   /**

@@ -6,7 +6,7 @@ import {PpsContext, PpsMetadata, MountSettings} from '../../types';
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
   settings: MountSettings;
-  setShowPipeline: (shouldShow: boolean) => void;
+  //setShowPipeline: (shouldShow: boolean) => void;
   saveNotebookMetadata: (metadata: PpsMetadata) => void;
   saveNotebookToDisk: () => Promise<string | null>;
 };
@@ -23,7 +23,7 @@ const placeholderProject = 'default';
 const Pipeline: React.FC<PipelineProps> = ({
   ppsContext,
   settings,
-  setShowPipeline,
+  //setShowPipeline,
   saveNotebookMetadata,
   saveNotebookToDisk,
 }) => {
@@ -52,21 +52,6 @@ const Pipeline: React.FC<PipelineProps> = ({
 
   return (
     <div className="pachyderm-mount-pipeline-base">
-      <div className="pachyderm-mount-pipeline-back">
-        <button
-          data-testid="Pipeline__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            setShowPipeline(false);
-          }}
-        >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
-      </div>
       <span className="pachyderm-mount-pipeline-subheading">
         Publish as Pipeline
       </span>
