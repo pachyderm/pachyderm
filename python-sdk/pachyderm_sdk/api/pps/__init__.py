@@ -1339,6 +1339,11 @@ class ApiStub:
             request_serializer=GetClusterDefaultsRequest.SerializeToString,
             response_deserializer=GetClusterDefaultsResponse.FromString,
         )
+        self.__rpc_set_cluster_defaults = channel.unary_unary(
+            "/pps_v2.API/SetClusterDefaults",
+            request_serializer=SetClusterDefaultsRequest.SerializeToString,
+            response_deserializer=SetClusterDefaultsResponse.FromString,
+        )
 
     def inspect_job(
         self, *, job: "Job" = None, wait: bool = False, details: bool = False
@@ -1877,6 +1882,22 @@ class ApiStub:
 
         return self.__rpc_get_cluster_defaults(request)
 
+    def set_cluster_defaults(
+        self,
+        *,
+        cluster_defaults_json: str = "",
+        regenerate: bool = False,
+        reprocess: bool = False,
+        dry_run: bool = False
+    ) -> "SetClusterDefaultsResponse":
+        request = SetClusterDefaultsRequest()
+        request.cluster_defaults_json = cluster_defaults_json
+        request.regenerate = regenerate
+        request.reprocess = reprocess
+        request.dry_run = dry_run
+
+        return self.__rpc_set_cluster_defaults(request)
+
 
 class ApiBase:
     def inspect_job(
@@ -2226,6 +2247,18 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def set_cluster_defaults(
+        self,
+        cluster_defaults_json: str,
+        regenerate: bool,
+        reprocess: bool,
+        dry_run: bool,
+        context: "grpc.ServicerContext",
+    ) -> "SetClusterDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "pps_v2.API"
 
     @property
@@ -2400,5 +2433,10 @@ class ApiBase:
                 self.get_cluster_defaults,
                 request_deserializer=GetClusterDefaultsRequest.FromString,
                 response_serializer=GetClusterDefaultsRequest.SerializeToString,
+            ),
+            "SetClusterDefaults": grpc.unary_unary_rpc_method_handler(
+                self.set_cluster_defaults,
+                request_deserializer=SetClusterDefaultsRequest.FromString,
+                response_serializer=SetClusterDefaultsRequest.SerializeToString,
             ),
         }

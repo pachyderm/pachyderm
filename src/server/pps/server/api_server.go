@@ -17,6 +17,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -2125,14 +2126,15 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //
 // Implementation note:
 //   - CreatePipeline always creates pipeline output branches such that the
-//     pipeline's spec branch is in the pipeline output branch's provenance
+//     pipeline's spec branch is in the pipeline output branch's provenance.
 //   - CreatePipeline will always create a new output commit, but that's done
 //     by CreateBranch at the bottom of the function, which sets the new output
 //     branch provenance, rather than commitPipelineInfoFromFileSet higher up.
 //   - This is because CreatePipeline calls hardStopPipeline towards the top,
-//     breaking the provenance connection from the spec branch to the output branch
+//     breaking the provenance connection from the spec branch to the output
+//     branch.
 //   - For straightforward pipeline updates (e.g. new pipeline image)
-//     stopping + updating + starting the pipeline isn't necessary
+//     stopping + updating + starting the pipeline isn't necessary.
 //   - However it is necessary in many slightly atypical cases  (e.g. the
 //     pipeline input changed: if the spec commit is created while the
 //     output branch has its old provenance, or the output branch gets new
@@ -2141,7 +2143,7 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //     match its spec's PipelineInfo.Details.Input. Another example is when
 //     request.Reprocess == true).
 //   - Rather than try to enumerate every case where we can't create a spec
-//     commit without stopping the pipeline, we just always stop the pipeline
+//     commit without stopping the pipeline, we just always stop the pipeline.
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -3672,4 +3674,55 @@ func mergePatch(target, patch any) any {
 	default:
 		return patch
 	}
+}
+
+func badRequest(ctx context.Context, msg string, violations []*errdetails.BadRequest_FieldViolation) error {
+	s, err := status.New(codes.InvalidArgument, msg).WithDetails(&errdetails.BadRequest{
+		FieldViolations: violations,
+	})
+	if err != nil {
+		log.Error(ctx, "could not add bad-request details", zap.Error(err))
+		s = status.New(codes.Internal, "could not add bad-request details")
+	}
+	return s.Err()
+}
+
+func unknownError(ctx context.Context, msg string, err error) error {
+	var stack []string
+	errors.ForEachStackFrame(err, func(f errors.Frame) {
+		stack = append(stack, fmt.Sprintf("%s:%d (%n)", f, f, f))
+	})
+	s, err := status.Newf(codes.Unknown, "unknown error: %s", msg).WithDetails(&errdetails.DebugInfo{
+		StackEntries: stack,
+		Detail:       err.Error(),
+	})
+	if err != nil {
+		log.Error(ctx, "could not add debug info details", zap.Error(err))
+		s = status.New(codes.Internal, "could not add unknown-error details")
+	}
+	return s.Err()
+}
+
+func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
+	var (
+		cd  = req.GetClusterDefaults()
+		crp pps.CreatePipelineRequest
+	)
+	if err := protojson.Unmarshal([]byte(cd.GetCreatePipelineRequestJson()), &crp); err != nil {
+		return nil, badRequest(ctx, "invalid pipeline details", []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults.details_json", Description: err.Error()},
+		})
+	}
+
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", cd); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, unknownError(ctx, "could not write cluster defaults", err)
+	}
+	return &pps.SetClusterDefaultsResponse{
+		EffectiveDetailsJson: cd.CreatePipelineRequestJson,
+	}, nil
 }
