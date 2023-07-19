@@ -124,6 +124,12 @@ export type PpsMetadata = {
   config: PpsConfig;
 };
 
+export enum GpuMode {
+  None = 'None',
+  Simple = 'Simple',
+  Advanced = 'Advanced',
+}
+
 // If this is updated, make sure to also update the corresponding `useEffect`
 // call in ./components/Pipeline/hooks/usePipeline.tsx that writes this type to
 // the notebook metadata.
@@ -133,6 +139,8 @@ export type PpsConfig = {
   requirements: string | null;
   input_spec: string;
   port: string;
+  gpu_mode: GpuMode;
+  resource_spec: string | null;
 };
 
 export type PpsContext = {
