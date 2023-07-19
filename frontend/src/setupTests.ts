@@ -14,6 +14,13 @@ configure({asyncUtilTimeout: 5000});
 
 enableFetchMocks();
 
+// This is needed for grpc-js to run in the mock server in jest jsdom mode.
+global.setImmediate =
+  global.setImmediate ||
+  function (callback: any) {
+    return setTimeout(callback, 0);
+  };
+
 Object.defineProperty(window, 'crypto', {
   value: {
     getRandomValues: jest.fn((arr: number[]) => randomBytes(arr.length)),

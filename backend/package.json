@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@graphql-tools/schema": "9.0.4",
-    "@grpc/grpc-js": "1.7.1",
+    "@grpc/grpc-js": "1.8.18",
     "@rudderstack/rudder-sdk-node": "1.1.4",
     "@sentry/node": "7.28.1",
     "@sentry/tracing": "7.23.0",
