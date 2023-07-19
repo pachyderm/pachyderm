@@ -195,7 +195,6 @@ class Egress(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class Determined(betterproto.Message):
     workspaces: List[str] = betterproto.string_field(1)
-    password: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -452,6 +451,7 @@ class JobInfo(betterproto.Message):
     started: datetime = betterproto.message_field(14)
     finished: datetime = betterproto.message_field(15)
     details: "JobInfoDetails" = betterproto.message_field(16)
+    auth_token: str = betterproto.string_field(17)
 
 
 @dataclass(eq=False, repr=False)
@@ -1127,7 +1127,7 @@ class LokiLogMessage(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ClusterDefaults(betterproto.Message):
-    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(3)
     """
     CreatePipelineRequest contains the default JSON CreatePipelineRequest into
     which pipeline specs are merged to form the effective spec used to create a
@@ -1142,15 +1142,23 @@ class GetClusterDefaultsRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class GetClusterDefaultsResponse(betterproto.Message):
-    cluster_defaults_json: str = betterproto.string_field(1)
+    cluster_defaults_json: str = betterproto.string_field(2)
+    """
+    A JSON-encoded ClusterDefaults message, this is the verbatim input passed
+    to SetClusterDefaults.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class SetClusterDefaultsRequest(betterproto.Message):
-    cluster_defaults_json: str = betterproto.string_field(1)
-    regenerate: bool = betterproto.bool_field(2)
-    reprocess: bool = betterproto.bool_field(3)
-    dry_run: bool = betterproto.bool_field(4)
+    cluster_defaults_json: str = betterproto.string_field(2)
+    """
+    A JSON-encoded ClusterDefaults message, this will be stored verbatim.
+    """
+
+    regenerate: bool = betterproto.bool_field(3)
+    reprocess: bool = betterproto.bool_field(4)
+    dry_run: bool = betterproto.bool_field(5)
 
 
 @dataclass(eq=False, repr=False)

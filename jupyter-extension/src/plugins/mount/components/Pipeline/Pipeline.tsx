@@ -37,6 +37,8 @@ const Pipeline: React.FC<PipelineProps> = ({
     setImageName,
     inputSpec,
     setInputSpec,
+    pipelinePort,
+    setPipelinePort,
     requirements,
     setRequirements,
     callCreatePipeline,
@@ -155,6 +157,21 @@ const Pipeline: React.FC<PipelineProps> = ({
           }}
           disabled={loading}
           placeholder={placeholderRequirements}
+        ></input>
+      </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label className="pachyderm-pipeline-input-label" htmlFor="port">
+          Port:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPort"
+          name="port"
+          value={pipelinePort}
+          onChange={(e: any) => {
+            setPipelinePort(e.target.value);
+          }}
+          disabled={loading}
         ></input>
       </div>
       <div className="pachyderm-pipeline-textarea-wrapper">

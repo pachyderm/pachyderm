@@ -21,6 +21,8 @@ export type usePipelineResponse = {
   setImageName: (input: string) => void;
   inputSpec: string;
   setInputSpec: (input: string) => void;
+  pipelinePort: string;
+  setPipelinePort: (input: string) => void;
   requirements: string;
   setRequirements: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
@@ -40,6 +42,7 @@ export const usePipeline = (
   const [pipelineProject, setPipelineProject] = useState('');
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
+  const [pipelinePort, setPipelinePort] = useState('');
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
@@ -61,12 +64,20 @@ export const usePipeline = (
       setInputSpec('');
     }
     setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
+    setPipelinePort(ppsContext?.metadata?.config.port ?? '');
   }, [ppsContext]);
 
   useEffect(() => {
     const ppsMetadata: PpsMetadata = buildMetadata();
     saveNotebookMetaData(ppsMetadata);
-  }, [pipelineName, pipelineProject, imageName, requirements, inputSpec]);
+  }, [
+    pipelineName,
+    pipelineProject,
+    imageName,
+    requirements,
+    inputSpec,
+    pipelinePort,
+  ]);
 
   let callCreatePipeline: () => Promise<void>;
   if (ppsContext?.notebookModel) {
@@ -116,6 +127,7 @@ export const usePipeline = (
         image: imageName,
         requirements: requirements,
         input_spec: inputSpec,
+        port: pipelinePort,
       },
     };
   };
@@ -130,6 +142,8 @@ export const usePipeline = (
     setImageName,
     inputSpec,
     setInputSpec,
+    pipelinePort,
+    setPipelinePort,
     requirements,
     setRequirements,
     callCreatePipeline,

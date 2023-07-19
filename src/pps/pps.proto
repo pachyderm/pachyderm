@@ -57,7 +57,6 @@ message Egress {
 
 message Determined {
   repeated string workspaces = 1;
-  string password = 2 [(log.mask) = true]; 
 }
 
 message Job {
@@ -306,6 +305,7 @@ message JobInfo {
     ResourceSpec sidecar_resource_requests = 19;
   }
   Details details = 16;
+  string auth_token = 17;
 }
 
 enum WorkerState {
@@ -719,6 +719,8 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
+  reserved 36;
+  reserved "details_json";
   bool dry_run = 37;
   Determined determined = 38;
 }
@@ -862,26 +864,32 @@ message LokiLogMessage {
 }
 
 message ClusterDefaults {
+  reserved 1, 2;
+  reserved "details_json", "effective_details_json";
   // CreatePipelineRequest contains the default JSON CreatePipelineRequest into
   // which pipeline specs are merged to form the effective spec used to create a
   // pipeline.
-  CreatePipelineRequest create_pipeline_request = 1;
+  CreatePipelineRequest create_pipeline_request = 3;
 }
 
 message GetClusterDefaultsRequest {}
 
 message GetClusterDefaultsResponse {
+  reserved 1;
+  reserved "cluster_defaults";
   // A JSON-encoded ClusterDefaults message, this is the verbatim input passed
   // to SetClusterDefaults.
-  string cluster_defaults_json = 1;
+  string cluster_defaults_json = 2;
 }
 
 message SetClusterDefaultsRequest {
+  reserved 1;
+  reserved "effective_details_json";
   // A JSON-encoded ClusterDefaults message, this will be stored verbatim.
-  string cluster_defaults_json = 1;
-  bool regenerate = 2;
-  bool reprocess = 3; // must be false if regenerate is false
-  bool dry_run = 4;
+  string cluster_defaults_json = 2;
+  bool regenerate = 3;
+  bool reprocess = 4; // must be false if regenerate is false
+  bool dry_run = 5;
 }
 
 message SetClusterDefaultsResponse {
