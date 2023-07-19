@@ -226,6 +226,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/GetKubeEvents":                authDisabledOr(authenticated),
 	"/pps_v2.API/QueryLoki":                    authDisabledOr(authenticated),
 	"/pps_v2.API/CreateDetPipelineSideEffects": authDisabledOr(authenticated),
+	"/pps_v2.API/GetClusterDefaults":           authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI
