@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -31,7 +33,13 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 	errCnt := 0
 	// right now the entire integration is specifc to auth, so first check that auth is active
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		conn, err := grpc.DialContext(ctx, a.env.Config.DeterminedURL, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+		tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
+		if a.env.Config.DeterminedTLS {
+			tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+				InsecureSkipVerify: true,
+			}))
+		}
+		conn, err := grpc.DialContext(ctx, a.env.Config.DeterminedURL, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
 		if err != nil {
 			return errors.Wrapf(err, "dialing determined at %q", a.env.Config.DeterminedURL)
 		}

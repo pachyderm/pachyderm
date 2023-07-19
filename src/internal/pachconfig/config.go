@@ -143,6 +143,7 @@ type PachdSpecificConfiguration struct {
 	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
 	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
 	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
+	DeterminedTLS      bool   `env:"DETERMINED_TLS,default=false"`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
