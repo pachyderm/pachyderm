@@ -1,11 +1,14 @@
-import {Maybe} from '@graphqlTypes';
+import {LogInputCursor, Maybe} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {LOGS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useLogs from '@dash-frontend/hooks/useLogs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+
+import {LOGS_PAGE_SIZE} from '../constants/logsViewersConstants';
 
 const timeNowInSeconds = Math.floor(Date.now() / 1000);
 
@@ -50,18 +53,66 @@ const useLogsViewer = (startTime?: number | null) => {
     default: startTime,
     ...defaultValues,
   };
-
-  const {logs, loading, error} = useLogs(
-    {
-      projectId: projectId,
-      pipelineName: pipelineId,
-      jobId: jobId,
-      datumId: datumId,
-      start: dropdownValues[selectedTime],
-      master: isServiceOrSpout,
-    },
-    {skip: !pipelineType || !dropdownValues[selectedTime]},
+  const [shouldPoll, setShouldPoll] = useState(true);
+  const [page, setPage] = useState(1);
+  const [cursors, setCursors] = useState<(LogInputCursor | null)[]>([null]);
+  const [currentCursor, setCurrentCursor] = useState<LogInputCursor | null>(
+    null,
   );
+
+  const {logs, cursor, loading, error, refetch} = useLogs({
+    variables: {
+      args: {
+        projectId: projectId,
+        pipelineName: pipelineId,
+        jobId: jobId,
+        datumId: datumId,
+        start: dropdownValues[selectedTime],
+        master: isServiceOrSpout,
+        limit: LOGS_PAGE_SIZE,
+        cursor: currentCursor,
+      },
+    },
+    skip: !pipelineType || !dropdownValues[selectedTime],
+    notifyOnNetworkStatusChange: true,
+    pollInterval: shouldPoll ? LOGS_POLL_INTERVAL_MS : 0,
+  });
+
+  useEffect(() => {
+    if (shouldPoll && logs.length !== 0) {
+      setShouldPoll(false);
+    }
+  }, [logs.length, shouldPoll]);
+
+  useEffect(() => {
+    if (cursor && cursors.length < page) {
+      setCurrentCursor({
+        timestamp: {
+          seconds: cursor.timestamp.seconds,
+          nanos: cursor.timestamp.nanos,
+        },
+        message: cursor.message,
+      });
+      setCursors((arr) => [
+        ...arr,
+        {
+          timestamp: {
+            seconds: cursor.timestamp.seconds,
+            nanos: cursor.timestamp.nanos,
+          },
+          message: cursor.message,
+        },
+      ]);
+    } else {
+      setCurrentCursor(cursors[page - 1]);
+    }
+  }, [cursor, cursors, page]);
+
+  useEffect(() => {
+    setPage(1);
+    setCursors([null]);
+    setCurrentCursor(null);
+  }, [jobId, datumId, projectId]);
 
   useEffect(() => {
     setSelectedLogsMap({});
@@ -80,6 +131,9 @@ const useLogsViewer = (startTime?: number | null) => {
     rawLogs: displayRawLogs,
     error,
     formCtx,
+    refetch,
+    page,
+    setPage,
   };
 };
 export default useLogsViewer;

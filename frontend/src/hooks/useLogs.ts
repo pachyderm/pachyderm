@@ -1,18 +1,18 @@
-import {QueryFunctionOptions} from '@apollo/client';
-import {LogsArgs} from '@graphqlTypes';
+import {QueryHookOptions} from '@apollo/client';
+import {GetLogsQuery, GetLogsQueryVariables} from '@graphqlTypes';
 
 import {useGetLogsQuery} from '@dash-frontend/generated/hooks';
 
-const useLogs = (args: LogsArgs, opts?: QueryFunctionOptions) => {
-  const {data, error, loading} = useGetLogsQuery({
-    variables: {args},
-    skip: opts?.skip,
+const useLogs = (
+  baseOptions: QueryHookOptions<GetLogsQuery, GetLogsQueryVariables>,
+) => {
+  const logsQuery = useGetLogsQuery({
+    ...baseOptions,
   });
-
   return {
-    error,
-    logs: data?.logs.items || [],
-    loading,
+    ...logsQuery,
+    logs: logsQuery.data?.logs.items || [],
+    cursor: logsQuery.data?.logs.cursor,
   };
 };
 

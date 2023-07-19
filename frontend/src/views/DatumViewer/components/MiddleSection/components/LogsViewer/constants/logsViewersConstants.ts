@@ -8,3 +8,5 @@ export const LOGS_DEFAULT_DROPDOWN_OPTIONS: DropdownItem[] = [
   {id: 'Last 24 Hours', content: 'Last 24 Hours'},
   {id: 'Last 3 Days', content: 'Last 3 Days'},
 ];
+
+export const LOGS_PAGE_SIZE = 1000;

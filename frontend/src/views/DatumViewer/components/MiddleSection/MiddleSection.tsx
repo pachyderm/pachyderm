@@ -5,6 +5,7 @@ import {CaptionText, FullPagePanelModal} from '@pachyderm/components';
 import DatumHeaderBreadcrumbs from './components/DatumHeaderBreadcrumbs';
 import LogsViewer from './components/LogsViewer';
 import LogsControls from './components/LogsViewer/components/LogsControls';
+import LogsFooter from './components/LogsViewer/components/LogsFooter';
 import useLogsViewer from './components/LogsViewer/hooks/useLogsViewer';
 import useMiddleSection from './hooks/useMiddleSection';
 import styles from './MiddleSection.module.css';
@@ -30,6 +31,9 @@ const MiddleSection = () => {
     rawLogs,
     error,
     formCtx,
+    refetch,
+    page,
+    setPage,
   } = useLogsViewer(startTime);
 
   return (
@@ -62,6 +66,14 @@ const MiddleSection = () => {
           error={error}
           isSkippedDatum={isSkippedDatum}
         />
+        {!isSkippedDatum && (
+          <LogsFooter
+            logs={logs}
+            refetch={refetch}
+            page={page}
+            setPage={setPage}
+          />
+        )}
       </div>
     </FullPagePanelModal.Body>
   );

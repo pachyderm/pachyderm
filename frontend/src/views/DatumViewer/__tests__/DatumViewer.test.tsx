@@ -428,8 +428,8 @@ describe('Datum Viewer', () => {
           '/project/Data-Cleaning-Process/pipelines/likelihoods/jobs/23b9af7d5d4343219bc8e02ff4acd33a/logs/datum',
         );
         render(<JobDatumViewer />);
-        const forwards = await screen.findByTestId('Pager__forward');
-        const backwards = await screen.findByTestId('Pager__backward');
+        const forwards = (await screen.findAllByTestId('Pager__forward'))[0];
+        const backwards = (await screen.findAllByTestId('Pager__backward'))[0];
 
         expect(
           await screen.findByText('Datums 1 - 50 of 100'),
@@ -582,6 +582,7 @@ describe('Datum Viewer', () => {
 
     it('should highlight user logs', async () => {
       render(<MiddleSection />);
+      await screen.findAllByTestId('LogRow__base');
       expect(screen.queryByTestId('LogRow__user_log')).not.toBeInTheDocument();
 
       await click(await screen.findByTestId('DropdownButton__button'));
@@ -604,6 +605,7 @@ describe('Datum Viewer', () => {
 
     it('should highlight raw user logs', async () => {
       render(<MiddleSection />);
+      await screen.findAllByTestId('LogRow__base');
 
       await click(await screen.findByTestId('DropdownButton__button'));
       await click(screen.getByText('Raw Logs'));
@@ -758,7 +760,33 @@ describe('Datum Viewer', () => {
             'This datum has been successfully processed in a previous job.',
           ),
         ).toBeInTheDocument();
+        expect(
+          screen.queryByRole('button', {
+            name: /refresh/i,
+          }),
+        ).not.toBeInTheDocument();
       });
+    });
+
+    it('should show logs pager', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+      );
+      render(<MiddleSection />);
+      await screen.findAllByTestId('LogRow__base');
+
+      const forwards = await screen.findByTestId('Pager__forward');
+      const backwards = await screen.findByTestId('Pager__backward');
+
+      const refresh = await screen.findByRole('button', {
+        name: /refresh/i,
+      });
+
+      expect(refresh).toBeEnabled();
+      expect(backwards).toBeDisabled();
+      expect(forwards).toBeDisabled();
     });
   });
 

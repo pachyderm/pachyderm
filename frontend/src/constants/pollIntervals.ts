@@ -31,3 +31,4 @@ export const PROJECTS_POLL_INTERVAL_MS: number = pollingInterval;
 export const REPO_POLL_INTERVAL_MS: number = pollingInterval;
 export const PIPELINES_POLL_INTERVAL_MS: number = pollingInterval;
 export const COMMITS_POLL_INTERVAL_MS: number = pollingInterval;
+export const LOGS_POLL_INTERVAL_MS: number = pollingInterval;

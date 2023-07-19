@@ -19,7 +19,7 @@ type DatumViewerProps = {
   onCloseRoute: string;
 };
 const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
-  const {isOpen, onClose, datumId, job, pipelineType} =
+  const {isOpen, onClose, jobId, datumId, job, pipelineType} =
     useDatumViewer(onCloseRoute);
   return (
     <>
@@ -32,7 +32,7 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
         >
           {pipelineType === PipelineType.SPOUT && (
             <>
-              <MiddleSection />
+              <MiddleSection key={jobId} />
               <FullPagePanelModal.RightPanel>
                 <PipelineInfo />
               </FullPagePanelModal.RightPanel>
@@ -41,7 +41,7 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
           {pipelineType === PipelineType.SERVICE && (
             <>
               <LeftPanel job={job} />
-              <MiddleSection />
+              <MiddleSection key={jobId} />
               <FullPagePanelModal.RightPanel>
                 <PipelineInfo />
               </FullPagePanelModal.RightPanel>
@@ -51,7 +51,8 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
           {pipelineType === PipelineType.STANDARD && (
             <>
               <LeftPanel job={job} />
-              <MiddleSection />
+
+              <MiddleSection key={`${jobId}-${datumId}`} />
               <FullPagePanelModal.RightPanel>
                 {datumId ? (
                   <DatumDetails className={styles.overflowYScroll} />

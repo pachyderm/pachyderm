@@ -1,3 +1,4 @@
+export {ReactComponent as ActionUpdateSVG} from './actionUpdate.svg';
 export {ReactComponent as AddCircleSVG} from './addCircle.svg';
 export {ReactComponent as ArrowCircleDownSVG} from './arrowCircleDown.svg';
 export {ReactComponent as ArrowCircleLeftSVG} from './arrowCircleLeft.svg';
