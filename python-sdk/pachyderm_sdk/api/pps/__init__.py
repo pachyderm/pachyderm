@@ -195,7 +195,6 @@ class Egress(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class Determined(betterproto.Message):
     workspaces: List[str] = betterproto.string_field(1)
-    password: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)

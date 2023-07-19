@@ -1493,7 +1493,7 @@ type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
-type createDetPipelineSideEffectsFunc func(context.Context, *pps.Pipeline, []string, string) (string, error)
+type createDetPipelineSideEffectsFunc func(context.Context, *pps.Pipeline, []string) error
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1810,11 +1810,11 @@ func (api *ppsServerAPI) QueryLoki(req *pps.LokiRequest, server pps.API_QueryLok
 	}
 	return errors.Errorf("unhandled pachd mock pps.QueryLoki")
 }
-func (api *ppsServerAPI) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string, password string) (string, error) {
+func (api *ppsServerAPI) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string) error {
 	if api.mock.CreateDetPipelineSideEffects.handler != nil {
-		return api.mock.CreateDetPipelineSideEffects.handler(ctx, pipeline, workspaces, password)
+		return api.mock.CreateDetPipelineSideEffects.handler(ctx, pipeline, workspaces)
 	}
-	return "", errors.Errorf("unhandled pachd mock pps.CreateDetPipelineSideEffects")
+	return errors.Errorf("unhandled pachd mock pps.CreateDetPipelineSideEffects")
 }
 
 /* Transaction Server Mocks */

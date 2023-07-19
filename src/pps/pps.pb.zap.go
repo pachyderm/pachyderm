@@ -119,7 +119,6 @@ func (x *Determined) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("workspaces", zapcore.ArrayMarshalerFunc(workspacesArrMarshaller))
-	enc.AddString("password", "[MASKED]")
 	return nil
 }
 

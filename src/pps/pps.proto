@@ -57,7 +57,6 @@ message Egress {
 
 message Determined {
   repeated string workspaces = 1;
-  string password = 2 [(log.mask) = true]; 
 }
 
 message Job {
