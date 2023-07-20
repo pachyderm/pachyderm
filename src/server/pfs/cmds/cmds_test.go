@@ -437,7 +437,7 @@ func TestDeleteNonExistRepo(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create project {{.project}}
 		pachctl delete repo {{.repo}},
 		`,
