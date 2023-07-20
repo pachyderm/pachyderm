@@ -132,6 +132,7 @@ export type PpsConfig = {
   image: string;
   requirements: string | null;
   input_spec: string;
+  port: string;
 };
 
 export type PpsContext = {
