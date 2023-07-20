@@ -931,14 +931,8 @@ class CreatePipelineRequest(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(30)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
-    details_json: str = betterproto.string_field(36)
     dry_run: bool = betterproto.bool_field(37)
     determined: "Determined" = betterproto.message_field(38)
-
-
-@dataclass(eq=False, repr=False)
-class CreatePipelineResponse(betterproto.Message):
-    details_json: str = betterproto.string_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -1133,8 +1127,10 @@ class LokiLogMessage(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ClusterDefaults(betterproto.Message):
-    details_json: str = betterproto.string_field(1)
-    effective_details_json: str = betterproto.string_field(2)
+    create_pipeline_request_json: str = betterproto.string_field(1)
+    """
+    CreatePipelineRequestJSON contains the default JSON CreatePipelineRequest.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -1328,6 +1324,11 @@ class ApiStub:
             request_serializer=LokiRequest.SerializeToString,
             response_deserializer=LokiLogMessage.FromString,
         )
+        self.__rpc_get_cluster_defaults = channel.unary_unary(
+            "/pps_v2.API/GetClusterDefaults",
+            request_serializer=GetClusterDefaultsRequest.SerializeToString,
+            response_deserializer=GetClusterDefaultsResponse.FromString,
+        )
 
     def inspect_job(
         self, *, job: "Job" = None, wait: bool = False, details: bool = False
@@ -1517,7 +1518,6 @@ class ApiStub:
         autoscaling: bool = False,
         tolerations: Optional[List["Toleration"]] = None,
         sidecar_resource_requests: "ResourceSpec" = None,
-        details_json: str = "",
         dry_run: bool = False,
         determined: "Determined" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
@@ -1573,7 +1573,6 @@ class ApiStub:
             request.tolerations = tolerations
         if sidecar_resource_requests is not None:
             request.sidecar_resource_requests = sidecar_resource_requests
-        request.details_json = details_json
         request.dry_run = dry_run
         if determined is not None:
             request.determined = determined
@@ -1863,6 +1862,11 @@ class ApiStub:
         for response in self.__rpc_query_loki(request):
             yield response
 
+    def get_cluster_defaults(self) -> "GetClusterDefaultsResponse":
+        request = GetClusterDefaultsRequest()
+
+        return self.__rpc_get_cluster_defaults(request)
+
 
 class ApiBase:
     def inspect_job(
@@ -1998,7 +2002,6 @@ class ApiBase:
         autoscaling: bool,
         tolerations: Optional[List["Toleration"]],
         sidecar_resource_requests: "ResourceSpec",
-        details_json: str,
         dry_run: bool,
         determined: "Determined",
         context: "grpc.ServicerContext",
@@ -2206,6 +2209,13 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def get_cluster_defaults(
+        self, context: "grpc.ServicerContext"
+    ) -> "GetClusterDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "pps_v2.API"
 
     @property
@@ -2375,5 +2385,10 @@ class ApiBase:
                 self.query_loki,
                 request_deserializer=LokiRequest.FromString,
                 response_serializer=LokiRequest.SerializeToString,
+            ),
+            "GetClusterDefaults": grpc.unary_unary_rpc_method_handler(
+                self.get_cluster_defaults,
+                request_deserializer=GetClusterDefaultsRequest.FromString,
+                response_serializer=GetClusterDefaultsRequest.SerializeToString,
             ),
         }

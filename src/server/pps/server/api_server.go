@@ -120,8 +120,9 @@ type apiServer struct {
 	peerPort              uint16
 	gcPercent             int
 	// collections
-	pipelines col.PostgresCollection
-	jobs      col.PostgresCollection
+	pipelines       col.PostgresCollection
+	jobs            col.PostgresCollection
+	clusterDefaults col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -3614,4 +3615,61 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 		}
 		return true, nil
 	}, nil
+}
+
+func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
+	var clusterDefaults pps.ClusterDefaults
+	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
+		if !errors.As(err, &col.ErrNotFound{}) {
+			return nil, errors.Wrap(err, "could not read cluster defaults")
+		}
+		clusterDefaults.CreatePipelineRequestJson = "{}"
+	}
+	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
+}
+
+// jsonMergePatch merges a JSON patch in string form with a JSON target, also in
+// string form.
+func jsonMergePatch(target, patch string) (string, error) {
+	var targetObject, patchObject any
+	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal target JSON")
+	}
+	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal patch JSON")
+	}
+	result, err := json.Marshal(mergePatch(targetObject, patchObject))
+	if err != nil {
+		return "", errors.Wrap(err, "could not marshal merge patch result")
+	}
+	return string(result), nil
+}
+
+// mergePatch implements the RFC 7396 algorithm.  To quote the RFC “If the patch
+// is anything other than an object, the result will always be to replace the
+// entire target with the entire patch.  Also, it is not possible to patch part
+// of a target that is not an object, such as to replace just some of the values
+// in an array.”  If the patch _is_ an object, then non-null values replace
+// target values, and null values delete target values.
+func mergePatch(target, patch any) any {
+	switch patch := patch.(type) {
+	case map[string]any:
+		var targetMap map[string]any
+		switch t := target.(type) {
+		case map[string]any:
+			targetMap = t
+		default:
+			targetMap = make(map[string]any)
+		}
+		for name, value := range patch {
+			if value == nil {
+				delete(targetMap, name)
+			} else {
+				targetMap[name] = mergePatch(targetMap[name], value)
+			}
+		}
+		return targetMap
+	default:
+		return patch
+	}
 }

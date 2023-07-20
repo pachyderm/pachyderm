@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -349,4 +350,15 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
+}
+
+func TestGetClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	resp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	require.NoError(t, err, "GetClusterDefaults failed")
+	require.NotNil(t, resp.ClusterDefaults)
+	require.NotEqual(t, "", resp.ClusterDefaults.CreatePipelineRequestJson, "create pipeline request must not be empty")
+	var cpr pps.CreatePipelineRequest
+	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaults.CreatePipelineRequestJson), &cpr), "create pipeline request must unmarshal")
 }

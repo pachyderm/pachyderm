@@ -719,13 +719,8 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
-  string details_json = 36;
   bool dry_run = 37;
   Determined determined = 38;
-}
-
-message CreatePipelineResponse {
-  string details_json = 1;
 }
 
 message InspectPipelineRequest {
@@ -867,8 +862,8 @@ message LokiLogMessage {
 }
 
 message ClusterDefaults {
-  string details_json = 1;
-  string effective_details_json = 2;
+  // CreatePipelineRequestJSON contains the default JSON CreatePipelineRequest.
+  string create_pipeline_request_json = 1;
 }
 
 
@@ -946,4 +941,7 @@ service API {
 
   // QueryLoki returns a stream of loki log messages given a query string
   rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // GetClusterDefaults returns the current cluster defaults.
+  rpc GetClusterDefaults(GetClusterDefaultsRequest) returns (GetClusterDefaultsResponse) {}
 }

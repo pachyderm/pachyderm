@@ -519,6 +519,10 @@ func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("DeleteSecret")
 }
 
+func (c *unsupportedPpsBuilderClient) GetClusterDefaults(_ context.Context, _ *pps_v2.GetClusterDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.GetClusterDefaultsResponse, error) {
+	return nil, unsupportedError("GetClusterDefaults")
+}
+
 func (c *unsupportedPpsBuilderClient) GetKubeEvents(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_GetKubeEventsClient, error) {
 	return nil, unsupportedError("GetKubeEvents")
 }
