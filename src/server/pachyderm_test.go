@@ -8786,7 +8786,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 		&pfs.DeleteRepoRequest{
 			Repo: client.NewSystemRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType),
 		})
-	require.YesError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDontReadStdin(t *testing.T) {
