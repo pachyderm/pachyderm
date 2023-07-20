@@ -637,6 +637,10 @@ func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v
 func (kd *kubeDriver) getDeterminedEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	return []v1.EnvVar{
 		{
+			Name:  "DET_MASTER_CERT_FILE",
+			Value: "noverify",
+		},
+		{
 			Name:  "DET_MASTER",
 			Value: kd.config.DeterminedURL,
 		},
