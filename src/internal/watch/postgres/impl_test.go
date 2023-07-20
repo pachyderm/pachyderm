@@ -40,7 +40,6 @@ func TestWatchRepos(t *testing.T) {
 	defer cancelListener()
 	go func() {
 		require.ErrorIs(t, context.Canceled, listener.Start(ctx, v2_7_0.ReposPgChannel))
-
 	}()
 
 	// Create a watcher for the repos table.

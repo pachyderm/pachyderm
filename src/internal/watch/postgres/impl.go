@@ -64,6 +64,7 @@ func (l *Listener) Start(ctx context.Context, channels ...string) error {
 	l.mu.Unlock()
 
 	for {
+		// TODO watchers should send a cancellation signal with cause to unblock WaitForNotification
 		msg, err := l.conn.WaitForNotification(ctx)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
