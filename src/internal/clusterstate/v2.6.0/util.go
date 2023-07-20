@@ -120,8 +120,8 @@ func NewPostgresBatcher(ctx context.Context, tx *pachsql.Tx, max int) *PostgresB
 }
 
 func (pb *PostgresBatcher) Add(stmt string) error {
+	pb.stmts = append(pb.stmts, stmt)
 	if len(pb.stmts) < pb.max {
-		pb.stmts = append(pb.stmts, stmt)
 		return nil
 	}
 	return pb.execute()
@@ -136,8 +136,11 @@ func (pb *PostgresBatcher) execute() error {
 		zap.String("size", strconv.Itoa(len(pb.stmts))),
 	)
 	pb.num++
-	_, err := pb.tx.ExecContext(pb.ctx, strings.Join(pb.stmts, ";"))
-	return errors.EnsureStack(err)
+	if _, err := pb.tx.ExecContext(pb.ctx, strings.Join(pb.stmts, ";")); err != nil {
+		return errors.EnsureStack(err)
+	}
+	pb.stmts = nil
+	return nil
 }
 
 func (pb *PostgresBatcher) Close() error {

@@ -29,7 +29,7 @@ func branchlessCommitsPPS(ctx context.Context, tx *pachsql.Tx) error {
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			stmt := fmt.Sprintf("UPDATE collections.jobs SET proto=decode('%v', 'hex') WHERE key='%v';", hex.EncodeToString(data), jobKey(ji.Job))
+			stmt := fmt.Sprintf("UPDATE collections.jobs SET proto=decode('%v', 'hex') WHERE key='%v'", hex.EncodeToString(data), jobKey(ji.Job))
 			if err := batcher.Add(stmt); err != nil {
 				return err
 			}

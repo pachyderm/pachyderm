@@ -230,7 +230,7 @@ func getRealAncestorCommit(getCommitInfo func(*pfs.Commit) *v2_5_0.CommitInfo, r
 		return c
 	}
 	realAncestorCommit = getRealAncestorCommit(getCommitInfo, realAncestorCommits, ci.ParentCommit)
-	realAncestorCommits[oldCommitKey(realAncestorCommit)] = realAncestorCommit
+	realAncestorCommits[oldCommitKey(c)] = realAncestorCommit
 	return realAncestorCommit
 }
 
@@ -448,7 +448,7 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 		defer end(log.Errorp(&retErr))
 		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
 		for _, ci := range cis {
-			stmt := fmt.Sprintf(`UPDATE pfs.commits SET commit_id='%v' WHERE commit_id='%v';`, commitBranchlessKey(ci.Commit), oldCommitKey(ci.Commit))
+			stmt := fmt.Sprintf(`UPDATE pfs.commits SET commit_id='%v' WHERE commit_id='%v'`, commitBranchlessKey(ci.Commit), oldCommitKey(ci.Commit))
 			if err := batcher.Add(stmt); err != nil {
 				return err
 			}
@@ -466,7 +466,7 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			stmt = fmt.Sprintf(`UPDATE collections.commits SET key='%v', proto=decode('%v', 'hex') WHERE key='%v';`, commitBranchlessKey(ci.Commit), hex.EncodeToString(data), oldCommitKey(ci.Commit))
+			stmt = fmt.Sprintf(`UPDATE collections.commits SET key='%v', proto=decode('%v', 'hex') WHERE key='%v'`, commitBranchlessKey(ci.Commit), hex.EncodeToString(data), oldCommitKey(ci.Commit))
 			if err := batcher.Add(stmt); err != nil {
 				return err
 			}
