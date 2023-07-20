@@ -501,16 +501,31 @@ loki-stack:
       tolerations: []
     config:
       server:
-        grpc_server_max_recv_msg_size: 67108864 # 64MiB
+        grpc_server_max_recv_msg_size: 671088640
+        grpc_server_max_send_msg_size: 671088640
+      querier:
+        grpc_client_config:
+          max_send_msg_size: 671088640
+          max_recv_msg_size: 671088640
+      frontend:
+        grpc_client_config:
+          max_send_msg_size: 671088640
+          max_recv_msg_size: 671088640
+      ruler:
+        grpc_client_config:
+          max_send_msg_size: 671088640
+          max_recv_msg_size: 671088640
       query_scheduler:
         grpc_client_config:
-          max_send_msg_size: 67108864 # 64MiB
+          max_send_msg_size: 671088640
+          max_recv_msg_size: 671088640
       limits_config:
         retention_period: 24h
         retention_stream:
           - selector: '{suite="pachyderm"}'
             priority: 1
             period: 168h # = 1 week
+        max_concurrent_tail_requests: 100
   grafana:
     enabled: false
   promtail:
