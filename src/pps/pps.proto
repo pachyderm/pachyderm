@@ -711,8 +711,8 @@ message CreatePipelineRequest {
   string salt = 22;
   int64 datum_tries = 23;
   SchedulingSpec scheduling_spec = 24;
-  string pod_spec = 25;; // deprecated, use pod_patch below
-  string pod_patch = 26;; // a json patch will be applied to the pipeline's pod_spec before its created;
+  string pod_spec = 25; // deprecated, use pod_patch below
+  string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before its created;
   pfs_v2.Commit spec_commit = 27;
   Metadata metadata = 28;
   string reprocess_spec = 29;
