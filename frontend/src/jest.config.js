@@ -24,19 +24,18 @@ module.exports = {
     {
       displayName: 'mock-server',
       ...baseConfig,
-      testMatch: ['**/__tests__/**/*.test.tsx'],
+      testMatch: ['**/__tests__/**/*.test.mock.tsx'],
+      setupFilesAfterEnv: ['./setupTests.mock.ts'],
     },
     {
       displayName: 'msw',
       ...baseConfig,
-      testMatch: ['**/__tests__/**/*.new-test.tsx'],
-      setupFilesAfterEnv: ['./setupTests.new.ts'],
+      testMatch: ['**/__tests__/**/*.test.tsx'],
     },
     {
       displayName: 'unit',
       ...baseConfig,
       testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.unit.ts'],
-      setupFilesAfterEnv: ['./setupTests.new.ts'],
     },
   ],
 };
