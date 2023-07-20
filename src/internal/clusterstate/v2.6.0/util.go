@@ -3,6 +3,8 @@ package v2_6_0
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -99,4 +101,45 @@ func updateCollectionProto[T proto.Message](ctx context.Context, tx *pachsql.Tx,
 	stmt := fmt.Sprintf("UPDATE collections.%s SET key=$1, proto=$2 WHERE key=$3;", table)
 	_, err = tx.ExecContext(ctx, stmt, newKey, data, oldKey)
 	return errors.Wrapf(err, "update collections.%s with key %q", table, oldKey)
+}
+
+type PostgresBatcher struct {
+	ctx   context.Context
+	tx    *pachsql.Tx
+	stmts []string
+	max   int
+	num   int
+}
+
+func NewPostgresBatcher(ctx context.Context, tx *pachsql.Tx, max int) *PostgresBatcher {
+	return &PostgresBatcher{
+		ctx: ctx,
+		tx:  tx,
+		max: max,
+	}
+}
+
+func (pb *PostgresBatcher) Add(stmt string) error {
+	if len(pb.stmts) < pb.max {
+		pb.stmts = append(pb.stmts, stmt)
+		return nil
+	}
+	return pb.execute()
+}
+
+func (pb *PostgresBatcher) execute() error {
+	if len(pb.stmts) == 0 {
+		return nil
+	}
+	log.Info(pb.ctx, "executing postgres statement batch",
+		zap.String("number", strconv.Itoa(pb.num)),
+		zap.String("size", strconv.Itoa(len(pb.stmts))),
+	)
+	pb.num++
+	_, err := pb.tx.ExecContext(pb.ctx, strings.Join(pb.stmts, ";"))
+	return errors.EnsureStack(err)
+}
+
+func (pb *PostgresBatcher) Close() error {
+	return pb.execute()
 }
