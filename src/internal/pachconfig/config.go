@@ -143,6 +143,7 @@ type PachdSpecificConfiguration struct {
 	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
 	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
 	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
+	DeterminedTLS      bool   `env:"DETERMINED_TLS,default=false"`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
@@ -171,6 +172,8 @@ type EnterpriseSpecificConfiguration struct {
 	TrustedPeers              string `env:"TRUSTED_PEERS,default="`
 	ConsoleOAuthID            string `env:"CONSOLE_OAUTH_ID,default="`
 	ConsoleOAuthSecret        string `env:"CONSOLE_OAUTH_SECRET,default="`
+	DeterminedOAuthID         string `env:"DETERMINED_OAUTH_ID,default="`
+	DeterminedOAuthSecret     string `env:"DETERMINED_OAUTH_SECRET,default="`
 }
 
 // StorageConfiguration contains the storage configuration.

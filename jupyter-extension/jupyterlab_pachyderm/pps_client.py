@@ -183,7 +183,6 @@ class PpsConfig:
 
         resource_spec = dict() if resource_spec_str is None else yaml.safe_load(resource_spec_str)
 
-
         return cls(
             notebook_path=notebook_path,
             pipeline=pipeline,

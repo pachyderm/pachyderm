@@ -1,0 +1,48 @@
+Thank you for installing {{ .Chart.Name }}. Your release is named: {{ .Release.Name }}.
+It may take several minutes for your deployment to start up.
+
+{{- if .Values.useNodePortForMaster }}
+
+You have configured Determined to deploy the master with a NodePort service. To make the
+Determined master accessible from outside the cluster you will likely need to configure
+an Ingress for: determined-master-service-{{ .Release.Name }}.
+
+To have Determined configure an externally accessible load balancer for the
+maser, please set "Values.useNodePortForMaster" to false.
+{{ else }}
+
+The IP address of the Determined master is the external IP of determined-master-service-{{ .Release.Name }},
+which you can lookup by running (it may take a few minutes for the ip address to be assigned):
+
+kubectl get service determined-master-service-{{ .Release.Name }} -n {{ .Release.Namespace }}
+
+{{ end -}}
+
+{{ $httpOrHttps := "http" }}
+{{- if .Values.tlsSecret -}}
+  {{ $httpOrHttps = "https" }}
+  {{ $secret := (lookup "v1" "Secret" .Release.Namespace (.Values.tlsSecret | toString) ) }}
+  {{- if eq (len $secret) 0 }}
+ERROR: Secret {{ .Values.tlsSecret }} does not exist in namespace: {{ .Release.Namespace }}. Please update ".Values.tlsSecret".
+  {{ end }}
+{{ end -}}
+
+{{- if (and (not .Values.detVersion) (contains "dev" .Chart.AppVersion)) }}
+ERROR: Installing a non-released version of Determined: {{ .Chart.AppVersion }}.
+Determined does not publish Docker images for non-release version; attempts to
+install a non-release version will lead to a `ImagePullBackOff` error.
+Please update `appVersion` in Chart.yaml to an official release version in the
+format X.Y.Z (e.g., 0.13.6).
+
+{{ end -}}
+
+{{- if .Values.defaultScheduler }}
+      {{- $schedulerType := .Values.defaultScheduler | trim}}
+      {{- if not (or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption"))}}
+WARNING: defaultScheduler has been set to an unsupported value. The cluster default scheduler will be set to the Kubernetes scheduler.
+      {{ end }}
+{{ end -}}
+
+Once you have the IP address, configure master address locally by running: `export DET_MASTER=<ip address>:{{ .Values.masterPort }}`.
+To submit experiments please install the Determined CLI locally: `pip install determined`.
+To access the WebUI go to: {{ $httpOrHttps }}://<ip address>:{{ .Values.masterPort }}.
