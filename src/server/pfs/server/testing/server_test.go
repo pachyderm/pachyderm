@@ -4504,8 +4504,8 @@ func TestPFS(suite *testing.T) {
 						sort.Strings(expectedProv)
 						require.Equal(t, len(expectedProv), len(bi.Provenance))
 						for _, b := range bi.Provenance {
-							i := sort.SearchStrings(expectedProv, b.Name)
-							if i >= len(expectedProv) || expectedProv[i] != b.Name {
+							i := sort.SearchStrings(expectedProv, b.Repo.Name)
+							if i >= len(expectedProv) || expectedProv[i] != b.Repo.Name {
 								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b, expectedProv)
 							}
 						}
@@ -4516,8 +4516,8 @@ func TestPFS(suite *testing.T) {
 						sort.Strings(expectedSubv)
 						require.Equal(t, len(expectedSubv), len(bi.Subvenance))
 						for _, b := range bi.Subvenance {
-							i := sort.SearchStrings(expectedSubv, b.Name)
-							if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
+							i := sort.SearchStrings(expectedSubv, b.Repo.Name)
+							if i >= len(expectedSubv) || expectedSubv[i] != b.Repo.Name {
 								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b, expectedSubv)
 							}
 						}
