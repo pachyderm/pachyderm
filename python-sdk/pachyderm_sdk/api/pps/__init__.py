@@ -195,7 +195,6 @@ class Egress(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class Determined(betterproto.Message):
     workspaces: List[str] = betterproto.string_field(1)
-    password: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -452,6 +451,7 @@ class JobInfo(betterproto.Message):
     started: datetime = betterproto.message_field(14)
     finished: datetime = betterproto.message_field(15)
     details: "JobInfoDetails" = betterproto.message_field(16)
+    auth_token: str = betterproto.string_field(17)
 
 
 @dataclass(eq=False, repr=False)
@@ -931,7 +931,6 @@ class CreatePipelineRequest(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(30)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
-    details_json: str = betterproto.string_field(36)
     dry_run: bool = betterproto.bool_field(37)
     determined: "Determined" = betterproto.message_field(38)
 
@@ -1524,7 +1523,6 @@ class ApiStub:
         autoscaling: bool = False,
         tolerations: Optional[List["Toleration"]] = None,
         sidecar_resource_requests: "ResourceSpec" = None,
-        details_json: str = "",
         dry_run: bool = False,
         determined: "Determined" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
@@ -1580,7 +1578,6 @@ class ApiStub:
             request.tolerations = tolerations
         if sidecar_resource_requests is not None:
             request.sidecar_resource_requests = sidecar_resource_requests
-        request.details_json = details_json
         request.dry_run = dry_run
         if determined is not None:
             request.determined = determined
@@ -2027,7 +2024,6 @@ class ApiBase:
         autoscaling: bool,
         tolerations: Optional[List["Toleration"]],
         sidecar_resource_requests: "ResourceSpec",
-        details_json: str,
         dry_run: bool,
         determined: "Determined",
         context: "grpc.ServicerContext",
