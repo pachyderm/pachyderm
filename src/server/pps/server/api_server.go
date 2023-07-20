@@ -2125,14 +2125,15 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //
 // Implementation note:
 //   - CreatePipeline always creates pipeline output branches such that the
-//     pipeline's spec branch is in the pipeline output branch's provenance
+//     pipeline's spec branch is in the pipeline output branch's provenance.
 //   - CreatePipeline will always create a new output commit, but that's done
 //     by CreateBranch at the bottom of the function, which sets the new output
 //     branch provenance, rather than commitPipelineInfoFromFileSet higher up.
 //   - This is because CreatePipeline calls hardStopPipeline towards the top,
-//     breaking the provenance connection from the spec branch to the output branch
+//     breaking the provenance connection from the spec branch to the output
+//     branch.
 //   - For straightforward pipeline updates (e.g. new pipeline image)
-//     stopping + updating + starting the pipeline isn't necessary
+//     stopping + updating + starting the pipeline isn't necessary.
 //   - However it is necessary in many slightly atypical cases  (e.g. the
 //     pipeline input changed: if the spec commit is created while the
 //     output branch has its old provenance, or the output branch gets new
@@ -2141,7 +2142,7 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //     match its spec's PipelineInfo.Details.Input. Another example is when
 //     request.Reprocess == true).
 //   - Rather than try to enumerate every case where we can't create a spec
-//     commit without stopping the pipeline, we just always stop the pipeline
+//     commit without stopping the pipeline, we just always stop the pipeline.
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -3618,14 +3619,14 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 }
 
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
-	var clusterDefaults pps.ClusterDefaults
+	var clusterDefaults ppsdb.ClusterDefaultsWrapper
 	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, errors.Wrap(err, "could not read cluster defaults")
 		}
-		clusterDefaults.CreatePipelineRequestJson = "{}"
+		clusterDefaults.Json = "{}"
 	}
-	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
+	return &pps.GetClusterDefaultsResponse{ClusterDefaultsJson: clusterDefaults.Json}, nil
 }
 
 // jsonMergePatch merges a JSON patch in string form with a JSON target, also in

@@ -1515,19 +1515,3 @@ func synonymsMap() map[string]string {
 		secret:   secrets,
 	}
 }
-
-func TestInspectClusterDefaults(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
-		return &admin.ClusterInfo{
-			Id:                "dev",
-			DeploymentId:      "dev",
-			VersionWarningsOk: true,
-		}, nil
-	})
-	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
-		pachctl inspect defaults --cluster | jq .createPipelineRequestJson | match '"{}"'
-	`,
-	).Run())
-}

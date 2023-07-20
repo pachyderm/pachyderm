@@ -167,7 +167,7 @@ func ClusterDefaults(db *pachsql.DB, listener col.PostgresListener) col.Postgres
 		clusterDefaultsCollectionName,
 		db,
 		listener,
-		&pps.ClusterDefaults{},
+		&ClusterDefaultsWrapper{},
 		nil,
 	)
 }
