@@ -4166,7 +4166,7 @@ type CreatePipelineRequest struct {
 	DatumTries              int64                `protobuf:"varint,23,opt,name=datum_tries,json=datumTries,proto3" json:"datum_tries,omitempty"`
 	SchedulingSpec          *SchedulingSpec      `protobuf:"bytes,24,opt,name=scheduling_spec,json=schedulingSpec,proto3" json:"scheduling_spec,omitempty"`
 	PodSpec                 string               `protobuf:"bytes,25,opt,name=pod_spec,json=podSpec,proto3" json:"pod_spec,omitempty"`    // deprecated, use pod_patch below
-	PodPatch                string               `protobuf:"bytes,26,opt,name=pod_patch,json=podPatch,proto3" json:"pod_patch,omitempty"` // a json patch will be applied to the pipeline's pod_spec before its created;
+	PodPatch                string               `protobuf:"bytes,26,opt,name=pod_patch,json=podPatch,proto3" json:"pod_patch,omitempty"` // a json patch will be applied to the pipeline's pod_spec before it's created;
 	SpecCommit              *pfs.Commit          `protobuf:"bytes,27,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
 	Metadata                *Metadata            `protobuf:"bytes,28,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	ReprocessSpec           string               `protobuf:"bytes,29,opt,name=reprocess_spec,json=reprocessSpec,proto3" json:"reprocess_spec,omitempty"`
