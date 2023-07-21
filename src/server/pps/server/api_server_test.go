@@ -357,8 +357,7 @@ func TestGetClusterDefaults(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	resp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	require.NoError(t, err, "GetClusterDefaults failed")
-	require.NotNil(t, resp.ClusterDefaults)
-	require.NotEqual(t, "", resp.ClusterDefaults.CreatePipelineRequestJson, "create pipeline request must not be empty")
-	var cpr pps.CreatePipelineRequest
-	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaults.CreatePipelineRequestJson), &cpr), "create pipeline request must unmarshal")
+	require.NotEqual(t, "", resp.ClusterDefaultsJson)
+	var cd pps.ClusterDefaults
+	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaultsJson), &cd), "cluster defaults JSON must unmarshal")
 }

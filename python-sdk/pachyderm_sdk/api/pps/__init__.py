@@ -1127,9 +1127,11 @@ class LokiLogMessage(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ClusterDefaults(betterproto.Message):
-    create_pipeline_request_json: str = betterproto.string_field(1)
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(3)
     """
-    CreatePipelineRequestJSON contains the default JSON CreatePipelineRequest.
+    CreatePipelineRequest contains the default JSON CreatePipelineRequest into
+    which pipeline specs are merged to form the effective spec used to create a
+    pipeline.
     """
 
 
@@ -1140,20 +1142,26 @@ class GetClusterDefaultsRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class GetClusterDefaultsResponse(betterproto.Message):
-    cluster_defaults: "ClusterDefaults" = betterproto.message_field(1)
+    cluster_defaults_json: str = betterproto.string_field(2)
+    """
+    A JSON-encoded ClusterDefaults message, this is the verbatim input passed
+    to SetClusterDefaults.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class SetClusterDefaultsRequest(betterproto.Message):
-    cluster_defaults: "ClusterDefaults" = betterproto.message_field(1)
     regenerate: bool = betterproto.bool_field(2)
     reprocess: bool = betterproto.bool_field(3)
     dry_run: bool = betterproto.bool_field(4)
+    cluster_defaults_json: str = betterproto.string_field(5)
+    """
+    A JSON-encoded ClusterDefaults message, this will be stored verbatim.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class SetClusterDefaultsResponse(betterproto.Message):
-    effective_details_json: str = betterproto.string_field(1)
     affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
 
 
