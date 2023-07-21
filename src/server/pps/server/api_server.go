@@ -3623,7 +3623,7 @@ func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterD
 	var clusterDefaults ppsdb.ClusterDefaultsWrapper
 	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
-			return nil, errors.Wrap(err, "could not read cluster defaults")
+			return nil, unknownError(ctx, "could not read cluster defaults", err)
 		}
 		clusterDefaults.Json = "{}"
 	}
