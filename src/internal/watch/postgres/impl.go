@@ -28,64 +28,63 @@ const (
 	DefaultBufferSize = 1000
 )
 
+var stopWaitForNotificationSignal = errors.New("listener cancelled")
+
 type watchers []watcher
 type Listener struct {
-	mu       sync.Mutex
-	conn     *pgx.Conn
-	channels map[string]watchers
+	mu          sync.Mutex
+	conn        *pgx.Conn
+	channels    map[string]watchers
+	cancelCause context.CancelCauseFunc // allow watchers to unblock conn.WaitForNotification
 }
 
 func NewListener(conn *pgx.Conn) Listener {
 	return Listener{
-		conn:     conn,
-		channels: make(map[string]watchers),
+		conn:        conn,
+		channels:    make(map[string]watchers),
+		cancelCause: nil,
 	}
 }
 
 func (l *Listener) Watch(ctx context.Context, channel string) (<-chan *Event, error) {
-	w := watcher{events: make(chan *Event, DefaultBufferSize), done: ctx.Done()}
+	if l.cancelCause != nil {
+		l.cancelCause(stopWaitForNotificationSignal)
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if _, ok := l.channels[channel]; !ok {
+		if _, err := l.conn.Exec(ctx, fmt.Sprintf("LISTEN %s", channel)); err != nil {
+			return nil, err
+		}
+	}
+
+	w := watcher{events: make(chan *Event, DefaultBufferSize), done: ctx.Done()}
 	l.channels[channel] = append(l.channels[channel], w)
 	return w.events, nil
 }
 
-func (l *Listener) Start(ctx context.Context, channels ...string) error {
-	l.mu.Lock()
-	for _, channel := range channels {
-		if _, err := l.conn.Exec(ctx, fmt.Sprintf("LISTEN %s", channel)); err != nil {
-			l.mu.Unlock()
-			return err
-		}
-		if l.channels[channel] == nil {
-			l.channels[channel] = make(watchers, 0)
-		}
-	}
-	l.mu.Unlock()
+func (l *Listener) Start(ctx context.Context) error {
+	ctx, l.cancelCause = context.WithCancelCause(ctx)
 
 	for {
-		// TODO watchers should send a cancellation signal with cause to unblock WaitForNotification
+		l.mu.Lock()
 		msg, err := l.conn.WaitForNotification(ctx)
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
+			l.mu.Unlock()
+			if context.Cause(ctx) == stopWaitForNotificationSignal {
+				ctx, l.cancelCause = context.WithCancelCause(ctx)
 				continue
 			}
 			return err
 		}
-		l.mu.Lock()
+
+		event := parseNotification(msg.Payload)
 		for _, w := range l.channels[msg.Channel] {
-			go func(w watcher, payload string) {
-				event := parseNotification(payload)
-				select {
-				case w.events <- &event:
-				case <-w.done:
-					close(w.events)
-				case <-ctx.Done():
-					close(w.events)
-				default:
-					close(w.events)
-				}
-			}(w, msg.Payload)
+			select {
+			case w.events <- &event:
+			default:
+				close(w.events)
+			}
 		}
 		l.mu.Unlock()
 	}

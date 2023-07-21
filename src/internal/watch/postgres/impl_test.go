@@ -36,10 +36,12 @@ func TestWatchRepos(t *testing.T) {
 	conn, err := pgx.ConnectConfig(ctx, config)
 	require.NoError(t, err)
 	listener := postgresWatcher.NewListener(conn)
+
+	// Start listening.
 	ctx, cancelListener := context.WithCancel(ctx)
 	defer cancelListener()
 	go func() {
-		require.ErrorIs(t, context.Canceled, listener.Start(ctx, v2_7_0.ReposPgChannel))
+		require.ErrorIs(t, context.Canceled, listener.Start(ctx))
 	}()
 
 	// Create a watcher for the repos table.
