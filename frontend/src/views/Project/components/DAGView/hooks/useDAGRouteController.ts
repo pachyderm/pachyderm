@@ -2,6 +2,7 @@ import {useCallback} from 'react';
 import {useHistory, useRouteMatch} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import deriveRouteParamFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
 import {Node} from '@dash-frontend/lib/types';
 import {
   LINEAGE_PIPELINE_PATH,
@@ -11,8 +12,6 @@ import {
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-
-import deriveRouteParamFromNode from '../lib/deriveRepoNameFromNode';
 
 const useRouteController = () => {
   const {projectId, repoId, pipelineId} = useUrlState();

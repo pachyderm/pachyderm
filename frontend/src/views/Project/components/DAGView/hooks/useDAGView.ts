@@ -16,9 +16,10 @@ import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSetting
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {DagDirection, Node, Dag} from '@dash-frontend/lib/types';
-import useRouteController from 'hooks/useRouteController';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../../constants/nodeSizes';
+
+import useDAGRouteController from './useDAGRouteController';
 
 const SIDEBAR_WIDTH = 384;
 const MIN_DAG_HEIGHT = 300;
@@ -78,7 +79,7 @@ export const useDAGView = (
     height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
     width: window.innerWidth - SIDENAV_PADDING,
   });
-  const {selectedNode} = useRouteController();
+  const {selectedNode} = useDAGRouteController();
   const {searchParams} = useUrlQueryState();
   const {pipelineId, repoId, projectId} = useUrlState();
   const {currentProject} = useCurrentProject();

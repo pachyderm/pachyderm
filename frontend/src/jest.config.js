@@ -35,7 +35,11 @@ module.exports = {
     {
       displayName: 'unit',
       ...baseConfig,
-      testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.unit.ts'],
+      testMatch: [
+        '**/__tests__/**/*.test.ts',
+        '**/__tests__/**/*.unit.ts',
+        '**/__tests__/**/*.unit.tsx',
+      ],
     },
   ],
 };

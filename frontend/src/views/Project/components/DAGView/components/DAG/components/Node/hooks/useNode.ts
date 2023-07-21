@@ -7,10 +7,10 @@ import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
+import useDAGRouteController from '@dash-frontend/views/Project/components/DAGView/hooks/useDAGRouteController';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useClipboardCopy} from '@pachyderm/components';
-import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
 const LABEL_WIDTH = NODE_WIDTH - 40;
@@ -22,7 +22,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
     selectedRepo,
     pipelinePathMatch,
     repoPathMatch,
-  } = useRouteController();
+  } = useDAGRouteController();
   const {projectId} = useUrlState();
   const {getPathToLatestJobLogs} = useLogsNavigation();
   const browserHistory = useHistory();
