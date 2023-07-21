@@ -9,10 +9,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
@@ -176,6 +178,7 @@ func setupPostgresCollections(ctx context.Context, sqlTx *pachsql.Tx, collection
 			indexFields = append(indexFields, "'"+name+"'")
 		}
 
+		log.Info(ctx, fmt.Sprintf("Creating collections.%s table", col.table))
 		createTable := fmt.Sprintf("create table collections.%s (%s);", col.table, strings.Join(columns, ", "))
 		if _, err := sqlTx.Exec(createTable); err != nil {
 			return errors.EnsureStack(err)
@@ -232,6 +235,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	for _, o := range opts {
 		o(col.postgresCollection)
 	}
+	log.Info(ctx, fmt.Sprintf("Retrieving rows from collection.%s", name))
 	rr, err := tx.QueryContext(ctx, fmt.Sprintf(`SELECT key, proto FROM collections.%s`, name))
 	if err != nil {
 		return errors.Wrap(err, "could not read table")
@@ -263,6 +267,8 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 		vals[oldKey] = pair{newKey, proto.Clone(newVal)}
 
 	}
+	log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name))
+	i := 0
 	for oldKey, pair := range vals {
 		if err := col.withKey(oldKey, func(oldKey string) error {
 			return col.withKey(pair.key, func(newKey string) error {
@@ -280,6 +286,8 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 				query := fmt.Sprintf("update collections.%s set %s where key = :oldKey", col.table, strings.Join(updateFields, ", "))
 
 				_, err = col.tx.NamedExecContext(ctx, query, params)
+				i++
+				log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name), zap.String("old", oldKey), zap.String("new", newKey), zap.String("progress", fmt.Sprintf("%d/%d", i, len(vals))))
 				return col.mapSQLError(err, oldKey)
 			})
 		}); err != nil {
