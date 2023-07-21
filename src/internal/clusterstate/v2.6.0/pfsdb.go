@@ -197,7 +197,8 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			if err := batcher.Add(stmt); err != nil {
 				return err
 			}
-			stmt = fmt.Sprintf(`DELETE FROM storage.tracker_objects WHERE str_id LIKE 'commit/%v%%'`, key)
+			// TODO: Why does LIKE perform so poorly?
+			stmt = fmt.Sprintf(`DELETE FROM storage.tracker_objects WHERE str_id > 'commit/%v' AND str_id < 'commit/%v/z'`, key, key)
 			if err := batcher.Add(stmt); err != nil {
 				return err
 			}
