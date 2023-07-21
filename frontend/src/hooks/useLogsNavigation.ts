@@ -46,8 +46,8 @@ const useLogsNavigation = () => {
   );
 
   const getPathFromLogs = useCallback(
-    (path: string) => {
-      return `${searchParams.prevPath || path}?${getUpdatedSearchParams({
+    (backupPath: string) => {
+      return `${searchParams.prevPath || backupPath}?${getUpdatedSearchParams({
         prevPath: undefined,
       })}`;
     },

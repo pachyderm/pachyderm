@@ -19,8 +19,8 @@ const useFileBrowserNavigation = () => {
   );
 
   const getPathFromFileBrowser = useCallback(
-    (path: string) => {
-      return `${searchParams.prevPath || path}?${getUpdatedSearchParams({
+    (backupPath: string) => {
+      return `${searchParams.prevPath || backupPath}?${getUpdatedSearchParams({
         prevPath: undefined,
       })}`;
     },
