@@ -93,6 +93,9 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
+	if ev.Error != nil {
+		return ev.Error
+	}
 	lockPrefix := path.Join("repos", fmt.Sprintf("%d", ev.Id))
 	if ev.EventType == postgres.EventDelete {
 		if cancel, ok := repos[ev.Id]; ok {
@@ -175,7 +178,10 @@ func (d *driver) watchRepos(ctx context.Context) error {
 			eg.Go(func() error {
 				for {
 					select {
-					case event := <-watcher.Watch():
+					case event, ok := <-watcher.Watch():
+						if !ok {
+							return errors.Wrap(fmt.Errorf("unexpected close on events channel"), "watch repo events")
+						}
 						if err := d.manageRepos(ctx, ring, repos, event); err != nil {
 							return errors.Wrap(err, "watch repo event")
 						}

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
@@ -28,65 +28,84 @@ const (
 	DefaultBufferSize = 1000
 )
 
-var stopWaitForNotificationSignal = errors.New("listener cancelled")
+var newWatcherSignal = errors.New("listener cancelled")
 
 type watchers []watcher
 type Listener struct {
-	mu          sync.Mutex
-	conn        *pgx.Conn
-	channels    map[string]watchers
-	cancelCause context.CancelCauseFunc // allow watchers to unblock conn.WaitForNotification
+	watchers chan watcher
 }
 
-func NewListener(conn *pgx.Conn) Listener {
-	return Listener{
-		conn:        conn,
-		channels:    make(map[string]watchers),
-		cancelCause: nil,
+func NewListener() *Listener {
+	return &Listener{
+		watchers: make(chan watcher),
 	}
 }
 
 func (l *Listener) Watch(ctx context.Context, channel string) (<-chan *Event, error) {
-	if l.cancelCause != nil {
-		l.cancelCause(stopWaitForNotificationSignal)
-	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if _, ok := l.channels[channel]; !ok {
-		if _, err := l.conn.Exec(ctx, fmt.Sprintf("LISTEN %s", channel)); err != nil {
-			return nil, err
-		}
-	}
-
-	w := watcher{events: make(chan *Event, DefaultBufferSize), done: ctx.Done()}
-	l.channels[channel] = append(l.channels[channel], w)
+	w := watcher{channel: channel, events: make(chan *Event, DefaultBufferSize)}
+	l.watchers <- w
 	return w.events, nil
 }
 
-func (l *Listener) Start(ctx context.Context) error {
-	ctx, l.cancelCause = context.WithCancelCause(ctx)
+// Start creates a direct connection to the database and starts the main loop.
+// In each loop, it either waits for a new watcher or a notification from postgres.
+// The listener exposes a context cancellation func for new watchers to cancel pgx.Conn.WaitForNotitication asynchronosly.
+func (l *Listener) Start(ctx context.Context, config *pgx.ConnConfig) error {
+	conn, err := pgx.ConnectConfig(ctx, config)
+	if err != nil {
+		return err
+	}
 
+	cancelFns := make(chan context.CancelCauseFunc)
+	notifications := make(chan *pgconn.Notification)
+	channelsAndWatchers := make(map[string]watchers)
+
+	// Start listening on postgres.
+	go func(ctx context.Context) {
+		defer close(cancelFns)
+		_ctx, cancel := context.WithCancelCause(ctx)
+		cancelFns <- cancel
+		for {
+			msg, err := conn.WaitForNotification(_ctx)
+			if err != nil {
+				if context.Cause(_ctx) == newWatcherSignal {
+					_ctx, cancel = context.WithCancelCause(ctx)
+					cancelFns <- cancel // for the next watcher
+					continue
+				}
+				return
+			}
+			notifications <- msg
+		}
+	}(ctx)
+
+	// Propagate events to watchers.
+	var cancel context.CancelCauseFunc
 	for {
-		l.mu.Lock()
-		msg, err := l.conn.WaitForNotification(ctx)
-		if err != nil {
-			l.mu.Unlock()
-			if context.Cause(ctx) == stopWaitForNotificationSignal {
-				ctx, l.cancelCause = context.WithCancelCause(ctx)
-				continue
+		select {
+		case cancel = <-cancelFns:
+		case w := <-l.watchers:
+			if _, ok := channelsAndWatchers[w.channel]; !ok {
+				if cancel != nil {
+					cancel(newWatcherSignal)
+				}
+				if _, err := conn.Exec(ctx, fmt.Sprintf("LISTEN %s", w.channel)); err != nil {
+					return err
+				}
 			}
-			return err
-		}
-
-		event := parseNotification(msg.Payload)
-		for _, w := range l.channels[msg.Channel] {
-			select {
-			case w.events <- &event:
-			default:
-				close(w.events)
+			channelsAndWatchers[w.channel] = append(channelsAndWatchers[w.channel], w)
+		case msg := <-notifications:
+			event := parseNotification(msg.Payload)
+			for _, w := range channelsAndWatchers[msg.Channel] {
+				select {
+				case w.events <- &event:
+				default:
+					close(w.events)
+				}
 			}
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		l.mu.Unlock()
 	}
 }
 
@@ -99,8 +118,9 @@ type Event struct {
 // New version of postgresWatcher
 // implements both Watcher and Notifier interfaces
 type watcher struct {
-	events chan *Event
-	done   <-chan struct{}
+	channel string
+	events  chan *Event
+	done    <-chan struct{}
 }
 
 func parseNotification(payload string) Event {

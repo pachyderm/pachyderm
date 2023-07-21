@@ -521,8 +521,10 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
-	if err := stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
-		related = append(related, repo)
+	if err := stream.ForEach[*pfs.RepoInfo](ctx, iter, func(otherRepo *pfs.RepoInfo) error {
+		if otherRepo.Repo.Project.Name == repo.Project.Name {
+			related = append(related, otherRepo)
+		}
 		return nil
 	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
 		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
@@ -1947,8 +1949,15 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
 	}
+	branch.Repo.EnsureProject()
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
+	}
+	// make sure repo exists.
+	if _, err := pfsdb.GetRepoID(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type); err != nil {
+		if !pfsdb.IsErrRepoNotFound(err) || !force {
+			return errors.Wrapf(err, "repo %q does not exist", pfsdb.RepoKey(branch.Repo))
+		}
 	}
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {

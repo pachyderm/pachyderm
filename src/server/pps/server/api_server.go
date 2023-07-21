@@ -903,6 +903,10 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return nil
 		}
 
+		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
+		// won't use this function to get their auth token)
+		jobInfo.AuthToken = ""
+
 		if err := resp.Send(jobInfo); err != nil {
 			return errors.Wrap(err, "error sending job")
 		}
@@ -2162,11 +2166,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 	if request.Determined != nil {
-		pw, err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces, request.Determined.Password)
-		if err != nil {
+		if err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces); err != nil {
 			return nil, errors.Wrap(err, "create det pipeline side effects")
 		}
-		request.Determined.Password = pw
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
@@ -2183,43 +2185,26 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 // - This method must be idempotent, as it interfaces with Pachyderm's Transaction API that may run this multiple times
 //
 // TODO: set up garbage collection for the records stored outside the DB
-func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string, pw string) (string, error) {
+func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string) error {
 	// check if pipeline's creds secret exists
 	secretName := pipeline.Project.Name + "-" + pipeline.Name + "-det"
-	password := pw
-	if sec, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, secretName, metav1.GetOptions{}); err != nil {
-		if !errutil.IsNotFoundError(err) {
-			return "", errors.Wrapf(err, "get k8s secret %q", secretName)
-		}
-	} else {
-		if p, ok := sec.StringData["password"]; ok {
-			if password == "" {
-				password = p
-			} else if password == p {
-				// state is already applied, exit early
-				return password, nil
-			}
-		}
-	}
-	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(ctx, secretName, metav1.DeleteOptions{}); err != nil {
-		if !errutil.IsNotFoundError(err) {
-			return "", errors.Wrapf(err, "clear pipeline's determined secret")
-		}
-	}
-	if password == "" {
-		password = uuid.NewWithoutDashes()
-	}
+	password := uuid.NewWithoutDashes()
 	whoAmI, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil {
-		return "", errors.Wrap(err, "who am i")
+		return errors.Wrap(err, "who am i")
 	}
 	splits := strings.Split(whoAmI.Username, ":")
 	if len(splits) != 2 {
-		return "", errors.Errorf("subject %q expected to be segmented by one ':'", whoAmI.Username)
+		return errors.Errorf("subject %q expected to be segmented by one ':'", whoAmI.Username)
 	}
 	username := splits[1]
 	if err := a.hookDeterminedPipeline(ctx, pipeline, workspaces, password, username); err != nil {
-		return "", errors.Wrapf(err, "failed to connect pipeline %q to determined", pipeline.String())
+		return errors.Wrapf(err, "failed to connect pipeline %q to determined", pipeline.String())
+	}
+	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(ctx, secretName, metav1.DeleteOptions{}); err != nil {
+		if !errutil.IsNotFoundError(err) {
+			return errors.Wrapf(err, "clear pipeline's determined secret")
+		}
 	}
 	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2234,9 +2219,9 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *
 		"suite": "pachyderm",
 	})
 	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, s, metav1.CreateOptions{}); err != nil {
-		return "", errors.Wrapf(err, "failed to create pipeline's determined secret")
+		return errors.Wrapf(err, "failed to create pipeline's determined secret")
 	}
-	return password, nil
+	return nil
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
@@ -2278,14 +2263,8 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			ReprocessSpec:           request.ReprocessSpec,
 			Autoscaling:             request.Autoscaling,
 			Tolerations:             request.Tolerations,
+			Determined:              request.Determined,
 		},
-	}
-	// TODO: revisit this structure
-	if request.Determined != nil {
-		if pipelineInfo.Details.Determined == nil {
-			pipelineInfo.Details.Determined = &pps.Determined{}
-		}
-		pipelineInfo.Details.Determined.Workspaces = request.Determined.Workspaces
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
@@ -2303,9 +2282,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		}
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
-		}
-		if oldPipelineInfo.Details.Determined != nil {
-			pipelineInfo.Details.Determined.Password = oldPipelineInfo.Details.Determined.Password
 		}
 	}
 
@@ -3240,6 +3216,15 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			return errors.EnsureStack(err)
 		}
 
+		token := ""
+		if _, err := txnCtx.WhoAmI(); err == nil {
+			// If auth is active, generate an auth token for the job
+			token, err = a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineInfo.Pipeline)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
+
 		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
 		jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 		jobPtr := &pps.JobInfo{
@@ -3247,6 +3232,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			PipelineVersion: pipelineInfo.Version,
 			OutputCommit:    commitInfo.Commit,
 			Stats:           &pps.ProcessStats{},
+			AuthToken:       token,
 			Created:         timestamppb.Now(),
 		}
 		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {

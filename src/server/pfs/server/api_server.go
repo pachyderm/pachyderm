@@ -101,13 +101,12 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "list projects")
 	}
 	// Create role bindings for repos created before auth activation
-	var repoInfo pfs.RepoInfo
 	repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "list projects")
 	}
 	if err := stream.ForEach[*pfs.RepoInfo](ctx, repoIter, func(repo *pfs.RepoInfo) error {
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfo.Repo.AuthResource())
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}

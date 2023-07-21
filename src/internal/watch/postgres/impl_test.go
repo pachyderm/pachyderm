@@ -33,21 +33,23 @@ func TestWatchRepos(t *testing.T) {
 	config, err := pgx.ParseConfig(dsn)
 	require.NoError(t, err)
 	delete(config.RuntimeParams, "statement_cache_mode") // pgx doesn't like this
-	conn, err := pgx.ConnectConfig(ctx, config)
-	require.NoError(t, err)
-	listener := postgresWatcher.NewListener(conn)
 
 	// Start listening.
+	listener := postgresWatcher.NewListener()
 	ctx, cancelListener := context.WithCancel(ctx)
 	defer cancelListener()
 	go func() {
-		require.ErrorIs(t, context.Canceled, listener.Start(ctx))
+		require.ErrorIs(t, context.Canceled, listener.Start(ctx, config))
 	}()
 
-	// Create a watcher for the repos table.
+	// Start multiple watchers.
 	watchCtx, cancelWatcher := context.WithCancel(ctx)
 	defer cancelWatcher()
 	repoEvents, err := listener.Watch(watchCtx, v2_7_0.ReposPgChannel)
+	require.NoError(t, err)
+	repoEvents2, err := listener.Watch(watchCtx, v2_7_0.ReposPgChannel)
+	require.NoError(t, err)
+	repoEvents3, err := listener.Watch(watchCtx, v2_7_0.ReposPgChannel)
 	require.NoError(t, err)
 
 	// Generate events by creating repos in the default project.
@@ -60,18 +62,20 @@ func TestWatchRepos(t *testing.T) {
 
 	// Start watching for events.
 	// Note the reason we can start watching *after* we insert the rows is because the watcher is buffering events.
-	var results []*postgresWatcher.Event
-	for i := 0; i < 10; i++ {
-		event := <-repoEvents
-		if event.Error != nil {
-			t.Fatal(event.Error)
+	repoEventsChannels := []<-chan *postgresWatcher.Event{repoEvents, repoEvents2, repoEvents3}
+	for _, events := range repoEventsChannels {
+		var results []*postgresWatcher.Event
+		for i := 0; i < 10; i++ {
+			event := <-events
+			if event.Error != nil {
+				t.Fatal(event.Error)
+			}
+			require.Equal(t, postgresWatcher.EventInsert, event.EventType)
+			require.Equal(t, uint64(i+1), event.Id)
+			results = append(results, event)
 		}
-		require.Equal(t, postgresWatcher.EventInsert, event.EventType)
-		require.Equal(t, uint64(i+1), event.Id)
-		results = append(results, event)
+		require.Len(t, results, 10)
 	}
-	require.Len(t, results, 10)
-	fmt.Println("done")
 	cancelWatcher()
 	cancelListener()
 

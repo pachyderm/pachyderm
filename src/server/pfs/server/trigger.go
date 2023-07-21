@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"google.golang.org/protobuf/proto"
 	"time"
 
 	units "github.com/docker/go-units"
@@ -146,7 +147,7 @@ func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.Transac
 
 	biMaps := make(map[string]*pfs.BranchInfo)
 	if err := d.listBranchInTransaction(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
-		biMaps[bi.Branch.Name] = bi
+		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {
 		return err
