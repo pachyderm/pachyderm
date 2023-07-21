@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
+	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -8786,7 +8787,31 @@ func TestDeleteSpecRepo(t *testing.T) {
 		&pfs.DeleteRepoRequest{
 			Repo: client.NewSystemRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType),
 		})
-	require.NoError(t, err)
+	require.YesError(t, err)
+}
+
+func TestDeleteRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	dataRepo := tu.UniqueString("TestDeleteRepo_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	res, err := c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewRepo(pfs.DefaultProjectName, dataRepo),
+		})
+	require.NoError(t, err, "repo should be deleted")
+	want := &pfs.DeleteRepoResponse{
+		//DeletedRepos: []string{"default/" + dataRepo},
+		DeletedRepos: []String{pfs.DefaultProjectName + dataRepo},
+	}
+	if diff := cmp.Diff(res, want); diff != "" {
+		t.Errorf("unexpected response:\n%v", diff)
+	}
 }
 
 func TestDontReadStdin(t *testing.T) {

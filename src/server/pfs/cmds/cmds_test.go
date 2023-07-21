@@ -446,6 +446,24 @@ func TestDeleteNonExistRepo(t *testing.T) {
 	).Run())
 }
 
+func TestDeleteRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+			pachctl create project {{.project}}
+			pachctl create repo {{.repo}}
+			pachctl delete repo {{.repo}} 2>&1 | match 'deleted repos: [{{.project}}/{{.repo}}]'
+			`,
+		"project", tu.UniqueString("project"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
+
 func TestDeleteAllReposAllProjects(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
