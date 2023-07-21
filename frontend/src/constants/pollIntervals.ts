@@ -8,6 +8,11 @@ const getPollingIntervalFromEnv = () => {
   }
 
   const value = +envVar;
+
+  if (value === 0) {
+    return value;
+  }
+
   if (!+value) {
     console.error(
       `environment variable REACT_APP_POLLING appears to not be a number. Using a default value of ${defaultValue} instead.`,

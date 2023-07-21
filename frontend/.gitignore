@@ -39,9 +39,6 @@
 # production
 /build
 
-# mocks
-/src/mocks
-
 # code coverage
 /.nyc_output/
 

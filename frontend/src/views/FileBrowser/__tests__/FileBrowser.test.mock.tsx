@@ -364,7 +364,7 @@ describe('File Browser', () => {
           ],
         ).toHaveLength(17),
       );
-    }, 20_000);
+    });
 
     it('should not allow file deletion for outputRepos', async () => {
       window.history.replaceState(
