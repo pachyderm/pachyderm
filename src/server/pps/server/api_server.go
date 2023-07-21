@@ -3620,14 +3620,14 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 }
 
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
-	var clusterDefaults pps.ClusterDefaults
+	var clusterDefaults ppsdb.ClusterDefaultsWrapper
 	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, errors.Wrap(err, "could not read cluster defaults")
 		}
-		clusterDefaults.CreatePipelineRequestJson = "{}"
+		clusterDefaults.Json = "{}"
 	}
-	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
+	return &pps.GetClusterDefaultsResponse{ClusterDefaultsJson: clusterDefaults.Json}, nil
 }
 
 // jsonMergePatch merges a JSON patch in string form with a JSON target, also in
