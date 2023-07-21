@@ -119,7 +119,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       GOPROXY: https://proxy.golang.org
-    parallelism: 8
+    parallelism: 10
     steps:
       - checkout
       - run:
@@ -209,7 +209,7 @@ jobs:
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --raw-command \
               --rerun-fails \
-              --rerun-fails-max-failures=100 \
+              --rerun-fails-max-failures=15 \
               --format standard-verbose \
               --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
               --format testname \
