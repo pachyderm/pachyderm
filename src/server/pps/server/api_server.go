@@ -3620,14 +3620,14 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 }
 
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
-	var clusterDefaults pps.ClusterDefaults
+	var clusterDefaults ppsdb.ClusterDefaultsWrapper
 	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
-			return nil, errors.Wrap(err, "could not read cluster defaults")
+			return nil, unknownError(ctx, "could not read cluster defaults", err)
 		}
-		clusterDefaults.CreatePipelineRequestJson = "{}"
+		clusterDefaults.Json = "{}"
 	}
-	return &pps.GetClusterDefaultsResponse{ClusterDefaults: &clusterDefaults}, nil
+	return &pps.GetClusterDefaultsResponse{ClusterDefaultsJson: clusterDefaults.Json}, nil
 }
 
 // jsonMergePatch merges a JSON patch in string form with a JSON target, also in
@@ -3705,24 +3705,22 @@ func unknownError(ctx context.Context, msg string, err error) error {
 
 func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
 	var (
-		cd  = req.GetClusterDefaults()
-		crp pps.CreatePipelineRequest
+		cd pps.ClusterDefaults
 	)
-	if err := protojson.Unmarshal([]byte(cd.GetCreatePipelineRequestJson()), &crp); err != nil {
-		return nil, badRequest(ctx, "invalid pipeline details", []*errdetails.BadRequest_FieldViolation{
-			{Field: "cluster_defaults.details_json", Description: err.Error()},
+	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
+		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", cd); err != nil {
+		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
 			return err
 		}
 		return nil
 	}); err != nil {
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
-	return &pps.SetClusterDefaultsResponse{
-		EffectiveDetailsJson: cd.CreatePipelineRequestJson,
-	}, nil
+	// TODO(CORE-1708): add affected pipelines
+	return &pps.SetClusterDefaultsResponse{}, nil
 }

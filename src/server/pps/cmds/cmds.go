@@ -1482,11 +1482,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if err != nil {
 					return errors.Wrap(err, "could not get cluster defaults")
 				}
-				b, err := protojson.Marshal(resp.ClusterDefaults)
-				if err != nil {
-					return errors.Wrap(err, "could not marshal cluster defaults")
-				}
-				fmt.Println(string(b))
+				fmt.Println(resp.ClusterDefaultsJson)
 				return nil
 			}
 			return errors.New("--cluster must be specified")

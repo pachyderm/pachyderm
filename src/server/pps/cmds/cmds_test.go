@@ -1527,7 +1527,7 @@ func TestInspectClusterDefaults(t *testing.T) {
 		}, nil
 	})
 	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
-		pachctl inspect defaults --cluster | jq .createPipelineRequestJson | match '"{}"'
+		pachctl inspect defaults --cluster | match '{}'
 	`,
 	).Run())
 }
