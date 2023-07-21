@@ -370,9 +370,7 @@ func TestSetClusterDefaults(t *testing.T) {
 
 	t.Run("BadJSON", func(t *testing.T) {
 		_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-			ClusterDefaults: &pps.ClusterDefaults{
-				CreatePipelineRequestJson: `#<this is not JSON>`,
-			},
+			ClusterDefaultsJson: `#<this is not JSON>`,
 		})
 		require.YesError(t, err, "syntactically-invalid JSON is an error")
 		s, ok := status.FromError(err)
@@ -382,9 +380,7 @@ func TestSetClusterDefaults(t *testing.T) {
 
 	t.Run("InvalidDetails", func(t *testing.T) {
 		_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-			ClusterDefaults: &pps.ClusterDefaults{
-				CreatePipelineRequestJson: `{"not an valid spec field":123}`,
-			},
+			ClusterDefaultsJson: `{"not an valid spec field":123}`,
 		})
 		require.YesError(t, err, "invalid details are an error")
 		s, ok := status.FromError(err)
@@ -394,20 +390,18 @@ func TestSetClusterDefaults(t *testing.T) {
 
 	t.Run("ValidDetails", func(t *testing.T) {
 		resp, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-			ClusterDefaults: &pps.ClusterDefaults{
-				CreatePipelineRequestJson: `{"autoscaling": true}`,
-			},
+			ClusterDefaultsJson: `{"create_pipeline_request": {"autoscaling": true}}`,
 		})
-		require.NoError(t, err, "GetClusterDefaults failed")
-		require.NotEqual(t, "", resp.EffectiveDetailsJson, "returned effective details must not be empty")
+		require.NoError(t, err, "SetClusterDefaults failed")
 		// FIXME: this will change once CORE-1708 is implemented
 		require.Len(t, resp.AffectedPipelines, 0, "pipelines should not yet be affected by setting defaults")
 		getResp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 		require.NoError(t, err, "GetClusterDefaults failed")
 
-		var spec pps.CreatePipelineRequest
-		err = json.Unmarshal([]byte(getResp.GetClusterDefaults().GetCreatePipelineRequestJson()), &spec)
+		var defaults pps.ClusterDefaults
+		err = json.Unmarshal([]byte(getResp.GetClusterDefaultsJson()), &defaults)
 		require.NoError(t, err, "unmarshal retrieved cluster defaults")
-		require.True(t, spec.Autoscaling, "default autoscaling should be true after SetDetailsJSON")
+		require.NotNil(t, defaults.CreatePipelineRequest, "Create Pipeline Request should not be nil after SetClusterDefaults")
+		require.True(t, defaults.CreatePipelineRequest.Autoscaling, "default autoscaling should be true after SetClusterDefaults")
 	})
 }
