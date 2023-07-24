@@ -31,7 +31,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		AuthUser:    auth.RootUser,
 		Enterprise:  true,
 		PortOffset:  portOffset,
-		ValuesFiles: []string{minikubetestenv.HelmExamplesValuesLocalPath(t, "int-test-values-with-det.yaml")},
+		ValuesFiles: []string{minikubetestenv.ExampleValuesLocalPath(t, "int-test-values-with-det.yaml")},
 	}
 	valueOverrides["pachd.replicas"] = "1"
 

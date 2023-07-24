@@ -64,6 +64,7 @@ type DeployOpts struct {
 	WaitSeconds      int
 	EnterpriseMember bool
 	EnterpriseServer bool
+	Determined       bool
 	ValueOverrides   map[string]string
 	TLS              bool
 	CertPool         *x509.CertPool
@@ -90,7 +91,7 @@ func helmLock(f helmPutE) helmPutE {
 func helmChartLocalPath(t testing.TB) string {
 	return localPath(t, "etc", "helm", "pachyderm")
 }
-func HelmExamplesValuesLocalPath(t testing.TB, fileName string) string {
+func ExampleValuesLocalPath(t testing.TB, fileName string) string {
 	return localPath(t, "etc", "helm", "examples", fileName)
 }
 
@@ -346,6 +347,25 @@ func withoutProxy(namespace string) *helm.Options {
 	}
 }
 
+func withDetermined() *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			// "pachd.clusterDeploymentID":           "dev", DNJ TODO
+			// "pachd.resources.requests.cpu":        "250m",
+			// "pachd.resources.requests.memory":     "512M",
+			// "etcd.resources.requests.cpu":         "250m",
+			// "etcd.resources.requests.memory":      "512M",
+			// "pachd.defaultPipelineCPURequest":     "100m",
+			// "pachd.defaultPipelineMemoryRequest":  "64M",
+			// "pachd.defaultPipelineStorageRequest": "100Mi",
+			// "pachd.defaultSidecarCPURequest":      "100m",
+			// "pachd.defaultSidecarMemoryRequest":   "64M",
+			// "pachd.defaultSidecarStorageRequest":  "100Mi",
+			// "console.enabled":                     "false",
+		},
+	}
+}
+
 func union(a, b *helm.Options) *helm.Options {
 	c := &helm.Options{
 		SetValues:    make(map[string]string),
@@ -543,6 +563,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts = union(helmOpts, withPachd(version))
 		// TODO(acohen4): apply minio deployment to this namespace
 		helmOpts = union(helmOpts, withMinio())
+	}
+	if opts.Determined {
+		// install regcred DNJ TODO
+		helmOpts = union(helmOpts, withDetermined())
 	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
