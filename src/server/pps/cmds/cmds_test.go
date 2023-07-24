@@ -1545,7 +1545,7 @@ func TestCreateClusterDefaults(t *testing.T) {
 	})
 	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
 		pachctl inspect defaults --cluster | match '{}'
-		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster
+		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
 		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"autoscaling": false}}'
 	`,
 	).Run())
