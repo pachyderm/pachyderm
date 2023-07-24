@@ -3,7 +3,6 @@ package v2_6_0
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -60,14 +59,16 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 	return nil
 }
 
+type commit struct {
+	id             int
+	info           *v2_5_0.CommitInfo
+	totalFilesetMd *fileset.Metadata
+}
+
 func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	cis, err := listCollectionProtos(ctx, tx, "commits", &v2_5_0.CommitInfo{})
 	if err != nil {
 		return err
-	}
-	type commit struct {
-		id   int
-		info *v2_5_0.CommitInfo
 	}
 	commits := make(map[string]*commit)
 	id := 1
@@ -79,22 +80,20 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 		commits[oldCommitKey(ci.Commit)] = c
 	}
-	getCommitId := func(c *pfs.Commit) int {
-		return commits[oldCommitKey(c)].id
+	if err := getTotalFilesetMds(ctx, tx, commits); err != nil {
+		return err
 	}
-	getCommitInfo := func(c *pfs.Commit) *v2_5_0.CommitInfo {
-		return commits[oldCommitKey(c)].info
+	getCommit := func(c *pfs.Commit) *commit {
+		return commits[oldCommitKey(c)]
 	}
-	var deleteCommits []*v2_5_0.CommitInfo
 	// Insert the commits into pfs.commits.
 	if err := func() (retErr error) {
 		ctx, end := log.SpanContext(ctx, "insertCommits")
 		defer end(log.Errorp(&retErr))
 		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
 		for _, ci := range cis {
-			// Handle alias commit.
+			// Skip alias commit.
 			if ci.Origin.Kind == 4 {
-				deleteCommits = append(deleteCommits, ci)
 				continue
 			}
 			stmt := fmt.Sprintf(`INSERT INTO pfs.commits (commit_id, commit_set_id) VALUES ('%v', '%v')`, oldCommitKey(ci.Commit), ci.Commit.Id)
@@ -120,11 +119,11 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			ci := proto.Clone(ci).(*v2_5_0.CommitInfo)
 			// Update the parent and child commits.
 			if ci.ParentCommit != nil {
-				ci.ParentCommit = getRealAncestorCommit(getCommitInfo, realAncestorCommits, ci.ParentCommit)
+				ci.ParentCommit = getRealAncestorCommit(getCommit, realAncestorCommits, ci.ParentCommit)
 			}
 			var childCommits []*pfs.Commit
 			for _, child := range ci.ChildCommits {
-				childCommits = append(childCommits, getRealDescendantCommits(getCommitInfo, child)...)
+				childCommits = append(childCommits, getRealDescendantCommits(getCommit, child)...)
 			}
 			ci.ChildCommits = childCommits
 			// Update the direct provenance.
@@ -137,10 +136,10 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 				if _, ok := commits[oldCommitKey(toC)]; !ok {
 					continue
 				}
-				toC = getRealAncestorCommit(getCommitInfo, realAncestorCommits, toC)
+				toC = getRealAncestorCommit(getCommit, realAncestorCommits, toC)
 				directProvenance = append(directProvenance, toC)
-				from := strconv.Itoa(getCommitId(ci.Commit))
-				to := strconv.Itoa(getCommitId(toC))
+				from := strconv.Itoa(getCommit(ci.Commit).id)
+				to := strconv.Itoa(getCommit(toC).id)
 				stmt := fmt.Sprintf(`INSERT INTO pfs.commit_provenance(from_id, to_id) VALUES (%v, %v)`, from, to)
 				if err := batcher.Add(stmt); err != nil {
 					return err
@@ -161,29 +160,19 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}(); err != nil {
 		return err
 	}
-	// Validate the alias commits that will be deleted.
-	var count int
-	for _, ci := range deleteCommits {
-		log.Info(ctx, "validating deleted alias commit",
-			zap.String("commit", oldCommitKey(ci.Commit)),
-			zap.String("progress", fmt.Sprintf("%v/%v", count, len(deleteCommits))),
-		)
-		same, err := sameFileSets(ctx, tx, ci.Commit, ci.ParentCommit)
-		if err != nil {
-			return err
-		}
-		if !same {
-			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than its first real ancestor",
-				oldCommitKey(ci.Commit))
-		}
-		count++
-	}
 	// Delete the alias commits.
 	if err := func() (retErr error) {
 		ctx, end := log.SpanContext(ctx, "deleteAliasCommits")
 		defer end(log.Errorp(&retErr))
 		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
-		for _, ci := range deleteCommits {
+		for _, ci := range cis {
+			// Skip non-alias commit.
+			if ci.Origin.Kind != 4 {
+				continue
+			}
+			if err := checkAliasCommit(getCommit, ci.Commit, ci.ParentCommit); err != nil {
+				return err
+			}
 			key := oldCommitKey(ci.Commit)
 			stmt := fmt.Sprintf(`DELETE FROM collections.commits WHERE key='%v'`, key)
 			if err := batcher.Add(stmt); err != nil {
@@ -213,7 +202,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	for _, bi := range bis {
 		if err := updateBranch(ctx, tx, bi.Branch, func(bi *pfs.BranchInfo) {
-			bi.Head = getRealAncestorCommit(getCommitInfo, realAncestorCommits, bi.Head)
+			bi.Head = getRealAncestorCommit(getCommit, realAncestorCommits, bi.Head)
 		}); err != nil {
 			return errors.Wrap(err, "update headless branches")
 		}
@@ -221,28 +210,49 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
-func getRealAncestorCommit(getCommitInfo func(*pfs.Commit) *v2_5_0.CommitInfo, realAncestorCommits map[string]*pfs.Commit, c *pfs.Commit) *pfs.Commit {
+func getTotalFilesetMds(ctx context.Context, tx *pachsql.Tx, commits map[string]*commit) (retErr error) {
+	rs, err := tx.QueryContext(ctx, "SELECT commit_id, metadata_pb FROM pfs.commit_totals JOIN storage.filesets ON fileset_id = id")
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer errors.Close(&retErr, rs, "close rows")
+	for rs.Next() {
+		var id string
+		var data []byte
+		if err := rs.Scan(&id, &data); err != nil {
+			return errors.EnsureStack(err)
+		}
+		md := &fileset.Metadata{}
+		if err := proto.Unmarshal(data, md); err != nil {
+			return errors.EnsureStack(err)
+		}
+		commits[id].totalFilesetMd = md
+	}
+	return errors.EnsureStack(rs.Err())
+}
+
+func getRealAncestorCommit(getCommit func(*pfs.Commit) *commit, realAncestorCommits map[string]*pfs.Commit, c *pfs.Commit) *pfs.Commit {
 	realAncestorCommit, ok := realAncestorCommits[oldCommitKey(c)]
 	if ok {
 		return realAncestorCommit
 	}
-	ci := getCommitInfo(c)
+	ci := getCommit(c).info
 	if ci.Origin.Kind != 4 {
 		return c
 	}
-	realAncestorCommit = getRealAncestorCommit(getCommitInfo, realAncestorCommits, ci.ParentCommit)
+	realAncestorCommit = getRealAncestorCommit(getCommit, realAncestorCommits, ci.ParentCommit)
 	realAncestorCommits[oldCommitKey(c)] = realAncestorCommit
 	return realAncestorCommit
 }
 
-func getRealDescendantCommits(getCommitInfo func(*pfs.Commit) *v2_5_0.CommitInfo, c *pfs.Commit) []*pfs.Commit {
-	ci := getCommitInfo(c)
+func getRealDescendantCommits(getCommit func(*pfs.Commit) *commit, c *pfs.Commit) []*pfs.Commit {
+	ci := getCommit(c).info
 	if ci.Origin.Kind != 4 {
 		return []*pfs.Commit{c}
 	}
 	var childCommits []*pfs.Commit
 	for _, child := range ci.ChildCommits {
-		childCommits = append(childCommits, getRealDescendantCommits(getCommitInfo, child)...)
+		childCommits = append(childCommits, getRealDescendantCommits(getCommit, child)...)
 	}
 	return childCommits
 }
@@ -263,60 +273,48 @@ func convertCommitInfoToV2_6_0(ci *v2_5_0.CommitInfo) *pfs.CommitInfo {
 	}
 }
 
-func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.Commit) (bool, error) {
-	md1, err := getFileSetMd(ctx, tx, c1)
-	if err != nil {
-		return false, err
-	}
-	md2, err := getFileSetMd(ctx, tx, c2)
-	if err != nil {
-		return false, err
-	}
-	if md1 == nil || md2 == nil {
-		// the semantics here are a little odd - if either commit doesn't have a fileset yet,
-		// we assume that they aren't different and are therefore the same.
-		return true, nil
-	}
-	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
-		ser1, err := proto.Marshal(md1.GetPrimitive())
-		if err != nil {
-			return false, errors.Wrap(err, "marshal first primitive fileset")
+func checkAliasCommit(getCommit func(*pfs.Commit) *commit, commit *pfs.Commit, parentCommit *pfs.Commit) error {
+	md1 := getCommit(commit).totalFilesetMd
+	md2 := getCommit(parentCommit).totalFilesetMd
+	same, err := func() (bool, error) {
+		if md1 == nil || md2 == nil {
+			// the semantics here are a little odd - if either commit doesn't have a fileset yet,
+			// we assume that they aren't different and are therefore the same.
+			return true, nil
 		}
-		ser2, err := proto.Marshal(md2.GetPrimitive())
-		if err != nil {
-			return false, errors.Wrap(err, "marshal second primitive fileset")
+		if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
+			ser1, err := proto.Marshal(md1.GetPrimitive())
+			if err != nil {
+				return false, errors.EnsureStack(err)
+			}
+			ser2, err := proto.Marshal(md2.GetPrimitive())
+			if err != nil {
+				return false, errors.EnsureStack(err)
+			}
+			return bytes.Equal(ser1, ser2), nil
 		}
-		return bytes.Equal(ser1, ser2), nil
-	} else if md1.GetComposite() != nil && md2.GetComposite() != nil {
-		comp1Layers := md1.GetComposite().Layers
-		comp2Layers := md2.GetComposite().Layers
-		if len(comp1Layers) != len(comp2Layers) {
-			return false, nil
-		}
-		for i, l := range comp1Layers {
-			if l != comp2Layers[i] {
+		if md1.GetComposite() != nil && md2.GetComposite() != nil {
+			comp1Layers := md1.GetComposite().Layers
+			comp2Layers := md2.GetComposite().Layers
+			if len(comp1Layers) != len(comp2Layers) {
 				return false, nil
 			}
+			for i, l := range comp1Layers {
+				if l != comp2Layers[i] {
+					return false, nil
+				}
+			}
+			return true, nil
 		}
-		return true, nil
-	} else {
 		return false, nil
+	}()
+	if err != nil {
+		return err
 	}
-}
-
-func getFileSetMd(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) (*fileset.Metadata, error) {
-	var mdData []byte
-	if err := tx.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets JOIN pfs.commit_totals ON id = fileset_id WHERE commit_id = $1`, oldCommitKey(c)); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, errors.EnsureStack(err)
+	if !same {
+		return errors.Errorf("commit %q is listed as ALIAS but has a different ID than its parent commit", oldCommitKey(commit))
 	}
-	md := &fileset.Metadata{}
-	if err := proto.Unmarshal(mdData, md); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return md, nil
+	return nil
 }
 
 func updateBranch(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch, f func(bi *pfs.BranchInfo)) error {
