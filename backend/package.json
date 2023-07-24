@@ -80,6 +80,7 @@
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-testing-library": "^5.9.1",
     "jest": "27.5.1",
+    "msw": "^1.2.3",
     "node-jq": "2.3.5",
     "nodemon": "2.0.20",
     "ts-jest": "^27.1.3",

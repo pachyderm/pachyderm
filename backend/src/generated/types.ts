@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {GraphQLResolveInfo} from 'graphql';
+import {graphql, ResponseResolver, GraphQLRequest, GraphQLContext} from 'msw';
 
 import {Context} from '@dash-backend/lib/types';
 export type Maybe<T> = T | null;
@@ -4178,3 +4179,1126 @@ export type GetVersionInfoQuery = {
     } | null;
   };
 };
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockCreateBranchMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ createBranch })
+ *   )
+ * })
+ */
+export const mockCreateBranchMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CreateBranchMutationVariables>,
+    GraphQLContext<CreateBranchMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<CreateBranchMutation, CreateBranchMutationVariables>(
+    'createBranch',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockCreatePipelineMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ createPipeline })
+ *   )
+ * })
+ */
+export const mockCreatePipelineMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CreatePipelineMutationVariables>,
+    GraphQLContext<CreatePipelineMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<CreatePipelineMutation, CreatePipelineMutationVariables>(
+    'createPipeline',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockCreateProjectMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ createProject })
+ *   )
+ * })
+ */
+export const mockCreateProjectMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CreateProjectMutationVariables>,
+    GraphQLContext<CreateProjectMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<CreateProjectMutation, CreateProjectMutationVariables>(
+    'createProject',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockCreateRepoMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ createRepo })
+ *   )
+ * })
+ */
+export const mockCreateRepoMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CreateRepoMutationVariables>,
+    GraphQLContext<CreateRepoMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<CreateRepoMutation, CreateRepoMutationVariables>(
+    'createRepo',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockDeleteFilesMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ deleteFiles })
+ *   )
+ * })
+ */
+export const mockDeleteFilesMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<DeleteFilesMutationVariables>,
+    GraphQLContext<DeleteFilesMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<DeleteFilesMutation, DeleteFilesMutationVariables>(
+    'deleteFiles',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockDeletePipelineMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ deletePipeline })
+ *   )
+ * })
+ */
+export const mockDeletePipelineMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<DeletePipelineMutationVariables>,
+    GraphQLContext<DeletePipelineMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<DeletePipelineMutation, DeletePipelineMutationVariables>(
+    'deletePipeline',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockDeleteProjectAndResourcesMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ deleteProjectAndResources })
+ *   )
+ * })
+ */
+export const mockDeleteProjectAndResourcesMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<DeleteProjectAndResourcesMutationVariables>,
+    GraphQLContext<DeleteProjectAndResourcesMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<
+    DeleteProjectAndResourcesMutation,
+    DeleteProjectAndResourcesMutationVariables
+  >('deleteProjectAndResources', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockDeleteRepoMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ deleteRepo })
+ *   )
+ * })
+ */
+export const mockDeleteRepoMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<DeleteRepoMutationVariables>,
+    GraphQLContext<DeleteRepoMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<DeleteRepoMutation, DeleteRepoMutationVariables>(
+    'deleteRepo',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockExchangeCodeMutation((req, res, ctx) => {
+ *   const { code } = req.variables;
+ *   return res(
+ *     ctx.data({ exchangeCode })
+ *   )
+ * })
+ */
+export const mockExchangeCodeMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ExchangeCodeMutationVariables>,
+    GraphQLContext<ExchangeCodeMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<ExchangeCodeMutation, ExchangeCodeMutationVariables>(
+    'exchangeCode',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockFinishCommitMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ finishCommit })
+ *   )
+ * })
+ */
+export const mockFinishCommitMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<FinishCommitMutationVariables>,
+    GraphQLContext<FinishCommitMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<FinishCommitMutation, FinishCommitMutationVariables>(
+    'finishCommit',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockModifyRolesMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ modifyRoles })
+ *   )
+ * })
+ */
+export const mockModifyRolesMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ModifyRolesMutationVariables>,
+    GraphQLContext<ModifyRolesMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<ModifyRolesMutation, ModifyRolesMutationVariables>(
+    'modifyRoles',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockPutFilesFromUrLsMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ putFilesFromURLs })
+ *   )
+ * })
+ */
+export const mockPutFilesFromUrLsMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<PutFilesFromUrLsMutationVariables>,
+    GraphQLContext<PutFilesFromUrLsMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<PutFilesFromUrLsMutation, PutFilesFromUrLsMutationVariables>(
+    'putFilesFromURLs',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockStartCommitMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ startCommit })
+ *   )
+ * })
+ */
+export const mockStartCommitMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<StartCommitMutationVariables>,
+    GraphQLContext<StartCommitMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<StartCommitMutation, StartCommitMutationVariables>(
+    'startCommit',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockUpdateProjectMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ updateProject })
+ *   )
+ * })
+ */
+export const mockUpdateProjectMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<UpdateProjectMutationVariables>,
+    GraphQLContext<UpdateProjectMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<UpdateProjectMutation, UpdateProjectMutationVariables>(
+    'updateProject',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetAccountQuery((req, res, ctx) => {
+ *   return res(
+ *     ctx.data({ account })
+ *   )
+ * })
+ */
+export const mockGetAccountQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetAccountQueryVariables>,
+    GraphQLContext<GetAccountQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetAccountQuery, GetAccountQueryVariables>(
+    'getAccount',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetAdminInfoQuery((req, res, ctx) => {
+ *   return res(
+ *     ctx.data({ adminInfo })
+ *   )
+ * })
+ */
+export const mockGetAdminInfoQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetAdminInfoQueryVariables>,
+    GraphQLContext<GetAdminInfoQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetAdminInfoQuery, GetAdminInfoQueryVariables>(
+    'getAdminInfo',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockAuthConfigQuery((req, res, ctx) => {
+ *   return res(
+ *     ctx.data({ authConfig })
+ *   )
+ * })
+ */
+export const mockAuthConfigQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<AuthConfigQueryVariables>,
+    GraphQLContext<AuthConfigQuery>,
+    any
+  >,
+) =>
+  graphql.query<AuthConfigQuery, AuthConfigQueryVariables>(
+    'authConfig',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetAuthorizeQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ getAuthorize })
+ *   )
+ * })
+ */
+export const mockGetAuthorizeQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetAuthorizeQueryVariables>,
+    GraphQLContext<GetAuthorizeQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetAuthorizeQuery, GetAuthorizeQueryVariables>(
+    'getAuthorize',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetBranchesQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ branches })
+ *   )
+ * })
+ */
+export const mockGetBranchesQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetBranchesQueryVariables>,
+    GraphQLContext<GetBranchesQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetBranchesQuery, GetBranchesQueryVariables>(
+    'getBranches',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockCommitDiffQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ commitDiff })
+ *   )
+ * })
+ */
+export const mockCommitDiffQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CommitDiffQueryVariables>,
+    GraphQLContext<CommitDiffQuery>,
+    any
+  >,
+) =>
+  graphql.query<CommitDiffQuery, CommitDiffQueryVariables>(
+    'commitDiff',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockCommitQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ commit })
+ *   )
+ * })
+ */
+export const mockCommitQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CommitQueryVariables>,
+    GraphQLContext<CommitQuery>,
+    any
+  >,
+) => graphql.query<CommitQuery, CommitQueryVariables>('commit', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockCommitSearchQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ commitSearch })
+ *   )
+ * })
+ */
+export const mockCommitSearchQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CommitSearchQueryVariables>,
+    GraphQLContext<CommitSearchQuery>,
+    any
+  >,
+) =>
+  graphql.query<CommitSearchQuery, CommitSearchQueryVariables>(
+    'commitSearch',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetCommitsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ commits })
+ *   )
+ * })
+ */
+export const mockGetCommitsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetCommitsQueryVariables>,
+    GraphQLContext<GetCommitsQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetCommitsQuery, GetCommitsQueryVariables>(
+    'getCommits',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetDagQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ dag })
+ *   )
+ * })
+ */
+export const mockGetDagQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetDagQueryVariables>,
+    GraphQLContext<GetDagQuery>,
+    any
+  >,
+) => graphql.query<GetDagQuery, GetDagQueryVariables>('getDag', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockDatumQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ datum })
+ *   )
+ * })
+ */
+export const mockDatumQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<DatumQueryVariables>,
+    GraphQLContext<DatumQuery>,
+    any
+  >,
+) => graphql.query<DatumQuery, DatumQueryVariables>('datum', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockDatumSearchQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ datumSearch })
+ *   )
+ * })
+ */
+export const mockDatumSearchQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<DatumSearchQueryVariables>,
+    GraphQLContext<DatumSearchQuery>,
+    any
+  >,
+) =>
+  graphql.query<DatumSearchQuery, DatumSearchQueryVariables>(
+    'datumSearch',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockDatumsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ datums })
+ *   )
+ * })
+ */
+export const mockDatumsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<DatumsQueryVariables>,
+    GraphQLContext<DatumsQuery>,
+    any
+  >,
+) => graphql.query<DatumsQuery, DatumsQueryVariables>('datums', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetEnterpriseInfoQuery((req, res, ctx) => {
+ *   return res(
+ *     ctx.data({ enterpriseInfo })
+ *   )
+ * })
+ */
+export const mockGetEnterpriseInfoQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetEnterpriseInfoQueryVariables>,
+    GraphQLContext<GetEnterpriseInfoQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetEnterpriseInfoQuery, GetEnterpriseInfoQueryVariables>(
+    'getEnterpriseInfo',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockFileDownloadQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ fileDownload })
+ *   )
+ * })
+ */
+export const mockFileDownloadQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<FileDownloadQueryVariables>,
+    GraphQLContext<FileDownloadQuery>,
+    any
+  >,
+) =>
+  graphql.query<FileDownloadQuery, FileDownloadQueryVariables>(
+    'fileDownload',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetFilesQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ files })
+ *   )
+ * })
+ */
+export const mockGetFilesQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetFilesQueryVariables>,
+    GraphQLContext<GetFilesQuery>,
+    any
+  >,
+) => graphql.query<GetFilesQuery, GetFilesQueryVariables>('getFiles', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockFindCommitsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ findCommits })
+ *   )
+ * })
+ */
+export const mockFindCommitsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<FindCommitsQueryVariables>,
+    GraphQLContext<FindCommitsQuery>,
+    any
+  >,
+) =>
+  graphql.query<FindCommitsQuery, FindCommitsQueryVariables>(
+    'findCommits',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockJobQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ job })
+ *   )
+ * })
+ */
+export const mockJobQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<JobQueryVariables>,
+    GraphQLContext<JobQuery>,
+    any
+  >,
+) => graphql.query<JobQuery, JobQueryVariables>('job', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockJobSetsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ jobSets })
+ *   )
+ * })
+ */
+export const mockJobSetsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<JobSetsQueryVariables>,
+    GraphQLContext<JobSetsQuery>,
+    any
+  >,
+) => graphql.query<JobSetsQuery, JobSetsQueryVariables>('jobSets', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockJobsByPipelineQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ jobsByPipeline })
+ *   )
+ * })
+ */
+export const mockJobsByPipelineQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<JobsByPipelineQueryVariables>,
+    GraphQLContext<JobsByPipelineQuery>,
+    any
+  >,
+) =>
+  graphql.query<JobsByPipelineQuery, JobsByPipelineQueryVariables>(
+    'jobsByPipeline',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockJobsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ jobs })
+ *   )
+ * })
+ */
+export const mockJobsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<JobsQueryVariables>,
+    GraphQLContext<JobsQuery>,
+    any
+  >,
+) => graphql.query<JobsQuery, JobsQueryVariables>('jobs', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockJobSetQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ jobSet })
+ *   )
+ * })
+ */
+export const mockJobSetQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<JobSetQueryVariables>,
+    GraphQLContext<JobSetQuery>,
+    any
+  >,
+) => graphql.query<JobSetQuery, JobSetQueryVariables>('jobSet', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetWorkspaceLogsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ workspaceLogs })
+ *   )
+ * })
+ */
+export const mockGetWorkspaceLogsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetWorkspaceLogsQueryVariables>,
+    GraphQLContext<GetWorkspaceLogsQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetWorkspaceLogsQuery, GetWorkspaceLogsQueryVariables>(
+    'getWorkspaceLogs',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetLogsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ logs })
+ *   )
+ * })
+ */
+export const mockGetLogsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetLogsQueryVariables>,
+    GraphQLContext<GetLogsQuery>,
+    any
+  >,
+) => graphql.query<GetLogsQuery, GetLogsQueryVariables>('getLogs', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetPermissionsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ getPermissions })
+ *   )
+ * })
+ */
+export const mockGetPermissionsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetPermissionsQueryVariables>,
+    GraphQLContext<GetPermissionsQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetPermissionsQuery, GetPermissionsQueryVariables>(
+    'getPermissions',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockPipelineQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ pipeline })
+ *   )
+ * })
+ */
+export const mockPipelineQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<PipelineQueryVariables>,
+    GraphQLContext<PipelineQuery>,
+    any
+  >,
+) => graphql.query<PipelineQuery, PipelineQueryVariables>('pipeline', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockPipelinesQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ pipelines })
+ *   )
+ * })
+ */
+export const mockPipelinesQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<PipelinesQueryVariables>,
+    GraphQLContext<PipelinesQuery>,
+    any
+  >,
+) =>
+  graphql.query<PipelinesQuery, PipelinesQueryVariables>('pipelines', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockProjectDetailsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ projectDetails })
+ *   )
+ * })
+ */
+export const mockProjectDetailsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ProjectDetailsQueryVariables>,
+    GraphQLContext<ProjectDetailsQuery>,
+    any
+  >,
+) =>
+  graphql.query<ProjectDetailsQuery, ProjectDetailsQueryVariables>(
+    'projectDetails',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockProjectQuery((req, res, ctx) => {
+ *   const { id } = req.variables;
+ *   return res(
+ *     ctx.data({ project })
+ *   )
+ * })
+ */
+export const mockProjectQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ProjectQueryVariables>,
+    GraphQLContext<ProjectQuery>,
+    any
+  >,
+) => graphql.query<ProjectQuery, ProjectQueryVariables>('project', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockProjectsQuery((req, res, ctx) => {
+ *   return res(
+ *     ctx.data({ projects })
+ *   )
+ * })
+ */
+export const mockProjectsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ProjectsQueryVariables>,
+    GraphQLContext<ProjectsQuery>,
+    any
+  >,
+) => graphql.query<ProjectsQuery, ProjectsQueryVariables>('projects', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockRepoQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ repo })
+ *   )
+ * })
+ */
+export const mockRepoQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<RepoQueryVariables>,
+    GraphQLContext<RepoQuery>,
+    any
+  >,
+) => graphql.query<RepoQuery, RepoQueryVariables>('repo', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockRepoWithCommitQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ repo })
+ *   )
+ * })
+ */
+export const mockRepoWithCommitQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<RepoWithCommitQueryVariables>,
+    GraphQLContext<RepoWithCommitQuery>,
+    any
+  >,
+) =>
+  graphql.query<RepoWithCommitQuery, RepoWithCommitQueryVariables>(
+    'repoWithCommit',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockRepoWithLinkedPipelineQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ repo })
+ *   )
+ * })
+ */
+export const mockRepoWithLinkedPipelineQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<RepoWithLinkedPipelineQueryVariables>,
+    GraphQLContext<RepoWithLinkedPipelineQuery>,
+    any
+  >,
+) =>
+  graphql.query<
+    RepoWithLinkedPipelineQuery,
+    RepoWithLinkedPipelineQueryVariables
+  >('repoWithLinkedPipeline', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockReposQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ repos })
+ *   )
+ * })
+ */
+export const mockReposQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ReposQueryVariables>,
+    GraphQLContext<ReposQuery>,
+    any
+  >,
+) => graphql.query<ReposQuery, ReposQueryVariables>('repos', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockReposWithCommitQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ repos })
+ *   )
+ * })
+ */
+export const mockReposWithCommitQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ReposWithCommitQueryVariables>,
+    GraphQLContext<ReposWithCommitQuery>,
+    any
+  >,
+) =>
+  graphql.query<ReposWithCommitQuery, ReposWithCommitQueryVariables>(
+    'reposWithCommit',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetRolesQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ getRoles })
+ *   )
+ * })
+ */
+export const mockGetRolesQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetRolesQueryVariables>,
+    GraphQLContext<GetRolesQuery>,
+    any
+  >,
+) => graphql.query<GetRolesQuery, GetRolesQueryVariables>('getRoles', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockSearchResultsQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ searchResults })
+ *   )
+ * })
+ */
+export const mockSearchResultsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<SearchResultsQueryVariables>,
+    GraphQLContext<SearchResultsQuery>,
+    any
+  >,
+) =>
+  graphql.query<SearchResultsQuery, SearchResultsQueryVariables>(
+    'searchResults',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetVersionInfoQuery((req, res, ctx) => {
+ *   return res(
+ *     ctx.data({ versionInfo })
+ *   )
+ * })
+ */
+export const mockGetVersionInfoQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetVersionInfoQueryVariables>,
+    GraphQLContext<GetVersionInfoQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetVersionInfoQuery, GetVersionInfoQueryVariables>(
+    'getVersionInfo',
+    resolver,
+  );

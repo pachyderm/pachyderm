@@ -1,8 +1,7 @@
-import {GetVersionInfoQuery} from '@graphqlTypes';
-import {graphql} from 'msw';
+import {mockGetVersionInfoQuery} from '@graphqlTypes';
 
 export const mockGetVersionInfo = () =>
-  graphql.query<GetVersionInfoQuery>('getVersionInfo', (_req, res, ctx) => {
+  mockGetVersionInfoQuery((_req, res, ctx) => {
     return res(
       ctx.data({
         versionInfo: {

@@ -16,6 +16,7 @@ generates:
       - typescript
       - typescript-resolvers
       - typescript-operations
+      - typescript-msw
       - add:
           content:
             - "/* eslint-disable @typescript-eslint/ban-types */"

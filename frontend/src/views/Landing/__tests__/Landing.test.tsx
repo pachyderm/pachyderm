@@ -1,10 +1,9 @@
 import {
   CreateProjectArgs,
   CreateProjectMutation,
-  DeleteProjectAndResourcesArgs,
-  DeleteProjectAndResourcesMutation,
   ProjectStatus,
-  ProjectDetailsQuery,
+  mockDeleteProjectAndResourcesMutation,
+  mockCreateProjectMutation,
 } from '@graphqlTypes';
 import {render, waitFor, within, screen} from '@testing-library/react';
 import {graphql} from 'msw';
@@ -16,7 +15,6 @@ import {
   mockEmptyProjectDetails,
   mockGetVersionInfo,
   mockEmptyGetAuthorize,
-  MOCK_PROJECT_A_DETAILS,
 } from '@dash-frontend/mocks';
 import {
   withContextProviders,
@@ -27,9 +25,9 @@ import {
 
 import LandingComponent from '../Landing';
 
-const server = setupServer();
-
 describe('Landing', () => {
+  const server = setupServer();
+
   const Landing = withContextProviders(() => {
     return <LandingComponent />;
   });
@@ -219,26 +217,6 @@ describe('Landing', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('should not display the project details when the project is empty', async () => {
-    render(<Landing />);
-
-    expect(
-      await screen.findByText('Create your first repo/pipeline!'),
-    ).toBeInTheDocument();
-  });
-
-  it('should display the project details', async () => {
-    server.use(
-      graphql.query<ProjectDetailsQuery>('projectDetails', (_req, res, ctx) => {
-        return res(ctx.data(MOCK_PROJECT_A_DETAILS));
-      }),
-    );
-    render(<Landing />);
-
-    expect(await screen.findByText('3/2')).toBeInTheDocument();
-    expect(await screen.findByText('3 kB')).toBeInTheDocument();
-  });
-
   it('should give users a pachctl command to set their active project', async () => {
     render(<Landing />);
 
@@ -266,22 +244,19 @@ describe('Landing', () => {
   describe('Create Project Modal', () => {
     it('should create a project', async () => {
       server.use(
-        graphql.mutation<CreateProjectMutation, {args: CreateProjectArgs}>(
-          'createProject',
-          (req, res, ctx) => {
-            const {args} = req.variables;
-            return res(
-              ctx.data({
-                createProject: {
-                  id: args.name,
-                  description: args.description,
-                  status: ProjectStatus.HEALTHY,
-                  __typename: 'Project',
-                },
-              }),
-            );
-          },
-        ),
+        mockCreateProjectMutation((req, res, ctx) => {
+          const {args} = req.variables;
+          return res(
+            ctx.data({
+              createProject: {
+                id: args.name,
+                description: args.description,
+                status: ProjectStatus.HEALTHY,
+                __typename: 'Project',
+              },
+            }),
+          );
+        }),
       );
 
       render(<Landing />);
@@ -335,10 +310,7 @@ describe('Landing', () => {
   describe('Delete Project Modal', () => {
     it('should delete a project', async () => {
       server.use(
-        graphql.mutation<
-          DeleteProjectAndResourcesMutation,
-          {args: DeleteProjectAndResourcesArgs}
-        >('deleteProjectAndResources', (req, res, ctx) => {
+        mockDeleteProjectAndResourcesMutation((req, res, ctx) => {
           if (req.variables.args.name === 'ProjectA') {
             return res(
               ctx.data({

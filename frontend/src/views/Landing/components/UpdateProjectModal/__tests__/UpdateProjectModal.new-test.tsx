@@ -1,8 +1,4 @@
-import {
-  UpdateProjectArgs,
-  UpdateProjectMutation,
-  ProjectStatus,
-} from '@graphqlTypes';
+import {mockUpdateProjectMutation, ProjectStatus} from '@graphqlTypes';
 import {render, screen, within} from '@testing-library/react';
 import {graphql} from 'msw';
 import {setupServer} from 'msw/node';
@@ -42,22 +38,19 @@ describe('UpdateProjectModal', () => {
 
   it.skip('should update a project description with no text then with text', async () => {
     server.use(
-      graphql.mutation<UpdateProjectMutation, {args: UpdateProjectArgs}>(
-        'updateProject',
-        (req, res, ctx) => {
-          const {args} = req.variables;
-          return res(
-            ctx.data({
-              updateProject: {
-                id: args.name,
-                description: args.description,
-                status: ProjectStatus.HEALTHY,
-                __typename: 'Project',
-              },
-            }),
-          );
-        },
-      ),
+      mockUpdateProjectMutation((req, res, ctx) => {
+        const {args} = req.variables;
+        return res(
+          ctx.data({
+            updateProject: {
+              id: args.name,
+              description: args.description,
+              status: ProjectStatus.HEALTHY,
+              __typename: 'Project',
+            },
+          }),
+        );
+      }),
     );
     render(<Landing />);
 

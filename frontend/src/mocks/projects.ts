@@ -1,11 +1,11 @@
 import {
   ProjectDetailsQuery,
-  ProjectsQuery,
   NodeState,
   JobState,
   ProjectStatus,
+  mockProjectDetailsQuery,
+  mockProjectsQuery,
 } from '@graphqlTypes';
-import {graphql} from 'msw';
 
 export const ALL_PROJECTS = {
   projects: [
@@ -27,7 +27,7 @@ export const ALL_PROJECTS = {
   ],
 };
 
-export const MOCK_PROJECT_A_DETAILS: ProjectDetailsQuery = {
+export const MOCK_PROJECT_DETAILS: ProjectDetailsQuery = {
   projectDetails: {
     sizeDisplay: '3 kB',
     repoCount: 3,
@@ -206,6 +206,16 @@ export const MOCK_PROJECT_A_DETAILS: ProjectDetailsQuery = {
   },
 };
 
+export const MOCK_PROJECT_DETAILS_NO_JOBS: ProjectDetailsQuery = {
+  projectDetails: {
+    sizeDisplay: '3 kB',
+    repoCount: 3,
+    pipelineCount: 2,
+    jobSets: [],
+    __typename: 'ProjectDetails',
+  },
+};
+
 export const MOCK_EMPTY_PROJECT_DETAILS: ProjectDetailsQuery = {
   projectDetails: {
     sizeDisplay: '0 B',
@@ -217,11 +227,11 @@ export const MOCK_EMPTY_PROJECT_DETAILS: ProjectDetailsQuery = {
 };
 
 export const mockProjects = () =>
-  graphql.query<ProjectsQuery>('projects', (_req, res, ctx) => {
+  mockProjectsQuery((_req, res, ctx) => {
     return res(ctx.data(ALL_PROJECTS));
   });
 
 export const mockEmptyProjectDetails = () =>
-  graphql.query<ProjectDetailsQuery>('projectDetails', (_req, res, ctx) => {
+  mockProjectDetailsQuery((_req, res, ctx) => {
     return res(ctx.data(MOCK_EMPTY_PROJECT_DETAILS));
   });
