@@ -2126,11 +2126,16 @@ func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePip
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
 
-	clusterDefaults, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "could not get cluster defaults")
 	}
-	s, err := jsonMergePatch(clusterDefaults.ClusterDefaults.GetCreatePipelineRequestJson(), request.GetCreatePipelineRequestJson())
+
+	js := clusterDefaultsResponse.GetClusterDefaults().GetCreatePipelineRequestJson()
+	if js == "" {
+		js = "{}"
+	}
+	s, err := jsonMergePatch(js, request.GetCreatePipelineRequestJson())
 	if err != nil {
 		return nil, badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
@@ -2145,7 +2150,7 @@ func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePip
 	}
 	cpr.Update = request.Update
 	cpr.Reprocess = request.Reprocess
-	if _, err := a.CreatePipeline(ctx, &cpr); err != nil {
+	if err := a.createPipeline(ctx, &cpr); err != nil {
 		return nil, err
 	}
 	return &pps.CreatePipelineV2Response{
@@ -2176,11 +2181,15 @@ func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePip
 //   - Rather than try to enumerate every case where we can't create a spec
 //     commit without stopping the pipeline, we just always stop the pipeline.
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
+	return &emptypb.Empty{}, a.createPipeline(ctx, request)
+}
+
+func (a *apiServer) createPipeline(ctx context.Context, request *pps.CreatePipelineRequest) (err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
 
 	if request.Pipeline == nil {
-		return nil, errors.New("request.Pipeline cannot be nil")
+		return errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(request.GetPipeline())
 
@@ -2188,28 +2197,27 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "project", request.Pipeline.Project.GetName(), "pipeline", request.Pipeline.Name)
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr)
+		tracing.TagAnySpan(span, "err", err)
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline)
 
 	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := a.validateSecret(ctx, request); err != nil {
-		return nil, err
+		return err
 	}
 	if request.Determined != nil {
 		if err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces); err != nil {
-			return nil, errors.Wrap(err, "create det pipeline side effects")
+			return errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}); err != nil {
-		return nil, err
+		return err
 	}
-	return &emptypb.Empty{}, nil
 }
 
 // CreateDetPipelineSideEffects modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
