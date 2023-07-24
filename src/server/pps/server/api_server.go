@@ -2126,35 +2126,12 @@ func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePip
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
 
-	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	js, err := a.createPipeline(ctx, request)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "could not get cluster defaults")
-	}
-
-	js := clusterDefaultsResponse.GetClusterDefaults().GetCreatePipelineRequestJson()
-	if js == "" {
-		js = "{}"
-	}
-	s, err := jsonMergePatch(js, request.GetCreatePipelineRequestJson())
-	if err != nil {
-		return nil, badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
-		})
-	}
-
-	var cpr pps.CreatePipelineRequest
-	if err := protojson.Unmarshal([]byte(s), &cpr); err != nil {
-		return nil, badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
-		})
-	}
-	cpr.Update = request.Update
-	cpr.Reprocess = request.Reprocess
-	if err := a.createPipeline(ctx, &cpr); err != nil {
 		return nil, err
 	}
 	return &pps.CreatePipelineV2Response{
-		EffectiveCreatePipelineRequestJson: s,
+		EffectiveCreatePipelineRequestJson: js,
 	}, nil
 }
 
@@ -2181,15 +2158,55 @@ func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePip
 //   - Rather than try to enumerate every case where we can't create a spec
 //     commit without stopping the pipeline, we just always stop the pipeline.
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
-	return &emptypb.Empty{}, a.createPipeline(ctx, request)
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	js, err := protojson.Marshal(request)
+	if err != nil {
+		return nil, unknownError(ctx, "could not marshal CreatePipelineRequest to JSON", err)
+	}
+	v2Req := &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: string(js),
+		Update:                    request.Update,
+		Reprocess:                 request.Reprocess,
+	}
+	if _, err := a.createPipeline(ctx, v2Req); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) createPipeline(ctx context.Context, request *pps.CreatePipelineRequest) (err error) {
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (effectiveSpecJSON string, err error) {
+	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	if err != nil {
+		return "", status.Error(codes.Internal, "could not get cluster defaults")
+	}
+
+	defaultsJSON := clusterDefaultsResponse.GetClusterDefaultsJson()
+	if defaultsJSON == "" {
+		defaultsJSON = "{}"
+	}
+	reqJSON, err := json.Marshal(struct {
+		CreatePipelineRequest json.RawMessage `json:"create_pipeline_request"`
+	}{json.RawMessage(req.GetCreatePipelineRequestJson())})
+	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON)); err != nil {
+		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		})
+	}
+
+	var defaults pps.ClusterDefaults
+	if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &defaults); err != nil {
+		return "", badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		})
+	}
+	var request = defaults.GetCreatePipelineRequest()
+	request.Update = request.Update
+	request.Reprocess = request.Reprocess
 
 	if request.Pipeline == nil {
-		return errors.New("request.Pipeline cannot be nil")
+		return "", errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(request.GetPipeline())
 
@@ -2202,22 +2219,23 @@ func (a *apiServer) createPipeline(ctx context.Context, request *pps.CreatePipel
 	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline)
 
 	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := a.validateSecret(ctx, request); err != nil {
-		return err
+		return "", err
 	}
 	if request.Determined != nil {
 		if err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces); err != nil {
-			return errors.Wrap(err, "create det pipeline side effects")
+			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}); err != nil {
-		return err
+		return "", err
 	}
+	return effectiveSpecJSON, nil
 }
 
 // CreateDetPipelineSideEffects modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
