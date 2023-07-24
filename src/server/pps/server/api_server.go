@@ -2189,6 +2189,11 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	reqJSON, err := json.Marshal(struct {
 		CreatePipelineRequest json.RawMessage `json:"create_pipeline_request"`
 	}{json.RawMessage(req.GetCreatePipelineRequestJson())})
+	if err != nil {
+		return "", badRequest(ctx, "could not unmarshal Create Pipeline Request JSON within cluster defaults", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		})
+	}
 	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON)); err != nil {
 		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
@@ -2202,8 +2207,8 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		})
 	}
 	var request = defaults.GetCreatePipelineRequest()
-	request.Update = request.Update
-	request.Reprocess = request.Reprocess
+	request.Update = req.Update
+	request.Reprocess = req.Reprocess
 
 	if request.Pipeline == nil {
 		return "", errors.New("request.Pipeline cannot be nil")
