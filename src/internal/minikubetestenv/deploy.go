@@ -88,6 +88,13 @@ func helmLock(f helmPutE) helmPutE {
 }
 
 func helmChartLocalPath(t testing.TB) string {
+	return localPath(t, "etc", "helm", "pachyderm")
+}
+func HelmExamplesValuesLocalPath(t testing.TB, fileName string) string {
+	return localPath(t, "etc", "helm", "examples", fileName)
+}
+
+func localPath(t testing.TB, pathParts ...string) string {
 	dir, err := os.Getwd()
 	require.NoError(t, err)
 	parts := strings.Split(dir, string(os.PathSeparator))
@@ -98,7 +105,7 @@ func helmChartLocalPath(t testing.TB) string {
 			break
 		}
 	}
-	relPathParts = append(relPathParts, "etc", "helm", "pachyderm")
+	relPathParts = append(relPathParts, pathParts...)
 	return filepath.Join(relPathParts...)
 }
 
