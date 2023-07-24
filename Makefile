@@ -52,10 +52,7 @@ docker-ci:
 	npm ci --prefix ./backend && npm ci --prefix ./frontend
 
 clean-deps:
-	rm -rf ./node_modules & \
-	rm -rf ./frontend/node_modules & \
-	rm -rf ./backend/node_modules & \
-	rm -rf ./cypress/node_modules
+	rm -rf ./node_modules ./frontend/node_modules ./backend/node_modules ./cypress/node_modules
 
 build:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend
