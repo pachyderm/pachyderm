@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -31,9 +34,19 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 	errCnt := 0
 	// right now the entire integration is specifc to auth, so first check that auth is active
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		conn, err := grpc.DialContext(ctx, a.env.Config.DeterminedURL, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+		tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
+		if a.env.Config.DeterminedTLS {
+			tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+				InsecureSkipVerify: true,
+			}))
+		}
+		determinedURL, err := url.Parse(a.env.Config.DeterminedURL)
 		if err != nil {
-			return errors.Wrapf(err, "dialing determined at %q", a.env.Config.DeterminedURL)
+			return errors.Wrapf(err, "parsing determined url %q", a.env.Config.DeterminedURL)
+		}
+		conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+		if err != nil {
+			return errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 		}
 		defer conn.Close()
 		dc := det.NewDeterminedClient(conn)
@@ -208,7 +221,7 @@ func validateWorkspacePermissions(ctx context.Context, dc det.DeterminedClient, 
 
 func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClient, p *pps.Pipeline, password string) (int32, error) {
 	resp, err := dc.PostUser(ctx, &det.PostUserRequest{
-		User:     &userv1.User{Username: pipelineUserName(p)},
+		User:     &userv1.User{Username: pipelineUserName(p), Active: true},
 		Password: password,
 	})
 	if err != nil {
@@ -219,6 +232,12 @@ func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClien
 			}
 			if len(usersResp.Users) == 0 {
 				return 0, errors.Wrapf(err, "no determined users return for user %q", pipelineUserName(p))
+			}
+			if _, err := dc.SetUserPassword(ctx, &det.SetUserPasswordRequest{
+				UserId:   usersResp.Users[0].Id,
+				Password: password,
+			}); err != nil {
+				return 0, errors.Wrapf(err, "set password for user %q", pipelineUserName(p))
 			}
 			return usersResp.Users[0].Id, nil
 		}
@@ -251,5 +270,6 @@ func assignDeterminedPipelineRole(ctx context.Context, dc det.DeterminedClient, 
 }
 
 func pipelineUserName(p *pps.Pipeline) string {
-	return p.String()
+	// users with names containing '/' don't work correctly in determined.
+	return strings.ReplaceAll(p.String(), "/", "_")
 }

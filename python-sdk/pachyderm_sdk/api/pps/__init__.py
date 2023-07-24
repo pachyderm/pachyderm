@@ -195,7 +195,6 @@ class Egress(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class Determined(betterproto.Message):
     workspaces: List[str] = betterproto.string_field(1)
-    password: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -452,6 +451,7 @@ class JobInfo(betterproto.Message):
     started: datetime = betterproto.message_field(14)
     finished: datetime = betterproto.message_field(15)
     details: "JobInfoDetails" = betterproto.message_field(16)
+    auth_token: str = betterproto.string_field(17)
 
 
 @dataclass(eq=False, repr=False)
@@ -1139,9 +1139,11 @@ class LokiLogMessage(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ClusterDefaults(betterproto.Message):
-    create_pipeline_request_json: str = betterproto.string_field(1)
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(3)
     """
-    CreatePipelineRequestJSON contains the default JSON CreatePipelineRequest.
+    CreatePipelineRequest contains the default JSON CreatePipelineRequest into
+    which pipeline specs are merged to form the effective spec used to create a
+    pipeline.
     """
 
 
@@ -1152,20 +1154,26 @@ class GetClusterDefaultsRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class GetClusterDefaultsResponse(betterproto.Message):
-    cluster_defaults: "ClusterDefaults" = betterproto.message_field(1)
+    cluster_defaults_json: str = betterproto.string_field(2)
+    """
+    A JSON-encoded ClusterDefaults message, this is the verbatim input passed
+    to SetClusterDefaults.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class SetClusterDefaultsRequest(betterproto.Message):
-    cluster_defaults: "ClusterDefaults" = betterproto.message_field(1)
     regenerate: bool = betterproto.bool_field(2)
     reprocess: bool = betterproto.bool_field(3)
     dry_run: bool = betterproto.bool_field(4)
+    cluster_defaults_json: str = betterproto.string_field(5)
+    """
+    A JSON-encoded ClusterDefaults message, this will be stored verbatim.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class SetClusterDefaultsResponse(betterproto.Message):
-    effective_details_json: str = betterproto.string_field(1)
     affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
 
 
@@ -1906,17 +1914,16 @@ class ApiStub:
     def set_cluster_defaults(
         self,
         *,
-        cluster_defaults: "ClusterDefaults" = None,
         regenerate: bool = False,
         reprocess: bool = False,
-        dry_run: bool = False
+        dry_run: bool = False,
+        cluster_defaults_json: str = ""
     ) -> "SetClusterDefaultsResponse":
         request = SetClusterDefaultsRequest()
-        if cluster_defaults is not None:
-            request.cluster_defaults = cluster_defaults
         request.regenerate = regenerate
         request.reprocess = reprocess
         request.dry_run = dry_run
+        request.cluster_defaults_json = cluster_defaults_json
 
         return self.__rpc_set_cluster_defaults(request)
 
@@ -2282,10 +2289,10 @@ class ApiBase:
 
     def set_cluster_defaults(
         self,
-        cluster_defaults: "ClusterDefaults",
         regenerate: bool,
         reprocess: bool,
         dry_run: bool,
+        cluster_defaults_json: str,
         context: "grpc.ServicerContext",
     ) -> "SetClusterDefaultsResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

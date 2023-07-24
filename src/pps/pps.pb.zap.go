@@ -119,7 +119,6 @@ func (x *Determined) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("workspaces", zapcore.ArrayMarshalerFunc(workspacesArrMarshaller))
-	enc.AddString("password", "[MASKED]")
 	return nil
 }
 
@@ -414,6 +413,7 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	protoextensions.AddTimestamp(enc, "finished", x.Finished)
 	enc.AddObject("details", x.Details)
+	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }
 
@@ -1111,7 +1111,7 @@ func (x *ClusterDefaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("create_pipeline_request_json", x.CreatePipelineRequestJson)
+	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
 	return nil
 }
 
@@ -1126,7 +1126,7 @@ func (x *GetClusterDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	if x == nil {
 		return nil
 	}
-	enc.AddObject("cluster_defaults", x.ClusterDefaults)
+	enc.AddString("cluster_defaults_json", x.ClusterDefaultsJson)
 	return nil
 }
 
@@ -1134,10 +1134,10 @@ func (x *SetClusterDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
-	enc.AddObject("cluster_defaults", x.ClusterDefaults)
 	enc.AddBool("regenerate", x.Regenerate)
 	enc.AddBool("reprocess", x.Reprocess)
 	enc.AddBool("dry_run", x.DryRun)
+	enc.AddString("cluster_defaults_json", x.ClusterDefaultsJson)
 	return nil
 }
 
@@ -1145,7 +1145,6 @@ func (x *SetClusterDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	if x == nil {
 		return nil
 	}
-	enc.AddString("effective_details_json", x.EffectiveDetailsJson)
 	affected_pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.AffectedPipelines {
 			enc.AppendObject(v)

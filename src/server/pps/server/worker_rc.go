@@ -637,15 +637,19 @@ func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v
 func (kd *kubeDriver) getDeterminedEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	return []v1.EnvVar{
 		{
+			Name:  "DET_MASTER_CERT_FILE",
+			Value: "noverify",
+		},
+		{
 			Name:  "DET_MASTER",
 			Value: kd.config.DeterminedURL,
 		},
 		{
 			Name:  "DET_USER",
-			Value: pipelineInfo.Pipeline.String(), // TODO: call common util for determined pipeline user name
+			Value: strings.ReplaceAll(pipelineInfo.Pipeline.String(), "/", "_"), // TODO: call common util for determined pipeline user name
 		},
 		{
-			Name: "DET_PASSWORD",
+			Name: "DET_PASS",
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{

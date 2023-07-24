@@ -21,7 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-var valueOverrides map[string]string
+var valueOverrides map[string]string = make(map[string]string)
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
@@ -32,6 +32,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		Enterprise: true,
 		PortOffset: portOffset,
 	}
+	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
@@ -42,11 +43,12 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	// Test Upgrade
-	opts.CleanupAfter = true
+	opts.CleanupAfter = false
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
-	opts.ValueOverrides = map[string]string{"pachd.rootToken": token}
+	opts.ValueOverrides = valueOverrides
+	opts.ValueOverrides["pachd.rootToken"] = token
 	// add config file with trusted peers & new clients
 	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
 	// apply upgrade
@@ -74,6 +76,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	minikubetestenv.PutNamespace(t, "enterprise")
+	valueOverrides["pachd.replicas"] = "2"
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
@@ -106,7 +109,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
 		// login using mock IDP admin
-		hc := &http.Client{}
+		hc := &http.Client{Timeout: 15 * time.Second}
 		c.SetAuthToken("")
 		loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 		if err != nil {
@@ -133,7 +136,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 			return errors.EnsureStack(err)
 		}
 		defer postResp.Body.Close()
-		if got, want := http.StatusOK, getResp.StatusCode; got != want {
+		if got, want := http.StatusOK, postResp.StatusCode; got != want {
 			testutil.LogHttpResponse(t, postResp, "mock login post")
 			return errors.Errorf("POST to perform mock login got: %v, want: %v", got, want)
 		}
