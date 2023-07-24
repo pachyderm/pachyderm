@@ -1550,3 +1550,23 @@ func TestCreateClusterDefaults(t *testing.T) {
 	`,
 	).Run())
 }
+
+func TestUpdateClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{
+			Id:                "dev",
+			DeploymentId:      "dev",
+			VersionWarningsOk: true,
+		}, nil
+	})
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl inspect defaults --cluster | match '{}'
+		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
+		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"autoscaling": false}}'
+		echo '{"create_pipeline_request": {"datum_tries": "4"}}' | pachctl update defaults --cluster -f - || exit 1
+		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"datum_tries": "4"}}'
+	`,
+	).Run())
+}
