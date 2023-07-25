@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -41,6 +42,11 @@ const (
 const (
 	MinioEndpoint = "minio.default.svc.cluster.local:9000"
 	MinioBucket   = "pachyderm-test"
+)
+
+const (
+	determinedRegistry       = "registry-1.docker.io/determinedai"
+	determinedRegistrySecret = "detregcred"
 )
 
 var (
@@ -347,21 +353,28 @@ func withoutProxy(namespace string) *helm.Options {
 	}
 }
 
-func withDetermined() *helm.Options {
+func withDetermined(namespace string, portOffset uint16) *helm.Options {
+	masterPort := strconv.Itoa(8282 + int(portOffset))
 	return &helm.Options{
 		SetValues: map[string]string{
-			// "pachd.clusterDeploymentID":           "dev", DNJ TODO
-			// "pachd.resources.requests.cpu":        "250m",
-			// "pachd.resources.requests.memory":     "512M",
-			// "etcd.resources.requests.cpu":         "250m",
-			// "etcd.resources.requests.memory":      "512M",
-			// "pachd.defaultPipelineCPURequest":     "100m",
-			// "pachd.defaultPipelineMemoryRequest":  "64M",
-			// "pachd.defaultPipelineStorageRequest": "100Mi",
-			// "pachd.defaultSidecarCPURequest":      "100m",
-			// "pachd.defaultSidecarMemoryRequest":   "64M",
-			// "pachd.defaultSidecarStorageRequest":  "100Mi",
-			// "console.enabled":                     "false",
+			"determined.imageRegistry":                   determinedRegistry,
+			"determined.imagePullSecretName":             determinedRegistrySecret,
+			"determined.maxSlotsPerPod":                  "0",
+			"determined.enabled":                         "true",
+			"determined.enterpriseEdition":               determinedRegistry,
+			"determined.useNodePortForMaster":            "true", // DNJ TODO double check this setting
+			"determined.useNodePortForDB":                "true",
+			"determined.detVersion":                      "latest",
+			"determined.masterPort":                      masterPort,
+			"determined.oidc.enabled":                    "true",
+			"determined.oidc.idpRecipientUrl":            fmt.Sprintf("http://localhost:%s", masterPort),
+			"determined.oidc.idpSsoUrl":                  fmt.Sprintf("http://pachd.%s.svc.cluster.local:30658/dex", namespace),
+			"determined.oidc.clientId":                   "determined",
+			"determined.oidc.clientSecret":               "123",
+			"oidc.additionalClients[0].id":               "determined",
+			"oidc.additionalClients[0].name":             "determined",
+			"oidc.additionalClients[0].secret":           "123",
+			"oidc.additionalClients[0].redirect_urls[0]": fmt.Sprintf("http://localhost:%s/oauth/callback/?inline=true", masterPort),
 		},
 	}
 }
@@ -531,6 +544,27 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
 
+// DNJ TODO - this is not working yet
+func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
+	user := os.Getenv("DET_DOCKER_USER")
+	require.NotNil(t, user, "Missing required user for Determined integration testing")
+	pass := os.Getenv("DET_DOCKER_PASS")
+	require.NotNil(t, pass, "Missing required password for Determined integration testing")
+	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      determinedRegistrySecret,
+			Namespace: ns,
+		},
+		Type: "docker-registry",
+		StringData: map[string]string{
+			"docker-server":   determinedRegistry,
+			"docker-user":     user,
+			"docker-password": pass,
+		},
+	}, metav1.CreateOptions{})
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined secret setup", err)
+}
+
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -565,8 +599,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts = union(helmOpts, withMinio())
 	}
 	if opts.Determined {
-		// install regcred DNJ TODO
-		helmOpts = union(helmOpts, withDetermined())
+		createSecretDeterminedRegcred(t, ctx, kubeClient, namespace)
+		helmOpts = union(helmOpts, withDetermined(namespace, opts.PortOffset))
 	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset

@@ -28,10 +28,11 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:    auth.RootUser,
-		Enterprise:  true,
-		PortOffset:  portOffset,
-		ValuesFiles: []string{minikubetestenv.ExampleValuesLocalPath(t, "int-test-values-with-det.yaml")},
+		AuthUser:   auth.RootUser,
+		Enterprise: true,
+		PortOffset: portOffset,
+		Determined: true,
+		// ValuesFiles: []string{minikubetestenv.ExampleValuesLocalPath(t, "int-test-values-with-det.yaml")},
 	}
 	valueOverrides["pachd.replicas"] = "1"
 
@@ -52,7 +53,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	opts.ValueOverrides = valueOverrides
 	opts.ValueOverrides["pachd.rootToken"] = token
 	// add config file with trusted peers & new clients
-	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
+	opts.ValuesFiles = append(opts.ValuesFiles, createAdditionalClientsFile(t), createTrustedPeersFile(t))
 	// apply upgrade
 	c = minikubetestenv.UpgradeRelease(t, context.Background(), ns, k, opts)
 	c.SetAuthToken(token)
@@ -67,9 +68,11 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	mockIDPLogin(t, c)
 	// assert new trusted peer and client
 	resp, err := c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "pachd"})
+	t.Logf("DNJ TODO TRUSTED PEERS: %#v", resp.Client)
 	require.NoError(t, err)
 	require.EqualOneOf(t, resp.Client.TrustedPeers, "example-app")
-	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
+	resp, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
+	t.Logf("DNJ TODO TRUSTED PEERS2: %#v", resp.Client)
 	require.NoError(t, err)
 }
 
