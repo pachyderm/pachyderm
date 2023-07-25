@@ -8794,9 +8794,10 @@ func TestDeleteRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	dataRepo := tu.UniqueString("TestDeleteRepo_data")
+	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	res, err := c.PfsAPIClient.DeleteRepo(
@@ -8806,8 +8807,7 @@ func TestDeleteRepo(t *testing.T) {
 		})
 	require.NoError(t, err, "repo should be deleted")
 	want := &pfs.DeleteRepoResponse{
-		//DeletedRepos: []string{"default/" + dataRepo},
-		DeletedRepos: []String{pfs.DefaultProjectName + dataRepo},
+		DeletedRepos: []string{"default/" + dataRepo},
 	}
 	if diff := cmp.Diff(res, want); diff != "" {
 		t.Errorf("unexpected response:\n%v", diff)

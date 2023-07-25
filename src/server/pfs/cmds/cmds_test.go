@@ -456,8 +456,8 @@ func TestDeleteRepo(t *testing.T) {
 	c := env.PachClient
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 			pachctl create project {{.project}}
-			pachctl create repo {{.repo}}
-			pachctl delete repo {{.repo}} 2>&1 | match 'deleted repos: [{{.project}}/{{.repo}}]'
+			pachctl create repo {{.repo}} --project {{.project}}
+			pachctl delete repo {{.repo}} --project {{.project}} 2>&1 | match 'deleted repos: [{{.project}}/{{.repo}}]'
 			`,
 		"project", tu.UniqueString("project"),
 		"repo", tu.UniqueString("repo"),
