@@ -118,6 +118,9 @@ class TestClient(_Client):
                 self.pfs.delete_project(project=project, force=True)
 
     def _generate_name(self) -> str:
+        """Generate a resource name based on the test name.
+
+        The resource name can be a maximum of 51 characters."""
         # fmt: off
         name: str = (
             self.id
