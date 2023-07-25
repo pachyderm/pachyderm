@@ -4792,13 +4792,14 @@ func TestPFS(suite *testing.T) {
 			// A    B ─▶ C ─▶ D ─▶ E
 			// ╰──────────────────⬏
 		},
-		// {
-		// 	{name: "A", directProv: []string{"A"}, err: true},
-		// 	{name: "A"},
-		// 	{name: "A", directProv: []string{"A"}, err: true},
-		// 	{name: "B", directProv: []string{"A"}},
-		// 	{name: "A", directProv: []string{"B"}, err: true},
-		// },
+			{
+				{name: "A", directProv: []string{"A"}, err: true},
+				{name: "A"},
+				{name: "A", directProv: []string{"A"}, err: true},
+				{name: "B", directProv: []string{"A"}},
+				{name: "C", directProv: []string{"B"}},
+				{name: "A", directProv: []string{"C"}, err: true},
+			},
 		}
 		for i, test := range tests {
 			test := test
