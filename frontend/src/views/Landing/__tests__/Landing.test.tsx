@@ -1,26 +1,16 @@
-import {
-  CreateProjectArgs,
-  CreateProjectMutation,
-  ProjectStatus,
-  mockDeleteProjectAndResourcesMutation,
-  mockCreateProjectMutation,
-} from '@graphqlTypes';
-import {render, waitFor, within, screen} from '@testing-library/react';
+import {ProjectStatus, mockCreateProjectMutation} from '@graphqlTypes';
+import {render, within, screen} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {
   mockProjects,
   mockEmptyProjectDetails,
-  mockGetVersionInfo,
   mockEmptyGetAuthorize,
+  mockFalseGetAuthorize,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
-import {
-  withContextProviders,
-  click,
-  type,
-  clear,
-} from '@dash-frontend/testHelpers';
+import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
 import LandingComponent from '../Landing';
 
@@ -216,31 +206,30 @@ describe('Landing', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('should give users a pachctl command to set their active project', async () => {
+  it('should not allow a user to create a project without permission', async () => {
+    server.use(mockFalseGetAuthorize());
+
     render(<Landing />);
 
-    expect(await screen.findByText('ProjectA')).toBeInTheDocument();
-
-    await click(
-      screen.getByRole('button', {
-        name: 'ProjectA overflow menu',
+    expect(
+      await screen.findByRole('heading', {
+        name: 'ProjectA',
+        level: 5,
       }),
-    );
-    await click(
-      await screen.findByRole('menuitem', {
-        name: /set active project/i,
-      }),
-    );
+    ).toBeInTheDocument();
 
     expect(
-      await screen.findByText('Set Active Project: "ProjectA"'),
-    ).toBeInTheDocument();
-    await click(screen.getByRole('button', {name: 'Copy'}));
-
-    expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+      screen.queryByRole('button', {
+        name: /create project/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   describe('Create Project Modal', () => {
+    beforeAll(() => {
+      server.use(mockEmptyGetAuthorize());
+    });
+
     it('should create a project', async () => {
       server.use(
         mockCreateProjectMutation((req, res, ctx) => {
@@ -303,65 +292,6 @@ describe('Landing', () => {
       expect(
         await within(modal).findByText('Project name already in use'),
       ).toBeInTheDocument();
-    });
-  });
-
-  describe('Delete Project Modal', () => {
-    it('should delete a project', async () => {
-      server.use(
-        mockDeleteProjectAndResourcesMutation((req, res, ctx) => {
-          if (req.variables.args.name === 'ProjectA') {
-            return res(
-              ctx.data({
-                deleteProjectAndResources: true,
-              }),
-            );
-          } else return res(ctx.errors([]));
-        }),
-      );
-
-      render(<Landing />);
-      // wait for page to populate
-      expect(await screen.findByText('ProjectA')).toBeInTheDocument();
-      // open the modal on the correct row
-      expect(screen.queryByRole('dialog')).toBeNull();
-      expect(
-        screen.queryByRole('menuitem', {
-          name: /delete project/i,
-        }),
-      ).toBeNull();
-      await click(
-        screen.getByRole('button', {
-          name: 'ProjectA overflow menu', // should be case-sensitive since projects are not case sensitive
-        }),
-      );
-      const menuItem = await screen.findByRole('menuitem', {
-        name: /delete project/i,
-      });
-      expect(menuItem).toBeVisible();
-      await click(menuItem);
-
-      const modal = await screen.findByRole('dialog');
-      expect(modal).toBeInTheDocument();
-      const projectNameInput = await within(modal).findByRole('textbox');
-      expect(projectNameInput).toHaveValue('');
-
-      await clear(projectNameInput);
-
-      const confirmButton = within(modal).getByRole('button', {
-        name: /delete project/i,
-      });
-
-      expect(confirmButton).toBeDisabled();
-      await type(projectNameInput, 'Project');
-      expect(confirmButton).toBeDisabled();
-      await type(projectNameInput, 'A');
-      expect(confirmButton).toBeEnabled();
-
-      await click(confirmButton);
-      await waitFor(() =>
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-      );
     });
   });
 });
