@@ -1,3 +1,8 @@
+"""
+Implementation of a gRPC interceptor used to set request metadata
+and catch connection errors.
+"""
+
 from os import environ
 from typing import Any, Callable, Sequence, Optional, Tuple, Union
 

@@ -307,7 +307,7 @@ spec:
               name: {{ default ("pachyderm-console-secret") .Values.console.config.oauthClientSecretSecretName  }}
               key: OAUTH_CLIENT_SECRET
         {{- end }}
-        {{- if and .Values.determined.enabled .Values.determined.enterpriseEdition   (not .Values.determined.oidc.clientSecretName) -}}
+        {{- if and .Values.determined.enabled .Values.determined.enterpriseEdition }}
         - name: DETERMINED_OAUTH_ID
           value: {{ default .Values.determined.oidc.clientId "determined" }}
         - name: DETERMINED_OAUTH_SECRET
@@ -420,7 +420,11 @@ spec:
         {{- if ne .Values.pachd.determined.apiEndpoint "" }}
         - name: DETERMINED_API_URL
           value: {{ .Values.pachd.determined.apiEndpoint | quote }}
-        {{- end }}        
+        {{- end }}
+        {{- if .Values.determined.tlsSecret }}
+        - name: DETERMINED_TLS
+          value: "true"
+        {{- end }}                
         {{- if ne .Values.pachd.defaultSidecarCPURequest "" }}
         - name: SIDECAR_DEFAULT_CPU_REQUEST
           value: {{ .Values.pachd.defaultSidecarCPURequest | quote }}
