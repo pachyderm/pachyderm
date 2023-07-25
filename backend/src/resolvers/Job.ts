@@ -53,6 +53,7 @@ const pipelineJobResolver: PipelineJobResolver = {
           jobSetIds,
           nodeStateFilter,
           projectId,
+          details,
           cursor,
           reverse,
         },
@@ -92,6 +93,7 @@ const pipelineJobResolver: PipelineJobResolver = {
       }
 
       const jobs = await pachClient.pps().listJobs({
+        details: details ?? undefined,
         pipelineId,
         jqFilter,
         projectId,

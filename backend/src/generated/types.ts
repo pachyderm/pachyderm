@@ -481,6 +481,7 @@ export type JobsByPipelineQueryArgs = {
 
 export type JobsQueryArgs = {
   cursor?: InputMaybe<TimestampInput>;
+  details?: InputMaybe<Scalars['Boolean']>;
   jobSetIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   limit?: InputMaybe<Scalars['Int']>;
   nodeStateFilter?: InputMaybe<Array<InputMaybe<NodeState>>>;

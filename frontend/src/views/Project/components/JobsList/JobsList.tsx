@@ -36,6 +36,7 @@ const JobsList: React.FC<JobsListProps> = ({
     projectId,
     jobSetIds: selectedJobSets,
     pipelineIds: selectedPipelines,
+    details: false,
   });
   const {
     sortedJobs,

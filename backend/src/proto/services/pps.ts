@@ -79,6 +79,7 @@ export interface ListJobArgs {
   number?: number;
   reverse?: boolean;
   cursor?: TimestampObject;
+  details?: boolean;
 }
 
 export interface ListJobSetArgs {
@@ -315,8 +316,9 @@ const pps = ({credentialMetadata}: Pick<ServiceArgs, 'credentialMetadata'>) => {
       cursor,
       reverse,
       number,
+      details = true,
     }: ListJobArgs) => {
-      const listJobRequest = new ListJobRequest().setDetails(true);
+      const listJobRequest = new ListJobRequest().setDetails(details);
 
       listJobRequest.setProjectsList([new Project().setName(projectId)]);
 
