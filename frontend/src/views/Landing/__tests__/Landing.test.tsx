@@ -6,7 +6,6 @@ import {
   mockCreateProjectMutation,
 } from '@graphqlTypes';
 import {render, waitFor, within, screen} from '@testing-library/react';
-import {graphql} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 

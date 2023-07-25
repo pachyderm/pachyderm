@@ -53,7 +53,7 @@ const Landing: React.FC = () => {
       {!loadingEnterprise && !enterpriseActive && (
         <Favicon url="/img/pachyderm.ico" />
       )}
-      <LandingHeader projects={projects} />
+      <LandingHeader />
       {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       <div className={styles.base}>
         <View data-testid="Landing__view">

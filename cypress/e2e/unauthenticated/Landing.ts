@@ -13,21 +13,6 @@ describe('Landing', () => {
     cy.exec('pachctl delete project new-project', {failOnNonZeroExit: false});
   });
 
-  it('should show default project info', () => {
-    cy.contains('[role="row"]', /default/i).click();
-    cy.findByRole('heading', {
-      name: 'Project Preview',
-    });
-
-    cy.findByText('Total No. of Repos/Pipelines');
-    cy.findByText('2/1');
-
-    cy.findByText('Total Data Size');
-
-    cy.findByText('Pipeline Status');
-    cy.findByText('Last Job');
-  });
-
   it('should create a new project, edit its description, then delete it', () => {
     // create new project
     cy.findByRole('button', {

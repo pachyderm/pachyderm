@@ -44,6 +44,15 @@ export const setIdTokenForAccount = (account: Account) => {
   window.localStorage.setItem('id-token', generateIdTokenForAccount(account));
 };
 
+export const loginUser = (
+  id = 'id',
+  email = 'user@email.com',
+  authToken = '123',
+) => {
+  setIdTokenForAccount({id, email});
+  window.localStorage.setItem('auth-token', authToken);
+};
+
 export const click: typeof userEvent.click = async (...args) => {
   await act(() => userEvent.click(...args));
 };

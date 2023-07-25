@@ -9,7 +9,6 @@ import {
   CREATE_FIRST_JOB_MESSAGE,
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import ProjectJobSetList from '@dash-frontend/components/ProjectJobSetList';
 import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -18,6 +17,7 @@ import getListTitle from 'lib/getListTitle';
 
 import ProjectStatus from '../ProjectStatus';
 
+import ProjectJobSetList from './components/ProjectJobSetList';
 import styles from './ProjectPreview.module.css';
 
 const emptyProjectMessage = 'Create your first repo/pipeline!';

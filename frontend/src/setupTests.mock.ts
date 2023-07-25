@@ -15,6 +15,7 @@ configure({asyncUtilTimeout: 5000});
 // This is needed for grpc-js to run in the mock server in jest jsdom mode.
 global.setImmediate =
   global.setImmediate ||
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function (callback: any) {
     return setTimeout(callback, 0);
   };

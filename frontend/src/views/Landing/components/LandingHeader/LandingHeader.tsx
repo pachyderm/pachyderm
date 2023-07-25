@@ -1,4 +1,3 @@
-import {Project} from '@graphqlTypes';
 import React from 'react';
 
 import Header from '@dash-frontend/components/Header';
@@ -9,12 +8,10 @@ import {Group, LogoElephant, LogoHpe} from '@pachyderm/components';
 import styles from './LandingHeader.module.css';
 
 type LandingHeaderProps = {
-  projects?: Project[];
   disableBranding?: boolean;
 };
 
 const LandingHeader: React.FC<LandingHeaderProps> = ({
-  projects = [],
   disableBranding = false,
 }) => {
   const {enterpriseActive} = useEnterpriseActive(disableBranding);
