@@ -292,10 +292,10 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			}
 		}
 		if len(sys.Profiles) > 0 {
-			ts = append(ts, makeProfilesTask(server, sys.Profiles))
+			ts = append(ts, s.makeProfilesTask(server, sys.Profiles))
 		}
 		if len(sys.Binaries) > 0 {
-			ts = append(ts, makeBinariesTask(server, sys.Binaries))
+			ts = append(ts, s.makeBinariesTask(server, sys.Binaries))
 		}
 	}
 	return ts
@@ -385,16 +385,11 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 			}); err != nil {
 				return err
 			}
-		} else if app.Name == "pachd" {
-			if err := s.collectLogsLoki(ctx, dfs, app, s.name, "pachd"); err != nil {
-				return errors.Wrapf(err, "collect pachd container loki logs for pod %q", s.name)
-			}
-			return nil
 		} else {
 			for _, pod := range app.Pods {
 				for _, c := range pod.Containers {
 					if err := s.collectLogsLoki(ctx, dfs, app, pod.Name, c); err != nil {
-						return errors.Wrapf(err, "collect pachd container loki logs for pod %q", s.name)
+						return errors.Wrapf(err, "collect pachd container loki logs for pod %q", pod.Name)
 					}
 				}
 			}
@@ -404,7 +399,7 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 	}
 }
 
-func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
+func (s *debugServer) makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
 		var errs error
 		rp := recordProgress(server, "profiles", len(apps))
@@ -419,7 +414,7 @@ func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 				for _, pod := range app.Pods {
 					for _, c := range pod.Containers {
 						for _, profile := range []string{"heap", "goroutine"} {
-							if err := collectProfle(ctx, dfs, app, pod, c, profile); err != nil {
+							if err := s.collectProfile(ctx, dfs, app, pod, c, profile); err != nil {
 								errors.JoinInto(&errs, err)
 							}
 						}
@@ -433,7 +428,7 @@ func makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 	}
 }
 
-func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
+func (s *debugServer) makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
 		var errs error
 		rp := recordProgress(server, "binaries", len(apps))
@@ -451,7 +446,7 @@ func makeBinariesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFu
 						continue
 					}
 					if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "binary"), func(w io.Writer) (retErr error) {
-						if app.Name == "pachd" {
+						if pod.Name == s.name {
 							f, err := os.Open(os.Args[0])
 							if err != nil {
 								return errors.Wrap(err, "open file")
@@ -660,10 +655,10 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 	})
 }
 
-func collectProfle(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container, profile string) error {
+func (s *debugServer) collectProfile(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container, profile string) error {
 	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, profile), func(w io.Writer) (retErr error) {
 		req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
-		if app.Name == "pachd" {
+		if pod.Name == s.name {
 			if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, "go_info.txt"), func(w io.Writer) error {
 				fmt.Fprintf(w, "build info: ")
 				info, ok := runtimedebug.ReadBuildInfo()

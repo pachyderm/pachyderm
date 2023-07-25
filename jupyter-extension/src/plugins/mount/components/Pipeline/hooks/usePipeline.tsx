@@ -3,6 +3,7 @@ import {ServerConnection} from '@jupyterlab/services';
 
 import {
   CreatePipelineResponse,
+  GpuMode,
   MountSettings,
   PpsContext,
   PpsMetadata,
@@ -23,6 +24,10 @@ export type usePipelineResponse = {
   setInputSpec: (input: string) => void;
   pipelinePort: string;
   setPipelinePort: (input: string) => void;
+  gpuMode: GpuMode;
+  setGpuMode: (input: GpuMode) => void;
+  resourceSpec: string;
+  setResourceSpec: (input: string) => void;
   requirements: string;
   setRequirements: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
@@ -43,6 +48,8 @@ export const usePipeline = (
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
   const [pipelinePort, setPipelinePort] = useState('');
+  const [gpuMode, setGpuMode] = useState(GpuMode.None);
+  const [resourceSpec, setResourceSpec] = useState('');
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
@@ -65,6 +72,8 @@ export const usePipeline = (
     }
     setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
     setPipelinePort(ppsContext?.metadata?.config.port ?? '');
+    setGpuMode(ppsContext?.metadata?.config.gpu_mode ?? GpuMode.None);
+    setResourceSpec(ppsContext?.metadata?.config.resource_spec ?? '');
   }, [ppsContext]);
 
   useEffect(() => {
@@ -77,6 +86,8 @@ export const usePipeline = (
     requirements,
     inputSpec,
     pipelinePort,
+    gpuMode,
+    resourceSpec,
   ]);
 
   let callCreatePipeline: () => Promise<void>;
@@ -128,6 +139,8 @@ export const usePipeline = (
         requirements: requirements,
         input_spec: inputSpec,
         port: pipelinePort,
+        gpu_mode: gpuMode,
+        resource_spec: resourceSpec,
       },
     };
   };
@@ -144,6 +157,10 @@ export const usePipeline = (
     setInputSpec,
     pipelinePort,
     setPipelinePort,
+    gpuMode,
+    setGpuMode,
+    resourceSpec,
+    setResourceSpec,
     requirements,
     setRequirements,
     callCreatePipeline,
