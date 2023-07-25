@@ -9,7 +9,7 @@ uuid_re = re.compile(r"^[\da-f]{12}4[\da-f]{19}$")
 def _Repo_from_uri(uri: str) -> Repo:
     """
     Parses the following format:
-        [project/]<repo>
+        [project/]repo
 
     If no project is specified it defaults to "default".
     """
@@ -21,6 +21,11 @@ def _Repo_from_uri(uri: str) -> Repo:
 
 
 def _Repo_as_uri(self: "Repo") -> str:
+    """Returns the URI for the Repo object in the following format:
+      project/repo
+
+    If no project is specified it defaults to "default"
+    """
     project = "default"
     if self.project and self.project.name:
         project = self.project.name
@@ -28,13 +33,13 @@ def _Repo_as_uri(self: "Repo") -> str:
 
 
 Repo.from_uri = _Repo_from_uri
-Repo.as_uri = _Repo_as_uri
+Repo.as_uri = Repo.__str__ = _Repo_as_uri
 
 
 def _Branch_from_uri(uri: str) -> Branch:
     """
     Parses the following format:
-        [project/]<repo>@branch
+        [project/]repo@branch
 
     If no project is specified it defaults to "default".
 
@@ -53,22 +58,27 @@ def _Branch_from_uri(uri: str) -> Branch:
 
 
 def _Branch_as_uri(self: "Branch") -> str:
+    """Returns the URI for the Branch object in the following format:
+      project/repo@branch
+
+    If no project is specified it defaults to "default"
+    """
     return f"{self.repo.as_uri()}@{self.name}"
 
 
 Branch.from_uri = _Branch_from_uri
-Branch.as_uri = _Branch_as_uri
+Branch.as_uri = Branch.__str__ = _Branch_as_uri
 
 
 def _Commit_from_uri(uri: str) -> Commit:
     """
     Parses the following format:
-        [project/]<repo>@<branch-or-commit>
-    where @<branch-or-commit> can take the form:
+        [project/]repo@branch-or-commit
+    where @branch-or-commit can take the form:
         @branch
         @branch=commit
         @commit
-    Additionally @<branch-or-commit> can be augmented with caret notation:
+    Additionally @branch-or-commit can be augmented with caret notation:
         @branch^2
 
     All unspecified components will default to None, except for an unspecified
@@ -81,22 +91,30 @@ def _Commit_from_uri(uri: str) -> Commit:
             "[project/]<repo>@(branch|branch=commit|commit)"
         )
     project_repo, branch_or_commit = uri.split("@", 1)
+    repo = Repo.from_uri(project_repo)
     if "=" in branch_or_commit:
         branch, commit = branch_or_commit.split("=", 1)
     elif uuid_re.match(branch_or_commit) or not branch_re.match(branch_or_commit):
         branch, commit = None, branch_or_commit
     else:
         branch, commit = branch_or_commit, None
+    # TODO: Commits are no longer pinned to branches.
+    #       When officially deprecated, the `branch` field will be removed.
     return Commit(
-            branch=Branch(
-                name=branch,
-                repo=Repo.from_uri(project_repo)
-            ),
-            id=commit
-        )
+        branch=Branch(name=branch, repo=repo),
+        id=commit,
+        repo=repo,
+    )
 
 
 def _Commit_as_uri(self: "Commit") -> str:
+    """Returns the URI for the Commit object in one of the following formats:
+        project/repo@branch
+        project/repo@branch=commit
+        project/repo@commit
+
+    If no project is specified it defaults to "default"
+    """
     project_repo = self.branch.repo.as_uri()
     if self.branch.name and self.id:
         return f"{project_repo}@{self.branch.name}={self.id}"
@@ -107,18 +125,18 @@ def _Commit_as_uri(self: "Commit") -> str:
 
 
 Commit.from_uri = _Commit_from_uri
-Commit.as_uri = _Commit_as_uri
+Commit.as_uri = Commit.__str__ = _Commit_as_uri
 
 
 def _File_from_uri(uri: str) -> File:
     """
     Parses the following format:
-        [project/]<repo>@<branch-or-commit>[:<path/in/pfs>]
-    where @<branch-or-commit> can take the form:
+        [project/]repo@branch-or-commit[:path/in/pfs]
+    where @branch-or-commit can take the form:
         @branch
         @branch=commit
         @commit
-    Additionally @<branch-or-commit> can be augmented with caret notation:
+    Additionally @branch-or-commit can be augmented with caret notation:
         @branch^2
 
     All unspecified components will default to None, except for an unspecified
@@ -136,8 +154,15 @@ def _File_from_uri(uri: str) -> File:
 
 
 def _File_as_uri(self: "File") -> str:
+    """Returns the URI for the File object in one of the following formats:
+        project/repo@branch:/path
+        project/repo@branch=commit:/path
+        project/repo@commit:/path
+
+    If no project is specified it defaults to "default"
+    """
     return f"{self.commit.as_uri()}:{self.path}"
 
 
 File.from_uri = _File_from_uri
-File.as_uri = _File_as_uri
+File.as_uri = File.__str__ = _File_as_uri

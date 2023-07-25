@@ -161,7 +161,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 		if commit, ok := branchToCommit[branch]; ok {
 			// Yes.
 			file.Commit.Branch = nil
-			file.Commit.ID = commit
+			file.Commit.Id = commit
 			files = append(files, file)
 			return nil
 		}
@@ -173,13 +173,13 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 		if err != nil {
 			return errors.Wrapf(err, "path %v: InspectBranch(%v)", path, file.GetCommit().GetBranch())
 		}
-		commit := info.GetHead().GetID()
+		commit := info.GetHead().GetId()
 		if commit == "" {
 			return errors.Errorf("path %v: InspectBranch resolved HEAD to nothing (%v)", path, info)
 		}
 		branchToCommit[branch] = commit
 		file.Commit.Branch = nil
-		file.Commit.ID = commit
+		file.Commit.Id = commit
 		files = append(files, file)
 		return nil
 	})
@@ -189,7 +189,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 	if resolveErr == nil {
 		for _, file := range files {
 			err := func(file *pfs.File) error {
-				path := file.Commit.Repo.Project.Name + "/" + file.Commit.Repo.Name + "@=" + file.Commit.ID + ":" + file.Path
+				path := file.Commit.Repo.Project.Name + "/" + file.Commit.Repo.Name + "@=" + file.Commit.Id + ":" + file.Path
 				ctx, done := log.SpanContext(ctx, fmt.Sprintf("downloadFile(%v)", path))
 				defer done(log.Errorp(&retErr))
 
@@ -223,7 +223,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 
 					// Create a path in the archive <project>/<repo>/commit/<actual
 					// path, including directories>.
-					zp := filepath.Join(file.Commit.Repo.Project.Name, file.Commit.Repo.Name, file.Commit.ID, h.Name)
+					zp := filepath.Join(file.Commit.Repo.Project.Name, file.Commit.Repo.Name, file.Commit.Id, h.Name)
 					w, err := zw.CreateHeader(&zip.FileHeader{
 						Name:     zp,
 						Method:   zip.Deflate,

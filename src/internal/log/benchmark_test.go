@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func BenchmarkFields(b *testing.B) {
@@ -130,8 +131,8 @@ var bigProto = &pps.CreatePipelineRequest{
 	ResourceRequests: &pps.ResourceSpec{
 		Cpu: 2,
 	},
-	DatumTimeout: types.DurationProto(time.Hour),
-	JobTimeout:   types.DurationProto(24 * time.Hour),
+	DatumTimeout: durationpb.New(time.Hour),
+	JobTimeout:   durationpb.New(24 * time.Hour),
 	ParallelismSpec: &pps.ParallelismSpec{
 		Constant: 10,
 	},
@@ -142,12 +143,10 @@ var bigProto = &pps.CreatePipelineRequest{
 			Effect:   pps.TaintEffect_NO_SCHEDULE,
 		},
 		{
-			Key:      "NotReady",
-			Operator: pps.TolerationOperator_EXISTS,
-			Effect:   pps.TaintEffect_NO_EXECUTE,
-			TolerationSeconds: &types.Int64Value{
-				Value: 60,
-			},
+			Key:               "NotReady",
+			Operator:          pps.TolerationOperator_EXISTS,
+			Effect:            pps.TaintEffect_NO_EXECUTE,
+			TolerationSeconds: wrapperspb.Int64(60),
 		},
 	},
 	PodPatch: "{}",
@@ -192,15 +191,12 @@ func BenchmarkProtoObject(b *testing.B) {
 
 func BenchmarkProtoJSONEncode(b *testing.B) {
 	ctx, w := NewBenchLogger(false)
-	m := jsonpb.Marshaler{
-		EmitDefaults: true,
-	}
 	for i := 0; i < b.N; i++ {
-		j, err := m.MarshalToString(bigProto)
+		j, err := protojson.Marshal(bigProto)
 		if err != nil {
 			panic(err)
 		}
-		Debug(ctx, "proto", zap.String("json", j))
+		Debug(ctx, "proto", zap.ByteString("json", j))
 	}
 	if w.Load() == 0 {
 		b.Fatal("no bytes added to logger")

@@ -97,8 +97,8 @@ func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return errors.EnsureStack(td.inner.WithActiveData(inputs, dir, cb))
 }
-func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, authToken string) []string {
-	return td.inner.UserCodeEnv(jobID, commit, inputs, authToken)
+func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, pachToken string) []string {
+	return td.inner.UserCodeEnv(jobID, commit, inputs, pachToken)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserCode(ctx, logger, env))
@@ -112,7 +112,11 @@ func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
 }
-func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+func (td *testDriver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
+	res := &pps.JobInfo{}
+	return res, nil
+}
+func (td *testDriver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {

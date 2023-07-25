@@ -143,6 +143,7 @@ type PachdSpecificConfiguration struct {
 	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
 	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
 	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
+	DeterminedTLS      bool   `env:"DETERMINED_TLS,default=false"`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
@@ -171,6 +172,8 @@ type EnterpriseSpecificConfiguration struct {
 	TrustedPeers              string `env:"TRUSTED_PEERS,default="`
 	ConsoleOAuthID            string `env:"CONSOLE_OAUTH_ID,default="`
 	ConsoleOAuthSecret        string `env:"CONSOLE_OAUTH_SECRET,default="`
+	DeterminedOAuthID         string `env:"DETERMINED_OAUTH_ID,default="`
+	DeterminedOAuthSecret     string `env:"DETERMINED_OAUTH_SECRET,default="`
 }
 
 // StorageConfiguration contains the storage configuration.
@@ -180,6 +183,7 @@ type StorageConfiguration struct {
 	StorageCompactionShardCountThreshold int64 `env:"STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD"`
 	StorageLevelFactor                   int64 `env:"STORAGE_LEVEL_FACTOR"`
 	StorageUploadConcurrencyLimit        int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
+	StorageDownloadConcurrencyLimit      int   `env:"STORAGE_DOWNLOAD_CONCURRENCY_LIMIT,default=100"`
 	StoragePutFileConcurrencyLimit       int   `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
 	StorageGCPeriod                      int64 `env:"STORAGE_GC_PERIOD,default=60"`
 	StorageChunkGCPeriod                 int64 `env:"STORAGE_CHUNK_GC_PERIOD,default=60"`

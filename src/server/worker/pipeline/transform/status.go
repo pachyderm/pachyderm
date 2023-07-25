@@ -3,9 +3,8 @@ package transform
 import (
 	"context"
 	"sync"
-	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -55,22 +54,14 @@ func (s *Status) withJob(jobID string, cb func() error) error {
 }
 
 func (s *Status) withDatum(inputs []*common.Input, cancel func(), cb func() error) error {
-	var err error
 	s.withLock(func() {
 		status := &pps.DatumStatus{
-			Data: convertInputs(inputs),
-		}
-		status.Started, err = types.TimestampProto(time.Now())
-		if err != nil {
-			return
+			Data:    convertInputs(inputs),
+			Started: timestamppb.Now(),
 		}
 		s.datumStatus = status
 		s.cancel = cancel
 	})
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-
 	defer s.withLock(func() {
 		s.datumStatus = nil
 		s.cancel = nil
@@ -85,7 +76,7 @@ func (s *Status) GetStatus() (*pps.WorkerStatus, error) {
 	defer s.mutex.Unlock()
 
 	return &pps.WorkerStatus{
-		JobID:       s.jobID,
+		JobId:       s.jobID,
 		DatumStatus: s.datumStatus,
 	}, nil
 }

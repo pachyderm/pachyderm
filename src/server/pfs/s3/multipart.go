@@ -1,7 +1,5 @@
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
-//
-//nolint:wrapcheck
 package s3
 
 import (
@@ -13,14 +11,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"go.uber.org/zap"
 
@@ -66,7 +62,7 @@ func multipartKeepArgs(path string) (repo string, branch string, key string, upl
 }
 
 func parentDirPath(bucket *Bucket, key string, uploadID string) string {
-	commitID := bucket.Commit.ID
+	commitID := bucket.Commit.Id
 	if commitID == "" {
 		commitID = "latest"
 	}
@@ -116,7 +112,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 	}
 
 	globPattern := keepPath(bucket, "*", "*")
-	err = pc.GlobFile(client.NewCommit(c.project, c.repo, "master", ""), globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(client.NewCommit(c.project, c.repo, "master", ""), globPattern, func(fileInfo *pfs.FileInfo) error {
 		_, _, key, uploadID, err := multipartKeepArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -133,10 +129,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 			return errutil.ErrBreak
 		}
 
-		timestamp, err := types.TimestampFromProto(fileInfo.Committed)
-		if err != nil {
-			return err
-		}
+		timestamp := fileInfo.Committed.AsTime()
 
 		result.Uploads = append(result.Uploads, &s2.Upload{
 			Key:          key,
@@ -294,7 +287,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	result := s2.CompleteMultipartResult{Location: globalLocation}
 	if fileInfo != nil {
 		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
-		result.Version = fileInfo.File.Commit.ID
+		result.Version = fileInfo.File.Commit.Id
 	}
 
 	return &result, nil
@@ -321,7 +314,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 	}
 
 	globPattern := path.Join(parentDirPath(bucket, key, uploadID), "*")
-	err = pc.GlobFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), globPattern, func(fileInfo *pfs.FileInfo) error {
 		_, _, _, _, partNumber, err := multipartChunkArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil

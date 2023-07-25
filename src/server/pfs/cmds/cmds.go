@@ -18,10 +18,10 @@ import (
 	"time"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -74,12 +74,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
 
+	// REPO COMMANDS
+
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
-		Long: `Repos, short for repository, are the top level data objects in Pachyderm.
-
-Repos contain version-controlled directories and files. Files can be of any size
-or type (e.g. csv, binary, images, etc).`,
+		Long: "A repo (repository) is the top-level data object in Pachyderm and contains a collection of files, directories, and commits that are versioned-controlled. Repos exist under a Project, which is the top-level organizational object in Pachyderm. Files stored in an input repo can be of any type or size. " +
+			"After you create a repo using `pachctl create repo`, you can put files into it using `pachctl put file`." +
+			"To transform the files in a repo, create a pipeline using `pachctl create pipeline` and pass in a specification that references your repo, user code, and other configurations. " +
+			"See Pipeline Specification documentation for more information: https://docs.pachyderm.com/latest/build-dags/pipeline-spec/",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
@@ -88,8 +90,15 @@ or type (e.g. csv, binary, images, etc).`,
 	project := pachCtx.Project
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
-		Short: "Create a new repo.",
-		Long:  "Create a new repo.",
+		Short: "Create a new repo in your active project.",
+		Long: "This command creates a repo in the project that is set to your active context (initially the `default` project).\n" +
+			"\n" +
+			"\t- To specify which project to create the repo in, use the `--project` flag \n" +
+			"\t- To add a description to the project, use the `--description` flag  \n",
+		Example: "\t- {{alias}} foo ➔ /<active-project>/foo \n" +
+			"\t- {{alias}} bar --description 'my new repo' ➔ /<active-project>/bar \n" +
+			"\t- {{alias}} baz --project myproject ➔ /myproject/baz \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -110,14 +119,22 @@ or type (e.g. csv, binary, images, etc).`,
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	createRepo.Flags().StringVar(&project, "project", project, "The project to create the repo in.")
+	createRepo.Flags().StringVarP(&description, "description", "d", "", "Set a repo description.")
+	createRepo.Flags().StringVar(&project, "project", project, "Specify an existing project (by name) for where the new repo will be located.")
 	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Update a repo.",
-		Long:  "Update a repo.",
+		Long: "This command enables you to update the description of an existing repo. \n" +
+			"\n" +
+			"\t- To specify which project to update the repo in, use the `--project` flag \n" +
+			"\t- To update the description of a repo, use the `--description` flag \n" +
+			"\n" +
+			"If you are looking to update the pipelines in your repo, see `pachctl update pipeline` instead.",
+		Example: "\t- {{alias}} foo --description 'my updated repo description'\n" +
+			"\t- {{alias}} foo --project bar --description 'my updated repo description'\n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -139,15 +156,19 @@ or type (e.g. csv, binary, images, etc).`,
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	updateRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	updateRepo.Flags().StringVarP(&description, "description", "d", "", "Set a repo description.")
+	updateRepo.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo is located.")
 	shell.RegisterCompletionFunc(updateRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(updateRepo, "update repo", repos))
 
 	inspectRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return info about a repo.",
-		Long:  "Return info about a repo.",
+		Long: "This command returns details of the repo such as: `Name`, `Description`, `Created`, and `Size of HEAD on Master`. By default, PachCTL checks for a matching repo in the project that is set to your active context (initially the `default` project).\n" +
+			"\n" +
+			"\t- To specify the project containing the repo you want to inspect, use the `--project` flag \n",
+		Example: "\t- {{alias}} foo  \n" +
+			"\t- {{alias}} foo --project myproject",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -175,7 +196,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	inspectRepo.Flags().AddFlagSet(outputFlags)
 	inspectRepo.Flags().AddFlagSet(timestampFlags)
-	inspectRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	inspectRepo.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo is located.")
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectRepo, "inspect repo", repos))
 
@@ -183,7 +204,22 @@ or type (e.g. csv, binary, images, etc).`,
 	var repoType string
 	listRepo := &cobra.Command{
 		Short: "Return a list of repos.",
-		Long:  "Return a list of repos. By default, hide system repos like pipeline metadata",
+		Long: "This command returns a list of repos that you have permissions to view. By default, it does not show system repos like pipeline metadata. \n" +
+			"\n" +
+			"\t- To view all input repos across projects, use `-A` flag \n" +
+			"\t- To view all repos in a specific project, including system repos, use the `--all` flag \n" +
+			"\t- To view repos of a specific type, use the `--type` flag; options include `USER`, `META`, & `SPEC` \n" +
+			"\t- To view repos of a specific type across projects, use the `--type` and `-A` flags \n" +
+			"\t- To view repos of a specific type in a specific project, use the `--type` and `--project` flags \n" +
+			"\n" +
+			"For information on roles and permissions, see the documentation: https://docs.pachyderm.com/latest/set-up/authorization/permissions/",
+		Example: "\t- pachctl list repos \n" +
+			"\t- {{alias}} -A \n" +
+			"\t- {{alias}} --all \n" +
+			"\t- {{alias}} --type user \n" +
+			"\t- {{alias}} --type user --all \n" +
+			"\t- {{alias}} --type user --all --project default \n" +
+			"\t- {{alias}} --type user --all --project default --raw",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -229,17 +265,31 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	listRepo.Flags().AddFlagSet(outputFlags)
 	listRepo.Flags().AddFlagSet(timestampFlags)
-	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
-	listRepo.Flags().StringVar(&repoType, "type", pfs.UserRepoType, "only include repos of the given type")
-	listRepo.Flags().StringVar(&project, "project", project, "project in which repo is located")
-	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "show repos from all projects")
+	listRepo.Flags().BoolVar(&all, "all", false, "Specify all repo types should be returned, including hidden system repos.")
+	listRepo.Flags().StringVar(&repoType, "type", pfs.UserRepoType, "Set a repo type for scoped results.")
+	listRepo.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repos are located.")
+	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Specify all repos across all projects should be returned.")
 	commands = append(commands, cmdutil.CreateAliases(listRepo, "list repo", repos))
 
 	var force bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
-		Long:  "Delete a repo.",
+		Long: "This command deletes a repo. If this is a shared resource, it will be deleted for other users as well. \n" +
+			"\n" +
+			"\t- To force delete a repo, use the `--force` flag; use with caution \n" +
+			"\t- To delete all repos across all projects, use the `--all` flag \n" +
+			"\t- To delete a repo of a specific type, use the `--type` flag; options include `USER`, `META`, & `SPEC` \n" +
+			"\t- To delete all repos of a specific type across all projects, use the `--all` and `--type` flags \n" +
+			"\t- To delete all repos of a specific type in a specific project, use the `--all`, `--type`, and `--project` flags \n" +
+			"\n",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo --force \n" +
+			"\t- {{alias}} --type user \n" +
+			"\t- {{alias}} --all \n" +
+			"\t- {{alias}} --all --type user \n" +
+			"\t- {{alias}} --all --type user --project default",
+
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -284,26 +334,27 @@ or type (e.g. csv, binary, images, etc).`,
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
+	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "Force repo deletion, regardless of errors; use with caution.")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	deleteRepo.Flags().StringVar(&project, "project", project, "project in which repo is located")
-	deleteRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "delete repos from all projects; only valid with --all")
+	deleteRepo.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the to-be-deleted repo is located.")
+	deleteRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Delete repo(s) across all projects; only valid with --all.")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteRepo, "delete repo", repos))
 
+	// COMMIT COMMANDS
+
 	commitDocs := &cobra.Command{
 		Short: "Docs for commits.",
-		Long: `Commits are atomic transactions on the content of a repo.
-
-Creating a commit is a multistep process:
-- start a new commit with 'start commit'
-- write files to the commit via 'put file'
-- finish the new commit with 'finish commit'
-
-Commits that have been started but not finished are NOT durable storage.
-Commits become reliable (and immutable) when they are finished.
-
-Commits can be created with another commit as a parent.`,
+		Long: "Commits are atomic transactions on the content of a repo.\n" +
+			"\n" +
+			"Creating a commit is a multi-step process: \n" +
+			"\t1. Start a new commit with `pachctl start commit`\n" +
+			"\t2. Write files to the commit via `pachctl put file`\n" +
+			"\t3. Finish the new commit with `pachctl finish commit`\n" +
+			"\n" +
+			"Commits that have been started but not finished are NOT durable storage.\n" +
+			"Commits become reliable (and immutable) when they are finished.\n" +
+			"Commits can be created with another commit as a parent.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(commitDocs, "commit", " commit$", commits))
 
@@ -311,16 +362,17 @@ Commits can be created with another commit as a parent.`,
 	startCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Start a new commit.",
-		Long:  "Start a new commit with parent-commit as the parent on the given branch; if the branch does not exist, it will be created.",
-		Example: `
-# Start a commit in repo "test" on branch "master"
-$ {{alias}} test@master
+		Long: "This command starts a new commit with parent-commit as the parent on the given branch; if the branch does not exist, it will be created. \n" +
+			"\n" +
+			"\t- To specify a parent commit, use the `--parent` flag \n" +
+			"\t- To add a message to the commit, use the `--message` or `--description` flag \n" +
+			"\t- To specify which project the repo is in, use the `--project` flag \n",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master -p 0001a0100b1c10d01111e001fg00h00i \n" +
+			"\t- {{alias}} foo@master --message 'my commit message' \n" +
+			"\t- {{alias}} foo@master --description 'my commit description' \n" +
+			"\t- {{alias}} foo@master --project bar",
 
-# Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
-$ {{alias}} test@patch -p master
-
-# Start a commit with XXX as the parent in repo "test" on the branch "fork"
-$ {{alias}} test@fork -p XXX`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -356,23 +408,33 @@ $ {{alias}} test@fork -p XXX`,
 				return errors.EnsureStack(err)
 			})
 			if err == nil {
-				fmt.Println(commit.ID)
+				fmt.Println(commit.Id)
 			}
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
+	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "Set the parent (by id) of the new commit; only needed when branch is not specified using the @ syntax.")
 	startCommit.MarkFlagCustom("parent", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
-	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	startCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	startCommit.Flags().StringVarP(&description, "message", "m", "", "Set a description for the commit's contents (synonym for --description).")
+	startCommit.Flags().StringVar(&description, "description", "d", "Set a description of this commit's contents (synonym for --message).")
+	startCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo for this commit is located.")
 	shell.RegisterCompletionFunc(startCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(startCommit, "start commit", commits))
 
 	finishCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Finish a started commit.",
-		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
+		Long: "This command finishes a started commit. \n" +
+			"\n" +
+			"\t- To force finish a commit, use the `--force` flag \n" +
+			"\t- To add a message to the commit, use the `--message` or `--description` flag \n" +
+			"\t- To specify which project the repo is in, use the `--project` flag \n",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master --force \n" +
+			"\t- {{alias}} foo@master --project bar" +
+			"\t- {{alias}} foo@master --message 'my commit message' \n" +
+			"\t- {{alias}} foo@master --description 'my commit description' --project bar \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
@@ -398,17 +460,25 @@ $ {{alias}} test@fork -p XXX`,
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
-	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "finish the commit even if it has provenance, which could break jobs; prefer 'stop job'")
-	finishCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	finishCommit.Flags().StringVarP(&description, "message", "m", "", "Set a description of this commit's contents; overwrites existing commit description (synonym for --description).")
+	finishCommit.Flags().StringVar(&description, "description", "", "Set a description of this commit's contents; overwrites existing commit description (synonym for --message).")
+	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "Force finish commit, even if it has provenance, which could break jobs; prefer 'pachctl stop stop job'")
+	finishCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo for this commit is located.")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(finishCommit, "finish commit", commits))
 
 	inspectCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Return info about a commit.",
-		Long:  "Return info about a commit.",
+		Long: "This command returns information about the commit, such as the commit location (`branch@commit-id`), originating branch, start/finish times, and size. \n" +
+			"\n" +
+			"\t- To view the raw details of the commit in JSON format, use the `--raw` flag \n" +
+			"\t- To specify which project the repo is in, use the `--project` flag \n",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master --project bar \n" +
+			"\t- {{alias}} foo@master --raw \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar --raw \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
@@ -448,7 +518,7 @@ $ {{alias}} test@fork -p XXX`,
 	}
 	inspectCommit.Flags().AddFlagSet(outputFlags)
 	inspectCommit.Flags().AddFlagSet(timestampFlags)
-	inspectCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	inspectCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo for this commit is located.")
 	shell.RegisterCompletionFunc(inspectCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectCommit, "inspect commit", commits))
 
@@ -459,25 +529,21 @@ $ {{alias}} test@fork -p XXX`,
 	listCommit := &cobra.Command{
 		Use:   "{{alias}} [<commit-id>|<repo>[@<branch-or-commit>]]",
 		Short: "Return a list of commits.",
-		Long:  "Return a list of commits, either across the entire pachyderm cluster or restricted to a single repo.",
-		Example: `
-# return all commits
-$ {{alias}}
-
-# return commits in repo "foo"
-$ {{alias}} foo
-
-# return all sub-commits in a commit
-$ {{alias}} <commit-id>
-
-# return commits in repo "foo" on branch "master"
-$ {{alias}} foo@master
-
-# return the last 20 commits in repo "foo" on branch "master"
-$ {{alias}} foo@master -n 20
-
-# return commits in repo "foo" on branch "master" since commit XXX
-$ {{alias}} foo@master --from XXX`,
+		Long: "This command returns a list of commits, either across the entire pachyderm cluster or restricted to a single repo. \n" +
+			"\n" +
+			"\t- To specify which project the repo is in, use the `--project` flag \n" +
+			"\t- To specify the number of commits to return, use the `--number` flag \n" +
+			"\t- To list all commits that have come after a certain commit, use the `--from` flag \n" +
+			"\t- To specify the origin of the commit, use the `--origin` flag; options include `AUTO`, `FSCK`, & `USER`. Requires at least repo name in command \n" +
+			"\t- To expand the commit to include all of its sub-commits, use the `--expand` flag \n",
+		Example: "\t- {{alias}} foo ➔ returns all commits in repo foo \n" +
+			"\t- {{alias}} foo@master ➔ returns all commits in repo foo on branch master \n" +
+			"\t- {{alias}} foo@master --number 10 ➔ returns the last 10 commits in repo foo on branch master \n" +
+			"\t- {{alias}} foo@master --from 0001a0100b1c10d01111e001fg00h00i ➔ returns all commits in repo foo on branch master since <commit> \n" +
+			"\t- {{alias}} foo@master --origin user ➔ returns all commits in repo foo on branch master originating from \n" +
+			"\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i ➔ returns all commits with ID <commit-id> \n" +
+			"\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i --expand ➔ returns all sub-commits on new lines, along with columns of more information \n" +
+			"\t- {{alias}} foo@master --raw -o yaml ➔ returns all commits in repo foo on branch master in YAML format \n",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -618,7 +684,7 @@ $ {{alias}} foo@master --from XXX`,
 					fromCommit = repo.NewCommit("", from)
 				}
 
-				if toCommit.ID == "" && toCommit.Branch.Name == "" {
+				if toCommit.Id == "" && toCommit.Branch.Name == "" {
 					// just a repo
 					toCommit = nil
 				}
@@ -657,25 +723,26 @@ $ {{alias}} foo@master --from XXX`,
 			}
 		}),
 	}
-	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
-	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
+	listCommit.Flags().StringVarP(&from, "from", "f", "", "Set the starting point of the commit range to list.")
+	listCommit.Flags().Int64VarP(&number, "number", "n", 0, "Set the limit of returned results; if zero, list all commits.")
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	listCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
-	listCommit.Flags().BoolVarP(&expand, "expand", "x", false, "show one line for each sub-commmit and include more columns")
-	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
+	listCommit.Flags().BoolVar(&all, "all", false, "Specify all types of commits (AUTO, FSCK, USER) should be returned; default only includes USER.")
+	listCommit.Flags().BoolVarP(&expand, "expand", "x", false, "Specify results should return one line for each sub-commit and include more columns.")
+	listCommit.Flags().StringVar(&originStr, "origin", "", "Specify the type of commit to scope returned results by; options include AUTO, FSCK, & USER.")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
-	listCommit.Flags().StringVar(&project, "project", project, "Project in which commit is located.")
+	listCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the commit.")
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 
 	waitCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Wait for the specified commit to finish and return it.",
-		Long:  "Wait for the specified commit to finish and return it.",
-		Example: `
-# wait for the commit foo@XXX to finish and return it
-$ {{alias}} foo@XXX -b bar@baz`,
+		Long:  "This command waits for the specified commit to finish before returning it, allowing you to track your commits downstream as they are produced. Each line is printed as soon as a new (sub) commit of your global commit finishes.",
+		Example: "\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar --raw -o yaml \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
@@ -688,7 +755,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.Id)
 			if err != nil {
 				return err
 			}
@@ -708,23 +775,22 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
-	waitCommit.Flags().StringVar(&project, "project", project, "Project containing commit.")
+	waitCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the commit.")
 	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Print commits as they are created (finished).",
-		Long:  "Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.",
-		Example: `
-# subscribe to commits in repo "test" on branch "master"
-$ {{alias}} test@master
-
-# subscribe to commits in repo "test" on branch "master", but only since commit XXX.
-$ {{alias}} test@master --from XXX
-
-# subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
-$ {{alias}} test@master --new`,
+		Long: "This command prints commits as they are created in the specified repo and branch. By default, all existing commits on the specified branch are returned first.  A commit is only considered created when it's been finished." +
+			"\n" +
+			"\t- To only see commits created after a certain commit, use the `--from` flag. \n" +
+			"\t- To only see new commits created from now on, use the `--new` flag. \n" +
+			"\t- To see all commit types, use the `--all` flag.\n" +
+			"\t- To only see commits of a specific type, use the `--origin` flag. \n",
+		Example: "\t {{alias}} foo@master ➔ subscribe to commits in the foo repo on the master branch \n" +
+			"\t- {{alias}} foo@bar --from 0001a0100b1c10d01111e001fg00h00i ➔ starting at <commit-id>, subscribe to commits in the foo repo on the master branch \n" +
+			"\t- {{alias}} foo@bar --new ➔ subscribe to commits in the foo repo on the master branch, but only for new commits created from now on \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -788,22 +854,22 @@ $ {{alias}} test@master --new`,
 			return errors.EnsureStack(err)
 		}),
 	}
-	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
+	subscribeCommit.Flags().StringVar(&from, "from", "", "Subscribe to and return all commits since the specified commit.")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
-	subscribeCommit.Flags().BoolVar(&all, "all", false, "return all types of commits, including aliases")
-	subscribeCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
+	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "Subscribe to and return only new commits created from now on.")
+	subscribeCommit.Flags().BoolVar(&all, "all", false, "Specify results should return all types of commits (AUTO, FSCK, USER)")
+	subscribeCommit.Flags().StringVar(&originStr, "origin", "", "Specify results should only return commits of a specific type; options include AUTO, FSCK, & USER.")
 	subscribeCommit.Flags().AddFlagSet(outputFlags)
 	subscribeCommit.Flags().AddFlagSet(timestampFlags)
-	subscribeCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	subscribeCommit.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the commit.")
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, "subscribe commit", commits))
 
 	squashCommit := &cobra.Command{
-		Use:   "{{alias}} <commit-id>",
-		Short: "Squash the sub-commits of a commit.",
-		Long: `Squash the sub-commits of a commit.  The data in the sub-commits will remain in their child commits.
-The squash will fail if it includes a commit with no children`,
+		Use:     "{{alias}} <commit-id>",
+		Short:   "Squash the sub-commits of a commit.",
+		Long:    "This command squashes the sub-commits of a commit.  The data in the sub-commits will remain in their child commits. The squash will fail if it includes a commit with no children",
+		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -823,9 +889,9 @@ The squash will fail if it includes a commit with no children`,
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
 		Short: "Delete the sub-commits of a commit.",
-		Long: `Delete the sub-commits of a commit.  The data in the sub-commits will be lost.
-This operation is only supported if none of the sub-commits have children.`,
-
+		Long: "This command deletes the sub-commits of a commit; data in sub-commits will be lost, so use with caution. " +
+			"This operation is only supported if none of the sub-commits have children. ",
+		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -841,15 +907,13 @@ This operation is only supported if none of the sub-commits have children.`,
 	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteCommit, "delete commit", commits))
 
+	// BRANCH COMMANDS
+
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
-		Long: `A branch in Pachyderm records provenance relationships between data in different repos,
-as well as being as an alias for a commit in its repo.
-
-The branch reference will "float" to always refer to the latest commit on the
-branch, known as the HEAD commit. All commits are on exactly one branch.
-
-Any pachctl command that can take a commit, can take a branch name instead.`,
+		Long: "A branch in Pachyderm records provenance relationships between data in different repos, as well as being as an alias for a commit in its repo. " +
+			"The branch reference will float to always refer to the latest commit on the branch, known as the HEAD commit. All commits are on exactly one branch. " +
+			"Any pachctl command that can take a commit, can take a branch name instead.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(branchDocs, "branch", " branch$", branches))
 
@@ -859,7 +923,25 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	createBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
-		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
+		Long: "This command creates or updates a branch on a repo. \n" +
+			"\n" +
+			"\t- To create a branch for a repo in a particular project, use the `--project` flag; this requires the repo to already exist in that project \n" +
+			"\t- To attach an existing commit as the head commit of the new branch, use the `--head` flag \n" +
+			"\t- To set a trigger, use the `--trigger` flag, pass in the branch (from same repo, without `repo@`), and set conditions using any of the `--trigger` options \n" +
+			"\t- To require all defined triggering conditions to be met, use the `--trigger-all` flag; otherwise, each condition can execute the trigger \n" +
+			"\t- To attach provenance to the new branch, use the `--provenance` flag. You can inspect provenance using `pachctl inspect branch foo@bar` \n" +
+			"\n" +
+			"Note: Starting a commit on the branch also creates it, so there's often no need to call this.",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master --project bar \n" +
+			"\t- {{alias}} foo@master --head 0001a0100b1c10d01111e001fg00h00i \n" +
+			"\t- {{alias}} foo@master=0001a0100b1c10d01111e001fg00h00i \n" +
+			"\t- {{alias}} foo@master --provenance=foo@branch1,foo@branch2 \n" +
+			"\t- {{alias}} foo@master --trigger staging \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-cron='@every 1h' \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-commits=10' \n" +
+			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M --trigger-cron='@every 1h --trigger-commits=10 --trigger-all \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -872,7 +954,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			if len(provenance) != 0 && trigger.Branch != "" {
 				return errors.Errorf("cannot use provenance and triggers on the same branch")
 			}
-			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) && trigger.Branch == "" {
+			if (trigger.CronSpec != "" || trigger.Size != "" || trigger.Commits != 0) && trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
 			if proto.Equal(trigger, &pfs.Trigger{}) {
@@ -910,22 +992,28 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			})
 		}),
 	}
-	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch>")
+	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "Set the provenance for the branch. format: <repo>@<branch>")
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch. Either pass the commit with format: <branch-or-commit>, or fully-qualified as <repo>@<branch>=<id>")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "Set the head of the newly created branch using <branch-or-commit> or <repo>@<branch>=<id>")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "The branch to trigger this branch on.")
-	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
-	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
-	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
-	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
-	createBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "Specify the branch name that triggers this branch.")
+	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "Set a cron spec interval as a condition for the trigger.")
+	createBranch.Flags().StringVar(&trigger.Size, "trigger-size", "", "Set data size as a condition for the trigger.")
+	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "Set the number of commits as a condition for the trigger.")
+	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Specify that all set conditions must be met for the trigger.")
+	createBranch.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo for this branch is located.")
 	commands = append(commands, cmdutil.CreateAliases(createBranch, "create branch", branches))
 
 	inspectBranch := &cobra.Command{
 		Use:   "{{alias}}  <repo>@<branch>",
 		Short: "Return info about a branch.",
-		Long:  "Return info about a branch.",
+		Long: "This command returns info about a branch, such as its `Name`, `Head Commit`, and `Trigger`. \n" +
+			"\n" +
+			"\t- To inspect a branch from a repo in another project, use the `--project` flag \n" +
+			"\t- To get additional details about the branch, use the `--raw` flag \n",
+		Example: "\t- {{alias}} foo@master  \n" +
+			"\t- {{alias}} foo@master --project bar \n" +
+			"\t- {{alias}} foo@master --raw \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -955,14 +1043,21 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
 	inspectBranch.Flags().AddFlagSet(outputFlags)
 	inspectBranch.Flags().AddFlagSet(timestampFlags)
-	inspectBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	inspectBranch.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing branch's repo.")
 	shell.RegisterCompletionFunc(inspectBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectBranch, "inspect branch", branches))
 
 	listBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return all branches on a repo.",
-		Long:  "Return all branches on a repo.",
+		Long: "This command returns all branches on a repo. \n" +
+			"\n" +
+			"\t- To list branches from a repo in another project, use the `--project` flag \n" +
+			"\t- To get additional details about the branches, use the `--raw` flag \n",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master --project bar \n" +
+			"\t- {{alias}} foo@master --raw \n" +
+			"\t- {{alias}} foo@master --raw -o yaml \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -995,14 +1090,21 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		}),
 	}
 	listBranch.Flags().AddFlagSet(outputFlags)
-	listBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listBranch.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing branch's repo.")
 	shell.RegisterCompletionFunc(listBranch, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listBranch, "list branch", branches))
 
 	deleteBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Delete a branch",
-		Long:  "Delete a branch, while leaving the commits intact",
+		Long: "This command deletes a branch while leaving its commits intact. \n" +
+			"\n" +
+			"\t- To delete a branch from a repo in another project, use the `--project` flag \n" +
+			"\t- To delete a branch regardless of errors, use the `--force` flag \n",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master --project bar \n" +
+			"\t- {{alias}} foo@master --force \n" +
+			"\t- {{alias}} foo@master --project bar --force \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
@@ -1020,15 +1122,29 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			})
 		}),
 	}
-	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
-	deleteBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "Force branch deletion regardless of errors; use with caution.")
+	deleteBranch.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing branch's repo.")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
+	// COMMIT COMMANDS
+
 	FindCommits := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs> [flags]",
-		Short: "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
-		Long:  "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Short: "Find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Long: "This command returns a list of commits using a reference to their `file/path` within a branch, starting from `repo@<commitID>`. \n" +
+			"\n" +
+			"\t- To find commits from a repo in another project, use the `--project` flag \n" +
+			"\t- To set a limit on the number of returned commits, use the `--limits` flag \n" +
+			"\t- To set a timeout for your commit search, use the `--timeout` flag \n" +
+			"\t- To print the results as json, use the `--json` flag \n",
+		Example: "\t- {{alias}} foo@master:file \n" +
+			"\t- {{alias}} foo@master:file --project bar \n" +
+			"\t- {{alias}} foo@master:file --limit 10 \n" +
+			"\t- {{alias}} foo@master:file --timeout 10s \n" +
+			"\t- {{alias}} foo@master:file --json \n" +
+			"\t- {{alias}} foo@master:file --project bar --json --limit 100 --timeout 20s \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1070,25 +1186,31 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			return grpcutil.ScrubGRPC(pretty.PrintFindCommits(findCommitClient))
 		}),
 	}
-	FindCommits.Flags().BoolVar(&jsonOutput, "json", jsonOutput, "print the response in json")
-	FindCommits.Flags().Uint32Var(&limit, "limit", limit, "Number of matching commits to return")
-	FindCommits.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
-	FindCommits.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	FindCommits.Flags().BoolVar(&jsonOutput, "json", jsonOutput, "Print the response in json.")
+	FindCommits.Flags().Uint32Var(&limit, "limit", limit, "Set the number of matching commits to return.")
+	FindCommits.Flags().DurationVar(&timeout, "timeout", timeout, "Set the search duration timeout.")
+	FindCommits.Flags().StringVar(&project, "project", project, "Specify the project (by name) in which commits are located.")
 	shell.RegisterCompletionFunc(FindCommits, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(FindCommits, "find commit", commits))
 
+	// PROJECT COMMANDS
+
 	projectDocs := &cobra.Command{
 		Short: "Docs for projects.",
-		Long: `Projects are the top level organizational objects in Pachyderm.
-
-Projects contain pachyderm objects such as Repos and Pipelines.`,
+		Long: "Projects are the top-level organizational objects in Pachyderm. " +
+			"Projects contain pachyderm data objects such as Repos and Pipelines.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(projectDocs, "project", " project", projects))
 
 	createProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
 		Short: "Create a new project.",
-		Long:  "Create a new project.",
+		Long: "This command creates a new project. \n" +
+			"\n" +
+			"\t- To set a description for the project, use the `--description` flag \n",
+		Example: "\t- {{alias}} foo-project \n" +
+			"\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1105,13 +1227,14 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 
 		}),
 	}
-	createProject.Flags().StringVarP(&description, "description", "d", "", "The description of the newly-created project.")
+	createProject.Flags().StringVarP(&description, "description", "d", "", "Set a description for the newly-created project.")
 	commands = append(commands, cmdutil.CreateAliases(createProject, "create project", projects))
 
 	updateProject := &cobra.Command{
-		Use:   "{{alias}} <project>",
-		Short: "Update a project.",
-		Long:  "Update a project.",
+		Use:     "{{alias}} <project>",
+		Short:   "Update a project.",
+		Long:    "This command updates a project's description.",
+		Example: "\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1129,14 +1252,21 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 
 		}),
 	}
-	updateProject.Flags().StringVarP(&description, "description", "d", "", "The description of the updated project.")
+	updateProject.Flags().StringVarP(&description, "description", "d", "", "Set a new description of the updated project.")
 	shell.RegisterCompletionFunc(updateProject, shell.ProjectCompletion)
 	commands = append(commands, cmdutil.CreateAliases(updateProject, "update project", projects))
 
 	inspectProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
 		Short: "Inspect a project.",
-		Long:  "Inspect a project.",
+		Long: "This command inspects a project and returns information like its `Name` and `Created at` time. \n" +
+			"\n" +
+			"\t- To return additional details, use the `--raw` flag \n",
+
+		Example: "\t- {{alias}} foo-project \n" +
+			"\t- {{alias}} foo-project --raw \n" +
+			"\t- {{alias}} foo-project --output=yaml \n",
+
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1166,7 +1296,9 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 	listProject := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return all projects.",
-		Long:  "Return all projects.",
+		Long:  "This command returns all projects.",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} --raw \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1205,7 +1337,9 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 	deleteProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
 		Short: "Delete a project.",
-		Long:  "Delete a project.",
+		Long:  "This command deletes a project.",
+		Example: "\t- {{alias}} foo-project \n" +
+			"\t- {{alias}} foo-project --force \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1286,16 +1420,15 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteProject, shell.ProjectCompletion)
-	deleteProject.Flags().BoolVarP(&force, "force", "f", false, "remove the project regardless of errors; use with care")
+	deleteProject.Flags().BoolVarP(&force, "force", "f", false, "Force delete the project regardless of errors; use with caution.")
 	commands = append(commands, cmdutil.CreateAliases(deleteProject, "delete project", projects))
+
+	// FILE COMMANDS
 
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
-		Long: `Files are the lowest level data objects in Pachyderm.
-
-Files can be of any type (e.g. csv, binary, images, etc) or size and can be
-written to started (but not finished) commits with 'put file'. Files can be read
-from commits with 'get file'.`,
+		Long: "Files are the lowest-level data objects in Pachyderm and can be of any type (e.g. csv, binary, images, etc) or size. \n" +
+			"Files can be written to started--but not yet finished--commits with the `pachctl put file` command. To read a file from a commit, Files use the `pachctl get file` command.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(fileDocs, "file", " file$", files))
 
@@ -1311,40 +1444,36 @@ from commits with 'get file'.`,
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
-		Long:  "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS.",
-		Example: `
-# Put data from stdin at repo@branch:/path
-$ echo "data" | {{alias}} repo@branch:/path
+		Long: "This command puts a file into the filesystem.  This command supports a number of ways to insert data into PFS. \n" +
+			"\n" +
+			"Files, Directories, & URLs: \n" +
+			"\t- To upload via local filesystem, use the `-f` flag \n" +
+			"\t- To upload via URL, use the `-f` flag with a URL as the argument \n" +
+			"\t- To upload via filepaths & urls within a file, use the `i` flag \n" +
+			"\t- To upload to a specific path in the repo, use the `-f` flag and add the path to the `repo@branch:/path` \n" +
+			"\t- To upload recursively from a directory, use the `-r` flag \n" +
+			"\t- To upload tar files and have them automatically untarred, use the `-untar` flag \n" +
+			"\n" +
+			"Compression, Parallelization, Appends: \n" +
+			"\t- To compress files before uploading, use the `-c` flag \n" +
+			"\t- To define the maximum number of files that can be uploaded in parallel, use the `-p` flag \n" +
+			"\t- To append to an existing file, use the `-a` flag \n" +
+			"\n" +
+			"Other: \n" +
+			"\t- To enable progress bars, use the `-P` flag \n",
 
-# Put a file from the local filesystem at repo@branch:/file
-$ {{alias}} repo@branch -f file
+		Example: "\t- {{alias}} repo@master-f image.png \n" +
+			"\t- {{alias}} repo@master:/logs/log-1.txt  \n" +
+			"\t- {{alias}} -r repo@master -f my-directory \n" +
+			"\t- {{alias}} -r repo@branch:/path -f my-directory \n" +
+			"\t- {{alias}} repo@branch -f http://host/example.png \n" +
+			"\t- {{alias}} repo@branch:/dir -f http://host/example.png \n" +
+			"\t- {{alias}} repo@branch -r -f s3://my_bucket \n" +
+			"\t- {{alias}} repo@branch -i file \n" +
+			"\t- {{alias}} repo@branch -i http://host/path \n" +
+			"\t- {{alias}} repo@branch -f -untar dir.tar \n" +
+			"\t- {{alias}} repo@branch -f -c image.png \n",
 
-# Put a file from the local filesystem at repo@branch:/path
-$ {{alias}} repo@branch:/path -f file
-
-# Put the contents of a directory at repo@branch:/dir/file
-$ {{alias}} -r repo@branch -f dir
-
-# Put the contents of a directory at repo@branch:/path/file (without /dir)
-$ {{alias}} -r repo@branch:/path -f dir
-
-# Put the data from a URL at repo@branch:/example.png
-$ {{alias}} repo@branch -f http://host/example.png
-
-# Put the data from a URL at repo@branch:/dir/example.png
-$ {{alias}} repo@branch:/dir -f http://host/example.png
-
-# Put the data from an S3 bucket at repo@branch:/s3_object
-$ {{alias}} repo@branch -r -f s3://my_bucket
-
-# Put several files or URLs that are listed in file.
-# Files and URLs should be newline delimited.
-$ {{alias}} repo@branch -i file
-
-# Put several files or URLs that are listed at URL.
-# NOTE this URL can reference local files, so it could cause you to put sensitive
-# files into your Pachyderm cluster.
-$ {{alias}} repo@branch -i http://host/path`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			if !enableProgress {
 				progress.Disable()
@@ -1453,16 +1582,16 @@ $ {{alias}} repo@branch -i http://host/path`,
 			})
 		}),
 	}
-	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
-	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
-	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
-	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "Specify the file to be put; it can be a local file or a URL.")
+	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Specify file provided contains a list of files to be put (as paths or URLs).")
+	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Specify files should be recursively put into a directory.")
+	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Specify data should be compressed during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
+	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "Set the maximum number of files that can be uploaded in parallel.")
+	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Specify file contents should be appended to existing content from previous commits or previous calls to 'pachctl put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
-	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
-	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz or .tgz) tar file(s) are handled as well")
-	putFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	putFile.Flags().BoolVar(&fullPath, "full-path", false, "Specify entire path provided to -f should be the target filename in PFS; by default only the base of the path is used.")
+	putFile.Flags().BoolVar(&untar, "untar", false, "Specify file(s) with the extension .tar should be untarred and put as a separate file for each file within the tar stream(s); gzipped (.tar.gz or .tgz) tar file(s) are handled as well")
+	putFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo for uploading this file is located.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1480,26 +1609,17 @@ $ {{alias}} repo@branch -i http://host/path`,
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
-		Long:  "Copy files between pfs paths.",
-		Example: `
-# copy between repos within the current project defined by the pachyderm context
-# defaults to the "default" project
-$ {{alias}} srcRepo@master:/file destRepo@master:/file
-
-# copy within a specified project
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --project myProject
-
-# copy from the current project to a different project
-# here, srcRepo is in the current project, while destRepo is in myProject
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --dest-project myProject
-
-# copy from a different project to the current project
-# here, srcRepo is in myProject, while destRepo is in the current project
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project myProject
-
-# copy between repos across two different projects
-# here, srcRepo is in project1, while destRepo is in project2
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --dest-project project2`,
+		Long: "This command files between pfs paths. While using this command, take special note of which project is set to your active context by running `pachctl list projects` and checking for the `*` in the ACTIVE column. \n" +
+			"\n" +
+			"\t- To append to an existing file, use the --append flag.\n" +
+			"\t- To specify the project where both the source and destination repos are located, use the --project flag. This is only necessary if the project in question is not set to your active context.\n" +
+			"\t- To copy a file from one project to another, use the --src-project and --dest-project flags. Needing to use one (or both) depends on whether or not either project is set to your active context.\n",
+		Example: "\t- {{alias}} foo@master:/file bar@master:/file \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:/file bar@master:/file \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --project ProjectContainingFooAndBar \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --dest-project ProjectContainingBar \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --src-project ProjectContainingFoo \n" +
+			"\t- {{alias}} foo@master:/file bar@master:/file --src-project ProjectContainingFoo --dest-project ProjectContainingBar",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if srcProject == "" {
 				srcProject = project
@@ -1533,9 +1653,9 @@ $ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --
 		}),
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
-	copyFile.Flags().StringVar(&project, "project", project, "Project in which both source and destination repos are located.")
-	copyFile.Flags().StringVar(&srcProject, "src-project", "", "Project in which the source repo is located. This overrides --project.")
-	copyFile.Flags().StringVar(&destProject, "dest-project", "", "Project in which the destination repo is located. This overrides --project.")
+	copyFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where both source and destination repos are located.")
+	copyFile.Flags().StringVar(&srcProject, "src-project", "", "Specify the project (by name) where the source repo is located; this overrides --project.")
+	copyFile.Flags().StringVar(&destProject, "dest-project", "", "Specify the project (by name) where the destination repo is located; this overrides --project.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
@@ -1545,26 +1665,26 @@ $ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --
 	getFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return the contents of a file.",
-		Long:  "Return the contents of a file.",
-		Example: `
-# get a single file "XXX" on branch "master" in repo "foo"
-$ {{alias}} foo@master:XXX
+		Long: "This command returns the contents of a file. " +
+			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to retrieve the contents of a file from a previous commit. \n" +
+			"\n" +
+			"\t- To specify the project where the repo is located, use the --project flag \n" +
+			"\t- To specify the output path, use the --output flag \n" +
+			"\t- To specify the number of bytes to offset the read by, use the --offset-bytes flag \n" +
+			"\t- To retry the operation if it fails, use the --retry flag \n",
 
-# get file "XXX" in the parent of the current head of branch "master"
-# in repo "foo"
-$ {{alias}} foo@master^:XXX
-
-# get file "XXX" in the grandparent of the current head of branch "master"
-# in repo "foo"
-$ {{alias}} foo@master^2:XXX
-
-# get file "test[].txt" on branch "master" in repo "foo"
-# the path is interpreted as a glob pattern: quote and protect regex characters
-$ {{alias}} 'foo@master:/test\[\].txt'
-
-# get all files under the directory "XXX" on branch "master" in repo "foo"
-$ {{alias}} foo@master:XXX -r
-`,
+		Example: "\t- {{alias}} foo@master:image.png \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:image.png \n" +
+			"\t- {{alias}} foo@master:/directory -r \n" +
+			"\t- {{alias}} foo@master:image.png --output /path/to/image.png \n" +
+			"\t- {{alias}} foo@master:/logs/log.txt--offset-bytes 100 \n" +
+			"\t- {{alias}} foo@master:image.png --retry \n" +
+			"\t- {{alias}} foo@master:/logs/log.txt --output /path/to/image.png --offset-bytes 100 --retry \n" +
+			"\t- {{alias}} foo@master^:chart.png \n" +
+			"\t- {{alias}} foo@master^2:chart.png  \n" +
+			"\t- {{alias}} foo@master.1:chart.png  \n" +
+			"\t- {{alias}} foo@master.-1:chart.png  \n" +
+			"\t- " + `{{alias}} 'foo@master:/test\[\].txt'` + "\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			if !enableProgress {
 				progress.Disable()
@@ -1640,18 +1760,25 @@ $ {{alias}} foo@master:XXX -r
 		}),
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Download multiple files, or recursively download a directory.")
-	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
+	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "Set the path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
-	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
+	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "Set the number of bytes in the file to skip ahead when reading.")
 	getFile.Flags().BoolVar(&retry, "retry", false, "{true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.")
-	getFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	getFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the file's repo is located.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(getFile, "get file", files))
 
 	inspectFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return info about a file.",
-		Long:  "Return info about a file.",
+		Long: "This command returns info about a file." +
+			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to inspect the contents of a file from a previous commit. \n" +
+			"\t- To specify the project where the repo is located, use the --project flag \n",
+		Example: "\t- {{alias}} repo@master:/logs/log.txt \n" +
+			"\t- {{alias}} repo@0001a0100b1c10d01111e001fg00h00i:/logs/log.txt \n" +
+			"\t- {{alias}} repo@master:/logs/log.txt^2 \n" +
+			"\t- {{alias}} repo@master:/logs/log.txt.-1 \n" +
+			"\t- {{alias}} repo@master:/logs/log.txt^2  --project foo \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1678,32 +1805,22 @@ $ {{alias}} foo@master:XXX -r
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(outputFlags)
-	inspectFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	inspectFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the file's repo is located.")
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectFile, "inspect file", files))
 
 	listFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Return the files in a directory.",
-		Long:  "Return the files in a directory.",
-		Example: `
-# list top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master
-
-# list files under directory "dir" on branch "master" in repo "foo"
-$ {{alias}} foo@master:dir
-
-# list top-level files in the parent commit of the current head of "master"
-# in repo "foo"
-$ {{alias}} foo@master^
-
-# list top-level files in the grandparent of the current head of "master"
-# in repo "foo"
-$ {{alias}} foo@master^2
-
-# list file under directory "dir[1]" on branch "master" in repo "foo"
-# : quote and protect regex characters
-$ {{alias}} 'foo@master:dir\[1\]'`,
+		Long: "This command returns the files in a directory. " +
+			"While using this command, take special note of how you can use ancestry syntax (e.g., appending`^2` or `.-1` to `repo@branch`) to inspect the contents of a file from a previous commit. \n" +
+			"\t- To specify the project where the repo is located, use the --project flag \n",
+		Example: "\t- {{alias}} foo@master \n" +
+			"\t- {{alias}} foo@master:dir \n" +
+			"\t- {{alias}} foo@master^ \n" +
+			"\t- {{alias}} foo@master^2 \n" +
+			"\t- {{alias}} repo@master.-2  --project foo \n" +
+			"\t- " + `{{alias}} 'foo@master:dir\[1\]'` + "\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1735,24 +1852,20 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
 	listFile.Flags().AddFlagSet(timestampFlags)
-	listFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where repo is located.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
 	globFile := &cobra.Command{
 		Use:   `{{alias}} "<repo>@<branch-or-commit>:<pattern>"`,
 		Short: "Return files that match a glob pattern in a commit.",
-		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
-		Example: `
-# Return files in repo "foo" on branch "master" that start
-# with the character "A".  Note how the double quotation marks around the
-# parameter are necessary because otherwise your shell might interpret the "*".
-$ {{alias}} "foo@master:A*"
-
-# Return files in repo "foo" on branch "master" under directory "data".
-$ {{alias}} "foo@master:data/*"
-
-# If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
+		Long: "This command returns files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). " +
+			"Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match). \n" +
+			"\n" +
+			"\t- To specify the project where the repo is located, use the `--project flag` \n",
+		Example: "\t- " + `{{alias}} "foo@master:A*"` + "\n" +
+			"\t- " + `{{alias}} "foo@0001a0100b1c10d01111e001fg00h00i:data/*"` + "\n" +
+			"\t- " + `{{alias}} "foo@master:data/*"`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1787,7 +1900,7 @@ $ {{alias}} "foo@master:data/*"
 	}
 	globFile.Flags().AddFlagSet(outputFlags)
 	globFile.Flags().AddFlagSet(timestampFlags)
-	globFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	globFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo with potential matching file(s) is located.")
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(globFile, "glob file", files))
 
@@ -1798,15 +1911,17 @@ $ {{alias}} "foo@master:data/*"
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees stored in Pachyderm",
-		Long:  "Return a diff of two file trees stored in Pachyderm",
-		Example: `
-# Return the diff of the file "path" of the repo "foo" between the head of the
-# "master" branch and its parent.
-$ {{alias}} foo@master:path
+		Long: "This command returns a diff of two file trees stored in Pachyderm. The file trees are specified by two files, one from the new tree and one from the old tree." +
+			" \n" +
+			"\t- To specify the project where the repos are located, use the `--project flag` \n" +
+			"\t- To specify the project where the second older repo is located, use the `--old-project flag` \n" +
+			"\t- To prevent descending into sub-directories, use the `--shallow flag`\n" +
+			"\t- To use an alternative (non-git) diff command, use the `--diff-command flag` \n" +
+			"\t- To get only the names of changed files, use the `--name-only flag` \n",
 
-# Return the diff between the master branches of repos foo and bar at paths
-# path1 and path2, respectively.
-$ {{alias}} foo@master:path1 bar@master:path2`,
+		Example: "\t- {{alias}} foo@master:/logs/log.txt \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:log.txt \n" +
+			"\t- {{alias}} foo@master:path1 bar@master:path2",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			newFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1891,20 +2006,24 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			})
 		}),
 	}
-	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Don't descend into sub directories.")
-	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Show only the names of changed files.")
-	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
+	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specify results should not to descend into sub directories.")
+	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Specify results should only return the names of changed files.")
+	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Set a git-alternative program to diff files.")
 	diffFile.Flags().AddFlagSet(timestampFlags)
 	diffFile.Flags().AddFlagSet(pagerFlags)
-	diffFile.Flags().StringVar(&project, "project", project, "Project in which first repo is located.")
-	diffFile.Flags().StringVar(&oldProject, "old-project", "", "Project in which second, older repo is located.")
+	diffFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the first repo is located.")
+	diffFile.Flags().StringVar(&oldProject, "old-project", "", "Specify the project (by name) where the second, older repo is located.")
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(diffFile, "diff file", files))
 
 	deleteFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Delete a file.",
-		Long:  "Delete a file.",
+		Long:  "This command deletes a file.",
+		Example: "\t- {{alias}} foo@bar:image.png \n" +
+			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:/images/image.png \n" +
+			"\t- {{alias}} -r foo@master:/images \n" +
+			"\t- {{alias}} -r foo@master:/images --project projectContainingFoo \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1924,15 +2043,17 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		}),
 	}
 	deleteFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete the files in a directory.")
-	deleteFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	deleteFile.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the file's repo is located.")
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteFile, "delete file", files))
 
+	// OBJECT COMMANDS
+
 	objectDocs := &cobra.Command{
 		Short: "Docs for objects.",
-		Long: `Objects are content-addressed blobs of data that are directly stored in the backend object store.
-
-Objects are a low-level resource and should not be accessed directly by most users.`,
+		Long: "Objects are content-addressed blobs of data that are directly stored in the backend object store. \n" +
+			"\n" +
+			"Objects are a low-level resource and should not be accessed directly by most users.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(objectDocs, "object", " object$"))
 
@@ -1941,8 +2062,13 @@ Objects are a low-level resource and should not be accessed directly by most use
 	var zombieAll bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",
-		Short: "Run a file system consistency check on pfs.",
-		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
+		Short: "Run a file system consistency check on PFS.",
+		Long:  "This command runs a file system consistency check on the Pachyderm file system, ensuring the correct provenance relationships are satisfied.",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} --fix \n" +
+			"\t- {{alias}} --zombie-all \n" +
+			"\t- {{alias}} --zombie foo@bar \n" +
+			"\t- {{alias}} --zombie foo@bar --project projectContainingFoo \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1961,7 +2087,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if err != nil {
 					return err
 				}
-				if commit.ID == "" && commit.Branch.Name == "" {
+				if commit.Id == "" && commit.Branch.Name == "" {
 					return errors.Errorf("provide a specific commit or branch for zombie detection on %s", commit.Branch.Repo)
 				}
 				opts = append(opts, client.WithZombieCheckTarget(commit))
@@ -1985,9 +2111,9 @@ Objects are a low-level resource and should not be accessed directly by most use
 		}),
 	}
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
-	fsck.Flags().BoolVar(&zombieAll, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted")
-	fsck.Flags().StringVar(&zombie, "zombie", "", "A single commit to check for zombie files")
-	fsck.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	fsck.Flags().BoolVar(&zombieAll, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted.")
+	fsck.Flags().StringVar(&zombie, "zombie", "", "Set a single commit (by id) to check for zombie files")
+	fsck.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo of the branch/commit is located.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var branchStr string
@@ -1996,7 +2122,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	runLoadTest := &cobra.Command{
 		Use:     "{{alias}} <spec-file>",
 		Short:   "Run a PFS load test.",
-		Long:    "Run a PFS load test.",
+		Long:    "This command runs a PFS load test.",
 		Example: pfsload.LoadSpecification,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
@@ -2009,7 +2135,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				}
 			}()
 			if len(args) == 0 {
-				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -2057,10 +2183,10 @@ Objects are a low-level resource and should not be accessed directly by most use
 			return errors.EnsureStack(err)
 		}),
 	}
-	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")
-	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
-	runLoadTest.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
-	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
+	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "Specify the branch to use for generating the load.")
+	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "Set the seed to use for generating the load.")
+	runLoadTest.Flags().StringVar(&project, "project", project, "Specify the project (by name) where the repo is located.")
+	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "Set the ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 
 	// Add the mount commands (which aren't available on Windows, so they're in

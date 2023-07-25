@@ -102,12 +102,8 @@ func (x *ClusterStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("version", x.Version)
 	enc.AddBool("auth_enabled", x.AuthEnabled)
 	enc.AddString("client_id", x.ClientId)
-	if t := x.LastHeartbeat; t != nil {
-		enc.AddTime("last_heartbeat", *t)
-	}
-	if t := x.CreatedAt; t != nil {
-		enc.AddTime("created_at", *t)
-	}
+	protoextensions.AddTimestamp(enc, "last_heartbeat", x.LastHeartbeat)
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	return nil
 }
 

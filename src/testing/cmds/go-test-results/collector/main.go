@@ -197,7 +197,7 @@ func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder
 	defer file.Close()
 	destPath := findDestinationPath(path, basePath, resultsFolder)
 	if err = pachClient.PutFile(commit, destPath, file); err != nil {
-		return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetID())
+		return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetId())
 	}
 	return nil
 }

@@ -17,8 +17,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Our modifications are to marshal types.BytesValue by marshaling them as a prefix and length
-// instead of the full value, and to support gogo.customname.
+// Our modifications are to marshal BytesValue by marshaling them as a prefix and length
+// instead of the full value.
 package main
 
 import (
@@ -26,12 +26,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/gogoproto"
 	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/protoextensions"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 const (
@@ -178,15 +178,7 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 		case "google.protobuf.Empty":
 			// do nothing
 		case "google.protobuf.Timestamp":
-			if proto.GetExtension(opts, gogoproto.E_Stdtime).(bool) {
-				// If gogoproto.stdtime is set, then this is a pointer to a
-				// time.Time, not a types.Timestamp.
-				g.P(`if t := x.`, gname, `; t != nil {`)
-				g.P(`enc.AddTime("`, fname, `", *t)`)
-				g.P(`}`)
-			} else {
-				g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddTimestamp")), `(enc, "`, fname, `", x.`, gname, `)`)
-			}
+			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddTimestamp")), `(enc, "`, fname, `", x.`, gname, `)`)
 		case "google.protobuf.Duration":
 			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddDuration")), `(enc, "`, fname, `", x.`, gname, `)`)
 		case "google.protobuf.BytesValue":
@@ -238,17 +230,6 @@ func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
 	g.P("}")
 	for _, f := range m.Fields {
 		opts := f.Desc.Options().(*descriptorpb.FieldOptions)
-		if opts != nil {
-			if customName := proto.GetExtension(opts, gogoproto.E_Customname).(string); customName != "" {
-				f.GoName = customName
-			}
-		}
-		if f.Desc.Name() == "size" && f.Desc.ContainingMessage().FullName() == "pfs_v2.Trigger" {
-			// For some reason, this field gets generated as Size_ instead of Size.
-			// It's because there is code in the package that implements a Size method,
-			// but it's unclear to me how the proto compiler can know this.
-			f.GoName = "Size_"
-		}
 		if proto.GetExtension(opts, protoextensions.E_Mask).(bool) {
 			g.P("enc.AddString(\"", f.Desc.Name(), "\", \"[MASKED]\")")
 		} else if f.Desc.IsList() {
@@ -293,6 +274,9 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 
 func main() {
 	protogen.Options{}.Run(func(plugin *protogen.Plugin) error {
+		// Optional fields are represented internally as oneof fields;
+		// generatePrimitiveField handles these appropriately.
+		plugin.SupportedFeatures |= uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 		for _, file := range plugin.FilesByPath {
 			if !file.Generate {
 				continue

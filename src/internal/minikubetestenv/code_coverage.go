@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func getCoverageFolder() string {
@@ -27,7 +27,7 @@ func getCoverageFolder() string {
 func saveCoverProfile(pachClient *client.APIClient, covFile *os.File) error {
 	return pachClient.Profile(&debug.Profile{
 		Name:     "cover",
-		Duration: types.DurationProto(30 * time.Minute), // no test should be longer than 30 minutes
+		Duration: durationpb.New(30 * time.Minute), // no test should be longer than 30 minutes
 	}, &debug.Filter{}, covFile)
 }
 

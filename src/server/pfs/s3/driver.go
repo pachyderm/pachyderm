@@ -1,7 +1,5 @@
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
-//
-//nolint:wrapcheck
 package s3
 
 import (
@@ -16,8 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/s2"
 )
 
@@ -60,10 +56,7 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	}
 
 	for _, repo := range repos {
-		t, err := types.TimestampFromProto(repo.Created)
-		if err != nil {
-			return err
-		}
+		t := repo.Created.AsTime()
 		for _, b := range repo.Branches {
 			*buckets = append(*buckets, &s2.Bucket{
 				Name:         fmt.Sprintf("%s.%s.%s", b.GetName(), b.GetRepo().GetName(), b.GetRepo().GetProject().GetName()),
@@ -185,10 +178,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	}
 	timestamps := map[string]time.Time{}
 	for _, repo := range repos {
-		timestamp, err := types.TimestampFromProto(repo.Created)
-		if err != nil {
-			return err
-		}
+		timestamp := repo.Created.AsTime()
 		timestamps[pfsdb.RepoKey(repo.Repo)] = timestamp
 	}
 

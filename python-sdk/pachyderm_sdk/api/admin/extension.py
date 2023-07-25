@@ -1,3 +1,4 @@
+"""Handwritten classes/methods that augment the existing Admin API."""
 import pachyderm_sdk
 
 from . import ApiStub as _GeneratedApiStub
@@ -6,9 +7,9 @@ from . import ClusterInfo
 
 
 class ApiStub(_GeneratedApiStub):
-
     # noinspection PyMethodOverriding
     def inspect_cluster(self) -> "ClusterInfo":
+        """Inspect the cluster and check version mismatch."""
         try:
             version = _extract_version(pachyderm_sdk.__version__)
         except ValueError:

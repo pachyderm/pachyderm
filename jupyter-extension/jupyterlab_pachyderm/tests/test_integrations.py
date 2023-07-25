@@ -424,6 +424,7 @@ def _update_metadata(notebook: Path, project_name: str, repo_name: str, pipeline
     config.pipeline = dict(name=pipeline_name, project=dict(name=project_name))
     # sub in repo_name
     config.input_spec = f"pfs:\n  repo: {repo_name}\n  glob: \"/*\""
+    config.resource_spec = "" # this is currently not being tested so it is set to the empty string
     config.requirements = str(notebook.with_name(config.requirements).relative_to(os.getcwd()))
     notebook_data['metadata'][METADATA_KEY]['config'] = config.to_dict()
     return json.dumps(notebook_data)

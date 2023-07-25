@@ -1,3 +1,4 @@
+"""Handwritten classes/methods that augment the existing Transaction API."""
 from contextlib import contextmanager
 from typing import Callable, ContextManager
 
@@ -11,7 +12,6 @@ from . import (
 
 
 class ApiStub(_GeneratedApiStub):
-
     def __init__(
         self,
         channel: grpc.Channel,
@@ -24,15 +24,16 @@ class ApiStub(_GeneratedApiStub):
         super().__init__(channel=channel)
 
     def start_transaction(self) -> "Transaction":
-        # TODO: Should we do this?
+        """Starts a transaction and sets the transaction ID within the client.
+        This will make all subsequent resource operations performed by the client
+        occur within the returned transaction, until the transaction is finished.
+        """
         response = super().start_transaction()
         self._set_transaction_id(response.id)
         return response
 
-    def finish_transaction(
-        self, *, transaction: "Transaction" = None
-    ) -> "TransactionInfo":
-        # TODO: Should we do this?
+    def finish_transaction(self, *, transaction: "Transaction" = None) -> "TransactionInfo":
+        """Finishes a transaction and removes the transaction ID within the client."""
         response = super().finish_transaction(transaction=transaction)
         self._set_transaction_id("")
         return response

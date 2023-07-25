@@ -691,7 +691,7 @@ func TestAuthLoginLogout(t *testing.T) {
 
 		type AuthLoginResp struct {
 			AuthUrl   string `json:"auth_url"`
-			OIDCState string `json:"oidc_state"`
+			OidcState string `json:"oidc_state"`
 		}
 		getAuthLogin := &AuthLoginResp{}
 		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
@@ -699,7 +699,7 @@ func TestAuthLoginLogout(t *testing.T) {
 		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
 		time.Sleep(1 * time.Second)
 
-		b := bytes.NewBufferString(getAuthLogin.OIDCState)
+		b := bytes.NewBufferString(getAuthLogin.OidcState)
 		tokenResp, err := put("auth/_login_token", b)
 		require.NoError(t, err)
 		require.Equal(t, 200, tokenResp.StatusCode)
@@ -1026,8 +1026,8 @@ func TestProjects(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&projectData))
 		require.Equal(t, len(projectData), 3)
-		require.Equal(t, projectData[0].Project.Name, emptyProjectName)
+		require.Equal(t, projectData[0].Project.Name, pfs.DefaultProjectName)
 		require.Equal(t, projectData[1].Project.Name, projectName)
-		require.Equal(t, projectData[2].Project.Name, pfs.DefaultProjectName)
+		require.Equal(t, projectData[2].Project.Name, emptyProjectName)
 	})
 }
