@@ -2613,7 +2613,15 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 				}
 			} else {
 				if info.Details.Service.Type == "LoadBalancer" {
-					info.Details.Service.Ip = service.Spec.LoadBalancerIP
+					//GCP: service.Status.LoadBalancer.Ingress[0].IP
+					//AWS: service.Status.LoadBalancer.Ingress[0].Hostname
+					if len(service.Status.LoadBalancer.Ingress) == 1 {
+						if service.Status.LoadBalancer.Ingress[0].IP != "" {
+							info.Details.Service.Ip = service.Status.LoadBalancer.Ingress[0].IP
+						} else if service.Status.LoadBalancer.Ingress[0].Hostname != "" {
+							info.Details.Service.Ip = service.Status.LoadBalancer.Ingress[0].Hostname
+						}
+					}
 				} else {
 					info.Details.Service.Ip = service.Spec.ClusterIP
 				}
