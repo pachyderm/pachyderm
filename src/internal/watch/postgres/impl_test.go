@@ -43,14 +43,9 @@ func TestWatchRepos(t *testing.T) {
 	}()
 
 	// Start multiple watchers.
-	watchCtx, cancelWatcher := context.WithCancel(ctx)
-	defer cancelWatcher()
-	repoEvents, err := listener.Watch(watchCtx, v2_7_0.ReposPgChannel)
-	require.NoError(t, err)
-	repoEvents2, err := listener.Watch(watchCtx, v2_7_0.ReposPgChannel)
-	require.NoError(t, err)
-	repoEvents3, err := listener.Watch(watchCtx, v2_7_0.ReposPgChannel)
-	require.NoError(t, err)
+	events1, errs1 := listener.Watch(ctx, v2_7_0.ReposPgChannel)
+	events2, errs2 := listener.Watch(ctx, v2_7_0.ReposPgChannel)
+	events3, errs3 := listener.Watch(ctx, v2_7_0.ReposPgChannel)
 
 	// Generate events by creating repos in the default project.
 	var projectID uint64
@@ -62,22 +57,27 @@ func TestWatchRepos(t *testing.T) {
 
 	// Start watching for events.
 	// Note the reason we can start watching *after* we insert the rows is because the watcher is buffering events.
-	repoEventsChannels := []<-chan *postgresWatcher.Event{repoEvents, repoEvents2, repoEvents3}
-	for _, events := range repoEventsChannels {
+	allEvents := []<-chan *postgresWatcher.Event{events1, events2, events3}
+	allErrs := []<-chan error{errs1, errs2, errs3}
+	for i, events := range allEvents {
+		errs := allErrs[i]
 		var results []*postgresWatcher.Event
-		for i := 0; i < 10; i++ {
-			event := <-events
-			if event.Error != nil {
-				t.Fatal(event.Error)
+		for j := 0; j < 10; j++ {
+			select {
+			case err := <-errs:
+				t.Fatal(err)
+			case event := <-events:
+				require.Equal(t, postgresWatcher.EventInsert, event.EventType)
+				require.Equal(t, uint64(j+1), event.Id)
+				results = append(results, event)
 			}
-			require.Equal(t, postgresWatcher.EventInsert, event.EventType)
-			require.Equal(t, uint64(i+1), event.Id)
-			results = append(results, event)
 		}
 		require.Len(t, results, 10)
 	}
-	cancelWatcher()
 	cancelListener()
+	for _, errs := range allErrs {
+		require.ErrorIs(t, context.Canceled, <-errs)
+	}
 
 	// Error handling for when the channel is blocked.
 	// watchCtx, cancel := context.WithCancel(ctx)
