@@ -1,6 +1,8 @@
 import {ClientReadableStream} from '@grpc/grpc-js';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
+import {grpcApiConstructorArgs} from '@dash-backend/proto/utils/createGrpcApiClient';
+
 import {commitFromObject, CommitObject} from '../builders/pfs';
 import {
   jobFromObject,
@@ -160,12 +162,10 @@ export interface CreatePipelineRequestOptions
   specCommit?: CommitObject;
 }
 
-const pps = ({
-  pachdAddress,
-  channelCredentials,
-  credentialMetadata,
-}: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials);
+let client: APIClient;
+
+const pps = ({credentialMetadata}: Pick<ServiceArgs, 'credentialMetadata'>) => {
+  client = client ?? new APIClient(...grpcApiConstructorArgs());
 
   return {
     // TODO: createPipeline should support projects

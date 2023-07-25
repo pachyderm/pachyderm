@@ -2,6 +2,7 @@ import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
 import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
+import {grpcApiConstructorArgs} from '@dash-backend/proto/utils/createGrpcApiClient';
 
 import {
   commitSetFromObject,
@@ -87,18 +88,15 @@ import {FileSet} from './clients/FileSet';
 import {ModifyFile} from './clients/ModifyFile';
 import {GRPC_MAX_MESSAGE_LENGTH} from './lib/constants';
 
-const pfs = ({
-  pachdAddress,
-  channelCredentials,
-  credentialMetadata,
-  plugins = [],
-}: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials, {
-    /* eslint-disable @typescript-eslint/naming-convention */
-    'grpc.max_receive_message_length': GRPC_MAX_MESSAGE_LENGTH,
-    'grpc.max_send_message_length': GRPC_MAX_MESSAGE_LENGTH,
-    /* eslint-enable @typescript-eslint/naming-convention */
-  });
+let client: APIClient;
+
+const pfs = ({credentialMetadata, plugins = []}: ServiceArgs) => {
+  client =
+    client ??
+    new APIClient(...grpcApiConstructorArgs(), {
+      'grpc.max_receive_message_length': GRPC_MAX_MESSAGE_LENGTH,
+      'grpc.max_send_message_length': GRPC_MAX_MESSAGE_LENGTH,
+    });
 
   const pfsService = {
     listFile: ({
@@ -860,16 +858,12 @@ const pfs = ({
     },
     modifyFile: async () => {
       return new ModifyFile({
-        pachdAddress,
-        channelCredentials,
         credentialMetadata,
         plugins,
       });
     },
     fileSet: async () => {
       return new FileSet({
-        pachdAddress,
-        channelCredentials,
         credentialMetadata,
         plugins,
       });

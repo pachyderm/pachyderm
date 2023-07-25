@@ -1,6 +1,5 @@
 import {Metadata} from '@grpc/grpc-js';
 
-import createCredentials from './createCredentials';
 import {GRPCPlugin, ServiceDefinition} from './lib/types';
 import admin from './services/admin';
 import auth from './services/auth';
@@ -11,11 +10,9 @@ import pps from './services/pps';
 import version from './services/version';
 
 interface ClientArgs {
-  pachdAddress?: string;
   authToken?: string;
   projectId?: string;
   plugins?: GRPCPlugin[];
-  ssl?: boolean;
 }
 
 const attachPlugins = <T extends ServiceDefinition>(
@@ -56,14 +53,10 @@ const attachPlugins = <T extends ServiceDefinition>(
 };
 
 const client = ({
-  pachdAddress = '',
   authToken = '',
   projectId = '',
   plugins = [],
-  ssl = true,
-}: ClientArgs) => {
-  const channelCredentials = createCredentials(ssl);
-
+}: ClientArgs = {}) => {
   const credentialMetadata = new Metadata();
   credentialMetadata.add('authn-token', authToken);
   credentialMetadata.add('project-id', projectId);
@@ -79,14 +72,14 @@ const client = ({
   // NOTE: These service clients are singletons, as we
   // don't want to create a new instance of APIClient for
   // every call stream in a transaction.
+
+  // TODO: revisit this. These have changed now.
   const methods = {
     license: () => {
       if (licenseService) return licenseService;
 
       licenseService = attachPlugins(
         license({
-          pachdAddress,
-          channelCredentials,
           credentialMetadata,
         }),
         plugins,
@@ -99,8 +92,6 @@ const client = ({
 
       enterpriseService = attachPlugins(
         enterprise({
-          pachdAddress,
-          channelCredentials,
           credentialMetadata,
         }),
         plugins,
@@ -113,8 +104,6 @@ const client = ({
 
       pfsService = attachPlugins(
         pfs({
-          pachdAddress,
-          channelCredentials,
           credentialMetadata,
           plugins,
         }),
@@ -127,8 +116,6 @@ const client = ({
 
       ppsService = attachPlugins(
         pps({
-          pachdAddress,
-          channelCredentials,
           credentialMetadata,
         }),
         plugins,
@@ -140,8 +127,6 @@ const client = ({
 
       authService = attachPlugins(
         auth({
-          pachdAddress,
-          channelCredentials,
           credentialMetadata,
         }),
         plugins,
@@ -153,8 +138,6 @@ const client = ({
 
       adminService = attachPlugins(
         admin({
-          pachdAddress,
-          channelCredentials,
           credentialMetadata,
         }),
         plugins,
@@ -167,14 +150,7 @@ const client = ({
     version: () => {
       if (versionService) return versionService;
 
-      versionService = attachPlugins(
-        version({
-          pachdAddress,
-          channelCredentials,
-          credentialMetadata,
-        }),
-        plugins,
-      );
+      versionService = attachPlugins(version(), plugins);
       return versionService;
     },
   };

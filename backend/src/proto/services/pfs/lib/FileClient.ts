@@ -3,6 +3,8 @@ import fs from 'fs';
 import {ClientWritableStream} from '@grpc/grpc-js';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
+import {grpcApiConstructorArgs} from '@dash-backend/proto/utils/createGrpcApiClient';
+
 import {deleteFileFromObject} from '../../../builders/pfs';
 import {GRPCPlugin, ServiceArgs} from '../../../lib/types';
 import {APIClient} from '../../../proto/pfs/pfs_grpc_pb';
@@ -16,19 +18,21 @@ export interface FileClientConstructorArgs extends ServiceArgs {
 // We need to account for some overhead in the stream data for putFileFromBytes
 export const STREAM_OVERHEAD_LENGTH = 17;
 
+let client: APIClient;
+
 export class FileClient<T> {
   protected client: APIClient;
   protected promise: Promise<T>;
   stream: ClientWritableStream<ModifyFileRequest>;
 
-  constructor({pachdAddress, channelCredentials}: FileClientConstructorArgs) {
-    this.client = new APIClient(pachdAddress, channelCredentials, {
-      /* eslint-disable @typescript-eslint/naming-convention */
-      'grpc.max_receive_message_length': GRPC_MAX_MESSAGE_LENGTH,
-      'grpc.max_send_message_length': GRPC_MAX_MESSAGE_LENGTH,
-      'grpc-node.max_session_memory': 100,
-      /* eslint-enable @typescript-eslint/naming-convention */
-    });
+  constructor() {
+    this.client =
+      client ??
+      new APIClient(...grpcApiConstructorArgs(), {
+        'grpc.max_receive_message_length': GRPC_MAX_MESSAGE_LENGTH,
+        'grpc.max_send_message_length': GRPC_MAX_MESSAGE_LENGTH,
+        'grpc-node.max_session_memory': 100,
+      });
   }
 
   putFileFromBytes(

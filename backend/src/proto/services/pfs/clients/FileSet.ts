@@ -3,18 +3,8 @@ import {FileClient, FileClientConstructorArgs} from '../lib/FileClient';
 
 export class FileSet extends FileClient<string> {
   fileSetId: string | undefined;
-  constructor({
-    pachdAddress,
-    channelCredentials,
-    credentialMetadata,
-    plugins = [],
-  }: FileClientConstructorArgs) {
-    super({
-      pachdAddress,
-      channelCredentials,
-      credentialMetadata,
-      plugins,
-    });
+  constructor({credentialMetadata, plugins = []}: FileClientConstructorArgs) {
+    super();
     const {onCallObservers, onCompleteObservers, onErrorObservers} =
       deriveObserversFromPlugins(plugins);
 

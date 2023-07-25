@@ -1,4 +1,3 @@
-import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
 import {ApolloError} from 'apollo-server-errors';
 import Logger from 'bunyan';
 
@@ -20,12 +19,6 @@ export interface Context extends UnauthenticatedContext {
   account: Account;
 }
 
-export interface ServiceArgs {
-  pachdAddress: string;
-  channelCredentials: ChannelCredentials;
-  credentialMetadata: Metadata;
-  log: Logger;
-}
 export interface GRPCPlugin {
   onCall?: (args: {requestName: string}) => void;
   onCompleted?: (args: {requestName: string}) => void;

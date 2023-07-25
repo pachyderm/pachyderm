@@ -13,7 +13,7 @@ jest.setTimeout(30_000);
 
 describe('services/pps', () => {
   afterAll(async () => {
-    const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
+    const pachClient = client();
     const pps = pachClient.pps();
     const pfs = pachClient.pfs();
     await pps.deleteAll();
@@ -21,7 +21,7 @@ describe('services/pps', () => {
   });
 
   const createSandBox = async (name: string) => {
-    const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
+    const pachClient = client();
     const pps = pachClient.pps();
     const pfs = pachClient.pfs();
     await pps.deleteAll();

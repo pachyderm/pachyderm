@@ -13,13 +13,13 @@ const atatPngFilePath = path.resolve(
 
 describe('FileSet', () => {
   afterAll(async () => {
-    const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
+    const pachClient = client();
     const pfs = pachClient.pfs();
     await pfs.deleteAll();
   });
 
   const createSandbox = async (name: string) => {
-    const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
+    const pachClient = client();
     const pfs = pachClient.pfs();
     await pfs.deleteAll();
     await pfs.createRepo({projectId: 'default', repo: {name}});

@@ -9,18 +9,8 @@ import {
 import {deriveObserversFromPlugins} from '../lib/deriverObserversFromPlugins';
 import {FileClient, FileClientConstructorArgs} from '../lib/FileClient';
 export class ModifyFile extends FileClient<Empty.AsObject> {
-  constructor({
-    pachdAddress,
-    channelCredentials,
-    credentialMetadata,
-    plugins = [],
-  }: FileClientConstructorArgs) {
-    super({
-      pachdAddress,
-      channelCredentials,
-      credentialMetadata,
-      plugins,
-    });
+  constructor({credentialMetadata, plugins = []}: FileClientConstructorArgs) {
+    super();
     const {onCallObservers, onCompleteObservers, onErrorObservers} =
       deriveObserversFromPlugins(plugins);
 

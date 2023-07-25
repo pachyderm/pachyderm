@@ -15,9 +15,7 @@ const getPachClient = (requestId: string) => {
   grpcLogger.info('Creating pach client');
 
   const pachClient = pachydermClient({
-    pachdAddress: process.env.PACHD_ADDRESS,
     plugins: [loggingPlugin(grpcLogger), errorPlugin],
-    ssl: process.env.GRPC_SSL === 'true',
   });
 
   return pachClient;

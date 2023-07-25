@@ -131,7 +131,7 @@ jobs:
       - checkout
       - run: cd backend && npm ci
       - run-pachyderm-ce
-      - run: pachctl port-forward & cd backend && npm run integration-test
+      - run: npm run integration-test --prefix backend
   test-frontend-components:
     executor: xlarge-node
     steps:

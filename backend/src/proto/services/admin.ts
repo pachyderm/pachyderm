@@ -1,15 +1,16 @@
 import {ServiceArgs} from '../lib/types';
 import {APIClient} from '../proto/admin/admin_grpc_pb';
 import {ClusterInfo, InspectClusterRequest} from '../proto/admin/admin_pb';
+import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
+
+let client: APIClient;
 
 const admin = ({
-  pachdAddress,
-  channelCredentials,
   credentialMetadata,
-}: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials);
+}: Pick<ServiceArgs, 'credentialMetadata'>) => {
+  client = client ?? new APIClient(...grpcApiConstructorArgs());
 
-  const adminService = {
+  return {
     inspectCluster: () => {
       return new Promise<ClusterInfo.AsObject>((resolve, reject) => {
         client.inspectCluster(
@@ -25,8 +26,6 @@ const admin = ({
       });
     },
   };
-
-  return adminService;
 };
 
 export default admin;

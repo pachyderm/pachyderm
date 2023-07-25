@@ -4,8 +4,6 @@ export const AUTH_TOKEN = 'pizza';
 
 export const getTestPachClient = (authToken?: string) => {
   return client({
-    ssl: false,
-    pachdAddress: 'localhost:30650',
     authToken: authToken ?? AUTH_TOKEN,
   });
 };

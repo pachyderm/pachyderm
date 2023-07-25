@@ -25,13 +25,14 @@ import {
   WhoAmIRequest,
   WhoAmIResponse,
 } from '../proto/auth/auth_pb';
+import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
+
+let client: APIClient;
 
 const auth = ({
-  pachdAddress,
-  channelCredentials,
   credentialMetadata,
-}: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials);
+}: Pick<ServiceArgs, 'credentialMetadata'>) => {
+  client = client ?? new APIClient(...grpcApiConstructorArgs());
 
   return {
     authenticate: (idToken: string) => {

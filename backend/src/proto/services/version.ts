@@ -1,13 +1,15 @@
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
-import {ServiceArgs} from '../lib/types';
 import {APIClient} from '../proto/version/versionpb/version_grpc_pb';
 import {Version} from '../proto/version/versionpb/version_pb';
+import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
 
-const version = ({pachdAddress, channelCredentials}: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials);
+let client: APIClient;
 
-  const versionService = {
+const version = () => {
+  client = client ?? new APIClient(...grpcApiConstructorArgs());
+
+  return {
     getVersion: () => {
       return new Promise<Version.AsObject>((resolve, reject) => {
         client.getVersion(new Empty(), (error, res) => {
@@ -19,8 +21,6 @@ const version = ({pachdAddress, channelCredentials}: ServiceArgs) => {
       });
     },
   };
-
-  return versionService;
 };
 
 export default version;

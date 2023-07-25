@@ -20,13 +20,15 @@ import {
   UpdateClusterRequest,
   UpdateClusterResponse,
 } from '../proto/license/license_pb';
+import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
+
+let client: APIClient;
 
 const license = ({
-  pachdAddress,
-  channelCredentials,
   credentialMetadata,
-}: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials);
+}: Pick<ServiceArgs, 'credentialMetadata'>) => {
+  client = client ?? new APIClient(...grpcApiConstructorArgs());
+
   return {
     activateLicense: (activationCode: string, expires?: Timestamp) => {
       return new Promise<ActivateResponse.AsObject>((resolve, reject) => {

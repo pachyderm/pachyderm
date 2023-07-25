@@ -11,13 +11,14 @@ import {
   GetActivationCodeRequest,
   GetActivationCodeResponse,
 } from '../proto/enterprise/enterprise_pb';
+import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
+
+let client: APIClient;
 
 const enterprise = ({
-  pachdAddress,
-  channelCredentials,
   credentialMetadata,
-}: ServiceArgs) => {
-  const client = new APIClient(pachdAddress, channelCredentials);
+}: Pick<ServiceArgs, 'credentialMetadata'>) => {
+  client = client ?? new APIClient(...grpcApiConstructorArgs());
 
   return {
     getState: () => {
