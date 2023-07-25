@@ -10,7 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 )
 
 type EventType int
@@ -28,7 +31,7 @@ const (
 	DefaultBufferSize = 1000
 )
 
-var newWatcherSignal = errors.New("listener cancelled")
+var newWatcherSignal = errors.New("cancel WaitForNotification")
 
 type Listener struct {
 	watchers chan *watcher
@@ -44,7 +47,6 @@ func (l *Listener) Watch(ctx context.Context, channel string) (<-chan *Event, <-
 	events := make(chan *Event, DefaultBufferSize)
 	errs := make(chan error, 1)
 	w := watcher{channel: channel, events: events, errs: errs, ctx: ctx}
-	fmt.Println("qqq watcher sending itself to listener")
 	l.watchers <- &w
 	go func() {
 		<-ctx.Done()
@@ -54,7 +56,7 @@ func (l *Listener) Watch(ctx context.Context, channel string) (<-chan *Event, <-
 	return w.events, w.errs
 }
 
-// Start creates a direct connection to the database and starts the main loop.
+// Start creates a direct connection to the database and starts .
 // In each loop, it either waits for a new watcher or a notification from postgres.
 // The listener exposes a context cancellation func for new watchers to cancel pgx.Conn.WaitForNotitication asynchronosly.
 func (l *Listener) Start(ctx context.Context, config *pgx.ConnConfig) error {
@@ -63,96 +65,88 @@ func (l *Listener) Start(ctx context.Context, config *pgx.ConnConfig) error {
 		return err
 	}
 
+	// cancelFns is a channel of context cancellation funcs
+	// to help cancel WaitForNotification when we want to listen to a net new postgres channel.
 	cancelFns := make(chan context.CancelCauseFunc)
+	// notifications is a channel of notifications from postgres.
 	notifications := make(chan *pgconn.Notification)
-	errFromWaitForNotification := make(chan error, 1)
-	channelsAndWatchers := make(map[string][]*watcher)
+	// channelsToWatchers maps channels to watchers.
+	channelsToWatchers := make(map[string][]*watcher)
 
-	// Start listening on postgres.
-	go func(ctx context.Context) {
+	eg, ctx := errgroup.WithContext(ctx)
+
+	// Listens for notifications from postgres.
+	eg.Go(func() error {
 		defer close(cancelFns)
-		defer close(errFromWaitForNotification)
 		defer close(notifications)
 
+		// Create a new context for WaitForNotification, because it can be repeatedly cancelled by net new watchers.
 		_ctx, cancel := context.WithCancelCause(ctx)
-		cancelFns <- cancel
-		loop := 0
+		cancelFns <- cancel // block until the broadcaster loop receives the cancel func
 		for {
-			fmt.Println("qqq listener wait loop", loop)
 			msg, err := conn.WaitForNotification(_ctx)
-			fmt.Println("qqq listener wait loop, WaitForNotification done")
 			if err != nil {
 				if context.Cause(_ctx) == newWatcherSignal {
-					fmt.Println("qqq listener wait loop received newWatcherSignal, renewing context")
 					_ctx, cancel = context.WithCancelCause(ctx)
 					cancelFns <- cancel // for the next watcher
-					fmt.Println("qqq listener wait loop sending new cancel fn")
-					loop++
 					continue
 				}
-				errFromWaitForNotification <- err
-				return
+				return err
 			}
-			fmt.Println("qqq listener wait loop sending msg to notifications")
 			notifications <- msg
-			loop++
 		}
-	}(ctx)
+	})
 
-	// Propagate events to watchers.
-	var cancel context.CancelCauseFunc
-	loop := 0
-	for {
-		fmt.Println("qqq listener main loop", loop)
-		select {
-		case cancel = <-cancelFns:
-			fmt.Println("qqq listener main loop received cancel fn")
-		case w := <-l.watchers:
-			fmt.Println("qqq listener main loop received watcher", w.channel)
-			if _, ok := channelsAndWatchers[w.channel]; !ok {
-				if cancel != nil {
-					fmt.Println("qqq listener main loop cancelling wait loop")
-					cancel(newWatcherSignal)
+	// Broadcast notifications to watchers.
+	eg.Go(func() error {
+		var cancel context.CancelCauseFunc
+		for {
+			select {
+			case cancel = <-cancelFns:
+			case w := <-l.watchers:
+				if _, ok := channelsToWatchers[w.channel]; !ok {
+					if cancel != nil {
+						cancel(newWatcherSignal)
+					}
+					if _, err := conn.Exec(ctx, fmt.Sprintf("LISTEN %s", w.channel)); err != nil {
+						return err
+					}
 				}
-				if _, err := conn.Exec(ctx, fmt.Sprintf("LISTEN %s", w.channel)); err != nil {
-					return err
-				}
-			}
-			channelsAndWatchers[w.channel] = append(channelsAndWatchers[w.channel], w)
-		case msg := <-notifications:
-			fmt.Println("qqq listener main loop received msg", msg)
-			event, err := parseNotification(msg.Payload)
-			// TODO should we exist early on error?
-			for _, w := range channelsAndWatchers[msg.Channel] {
-				if err != nil {
-					w.errs <- err
+				channelsToWatchers[w.channel] = append(channelsToWatchers[w.channel], w)
+			case msg := <-notifications:
+				if msg == nil {
 					continue
 				}
-				// TODO should we remove the watcher from channelsAndWatchers?
-				select {
-				case w.events <- event:
-				case <-w.ctx.Done():
-					w.errs <- context.Cause(w.ctx)
-					fmt.Println("qqq listener main loop, watcher done", w.channel)
-					w.close()
-				default:
-					w.errs <- errors.Errorf("buffer full, dropping event: %v", event)
-					w.close()
+				event, err := parseNotification(msg.Payload)
+				if err != nil {
+					for _, w := range channelsToWatchers[msg.Channel] {
+						w.errs <- err
+					}
+					continue
+				}
+				for _, w := range channelsToWatchers[msg.Channel] {
+					// TODO should we remove the watcher from channelsAndWatchers?
+					select {
+					case w.events <- event:
+					case <-w.ctx.Done():
+						w.errs <- context.Cause(w.ctx)
+						w.close()
+					default:
+						w.errs <- errors.Errorf("buffer full, dropping event: %v", event)
+						w.close()
+					}
+				}
+			case <-ctx.Done():
+				return context.Cause(ctx)
+			case <-time.After(time.Minute):
+				if err := conn.Ping(ctx); err != nil {
+					// should we return this error instead?
+					log.Error(ctx, fmt.Sprintf("failed to ping postgres: %v", err))
 				}
 			}
-		case <-ctx.Done():
-			return context.Cause(ctx)
-		case err := <-errFromWaitForNotification:
-			return err
-		case <-time.After(time.Minute):
-			go func() {
-				if err := conn.Ping(ctx); err != nil {
-					errFromWaitForNotification <- err
-				}
-			}()
 		}
-		loop++
-	}
+	})
+	return eg.Wait()
 }
 
 type Event struct {
@@ -172,7 +166,6 @@ type watcher struct {
 
 func (w *watcher) close() {
 	w.once.Do(func() {
-		fmt.Println("qqq watcher closing itself")
 		close(w.events)
 		close(w.errs)
 	})
