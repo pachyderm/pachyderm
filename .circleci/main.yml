@@ -196,7 +196,7 @@ jobs:
             tests=( "${tests[@]/#/^}" )
             tests=( "${tests[@]/%/\$\$}" )
 
-            echo tests
+            echo ${tests}
 
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
