@@ -69,9 +69,9 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualOneOf(t, resp.Client.TrustedPeers, "example-app")
 	require.EqualOneOf(t, resp.Client.TrustedPeers, "determined-local")
-	resp, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
+	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
 	require.NoError(t, err)
-	resp, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "determined-local"})
+	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "determined-local"})
 	require.NoError(t, err)
 }
 
