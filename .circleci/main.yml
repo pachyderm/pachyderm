@@ -189,21 +189,14 @@ jobs:
             test_tags="k8s"
 
             tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+
+            tests=(cat tests | circleci tests split --split-by=timings --timings-type=testname)
+
             # Add anchors for the regex so we don't run collateral tests
             tests=( "${tests[@]/#/^}" )
             tests=( "${tests[@]/%/\$\$}" )
-            total_tests="${#tests[@]}"
 
-            # Determine the offset and length of the sub-array of tests we want to run
-            # The last bucket may have a few extra tests, to accommodate rounding
-            # errors from bucketing:
-            let "bucket_size=total_tests/num_buckets" \
-              "start=bucket_size * (bucket_num-1)" \
-              "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
-
-            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
-
-            echo $test_regex
+            echo tests
 
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
@@ -216,7 +209,7 @@ jobs:
               --debug \
               -- \
               go test "${package}" -json \
-              -run ${test_regex} \
+              -run ${tests} \
               -tags="${test_tags}" \
               -count=1 \
               -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
