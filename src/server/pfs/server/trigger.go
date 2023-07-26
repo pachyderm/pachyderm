@@ -7,50 +7,82 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change
-func (d *driver) triggerCommit(
-	txnCtx *txncontext.TransactionContext,
-	commit *pfs.Commit,
-) error {
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Repo, repoInfo); err != nil {
-		return errors.EnsureStack(err)
+func (d *driver) triggerCommit(txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
+	branchInfos := make(map[string]*pfs.BranchInfo)
+	branchInfo := &pfs.BranchInfo{}
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(commitInfo.Commit.Repo), branchInfo, col.DefaultOptions(), func(_ string) error {
+		branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+		return nil
+	}); err != nil {
+		return err
 	}
-	newHead := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, newHead); err != nil {
-		return errors.EnsureStack(err)
-	}
-	for _, b := range repoInfo.Branches {
-		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
-			return errors.EnsureStack(err)
+	// Recursively check / fire trigger chains.
+	newHeads := make(map[string]*pfs.CommitInfo)
+	newHeads[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
+	var triggerBranch func(*pfs.BranchInfo) (*pfs.CommitInfo, error)
+	triggerBranch = func(bi *pfs.BranchInfo) (*pfs.CommitInfo, error) {
+		branchKey := pfsdb.BranchKey(bi.Branch)
+		head, ok := newHeads[branchKey]
+		if ok {
+			return head, nil
 		}
+		newHeads[branchKey] = nil
+		if bi.Trigger == nil || bi.Trigger.CronSpec != "" {
+			return nil, nil
+		}
+		// Recurse through the trigger chain, checking / firing earlier triggers first.
+		triggerBranchKey := pfsdb.BranchKey(bi.Branch.Repo.NewBranch(bi.Trigger.Branch))
+		triggerBranchInfo, ok := branchInfos[triggerBranchKey]
+		// TODO: We probably shouldn't allow the creation of a trigger on a nonexistent branch.
+		if !ok {
+			return nil, nil
+		}
+		newHead, err := triggerBranch(triggerBranchInfo)
+		if err != nil {
+			return nil, err
+		}
+		if newHead == nil {
+			return nil, nil
+		}
+		// Check if the trigger should fire based on the new head commit.
 		oldHead := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
-			return errors.EnsureStack(err)
+			return nil, errors.EnsureStack(err)
 		}
 		triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if triggered {
-			var trigBi pfs.BranchInfo
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, &trigBi, func() error {
-				trigBi.Head = newHead.Commit
-				return nil
-			}); err != nil {
-				return errors.EnsureStack(err)
-			}
-			if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
-				return err
-			}
+		if !triggered {
+			return nil, nil
+		}
+		// Fire the trigger.
+		var trigBI pfs.BranchInfo
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, &trigBI, func() error {
+			trigBI.Head = newHead.Commit
+			return nil
+		}); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
+			return nil, err
+		}
+		newHeads[branchKey] = newHead
+		return newHead, nil
+	}
+	for _, bi := range branchInfos {
+		if _, err := triggerBranch(bi); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -59,9 +91,6 @@ func (d *driver) triggerCommit(
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
 func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
-	if t == nil || t.CronSpec != "" {
-		return false, nil
-	}
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {

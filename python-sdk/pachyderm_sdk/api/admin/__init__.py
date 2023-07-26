@@ -14,7 +14,10 @@ import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
 
-from .. import version as _version__
+from .. import (
+    pfs as _pfs__,
+    version as _version__,
+)
 
 
 if TYPE_CHECKING:
@@ -34,6 +37,11 @@ class ClusterInfo(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class InspectClusterRequest(betterproto.Message):
     client_version: "_version__.Version" = betterproto.message_field(1)
+    current_project: "_pfs__.Project" = betterproto.message_field(2)
+    """
+    If CurrentProject is set, then InspectCluster will return an error if the
+    project does not exist.
+    """
 
 
 class ApiStub:
@@ -45,18 +53,26 @@ class ApiStub:
         )
 
     def inspect_cluster(
-        self, *, client_version: "_version__.Version" = None
+        self,
+        *,
+        client_version: "_version__.Version" = None,
+        current_project: "_pfs__.Project" = None
     ) -> "ClusterInfo":
         request = InspectClusterRequest()
         if client_version is not None:
             request.client_version = client_version
+        if current_project is not None:
+            request.current_project = current_project
 
         return self.__rpc_inspect_cluster(request)
 
 
 class ApiBase:
     def inspect_cluster(
-        self, client_version: "_version__.Version", context: "grpc.ServicerContext"
+        self,
+        client_version: "_version__.Version",
+        current_project: "_pfs__.Project",
+        context: "grpc.ServicerContext",
     ) -> "ClusterInfo":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
