@@ -2240,7 +2240,11 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	}); err != nil {
 		return "", err
 	}
-	return effectiveSpecJSON, nil
+	b, err := protojson.Marshal(request)
+	if err != nil {
+		return "", errors.Wrap(err, "could not marshal CreatePipelineRequest")
+	}
+	return string(b), nil
 }
 
 // CreateDetPipelineSideEffects modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.

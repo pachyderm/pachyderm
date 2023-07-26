@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -438,9 +439,11 @@ func TestCreatePipelineV2(t *testing.T) {
 	require.NoError(t, tmpl.Execute(&buf, struct {
 		ProjectName, PipelineName, RepoName string
 	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
-	t.Log("QQQ", buf.String())
-	_, err = env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
 		CreatePipelineRequestJson: buf.String(),
 	})
 	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
 }
