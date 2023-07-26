@@ -190,7 +190,7 @@ jobs:
 
             tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
 
-            tests=(cat tests | circleci tests split --split-by=timings --timings-type=testname)
+            tests=( $(cat ${tests} | circleci tests split --split-by=timings --timings-type=testname))
 
             # Add anchors for the regex so we don't run collateral tests
             tests=( "${tests[@]/#/^}" )
