@@ -313,6 +313,15 @@ class TestModifyFile:
         assert client.pfs.path_exists(file)
 
     @staticmethod
+    def test_put_file_bytes_check(client: TestClient, default_project: bool):
+        repo = client.new_repo(default_project)
+        branch = pfs.Branch(repo=repo, name="master")
+
+        with client.pfs.commit(branch=branch) as commit:
+            with pytest.raises(TypeError):
+                commit.put_file_from_file(path="/file.dat", file=io.StringIO("DATA"))
+
+    @staticmethod
     def test_put_empty_file(client: TestClient, default_project: bool):
         repo = client.new_repo(default_project)
         branch = pfs.Branch(repo=repo, name="master")
@@ -338,18 +347,6 @@ class TestModifyFile:
 
         file_info = client.pfs.inspect_file(file=file)
         assert file_info.size_bytes == 24
-
-    @staticmethod
-    def test_put_large_file(client: TestClient):
-        """Put a file larger than the maximum message size."""
-        # TODO: This functionality is tested in TestPFSFile::test_get_large_file.
-        repo = client.new_repo()
-        branch = pfs.Branch(repo=repo, name="master")
-
-        with client.pfs.commit(branch=branch) as commit:
-            data = b"#" * MAX_RECEIVE_MESSAGE_SIZE * 2
-            file = commit.put_file_from_bytes(path="/file.dat", data=data)
-        assert client.pfs.path_exists(file)
 
     @staticmethod
     def test_put_file_url(client: TestClient, default_project: bool):
@@ -459,6 +456,25 @@ class TestModifyFile:
             assert not client.pfs.path_exists(
                 file=pfs.File.from_uri("fake_repo@master:/dir")
             )
+
+    @staticmethod
+    def test_put_files(client: TestClient, default_project: bool, tmp_path: Path):
+        """Test that put_files"""
+        source = tmp_path / "data"
+        source.mkdir()
+        (source / "file1.dat").write_bytes(b"DATA1")
+        (source / "file2.dat").write_bytes(b"DATA2")
+        (source / "file3.dat").write_bytes(b"DATA3")
+
+        repo = client.new_repo(default_project)
+        branch = pfs.Branch(repo=repo, name="master")
+
+        with client.pfs.commit(branch=branch) as commit:
+            commit.put_files(source=source, path="/")
+
+        assert client.pfs.path_exists(file=pfs.File(commit=commit, path="/file1.dat"))
+        assert client.pfs.path_exists(file=pfs.File(commit=commit, path="/file2.dat"))
+        assert client.pfs.path_exists(file=pfs.File(commit=commit, path="/file3.dat"))
 
 
 class TestPFSFile:
