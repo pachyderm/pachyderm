@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
@@ -104,6 +105,6 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 //
 // Full mode is that standard pachd which users interact with using pachctl and
 // which manages pipelines, files and so forth.
-func FullMode(ctx context.Context, config any) error {
+func FullMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newFullBuilder(config).buildAndRun(ctx)
 }

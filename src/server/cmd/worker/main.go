@@ -45,7 +45,7 @@ func main() {
 	cmdutil.Main(ctx, do, &pachconfig.WorkerFullConfiguration{})
 }
 
-func do(ctx context.Context, config interface{}) error {
+func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitWithKube(ctx, pachconfig.NewConfiguration(config))

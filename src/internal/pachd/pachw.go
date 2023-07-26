@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
@@ -113,6 +114,6 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 
 // PachwMode runs a pachw-mode pachd.
 // When in pachw mode, the pachd instance processes storage and url tasks.
-func PachwMode(ctx context.Context, config any) error {
+func PachwMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newPachwBuilder(config).buildAndRun(ctx)
 }
