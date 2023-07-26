@@ -1641,6 +1641,11 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 // This algorithm updates every branch in branchInfo's Subvenance, new Provenance, and old Provenance.
 // Complexity is O(m*n*log(n)) where m is the complete Provenance of branchInfo, and n is the Subvenance of branchInfo
 func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, oldDirectProvenance []*pfs.Branch) error {
+	for _, p := range branchInfo.DirectProvenance {
+		if has(&branchInfo.Subvenance, p) {
+			return errors.Errorf("branch %q cannot be both in %q's provenance and subvenance", p.String(), branchInfo.Branch.String())
+		}
+	}
 	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(branchInfo.Branch): branchInfo}
 	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
 		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {

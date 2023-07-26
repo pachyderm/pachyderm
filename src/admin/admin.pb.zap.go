@@ -32,5 +32,6 @@ func (x *InspectClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddObject("client_version", x.ClientVersion)
+	enc.AddObject("current_project", x.CurrentProject)
 	return nil
 }

@@ -586,7 +586,7 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	}
 
 	// Verify cluster deployment ID
-	clusterInfo, err := client.InspectClusterWithVersion(version.Version)
+	clusterInfo, err := client.InspectClusterWithVersionAndProject(version.Version, &pfs.Project{Name: context.Project})
 	if err != nil {
 		scrubbedErr := grpcutil.ScrubGRPC(err)
 		if status.Code(err) == codes.Unimplemented {

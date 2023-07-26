@@ -4792,13 +4792,14 @@ func TestPFS(suite *testing.T) {
 			// A    B ─▶ C ─▶ D ─▶ E
 			// ╰──────────────────⬏
 		},
-		// {
-		// 	{name: "A", directProv: []string{"A"}, err: true},
-		// 	{name: "A"},
-		// 	{name: "A", directProv: []string{"A"}, err: true},
-		// 	{name: "B", directProv: []string{"A"}},
-		// 	{name: "A", directProv: []string{"B"}, err: true},
-		// },
+			{
+				{name: "A", directProv: []string{"A"}, err: true},
+				{name: "A"},
+				{name: "A", directProv: []string{"A"}, err: true},
+				{name: "B", directProv: []string{"A"}},
+				{name: "C", directProv: []string{"B"}},
+				{name: "A", directProv: []string{"C"}, err: true},
+			},
 		}
 		for i, test := range tests {
 			test := test
@@ -6935,12 +6936,20 @@ func TestPFS(suite *testing.T) {
 				Branch: "b",
 				Size:   "200",
 			}))
+			// Create a trigger separate from the chain and ensure it doesn't fire.
+			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "chain", "d", "", "", &pfs.Trigger{
+				Branch: "z",
+				Size:   "100",
+			}))
+			bi, err := c.InspectBranch(pfs.DefaultProjectName, "chain", "d")
+			require.NoError(t, err)
+			dCommit := bi.Head
 			aCommit := client.NewCommit(pfs.DefaultProjectName, "chain", "a", "")
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file1", strings.NewReader(strings.Repeat("a", 50))))
-			_, err := c.WaitCommit(pfs.DefaultProjectName, "chain", "a", "")
+			_, err = c.WaitCommit(pfs.DefaultProjectName, "chain", "a", "")
 			require.NoError(t, err)
-			bi, err := c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "a")
 			require.NoError(t, err)
 			head := bi.Head.Id
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "b")
@@ -6949,6 +6958,9 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "d")
+			require.NoError(t, err)
+			require.Equal(t, dCommit, bi.Head)
 
 			// Triggers b, but not c
 			require.NoError(t, c.PutFile(aCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
@@ -6963,6 +6975,9 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.Id)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "d")
+			require.NoError(t, err)
+			require.Equal(t, dCommit, bi.Head)
 
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
@@ -6977,6 +6992,9 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.Id)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "d")
+			require.NoError(t, err)
+			require.Equal(t, dCommit, bi.Head)
 
 			// Triggers b and c
 			require.NoError(t, c.PutFile(aCommit, "file4", strings.NewReader(strings.Repeat("a", 50))))
@@ -6991,6 +7009,9 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.Id)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "d")
+			require.NoError(t, err)
+			require.Equal(t, dCommit, bi.Head)
 
 			// Triggers nothing
 			require.NoError(t, c.PutFile(aCommit, "file5", strings.NewReader(strings.Repeat("a", 50))))
@@ -7005,6 +7026,9 @@ func TestPFS(suite *testing.T) {
 			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "c")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.Id)
+			bi, err = c.InspectBranch(pfs.DefaultProjectName, "chain", "d")
+			require.NoError(t, err)
+			require.Equal(t, dCommit, bi.Head)
 		})
 
 		t.Run("BranchMovement", func(t *testing.T) {
