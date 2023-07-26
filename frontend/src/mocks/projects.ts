@@ -5,24 +5,28 @@ import {
   ProjectStatus,
   mockProjectDetailsQuery,
   mockProjectsQuery,
+  ProjectsQuery,
 } from '@graphqlTypes';
 
-export const ALL_PROJECTS = {
+export const ALL_PROJECTS: ProjectsQuery = {
   projects: [
     {
       id: 'ProjectA',
       description: 'A description for project a',
       status: ProjectStatus.HEALTHY,
+      __typename: 'Project',
     },
     {
       id: 'ProjectB',
       description: 'A description for project b',
       status: ProjectStatus.UNHEALTHY,
+      __typename: 'Project',
     },
     {
       id: 'ProjectC',
       description: 'A description for project c',
       status: ProjectStatus.HEALTHY,
+      __typename: 'Project',
     },
   ],
 };
