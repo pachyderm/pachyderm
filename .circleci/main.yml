@@ -183,20 +183,20 @@ jobs:
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT
 
-            bucket_num=$CIRCLE_NODE_INDEX
-            num_buckets=$CIRCLE_NODE_TOTAL
             package="./src/server"
             test_tags="k8s"
 
-            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark' | circleci tests split --split-by=timings --timings-type=testname) )
 
-            tests=( $(echo ${tests} | circleci tests split --split-by=timings --timings-type=testname))
+            echo "${tests}"
 
             # Add anchors for the regex so we don't run collateral tests
             tests=( "${tests[@]/#/^}" )
             tests=( "${tests[@]/%/\$\$}" )
 
-            echo ${tests}
+            test_regex="$(IFS=\|; echo "${tests[*]}")"
+
+            echo ${test_regex}
 
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
@@ -209,7 +209,7 @@ jobs:
               --debug \
               -- \
               go test "${package}" -json \
-              -run ${tests} \
+              -run ${test_regex} \
               -tags="${test_tags}" \
               -count=1 \
               -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
