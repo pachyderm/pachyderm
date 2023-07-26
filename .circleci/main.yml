@@ -177,6 +177,13 @@ jobs:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
+          name: produce list of tests
+          command: |
+            package="./src/server"
+            test_tags="k8s"
+
+            go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark' > tests.txt
+      - run:
           name: run tests
           no_output_timeout: 20m
           command: |
@@ -186,7 +193,7 @@ jobs:
             package="./src/server"
             test_tags="k8s"
 
-            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark' | circleci tests split --split-by=timings --timings-type=testname) )
+            tests=( $(cat tests.txt | circleci tests split --split-by=timings --timings-type=testname) )
 
             echo "${tests}"
 
@@ -1522,7 +1529,9 @@ workflows:
       - test-go
       - govulncheck
       - test-envoy
-      - test-pps
+      - test-pps:
+          requires:
+            - build-docker-images
       - integration-tests:
           matrix:
             parameters:
