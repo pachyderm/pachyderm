@@ -1529,9 +1529,7 @@ workflows:
       - test-go
       - govulncheck
       - test-envoy
-      - test-pps:
-          requires:
-            - build-docker-images
+      - test-pps
       - integration-tests:
           matrix:
             parameters:
