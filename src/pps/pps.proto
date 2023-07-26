@@ -957,4 +957,7 @@ service API {
 
   // GetClusterDefaults returns the current cluster defaults.
   rpc GetClusterDefaults(GetClusterDefaultsRequest) returns (GetClusterDefaultsResponse) {}
+
+  // SetClusterDefaults returns the current cluster defaults.
+  rpc SetClusterDefaults(SetClusterDefaultsRequest) returns (SetClusterDefaultsResponse) {}
 }
