@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -119,6 +120,6 @@ func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 //
 // Sidecar mode is run as a sidecar in a pipeline pod; it provides services to
 // the pipeline worker code running in that pod.
-func SidecarMode(ctx context.Context, config any) error {
+func SidecarMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newSidecarBuilder(config).buildAndRun(ctx)
 }
