@@ -1624,6 +1624,32 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
+	deleteDefaults := &cobra.Command{
+		Use:   "{{alias}} [--cluster]",
+		Short: "Delete defaults.",
+		Long:  "Delete defaults.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if cluster {
+				client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+
+				if _, err := client.PpsAPIClient.SetClusterDefaults(mainCtx, &pps.SetClusterDefaultsRequest{
+					ClusterDefaultsJson: "{}",
+				}); err != nil {
+					return errors.Wrap(err, "could not set cluster defaults")
+				}
+				return nil
+			}
+			return errors.New("--cluster must be specified")
+		}),
+		Hidden: true,
+	}
+	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
+	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
+
 	return commands
 }
 
