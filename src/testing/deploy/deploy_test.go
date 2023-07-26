@@ -28,13 +28,12 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:    auth.RootUser,
-		Enterprise:  true,
-		PortOffset:  portOffset,
-		ValuesFiles: []string{minikubetestenv.ExampleValuesLocalPath(t, "int-test-values-with-det.yaml")},
+		AuthUser:   auth.RootUser,
+		Enterprise: true,
+		PortOffset: portOffset,
+		Determined: true,
 	}
 	valueOverrides["pachd.replicas"] = "1"
-
 	opts.ValueOverrides = valueOverrides
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
@@ -52,7 +51,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	opts.ValueOverrides = valueOverrides
 	opts.ValueOverrides["pachd.rootToken"] = token
 	// add config file with trusted peers & new clients
-	opts.ValuesFiles = append(opts.ValuesFiles, createAdditionalClientsFile(t), createTrustedPeersFile(t))
+	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
 	// apply upgrade
 	c = minikubetestenv.UpgradeRelease(t, context.Background(), ns, k, opts)
 	c.SetAuthToken(token)

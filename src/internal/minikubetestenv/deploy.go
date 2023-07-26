@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -53,6 +54,11 @@ var (
 	mu           sync.Mutex // defensively lock around helm calls
 	hostOverride *string    = flag.String("testenv.host", "", "override the default host used for testenv clusters")
 	basePort     *int       = flag.Int("testenv.baseport", 0, "alternative base port for testenv to begin assigning clusters from")
+)
+
+var (
+	detDockerUser = os.Getenv("DET_DOCKER_USER")
+	detDockerPass = os.Getenv("DET_DOCKER_PASS")
 )
 
 type DeployOpts struct {
@@ -353,32 +359,6 @@ func withoutProxy(namespace string) *helm.Options {
 	}
 }
 
-func withDetermined(namespace string, portOffset uint16) *helm.Options {
-	masterPort := strconv.Itoa(8282 + int(portOffset))
-	return &helm.Options{
-		SetValues: map[string]string{
-			"determined.imageRegistry":                   determinedRegistry,
-			"determined.imagePullSecretName":             determinedRegistrySecret,
-			"determined.maxSlotsPerPod":                  "0",
-			"determined.enabled":                         "true",
-			"determined.enterpriseEdition":               determinedRegistry,
-			"determined.useNodePortForMaster":            "true", // DNJ TODO double check this setting
-			"determined.useNodePortForDB":                "true",
-			"determined.detVersion":                      "latest",
-			"determined.masterPort":                      masterPort,
-			"determined.oidc.enabled":                    "true",
-			"determined.oidc.idpRecipientUrl":            fmt.Sprintf("http://localhost:%s", masterPort),
-			"determined.oidc.idpSsoUrl":                  fmt.Sprintf("http://pachd.%s.svc.cluster.local:30658/dex", namespace),
-			"determined.oidc.clientId":                   "determined",
-			"determined.oidc.clientSecret":               "123",
-			"oidc.additionalClients[0].id":               "determined",
-			"oidc.additionalClients[0].name":             "determined",
-			"oidc.additionalClients[0].secret":           "123",
-			"oidc.additionalClients[0].redirect_urls[0]": fmt.Sprintf("http://localhost:%s/oauth/callback/?inline=true", masterPort),
-		},
-	}
-}
-
 func union(a, b *helm.Options) *helm.Options {
 	c := &helm.Options{
 		SetValues:    make(map[string]string),
@@ -544,22 +524,28 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
 
-// DNJ TODO - this is not working yet
 func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
-	user := os.Getenv("DET_DOCKER_USER")
-	require.NotNil(t, user, "Missing required user for Determined integration testing")
-	pass := os.Getenv("DET_DOCKER_PASS")
-	require.NotNil(t, pass, "Missing required password for Determined integration testing")
-	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
+	require.NotEqual(t, "", detDockerUser, "Missing required user for Determined integration testing")
+	require.NotEqual(t, "", detDockerPass, "Missing required password for Determined integration testing")
+	dockerConfig, err := json.Marshal(
+		map[string]any{
+			"auths": map[string]any{
+				determinedRegistry: map[string]string{
+					"username": detDockerUser,
+					"password": detDockerPass,
+				},
+			},
+		},
+	)
+	require.NoError(t, err, "Marshalling determined registry credentials")
+	_, err = kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      determinedRegistrySecret,
 			Namespace: ns,
 		},
-		Type: "docker-registry",
+		Type: "kubernetes.io/dockerconfigjson",
 		StringData: map[string]string{
-			"docker-server":   determinedRegistry,
-			"docker-user":     user,
-			"docker-password": pass,
+			".dockerconfigjson": string(dockerConfig),
 		},
 	}, metav1.CreateOptions{})
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined secret setup", err)
@@ -600,7 +586,14 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.Determined {
 		createSecretDeterminedRegcred(t, ctx, kubeClient, namespace)
-		helmOpts = union(helmOpts, withDetermined(namespace, opts.PortOffset))
+		valuesTemplate, err := template.ParseFiles(ExampleValuesLocalPath(t, "int-test-values-with-det.yaml"))
+		require.NoError(t, err, "Creating determined values template")
+		valuesFile, err := os.CreateTemp("", "detvalues.*.yaml")
+		require.NoError(t, err, "Creating determined values temp file")
+		defer valuesFile.Close()
+		err = valuesTemplate.Execute(valuesFile, struct{ K8sNamespace string }{K8sNamespace: namespace})
+		require.NoError(t, err, "Error templating determined values temp file")
+		opts.ValuesFiles = append([]string{valuesFile.Name()}, opts.ValuesFiles...) // we want any user specified values files to be applied after
 	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
