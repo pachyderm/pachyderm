@@ -4,6 +4,7 @@ package admin_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/admin";
 
 import "version/versionpb/version.proto";
+import "pfs/pfs.proto";
 
 message ClusterInfo {
   string id = 1;
@@ -18,6 +19,9 @@ message ClusterInfo {
 
 message InspectClusterRequest {
   versionpb_v2.Version client_version = 1;
+  // If CurrentProject is set, then InspectCluster will return an error if the
+  // project does not exist.
+  pfs_v2.Project current_project = 2;
 }
 
 service API {

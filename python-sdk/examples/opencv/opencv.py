@@ -60,7 +60,7 @@ def main(client: Client):
         client.pfs.put_file_from_url(commit=commit, path="/robot.jpg", url="https://docs.pachyderm.com/images/opencv/robot.jpg")
 
     # Wait for the commit (and its downstream commits) to finish
-    commit.wait_set()
+    commit.wait_all()
 
     job = pps.Job(pipeline=pps.Pipeline(name="montage"), id=commit.id)
     if client.pps.inspect_job(job=job).state != pps.JobState.JOB_SUCCESS:
