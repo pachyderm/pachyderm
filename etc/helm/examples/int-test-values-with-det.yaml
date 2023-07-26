@@ -65,12 +65,12 @@ determined:
   useNodePortForDB: false
   detVersion: 0.23.1
   masterPort: 8282
-  masterCpuRequest: 2
-  masterMemRequest: 1Gi # turn request way down for automated smoke tests
+  masterCpuRequest: 250m
+  masterMemRequest: 512M # turn requests way down for automated smoke tests
   db:
     storageSize: 2Gi
-    cpuRequest: 1
-    memRequest: 1Gi
+    cpuRequest: 250m
+    memRequest: 512M
   oidc:
     enabled: true 
     idpRecipientUrl: http://localhost:8282
