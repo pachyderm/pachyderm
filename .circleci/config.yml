@@ -51,6 +51,10 @@ parameters:
   go-version:
     type: string
     default: "1.20.6"
+  go-releaser-version:
+    type: string
+    default: "1.17.1"
+
 # our defined job, and its steps
 jobs:
   setup:
@@ -187,7 +191,53 @@ jobs:
           command: etc/testing/circle/kube_debug.sh
       - store_artifacts:
           path: /tmp/test-results
-
+  build-docker-images:
+    parameters:
+      appVersion:
+        type: string
+        default: "0.0.0"
+      enableCoverage:
+        type: boolean
+        default: false
+    machine:
+      image: << pipeline.parameters.machine_image >>
+      docker_layer_caching: true
+    resource_class: xlarge
+    steps:
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - checkout
+      - run:
+          name: Download utilities
+          command: |
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
+      - install-go-releaser
+      - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker
+          command: |
+            v=<< parameters.appVersion >>
+            additional=${v%%-*}
+            index=${#additional}
+            if << parameters.enableCoverage >>
+            then
+              make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            else
+              make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+            fi
+      - run:
+          name: Push docker
+          command: |-
+            if << parameters.enableCoverage >>
+            then
+              make docker-push VERSION=cover-${CIRCLE_SHA1}
+            else
+              make docker-push VERSION=${CIRCLE_SHA1}
+            fi
 # our single workflow, that triggers the setup job defined above
 workflows:
   generate-config:
@@ -198,6 +248,9 @@ workflows:
         - not: << pipeline.parameters.release-etcd >>
         - not: << pipeline.parameters.run-perf-tests >>
     jobs:
+      - build-docker-images
+      - build-docker-images:
+          enableCoverage: true        
       - path-filtering/filter:
           name: check-updated-files
           # 3-column, whitespace-delimited mapping. One mapping per
@@ -247,3 +300,15 @@ workflows:
                 - v2.4.6
                 - v2.5.1
                 - latest
+
+commands:
+  install-go-releaser:
+    steps:
+      - run:
+          name: install-go-releaser
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v<< pipeline.parameters.go-releaser-version >>/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            goreleaser -v
