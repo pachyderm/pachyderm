@@ -219,7 +219,7 @@ determined:
   # Distributed tasks with sizes that are not divisible by `maxSlotsPerPod` are never scheduled. If
   # you have a cluster of different size nodes (e.g., 4 and 8 GPUs per node), set `maxSlotsPerPod` to
   # the greatest common divisor of all the sizes (4, in that case).
-  # maxSlotsPerPod: 
+  # maxSlotsPerPod:
 
   ## For CPU-only clusters, use `slotType: cpu`, and make sure to set `slotResourceRequest` below.
   # slotType: cpu
