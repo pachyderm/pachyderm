@@ -239,8 +239,8 @@ determined:
   ## and shells. For all task containers, shm_size_bytes and network_mode are configurable. For
   ## trials, the network interface used by distributed (multi-machine) training is configurable.
   taskContainerDefaults:
-    networkMode: bridge
-    dtrainNetworkInterface: "<network interface name>"
+    # networkMode: bridge
+    # dtrainNetworkInterface: "<network interface name>"
     forcePullImage: false
 
     # Configure a default pod spec for all GPU tasks (experiments, notebooks, commands) and CPU tasks

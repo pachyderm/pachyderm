@@ -270,14 +270,8 @@
                 "taskContainerDefaults": {
                     "type": "object",
                     "properties": {
-                        "dtrainNetworkInterface": {
-                            "type": "string"
-                        },
                         "forcePullImage": {
                             "type": "boolean"
-                        },
-                        "networkMode": {
-                            "type": "string"
                         }
                     }
                 },
