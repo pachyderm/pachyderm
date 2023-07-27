@@ -1,3 +1,12 @@
+""" This file patches methods onto the PFS Noun objects.
+
+This is done, as opposed to subclassing them, for these methods
+  to automatically be accessible on any objects included in the
+  response from the API.
+
+Note: These are internally patched and this file should
+  not be imported directly by users.
+"""
 import re
 
 from . import Branch, Commit, File, Project, Repo
@@ -32,8 +41,15 @@ def _Repo_as_uri(self: "Repo") -> str:
     return f"{project}/{self.name}"
 
 
+def _Repo___post_init__(self: "Repo") -> None:
+    if not self.project or not self.project.name:
+        self.project = Project(name="default")
+    super(self.__class__, self).__post_init__()
+
+
 Repo.from_uri = _Repo_from_uri
 Repo.as_uri = Repo.__str__ = _Repo_as_uri
+Repo.__post_init__ = _Repo___post_init__
 
 
 def _Branch_from_uri(uri: str) -> Branch:
@@ -84,7 +100,6 @@ def _Commit_from_uri(uri: str) -> Commit:
     All unspecified components will default to None, except for an unspecified
       project which defaults to "default".
     """
-    # TODO: Can we do more error checking here?
     if "@" not in uri:
         raise ValueError(
             "Could not parse branch/commit. URI must have the form: "

@@ -1,0 +1,135 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.preflightCheckJob.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pachyderm-preflight-check
+  namespace: {{ .Release.Namespace }}
+spec:
+  completions: 1
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.preflightCheckJob.annotations -}}
+        {{ toYaml .Values.preflightCheckJob.annotations | nindent 8 }}
+        {{- end }}
+      labels:
+        app: preflight-check
+        suite: pachyderm
+        {{- if .Values.preflightCheckJob.podLabels }}
+        {{- toYaml .Values.preflightCheckJob.podLabels | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.preflightCheckJob.priorityClassName }}
+      priorityClassName: {{ .Values.preflightCheckJob.priorityClassName }}
+      {{- end }}
+      {{-  if .Values.preflightCheckJob.affinity }}
+      affinity: {{ toYaml .Values.preflightCheckJob.affinity | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{-  if .Values.preflightCheckJob.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.preflightCheckJob.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{-  if .Values.preflightCheckJob.tolerations }}
+      tolerations: {{ toYaml .Values.preflightCheckJob.tolerations | nindent 8 }}
+      {{- end }}
+      containers:
+      - command:
+        - /pachd
+        args:
+        - --mode
+        - preflight
+        env:
+        - name: POSTGRES_HOST
+          value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
+        - name: POSTGRES_PORT
+          value:  {{ required "postgresql port required" .Values.global.postgresql.postgresqlPort | quote }}
+        - name: POSTGRES_USER
+          value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
+        - name: POSTGRES_DATABASE
+          value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
+        {{- if .Values.global.postgresql.ssl }}
+        - name: POSTGRES_SSL
+          value: "require"
+        {{- end }}
+        {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRES_PASSWORD
+          value: "Using-iamLogin"
+        {{- else }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+        {{- end }}
+        - name: PG_BOUNCER_HOST
+          value: pg-bouncer # Must match pgbouncer service name
+        - name: PG_BOUNCER_PORT
+          value: "5432" # Must match pbouncer service port
+        {{- if .Values.preflightCheckJob.disableLogSampling }}
+        - name: PACHYDERM_DISABLE_LOG_SAMPLING
+          value: "1"
+        {{- end }}
+        {{- if .Values.preflightCheckJob.sqlQueryLogs }}
+        - name: POSTGRES_QUERY_LOGGING
+          value: "1"
+        {{- end }}
+        {{ if .Values.global.proxy }}
+        - name: http_proxy
+          value: {{ .Values.global.proxy }}
+        - name: https_proxy
+          value:  {{.Values.global.proxy}}
+        - name: HTTP_PROXY
+          value:  {{.Values.global.proxy}}
+        - name: HTTPS_PROXY
+          value:  {{.Values.global.proxy}}
+        {{ end }}
+        {{ if .Values.global.noProxy }}
+        - name: no_proxy
+          value:  {{.Values.global.noProxy}}
+        - name: NO_PROXY
+          value:  {{.Values.global.noProxy}}
+        {{ end }}
+        - name: K8S_MEMORY_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              resource: requests.memory
+        - name: K8S_MEMORY_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              resource: limits.memory
+        image: "{{ .Values.preflightCheckJob.image.repository }}:{{ default .Chart.AppVersion .Values.preflightCheckJob.image.tag }}"
+        imagePullPolicy: {{ .Values.preflightCheckJob.image.pullPolicy }}
+        name: pachd
+        {{- if .Values.preflightCheckJob.resources }}
+        resources: {{ toYaml .Values.preflightCheckJob.resources | nindent 10 }}
+        {{- end }}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+status: {}
+{{- end -}}
