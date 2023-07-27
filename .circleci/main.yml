@@ -1,7 +1,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 
-aliases:
+aliases: #Test
   - &only-release-tags
     branches:
       ignore: /.*/
