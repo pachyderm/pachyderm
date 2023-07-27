@@ -34,12 +34,14 @@ const (
 var newWatcherSignal = errors.New("cancel WaitForNotification")
 
 type Listener struct {
-	watchers chan *watcher
+	connConfig *pgx.ConnConfig
+	watchers   chan *watcher
 }
 
-func NewListener() *Listener {
+func NewListener(cc *pgx.ConnConfig) *Listener {
 	return &Listener{
-		watchers: make(chan *watcher),
+		connConfig: cc,
+		watchers:   make(chan *watcher),
 	}
 }
 

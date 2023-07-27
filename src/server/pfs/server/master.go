@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -93,9 +92,9 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
-	if ev.Error != nil {
-		return ev.Error
-	}
+	// if ev.Error != nil {
+	// 	return ev.Error
+	// }
 	lockPrefix := path.Join("repos", fmt.Sprintf("%d", ev.Id))
 	if ev.EventType == postgres.EventDelete {
 		if cancel, ok := repos[ev.Id]; ok {
@@ -169,43 +168,44 @@ func (d *driver) watchRepos(ctx context.Context) error {
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			// watch for new repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "repos")
-			if err != nil {
-				return errors.Wrap(err, "new watcher")
-			}
-			defer watcher.Close()
-			var eg errgroup.Group
-			eg.Go(func() error {
-				for {
-					select {
-					case event, ok := <-watcher.Watch():
-						if !ok {
-							return errors.Wrap(fmt.Errorf("unexpected close on events channel"), "watch repo events")
-						}
-						if err := d.manageRepos(ctx, ring, repos, event); err != nil {
-							return errors.Wrap(err, "watch repo event")
-						}
-					case <-ctx.Done():
-						return nil
-					}
-				}
-			})
+			// watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "repos")
+			// if err != nil {
+			// 	return errors.Wrap(err, "new watcher")
+			// }
+			// defer watcher.Close()
+			// var eg errgroup.Group
+			// eg.Go(func() error {
+			// 	for {
+			// 		select {
+			// 		case event, ok := <-watcher.Watch():
+			// 			if !ok {
+			// 				return errors.Wrap(fmt.Errorf("unexpected close on events channel"), "watch repo events")
+			// 			}
+			// 			if err := d.manageRepos(ctx, ring, repos, event); err != nil {
+			// 				return errors.Wrap(err, "watch repo event")
+			// 			}
+			// 		case <-ctx.Done():
+			// 			return nil
+			// 		}
+			// 	}
+			// })
 			// get existing entries.
-			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-				iter, err := pfsdb.ListRepo(ctx, tx)
-				if err != nil {
-					return errors.Wrap(err, "create list repo iterator")
-				}
-				return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
-					event := &postgres.Event{
-						EventType: postgres.EventInsert,
-					}
-					return d.manageRepos(ctx, ring, repos, event)
-				}), "create event for each repo")
-			}); err != nil {
-				return errors.Wrap(err, "list repos")
-			}
-			return errors.Wrap(eg.Wait(), "waiting for manageRepos goroutines to finish")
+			// if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+			// 	iter, err := pfsdb.ListRepo(ctx, tx)
+			// 	if err != nil {
+			// 		return errors.Wrap(err, "create list repo iterator")
+			// 	}
+			// 	return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
+			// 		event := &postgres.Event{
+			// 			EventType: postgres.EventInsert,
+			// 		}
+			// 		return d.manageRepos(ctx, ring, repos, event)
+			// 	}), "create event for each repo")
+			// }); err != nil {
+			// 	return errors.Wrap(err, "list repos")
+			// }
+			// return errors.Wrap(eg.Wait(), "waiting for manageRepos goroutines to finish")
+			return nil
 		},
 	)
 }
