@@ -1,4 +1,4 @@
-import {ProjectStatus, mockProjectDetailsQuery} from '@graphqlTypes';
+import {mockProjectDetailsQuery} from '@graphqlTypes';
 import {render, screen, within} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
@@ -7,6 +7,7 @@ import {
   mockEmptyProjectDetails,
   MOCK_PROJECT_DETAILS,
   MOCK_PROJECT_DETAILS_NO_JOBS,
+  mockHealthyProjectStatus,
 } from '@dash-frontend/mocks';
 import {withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -20,12 +21,12 @@ describe('ProjectPreview', () => {
       project={{
         description: 'Project preview description',
         id: 'ProjectA',
-        status: ProjectStatus.HEALTHY,
       }}
     />
   ));
 
   beforeAll(() => {
+    server.use(mockHealthyProjectStatus());
     server.listen();
   });
 

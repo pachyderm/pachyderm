@@ -6,6 +6,7 @@ import {useHistory} from 'react-router';
 
 import ActiveProjectModal from '@dash-frontend/components/ActiveProjectModal';
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
+import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
 import {useVerifiedAuthorizationLazy} from '@dash-frontend/hooks/useVerifiedAuthorizationLazy';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
@@ -37,6 +38,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   isSelected = false,
   setSelectedProject = noop,
 }) => {
+  const {projectStatus} = useProjectStatus(project.id);
   const browserHistory = useHistory();
   const {
     openModal: openActiveProjectModal,
@@ -141,7 +143,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     <>
       <div
         className={classNames(styles.row, {
-          [styles[`${project.status}Selected`]]: isSelected,
+          [styles[`${projectStatus ?? 'HEALTHY'}Selected`]]: isSelected,
           [styles.rowHover]: multiProject && !isSelected,
         })}
         onClick={() => setSelectedProject()}
@@ -181,7 +183,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
           <Group spacing={64}>
             <Info header="Project Status" headerId="project-status">
               <ProjectStatus
-                status={project.status}
+                status={projectStatus}
                 data-testid="ProjectRow__status"
               />
             </Info>

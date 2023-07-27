@@ -308,14 +308,8 @@ input JobsByPipelineQueryArgs {
 
 type Project {
   id: String!
-  status: ProjectStatus!
   description: String
-}
-
-type ProjectWithoutStatus {
-  id: String!
   status: ProjectStatus
-  description: String
 }
 
 type ProjectDetails {
@@ -867,6 +861,7 @@ input FileDownloadArgs {
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
+  projectStatus(id: ID!): Project!
   pipeline(args: PipelineQueryArgs!): Pipeline!
   repo(args: RepoQueryArgs!): Repo!
   pipelines(args: PipelinesQueryArgs!): [Pipeline]!

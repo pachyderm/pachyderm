@@ -6,7 +6,6 @@ import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
 const useCreateProject = (onCompleted?: () => void) => {
   const [createProjectMutation, mutationResult] = useCreateProjectMutation({
     onCompleted,
-    refetchQueries: [{query: GET_PROJECTS_QUERY}],
     update(cache, {data}) {
       if (!data) return;
       cache.modify({

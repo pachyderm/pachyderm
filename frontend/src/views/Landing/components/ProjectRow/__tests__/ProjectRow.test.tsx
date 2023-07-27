@@ -12,6 +12,7 @@ import {
   mockEmptyGetAuthorize,
   mockFalseGetAuthorize,
   mockEmptyGetRoles,
+  mockHealthyProjectStatus,
 } from '@dash-frontend/mocks';
 import {
   withContextProviders,
@@ -41,6 +42,7 @@ describe('ProjectRow RBAC', () => {
   });
 
   beforeAll(() => {
+    server.use(mockHealthyProjectStatus());
     server.listen();
   });
 

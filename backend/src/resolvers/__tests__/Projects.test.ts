@@ -4,6 +4,7 @@ import {UPDATE_PROJECT_MUTATION} from '@dash-frontend/mutations/UpdateProject';
 import {GET_PROJECT_DETAILS_QUERY} from '@dash-frontend/queries/GetProjectDetailsQuery';
 import {GET_PROJECT_QUERY} from '@dash-frontend/queries/GetProjectQuery';
 import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
+import {GET_PROJECT_STATUS_QUERY} from '@dash-frontend/queries/GetProjectStatusQuery';
 import {Status} from '@grpc/grpc-js/build/src/constants';
 
 import projects from '@dash-backend/mock/fixtures/projects';
@@ -17,6 +18,7 @@ import {
   DeleteProjectAndResourcesMutation,
   Project,
   ProjectDetails,
+  ProjectStatusQuery,
   UpdateProjectMutation,
 } from '@graphqlTypes';
 
@@ -53,101 +55,119 @@ describe('Projects Resolver', () => {
 
       const projects = data?.projects;
 
-      expect(projects).toHaveLength(11);
-      expect(projects?.[0]).toEqual(
+      expect(projects).toEqual(
+        expect.arrayContaining([
+          {
+            __typename: 'Project',
+            description:
+              'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+            id: 'Solar-Panel-Data-Sorting',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+            id: 'Data-Cleaning-Process',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+            id: 'Solar-Power-Data-Logger-Team-Collab',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+            id: 'Solar-Price-Prediction-Modal',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Multiple pipelines outputting to different forms of egress',
+            id: 'Egress-Examples',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+            id: 'Empty-Project',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+            id: 'Trait-Discovery',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Contains two DAGs spanning across this and Multi-Project-Pipeline-B',
+            id: 'Multi-Project-Pipeline-A',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description:
+              'Contains two DAGs spanning across this and Multi-Project-Pipeline-A',
+            id: 'Multi-Project-Pipeline-B',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description: 'Project for testing frontend load',
+            id: 'Load-Project',
+            status: null,
+          },
+          {
+            __typename: 'Project',
+            description: 'Project for testing pipeline types',
+            id: 'Pipelines-Project',
+            status: null,
+          },
+        ]),
+      );
+    });
+  });
+  describe('projectStatus', () => {
+    it('should return project status', async () => {
+      const {data} = await executeQuery<ProjectStatusQuery>(
+        GET_PROJECT_STATUS_QUERY,
+        {id: 'Solar-Panel-Data-Sorting'},
+      );
+
+      const projects = data?.projectStatus;
+
+      // At the time of making there are only 10 pipelines across two projects.
+      expect(projects).toEqual(
         expect.objectContaining({
           __typename: 'Project',
-          description:
-            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
           id: 'Solar-Panel-Data-Sorting',
           status: 'UNHEALTHY',
         }),
       );
-      expect(projects?.[1]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description:
-            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
-          id: 'Data-Cleaning-Process',
-          status: 'UNHEALTHY',
-        }),
+    });
+
+    it('should return healthy for a project that has no pipelines', async () => {
+      const {data} = await executeQuery<ProjectStatusQuery>(
+        GET_PROJECT_STATUS_QUERY,
+        {id: 'Empty-Project'},
       );
-      expect(projects?.[2]).toEqual(
+
+      const projects = data?.projectStatus;
+
+      // At the time of making there are only 10 pipelines across two projects.
+      expect(projects).toEqual(
         expect.objectContaining({
           __typename: 'Project',
-          description:
-            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
-          id: 'Solar-Power-Data-Logger-Team-Collab',
-          status: 'HEALTHY',
-        }),
-      );
-      expect(projects?.[3]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description:
-            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
-          id: 'Solar-Price-Prediction-Modal',
-          status: 'UNHEALTHY',
-        }),
-      );
-      expect(projects?.[4]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description:
-            'Multiple pipelines outputting to different forms of egress',
-          id: 'Egress-Examples',
-          status: 'UNHEALTHY',
-        }),
-      );
-      expect(projects?.[5]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description:
-            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
           id: 'Empty-Project',
-          status: 'HEALTHY',
-        }),
-      );
-      expect(projects?.[6]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description:
-            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
-          id: 'Trait-Discovery',
-          status: 'HEALTHY',
-        }),
-      );
-      expect(projects?.[7]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description:
-            'Contains two DAGs spanning across this and Multi-Project-Pipeline-B',
-          id: 'Multi-Project-Pipeline-A',
-          status: 'HEALTHY',
-        }),
-      );
-      expect(projects?.[8]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description:
-            'Contains two DAGs spanning across this and Multi-Project-Pipeline-A',
-          id: 'Multi-Project-Pipeline-B',
-          status: 'HEALTHY',
-        }),
-      );
-      expect(projects?.[9]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description: 'Project for testing frontend load',
-          id: 'Load-Project',
-          status: 'HEALTHY',
-        }),
-      );
-      expect(projects?.[10]).toEqual(
-        expect.objectContaining({
-          __typename: 'Project',
-          description: 'Project for testing pipeline types',
-          id: 'Pipelines-Project',
           status: 'HEALTHY',
         }),
       );

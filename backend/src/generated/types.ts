@@ -834,7 +834,7 @@ export type Project = {
   __typename?: 'Project';
   description?: Maybe<Scalars['String']>;
   id: Scalars['String'];
-  status: ProjectStatus;
+  status?: Maybe<ProjectStatus>;
 };
 
 export type ProjectDetails = {
@@ -855,13 +855,6 @@ export enum ProjectStatus {
   HEALTHY = 'HEALTHY',
   UNHEALTHY = 'UNHEALTHY',
 }
-
-export type ProjectWithoutStatus = {
-  __typename?: 'ProjectWithoutStatus';
-  description?: Maybe<Scalars['String']>;
-  id: Scalars['String'];
-  status?: Maybe<ProjectStatus>;
-};
 
 export type PutFilesFromUrLsArgs = {
   branch: Scalars['String'];
@@ -903,6 +896,7 @@ export type Query = {
   pipelines: Array<Maybe<Pipeline>>;
   project: Project;
   projectDetails: ProjectDetails;
+  projectStatus: Project;
   projects: Array<Project>;
   repo: Repo;
   repos: Array<Maybe<Repo>>;
@@ -1013,6 +1007,10 @@ export type QueryProjectArgs = {
 
 export type QueryProjectDetailsArgs = {
   args: ProjectDetailsQueryArgs;
+};
+
+export type QueryProjectStatusArgs = {
+  id: Scalars['ID'];
 };
 
 export type QueryRepoArgs = {
@@ -1413,7 +1411,6 @@ export type ResolversTypes = ResolversObject<{
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
   ProjectStatus: ProjectStatus;
-  ProjectWithoutStatus: ResolverTypeWrapper<ProjectWithoutStatus>;
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: ResolverTypeWrapper<{}>;
   Repo: ResolverTypeWrapper<Repo>;
@@ -1528,7 +1525,6 @@ export type ResolversParentTypes = ResolversObject<{
   Project: Project;
   ProjectDetails: ProjectDetails;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
-  ProjectWithoutStatus: ProjectWithoutStatus;
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: {};
   Repo: Repo;
@@ -2281,7 +2277,11 @@ export type ProjectResolvers<
     ContextType
   >;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  status?: Resolver<ResolversTypes['ProjectStatus'], ParentType, ContextType>;
+  status?: Resolver<
+    Maybe<ResolversTypes['ProjectStatus']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2294,24 +2294,6 @@ export type ProjectDetailsResolvers<
   repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type ProjectWithoutStatusResolvers<
-  ContextType = Context,
-  ParentType extends ResolversParentTypes['ProjectWithoutStatus'] = ResolversParentTypes['ProjectWithoutStatus'],
-> = ResolversObject<{
-  description?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  status?: Resolver<
-    Maybe<ResolversTypes['ProjectStatus']>,
-    ParentType,
-    ContextType
-  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2483,6 +2465,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryProjectDetailsArgs, 'args'>
+  >;
+  projectStatus?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryProjectStatusArgs, 'id'>
   >;
   projects?: Resolver<
     Array<ResolversTypes['Project']>,
@@ -2786,7 +2774,6 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Pipeline?: PipelineResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
-  ProjectWithoutStatus?: ProjectWithoutStatusResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
   RepoInfo?: RepoInfoResolvers<ContextType>;
@@ -3015,7 +3002,7 @@ export type CreateProjectMutation = {
     __typename?: 'Project';
     id: string;
     description?: string | null;
-    status: ProjectStatus;
+    status?: ProjectStatus | null;
   };
 };
 
@@ -3138,7 +3125,6 @@ export type UpdateProjectMutation = {
     __typename?: 'Project';
     id: string;
     description?: string | null;
-    status: ProjectStatus;
   };
 };
 
@@ -3948,11 +3934,19 @@ export type ProjectQueryVariables = Exact<{
 
 export type ProjectQuery = {
   __typename?: 'Query';
-  project: {
+  project: {__typename?: 'Project'; id: string; description?: string | null};
+};
+
+export type ProjectStatusQueryVariables = Exact<{
+  id: Scalars['ID'];
+}>;
+
+export type ProjectStatusQuery = {
+  __typename?: 'Query';
+  projectStatus: {
     __typename?: 'Project';
     id: string;
-    description?: string | null;
-    status: ProjectStatus;
+    status?: ProjectStatus | null;
   };
 };
 
@@ -3964,7 +3958,7 @@ export type ProjectsQuery = {
     __typename?: 'Project';
     id: string;
     description?: string | null;
-    status: ProjectStatus;
+    status?: ProjectStatus | null;
   }>;
 };
 
@@ -5114,6 +5108,29 @@ export const mockProjectQuery = (
     any
   >,
 ) => graphql.query<ProjectQuery, ProjectQueryVariables>('project', resolver);
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockProjectStatusQuery((req, res, ctx) => {
+ *   const { id } = req.variables;
+ *   return res(
+ *     ctx.data({ projectStatus })
+ *   )
+ * })
+ */
+export const mockProjectStatusQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<ProjectStatusQueryVariables>,
+    GraphQLContext<ProjectStatusQuery>,
+    any
+  >,
+) =>
+  graphql.query<ProjectStatusQuery, ProjectStatusQueryVariables>(
+    'projectStatus',
+    resolver,
+  );
 
 /**
  * @param resolver a function that accepts a captured request and may return a mocked response.

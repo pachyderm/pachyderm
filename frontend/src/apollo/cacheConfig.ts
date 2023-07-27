@@ -36,6 +36,15 @@ const cacheConfig: InMemoryCacheConfig = {
         },
       },
     },
+    Project: {
+      fields: {
+        status: {
+          merge(existing, incoming) {
+            return incoming ?? existing;
+          },
+        },
+      },
+    },
     Datum: {
       // This is important, as a Datum ID is not globally unique. However,
       // the combination of both a Datum ID and Job ID is.

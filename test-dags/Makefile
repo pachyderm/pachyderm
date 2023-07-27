@@ -57,6 +57,11 @@ generate-commits:
 	-pachctl create repo lots-of-commits
 	-node scripts/lots-of-commits/index.js 100 lots-of-commits
 
+failing-pipeline:
+	-pachctl create project Pipeline-Failure --description 'Contains a single pipeline that will fail because the docker image is incorrect.'
+	-pachctl create repo images --project Pipeline-Failure
+	-echo '{"pipeline":{"name":"edges","project":{"name":"Pipeline-Failure"}},"description": "A broken pipeline.","input":{"pfs":{"glob": "/*","repo": "images"}},"transform":{"cmd":["python3","/edges.py"],"image":"pachyderm/doesnotexist:1.0"}}' | pachctl create pipeline
+
 # RBAC
 rbac-setup:
 	-echo "pizza" | pachctl auth use-auth-token

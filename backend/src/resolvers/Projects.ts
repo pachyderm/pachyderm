@@ -13,6 +13,7 @@ interface ProjectsResolver {
   Query: {
     project: QueryResolvers['project'];
     projects: QueryResolvers['projects'];
+    projectStatus: QueryResolvers['projectStatus'];
     projectDetails: QueryResolvers['projectDetails'];
   };
   Mutation: {
@@ -22,13 +23,9 @@ interface ProjectsResolver {
   };
 }
 
-const rpcToGraphqlProject = (
-  project: ProjectInfo.AsObject,
-  pipelines: PipelineInfo.AsObject[],
-) => ({
+const rpcToGraphqlProject = (project: ProjectInfo.AsObject) => ({
   id: project.project?.name || '',
   description: project.description,
-  status: getProjectHealth(pipelines),
 });
 
 const getProjectHealth = (pipelines: PipelineInfo.AsObject[]) => {
@@ -46,36 +43,25 @@ const getProjectHealth = (pipelines: PipelineInfo.AsObject[]) => {
 const projectsResolver: ProjectsResolver = {
   Query: {
     project: async (_field, {id}, {pachClient}) => {
-      const pipelines = await pachClient.pps().listPipeline({projectIds: [id]});
-      return rpcToGraphqlProject(
-        await pachClient.pfs().inspectProject(id),
-        pipelines,
-      );
+      const project = await pachClient.pfs().inspectProject(id);
+      return rpcToGraphqlProject(project);
     },
     projects: async (_field, _args, {pachClient}) => {
       const projects = await pachClient.pfs().listProject();
-      return projects.map(async (project) => {
-        const projectId = project.project?.name ?? '';
-        // TODO: Improve this from N+1 to 2 lookups.
-        const pipelines = await pachClient
-          .pps()
-          .listPipeline({projectIds: [projectId], details: false});
-        return rpcToGraphqlProject(
-          await pachClient.pfs().inspectProject(projectId),
-          pipelines,
-        );
-      });
+      return projects.map((project) => rpcToGraphqlProject(project));
+    },
+    projectStatus: async (_field, {id}, {pachClient}) => {
+      const projectPipelines = await pachClient
+        .pps()
+        .listPipeline({projectIds: [id], details: false});
+
+      return {id, status: getProjectHealth(projectPipelines)};
     },
     projectDetails: async (
       _field,
       {args: {jobSetsLimit, projectId}},
-      {pachClient, log},
+      {pachClient},
     ) => {
-      log.info({
-        eventSource: 'projectDetails resolver',
-        event: 'returning project details',
-      });
-
       const [repos, pipelines, jobsMap] = await Promise.all([
         pachClient.pfs().listRepo({projectIds: [projectId]}),
         pachClient
@@ -109,10 +95,8 @@ const projectsResolver: ProjectsResolver = {
         name,
         description: description || undefined,
       });
-      const project = await pachClient.pfs().inspectProject(name);
       return {
-        id: project.project?.name || '',
-        description: project.description,
+        ...rpcToGraphqlProject(await pachClient.pfs().inspectProject(name)),
         status: ProjectStatus.HEALTHY,
       };
     },
@@ -126,13 +110,7 @@ const projectsResolver: ProjectsResolver = {
         description: description,
         update: true,
       });
-      const pipelines = await pachClient
-        .pps()
-        .listPipeline({projectIds: [name]});
-      return rpcToGraphqlProject(
-        await pachClient.pfs().inspectProject(name),
-        pipelines,
-      );
+      return rpcToGraphqlProject(await pachClient.pfs().inspectProject(name));
     },
     deleteProjectAndResources: async (
       _parent,

@@ -11,6 +11,7 @@ import {
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
+import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
 import {Group} from '@pachyderm/components';
 import getListTitle from 'lib/getListTitle';
@@ -33,6 +34,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
     project.id,
     JOB_SET_LIMIT,
   );
+  const {projectStatus} = useProjectStatus(project.id);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLHeadingElement>(null);
   const isStuck = useIntersection(subtitleRef.current, sidebarRef.current);
@@ -72,8 +74,8 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
                 error={error}
               >
                 <div className={styles.inline}>
-                  <ProjectStatus status={project.status} />
-                  {project.status.toString() ===
+                  <ProjectStatus status={projectStatus} />
+                  {projectStatus?.toString() ===
                     ProjectStatusEnum.UNHEALTHY && (
                     <Link
                       to={jobsRoute({projectId: project.id})}

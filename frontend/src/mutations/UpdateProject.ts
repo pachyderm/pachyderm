@@ -5,7 +5,6 @@ export const UPDATE_PROJECT_MUTATION = gql`
     updateProject(args: $args) {
       id
       description
-      status
     }
   }
 `;

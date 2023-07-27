@@ -1,26 +1,31 @@
 import {ProjectStatus as ProjectStatusEnum} from '@graphqlTypes';
 import capitalize from 'lodash/capitalize';
-import React, {useMemo} from 'react';
+import React from 'react';
 
 import {Group, Circle} from '@pachyderm/components';
 
 type ProjectStatusType = {
-  status: ProjectStatusEnum;
+  status?: ProjectStatusEnum | null;
+};
+
+const color = (status?: ProjectStatusEnum | null) => {
+  switch (status) {
+    case ProjectStatusEnum.HEALTHY:
+      return 'green';
+    case ProjectStatusEnum.UNHEALTHY:
+      return 'red';
+    default:
+      return 'gray';
+  }
 };
 
 const ProjectStatus: React.FC<ProjectStatusType> = ({status}) => {
-  const color = useMemo(() => {
-    if (status === ProjectStatusEnum.HEALTHY) {
-      return 'green';
-    }
-
-    return 'red';
-  }, [status]);
-
   return (
     <Group spacing={8} align="center">
-      <Circle color={color} />
-      <div data-testid={`ProjectStatus__${status}`}>{capitalize(status)}</div>
+      <Circle color={color(status)} />
+      <div data-testid={`ProjectStatus__${status}`}>
+        {status ? capitalize(status) : 'Pending'}
+      </div>
     </Group>
   );
 };

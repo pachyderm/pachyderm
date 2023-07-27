@@ -833,7 +833,6 @@ export const UpdateProjectDocument = gql`
     updateProject(args: $args) {
       id
       description
-      status
     }
   }
 `;
@@ -2747,7 +2746,6 @@ export const ProjectDocument = gql`
     project(id: $id) {
       id
       description
-      status
     }
   }
 `;
@@ -2797,6 +2795,65 @@ export type ProjectLazyQueryHookResult = ReturnType<typeof useProjectLazyQuery>;
 export type ProjectQueryResult = Apollo.QueryResult<
   Types.ProjectQuery,
   Types.ProjectQueryVariables
+>;
+export const ProjectStatusDocument = gql`
+  query projectStatus($id: ID!) {
+    projectStatus(id: $id) {
+      id
+      status
+    }
+  }
+`;
+
+/**
+ * __useProjectStatusQuery__
+ *
+ * To run a query within a React component, call `useProjectStatusQuery` and pass it any options that fit your needs.
+ * When your component renders, `useProjectStatusQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useProjectStatusQuery({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useProjectStatusQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.ProjectStatusQuery,
+    Types.ProjectStatusQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.ProjectStatusQuery,
+    Types.ProjectStatusQueryVariables
+  >(ProjectStatusDocument, options);
+}
+export function useProjectStatusLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.ProjectStatusQuery,
+    Types.ProjectStatusQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.ProjectStatusQuery,
+    Types.ProjectStatusQueryVariables
+  >(ProjectStatusDocument, options);
+}
+export type ProjectStatusQueryHookResult = ReturnType<
+  typeof useProjectStatusQuery
+>;
+export type ProjectStatusLazyQueryHookResult = ReturnType<
+  typeof useProjectStatusLazyQuery
+>;
+export type ProjectStatusQueryResult = Apollo.QueryResult<
+  Types.ProjectStatusQuery,
+  Types.ProjectStatusQueryVariables
 >;
 export const ProjectsDocument = gql`
   query projects {

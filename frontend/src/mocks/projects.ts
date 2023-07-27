@@ -6,6 +6,7 @@ import {
   mockProjectDetailsQuery,
   mockProjectsQuery,
   ProjectsQuery,
+  mockProjectStatusQuery,
 } from '@graphqlTypes';
 
 export const ALL_PROJECTS: ProjectsQuery = {
@@ -13,20 +14,20 @@ export const ALL_PROJECTS: ProjectsQuery = {
     {
       id: 'ProjectA',
       description: 'A description for project a',
-      status: ProjectStatus.HEALTHY,
       __typename: 'Project',
+      status: null,
     },
     {
       id: 'ProjectB',
       description: 'A description for project b',
-      status: ProjectStatus.UNHEALTHY,
       __typename: 'Project',
+      status: null,
     },
     {
       id: 'ProjectC',
       description: 'A description for project c',
-      status: ProjectStatus.HEALTHY,
       __typename: 'Project',
+      status: null,
     },
   ],
 };
@@ -233,6 +234,19 @@ export const MOCK_EMPTY_PROJECT_DETAILS: ProjectDetailsQuery = {
 export const mockProjects = () =>
   mockProjectsQuery((_req, res, ctx) => {
     return res(ctx.data(ALL_PROJECTS));
+  });
+
+export const mockHealthyProjectStatus = () =>
+  mockProjectStatusQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        projectStatus: {
+          id: 'ProjectA',
+          status: ProjectStatus.HEALTHY,
+          __typename: 'Project',
+        },
+      }),
+    );
   });
 
 export const mockEmptyProjectDetails = () =>

@@ -2,6 +2,7 @@ import {
   ProjectStatus,
   mockCreateProjectMutation,
   mockUpdateProjectMutation,
+  mockProjectStatusQuery,
 } from '@graphqlTypes';
 import {render, within, screen} from '@testing-library/react';
 import {setupServer} from 'msw/node';
@@ -35,6 +36,22 @@ describe('Landing', () => {
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
     server.use(mockProjects());
+    server.use(
+      mockProjectStatusQuery((req, res, ctx) => {
+        return res(
+          ctx.data({
+            projectStatus: {
+              __typename: 'Project',
+              id: req.variables.id,
+              status:
+                req.variables.id !== 'ProjectC'
+                  ? ProjectStatus.HEALTHY
+                  : ProjectStatus.UNHEALTHY,
+            },
+          }),
+        );
+      }),
+    );
     server.use(mockEmptyProjectDetails());
   });
 
@@ -279,7 +296,7 @@ describe('Landing', () => {
 
       await click(within(modal).getByText('Create'));
       expect(
-        screen.getByRole('heading', {
+        await screen.findByRole('heading', {
           name: /new-project/i,
         }),
       ).toBeInTheDocument();
@@ -314,7 +331,6 @@ describe('Landing', () => {
               updateProject: {
                 id: args.name,
                 description: args.description,
-                status: ProjectStatus.HEALTHY,
                 __typename: 'Project',
               },
             }),

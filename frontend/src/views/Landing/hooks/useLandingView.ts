@@ -116,10 +116,18 @@ export const useLandingView = () => {
 
   const filteredProjects = useMemo(() => {
     return sortedProjects.filter((project) => {
+      const projectStatus = project?.status;
+      const projectStatusIsPending = !projectStatus;
+
+      const isNotFilteredOutByStatus = projectStatus && filters[projectStatus];
+
       const projectName = project.id.toLowerCase();
+      const isSearchingForProject = projectName.includes(
+        searchValue.toLowerCase(),
+      );
       return (
-        filters[project.status] &&
-        projectName.includes(searchValue.toLowerCase())
+        isSearchingForProject &&
+        (projectStatusIsPending || isNotFilteredOutByStatus)
       );
     });
   }, [filters, searchValue, sortedProjects]);
