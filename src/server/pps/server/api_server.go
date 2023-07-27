@@ -17,6 +17,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -120,8 +121,9 @@ type apiServer struct {
 	peerPort              uint16
 	gcPercent             int
 	// collections
-	pipelines col.PostgresCollection
-	jobs      col.PostgresCollection
+	pipelines       col.PostgresCollection
+	jobs            col.PostgresCollection
+	clusterDefaults col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -2124,14 +2126,15 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //
 // Implementation note:
 //   - CreatePipeline always creates pipeline output branches such that the
-//     pipeline's spec branch is in the pipeline output branch's provenance
+//     pipeline's spec branch is in the pipeline output branch's provenance.
 //   - CreatePipeline will always create a new output commit, but that's done
 //     by CreateBranch at the bottom of the function, which sets the new output
 //     branch provenance, rather than commitPipelineInfoFromFileSet higher up.
 //   - This is because CreatePipeline calls hardStopPipeline towards the top,
-//     breaking the provenance connection from the spec branch to the output branch
+//     breaking the provenance connection from the spec branch to the output
+//     branch.
 //   - For straightforward pipeline updates (e.g. new pipeline image)
-//     stopping + updating + starting the pipeline isn't necessary
+//     stopping + updating + starting the pipeline isn't necessary.
 //   - However it is necessary in many slightly atypical cases  (e.g. the
 //     pipeline input changed: if the spec commit is created while the
 //     output branch has its old provenance, or the output branch gets new
@@ -2140,7 +2143,7 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //     match its spec's PipelineInfo.Details.Input. Another example is when
 //     request.Reprocess == true).
 //   - Rather than try to enumerate every case where we can't create a spec
-//     commit without stopping the pipeline, we just always stop the pipeline
+//     commit without stopping the pipeline, we just always stop the pipeline.
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -3614,4 +3617,110 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 		}
 		return true, nil
 	}, nil
+}
+
+func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
+	var clusterDefaults ppsdb.ClusterDefaultsWrapper
+	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
+		if !errors.As(err, &col.ErrNotFound{}) {
+			return nil, unknownError(ctx, "could not read cluster defaults", err)
+		}
+		clusterDefaults.Json = "{}"
+	}
+	return &pps.GetClusterDefaultsResponse{ClusterDefaultsJson: clusterDefaults.Json}, nil
+}
+
+// jsonMergePatch merges a JSON patch in string form with a JSON target, also in
+// string form.
+func jsonMergePatch(target, patch string) (string, error) {
+	var targetObject, patchObject any
+	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal target JSON")
+	}
+	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal patch JSON")
+	}
+	result, err := json.Marshal(mergePatch(targetObject, patchObject))
+	if err != nil {
+		return "", errors.Wrap(err, "could not marshal merge patch result")
+	}
+	return string(result), nil
+}
+
+// mergePatch implements the RFC 7396 algorithm.  To quote the RFC “If the patch
+// is anything other than an object, the result will always be to replace the
+// entire target with the entire patch.  Also, it is not possible to patch part
+// of a target that is not an object, such as to replace just some of the values
+// in an array.”  If the patch _is_ an object, then non-null values replace
+// target values, and null values delete target values.
+func mergePatch(target, patch any) any {
+	switch patch := patch.(type) {
+	case map[string]any:
+		var targetMap map[string]any
+		switch t := target.(type) {
+		case map[string]any:
+			targetMap = t
+		default:
+			targetMap = make(map[string]any)
+		}
+		for name, value := range patch {
+			if value == nil {
+				delete(targetMap, name)
+			} else {
+				targetMap[name] = mergePatch(targetMap[name], value)
+			}
+		}
+		return targetMap
+	default:
+		return patch
+	}
+}
+
+func badRequest(ctx context.Context, msg string, violations []*errdetails.BadRequest_FieldViolation) error {
+	s, err := status.New(codes.InvalidArgument, msg).WithDetails(&errdetails.BadRequest{
+		FieldViolations: violations,
+	})
+	if err != nil {
+		log.Error(ctx, "could not add bad-request details", zap.Error(err))
+		s = status.New(codes.Internal, "could not add bad-request details")
+	}
+	return s.Err()
+}
+
+func unknownError(ctx context.Context, msg string, err error) error {
+	var stack []string
+	errors.ForEachStackFrame(err, func(f errors.Frame) {
+		stack = append(stack, fmt.Sprintf("%s:%d (%n)", f, f, f))
+	})
+	s, err := status.Newf(codes.Unknown, "unknown error: %s", msg).WithDetails(&errdetails.DebugInfo{
+		StackEntries: stack,
+		Detail:       err.Error(),
+	})
+	if err != nil {
+		log.Error(ctx, "could not add debug info details", zap.Error(err))
+		s = status.New(codes.Internal, "could not add unknown-error details")
+	}
+	return s.Err()
+}
+
+func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
+	var (
+		cd pps.ClusterDefaults
+	)
+	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
+		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults_json", Description: err.Error()},
+		})
+	}
+
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, unknownError(ctx, "could not write cluster defaults", err)
+	}
+	// TODO(CORE-1708): add affected pipelines
+	return &pps.SetClusterDefaultsResponse{}, nil
 }

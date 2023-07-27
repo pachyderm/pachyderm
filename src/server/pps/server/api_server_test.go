@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,6 +13,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -349,4 +352,56 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
+}
+
+func TestGetClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	resp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	require.NoError(t, err, "GetClusterDefaults failed")
+	require.NotEqual(t, "", resp.ClusterDefaultsJson)
+	var cd pps.ClusterDefaults
+	require.NoError(t, json.Unmarshal([]byte(resp.ClusterDefaultsJson), &cd), "cluster defaults JSON must unmarshal")
+}
+
+func TestSetClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	t.Run("BadJSON", func(t *testing.T) {
+		_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+			ClusterDefaultsJson: `#<this is not JSON>`,
+		})
+		require.YesError(t, err, "syntactically-invalid JSON is an error")
+		s, ok := status.FromError(err)
+		require.True(t, ok, "syntactically-invalid JSON returns a status")
+		require.Equal(t, codes.InvalidArgument, s.Code(), "syntactically-invalid JSON is an invalid argument")
+	})
+
+	t.Run("InvalidDetails", func(t *testing.T) {
+		_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+			ClusterDefaultsJson: `{"not an valid spec field":123}`,
+		})
+		require.YesError(t, err, "invalid details are an error")
+		s, ok := status.FromError(err)
+		require.True(t, ok, "semantically-invalid JSON returns a status")
+		require.Equal(t, codes.InvalidArgument, s.Code(), "semantically-invalid JSON is an invalid argument")
+	})
+
+	t.Run("ValidDetails", func(t *testing.T) {
+		resp, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+			ClusterDefaultsJson: `{"create_pipeline_request": {"autoscaling": true}}`,
+		})
+		require.NoError(t, err, "SetClusterDefaults failed")
+		// FIXME: this will change once CORE-1708 is implemented
+		require.Len(t, resp.AffectedPipelines, 0, "pipelines should not yet be affected by setting defaults")
+		getResp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+		require.NoError(t, err, "GetClusterDefaults failed")
+
+		var defaults pps.ClusterDefaults
+		err = json.Unmarshal([]byte(getResp.GetClusterDefaultsJson()), &defaults)
+		require.NoError(t, err, "unmarshal retrieved cluster defaults")
+		require.NotNil(t, defaults.CreatePipelineRequest, "Create Pipeline Request should not be nil after SetClusterDefaults")
+		require.True(t, defaults.CreatePipelineRequest.Autoscaling, "default autoscaling should be true after SetClusterDefaults")
+	})
 }
