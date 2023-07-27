@@ -248,8 +248,10 @@ workflows:
         - not: << pipeline.parameters.release-etcd >>
         - not: << pipeline.parameters.run-perf-tests >>
     jobs:
-      - build-docker-images
       - build-docker-images:
+          name: build-docker
+      - build-docker-images:
+          name: build-docker-cov
           enableCoverage: true        
       - path-filtering/filter:
           name: check-updated-files
@@ -263,6 +265,9 @@ workflows:
             ((.circleci|python-sdk)/.*) run-python-sdk-jobs true
           base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
           config-path: .circleci/main.yml
+          requires:
+            - build-docker
+            - build-docker-cov
       - setup: # Only run setup on tags, otherwise use path filtering
           filters:
             tags:
