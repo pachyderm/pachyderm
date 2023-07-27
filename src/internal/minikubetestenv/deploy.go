@@ -103,7 +103,7 @@ func helmLock(f helmPutE) helmPutE {
 func helmChartLocalPath(t testing.TB) string {
 	return localPath(t, "etc", "helm", "pachyderm")
 }
-func ExampleValuesLocalPath(t testing.TB, fileName string) string {
+func exampleValuesLocalPath(t testing.TB, fileName string) string {
 	return localPath(t, "etc", "helm", "examples", fileName)
 }
 
@@ -586,7 +586,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.Determined {
 		createSecretDeterminedRegcred(t, ctx, kubeClient, namespace)
-		valuesTemplate, err := template.ParseFiles(ExampleValuesLocalPath(t, "int-test-values-with-det.yaml"))
+		valuesTemplate, err := template.ParseFiles(exampleValuesLocalPath(t, "int-test-values-with-det.yaml"))
 		require.NoError(t, err, "Creating determined values template")
 		valuesFile, err := os.CreateTemp("", "detvalues.*.yaml")
 		require.NoError(t, err, "Creating determined values temp file")
