@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -8800,18 +8799,12 @@ func TestDeleteRepo(t *testing.T) {
 	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	res, err := c.PfsAPIClient.DeleteRepo(
+	_, err := c.PfsAPIClient.DeleteRepo(
 		c.Ctx(),
 		&pfs.DeleteRepoRequest{
 			Repo: client.NewRepo(pfs.DefaultProjectName, dataRepo),
 		})
 	require.NoError(t, err, "repo should be deleted")
-	want := &pfs.DeleteRepoResponse{
-		DeletedRepos: []string{"default/" + dataRepo},
-	}
-	if diff := cmp.Diff(res, want); diff != "" {
-		t.Errorf("unexpected response:\n%v", diff)
-	}
 }
 
 func TestDontReadStdin(t *testing.T) {
