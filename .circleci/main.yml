@@ -668,6 +668,7 @@ jobs:
         default: false
     machine:
       image: << pipeline.parameters.machine_image >>
+      docker_layer_caching: true
     resource_class: xlarge
     steps:
       - go/install:
@@ -1074,6 +1075,7 @@ jobs:
           at: .
       - setup_remote_docker:
           version: 19.03.13
+          docker_layer_caching: true
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1092,6 +1094,7 @@ jobs:
           path: ~/project
       - setup_remote_docker:
           version: 19.03.13
+          docker_layer_caching: true
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1403,6 +1406,7 @@ jobs:
           path: ~/project
       - setup_remote_docker:
           version: 19.03.13
+          docker_layer_caching: true
       - install-poetry
       - run:
           name: build
@@ -1421,6 +1425,7 @@ jobs:
           at: .
       - setup_remote_docker:
           version: 20.10.18
+          docker_layer_caching: true
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
