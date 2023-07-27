@@ -1518,8 +1518,10 @@ workflows:
   integration-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
-      - build-docker-images
       - build-docker-images:
+          name: build-docker
+      - build-docker-images:
+          name: build-docker-cov
           enableCoverage: true
       #- build-pachctl-bin:
       #    version: $CIRCLE_SHA1
@@ -1529,7 +1531,9 @@ workflows:
       - test-go
       - govulncheck
       - test-envoy
-      - test-pps
+      - test-pps:
+          requires:
+            - build-docker-cov
       - integration-tests:
           matrix:
             parameters:
