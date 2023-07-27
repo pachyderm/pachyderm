@@ -3,6 +3,7 @@ import {GetLogsQuery} from '@graphqlTypes';
 import classnames from 'classnames';
 import React from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
+import {VariableSizeList} from 'react-window';
 
 import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
 import EmptyState from '@dash-frontend/components/EmptyState';
@@ -12,7 +13,6 @@ import {HEADER_HEIGHT_OFFSET} from '../../constants/logsViewersConstants';
 import useLogsBody from '../../hooks/useLogsBody';
 
 import LogRow from './components/LogRow';
-import LogsList from './components/LogsList';
 import RawLogRow from './components/RawLogRow';
 import styles from './LogsBody.module.css';
 
@@ -27,6 +27,7 @@ type LogsBodyProps = {
   >;
   error?: ApolloError;
   isSkippedDatum?: boolean;
+  page: number;
 };
 
 const LogsBody: React.FC<LogsBodyProps> = ({
@@ -38,17 +39,18 @@ const LogsBody: React.FC<LogsBodyProps> = ({
   setSelectedLogsMap,
   error,
   isSkippedDatum,
+  page,
 }) => {
   const {listRef, getSize, setSize, isDatum} = useLogsBody();
 
   if (loading) return <LoadingDots />;
   if (logs.length > 0) {
     return (
-      <AutoSizer>
+      <AutoSizer key={page}>
         {({height, width}) => (
-          <LogsList
+          <VariableSizeList
+            ref={listRef}
             className={classnames({[styles.raw]: rawLogs})}
-            forwardRef={listRef}
             width={width}
             height={height - HEADER_HEIGHT_OFFSET}
             itemCount={logs.length}
@@ -78,7 +80,7 @@ const LogsBody: React.FC<LogsBodyProps> = ({
                 )}
               </>
             )}
-          </LogsList>
+          </VariableSizeList>
         )}
       </AutoSizer>
     );

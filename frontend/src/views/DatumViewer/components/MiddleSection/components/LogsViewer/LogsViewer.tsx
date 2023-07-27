@@ -17,6 +17,7 @@ export type LogsViewerProps = {
   rawLogs: boolean;
   error?: ApolloError;
   isSkippedDatum?: boolean;
+  page: number;
 };
 
 const LogsViewer: React.FC<LogsViewerProps> = ({
@@ -28,6 +29,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
   rawLogs,
   error,
   isSkippedDatum,
+  page,
 }) => {
   return (
     <div className={styles.base}>
@@ -48,6 +50,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
         setSelectedLogsMap={setSelectedLogsMap}
         error={error}
         isSkippedDatum={isSkippedDatum}
+        page={page}
       />
     </div>
   );

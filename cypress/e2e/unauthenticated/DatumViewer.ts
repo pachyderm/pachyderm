@@ -9,7 +9,7 @@ describe('DatumViewer', () => {
       cy.multiLineExec(`
         pachctl create repo data
         echo "gibberish" | pachctl put file data@master:badImage.png
-        echo '{"pipeline": {"name": "lots-of-logs"},"description": "generate lots of logs","transform": {"cmd": ["bash"],"stdin": ["for (( i=0; i<=1500; i++)) do echo \\"$i\\"; done"]},"input": {"pfs": {"glob": "/*","repo": "data"}}}'  | pachctl create pipeline
+        echo '{"pipeline": {"name": "lots-of-logs"},"description": "generate lots of logs","transform": {"cmd": ["bash"],"stdin": ["for (( i=0; i<=1500; i++)) do echo \\"log-$i\\"; done"]},"input": {"pfs": {"glob": "/*","repo": "data"}}}'  | pachctl create pipeline
       `);
     });
 
@@ -29,35 +29,33 @@ describe('DatumViewer', () => {
         timeout: 30000,
       }).should('have.length.at.least', 19);
 
-      cy.findByTestId('Pager__forward').as('forwards');
+      cy.findByTestId('Pager__forward').as('forward');
       cy.findByTestId('Pager__backward').as('backward');
       cy.findByRole('button', {
         name: /refresh/i,
       }).as('refresh');
 
-      cy.get('@forwards').should('be.enabled');
+      cy.get('@forward').should('be.enabled');
       cy.get('@backward').should('be.disabled');
       cy.get('@refresh').should('be.disabled');
 
       cy.findAllByTestId('LogRow__base').first().parent().parent().as('page1');
 
-      cy.get('@page1').scrollTo('top');
-      cy.findByText(/started process datum set task/);
+      cy.findByText(/started process datum set task/).should('be.visible');
 
       cy.get('@page1').scrollTo('bottom');
-      cy.findByText(/977/);
+      cy.findByText(/log-977/).should('be.visible');
 
-      cy.get('@forwards').click();
+      cy.get('@forward').click();
 
       cy.findAllByTestId('LogRow__base').first().parent().parent().as('page2');
 
-      cy.get('@page2').scrollTo('top');
-      cy.findByText(/998/);
+      cy.findByText(/log-998/).should('be.visible');
 
       cy.get('@page2').scrollTo('bottom');
-      cy.findByText(/1500/);
+      cy.findByText(/log-1500/).should('be.visible');
 
-      cy.get('@forwards').should('be.disabled');
+      cy.get('@forward').should('be.disabled');
       cy.get('@backward').should('be.enabled');
       cy.get('@refresh').should('be.enabled');
     });

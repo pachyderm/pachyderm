@@ -65,6 +65,7 @@ const MiddleSection = () => {
           rawLogs={rawLogs}
           error={error}
           isSkippedDatum={isSkippedDatum}
+          page={page}
         />
         {!isSkippedDatum && (
           <LogsFooter

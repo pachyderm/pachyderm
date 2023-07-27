@@ -637,20 +637,6 @@ describe('Datum Viewer', () => {
       expect(await screen.findAllByTestId('RawLogRow__base')).toHaveLength(2);
     });
 
-    it('should scroll to the latest log on first load', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Data-Cleaning-Process/jobs/23b9af7d5d4343219bc8e02ff4acd33a/pipeline/likelihoods/logs',
-      );
-      render(<MiddleSection />);
-      expect(
-        (await screen.findAllByTestId('LogRow__checkbox')).length,
-      ).toBeGreaterThan(2);
-
-      await screen.findByText(/last message/);
-    });
-
     describe('Job Logs Viewer', () => {
       beforeEach(() => {
         window.history.replaceState(

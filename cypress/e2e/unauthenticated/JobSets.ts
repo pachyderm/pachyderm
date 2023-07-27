@@ -36,12 +36,13 @@ describe('JobSets', () => {
       .within(() => cy.findByLabelText('Failed datums').click());
 
     cy.findByTestId('Filter__FAILEDChip').should('exist');
-    cy.findAllByTestId('LogRow__base').should('have.length.at.least', 19);
     cy.findAllByTestId('LogRow__base')
       .first()
       .parent()
       .parent()
       .scrollTo('bottom');
-    cy.findByText(/AttributeError: 'NoneType' object has no attribute 'shape'/);
+    cy.findByText(
+      /AttributeError: 'NoneType' object has no attribute 'shape'/,
+    ).should('be.visible');
   });
 });
