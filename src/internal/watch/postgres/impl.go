@@ -34,35 +34,51 @@ const (
 var newWatcherSignal = errors.New("cancel WaitForNotification")
 
 type Listener struct {
+	once       sync.Once
+	ctx        context.Context
 	connConfig *pgx.ConnConfig
 	watchers   chan *watcher
+	errs       chan error
 }
 
-func NewListener(cc *pgx.ConnConfig) *Listener {
+func NewListener(ctx context.Context, cc *pgx.ConnConfig) *Listener {
 	return &Listener{
+		ctx:        ctx,
 		connConfig: cc,
 		watchers:   make(chan *watcher),
+		errs:       make(chan error, 1),
 	}
 }
 
-func (l *Listener) Watch(ctx context.Context, channel string) (<-chan *Event, <-chan error) {
-	events := make(chan *Event, DefaultBufferSize)
+func (l *Listener) Watch(ctx context.Context, channel string, bufferSize int) (<-chan *Event, <-chan error) {
+	l.once.Do(func() {
+		go func() {
+			l.errs <- l.start(l.ctx)
+		}()
+	})
+
+	events := make(chan *Event, bufferSize)
 	errs := make(chan error, 1)
-	w := watcher{channel: channel, events: events, errs: errs, ctx: ctx}
+	w := watcher{channel: channel, events: events, errs: errs}
 	l.watchers <- &w
 	go func() {
 		<-ctx.Done()
 		w.errs <- context.Cause(ctx)
-		w.close()
+		close(events)
+		close(errs)
 	}()
 	return w.events, w.errs
 }
 
-// Start creates a direct connection to the database and starts .
+func (l *Listener) Errs() <-chan error {
+	return l.errs
+}
+
+// start creates a direct connection to the database and starts .
 // In each loop, it either waits for a new watcher or a notification from postgres.
 // The listener exposes a context cancellation func for new watchers to cancel pgx.Conn.WaitForNotitication asynchronosly.
-func (l *Listener) Start(ctx context.Context, config *pgx.ConnConfig) error {
-	conn, err := pgx.ConnectConfig(ctx, config)
+func (l *Listener) start(ctx context.Context) error {
+	conn, err := pgx.ConnectConfig(ctx, l.connConfig)
 	if err != nil {
 		return err
 	}
@@ -130,12 +146,8 @@ func (l *Listener) Start(ctx context.Context, config *pgx.ConnConfig) error {
 					// TODO should we remove the watcher from channelsAndWatchers?
 					select {
 					case w.events <- event:
-					case <-w.ctx.Done():
-						w.errs <- context.Cause(w.ctx)
-						w.close()
 					default:
 						w.errs <- errors.Errorf("buffer full, dropping event: %v", event)
-						w.close()
 					}
 				}
 			case <-ctx.Done():
@@ -162,15 +174,6 @@ type watcher struct {
 	channel string
 	events  chan *Event
 	errs    chan error
-	ctx     context.Context
-	once    sync.Once
-}
-
-func (w *watcher) close() {
-	w.once.Do(func() {
-		close(w.events)
-		close(w.errs)
-	})
 }
 
 func parseNotification(payload string) (*Event, error) {

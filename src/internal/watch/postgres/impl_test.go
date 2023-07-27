@@ -35,17 +35,16 @@ func TestWatchRepos(t *testing.T) {
 	delete(config.RuntimeParams, "statement_cache_mode") // pgx doesn't like this
 
 	// Start listening.
-	listener := postgresWatcher.NewListener()
-	ctx, cancelListener := context.WithCancel(ctx)
+	listenCtx, cancelListener := context.WithCancel(ctx)
 	defer cancelListener()
-	go func() {
-		require.ErrorIs(t, context.Canceled, listener.Start(ctx, config))
-	}()
+	listener := postgresWatcher.NewListener(listenCtx, config)
 
 	// Start multiple watchers.
-	events1, errs1 := listener.Watch(ctx, v2_7_0.ReposPgChannel)
-	events2, errs2 := listener.Watch(ctx, v2_7_0.ReposPgChannel)
-	events3, errs3 := listener.Watch(ctx, v2_7_0.ReposPgChannel)
+	watchCtx, cancelWatchers := context.WithCancel(ctx)
+	defer cancelWatchers()
+	events1, errs1 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
+	events2, errs2 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
+	events3, errs3 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
 
 	// Generate events by creating repos in the default project.
 	var projectID uint64
@@ -75,24 +74,24 @@ func TestWatchRepos(t *testing.T) {
 		require.Len(t, results, 10)
 	}
 	cancelListener()
+	require.ErrorIs(t, context.Canceled, <-listener.Errs())
+	cancelWatchers()
 	for _, errs := range allErrs {
 		require.ErrorIs(t, context.Canceled, <-errs)
 	}
 
 	// Error handling for when the channel is blocked.
-	// watchCtx, cancel := context.WithCancel(ctx)
-	// defer cancel()
-	// repoEvents, err := listener.Watch(watchCtx, v2_7_0.ReposPgChannel)
-	// require.NoError(t, err)
+	listenCtx, cancelListener = context.WithCancel(ctx)
+	defer cancelListener()
+	listener = postgresWatcher.NewListener(listenCtx, config)
 
-	// _, err = db.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id) VALUES ($1, $2, $3)", fmt.Sprintf("repo%d", 10), "user", projectID)
-	// require.NoError(t, err)
-	// // Sleep to ensure channel is blocked before we start consuming events.
-	// time.Sleep(100 * time.Millisecond)
+	_, watcherErrs := listener.Watch(listenCtx, v2_7_0.ReposPgChannel, 0)
+	_, err = db.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id) VALUES ($1, $2, $3)", "repo11", "user", projectID)
+	require.NoError(t, err)
 
-	// events = newWatcher.Watch()
-	// event := <-events
-	// require.Equal(t, postgresWatcher.EventError, event.EventType)
-	// require.ErrorContains(t, event.Error, fmt.Sprintf("failed to send event, watcher %s is blocked", t.Name()))
-	// newWatcher.Close()
+	require.ErrorContains(t, <-watcherErrs, "buffer full")
+
+	cancelListener() // cancel both the listener AND the watcher
+	require.ErrorIs(t, context.Canceled, <-listener.Errs())
+	require.ErrorIs(t, context.Canceled, <-watcherErrs)
 }
