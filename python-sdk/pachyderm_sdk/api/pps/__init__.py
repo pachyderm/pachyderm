@@ -931,6 +931,7 @@ class CreatePipelineRequest(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(30)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
+    dry_run: bool = betterproto.bool_field(37)
     determined: "Determined" = betterproto.message_field(38)
 
 
@@ -1548,6 +1549,7 @@ class ApiStub:
         autoscaling: bool = False,
         tolerations: Optional[List["Toleration"]] = None,
         sidecar_resource_requests: "ResourceSpec" = None,
+        dry_run: bool = False,
         determined: "Determined" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
@@ -1602,6 +1604,7 @@ class ApiStub:
             request.tolerations = tolerations
         if sidecar_resource_requests is not None:
             request.sidecar_resource_requests = sidecar_resource_requests
+        request.dry_run = dry_run
         if determined is not None:
             request.determined = determined
 
@@ -2062,6 +2065,7 @@ class ApiBase:
         autoscaling: bool,
         tolerations: Optional[List["Toleration"]],
         sidecar_resource_requests: "ResourceSpec",
+        dry_run: bool,
         determined: "Determined",
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":

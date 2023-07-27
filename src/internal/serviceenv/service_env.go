@@ -197,6 +197,15 @@ func InitWithKube(ctx context.Context, config *pachconfig.Configuration) *Nonblo
 	return env // env is not ready yet
 }
 
+// InitDBOnlyEnv is like InitServiceEnv, but only connects to the database.
+func InitDBOnlyEnv(rctx context.Context, config *pachconfig.Configuration) *NonblockingServiceEnv {
+	sctx, end := log.SpanContext(rctx, "serviceenv")
+	ctx, cancel := pctx.WithCancel(sctx)
+	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: func() { cancel(); end() }}
+	goCtx(&env.dbEg, env.ctx, env.initDBClient)
+	return env
+}
+
 func (env *NonblockingServiceEnv) Config() *pachconfig.Configuration {
 	return env.config
 }

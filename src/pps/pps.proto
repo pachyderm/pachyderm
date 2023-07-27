@@ -719,8 +719,9 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
-  reserved 36, 37;
-  reserved "details_json", "dry_run";
+  reserved 36;
+  reserved "details_json";
+  bool dry_run = 37;
   Determined determined = 38;
 }
 

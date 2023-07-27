@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
@@ -84,6 +85,6 @@ func (eb *enterpriseBuilder) buildAndRun(ctx context.Context) error {
 //
 // Enterprise mode is the enterprise server which is used to manage multiple
 // Pachyderm installations.
-func EnterpriseMode(ctx context.Context, config any) error {
+func EnterpriseMode(ctx context.Context, config *pachconfig.EnterpriseServerConfiguration) error {
 	return newEnterpriseBuilder(config).buildAndRun(ctx)
 }

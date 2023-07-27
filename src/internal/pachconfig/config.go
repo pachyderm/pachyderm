@@ -18,42 +18,29 @@ type Configuration struct {
 // src/internal/log package for those.
 type GlobalConfiguration struct {
 	FeatureFlags
-	EtcdHost                       string `env:"ETCD_SERVICE_HOST,required"`
-	EtcdPort                       string `env:"ETCD_SERVICE_PORT,required"`
-	PPSWorkerPort                  uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
-	Port                           uint16 `env:"PORT,default=1650"`
-	PrometheusPort                 uint16 `env:"PROMETHEUS_PORT,default=1656"`
-	PeerPort                       uint16 `env:"PEER_PORT,default=1653"`
-	S3GatewayPort                  uint16 `env:"S3GATEWAY_PORT,default=1600"`
-	DownloadPort                   uint16 `env:"DOWNLOAD_PORT,default=1659"`
-	PPSEtcdPrefix                  string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace                      string `env:"PACH_NAMESPACE,default=default"`
-	StorageRoot                    string `env:"PACH_ROOT,default=/pach"`
-	GCPercent                      int    `env:"GC_PERCENT,default=100"`
-	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
-	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
-	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
-	IsPachw                        bool   `env:"IS_PACHW,default=false"`
-	PachwInSidecars                bool   `env:"PACHW_IN_SIDECARS,default=true"`
-	PachwMinReplicas               int    `env:"PACHW_MIN_REPLICAS"`
-	PachwMaxReplicas               int    `env:"PACHW_MAX_REPLICAS,default=1"`
-	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
-	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
-	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
-	PostgresHost                   string `env:"POSTGRES_HOST"`
-	PostgresPort                   int    `env:"POSTGRES_PORT"`
-	PostgresDBName                 string `env:"POSTGRES_DATABASE"`
-	PostgresUser                   string `env:"POSTGRES_USER"`
-	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
-	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
-	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=10"`
-	PGBouncerMaxOpenConns          int    `env:"PG_BOUNCER_MAX_OPEN_CONNS,default=10"`
-	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=10"`
-	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
-	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
-	PostgresQueryLogging           bool   `env:"POSTGRES_QUERY_LOGGING,default=false"`
-	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
-	PachdServicePort               string `env:"PACHD_SERVICE_PORT"`
+	PostgresConfiguration
+
+	EtcdHost         string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort         string `env:"ETCD_SERVICE_PORT,required"`
+	PPSWorkerPort    uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
+	Port             uint16 `env:"PORT,default=1650"`
+	PrometheusPort   uint16 `env:"PROMETHEUS_PORT,default=1656"`
+	PeerPort         uint16 `env:"PEER_PORT,default=1653"`
+	S3GatewayPort    uint16 `env:"S3GATEWAY_PORT,default=1600"`
+	DownloadPort     uint16 `env:"DOWNLOAD_PORT,default=1659"`
+	PPSEtcdPrefix    string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	Namespace        string `env:"PACH_NAMESPACE,default=default"`
+	StorageRoot      string `env:"PACH_ROOT,default=/pach"`
+	GCPercent        int    `env:"GC_PERCENT,default=100"`
+	LokiHost         string `env:"LOKI_SERVICE_HOST"`
+	LokiPort         string `env:"LOKI_SERVICE_PORT"`
+	OidcPort         uint16 `env:"OIDC_PORT,default=1657"`
+	IsPachw          bool   `env:"IS_PACHW,default=false"`
+	PachwInSidecars  bool   `env:"PACHW_IN_SIDECARS,default=true"`
+	PachwMinReplicas int    `env:"PACHW_MIN_REPLICAS"`
+	PachwMaxReplicas int    `env:"PACHW_MAX_REPLICAS,default=1"`
+	PachdServiceHost string `env:"PACHD_SERVICE_HOST"`
+	PachdServicePort string `env:"PACHD_SERVICE_PORT"`
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
@@ -104,6 +91,26 @@ type GlobalConfiguration struct {
 	SidecarDefaultMemoryRequest  resource.Quantity `env:"SIDECAR_DEFAULT_MEMORY_REQUEST,default=256Mi"`
 	SidecarDefaultCPURequest     resource.Quantity `env:"SIDECAR_DEFAULT_CPU_REQUEST,default=1"`
 	SidecarDefaultStorageRequest resource.Quantity `env:"SIDECAR_DEFAULT_STORAGE_REQUEST,default=1Gi"`
+}
+
+// PostgresConfiguration configures postgres and pg-bouncer.
+type PostgresConfiguration struct {
+	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
+	PostgresHost                   string `env:"POSTGRES_HOST"`
+	PostgresPort                   int    `env:"POSTGRES_PORT"`
+	PostgresDBName                 string `env:"POSTGRES_DATABASE"`
+	PostgresUser                   string `env:"POSTGRES_USER"`
+	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
+	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
+	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=10"`
+	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
+	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
+	PostgresQueryLogging           bool   `env:"POSTGRES_QUERY_LOGGING,default=false"`
+
+	PGBouncerMaxOpenConns int    `env:"PG_BOUNCER_MAX_OPEN_CONNS,default=10"`
+	PGBouncerMaxIdleConns int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=10"`
+	PGBouncerHost         string `env:"PG_BOUNCER_HOST,required"`
+	PGBouncerPort         int    `env:"PG_BOUNCER_PORT,required"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
@@ -218,8 +225,13 @@ type FeatureFlags struct {
 	IdentityServerEnabled        bool `env:"IDENTITY_SERVER_ENABLED,default=false"`
 }
 
+// PachdPreflightConfiguration is configuration for the preflight checks.
+type PachdPreflightConfiguration struct {
+	PostgresConfiguration
+}
+
 // NewConfiguration creates a generic configuration from a specific type of configuration.
-func NewConfiguration(config interface{}) *Configuration {
+func NewConfiguration(config any) *Configuration {
 	configuration := &Configuration{}
 	switch v := config.(type) {
 	case *GlobalConfiguration:
@@ -237,6 +249,11 @@ func NewConfiguration(config interface{}) *Configuration {
 	case *EnterpriseServerConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
 		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
+		return configuration
+	case *PachdPreflightConfiguration:
+		configuration.GlobalConfiguration = &GlobalConfiguration{
+			PostgresConfiguration: v.PostgresConfiguration,
+		}
 		return configuration
 	default:
 		return nil
