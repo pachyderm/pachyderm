@@ -63,7 +63,7 @@ determined:
   enterpriseEdition: true
   useNodePortForMaster: false
   useNodePortForDB: false
-  detVersion: 0.23.1
+  detVersion: latest
   masterPort: 8282
   masterCpuRequest: 250m
   masterMemRequest: 512M # turn requests way down for automated smoke tests
@@ -77,4 +77,3 @@ determined:
     idpSsoUrl: http://pachd.{{.K8sNamespace}}.svc.cluster.local:30658/dex 
     clientId: "determined-local"
     clientSecret: "123"
- 

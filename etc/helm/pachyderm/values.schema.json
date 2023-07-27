@@ -221,9 +221,6 @@
                 "masterPort": {
                     "type": "integer"
                 },
-                "maxSlotsPerPod": {
-                    "type": "integer"
-                },
                 "oidc": {
                     "type": "object",
                     "properties": {
