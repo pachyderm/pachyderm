@@ -3780,6 +3780,12 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
+	canonicalJSON, err := protojson.Marshal(&cd)
+	if err != nil {
+		return nil, badRequest(ctx, "could not canonicalize cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults_json", Description: err.Error()},
+		})
+	}
 
 	if req.Regenerate {
 		// Determine if the new defaults imply changes to any pipelines.
@@ -3789,23 +3795,29 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		// JSON and merged with the new defaults.  The result of the
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
+		pp = make(map[*pps.Pipeline]*pps.CreatePipelineV2Request)
 		if err := a.pipelines.ReadOnly(ctx).List(&pi, col.DefaultOptions(), func(_ string) error {
 			spec := ppsutil.PipelineReqFromInfo(&pi)
-			specJSON, err := protojson.Marshal(spec)
+			specJSON, err := protojson.Marshal(&pps.ClusterDefaults{CreatePipelineRequest: spec})
 			if err != nil {
 				return errors.Wrap(err, "could not marshal spec to JSON")
 			}
-			effectiveSpecJSON, err := jsonMergePatch(req.GetClusterDefaultsJson(), string(specJSON))
+			wrapperJSON, err := jsonMergePatch(string(canonicalJSON), string(specJSON))
 			if err != nil {
 				return errors.Wrapf(err, "invalid merger of cluster defaults with pipeline %q", pi.GetPipeline())
 			}
-			var effectiveSpec pps.CreatePipelineRequest
-			if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &effectiveSpec); err != nil {
-				return errors.Wrap(err, "could not unmarshal effective spec")
+			var wrapper pps.ClusterDefaults
+			if err := protojson.Unmarshal([]byte(wrapperJSON), &wrapper); err != nil {
+				fmt.Println("QQQ wrapperJSON:", wrapperJSON, "; cd:", req.GetClusterDefaultsJson(), "; spec:", string(specJSON))
+				return errors.Wrap(err, "could not unmarshal effective spec wrapper")
 			}
-			if !proto.Equal(spec, &effectiveSpec) {
+			if !proto.Equal(spec, wrapper.CreatePipelineRequest) {
+				effectiveSpecJSON, err := protojson.Marshal(wrapper.CreatePipelineRequest)
+				if err != nil {
+					return errors.Wrap(err, "could not marshal effect")
+				}
 				pp[pi.GetPipeline()] = &pps.CreatePipelineV2Request{
-					CreatePipelineRequestJson: effectiveSpecJSON,
+					CreatePipelineRequestJson: string(effectiveSpecJSON),
 					Reprocess:                 req.Reprocess,
 				}
 			}
