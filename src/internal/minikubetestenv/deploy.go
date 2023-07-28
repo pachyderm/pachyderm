@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 	"os/exec"
@@ -43,10 +45,20 @@ const (
 	MinioBucket   = "pachyderm-test"
 )
 
+const (
+	determinedRegistry       = "registry-1.docker.io/determinedai"
+	determinedRegistrySecret = "detregcred"
+)
+
 var (
 	mu           sync.Mutex // defensively lock around helm calls
 	hostOverride *string    = flag.String("testenv.host", "", "override the default host used for testenv clusters")
 	basePort     *int       = flag.Int("testenv.baseport", 0, "alternative base port for testenv to begin assigning clusters from")
+)
+
+var (
+	detDockerUser = os.Getenv("DET_DOCKER_USER")
+	detDockerPass = os.Getenv("DET_DOCKER_PASS")
 )
 
 type DeployOpts struct {
@@ -64,6 +76,7 @@ type DeployOpts struct {
 	WaitSeconds      int
 	EnterpriseMember bool
 	EnterpriseServer bool
+	Determined       bool
 	ValueOverrides   map[string]string
 	TLS              bool
 	CertPool         *x509.CertPool
@@ -88,6 +101,13 @@ func helmLock(f helmPutE) helmPutE {
 }
 
 func helmChartLocalPath(t testing.TB) string {
+	return localPath(t, "etc", "helm", "pachyderm")
+}
+func exampleValuesLocalPath(t testing.TB, fileName string) string {
+	return localPath(t, "etc", "helm", "examples", fileName)
+}
+
+func localPath(t testing.TB, pathParts ...string) string {
 	dir, err := os.Getwd()
 	require.NoError(t, err)
 	parts := strings.Split(dir, string(os.PathSeparator))
@@ -98,7 +118,7 @@ func helmChartLocalPath(t testing.TB) string {
 			break
 		}
 	}
-	relPathParts = append(relPathParts, "etc", "helm", "pachyderm")
+	relPathParts = append(relPathParts, pathParts...)
 	return filepath.Join(relPathParts...)
 }
 
@@ -504,6 +524,33 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
 
+func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
+	require.NotEqual(t, "", detDockerUser, "Missing required user for Determined integration testing")
+	require.NotEqual(t, "", detDockerPass, "Missing required password for Determined integration testing")
+	dockerConfig, err := json.Marshal(
+		map[string]any{
+			"auths": map[string]any{
+				determinedRegistry: map[string]string{
+					"username": detDockerUser,
+					"password": detDockerPass,
+				},
+			},
+		},
+	)
+	require.NoError(t, err, "Marshalling determined registry credentials")
+	_, err = kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      determinedRegistrySecret,
+			Namespace: ns,
+		},
+		Type: "kubernetes.io/dockerconfigjson",
+		StringData: map[string]string{
+			".dockerconfigjson": string(dockerConfig),
+		},
+	}, metav1.CreateOptions{})
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined secret setup", err)
+}
+
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -536,6 +583,17 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts = union(helmOpts, withPachd(version))
 		// TODO(acohen4): apply minio deployment to this namespace
 		helmOpts = union(helmOpts, withMinio())
+	}
+	if opts.Determined {
+		createSecretDeterminedRegcred(t, ctx, kubeClient, namespace)
+		valuesTemplate, err := template.ParseFiles(exampleValuesLocalPath(t, "int-test-values-with-det.yaml"))
+		require.NoError(t, err, "Creating determined values template")
+		valuesFile, err := os.CreateTemp("", "detvalues.*.yaml")
+		require.NoError(t, err, "Creating determined values temp file")
+		defer valuesFile.Close()
+		err = valuesTemplate.Execute(valuesFile, struct{ K8sNamespace string }{K8sNamespace: namespace})
+		require.NoError(t, err, "Error templating determined values temp file")
+		opts.ValuesFiles = append([]string{valuesFile.Name()}, opts.ValuesFiles...) // we want any user specified values files to be applied after
 	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset

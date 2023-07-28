@@ -84,7 +84,7 @@ data:
       provider: {{ default .Values.determined.oidc.provider "dex"}}
       idp_recipient_url: {{ required "A valid recipient url is required!" .Values.determined.oidc.idpRecipientUrl }}
       idp_sso_url: {{ default .Values.determined.oidc.idpSsoUrl (include "pachyderm.issuerURI" . | quote) }}
-      client_id: {{ default .Values.determined.oidc.clientId "determined" }}
+      client_id: {{ default "determined" .Values.determined.oidc.clientId }}
       {{- if .Values.determined.oidc.authenticationClaim }}
       authentication_claim: {{ .Values.determined.oidc.authenticationClaim }}
       {{- end }}
