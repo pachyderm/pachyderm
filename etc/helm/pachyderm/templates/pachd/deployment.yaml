@@ -309,7 +309,7 @@ spec:
         {{- end }}
         {{- if and .Values.determined.enabled .Values.determined.enterpriseEdition }}
         - name: DETERMINED_OAUTH_ID
-          value: {{ default .Values.determined.oidc.clientId "determined" }}
+          value: {{ default "determined" .Values.determined.oidc.clientId }}
         - name: DETERMINED_OAUTH_SECRET
           valueFrom:
             secretKeyRef:
