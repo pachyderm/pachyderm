@@ -61,8 +61,8 @@ determined:
   maxSlotsPerPod: 0
   enabled: true
   enterpriseEdition: true
-  useNodePortForMaster: false
-  useNodePortForDB: false
+  useNodePortForMaster: true
+  useNodePortForDB: true
   detVersion: 0.23.3
   masterPort: 8282
   masterCpuRequest: 250m
