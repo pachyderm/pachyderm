@@ -3772,11 +3772,47 @@ func unknownError(ctx context.Context, msg string, err error) error {
 func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
 	var (
 		cd pps.ClusterDefaults
+		pi pps.PipelineInfo
+		pp map[*pps.Pipeline]*pps.CreatePipelineV2Request
 	)
 	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
 		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
+	}
+
+	if req.Regenerate {
+		// Determine if the new defaults imply changes to any pipelines.
+		// To do this, each pipeline’s info is synthesized to a
+		// CreatePipelineRequest using the same logic already ultimately
+		// used by `pachctl edit pipeline`, then that is turned into
+		// JSON and merged with the new defaults.  The result of the
+		// merger is then unmarshalled into a CreatePipelineRequest and
+		// equality is checked with proto.Equal.
+		if err := a.pipelines.ReadOnly(ctx).List(&pi, col.DefaultOptions(), func(_ string) error {
+			spec := ppsutil.PipelineReqFromInfo(&pi)
+			specJSON, err := protojson.Marshal(spec)
+			if err != nil {
+				return errors.Wrap(err, "could not marshal spec to JSON")
+			}
+			effectiveSpecJSON, err := jsonMergePatch(req.GetClusterDefaultsJson(), string(specJSON))
+			if err != nil {
+				return errors.Wrapf(err, "invalid merger of cluster defaults with pipeline %q", pi.GetPipeline())
+			}
+			var effectiveSpec pps.CreatePipelineRequest
+			if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &effectiveSpec); err != nil {
+				return errors.Wrap(err, "could not unmarshal effective spec")
+			}
+			if !proto.Equal(spec, &effectiveSpec) {
+				pp[pi.GetPipeline()] = &pps.CreatePipelineV2Request{
+					CreatePipelineRequestJson: effectiveSpecJSON,
+					Reprocess:                 req.Reprocess,
+				}
+			}
+			return nil
+		}); err != nil {
+			return nil, unknownError(ctx, "could not check pipelines for updates", err)
+		}
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -3788,5 +3824,9 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
 	// TODO(CORE-1708): add affected pipelines
-	return &pps.SetClusterDefaultsResponse{}, nil
+	var resp pps.SetClusterDefaultsResponse
+	for p := range pp {
+		resp.AffectedPipelines = append(resp.AffectedPipelines, p)
+	}
+	return &resp, nil
 }
