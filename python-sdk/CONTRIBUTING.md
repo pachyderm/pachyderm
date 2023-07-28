@@ -25,6 +25,8 @@ Code layout, as of Jun. 30, 2023:
 ├── pachderm_sdk/
 │   ├── __main__.py - Location for package scripts (cli)
 │   ├── api/ - Generated API code. `extension.py` files are hand-written.
+│   │   ├── _additions.py - patches to generated proto objects.
+│   │   ├── extension.py - Manually-written additions to the generated API stubs.
 │   ├── client.py - The higher-level `Client` class.
 │   ├── config.py - Config file parsing code.
 │   ├── constants.py - Centralized location for constant values.
@@ -60,6 +62,23 @@ To run the black formatter:
 ```bash
 black <file-or-directory>
 ```
+
+## Generating Docs
+To generate the documentation, it's easiest to use `poetry` to set up your environment:
+```bash
+poetry install
+```
+then run the `make` command:
+```bash
+make docs
+```
+This will generate the documentation under docs/pachyderm_sdk.
+
+To see the documentation within your browser, you can run the following:
+```bash
+poetry run python -m http.server --directory docs/pachyderm_sdk
+```
+and navigate to http://localhost:8000.
 
 ## Releasing
 Releasing the package is done through CircleCI.

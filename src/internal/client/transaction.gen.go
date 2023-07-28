@@ -519,6 +519,10 @@ func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("DeleteSecret")
 }
 
+func (c *unsupportedPpsBuilderClient) GetClusterDefaults(_ context.Context, _ *pps_v2.GetClusterDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.GetClusterDefaultsResponse, error) {
+	return nil, unsupportedError("GetClusterDefaults")
+}
+
 func (c *unsupportedPpsBuilderClient) GetKubeEvents(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_GetKubeEventsClient, error) {
 	return nil, unsupportedError("GetKubeEvents")
 }
@@ -597,6 +601,10 @@ func (c *unsupportedPpsBuilderClient) RunLoadTestDefault(_ context.Context, _ *e
 
 func (c *unsupportedPpsBuilderClient) RunPipeline(_ context.Context, _ *pps_v2.RunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("RunPipeline")
+}
+
+func (c *unsupportedPpsBuilderClient) SetClusterDefaults(_ context.Context, _ *pps_v2.SetClusterDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.SetClusterDefaultsResponse, error) {
+	return nil, unsupportedError("SetClusterDefaults")
 }
 
 func (c *unsupportedPpsBuilderClient) StartPipeline(_ context.Context, _ *pps_v2.StartPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {

@@ -1337,6 +1337,58 @@ func TestRunPipeline(t *testing.T) {
 	//})
 }
 
+func TestPipelineJobHasAuthToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	rc := tu.AuthenticateClient(t, c, auth.RootUser)
+
+	dataRepo := tu.UniqueString("TestPipelineJobAuthToken_data")
+	require.NoError(t, rc.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	commit, err := rc.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, rc.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, rc.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, rc.CreatePipeline(pfs.DefaultProjectName,
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"echo $PACH_TOKEN | pachctl auth use-auth-token",
+			"pachctl config update context --pachd-address $(echo grpc://pachd.$PACH_NAMESPACE.svc.cluster.local:30660)",
+			"echo $(pachctl auth whoami) >/pfs/out/file2",
+			"pachctl list repo",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		"",
+		false,
+	))
+	var jobInfos []*pps.JobInfo
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	jobInfo, err := rc.WaitJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.Id, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "file2", &buffer))
+	require.Equal(t, fmt.Sprintf("You are \"pipeline:default/%s\"\n", jobInfo.Job.Pipeline.Name), buffer.String())
+}
+
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

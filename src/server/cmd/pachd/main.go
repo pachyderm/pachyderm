@@ -62,13 +62,16 @@ func main() {
 	case mode == "paused":
 		logMode("paused")
 		cmdutil.Main(ctx, pachd.PausedMode, &pachconfig.PachdFullConfiguration{})
+	case mode == "preflight":
+		logMode("preflight")
+		cmdutil.Main(ctx, pachd.PreflightMode, &pachconfig.PachdPreflightConfiguration{})
 	default:
 		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
-func doReadinessCheck(ctx context.Context, config interface{}) error {
+func doReadinessCheck(ctx context.Context, config *pachconfig.GlobalConfiguration) error {
 	env := serviceenv.InitPachOnlyEnv(ctx, pachconfig.NewConfiguration(config))
 	return env.GetPachClient(ctx).Health()
 }

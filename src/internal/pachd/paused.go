@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
@@ -74,7 +75,7 @@ func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
 		pb.setupProfiling,
 		pb.initJaeger,
 		pb.initKube,
-		pb.setupDB,
+		pb.waitForDBState,
 		pb.maybeInitDexDB,
 		pb.initInternalServer,
 		pb.initExternalServer,
@@ -99,6 +100,6 @@ func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
 //
 // Paused mode is a restricted mode which runs Pachyderm read-only in order to
 // take offline backups.
-func PausedMode(ctx context.Context, config any) error {
+func PausedMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newPausedBuilder(config).buildAndRun(ctx)
 }

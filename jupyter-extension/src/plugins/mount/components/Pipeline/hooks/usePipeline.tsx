@@ -3,6 +3,7 @@ import {ServerConnection} from '@jupyterlab/services';
 
 import {
   CreatePipelineResponse,
+  GpuMode,
   MountSettings,
   PpsContext,
   PpsMetadata,
@@ -21,6 +22,12 @@ export type usePipelineResponse = {
   setImageName: (input: string) => void;
   inputSpec: string;
   setInputSpec: (input: string) => void;
+  pipelinePort: string;
+  setPipelinePort: (input: string) => void;
+  gpuMode: GpuMode;
+  setGpuMode: (input: GpuMode) => void;
+  resourceSpec: string;
+  setResourceSpec: (input: string) => void;
   requirements: string;
   setRequirements: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
@@ -40,6 +47,9 @@ export const usePipeline = (
   const [pipelineProject, setPipelineProject] = useState('');
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
+  const [pipelinePort, setPipelinePort] = useState('');
+  const [gpuMode, setGpuMode] = useState(GpuMode.None);
+  const [resourceSpec, setResourceSpec] = useState('');
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
@@ -61,12 +71,24 @@ export const usePipeline = (
       setInputSpec('');
     }
     setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
+    setPipelinePort(ppsContext?.metadata?.config.port ?? '');
+    setGpuMode(ppsContext?.metadata?.config.gpu_mode ?? GpuMode.None);
+    setResourceSpec(ppsContext?.metadata?.config.resource_spec ?? '');
   }, [ppsContext]);
 
   useEffect(() => {
     const ppsMetadata: PpsMetadata = buildMetadata();
     saveNotebookMetaData(ppsMetadata);
-  }, [pipelineName, pipelineProject, imageName, requirements, inputSpec]);
+  }, [
+    pipelineName,
+    pipelineProject,
+    imageName,
+    requirements,
+    inputSpec,
+    pipelinePort,
+    gpuMode,
+    resourceSpec,
+  ]);
 
   let callCreatePipeline: () => Promise<void>;
   if (ppsContext?.notebookModel) {
@@ -116,6 +138,9 @@ export const usePipeline = (
         image: imageName,
         requirements: requirements,
         input_spec: inputSpec,
+        port: pipelinePort,
+        gpu_mode: gpuMode,
+        resource_spec: resourceSpec,
       },
     };
   };
@@ -130,6 +155,12 @@ export const usePipeline = (
     setImageName,
     inputSpec,
     setInputSpec,
+    pipelinePort,
+    setPipelinePort,
+    gpuMode,
+    setGpuMode,
+    resourceSpec,
+    setResourceSpec,
     requirements,
     setRequirements,
     callCreatePipeline,

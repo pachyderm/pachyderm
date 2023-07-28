@@ -1,7 +1,7 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {PpsContext, PpsMetadata, MountSettings} from '../../types';
+import {PpsContext, PpsMetadata, MountSettings, GpuMode} from '../../types';
 
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
@@ -11,6 +11,15 @@ type PipelineProps = {
   saveNotebookToDisk: () => Promise<string | null>;
 };
 
+const placeholderAdvancedResourceSpec = `# example:
+gpu:
+  type: nvidia.com/gpu
+  number: 1
+`;
+const placeholderSimpleResourceSpec = `gpu:
+  type: nvidia.com/gpu
+  number: 1
+`;
 const placeholderInputSpec = `# example:
 pfs:
   repo: images
@@ -37,6 +46,12 @@ const Pipeline: React.FC<PipelineProps> = ({
     setImageName,
     inputSpec,
     setInputSpec,
+    pipelinePort,
+    setPipelinePort,
+    gpuMode,
+    setGpuMode,
+    resourceSpec,
+    setResourceSpec,
     requirements,
     setRequirements,
     callCreatePipeline,
@@ -157,6 +172,21 @@ const Pipeline: React.FC<PipelineProps> = ({
           placeholder={placeholderRequirements}
         ></input>
       </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label className="pachyderm-pipeline-input-label" htmlFor="port">
+          Port:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPort"
+          name="port"
+          value={pipelinePort}
+          onChange={(e: any) => {
+            setPipelinePort(e.target.value);
+          }}
+          disabled={loading}
+        ></input>
+      </div>
       <div className="pachyderm-pipeline-textarea-wrapper">
         <label
           className="pachyderm-pipeline-textarea-label"
@@ -176,7 +206,45 @@ const Pipeline: React.FC<PipelineProps> = ({
           placeholder={placeholderInputSpec}
         ></textarea>
       </div>
-
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label className="pachyderm-pipeline-input-label" htmlFor="gpuMode">
+          *Gpu Mode:{'  '}
+        </label>
+        <select
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__gpuMode"
+          name="gpuMode"
+          value={gpuMode}
+          onChange={(e: any) => {
+            setGpuMode(e.target.value);
+          }}
+        >
+          {(Object.keys(GpuMode) as Array<GpuMode>).map((mode) => (
+            <option value={mode}>{mode}</option>
+          ))}
+        </select>
+      </div>
+      {gpuMode === GpuMode.Advanced && (
+        <div className="pachyderm-pipeline-textarea-wrapper">
+          <label
+            className="pachyderm-pipeline-textarea-label"
+            htmlFor="resourceSpec"
+          >
+            Pipeline Resource Spec:
+          </label>
+          <textarea
+            className="pachyderm-pipeline-textarea pachyderm-input"
+            data-testid="Pipeline__resourceSpecInput"
+            name="resourceSpec"
+            value={resourceSpec}
+            onChange={(e: any) => {
+              setResourceSpec(e.target.value);
+            }}
+            disabled={loading}
+            placeholder={placeholderAdvancedResourceSpec}
+          ></textarea>
+        </div>
+      )}
       <div className="pachyderm-pipeline-spec-preview pachyderm-pipeline-textarea-wrapper">
         <label className="pachyderm-pipeline-preview-label">
           Pipeline Spec Preview: {'  '}
@@ -196,7 +264,20 @@ ${inputSpec
   .split('\n')
   .map((line, _, __) => '  ' + line)
   .join('\n')}
-`}
+${
+  gpuMode === GpuMode.None
+    ? ''
+    : 'resource_limits:\n' +
+      (gpuMode === GpuMode.Simple
+        ? placeholderSimpleResourceSpec
+        : gpuMode === GpuMode.Advanced
+        ? resourceSpec
+        : ''
+      )
+        .split('\n')
+        .map((line, _, __) => '  ' + line)
+        .join('\n')
+}`}
           readOnly={true}
         ></textarea>
       </div>
