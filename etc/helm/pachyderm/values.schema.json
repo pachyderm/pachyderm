@@ -175,7 +175,7 @@
                     "type": "object",
                     "properties": {
                         "cpuRequest": {
-                            "type": "integer"
+                            "type": "string"
                         },
                         "memRequest": {
                             "type": "string"
@@ -207,13 +207,13 @@
                     "type": "boolean"
                 },
                 "imagePullSecretName": {
-                    "type": "null"
+                    "type": "string"
                 },
                 "imageRegistry": {
                     "type": "string"
                 },
                 "masterCpuRequest": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "masterMemRequest": {
                     "type": "string"
@@ -221,38 +221,35 @@
                 "masterPort": {
                     "type": "integer"
                 },
-                "maxSlotsPerPod": {
-                    "type": "null"
-                },
                 "oidc": {
                     "type": "object",
                     "properties": {
                         "authenticationClaim": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "clientId": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "clientSecretKey": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "clientSecretName": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "enabled": {
-                            "type": "null"
+                            "type": "boolean"
                         },
                         "idpRecipientUrl": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "idpSsoUrl": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "provider": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "scimAuthenticationAttribute": {
-                            "type": "null"
+                            "type": "string"
                         }
                     }
                 },
@@ -268,7 +265,12 @@
                     }
                 },
                 "taskContainerDefaults": {
-                    "type": "null"
+                    "type": "object",
+                    "properties": {
+                        "forcePullImage": {
+                            "type": "boolean"
+                        }
+                    }
                 },
                 "telemetry": {
                     "type": "object",
