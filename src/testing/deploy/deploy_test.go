@@ -22,9 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/net"
 )
 
-const detExternalLoginUrl = "http://%s:%d/api/v1/auth/login" // DNJ TODO don't hardcorde namespace/port? - need to rotate for parallel
+const detLoginPath = "/api/v1/auth/login" // DNJ TODO don't hardcorde namespace/port? - need to rotate for parallel
 
 var valueOverrides map[string]string = make(map[string]string)
 
@@ -196,29 +197,22 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		return nil
 	}, 5*time.Second, "Attempting login through mock IDP")
 }
+
 func determinedLogin(t testing.TB, namespace string) string {
-	ctx := context.Background()
-	kube := testutil.GetKubeClient(t)
-	// DNJ TODO refactor finding URL
-	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), v1.GetOptions{})
-	detPort := service.Spec.Ports[0].NodePort
-	require.NoError(t, err, "Fininding Determined service")
-	// DNJ TODO - find IP from nodes
-	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", v1.GetOptions{})
-	require.NoError(t, err, "Fininding node for Determined")
-	var detIp string
-	for _, addr := range node.Status.Addresses {
-		if addr.Type == "InternalIP" {
-			detIp = addr.Address
-		}
-	}
-	hc := &http.Client{Timeout: 15 * time.Second}
-	// DNJ TODO - add in retries
-	req, err := http.NewRequest("POST", fmt.Sprintf(detExternalLoginUrl, detIp, detPort), strings.NewReader(`{"username":"admin","password":""}`))
+	detUrl := getDeterminedUrl(t, namespace)
+	detUrl.Path = detLoginPath
+
+	req, err := http.NewRequest("POST", detUrl.String(), strings.NewReader(`{"username":"admin","password":""}`))
 	require.NoError(t, err, "Creating Determined login request")
-	resp, err := hc.Do(req)
-	require.NoError(t, err, "Logging into Determined")
+
+	hc := &http.Client{Timeout: 15 * time.Second}
+	var resp *http.Response
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+		resp, err = hc.Do(req)
+		return err
+	}, 5*time.Second, "Attempting to log into determined")
 	require.Equal(t, 200, resp.StatusCode)
+
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err, "Reading Determined login")
 	authToken := struct {
@@ -226,8 +220,26 @@ func determinedLogin(t testing.TB, namespace string) string {
 	}{}
 	err = json.Unmarshal(body, &authToken)
 	require.NoError(t, err, "Parsing Determined login")
-	t.Logf("DNJ TODO SERVICE: %v -- %v", authToken, string(body))
+	require.NotEqual(t, "", authToken.Token)
 	return authToken.Token
+}
+
+func getDeterminedUrl(t testing.TB, namespace string) *url.URL {
+	ctx := context.Background()
+	kube := testutil.GetKubeClient(t)
+	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), v1.GetOptions{})
+	detPort := service.Spec.Ports[0].NodePort
+	require.NoError(t, err, "Fininding Determined service")
+	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", v1.GetOptions{})
+	require.NoError(t, err, "Fininding node for Determined")
+	var detHost string
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == "InternalIP" {
+			detHost = addr.Address
+		}
+	}
+	detUrl := net.FormatURL("http", detHost, int(detPort), "")
+	return detUrl
 }
 
 func createTrustedPeersFile(t testing.TB) string {
