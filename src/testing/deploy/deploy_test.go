@@ -136,7 +136,8 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	time.Sleep(30 * time.Second) // DNJ TODO - wait for determined in deploy
-	determinedLogin(t, ns)
+	detUrl := determinedBaseUrl(t, ns)
+	determinedLogin(t, *detUrl)
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
@@ -198,10 +199,8 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	}, 5*time.Second, "Attempting login through mock IDP")
 }
 
-func determinedLogin(t testing.TB, namespace string) string {
-	detUrl := getDeterminedUrl(t, namespace)
+func determinedLogin(t testing.TB, detUrl url.URL) string {
 	detUrl.Path = detLoginPath
-
 	req, err := http.NewRequest("POST", detUrl.String(), strings.NewReader(`{"username":"admin","password":""}`))
 	require.NoError(t, err, "Creating Determined login request")
 
@@ -209,7 +208,7 @@ func determinedLogin(t testing.TB, namespace string) string {
 	var resp *http.Response
 	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
 		resp, err = hc.Do(req)
-		return err
+		return errors.EnsureStack(err)
 	}, 5*time.Second, "Attempting to log into determined")
 	require.Equal(t, 200, resp.StatusCode)
 
@@ -224,7 +223,7 @@ func determinedLogin(t testing.TB, namespace string) string {
 	return authToken.Token
 }
 
-func getDeterminedUrl(t testing.TB, namespace string) *url.URL {
+func determinedBaseUrl(t testing.TB, namespace string) *url.URL {
 	ctx := context.Background()
 	kube := testutil.GetKubeClient(t)
 	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), v1.GetOptions{})
