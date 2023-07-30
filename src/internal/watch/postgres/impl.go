@@ -67,7 +67,7 @@ func (l *Listener) Errs() <-chan error {
 }
 
 func (l *Listener) listen(ctx context.Context, pgChannels <-chan string) (<-chan *pgconn.Notification, <-chan context.CancelCauseFunc, <-chan error) {
-	notifications := make(chan *pgconn.Notification)
+	notifications := make(chan *pgconn.Notification, 1000)
 	cancelFns := make(chan context.CancelCauseFunc, 1)
 	errs := make(chan error, 1)
 
@@ -86,13 +86,17 @@ func (l *Listener) listen(ctx context.Context, pgChannels <-chan string) (<-chan
 		_ctx, cancel := context.WithCancelCause(ctx)
 		cancelFns <- cancel
 		fmt.Println("qqq sent cancel fn")
+		channelNames := make(map[string]bool)
 		for {
 			select {
 			case channel := <-pgChannels:
-				fmt.Println("qqq listening to channel", channel)
-				if _, err := conn.Exec(ctx, fmt.Sprintf("LISTEN %s", channel)); err != nil {
-					errs <- err
-					return
+				channelNames[channel] = true
+				for channelName := range channelNames {
+					fmt.Println("qqq listening to channel", channelName)
+					if _, err := conn.Exec(ctx, fmt.Sprintf("LISTEN %s", channelName)); err != nil {
+						errs <- err
+						return
+					}
 				}
 			case <-ctx.Done():
 				errs <- context.Cause(ctx)
@@ -111,8 +115,12 @@ func (l *Listener) listen(ctx context.Context, pgChannels <-chan string) (<-chan
 					errs <- err
 					return
 				}
-				notifications <- msg
-				fmt.Println("qqq sent notification", msg)
+				select {
+				case notifications <- msg:
+					fmt.Println("qqq sent notification", msg)
+				default:
+
+				}
 			}
 		}
 	}()
@@ -127,6 +135,7 @@ func (l *Listener) start() error {
 	// pgChannels is a channel of postgres channels to listen to.
 	pgChannels := make(chan string)
 	defer close(pgChannels)
+
 	// channelsToWatchers maps postgres channels to watchers.
 	channelsToWatchers := make(map[string][]*watcher)
 
@@ -154,9 +163,6 @@ func (l *Listener) start() error {
 			}
 			channelsToWatchers[w.channel] = append(channelsToWatchers[w.channel], w)
 		case msg := <-notifications:
-			if msg == nil {
-				continue
-			}
 			event, err := parseNotification(msg.Payload)
 			if err != nil {
 				for _, w := range channelsToWatchers[msg.Channel] {

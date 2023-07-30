@@ -45,6 +45,7 @@ func TestWatchRepos(t *testing.T) {
 	events1, errs1 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
 	events2, errs2 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
 	events3, errs3 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
+	_, _ = listener.Watch(watchCtx, "projects", 10) // projects channel doesn't exist, but this should still work
 
 	// Generate events by creating repos in the default project.
 	var projectID uint64
