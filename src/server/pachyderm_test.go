@@ -8849,7 +8849,6 @@ func TestDeleteRepo(t *testing.T) {
 	}
 
 	t.Parallel()
-	// c, _ := minikubetestenv.AcquireCluster(t)
 	env := realenv.NewRealEnv(context.Background(), t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
