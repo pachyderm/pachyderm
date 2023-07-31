@@ -436,16 +436,6 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) (retErr error
 	return batcher.Close()
 }
 
-// the goal of this migration is to migrate commits to be unqiuely indentified by a (repo, UUID), instead of by (repo, branch, UUID)
-//
-// 1) commits with equal (repo, UUID) pairs must be de-duplicated. This is primarily expected to happen in deferred processing cases.
-// In such cases, the deferred branch's commit is expected to be a child commit of the leading branch's commit. So to make the substitution,
-// we can simply delete the deferred branch's commit and re-point it's direct subvenant commits to point to the master commit as their
-// direct provenance commits.
-//
-// 2) assert that we didn't miss any duplicate commits, and error the migration if we did.
-//
-// 3) commit keys can now be substituted from <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>
 func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 	// Update commits table.
 	cis, err := listCollectionProtos(ctx, tx, "commits", &pfs.CommitInfo{})
@@ -500,7 +490,7 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 	return branchlessCommitKeysPFS(ctx, tx)
 }
 
-// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
+// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>
 func branchlessCommitKeysPFS(ctx context.Context, tx *pachsql.Tx) (retErr error) {
 	ctx, end := log.SpanContext(ctx, "branchlessCommitKeysPFS")
 	defer end(log.Errorp(&retErr))
