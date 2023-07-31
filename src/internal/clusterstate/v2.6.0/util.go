@@ -111,11 +111,11 @@ type postgresBatcher struct {
 	num   int
 }
 
-func newPostgresBatcher(ctx context.Context, tx *pachsql.Tx, max int) *postgresBatcher {
+func newPostgresBatcher(ctx context.Context, tx *pachsql.Tx) *postgresBatcher {
 	return &postgresBatcher{
 		ctx: ctx,
 		tx:  tx,
-		max: max,
+		max: 100,
 	}
 }
 
