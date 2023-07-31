@@ -32,6 +32,20 @@ export const mockFalseGetAuthorize = () =>
     );
   });
 
+export const mockTrueGetAuthorize = () =>
+  mockGetAuthorizeQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        getAuthorize: {
+          satisfiedList: [],
+          missingList: [],
+          authorized: true,
+          principal: '',
+        },
+      }),
+    );
+  });
+
 export const mockGetAccountUnauth = () =>
   mockGetAccountQuery((_req, res, ctx) => {
     return res(
