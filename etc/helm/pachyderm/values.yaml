@@ -69,7 +69,7 @@ determined:
 
   # Should be configured if using the master image in the Determined enterprise edition
   # or private registry.
-  imagePullSecretName:
+  imagePullSecretName: ""
 
   # masterPort configures the port at which the Determined master listens for connections on.
   masterPort: 8080
@@ -113,15 +113,15 @@ determined:
   # is true. It allows users to use single sign-on with their organization’s identity provider.
   # clientSecretKey is the key of the secret contained in the secret.
   oidc:
-    enabled:
-    provider:
-    idpRecipientUrl:
-    idpSsoUrl:
-    clientId:
-    clientSecretKey:
-    clientSecretName:
-    authenticationClaim:
-    scimAuthenticationAttribute:
+    enabled: false
+    provider: ""
+    idpRecipientUrl: ""
+    idpSsoUrl: ""
+    clientId: ""
+    clientSecretKey: ""
+    clientSecretName: ""
+    authenticationClaim: ""
+    scimAuthenticationAttribute: ""
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely
@@ -149,7 +149,7 @@ determined:
     # Determined deployed database, as well as the CPU and memory requirements. Should be adjusted for
     # scale.
     storageSize: 30Gi
-    cpuRequest: 2
+    cpuRequest: "2"
     memRequest: 8Gi
     #  cpuLimit: 2
     #  memLimit: 8Gi
@@ -219,7 +219,7 @@ determined:
   # Distributed tasks with sizes that are not divisible by `maxSlotsPerPod` are never scheduled. If
   # you have a cluster of different size nodes (e.g., 4 and 8 GPUs per node), set `maxSlotsPerPod` to
   # the greatest common divisor of all the sizes (4, in that case).
-  maxSlotsPerPod:
+  # maxSlotsPerPod:
 
   ## For CPU-only clusters, use `slotType: cpu`, and make sure to set `slotResourceRequest` below.
   # slotType: cpu
@@ -230,9 +230,9 @@ determined:
   # cpu: 7
 
   # Memory and CPU requirements for the master instance. Should be adjusted for scale.
-  masterCpuRequest: 2
+  masterCpuRequest: "2"
   masterMemRequest: 8Gi
-  # masterCpuLimit: 2
+  # masterCpuLimit: "2"
   # masterMemLimit: 8Gi
 
   ## Configure the task container defaults. Tasks include trials, commands, TensorBoards, notebooks,
@@ -240,8 +240,8 @@ determined:
   ## trials, the network interface used by distributed (multi-machine) training is configurable.
   taskContainerDefaults:
     # networkMode: bridge
-    # dtrainNetworkInterface: <network interface name>
-    # forcePullImage: <true or false>
+    # dtrainNetworkInterface: "<network interface name>"
+    forcePullImage: false
 
     # Configure a default pod spec for all GPU tasks (experiments, notebooks, commands) and CPU tasks
     # (CPU notebooks, TensorBoards, zero-slot commands). If a pod spec is defined for an individual
@@ -1287,3 +1287,34 @@ proxy:
     secretName: ""
     # If set, generate the secret from values here.  This is intended only for unit tests.
     secret: {}
+preflightCheckJob:
+  # If true, install a Kubernetes job that runs preflight checks from the configured Pachyderm
+  # release.
+  enabled: false
+
+  # The version to preflight.  It is totally fine if this is newer than the currently-running pachd
+  # version.
+  image:
+    repository: "pachyderm/pachd"
+    pullPolicy: "IfNotPresent"
+    tag: ""
+
+  # misc k8s settings
+  affinity: {}
+  annotations: {}
+  resources:
+    {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+    #  memory: "2G"
+  priorityClassName: ""
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+
+  # logging settings
+  sqlQueryLogs: false
+  disableLogSampling: false

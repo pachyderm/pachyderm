@@ -108,7 +108,6 @@ class TestUnitDatums:
 
     @staticmethod
     def test_datums(client: TestClient, default_project: bool):
-        # TODO: Why is this test sometimes slow?
         pipeline_info, job_info = client.new_pipeline(default_project)
         pipeline, job = pipeline_info.pipeline, job_info.job
 

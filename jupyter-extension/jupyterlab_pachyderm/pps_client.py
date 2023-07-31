@@ -134,6 +134,8 @@ class PpsConfig:
     image: str
     requirements: Optional[str]
     port: str
+    gpu_mode: str
+    resource_spec: dict
     input_spec: dict  # We may be able to use the pachyderm SDK to parse and validate.
 
     @classmethod
@@ -176,13 +178,20 @@ class PpsConfig:
         
         port = config.get('port')
 
+        gpu_mode = config.get('gpu_mode')
+        resource_spec_str = config.get('resource_spec')
+
+        resource_spec = dict() if resource_spec_str is None else yaml.safe_load(resource_spec_str)
+
         return cls(
             notebook_path=notebook_path,
             pipeline=pipeline,
             image=image,
             requirements=requirements,
             input_spec=input_spec,
-            port=port
+            port=port,
+            gpu_mode=gpu_mode,
+            resource_spec=resource_spec,
         )
 
     def to_dict(self):
@@ -227,6 +236,18 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
             internal_port=config.port,
             type="LoadBalancer"
         )
+    
+    if config.gpu_mode == "Simple":
+        pipelineSpec['resource_limits'] = dict(
+            gpu=dict(
+                type="nvidia.com/gpu",
+                number="1",
+            )
+        )
+    elif config.gpu_mode == "Advanced":
+        pipelineSpec['resource_limits'] = config.resource_spec
+        pass
+
 
     return pipelineSpec
 

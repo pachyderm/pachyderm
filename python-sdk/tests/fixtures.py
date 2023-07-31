@@ -45,9 +45,6 @@ def auth_client(request) -> "TestClient":
 class TestClient(_Client):
     """This is a test client that keeps track of the resources created and
     cleans them up once the test is complete.
-
-    TODO:
-        * Add resource names when using verbosity
     """
 
     __test__ = False
@@ -121,13 +118,17 @@ class TestClient(_Client):
                 self.pfs.delete_project(project=project, force=True)
 
     def _generate_name(self) -> str:
+        """Generate a resource name based on the test name.
+
+        The pachyderm resource name can be a maximum of 51 characters,
+        set by the maximum Kubernetes resource name length of 63 characters."""
         # fmt: off
         name: str = (
             self.id
                 .replace("/", "-")
                 .replace(":", "-")
                 .replace(".py", "")
-        )[:40]  # TODO: Make this the maximum it can be.
+        )[:40]
         # fmt: on
         name = f"{name[:name.find('[')]}-{random.randint(100, 999)}"
         return name
