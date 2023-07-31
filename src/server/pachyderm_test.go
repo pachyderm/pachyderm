@@ -39,6 +39,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -8847,16 +8849,19 @@ func TestDeleteRepo(t *testing.T) {
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	// c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(context.Background(), t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
 	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	_, err := c.PfsAPIClient.DeleteRepo(
+	res, err := c.PfsAPIClient.DeleteRepo(
 		c.Ctx(),
 		&pfs.DeleteRepoRequest{
 			Repo: client.NewRepo(pfs.DefaultProjectName, dataRepo),
 		})
 	require.NoError(t, err, "repo should be deleted")
+	require.Equal(t, dataRepo, res.DeletedRepos[0].Name)
 }
 
 func TestDontReadStdin(t *testing.T) {
