@@ -48,6 +48,7 @@ linters-settings:
             - github.com/pachyderm/pachyderm/v2/src/internal/errors.Invoke1
             - google.golang.org/grpc/status.Error
             - google.golang.org/grpc/status.Errorf
+            - "(*google.golang.org/grpc/internal/status.Status).Err"
             - google.golang.org/protobuf/types/known/anypb.New
             - .Wrap(
             - .Wrapf(
