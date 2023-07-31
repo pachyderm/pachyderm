@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -944,10 +945,10 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		w.Write(marshalled) //nolint:errcheck
 	})
 
-	// TODO: switch http server for gRPC server and bind to a unix socket not a
-	// TCP port (just for convenient manual testing with curl for now...)
-	// TODO: make port and bind ip parameterizable
-	srv := &http.Server{Addr: ":9002", Handler: router}
+	// Using unix domain socket
+	sockPath := "/run/pfs_fuse_server.sock"
+
+	srv := &http.Server{Handler: router}
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
 
 	go func() {
@@ -955,6 +956,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
+			os.Remove(sockPath)
 		case <-sopts.Unmount:
 		}
 		if mm.Client != nil {
@@ -964,7 +966,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
-	return errors.EnsureStack(srv.ListenAndServe())
+	socket, err := net.Listen("unix", sockPath)
+	srv.Serve(socket)
+	return errors.EnsureStack(err)
 }
 
 func initialChecks(mm *MountManager, authCheck bool) (string, int) {
