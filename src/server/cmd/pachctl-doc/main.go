@@ -25,7 +25,7 @@ func main() {
 	cmdutil.Main(context.Background(), do, &appEnv{})
 }
 
-func do(ctx context.Context, appEnvObj interface{}) error {
+func do(ctx context.Context, appEnvObj *appEnv) error {
 	path := "./docs/"
 
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {

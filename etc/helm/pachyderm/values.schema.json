@@ -148,6 +148,143 @@
         "deployTarget": {
             "type": "string"
         },
+        "determined": {
+            "type": "object",
+            "properties": {
+                "checkpointStorage": {
+                    "type": "object",
+                    "properties": {
+                        "hostPath": {
+                            "type": "string"
+                        },
+                        "saveExperimentBest": {
+                            "type": "integer"
+                        },
+                        "saveTrialBest": {
+                            "type": "integer"
+                        },
+                        "saveTrialLatest": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "db": {
+                    "type": "object",
+                    "properties": {
+                        "cpuRequest": {
+                            "type": "string"
+                        },
+                        "memRequest": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "integer"
+                        },
+                        "storageSize": {
+                            "type": "string"
+                        },
+                        "useNodePortForDB": {
+                            "type": "boolean"
+                        },
+                        "user": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "enterpriseEdition": {
+                    "type": "boolean"
+                },
+                "imagePullSecretName": {
+                    "type": "string"
+                },
+                "imageRegistry": {
+                    "type": "string"
+                },
+                "masterCpuRequest": {
+                    "type": "string"
+                },
+                "masterMemRequest": {
+                    "type": "string"
+                },
+                "masterPort": {
+                    "type": "integer"
+                },
+                "oidc": {
+                    "type": "object",
+                    "properties": {
+                        "authenticationClaim": {
+                            "type": "string"
+                        },
+                        "clientId": {
+                            "type": "string"
+                        },
+                        "clientSecretKey": {
+                            "type": "string"
+                        },
+                        "clientSecretName": {
+                            "type": "string"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "idpRecipientUrl": {
+                            "type": "string"
+                        },
+                        "idpSsoUrl": {
+                            "type": "string"
+                        },
+                        "provider": {
+                            "type": "string"
+                        },
+                        "scimAuthenticationAttribute": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "resourcePools": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "pool_name": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "taskContainerDefaults": {
+                    "type": "object",
+                    "properties": {
+                        "forcePullImage": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "telemetry": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "useNodePortForMaster": {
+                    "type": "boolean"
+                }
+            }
+        },
         "enterpriseServer": {
             "type": "object",
             "properties": {
@@ -1394,6 +1531,55 @@
                             "type": "array"
                         }
                     }
+                }
+            }
+        },
+        "preflightCheckJob": {
+            "type": "object",
+            "properties": {
+                "affinity": {
+                    "type": "object"
+                },
+                "annotations": {
+                    "type": "object"
+                },
+                "disableLogSampling": {
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "nodeSelector": {
+                    "type": "object"
+                },
+                "podLabels": {
+                    "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "sqlQueryLogs": {
+                    "type": "boolean"
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },

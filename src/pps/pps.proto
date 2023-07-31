@@ -719,13 +719,10 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
-  string details_json = 36;
+  reserved 36;
+  reserved "details_json";
   bool dry_run = 37;
   Determined determined = 38;
-}
-
-message CreatePipelineResponse {
-  string details_json = 1;
 }
 
 message InspectPipelineRequest {
@@ -867,26 +864,37 @@ message LokiLogMessage {
 }
 
 message ClusterDefaults {
-  string details_json = 1;
-  string effective_details_json = 2;
+  reserved 1, 2;
+  reserved "details_json", "effective_details_json";
+  // CreatePipelineRequest contains the default JSON CreatePipelineRequest into
+  // which pipeline specs are merged to form the effective spec used to create a
+  // pipeline.
+  CreatePipelineRequest create_pipeline_request = 3;
 }
-
 
 message GetClusterDefaultsRequest {}
 
 message GetClusterDefaultsResponse {
-  ClusterDefaults cluster_defaults = 1;
+  reserved 1;
+  reserved "cluster_defaults";
+  // A JSON-encoded ClusterDefaults message, this is the verbatim input passed
+  // to SetClusterDefaults.
+  string cluster_defaults_json = 2;
 }
 
 message SetClusterDefaultsRequest {
-  ClusterDefaults cluster_defaults = 1;
+  reserved 1;
+  reserved "effective_details_json";
   bool regenerate = 2;
   bool reprocess = 3; // must be false if regenerate is false
   bool dry_run = 4;
+  // A JSON-encoded ClusterDefaults message, this will be stored verbatim.
+  string cluster_defaults_json = 5;
 }
 
 message SetClusterDefaultsResponse {
-  string effective_details_json = 1;
+  reserved 1;
+  reserved "effective_defaults_json";
   repeated Pipeline affected_pipelines = 2;
 }
 
@@ -946,4 +954,10 @@ service API {
 
   // QueryLoki returns a stream of loki log messages given a query string
   rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // GetClusterDefaults returns the current cluster defaults.
+  rpc GetClusterDefaults(GetClusterDefaultsRequest) returns (GetClusterDefaultsResponse) {}
+
+  // SetClusterDefaults returns the current cluster defaults.
+  rpc SetClusterDefaults(SetClusterDefaultsRequest) returns (SetClusterDefaultsResponse) {}
 }
