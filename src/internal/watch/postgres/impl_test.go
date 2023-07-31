@@ -24,9 +24,9 @@ func TestWatchRepos(t *testing.T) {
 	defer db.Close()
 
 	// Apply migrations
-	ctx := pctx.TestContext(t)
-	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	rootCtx := pctx.TestContext(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(rootCtx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(rootCtx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 
 	// Create a listener.
 	dsn := dbutil.GetDSN(dbOpts...)
@@ -35,12 +35,12 @@ func TestWatchRepos(t *testing.T) {
 	delete(config.RuntimeParams, "statement_cache_mode") // pgx doesn't like this
 
 	// Start listening.
-	listenCtx, cancelListener := context.WithCancel(ctx)
+	ctx, cancelListener := context.WithCancel(rootCtx)
 	defer cancelListener()
-	listener := postgresWatcher.NewListener(listenCtx, config)
+	listener := postgresWatcher.NewListener(ctx, config)
 
 	// Start multiple watchers.
-	watchCtx, cancelWatchers := context.WithCancel(ctx)
+	watchCtx, cancelWatchers := context.WithCancel(rootCtx)
 	defer cancelWatchers()
 	events1, errs1 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
 	events2, errs2 := listener.Watch(watchCtx, v2_7_0.ReposPgChannel, 10)
@@ -49,9 +49,9 @@ func TestWatchRepos(t *testing.T) {
 
 	// Generate events by creating repos in the default project.
 	var projectID uint64
-	require.NoError(t, db.QueryRowxContext(ctx, `SELECT id FROM core.projects WHERE name = 'default'`).Scan(&projectID))
+	require.NoError(t, db.QueryRowxContext(rootCtx, `SELECT id FROM core.projects WHERE name = 'default'`).Scan(&projectID))
 	for i := 0; i < 10; i++ {
-		_, err := db.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id) VALUES ($1, $2, $3)", fmt.Sprintf("repo%d", i), "user", projectID)
+		_, err := db.ExecContext(rootCtx, "INSERT INTO pfs.repos (name, type, project_id) VALUES ($1, $2, $3)", fmt.Sprintf("repo%d", i), "user", projectID)
 		require.NoError(t, err)
 	}
 
@@ -78,12 +78,12 @@ func TestWatchRepos(t *testing.T) {
 	require.ErrorIs(t, context.Canceled, <-listener.Errs())
 
 	// Error handling for when the channel is blocked.
-	listenCtx, cancelListener = context.WithCancel(ctx)
+	ctx, cancelListener = context.WithCancel(rootCtx)
 	defer cancelListener()
-	listener = postgresWatcher.NewListener(listenCtx, config)
+	listener = postgresWatcher.NewListener(ctx, config)
 
-	_, watcherErrs := listener.Watch(listenCtx, v2_7_0.ReposPgChannel, 0)
-	_, err = db.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id) VALUES ($1, $2, $3)", "repo11", "user", projectID)
+	_, watcherErrs := listener.Watch(ctx, v2_7_0.ReposPgChannel, 0)
+	_, err = db.ExecContext(rootCtx, "INSERT INTO pfs.repos (name, type, project_id) VALUES ($1, $2, $3)", "repo11", "user", projectID)
 	require.NoError(t, err)
 
 	require.ErrorContains(t, <-watcherErrs, "buffer full")

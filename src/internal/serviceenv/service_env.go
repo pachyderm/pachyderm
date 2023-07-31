@@ -25,6 +25,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -130,6 +131,9 @@ type NonblockingServiceEnv struct {
 
 	// listener is a special database client for listening for changes
 	listener col.PostgresListener
+
+	// pgListener is the new postgres listener implemented using pgx.
+	pgListener *postgres.Listener
 
 	authServer       auth_server.APIServer
 	identityServer   identity.APIServer
@@ -386,6 +390,11 @@ func (env *NonblockingServiceEnv) newListener() col.PostgresListener {
 	return env.newDirectListener()
 }
 
+func (env *NonblockingServiceEnv) newPgListener() *postgres.Listener {
+	// TODO
+	return nil
+}
+
 func (env *NonblockingServiceEnv) newProxyListener() col.PostgresListener {
 	// The proxy postgres listener is lazily initialized to avoid consuming too many
 	// gRPC resources by having idle client connections, so construction
@@ -509,6 +518,13 @@ func (env *NonblockingServiceEnv) GetPostgresListener() col.PostgresListener {
 		panic("service env never created the listener")
 	}
 	return env.listener
+}
+
+func (env *NonblockingServiceEnv) GetPgListener() *postgres.Listener {
+	if env.pgListener == nil {
+		panic("service env never created the pgListener")
+	}
+	return env.pgListener
 }
 
 func (env *NonblockingServiceEnv) GetDexDB() dex_storage.Storage {

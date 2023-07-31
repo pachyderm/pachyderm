@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	postgresWatcher "github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -27,6 +28,7 @@ type Env struct {
 	TaskService  task.Service
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
+	PgListener   *postgresWatcher.Listener
 
 	AuthServer authserver.APIServer
 	// TODO: a reasonable repo metadata solution would let us get rid of this circular dependency
@@ -55,9 +57,10 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		DB:           env.GetDBClient(),
 		TxnEnv:       txnEnv,
 		Listener:     env.GetPostgresListener(),
-		EtcdPrefix:   etcdPrefix,
-		EtcdClient:   env.GetEtcdClient(),
-		TaskService:  env.GetTaskService(etcdPrefix),
+		// PgListener:   env.GetPgListener(),
+		EtcdPrefix:  etcdPrefix,
+		EtcdClient:  env.GetEtcdClient(),
+		TaskService: env.GetTaskService(etcdPrefix),
 
 		AuthServer:    env.AuthServer(),
 		GetPPSServer:  env.PpsServer,
