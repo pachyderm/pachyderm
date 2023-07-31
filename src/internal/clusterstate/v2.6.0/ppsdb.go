@@ -22,7 +22,7 @@ func branchlessCommitsPPS(ctx context.Context, tx *pachsql.Tx) error {
 	if err := func() (retErr error) {
 		ctx, end := log.SpanContext(ctx, "updateJobs")
 		defer end(log.Errorp(&retErr))
-		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
+		batcher := newPostgresBatcher(ctx, tx, maxStmts)
 		for _, ji := range jis {
 			ji.OutputCommit.Repo = ji.OutputCommit.Branch.Repo
 			data, err := proto.Marshal(ji)

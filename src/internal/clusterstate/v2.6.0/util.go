@@ -103,7 +103,7 @@ func updateCollectionProto[T proto.Message](ctx context.Context, tx *pachsql.Tx,
 	return errors.Wrapf(err, "update collections.%s with key %q", table, oldKey)
 }
 
-type PostgresBatcher struct {
+type postgresBatcher struct {
 	ctx   context.Context
 	tx    *pachsql.Tx
 	stmts []string
@@ -111,15 +111,15 @@ type PostgresBatcher struct {
 	num   int
 }
 
-func NewPostgresBatcher(ctx context.Context, tx *pachsql.Tx, max int) *PostgresBatcher {
-	return &PostgresBatcher{
+func newPostgresBatcher(ctx context.Context, tx *pachsql.Tx, max int) *postgresBatcher {
+	return &postgresBatcher{
 		ctx: ctx,
 		tx:  tx,
 		max: max,
 	}
 }
 
-func (pb *PostgresBatcher) Add(stmt string) error {
+func (pb *postgresBatcher) Add(stmt string) error {
 	pb.stmts = append(pb.stmts, stmt)
 	if len(pb.stmts) < pb.max {
 		return nil
@@ -127,7 +127,7 @@ func (pb *PostgresBatcher) Add(stmt string) error {
 	return pb.execute()
 }
 
-func (pb *PostgresBatcher) execute() error {
+func (pb *postgresBatcher) execute() error {
 	if len(pb.stmts) == 0 {
 		return nil
 	}
@@ -143,6 +143,6 @@ func (pb *PostgresBatcher) execute() error {
 	return nil
 }
 
-func (pb *PostgresBatcher) Close() error {
+func (pb *postgresBatcher) Close() error {
 	return pb.execute()
 }

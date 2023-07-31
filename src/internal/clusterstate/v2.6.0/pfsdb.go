@@ -60,8 +60,8 @@ func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 }
 
 type commit struct {
-	id             int
 	info           *v2_5_0.CommitInfo
+	id             int
 	totalFilesetMd *fileset.Metadata
 }
 
@@ -70,27 +70,11 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	if err != nil {
 		return err
 	}
-	commits := make(map[string]*commit)
-	id := 1
-	for _, ci := range cis {
-		c := &commit{info: ci}
-		if ci.Origin.Kind != 4 {
-			c.id = id
-			id++
-		}
-		commits[oldCommitKey(ci.Commit)] = c
-	}
-	if err := getTotalFilesetMds(ctx, tx, commits); err != nil {
-		return err
-	}
-	getCommit := func(c *pfs.Commit) *commit {
-		return commits[oldCommitKey(c)]
-	}
 	// Insert the commits into pfs.commits.
 	if err := func() (retErr error) {
 		ctx, end := log.SpanContext(ctx, "insertCommits")
 		defer end(log.Errorp(&retErr))
-		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
+		batcher := newPostgresBatcher(ctx, tx, maxStmts)
 		for _, ci := range cis {
 			// Skip alias commit.
 			if ci.Origin.Kind == 4 {
@@ -105,12 +89,25 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}(); err != nil {
 		return err
 	}
+	commits := make(map[string]*commit)
+	for _, ci := range cis {
+		commits[oldCommitKey(ci.Commit)] = &commit{info: ci}
+	}
+	if err := getCommitIds(ctx, tx, commits); err != nil {
+		return err
+	}
+	if err := getTotalFilesetMds(ctx, tx, commits); err != nil {
+		return err
+	}
+	getCommit := func(c *pfs.Commit) *commit {
+		return commits[oldCommitKey(c)]
+	}
 	realAncestorCommits := make(map[string]*pfs.Commit)
 	// Update the ancestry and provenance of the commits.
 	if err := func() (retErr error) {
 		ctx, end := log.SpanContext(ctx, "updateCommits")
 		defer end(log.Errorp(&retErr))
-		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
+		batcher := newPostgresBatcher(ctx, tx, maxStmts)
 		for _, ci := range cis {
 			// Skip alias commit.
 			if ci.Origin.Kind == 4 {
@@ -164,7 +161,7 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	if err := func() (retErr error) {
 		ctx, end := log.SpanContext(ctx, "deleteAliasCommits")
 		defer end(log.Errorp(&retErr))
-		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
+		batcher := newPostgresBatcher(ctx, tx, maxStmts)
 		for _, ci := range cis {
 			// Skip non-alias commit.
 			if ci.Origin.Kind != 4 {
@@ -208,6 +205,23 @@ func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	return nil
+}
+
+func getCommitIds(ctx context.Context, tx *pachsql.Tx, commits map[string]*commit) (retErr error) {
+	rs, err := tx.QueryContext(ctx, "SELECT int_id, commit_id FROM pfs.commits")
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer errors.Close(&retErr, rs, "close rows")
+	for rs.Next() {
+		var id int
+		var strId string
+		if err := rs.Scan(&id, &strId); err != nil {
+			return errors.EnsureStack(err)
+		}
+		commits[strId].id = id
+	}
+	return errors.EnsureStack(rs.Err())
 }
 
 func getTotalFilesetMds(ctx context.Context, tx *pachsql.Tx, commits map[string]*commit) (retErr error) {
@@ -412,7 +426,7 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) (retErr error
 	}
 	ctx, end := log.SpanContext(ctx, "deleteDanglingCommits")
 	defer end(log.Errorp(&retErr))
-	batcher := NewPostgresBatcher(ctx, tx, maxStmts)
+	batcher := newPostgresBatcher(ctx, tx, maxStmts)
 	for _, id := range dangCommitKeys {
 		stmt := fmt.Sprintf(`DELETE FROM pfs.commit_totals WHERE commit_id = '%v'`, id)
 		if err := batcher.Add(stmt); err != nil {
@@ -445,7 +459,7 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 	if err := func() (retErr error) {
 		ctx, end := log.SpanContext(ctx, "branchlessUpdateCommits")
 		defer end(log.Errorp(&retErr))
-		batcher := NewPostgresBatcher(ctx, tx, maxStmts)
+		batcher := newPostgresBatcher(ctx, tx, maxStmts)
 		for _, ci := range cis {
 			stmt := fmt.Sprintf(`UPDATE pfs.commits SET commit_id='%v' WHERE commit_id='%v'`, commitBranchlessKey(ci.Commit), oldCommitKey(ci.Commit))
 			if err := batcher.Add(stmt); err != nil {
