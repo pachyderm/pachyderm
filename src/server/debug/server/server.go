@@ -60,6 +60,10 @@ const (
 	databasePrefix  = "database"
 )
 
+var (
+	profileTypes = []string{"heap", "goroutine"}
+)
+
 type debugServer struct {
 	debug.UnimplementedDebugServer
 
@@ -292,11 +296,13 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			}
 		}
 		if len(sys.Profiles) > 0 {
-			podCount := 0
+			var profCount int
 			for _, app := range sys.Profiles {
-				podCount += len(app.Pods)
+				for _, p := range app.Pods {
+					profCount += len(p.Containers) * len(profileTypes)
+				}
 			}
-			rp := recordProgress(server, "profiles", podCount)
+			rp := recordProgress(server, "profiles", profCount)
 			for _, app := range sys.Profiles {
 				for _, pod := range app.Pods {
 					ts = append(ts, s.makeProfileTask(server, app, pod, rp))
@@ -408,9 +414,9 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 	}
 }
 
+// note: calls rp() once per profile
 func (s *debugServer) makeProfileTask(server debug.Debug_DumpV2Server, app *debug.App, pod *debug.Pod, rp incProgressFunc) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
-		defer rp(ctx)
 		if app.Timeout != nil && len(app.Pods) > 0 {
 			var cf context.CancelFunc
 			d := int64(app.Timeout.AsDuration()) / int64(len(app.Pods))
@@ -419,10 +425,16 @@ func (s *debugServer) makeProfileTask(server debug.Debug_DumpV2Server, app *debu
 		}
 		var errs error
 		for _, c := range pod.Containers {
-			for _, profile := range []string{"heap", "goroutine"} {
-				if err := s.collectProfile(ctx, dfs, app, pod, c, profile); err != nil {
-					errors.JoinInto(&errs, err)
-				}
+			for _, profile := range profileTypes {
+				func() {
+					defer rp(ctx)
+					if err := s.collectProfile(ctx, dfs, app, pod, c, profile); err != nil {
+						errors.JoinInto(
+							&errs,
+							errors.Wrapf(err, "collect profile %q for container %q", profile, c),
+						)
+					}
+				}()
 			}
 		}
 		log.Error(ctx, "profile errors", zap.String("pod", pod.Name), zap.Error(errs))
