@@ -52,6 +52,9 @@ parameters:
   run-python-sdk-jobs:
     type: boolean
     default: false
+  run-label-studio-jobs:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
@@ -1476,7 +1479,6 @@ jobs:
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
             poetry run pytest -vvv tests
-
   python-sdk-test-publish:
     executor: python
     working_directory: ~/project/python-sdk
@@ -1495,7 +1497,6 @@ jobs:
             poetry config repositories.test-pypi https://test.pypi.org/legacy/
             poetry version << parameters.version >>
             poetry publish --build --repository test-pypi --username "$PYPI_USERNAME" --password "$TEST_PYPI_PASSWORD"
-
   python-sdk-publish:
     executor: python
     working_directory: ~/project/python-sdk
@@ -1513,6 +1514,72 @@ jobs:
           command: |
             poetry version << parameters.version >>
             poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
+  test-label-studio:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      LABEL_STUDIO_USERNAME: user@domain.com
+      LABEL_STUDIO_PASSWORD: pass
+      LABEL_STUDIO_USER_TOKEN: abcdef
+    working_directory: ~/project/label-studio
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Set up Label Studio
+           ## TODO: custom label studio image
+          command: |
+            docker run -d -it -p 8080:8080 heartexlabs/label-studio:1.8.0 label-studio -b \
+            --username $LABEL_STUDIO_USERNAME \
+            --password $LABEL_STUDIO_PASSWORD \
+            --user-token $LABEL_STUDIO_USER_TOKEN
+
+            sleep 20  # Wait for Label Studio server to start
+      - run:
+          name: Run tests
+          command: |
+            pip3 install -r requirements.txt
+            python3 -m pytest
+      # - run:
+      #     name: Install pachctl
+      #     command: |
+      #       sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+      # - install-minikube
+      # - install-helm
+      # - install-kubectl
+      # - start-minikube
+      # - wait-for-minikube
+      # - run:
+      #     name: Install pach
+      #     command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
+      # - run:
+      #     name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+      #     command: |
+      #       sleep 20
+      #       kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+      #       pachctl version
+      # - run:
+      #     name: Set up Label Studio
+      #      ## TODO: custom label studio image
+      #     command: |
+      #       docker run -it -p 8080:8080 heartexlabs/label-studio:1.8.0 \
+      #       -e LABEL_STUDIO_USERNAME=user@domain.com \
+      #       -e LABEL_STUDIO_PASSWORD=pass \
+      #       -e LABEL_STUDIO_USER_TOKEN=abcdef \
+      #       label-studio -b
+      # - run:
+      #     name: Add task to pach
+      #     command: |
+      #       pachctl create repo images
+      #       pachctl put file images@master:liberty.jpg -f https://docs.pachyderm.com/images/opencv/liberty.jpg
+      # - run:
+      #     name: Run tests
+      #     command: |
+      #       pip install pytest
+      #       pytest
+    
+
 
 workflows:
   integration-tests:
@@ -1731,6 +1798,15 @@ workflows:
             - python-sdk-build
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
+  ## TODO: move to nightly tests
+  label-studio:
+    when:
+      condition:
+        or:
+          - << pipeline.parameters.run-label-studio-jobs >>
+          - << pipeline.parameters.run-core-jobs >>
+    jobs:
+      - test-label-studio
 
   release:
     jobs:
@@ -2037,6 +2113,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - aws-prerelease-testing
+      ## TODO: add to release?
 
 commands:
   install-helm:
