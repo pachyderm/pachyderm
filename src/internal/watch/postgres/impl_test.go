@@ -18,7 +18,7 @@ import (
 	postgresWatcher "github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 )
 
-func TestWatchRepos(t *testing.T) {
+func TestListener(t *testing.T) {
 	dbOpts := dockertestenv.NewTestDirectDBOptions(t)
 	db := testutil.OpenDB(t, dbOpts...)
 	defer db.Close()

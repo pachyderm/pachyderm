@@ -30,28 +30,25 @@ const (
 var newWatcherSignal = errors.New("cancel WaitForNotification")
 
 type Listener struct {
-	once                 sync.Once
-	ctx                  context.Context
-	connConfig           *pgx.ConnConfig
-	watchers             chan *watcher
-	cancelFns            chan context.CancelCauseFunc
-	errs                 chan error
-	existingWatchers     map[string][]*watcher // map of channel to watchers
-	existingWatchersLock sync.Mutex
+	once       sync.Once
+	ctx        context.Context
+	connConfig *pgx.ConnConfig
+	watchers   chan *watcher
+	cancelFns  chan context.CancelCauseFunc
+	errs       chan error
 }
 
 func NewListener(ctx context.Context, cc *pgx.ConnConfig) *Listener {
 	return &Listener{
-		ctx:              ctx,
-		connConfig:       cc,
-		watchers:         make(chan *watcher),
-		errs:             make(chan error, 1),
-		cancelFns:        make(chan context.CancelCauseFunc, 1),
-		existingWatchers: make(map[string][]*watcher),
+		ctx:        ctx,
+		connConfig: cc,
+		watchers:   make(chan *watcher),
+		errs:       make(chan error, 1),
+		cancelFns:  make(chan context.CancelCauseFunc, 1),
 	}
 }
 
-func (l *Listener) Watch(ctx context.Context, channel string, events chan<- *Event) <-chan error {
+func (l *Listener) Watch(ctx context.Context, channel string, size int) (<-chan *Event, <-chan error) {
 	fmt.Println("qqq Watch called on", channel)
 	l.once.Do(func() {
 		go func() {
@@ -59,24 +56,15 @@ func (l *Listener) Watch(ctx context.Context, channel string, events chan<- *Eve
 		}()
 	})
 
+	events := make(chan *Event, size)
 	errs := make(chan error, 1)
 	w := &watcher{channel: channel, events: events, errs: errs, ctx: ctx, doneListen: make(chan struct{})}
 
-	l.existingWatchersLock.Lock()
-	if _, ok := l.existingWatchers[channel]; !ok {
-		cancel := <-l.cancelFns
-		cancel(newWatcherSignal)
-		l.existingWatchers[channel] = []*watcher{w}
-		fmt.Println("qqq watcher sending itself to listener")
-		l.watchers <- w
-		fmt.Println("qqq watcher waiting for listener to finishg registering watcher")
-	} else {
-		l.existingWatchers[channel] = append(l.existingWatchers[channel], w)
-	}
-	l.existingWatchersLock.Unlock()
+	l.watchers <- w
 
 	<-w.doneListen
-	return w.errs
+	fmt.Println("qqq watcher done registering")
+	return events, errs
 }
 
 func (l *Listener) Errs() <-chan error {
@@ -110,66 +98,77 @@ func (l *Listener) listen(ctx context.Context) error {
 
 	events := make(chan *Event)
 	errs := make(chan error, 1)
-	go func(originalCtx context.Context) {
+	newWatchers := make(chan *watcher)
+	go func(originalCtx context.Context, newWatchers <-chan *watcher) {
 		ctx, cancel := context.WithCancelCause(originalCtx)
 		l.cancelFns <- cancel
 		fmt.Println("qqq sent cancel fn")
 		for {
-			fmt.Println("qqq listener waiting for notification from postgres")
-			msg, err := conn.WaitForNotification(ctx)
-			if err != nil {
-				if context.Cause(ctx) == newWatcherSignal {
-					fmt.Println("qqq WaitForNotification cancelled, renewing context")
-					ctx, cancel = context.WithCancelCause(originalCtx)
-					l.cancelFns <- cancel
-					fmt.Println("qqq sent cancel fn")
+			select {
+			case w := <-newWatchers:
+				fmt.Println("qqq listen loop listening to channel", w.channel)
+				if _, err := conn.Exec(originalCtx, fmt.Sprintf("LISTEN %s", w.channel)); err != nil {
+					fmt.Println("qqq got error", err)
+					go func() {
+						errs <- err
+					}()
+					// TODO should we return here? This means all watchers will be cancelled.
+					return
+				}
+				w.doneListen <- struct{}{}
+			default:
+				fmt.Println("qqq listen loop waiting for notification from postgres")
+				msg, err := conn.WaitForNotification(ctx)
+				if err != nil {
+					if context.Cause(ctx) == newWatcherSignal {
+						fmt.Println("qqq listen loop context cancelled, renewing context")
+						ctx, cancel = context.WithCancelCause(originalCtx)
+						l.cancelFns <- cancel
+						fmt.Println("qqq listen loop sent cancel fn")
+						continue
+					}
+					fmt.Println("qqq listen loop got error", err)
+					errs <- err
+					return
+				}
+				event, err := parseNotification(msg.Payload)
+				if err != nil {
+					errs <- err
 					continue
 				}
-				fmt.Println("qqq got errror", err)
-				errs <- err
+				event.Channel = msg.Channel
+				events <- event
 			}
-			event, err := parseNotification(msg.Payload)
-			if err != nil {
-				errs <- err
-				continue
-			}
-			event.Channel = msg.Channel
-			events <- event
 		}
-	}(ctx)
+	}(ctx, newWatchers)
 
+	existingWatchers := make(map[string][]*watcher)
 	for {
 		select {
 		case <-ctx.Done():
 			return context.Cause(ctx)
+		case err := <-errs:
+			return err
 		case w := <-l.watchers:
-			fmt.Println("qqq listener got new watcher watching for channel", w.channel)
-			// We need to execute LISTEN for all existing channels
-			l.existingWatchersLock.Lock()
-			for channelName := range l.existingWatchers {
-				fmt.Println("qqq listening to channel", channelName)
-				if _, err := conn.Exec(ctx, fmt.Sprintf("LISTEN %s", channelName)); err != nil {
-					fmt.Println("qqq got error", err)
-					// propagate error to all watchers
-					go func() {
-						w.errs <- err
-						for _, watchers := range l.existingWatchers {
-							for _, w := range watchers {
-								w.errs <- err
-							}
-						}
-					}()
-					return err
-				}
+			if _, ok := existingWatchers[w.channel]; !ok {
+				// Net new channel, so must break the listening wait loop and call new LISTEN.
+				fmt.Println("qqq broadcast loop got new watcher, cancelling listen loop", w.channel)
+				cancel := <-l.cancelFns
+				fmt.Println("qqq broadcast loop received cancel func")
+				cancel(newWatcherSignal)
+				fmt.Println("qqq broadcast sending new watcher to listen loop", w.channel)
+				newWatchers <- w
+				fmt.Println("qqq broadcast loop sent new watcher to listen loop", w.channel)
+			} else {
+				w.doneListen <- struct{}{}
 			}
-			l.existingWatchersLock.Unlock()
-			fmt.Println("qqq listener done registering watcher, sending done signal")
-			w.doneListen <- struct{}{}
+			existingWatchers[w.channel] = append(existingWatchers[w.channel], w)
 		case event := <-events:
+			fmt.Println("qqq broadcast loop broadcasting event to all watchers")
 			// Instead of removing dead watchers, we simply create a new slice and keep the alive watchers instead.
 			// TODO is there a more efficient way to do this?
 			var watchers []*watcher
-			for _, w := range l.existingWatchers[event.Channel] {
+			for _, w := range existingWatchers[event.Channel] {
 				select {
 				case w.events <- event:
 					watchers = append(watchers, w)
@@ -179,7 +178,9 @@ func (l *Listener) listen(ctx context.Context) error {
 					w.errs <- errors.Errorf("buffer full, dropping watcher")
 				}
 			}
-			l.existingWatchers[event.Channel] = watchers
+			// TODO handle the case where no more watchers are listening on this channel.
+			// Need to call UNLISTEN on the channel.
+			existingWatchers[event.Channel] = watchers
 		}
 	}
 }
