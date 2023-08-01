@@ -670,6 +670,10 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
     steps:
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
       - go/install:
           version: << pipeline.parameters.go-version >>
       - checkout
@@ -708,6 +712,10 @@ jobs:
             else
               make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
             fi
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
       - run:
           name: Push docker
           command: |-
