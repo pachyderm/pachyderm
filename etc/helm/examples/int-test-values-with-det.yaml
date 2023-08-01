@@ -16,7 +16,7 @@ pachd:
   clusterDeploymentID: dev
   determined: 
     apiEndpoint: grpc://determined-master-service-internal-{{.K8sNamespace}}:8082
-    credentialsSecretName: ""
+    credentialsSecretName: "detlogin"
   pachAuthClusterRoleBindings:
     allClusterUsers:
       ["debugger", "projectOwner", "projectCreator", "repoOwner", "robotUser", "secretAdmin", "pachdLogReader"]

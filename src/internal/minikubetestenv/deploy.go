@@ -48,6 +48,7 @@ const (
 const (
 	determinedRegistry       = "registry-1.docker.io/determinedai"
 	determinedRegistrySecret = "detregcred"
+	determinedLoginSecret    = "detlogin"
 )
 
 var (
@@ -524,6 +525,7 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
 
+// Create the secret kubernetes uses to pull the Determined image
 func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
 	require.NotEqual(t, "", detDockerUser, "Missing required user for Determined integration testing")
 	require.NotEqual(t, "", detDockerPass, "Missing required password for Determined integration testing")
@@ -548,7 +550,22 @@ func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient
 			".dockerconfigjson": string(dockerConfig),
 		},
 	}, metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined secret setup", err)
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined regcred secret setup", err)
+}
+
+// Create the secret that pachd uses to connect
+func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
+	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      determinedLoginSecret,
+			Namespace: ns,
+		},
+		StringData: map[string]string{
+			"determined-username": "admin",
+			"determined-password": "",
+		},
+	}, metav1.CreateOptions{})
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
@@ -586,6 +603,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.Determined {
 		createSecretDeterminedRegcred(t, ctx, kubeClient, namespace)
+		createSecretDeterminedLogin(t, ctx, kubeClient, namespace)
 		valuesTemplate, err := template.ParseFiles(exampleValuesLocalPath(t, "int-test-values-with-det.yaml"))
 		require.NoError(t, err, "Creating determined values template")
 		valuesFile, err := os.CreateTemp("", "detvalues.*.yaml")
