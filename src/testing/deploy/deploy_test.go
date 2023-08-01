@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,13 +22,31 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/net"
 )
 
-const detLoginPath = "/api/v1/auth/login" // DNJ TODO don't hardcorde namespace/port? - need to rotate for parallel
+const (
+	detLoginPath = "/api/v1/auth/login" // DNJ TODO don't hardcorde namespace/port? - need to rotate for parallel
+	detUserPath  = "/api/v1/users"
+)
 
 var valueOverrides map[string]string = make(map[string]string)
+
+type DeterminedUser struct {
+	Id          int    `json:"id"`
+	Username    string `json:"username"`
+	Admin       bool   `json:"admin"`
+	Active      bool   `json:"active"`
+	DisplayName string `json:"displayName"`
+	Password    string `json:"password"`
+	IsHashed    bool   `json:"isHashed"`
+}
+type DeterminedUserBody struct {
+	User *DeterminedUser `json:"user"`
+}
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
@@ -137,7 +156,32 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	mockIDPLogin(t, c)
 	time.Sleep(30 * time.Second) // DNJ TODO - wait for determined in deploy
 	detUrl := determinedBaseUrl(t, ns)
-	determinedLogin(t, *detUrl)
+	authToken := determinedLogin(t, *detUrl)
+	detUser := determinedCreateUser(t, *detUrl, authToken)
+	require.Equal(t, testutil.DexMockConnectorEmail, detUser.Username)
+	// create repo and pipeline that should make the determined service user
+	repoName := "images"
+	pipelineName := "edges"
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repoName))
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+			Transform: &pps.Transform{
+				Image: repoName,
+				Cmd:   []string{"python3", "/edges.py"},
+				Stdin: nil,
+			},
+			ParallelismSpec: nil,
+			Input:           &pps.Input{Pfs: &pps.PFSInput{Glob: "/", Repo: repoName}},
+			OutputBranch:    "master",
+			Update:          false,
+			Determined: &pps.Determined{
+				Workspaces: []string{"pach-test-workspace"},
+			},
+		},
+	)
+	require.NoError(t, err)
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
@@ -223,11 +267,45 @@ func determinedLogin(t testing.TB, detUrl url.URL) string {
 	return authToken.Token
 }
 
+func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *DeterminedUser {
+	userReq := DeterminedUserBody{
+		User: &DeterminedUser{
+			Username:    testutil.DexMockConnectorEmail,
+			Admin:       false,
+			Active:      true,
+			DisplayName: testutil.DexMockConnectorEmail,
+			Password:    "password",
+			IsHashed:    false,
+		},
+	}
+	userJson, err := json.Marshal(userReq)
+	require.NoError(t, err, "Marshal determined user json")
+	detUrl.Path = detUserPath
+	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(userJson)) // DNJ TODO maybe refactor and combine with login call marshal/unmarshal instead of repeating code
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	require.NoError(t, err, "Creating Determined user request")
+
+	hc := &http.Client{Timeout: 15 * time.Second}
+	var resp *http.Response
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+		resp, err = hc.Do(req)
+		return errors.EnsureStack(err)
+	}, 5*time.Second, "Attempting to create determined user")
+	require.Equal(t, 200, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "Reading Determined user creation response")
+	userResponse := &DeterminedUserBody{}
+	t.Logf("DNJ TODO %v", string(body))
+	err = json.Unmarshal(body, userResponse)
+	require.NoError(t, err, "Parsing Determined user create")
+	return userResponse.User
+}
+
 func determinedBaseUrl(t testing.TB, namespace string) *url.URL {
 	ctx := context.Background()
 	kube := testutil.GetKubeClient(t)
-	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), v1.GetOptions{})
-	detPort := service.Spec.Ports[0].NodePort
+	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), v1.GetOptions{}) // DNJ TODO - should this be in minikubetestenv?
+	detPort := service.Spec.Ports[0].NodePort                                                                                           // DNJ TODO - this port in values needs to be dynamic
 	require.NoError(t, err, "Fininding Determined service")
 	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", v1.GetOptions{})
 	require.NoError(t, err, "Fininding node for Determined")
