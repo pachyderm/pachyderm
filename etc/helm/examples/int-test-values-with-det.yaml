@@ -15,7 +15,7 @@ pachd:
     enabled: false
   clusterDeploymentID: dev
   determined: 
-    apiEndpoint: "determined-master-{{.K8sNamespace}}"
+    apiEndpoint: grpc://determined-master-service-internal-{{.K8sNamespace}}:8082
     credentialsSecretName: ""
   pachAuthClusterRoleBindings:
     allClusterUsers:
