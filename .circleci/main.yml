@@ -688,7 +688,7 @@ jobs:
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
           keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
             - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
 
       # Only restore the module cache based on an exact match for go.sum.
