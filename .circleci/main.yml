@@ -668,6 +668,7 @@ jobs:
         default: false
     machine:
       image: << pipeline.parameters.machine_image >>
+      docker_layer_cachine: true
     resource_class: xlarge
     steps:
       - run:
