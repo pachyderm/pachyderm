@@ -1,11 +1,20 @@
 import {format} from 'date-fns';
 
+import MontserratFont from './assets/MontserratFont_Base64';
 import PublicFont from './assets/PublicFont_Base64';
 
 const LABEL_PADDING = 60;
 const CONTAINER_ELEMENTS = ['svg', 'g', 'foreignObject', 'SPAN'];
 const RELEVANT_STYLES: Record<string, string[]> = {
   rect: [
+    'fill',
+    'stroke',
+    'stroke-width',
+    'border-radius',
+    'paint-order',
+    'filter',
+  ],
+  use: [
     'fill',
     'stroke',
     'stroke-width',
@@ -100,13 +109,14 @@ const downloadSVG = (
         `translate(0, ${LABEL_PADDING})`,
       );
 
-      // embed Public Sans font
+      // embed fonts
       const style = document.createElementNS(
         'http://www.w3.org/2000/svg',
         'style',
       );
       style.type = 'text/css';
       style.innerHTML = PublicFont;
+      style.innerHTML += MontserratFont;
       (svgCopy.childNodes[0] as Element).appendChild(style);
 
       // add date and global id labels to top of SVG
