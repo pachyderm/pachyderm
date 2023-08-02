@@ -132,8 +132,7 @@ describe('Datum Viewer', () => {
       expect(await screen.findByText('2 kB')).toBeVisible();
     });
 
-    // flakey
-    it.skip('should render the root key of input spec', async () => {
+    it('should render the root key of input spec', async () => {
       window.history.replaceState(
         {},
         '',
@@ -148,6 +147,8 @@ describe('Datum Viewer', () => {
       expect(
         await within(codeSpec).findAllByText((node) => node.includes('edges')),
       ).toHaveLength(2); // Allow code element to load
+      await waitFor(() => document.querySelectorAll('.cm-cursor-primary')); // wait for cursor to appear
+
       expect(codeSpec).toMatchSnapshot();
     });
 
