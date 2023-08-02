@@ -237,3 +237,15 @@ PORT = 3000;
 // server code
 const port = process.env.PORT;
 ```
+
+## Debugging Tests
+
+To debug tests, add `--node-options=--inspect-brk` to npx. Like the following command:
+
+```shell
+npx --node-options=--inspect-brk jest
+```
+
+This command will execute Jest and pause its execution until you attach a debugger. You can then use the debugger to inspect and debug your test code.
+
+You can attach the VSCode debugger by opening the command pallete and using `Debug: Attach to Node Process`.
