@@ -186,7 +186,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 				Stdin: nil,
 			},
 			ParallelismSpec: nil,
-			Input:           &pps.Input{Pfs: &pps.PFSInput{Glob: "/", Repo: repoName}}, // DNJ TODO - output token in pipeline and confirm existence after
+			Input:           &pps.Input{Pfs: &pps.PFSInput{Glob: "/", Repo: repoName}},
 			OutputBranch:    "master",
 			Update:          false,
 			Determined: &pps.Determined{
@@ -267,17 +267,8 @@ func determinedLogin(t testing.TB, detUrl url.URL, username string, password str
 	)
 	require.NoError(t, err, "Creating Determined login request")
 
-	hc := testutil.NewLoggingHTTPClient(t)
-	hc.Timeout = 15 * time.Second
-	var resp *http.Response
-	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
-		resp, err = hc.Do(req)
-		return errors.EnsureStack(err)
-	}, 5*time.Second, "Attempting to log into determined")
-	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined login")
+	body := doDeterminedRequest(t, req)
 
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err, "Reading Determined login")
 	authToken := struct {
 		Token string
 	}{}
@@ -301,20 +292,12 @@ func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *Deter
 	userJson, err := json.Marshal(userReq)
 	require.NoError(t, err, "Marshal determined user json")
 	detUrl.Path = detUserPath
-	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(userJson)) // DNJ TODO maybe refactor and combine with login call marshal/unmarshal instead of repeating code
+	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(userJson))
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	require.NoError(t, err, "Creating Determined create user request")
 
-	hc := testutil.NewLoggingHTTPClient(t)
-	hc.Timeout = 15 * time.Second
-	var resp *http.Response
-	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
-		resp, err = hc.Do(req)
-		return errors.EnsureStack(err)
-	}, 5*time.Second, "Attempting to create determined user")
-	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined user creation")
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err, "Reading Determined user creation response")
+	body := doDeterminedRequest(t, req)
+
 	userResponse := &DeterminedUserBody{}
 	err = json.Unmarshal(body, userResponse)
 	require.NoError(t, err, "Parsing Determined user create", string(body))
@@ -323,24 +306,31 @@ func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *Deter
 
 func determinedGetUsers(t testing.TB, detUrl url.URL, authToken string) *DeterminedUserList {
 	detUrl.Path = detUserPath
-	req, err := http.NewRequest("GET", detUrl.String(), strings.NewReader("{}")) // DNJ TODO maybe refactor and combine with login call marshal/unmarshal instead of repeating code
+	req, err := http.NewRequest("GET", detUrl.String(), strings.NewReader("{}"))
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	require.NoError(t, err, "Creating Determined get users request")
 
-	hc := testutil.NewLoggingHTTPClient(t)
-	hc.Timeout = 15 * time.Second
-	var resp *http.Response
-	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
-		resp, err = hc.Do(req)
-		return errors.EnsureStack(err)
-	}, 5*time.Second, "Attempting to get determined users")
-	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined user list")
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err, "Reading Determined user list response")
+	body := doDeterminedRequest(t, req)
+
 	userResponse := &DeterminedUserList{}
 	err = json.Unmarshal(body, userResponse)
 	require.NoError(t, err, "Parsing Determined user list", string(body))
 	return userResponse
+}
+
+func doDeterminedRequest(t testing.TB, req *http.Request) []byte {
+	hc := testutil.NewLoggingHTTPClient(t)
+	hc.Timeout = 15 * time.Second
+	var resp *http.Response
+	var err error
+	require.NoErrorWithinTRetryConstant(t, 120*time.Second, func() error {
+		resp, err = hc.Do(req)
+		return errors.EnsureStack(err)
+	}, 5*time.Second, "Attempting to make determined request")
+	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined request")
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "Reading Determined API response")
+	return responseBody
 }
 
 func determinedCreateWorkspace(t testing.TB, detUrl url.URL, authToken string, workspace string) {
@@ -352,27 +342,17 @@ func determinedCreateWorkspace(t testing.TB, detUrl url.URL, authToken string, w
 	workspaceJson, err := json.Marshal(workspaceReq)
 	require.NoError(t, err, "Marshal determined workspace json")
 	detUrl.Path = detWorkspacePath
-	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(workspaceJson)) // DNJ TODO maybe refactor and combine with login call marshal/unmarshal instead of repeating code
+	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(workspaceJson))
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	require.NoError(t, err, "Creating Determined create workspace request")
-	hc := testutil.NewLoggingHTTPClient(t)
-	hc.Timeout = 15 * time.Second
-	var resp *http.Response
-	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
-		resp, err = hc.Do(req)
-		return errors.EnsureStack(err)
-	}, 5*time.Second, "Attempting to create determined workspace")
-
-	require.Equal(t, 200, resp.StatusCode, "Checking response code for workspace creation")
-	_, err = io.ReadAll(resp.Body)
-	require.NoError(t, err, "Reading Determined workspace creation response")
+	_ = doDeterminedRequest(t, req)
 }
 
 func determinedBaseUrl(t testing.TB, namespace string) *url.URL {
 	ctx := context.Background()
 	kube := testutil.GetKubeClient(t)
 	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), v1.GetOptions{}) // DNJ TODO - should this be in minikubetestenv?
-	detPort := service.Spec.Ports[0].NodePort                                                                                           // DNJ TODO - this port in values needs to be dynamic
+	detPort := service.Spec.Ports[0].NodePort
 	require.NoError(t, err, "Fininding Determined service")
 	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", v1.GetOptions{})
 	require.NoError(t, err, "Fininding node for Determined")
