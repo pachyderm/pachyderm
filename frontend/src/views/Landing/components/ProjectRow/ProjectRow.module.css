@@ -4,7 +4,7 @@
 }
 
 .row {
-  height: 10rem;
+  height: 100%;
   width: 100%;
   position: relative;
   background-color: var(--white);
@@ -19,8 +19,24 @@
   margin-left: calc(-2rem - 6px);
   top: 0rem;
   width: calc(100% + 6px);
-  height: 10rem;
+  height: 100%;
   box-shadow: 0px 1px 1px var(--border-grey);
+}
+
+.gap10 {
+  gap: 10px;
+}
+
+.gap64 {
+  gap: 64px;
+}
+
+.noShrink {
+  flex-shrink: 0;
+}
+
+.minHeight10 {
+  min-height: 10rem;
 }
 
 .rowHover:hover {

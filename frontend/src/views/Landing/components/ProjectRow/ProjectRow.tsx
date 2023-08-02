@@ -142,14 +142,14 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   return (
     <>
       <div
-        className={classNames(styles.row, {
+        className={classNames(styles.row, styles.minHeight10, {
           [styles[`${projectStatus ?? 'HEALTHY'}Selected`]]: isSelected,
           [styles.rowHover]: multiProject && !isSelected,
         })}
         onClick={() => setSelectedProject()}
         role="row"
       >
-        <Group vertical spacing={16}>
+        <Group vertical className={styles.gap10}>
           <Group justify="between" align="baseline" spacing={16}>
             <h5>{project.id}</h5>
             <Group spacing={8}>
@@ -180,8 +180,12 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
               />
             </Group>
           </Group>
-          <Group spacing={64}>
-            <Info header="Project Status" headerId="project-status">
+          <Group className={classNames(styles.gap64)}>
+            <Info
+              header="Project Status"
+              headerId="project-status"
+              className={styles.noShrink}
+            >
               <ProjectStatus
                 status={projectStatus}
                 data-testid="ProjectRow__status"
@@ -191,6 +195,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
               header="Description"
               headerId="project-description"
               className={styles.responsiveHide}
+              wide
             >
               {project.description || 'N/A'}
             </Info>

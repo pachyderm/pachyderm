@@ -10,6 +10,7 @@ type InfoProps = {
   headerId: string;
   className?: string;
   disabled?: boolean;
+  wide?: boolean;
 };
 
 export const Info: React.FC<InfoProps> = ({
@@ -18,13 +19,16 @@ export const Info: React.FC<InfoProps> = ({
   children,
   className,
   disabled,
+  wide = false,
 }) => {
   return (
     <Group vertical spacing={8} className={className}>
       <CaptionTextSmall id={headerId}>{header}</CaptionTextSmall>
       <span
         aria-labelledby={headerId}
-        className={classNames(styles.info, {[styles.disabled]: disabled})}
+        className={classNames(wide ? styles.info40 : styles.info20, {
+          [styles.disabled]: disabled,
+        })}
       >
         {children}
       </span>
