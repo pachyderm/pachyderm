@@ -29,8 +29,10 @@ import (
 )
 
 const (
-	detLoginPath = "/api/v1/auth/login" // DNJ TODO don't hardcorde namespace/port? - need to rotate for parallel
-	detUserPath  = "/api/v1/users"
+	detLoginPath       = "/api/v1/auth/login" // DNJ TODO don't hardcorde namespace/port? - need to rotate port for parallel?
+	detUserPath        = "/api/v1/users"
+	detWorkspacePath   = "/api/v1/workspaces"
+	detNewUserPassword = "test-password"
 )
 
 var valueOverrides map[string]string = make(map[string]string)
@@ -41,11 +43,14 @@ type DeterminedUser struct {
 	Admin       bool   `json:"admin"`
 	Active      bool   `json:"active"`
 	DisplayName string `json:"displayName"`
-	Password    string `json:"password"`
-	IsHashed    bool   `json:"isHashed"`
 }
 type DeterminedUserBody struct {
-	User *DeterminedUser `json:"user"`
+	User     *DeterminedUser `json:"user"`
+	Password string          `json:"password"`
+	IsHashed bool            `json:"isHashed"`
+}
+type DeterminedUserList struct {
+	Users *[]DeterminedUser `json:"users"`
 }
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
@@ -135,6 +140,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 	mockIDPLogin(t, c)
 }
 
+// DNJ TODO - move to determined test file
 func TestDeterminedInstallAndIntegration(t *testing.T) {
 	t.Parallel()
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
@@ -155,13 +161,20 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	time.Sleep(30 * time.Second) // DNJ TODO - wait for determined in deploy
+	// log in and create a non-admin user with the kilgore email from pachyderm
 	detUrl := determinedBaseUrl(t, ns)
-	authToken := determinedLogin(t, *detUrl)
+	authToken := determinedLogin(t, *detUrl, "admin", "")
 	detUser := determinedCreateUser(t, *detUrl, authToken)
-	require.Equal(t, testutil.DexMockConnectorEmail, detUser.Username)
-	// create repo and pipeline that should make the determined service user
+	require.Equal(t, testutil.DexMockConnectorEmail, detUser.Username, "The new user has the same name as dex user")
+
 	repoName := "images"
 	pipelineName := "edges"
+	workspaceName := "pach-test-workspace"
+	// log in as non-admin test user to make and use the new workspace
+	userToken := determinedLogin(t, *detUrl, detUser.Username, detNewUserPassword)
+	determinedCreateWorkspace(t, *detUrl, userToken, workspaceName)
+	previous := determinedGetUsers(t, *detUrl, userToken)
+	// create repo and pipeline that should make the determined service user
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repoName))
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
@@ -173,15 +186,17 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 				Stdin: nil,
 			},
 			ParallelismSpec: nil,
-			Input:           &pps.Input{Pfs: &pps.PFSInput{Glob: "/", Repo: repoName}},
+			Input:           &pps.Input{Pfs: &pps.PFSInput{Glob: "/", Repo: repoName}}, // DNJ TODO - output token in pipeline and confirm existence after
 			OutputBranch:    "master",
 			Update:          false,
 			Determined: &pps.Determined{
-				Workspaces: []string{"pach-test-workspace"},
+				Workspaces: []string{workspaceName},
 			},
 		},
 	)
 	require.NoError(t, err)
+	current := determinedGetUsers(t, *detUrl, userToken)
+	require.Equal(t, len(*previous.Users)+1, len(*current.Users), "the new pipeline has created an additional service user in Determined")
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
@@ -243,18 +258,23 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	}, 5*time.Second, "Attempting login through mock IDP")
 }
 
-func determinedLogin(t testing.TB, detUrl url.URL) string {
+func determinedLogin(t testing.TB, detUrl url.URL, username string, password string) string {
 	detUrl.Path = detLoginPath
-	req, err := http.NewRequest("POST", detUrl.String(), strings.NewReader(`{"username":"admin","password":""}`))
+	req, err := http.NewRequest(
+		"POST",
+		detUrl.String(),
+		strings.NewReader(fmt.Sprintf(`{"username":"%s","password":"%s"}`, username, password)),
+	)
 	require.NoError(t, err, "Creating Determined login request")
 
-	hc := &http.Client{Timeout: 15 * time.Second}
+	hc := testutil.NewLoggingHTTPClient(t)
+	hc.Timeout = 15 * time.Second
 	var resp *http.Response
 	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
 		resp, err = hc.Do(req)
 		return errors.EnsureStack(err)
 	}, 5*time.Second, "Attempting to log into determined")
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined login")
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err, "Reading Determined login")
@@ -274,31 +294,78 @@ func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *Deter
 			Admin:       false,
 			Active:      true,
 			DisplayName: testutil.DexMockConnectorEmail,
-			Password:    "password",
-			IsHashed:    false,
 		},
+		Password: detNewUserPassword,
+		IsHashed: false,
 	}
 	userJson, err := json.Marshal(userReq)
 	require.NoError(t, err, "Marshal determined user json")
 	detUrl.Path = detUserPath
 	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(userJson)) // DNJ TODO maybe refactor and combine with login call marshal/unmarshal instead of repeating code
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
-	require.NoError(t, err, "Creating Determined user request")
+	require.NoError(t, err, "Creating Determined create user request")
 
-	hc := &http.Client{Timeout: 15 * time.Second}
+	hc := testutil.NewLoggingHTTPClient(t)
+	hc.Timeout = 15 * time.Second
 	var resp *http.Response
 	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
 		resp, err = hc.Do(req)
 		return errors.EnsureStack(err)
 	}, 5*time.Second, "Attempting to create determined user")
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined user creation")
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err, "Reading Determined user creation response")
 	userResponse := &DeterminedUserBody{}
-	t.Logf("DNJ TODO %v", string(body))
 	err = json.Unmarshal(body, userResponse)
-	require.NoError(t, err, "Parsing Determined user create")
+	require.NoError(t, err, "Parsing Determined user create", string(body))
 	return userResponse.User
+}
+
+func determinedGetUsers(t testing.TB, detUrl url.URL, authToken string) *DeterminedUserList {
+	detUrl.Path = detUserPath
+	req, err := http.NewRequest("GET", detUrl.String(), strings.NewReader("{}")) // DNJ TODO maybe refactor and combine with login call marshal/unmarshal instead of repeating code
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	require.NoError(t, err, "Creating Determined get users request")
+
+	hc := testutil.NewLoggingHTTPClient(t)
+	hc.Timeout = 15 * time.Second
+	var resp *http.Response
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+		resp, err = hc.Do(req)
+		return errors.EnsureStack(err)
+	}, 5*time.Second, "Attempting to get determined users")
+	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined user list")
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "Reading Determined user list response")
+	userResponse := &DeterminedUserList{}
+	err = json.Unmarshal(body, userResponse)
+	require.NoError(t, err, "Parsing Determined user list", string(body))
+	return userResponse
+}
+
+func determinedCreateWorkspace(t testing.TB, detUrl url.URL, authToken string, workspace string) {
+	workspaceReq := struct {
+		Name string `json:"name"`
+	}{
+		Name: workspace,
+	}
+	workspaceJson, err := json.Marshal(workspaceReq)
+	require.NoError(t, err, "Marshal determined workspace json")
+	detUrl.Path = detWorkspacePath
+	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(workspaceJson)) // DNJ TODO maybe refactor and combine with login call marshal/unmarshal instead of repeating code
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	require.NoError(t, err, "Creating Determined create workspace request")
+	hc := testutil.NewLoggingHTTPClient(t)
+	hc.Timeout = 15 * time.Second
+	var resp *http.Response
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+		resp, err = hc.Do(req)
+		return errors.EnsureStack(err)
+	}, 5*time.Second, "Attempting to create determined workspace")
+
+	require.Equal(t, 200, resp.StatusCode, "Checking response code for workspace creation")
+	_, err = io.ReadAll(resp.Body)
+	require.NoError(t, err, "Reading Determined workspace creation response")
 }
 
 func determinedBaseUrl(t testing.TB, namespace string) *url.URL {
