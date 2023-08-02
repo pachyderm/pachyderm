@@ -8,6 +8,7 @@ import {
   JobState,
   NodeState,
   JobSetsQuery,
+  mockJobQuery,
 } from '@graphqlTypes';
 import merge from 'lodash/merge';
 
@@ -220,6 +221,15 @@ export const mockGetEdgesJobs = () =>
           hasNextPage: false,
           __typename: 'PageableJob',
         },
+      }),
+    );
+  });
+
+export const mockGetMontageJob_5C = () =>
+  mockJobQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        job: MONTAGE_JOB_5C,
       }),
     );
   });
