@@ -1099,7 +1099,7 @@ jobs:
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Build Docker image
-          command: docker build -t pachyderm/notebooks-user-transformers:$CIRCLE_SHA1 -f Dockerfile.transformers
+          command: docker build -t pachyderm/notebooks-user-transformers:$CIRCLE_SHA1 -f Dockerfile.transformers .
       - run:
           name: Docker push
           command: docker push pachyderm/notebooks-user-transformers:$CIRCLE_SHA1
