@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"path"
 	"time"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -93,6 +93,7 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
+	log.Info(ctx, fmt.Sprintf("event: %+v", ev))
 	if ev.Error != nil {
 		return ev.Error
 	}
@@ -196,13 +197,28 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}
-				return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
-					event := &postgres.Event{
-						EventType:  postgres.EventInsert,
-						NaturalKey: fmt.Sprintf("%s/%s.%s", repo.Repo.Project, repo.Repo.Name, repo.Repo.Type),
+				dummyID := pachsql.ID(0)
+				id := &dummyID
+				var repoInfo *pfs.RepoInfo
+				for {
+					if err := iter.NextWithID(ctx, id, &repoInfo); err != nil {
+						if stream.IsEOS(err) {
+							break
+						}
+						return errors.Wrap(err, "listing repo by ID")
 					}
-					return d.manageRepos(ctx, ring, repos, event)
-				}), "create event for each repo")
+					if uint64(*id) == 0 {
+						return errors.New("repo id should not be 0")
+					}
+					event := &postgres.Event{
+						Id:        uint64(*id),
+						EventType: postgres.EventInsert,
+					}
+					if err := d.manageRepos(ctx, ring, repos, event); err != nil {
+						return errors.Wrap(err, "manage repos for existing entries")
+					}
+				}
+				return nil
 			}); err != nil {
 				return errors.Wrap(err, "list repos")
 			}

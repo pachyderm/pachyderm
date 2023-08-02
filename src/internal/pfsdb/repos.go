@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strconv"
 	"strings"
@@ -113,6 +114,33 @@ type repoRow struct {
 	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
 	// Each entry is prefixed with '//x' and entries are delimited by a ','
 	Branches string `db:"branches"`
+}
+
+// NextWithID is like Next, but populates the 'id' and 'dst' parameters each iteration where 'id' is a pointer to the row ID and dst is the repoInfo.
+func (iter *RepoIterator) NextWithID(ctx context.Context, id *pachsql.ID, dst **pfs.RepoInfo) error {
+	if dst == nil {
+		return errors.Wrap(fmt.Errorf("repo is nil"), "get next repo")
+	}
+	var err error
+	if iter.index >= len(iter.repos) {
+		iter.index = 0
+		iter.offset += iter.limit
+		iter.repos, err = listRepoPage(ctx, iter.tx, iter.limit, iter.offset, iter.where, iter.whereVal)
+		if err != nil {
+			return errors.Wrap(err, "list repo page")
+		}
+		if len(iter.repos) == 0 {
+			return stream.EOS()
+		}
+	}
+	row := iter.repos[iter.index]
+	*dst, err = getRepoFromRepoRow(ctx, iter.tx, &row)
+	*id = pachsql.ID(row.ID)
+	if err != nil {
+		return errors.Wrap(err, "getting repoInfo from repo row")
+	}
+	iter.index++
+	return nil
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
@@ -251,6 +279,10 @@ func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName
 // todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
 // GetRepo retrieves an entry from the pfs.repos table by using the row id.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
+	if id == 0 {
+		return nil, errors.New("invalid id: 0")
+	}
+	log.Info(ctx, fmt.Sprintf("get id :%d", id))
 	row := &repoRow{}
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id;", getRepoAndBranches), id).StructScan(row)
 	if err != nil {
