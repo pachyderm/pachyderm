@@ -10816,12 +10816,12 @@ func TestMoveBranchTrigger(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", ""), "foo", strings.NewReader("bar")))
-	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-
 	// create the trigger source branch
+	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
 	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
+	require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "toMove", ""), "foo", strings.NewReader("bar")))
+	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, dataRepo, "toMove", "")
+	require.NoError(t, err)
 	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
