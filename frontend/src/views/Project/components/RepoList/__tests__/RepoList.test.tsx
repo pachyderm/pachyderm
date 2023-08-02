@@ -31,7 +31,7 @@ describe('Repo List', () => {
   });
 
   beforeEach(() => {
-    window.history.replaceState('', '', '/project/ProjectA/repos');
+    window.history.replaceState('', '', '/project/default/repos');
   });
 
   afterAll(() => server.close());
@@ -136,7 +136,7 @@ describe('Repo List', () => {
     );
 
     expect(window.location.pathname).toBe(
-      '/project/ProjectA/repos/montage/branch/master/commit/544e62c9a16f4a0aa995eb993ded1e52/',
+      '/project/default/repos/montage/branch/master/commit/544e62c9a16f4a0aa995eb993ded1e52/',
     );
   });
 
@@ -150,7 +150,7 @@ describe('Repo List', () => {
       }),
     );
 
-    expect(window.location.pathname).toBe('/lineage/ProjectA/repos/montage');
+    expect(window.location.pathname).toBe('/lineage/default/repos/montage');
   });
 
   describe('with repo edit permission', () => {
@@ -174,7 +174,7 @@ describe('Repo List', () => {
 
       expect(
         within(modal).getByRole('heading', {
-          name: 'Set Repo Level Roles: ProjectA/montage',
+          name: 'Set Repo Level Roles: default/montage',
         }),
       ).toBeInTheDocument();
     });

@@ -252,11 +252,6 @@ export const mockGetAllJobs = () =>
     );
   });
 
-export const mockJobsByPipeline = () =>
-  mockJobsByPipelineQuery((_req, res, ctx) => {
-    return res(ctx.data({jobsByPipeline: ALL_JOBS}));
-  });
-
 export const MOCK_EMPTY_JOBSETS: JobSetsQuery = {
   jobSets: {
     items: [],

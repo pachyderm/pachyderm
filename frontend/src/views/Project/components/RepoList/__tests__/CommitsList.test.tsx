@@ -34,7 +34,7 @@ describe('Repo Commits List', () => {
     window.history.replaceState(
       '',
       '',
-      '/project/ProjectA/repos/commits?selectedRepos=images',
+      '/project/default/repos/commits?selectedRepos=images',
     );
   });
 
@@ -66,7 +66,7 @@ describe('Repo Commits List', () => {
     await click((await screen.findAllByText('Inspect commit'))[2]);
 
     expect(window.location.pathname).toBe(
-      '/project/ProjectA/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/',
+      '/project/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/',
     );
   });
 
