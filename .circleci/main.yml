@@ -1138,7 +1138,6 @@ jobs:
           name: echo bins
           command: |
             ls -la /tmp/workspace/dist-pach/*
-            ls -la /tmp/workspace/cr-release-packages/*
       - run:
           name: "test aws examples"
           command: |
