@@ -236,7 +236,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 3, len(commitInfo.DirectProvenance))
 			for _, p := range commitInfo.DirectProvenance {
-				if strings.HasSuffix(p.Repo.Name, ".spec") { // spec commit should be in a different commit set
+				if p.Repo.Type == pfs.SpecRepoType { // spec commit should be in a different commit set
 					require.NotEqual(t, commitInfo.Commit.Id, p.Id, "commit %q with provenance %q", commitInfo.Commit.String(), p.String())
 				} else {
 					require.Equal(t, commitInfo.Commit.Id, p.Id, "commit %q with provenance %q", commitInfo.Commit.String(), p.String())
@@ -260,6 +260,12 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
+			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+				if resp.Error != "" {
+					return errors.Errorf(resp.Error)
+				}
+				return nil
+			}))
 		},
 	)
 }
@@ -343,6 +349,12 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 				require.Equal(t, strings.Repeat(f, 4), buf.String()) // repeats 4 times because we concatenated twice
 				buf.Reset()
 			}
+			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+				if resp.Error != "" {
+					return errors.Errorf(resp.Error)
+				}
+				return nil
+			}))
 		})
 }
 
@@ -404,6 +416,12 @@ validator:
 			t.Log("after upgrade: load test done")
 			require.NoError(t, err)
 			require.Equal(t, "", resp.Error)
+			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+				if resp.Error != "" {
+					return errors.Errorf(resp.Error)
+				}
+				return nil
+			}))
 		},
 	)
 }
