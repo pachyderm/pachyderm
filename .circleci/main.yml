@@ -480,6 +480,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
+      TEST_ENV: << parameters.env >>
       BUCKET: << parameters.bucket >>
       GOOGLE_PROJECT_ID: build-release-001
       GOOGLE_COMPUTE_ZONE: us-east1-b
