@@ -16,21 +16,19 @@ export const MOCK_EMPTY_DATUMS: DatumsQuery = {
   },
 };
 
-const DATUM_DEFAULT = {
-  id: 'default',
-  requestedJobId: 'default',
-  state: DatumState.SUCCESS,
-  jobId: null,
-  downloadTimestamp: null,
-  uploadTimestamp: null,
-  processTimestamp: null,
-  downloadBytes: null,
-  uploadBytes: null,
-  __typename: 'Datum',
-};
-
 export const buildDatum = (datum: Partial<Datum>): Datum => {
-  const defaultDatum = {...DATUM_DEFAULT};
+  const defaultDatum = {
+    id: 'default',
+    requestedJobId: 'default',
+    state: DatumState.SUCCESS,
+    jobId: null,
+    downloadTimestamp: null,
+    uploadTimestamp: null,
+    processTimestamp: null,
+    downloadBytes: null,
+    uploadBytes: null,
+    __typename: 'Datum',
+  };
   return merge(defaultDatum, datum);
 };
 
@@ -45,12 +43,12 @@ export const JOB_5C_DATUM_05: Datum = buildDatum({
   requestedJobId: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
   state: DatumState.SUCCESS,
   downloadTimestamp: {
-    seconds: 0,
+    seconds: 2,
     nanos: 1469709,
     __typename: 'Timestamp',
   },
   uploadTimestamp: {
-    seconds: 0,
+    seconds: 3,
     nanos: 791625,
     __typename: 'Timestamp',
   },
@@ -59,8 +57,8 @@ export const JOB_5C_DATUM_05: Datum = buildDatum({
     nanos: 55435418,
     __typename: 'Timestamp',
   },
-  downloadBytes: 17,
-  uploadBytes: 17,
+  downloadBytes: 1000,
+  uploadBytes: 3000,
   __typename: 'Datum',
 });
 
@@ -112,7 +110,7 @@ const JOB_5C_DATUM_6F: Datum = buildDatum({
 
 const JOB_5C_DATUM_CH: Datum = buildDatum({
   id: 'ch3db37fa4594a00ebf1dc972f81b58de642cd0cfca811e1b5bd6a2bb292a8e0',
-  jobId: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
+  jobId: '14291af7da4a4143b8ae12eba16d4661',
   requestedJobId: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
   state: DatumState.SKIPPED,
   downloadTimestamp: {
@@ -126,7 +124,7 @@ const JOB_5C_DATUM_CH: Datum = buildDatum({
     __typename: 'Timestamp',
   },
   processTimestamp: {
-    seconds: 0,
+    seconds: 2,
     nanos: 532379792,
     __typename: 'Timestamp',
   },
@@ -161,6 +159,15 @@ export const mockGetJob5CDatum05 = () =>
     return res(
       ctx.data({
         datum: JOB_5C_DATUM_05,
+      }),
+    );
+  });
+
+export const mockGetJob5CDatumCH = () =>
+  mockDatumQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        datum: JOB_5C_DATUM_CH,
       }),
     );
   });

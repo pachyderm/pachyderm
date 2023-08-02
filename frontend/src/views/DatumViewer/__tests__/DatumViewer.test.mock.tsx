@@ -1,28 +1,20 @@
 import {
   render,
   waitFor,
-  within,
   screen,
   waitForElementToBeRemoved,
 } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import {useClipboardCopy} from '@dash-frontend/../components/src';
 import useDownloadText from '@dash-frontend/hooks/useDownloadText';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
-import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
+import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import {default as MiddleSectionComponent} from '../components/MiddleSection';
-import {
-  PipelineDatumViewer as PipelineDatumViewerComponent,
-  JobDatumViewer as JobDatumViewerComponent,
-} from '../DatumViewer';
+import {PipelineDatumViewer as PipelineDatumViewerComponent} from '../DatumViewer';
 const PipelineDatumViewer = withContextProviders(() => {
   return <PipelineDatumViewerComponent />;
-});
-const JobDatumViewer = withContextProviders(() => {
-  return <JobDatumViewerComponent />;
 });
 
 const MiddleSection = withContextProviders(() => {
@@ -71,130 +63,6 @@ mockUseDownloadText.mockReturnValue({
 });
 
 describe('Datum Viewer', () => {
-  describe('on close', () => {
-    it('should route user back to pipeline view on close', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs',
-      );
-      render(<PipelineDatumViewer />);
-
-      await click(await screen.findByTestId('SidePanel__closeModal'));
-
-      await waitFor(() =>
-        expect(window.location.pathname).toBe(
-          '/lineage/Solar-Panel-Data-Sorting/pipelines/montage',
-        ),
-      );
-    });
-
-    it('should route user back to job view on close', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
-      );
-
-      render(<JobDatumViewer />);
-
-      await click(await screen.findByTestId('SidePanel__closeModal'));
-
-      await waitFor(() =>
-        expect(window.location.pathname).toBe(
-          '/project/Solar-Panel-Data-Sorting/jobs/subjobs',
-        ),
-      );
-    });
-  });
-
-  describe('Right Panel', () => {
-    it('should render datum details', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
-      );
-
-      render(<JobDatumViewer />);
-
-      expect(await screen.findByText('Success')).toBeVisible();
-
-      const runtimeDropDown = await screen.findByText('6 s');
-      expect(runtimeDropDown).toBeVisible();
-
-      userEvent.click(runtimeDropDown);
-
-      expect(await screen.findByText('1 s')).toBeVisible();
-      expect(await screen.findByText('1 kB')).toBeVisible();
-      expect(await screen.findByText('3 s')).toBeVisible();
-      expect(await screen.findByText('2 s')).toBeVisible();
-      expect(await screen.findByText('2 kB')).toBeVisible();
-    });
-
-    it('should render the root key of input spec', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
-      );
-
-      render(<JobDatumViewer />);
-
-      const codeSpec = await screen.findByTestId(
-        'ConfigFilePreview__codeElement',
-      );
-      expect(
-        await within(codeSpec).findAllByText((node) => node.includes('edges')),
-      ).toHaveLength(2); // Allow code element to load
-      await waitFor(() => document.querySelectorAll('.cm-cursor-primary')); // wait for cursor to appear
-
-      expect(codeSpec).toMatchSnapshot();
-    });
-
-    it('should render N/A when the runtime data is not available', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
-      );
-
-      render(<JobDatumViewer />);
-
-      const runtimeDropDown = await screen.findByText('N/A');
-      expect(runtimeDropDown).toBeVisible();
-
-      userEvent.click(runtimeDropDown);
-
-      await screen.findByText('Download'); // Allow dropdown to finish loading
-      expect(await screen.findAllByText('N/A')).toHaveLength(4);
-    });
-
-    it('should render a skipped datums details', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/1112b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
-      );
-
-      render(<JobDatumViewer />);
-
-      expect(await screen.findByText('Skipped')).toBeVisible();
-      expect(
-        await screen.findByText(
-          'This datum has been successfully processed in a previous job, has not changed since then, and therefore, it was skipped in the current job.',
-        ),
-      ).toBeVisible();
-      expect(await screen.findByText('Previous Job')).toBeVisible();
-      expect(
-        await screen.findByText(
-          '2222b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
-        ),
-      ).toBeVisible();
-      expect(await screen.findByText('6 s')).toBeVisible();
-    });
-  });
-
   describe('Logs Viewer', () => {
     beforeEach(() => {
       window.history.replaceState(

@@ -477,7 +477,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                "Solar-Panel-Data-Sorting"
+                "default"
               </span>
               ,
             </div>
@@ -494,7 +494,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                "edges"
+                "images"
               </span>
               ,
             </div>
@@ -511,7 +511,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                "edges"
+                "images"
               </span>
               ,
             </div>
@@ -528,7 +528,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                ""
+                "user"
               </span>
               ,
             </div>
@@ -562,7 +562,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                ""
+                "5c1aa9bc87dd411ba5a1be0c80a3ebc2"
               </span>
               ,
             </div>
@@ -579,7 +579,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                ""
+                "/"
               </span>
               ,
             </div>
@@ -832,7 +832,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                "Solar-Panel-Data-Sorting"
+                "default"
               </span>
               ,
             </div>
@@ -849,7 +849,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                "images"
+                "edges"
               </span>
               ,
             </div>
@@ -866,7 +866,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                "images"
+                "edges"
               </span>
               ,
             </div>
@@ -883,7 +883,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                ""
+                "user"
               </span>
               ,
             </div>
@@ -917,7 +917,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                ""
+                "5c1aa9bc87dd411ba5a1be0c80a3ebc2"
               </span>
               ,
             </div>
@@ -934,7 +934,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               <span
                 class="ͼu"
               >
-                ""
+                "/"
               </span>
               ,
             </div>

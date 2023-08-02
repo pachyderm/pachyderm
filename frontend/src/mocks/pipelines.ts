@@ -9,32 +9,30 @@ import {
 } from '@graphqlTypes';
 import merge from 'lodash/merge';
 
-const PIPELINE_DEFAULT = {
-  id: 'default',
-  name: 'default',
-  description: '',
-  version: 0,
-  createdAt: 0,
-  state: PipelineState.PIPELINE_STANDBY,
-  nodeState: NodeState.SUCCESS,
-  stopped: false,
-  type: PipelineType.STANDARD,
-  datumTries: 0,
-  outputBranch: 'master',
-  egress: false,
-  jsonSpec: '{}',
-  recentError: '',
-  lastJobState: 'JOB_CREATED',
-  lastJobNodeState: 'RUNNING',
-  datumTimeoutS: null,
-  jobTimeoutS: null,
-  s3OutputRepo: null,
-  reason: null,
-  __typename: 'Pipeline',
-};
-
 export const buildPipeline = (pipeline: Partial<Pipeline>): Pipeline => {
-  const defaultPipeline = {...PIPELINE_DEFAULT};
+  const defaultPipeline = {
+    id: 'default',
+    name: 'default',
+    description: '',
+    version: 0,
+    createdAt: 0,
+    state: PipelineState.PIPELINE_STANDBY,
+    nodeState: NodeState.SUCCESS,
+    stopped: false,
+    type: PipelineType.STANDARD,
+    datumTries: 0,
+    outputBranch: 'master',
+    egress: false,
+    jsonSpec: '{}',
+    recentError: '',
+    lastJobState: 'JOB_CREATED',
+    lastJobNodeState: 'RUNNING',
+    datumTimeoutS: null,
+    jobTimeoutS: null,
+    s3OutputRepo: null,
+    reason: null,
+    __typename: 'Pipeline',
+  };
   return merge(defaultPipeline, pipeline);
 };
 

@@ -1,5 +1,4 @@
 import {
-  mockJobsByPipelineQuery,
   mockJobsQuery,
   mockJobSetsQuery,
   JobsQuery,
@@ -12,51 +11,47 @@ import {
 } from '@graphqlTypes';
 import merge from 'lodash/merge';
 
-const JOB_DEFAULT = {
-  id: 'default',
-  state: JobState.JOB_SUCCESS,
-  nodeState: NodeState.SUCCESS,
-  pipelineName: 'default',
-  restarts: 0,
-  dataProcessed: 0,
-  dataSkipped: 0,
-  dataFailed: 0,
-  dataTotal: 0,
-  dataRecovered: 0,
-  downloadBytesDisplay: '0 B',
-  uploadBytesDisplay: '0 B',
-  jsonDetails: '{}',
-  createdAt: null,
-  startedAt: null,
-  finishedAt: null,
-  reason: '',
-  outputCommit: null,
-  inputString: null,
-  inputBranch: null,
-  outputBranch: 'master',
-  transformString: null,
-  transform: null,
-  __typename: 'Job',
-};
-
-const JOBSET_DEFAULT = {
-  id: 'default',
-  createdAt: null,
-  startedAt: null,
-  finishedAt: null,
-  inProgress: false,
-  jobs: [],
-  state: JobState.JOB_SUCCESS,
-  __typename: 'JobSet',
-};
-
 export const buildJob = (job: Partial<Job>): Job => {
-  const defaultJob = {...JOB_DEFAULT};
+  const defaultJob = {
+    id: 'default',
+    state: JobState.JOB_SUCCESS,
+    nodeState: NodeState.SUCCESS,
+    pipelineName: 'default',
+    restarts: 0,
+    dataProcessed: 0,
+    dataSkipped: 0,
+    dataFailed: 0,
+    dataTotal: 0,
+    dataRecovered: 0,
+    downloadBytesDisplay: '0 B',
+    uploadBytesDisplay: '0 B',
+    jsonDetails: '{}',
+    createdAt: null,
+    startedAt: null,
+    finishedAt: null,
+    reason: '',
+    outputCommit: null,
+    inputString: null,
+    inputBranch: null,
+    outputBranch: 'master',
+    transformString: null,
+    transform: null,
+    __typename: 'Job',
+  };
   return merge(defaultJob, job);
 };
 
 export const buildJobSet = (jobset: Partial<JobSet>): JobSet => {
-  const defaultJobSet = {...JOBSET_DEFAULT};
+  const defaultJobSet = {
+    id: 'default',
+    createdAt: null,
+    startedAt: null,
+    finishedAt: null,
+    inProgress: false,
+    jobs: [],
+    state: JobState.JOB_SUCCESS,
+    __typename: 'JobSet',
+  };
   return merge(defaultJobSet, jobset);
 };
 
@@ -108,6 +103,8 @@ const MONTAGE_JOB_5C: Job = buildJob({
   dataTotal: 1,
   jsonDetails:
     '{\n  "pipelineVersion": 1,\n  "dataTotal": 1,\n  "stats": {\n    "downloadTime": {\n      "nanos": 35472750\n    },\n    "processTime": {\n      "seconds": 1,\n      "nanos": 998646751\n    },\n    "uploadTime": {\n      "nanos": 16216500\n    },\n    "downloadBytes": 380904,\n    "uploadBytes": 1411691\n  }\n}',
+  inputString:
+    '{\n  "join": [],\n  "group": [],\n  "cross": [\n    {\n      "pfs": {\n        "project": "default",\n        "name": "images",\n        "repo": "images",\n        "repoType": "user",\n        "branch": "master",\n        "commit": "5c1aa9bc87dd411ba5a1be0c80a3ebc2",\n        "glob": "/",\n        "joinOn": "",\n        "outerJoin": false,\n        "groupBy": "",\n        "lazy": false,\n        "emptyFiles": false,\n        "s3": false\n      },\n      "join": [],\n      "group": [],\n      "cross": [],\n      "union": []\n    },\n    {\n      "pfs": {\n        "project": "default",\n        "name": "edges",\n        "repo": "edges",\n        "repoType": "user",\n        "branch": "master",\n        "commit": "5c1aa9bc87dd411ba5a1be0c80a3ebc2",\n        "glob": "/",\n        "joinOn": "",\n        "outerJoin": false,\n        "groupBy": "",\n        "lazy": false,\n        "emptyFiles": false,\n        "s3": false\n      },\n      "join": [],\n      "group": [],\n      "cross": [],\n      "union": []\n    }\n  ],\n  "union": []\n}',
 });
 
 const MONTAGE_JOB_BC: Job = buildJob({
