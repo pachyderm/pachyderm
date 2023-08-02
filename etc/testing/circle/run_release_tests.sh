@@ -50,56 +50,62 @@ popd
 pachctl delete pipeline --all
 pachctl delete repo --all
 
-wget --directory-prefix=./data/ https://www.researchgate.net/profile/Pekka-Malo/publication/251231364_FinancialPhraseBank-v10/data/0c96051eee4fb1d56e000000/FinancialPhraseBank-v10.zip
-unzip -o data/FinancialPhraseBank-v10.zip
+pushd examples/shuffle
+    pachctl create repo fruits
+    pachctl create repo pricing
+    pachctl create pipeline -f shuffle.json
+    pachctl put file fruits@master -f mango.jpeg
+    pachctl put file fruits@master -f apple.jpeg
+    pachctl put file pricing@master -f mango.json
+    pachctl put file pricing@master -f apple.json
 
-# Upload the Financial Phrase Bank data
-pachctl create repo financial_phrase_bank
-pachctl put file financial_phrase_bank@master:/Sentences_50Agree.txt -f data/FinancialPhraseBank-v1.0/Sentences_50Agree.txt
+    # wait for everything to finish
+    pachctl wait commit "shuffle@master"
 
-# Download the pre-trained BERT language model
-./download_model.sh
+    # check downloaded and uploaded bytes
+    downloaded_bytes=$(pachctl list job -p shuffle --raw | jq '.stats.download_bytes | values')
+    if [ "$downloaded_bytes" != "" ]; then
+        echo "Unexpected downloaded bytes in shuffle repo: $downloaded_bytes"
+        exit 1
+    fi
 
-# Upload the language model to Pachyderm
-pachctl create repo language_model
-cd models/finbertTCR2/; pachctl put file -r language_model@master -f ./; cd ../../
+    uploaded_bytes=$(pachctl list job -p shuffle --raw | jq '.stats.upload_bytes | values')
+    if [ "$uploaded_bytes" != "" ]; then
+        echo "Unexpected downloaded bytes in shuffle repo: $uploaded_bytes"
+        exit 1
+    fi
 
-# Set up labeled_data repo for labeling production data later
-pachctl create repo labeled_data
-pachctl start commit labeled_data@master; pachctl finish commit labeled_data@master
-
-# Deploy the dataset creation pipeline
-pachctl create pipeline -f pachyderm/dataset.json
-
-# Deploy the training pipeline
-pachctl create pipeline -f pachyderm/train_model.json
-
-# (Optional) Use a sentiment word list to visualize the current dataset
-pachctl create repo sentiment_words
-pachctl put file sentiment_words@master:/LoughranMcDonald_SentimentWordLists_2018.csv -f resources/LoughranMcDonald_SentimentWordLists_2018.csv
-pachctl create pipeline -f pachyderm/visualizations.json
-
-# Tag our current dataset as branch v1 (easy to referr to later on)
-pachctl create branch financial_phrase_bank@v1 --head master
-
-# Modify the version of Financial Phrase Bank dataset used
-pachctl start commit financial_phrase_bank@master
-pachctl delete file financial_phrase_bank@master:/Sentences_50Agree.txt
-pachctl put file financial_phrase_bank@master:/Sentences_AllAgree.txt -f data/FinancialPhraseBank-v1.0/Sentences_AllAgree.txt
-pachctl finish commit financial_phrase_bank@master
-
-# Version our new dataset
-pachctl create branch financial_phrase_bank@v2 --head master
-
-# Show the diff between the datasets
-pachctl diff file financial_phrase_bank@v2 financial_phrase_bank@v1
-
-# Inspect everything impacted by v1 of our dataset
-pachctl wait commit financial_phrase_bank@v1 --raw
-
-# Download the trained model
-pachctl get file -r train_model@master:/ -o trained_model/
+    # check that the files were made
+    files=$(pachctl glob file "shuffle@master:**" --raw | jq '.file.path' -r)
+    expected_files=$(echo -e "/apple/\n/apple/cost.json\n/apple/img.jpeg\n/mango/\n/mango/cost.json\n/mango/img.jpeg")
+    if [ "$files" != "$expected_files" ]; then
+        echo "Unexpected output files in shuffle repo: $files"
+        exit 1
+    fi
+popd
 
 pachctl delete pipeline --all
 pachctl delete repo --all
 
+pushd examples/word_count/
+    pachctl create repo urls
+
+    pushd data
+        pachctl put file urls@master -f Wikipedia
+    popd
+
+    pushd pipelines
+        pachctl create pipeline -f scraper.json
+        pachctl create pipeline -f map.json
+        pachctl create pipeline -f reduce.json
+    popd
+
+    pachctl wait commit "reduce@master"
+
+    # just make sure we outputted some files that were right
+    license_word_count=$(pachctl get file reduce@master:/license)
+    if [ "$license_word_count" -lt 1 ]; then
+        echo "Unexpected word count in reduce repo"
+        exit 1
+    fi
+popd
