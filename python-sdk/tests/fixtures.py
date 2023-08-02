@@ -77,7 +77,7 @@ class TestClient(_Client):
             #   client requests.
             project = pfs.Project(name="")
 
-        repo = pfs.Repo(name=self._generate_name(), type="user", project=project)
+        repo = pfs.Repo(name=self._generate_name(), project=project)
         self.pfs.delete_repo(repo=repo, force=True)
         self.pfs.create_repo(repo=repo, description=self.id)
         self.pfs.create_branch(branch=pfs.Branch.from_uri(f"{repo}@master"))
@@ -99,7 +99,7 @@ class TestClient(_Client):
         )
         self.pipelines.append(pipeline)
 
-        with self.pfs.commit(branch=pfs.Branch(repo=repo, name="master")) as commit:
+        with self.pfs.commit(branch=pfs.Branch(repo=repo)) as commit:
             commit.put_file_from_bytes(path="file.dat", data=b"DATA")
         commit.wait()
 
