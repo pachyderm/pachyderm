@@ -212,6 +212,15 @@ allClusterUsers:
 {{- if ne .Values.global.repository "" }}
 {{ .Values.global.repository }}:{{ default .Chart.appVersion .Values.pachd.image.tag}}
 {{- else }}
-{{ .Values.pachd.image.repository }}:{{ default .Chart.appVersion .Values.pachd.image.tag}}
+{{/* .Values.pachd.image.repository }}:{{ default .Chart.appVersion .Values.pachd.image.tag*/}}
+{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.pgbouncer.image" -}}
+{{- if ne .Values.global.repository "" }}
+{{ .Values.global.repository }}:{{ default .Chart.appVersion .Values.pachd.image.tag}}
+{{- else }}
+{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}
 {{- end }}
 {{- end }}
