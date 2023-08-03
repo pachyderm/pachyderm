@@ -55,6 +55,102 @@ describe('services/pps', () => {
     return {pachClient, inputRepoName};
   };
 
+  // These are long running tests if there is data in pachyderm. So run these first!
+  describe('listDatums + inspectDatum', () => {
+    it('should inspect a datum for a pipeline job /', async () => {
+      const {pachClient, inputRepoName} = await createSandBox('listDatums');
+      const commit = await pachClient.pfs.startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: inputRepoName}},
+      });
+
+      const fileClient = await pachClient.pfs.modifyFile();
+
+      await fileClient
+        .setCommit(commit)
+        .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
+        .end();
+
+      await pachClient.pfs.finishCommit({projectId: 'default', commit});
+
+      // should inspect a datum for a pipeline job
+      const jobs = await pachClient.pps.listJobs({projectId: 'default'});
+      const jobId = jobs[0]?.job?.id;
+      expect(jobId).toBeDefined();
+
+      await pachClient.pps.inspectJob({
+        id: jobId || '',
+        pipelineName: 'listDatums',
+        wait: true,
+        projectId: '',
+      });
+
+      const datums = await pachClient.pps.listDatums({
+        projectId: 'default',
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+      });
+
+      expect(datums).toHaveLength(1);
+
+      const datum = await pachClient.pps.inspectDatum({
+        projectId: 'default',
+        id: datums[0]?.datum?.id || '',
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+      });
+
+      const datumObject = datum.toObject();
+
+      expect(datumObject.state).toEqual(DatumState.SUCCESS);
+      expect(datumObject.dataList[0]?.file?.path).toBe('/dummyData.csv');
+      expect(datumObject.dataList[0]?.sizeBytes).toBe(5);
+
+      // should list datums for a pipeline job
+      expect(jobId).toBeDefined();
+
+      await pachClient.pps.inspectJob({
+        id: jobId || '',
+        pipelineName: 'listDatums',
+        wait: true,
+        projectId: '',
+      });
+
+      expect(datums).toHaveLength(1);
+      expect(datums[0].state).toEqual(DatumState.SUCCESS);
+      expect(datums[0].dataList[0]?.file?.path).toBe('/dummyData.csv');
+      expect(datums[0].dataList[0]?.sizeBytes).toBe(5);
+
+      // should filter datum list
+      expect(jobId).toBeDefined();
+
+      await pachClient.pps.inspectJob({
+        id: jobId || '',
+        pipelineName: 'listDatums',
+        wait: true,
+        projectId: '',
+      });
+
+      const filteredDatums1 = await pachClient.pps.listDatums({
+        projectId: 'default',
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+        filter: [DatumState.FAILED],
+      });
+
+      expect(filteredDatums1).toHaveLength(0);
+
+      const filteredDatums2 = await pachClient.pps.listDatums({
+        projectId: 'default',
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+        filter: [DatumState.FAILED, DatumState.SUCCESS],
+      });
+
+      expect(filteredDatums2).toHaveLength(1);
+    });
+  });
+
   describe('listPipeline', () => {
     it('should return a list of pipelines in the pachyderm cluster', async () => {
       const {pachClient} = await createSandBox('listPipeline');
@@ -213,142 +309,6 @@ describe('services/pps', () => {
         projectIds: [],
       });
       expect(updatedPipelines).toHaveLength(0);
-    });
-  });
-
-  describe('listDatums + inspectDatum', () => {
-    it('should inspect a datum for a pipeline job', async () => {
-      const {pachClient, inputRepoName} = await createSandBox('listDatums');
-      const commit = await pachClient.pfs.startCommit({
-        projectId: 'default',
-        branch: {name: 'master', repo: {name: inputRepoName}},
-      });
-
-      const fileClient = await pachClient.pfs.modifyFile();
-
-      await fileClient
-        .setCommit(commit)
-        .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
-        .end();
-
-      await pachClient.pfs.finishCommit({projectId: 'default', commit});
-      const jobs = await pachClient.pps.listJobs({projectId: 'default'});
-
-      const jobId = jobs[0]?.job?.id;
-      expect(jobId).toBeDefined();
-
-      await pachClient.pps.inspectJob({
-        id: jobId || '',
-        pipelineName: 'listDatums',
-        wait: true,
-        projectId: '',
-      });
-
-      const datums = await pachClient.pps.listDatums({
-        projectId: 'default',
-        jobId: jobId || '',
-        pipelineName: 'listDatums',
-      });
-
-      expect(datums).toHaveLength(1);
-
-      const datum = await pachClient.pps.inspectDatum({
-        projectId: 'default',
-        id: datums[0]?.datum?.id || '',
-        jobId: jobId || '',
-        pipelineName: 'listDatums',
-      });
-
-      const datumObject = datum.toObject();
-
-      expect(datumObject.state).toEqual(DatumState.SUCCESS);
-      expect(datumObject.dataList[0]?.file?.path).toBe('/dummyData.csv');
-      expect(datumObject.dataList[0]?.sizeBytes).toBe(5);
-    }, 90_000);
-
-    it('should list datums for a pipeline job', async () => {
-      const {pachClient, inputRepoName} = await createSandBox('listDatums');
-      const commit = await pachClient.pfs.startCommit({
-        projectId: 'default',
-        branch: {name: 'master', repo: {name: inputRepoName}},
-      });
-
-      const fileClient = await pachClient.pfs.modifyFile();
-
-      await fileClient
-        .setCommit(commit)
-        .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
-        .end();
-
-      await pachClient.pfs.finishCommit({projectId: 'default', commit});
-      const jobs = await pachClient.pps.listJobs({projectId: 'default'});
-
-      const jobId = jobs[0]?.job?.id;
-      expect(jobId).toBeDefined();
-
-      await pachClient.pps.inspectJob({
-        id: jobId || '',
-        pipelineName: 'listDatums',
-        wait: true,
-        projectId: '',
-      });
-
-      const datums = await pachClient.pps.listDatums({
-        projectId: 'default',
-        jobId: jobId || '',
-        pipelineName: 'listDatums',
-      });
-
-      expect(datums).toHaveLength(1);
-      expect(datums[0].state).toEqual(DatumState.SUCCESS);
-      expect(datums[0].dataList[0]?.file?.path).toBe('/dummyData.csv');
-      expect(datums[0].dataList[0]?.sizeBytes).toBe(5);
-    }, 90_000);
-
-    it('should filter datum list', async () => {
-      const {pachClient, inputRepoName} = await createSandBox('listDatums');
-      const commit = await pachClient.pfs.startCommit({
-        projectId: 'default',
-        branch: {name: 'master', repo: {name: inputRepoName}},
-      });
-
-      const fileClient = await pachClient.pfs.modifyFile();
-
-      await fileClient
-        .setCommit(commit)
-        .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
-        .end();
-
-      await pachClient.pfs.finishCommit({projectId: 'default', commit});
-      const jobs = await pachClient.pps.listJobs({projectId: 'default'});
-
-      const jobId = jobs[0]?.job?.id;
-      expect(jobId).toBeDefined();
-
-      await pachClient.pps.inspectJob({
-        id: jobId || '',
-        pipelineName: 'listDatums',
-        wait: true,
-        projectId: '',
-      });
-
-      let datums = await pachClient.pps.listDatums({
-        projectId: 'default',
-        jobId: jobId || '',
-        pipelineName: 'listDatums',
-        filter: [DatumState.FAILED],
-      });
-
-      expect(datums).toHaveLength(0);
-
-      datums = await pachClient.pps.listDatums({
-        projectId: 'default',
-        jobId: jobId || '',
-        pipelineName: 'listDatums',
-        filter: [DatumState.FAILED, DatumState.SUCCESS],
-      });
-
-      expect(datums).toHaveLength(1);
     });
   });
 });
