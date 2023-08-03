@@ -207,3 +207,11 @@ allClusterUsers:
 - projectCreator
 {{- end }}
 {{- end }}
+
+{{- define "pachyderm.pachd.image" -}}
+{{- if ne .Values.global.repository "" }}
+{{ .Values.global.repository }}:{{ default .Chart.appVersion .Values.pachd.image.tag}}
+{{- else }}
+{{ .Values.pachd.image.repository }}:{{ default .Chart.appVersion .Values.pachd.image.tag}}
+{{- end }}
+{{- end }}
