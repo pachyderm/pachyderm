@@ -207,7 +207,7 @@ message DeleteRepoRequest {
 // DeleteRepoResponse returns the repos that were deleted by a DeleteRepo call.
 message DeleteRepoResponse {
   // The repos that were deleted, perhaps none.
-  repeated Repo deleted_repos = 1;
+  Repo deleted_repos = 1;
 }
 
 // DeleteReposRequest is used to delete more than one repo at once.
