@@ -462,6 +462,167 @@ class ApiStub(_GeneratedApiStub):
             commit=commit, path=path, file=io.BytesIO(data), append=append
         )
 
+    @transaction_incompatible
+    def put_file_from_url(
+            self,
+            *,
+            commit: "Commit",
+            path: str,
+            url: str,
+            recursive: bool = False,
+    ) -> Empty:
+        """Uploads a PFS file from an url.
+
+        Parameters
+        ----------
+        commit : pfs.Commit
+            An open commit to modify.
+        path : str
+            The path in the repo the data will be written to.
+        url : str
+            The URL of the file to put.
+        recursive : bool
+            If true, allows for recursive scraping on some types URLs, for
+            example on s3:// URLs
+
+        Examples
+        --------
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pfs
+        >>> client: Client
+        >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as c:
+        >>>     client.pfs.put_file_from_url(
+        >>>         commit=c, path="/index.html", url="www.pachyderm.com/index.html"
+        >>>     )
+        """
+        operations = [
+            ModifyFileRequest(set_commit=commit),
+            ModifyFileRequest(delete_file=DeleteFile(path=path)),
+            ModifyFileRequest(
+                add_file=AddFile(
+                    path=path, url=AddFileUrlSource(url=url, recursive=recursive)
+                )
+            ),
+        ]
+        return self.modify_file(iter(operations))
+
+    @transaction_incompatible
+    def put_file_from_file(
+            self,
+            *,
+            commit: "Commit",
+            path: str,
+            file: "SupportsRead[bytes]",
+            append: bool = False,
+    ) -> Empty:
+        """Uploads a PFS file from an open file object.
+
+        Parameters
+        ----------
+        commit : pfs.Commit
+            An open commit to modify.
+        path : str
+            The path in the repo the data will be written to.
+        file : SupportsRead[bytes]
+            An open file object to read the data from.
+        append : bool, optional
+            If true, appends the data to the file specified at `path`, if
+            they already exist. Otherwise, overwrites them.
+
+        Examples
+        --------
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pfs
+        >>> client: Client
+        >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as c:
+        >>>     with open("local_file.dat", "rb") as source:
+        >>>         client.pfs.put_file_from_file(
+        >>>             commit=c, path="/index.html", file=source
+        >>>         )
+        """
+        check = file.read(BUFFER_SIZE)
+        if len(check) > 0:
+            if not isinstance(check, bytes):
+                raise TypeError("File must output bytes")
+
+        def file_iterator():
+            if not check:
+                return
+            yield check
+            while True:
+                data = file.read(BUFFER_SIZE)
+                if len(data) == 0:
+                    return
+                yield data
+
+        def operations() -> Iterable[ModifyFileRequest]:
+            yield ModifyFileRequest(set_commit=commit)
+            if not append:
+                yield ModifyFileRequest(delete_file=DeleteFile(path=path))
+            yield ModifyFileRequest(add_file=AddFile(path=path, raw=b""))
+            for data in file_iterator():
+                yield ModifyFileRequest(add_file=AddFile(path=path, raw=data))
+
+        return self.modify_file(operations())
+
+    @transaction_incompatible
+    def copy_file(
+            self, *, commit: "Commit", src: "File", dst: str, append: bool = False
+    ) -> Empty:
+        """Copies a file within PFS
+
+        Parameters
+        ----------
+        commit : pfs.Commit
+            An open commit to modify.
+        src : pfs.File
+            This file to be copied.
+        dst : str
+            The destination of the file, as a string path.
+        append : bool
+            If true, appends the contents of src to dst if it exists.
+            Otherwise, overwrites the file.
+
+        Examples
+        --------
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pfs
+        >>> client: Client
+        >>> source = pfs.File.from_uri("images@master:/file.dat")
+        >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as c:
+        >>>     commit.pfs.copy_file(commit=c, src=source, dst="/copy.dat")
+        """
+        operations = [
+            ModifyFileRequest(set_commit=commit),
+            ModifyFileRequest(copy_file=CopyFile(dst=dst, src=src, append=append)),
+        ]
+        return self.modify_file(iter(operations))
+
+    @transaction_incompatible
+    def delete_file(self, *, commit: "Commit", path: str) -> Empty:
+        """Copies a file within PFS
+
+        Parameters
+        ----------
+        commit : pfs.Commit
+            An open commit to modify.
+        path : str
+            The path of the file to be deleted.
+
+        Examples
+        --------
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pfs
+        >>> client: Client
+        >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as c:
+        >>>     commit.pfs.delete_file(commit=c, path="/file.dat")
+        """
+        operations = [
+            ModifyFileRequest(set_commit=commit),
+            ModifyFileRequest(delete_file=DeleteFile(path=path)),
+        ]
+        return self.modify_file(iter(operations))
+
     def project_exists(self, project: "Project") -> bool:
         """Checks whether a project exists.
 
