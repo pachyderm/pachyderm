@@ -81,9 +81,15 @@ def _Branch_as_uri(self: "Branch") -> str:
     """
     return f"{self.repo.as_uri()}@{self.name}"
 
+def _Branch___post_init__(self: "Branch") -> None:
+    if not self.name:
+        self.name = "master"
+    super(self.__class__, self).__post_init__()
+
 
 Branch.from_uri = _Branch_from_uri
 Branch.as_uri = Branch.__str__ = _Branch_as_uri
+Branch.__post_init__ = _Branch___post_init__
 
 
 def _Commit_from_uri(uri: str) -> Commit:
