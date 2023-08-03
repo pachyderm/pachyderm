@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"go.uber.org/zap"
@@ -839,9 +838,6 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 func (a *apiServer) GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (resp *auth.GetPermissionsResponse, retErr error) {
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
 		return nil, errors.Wrap(err, "cannot get authenticated user")
 	}
 

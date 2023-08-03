@@ -669,9 +669,6 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 		if errors.Is(err, auth.ErrNotActivated) {
 			return pi, nil
 		}
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
 		return nil, status.Errorf(codes.Unknown, "%v: error getting permissions for project %q", err, project)
 	}
 	pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}

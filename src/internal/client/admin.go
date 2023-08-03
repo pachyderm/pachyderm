@@ -5,7 +5,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"google.golang.org/grpc/status"
 )
 
 // InspectCluster retrieves cluster state
@@ -25,9 +24,6 @@ func (c APIClient) InspectClusterWithVersionAndProject(v *versionpb.Version, p *
 		CurrentProject: p,
 	})
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
 		return nil, errors.Wrap(err, "failed to inspect cluster")
 	}
 	return clusterInfo, nil
