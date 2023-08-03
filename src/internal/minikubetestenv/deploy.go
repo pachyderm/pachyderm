@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -449,6 +451,10 @@ func waitForPostgres(t testing.TB, ctx context.Context, kubeClient *kube.Clients
 	waitForLabeledPod(t, ctx, kubeClient, namespace, "app.kubernetes.io/name=postgresql")
 }
 
+func waitForDetermined(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "app=determined-master-pachyderm")
+}
+
 func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, label string) {
 	require.NoError(t, backoff.Retry(func() error {
 		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
@@ -513,6 +519,25 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		}
 		return errors.Errorf("pvcs have yet to be deleted")
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
+}
+
+// returns the Nodeport url for accessing the determined service via REST/HTTP with an empty Path
+func DetNodeportHttpUrl(t testing.TB, namespace string) *url.URL {
+	ctx := context.Background()
+	kube := testutil.GetKubeClient(t)
+	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), metav1.GetOptions{}) // DNJ TODO - should this be in minikubetestenv?
+	detPort := service.Spec.Ports[0].NodePort
+	require.NoError(t, err, "Fininding Determined service")
+	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", metav1.GetOptions{})
+	require.NoError(t, err, "Fininding node for Determined")
+	var detHost string
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == "InternalIP" {
+			detHost = addr.Address
+		}
+	}
+	detUrl := net.FormatURL("http", detHost, int(detPort), "")
+	return detUrl
 }
 
 func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
@@ -655,6 +680,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
 	waitForPostgres(t, ctx, kubeClient, namespace)
+	if opts.Determined {
+
+	}
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}

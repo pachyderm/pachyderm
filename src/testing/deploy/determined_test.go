@@ -22,12 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/net"
 )
 
 const (
-	detLoginPath       = "/api/v1/auth/login" // DNJ TODO don't hardcorde namespace/port? - need to rotate port for parallel?
+	detLoginPath       = "/api/v1/auth/login"
 	detUserPath        = "/api/v1/users"
 	detWorkspacePath   = "/api/v1/workspaces"
 	detNewUserPassword = "test-password"
@@ -62,15 +60,15 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	minikubetestenv.PutNamespace(t, ns)
+	t.Logf("Determined installing in namespace %s", ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
-	time.Sleep(30 * time.Second) // DNJ TODO - wait for determined in deploy
 	// log in and create a non-admin user with the kilgore email from pachyderm
-	detUrl := determinedBaseUrl(t, ns)
+	detUrl := minikubetestenv.DetNodeportHttpUrl(t, ns)
 	authToken := determinedLogin(t, *detUrl, "admin", "")
 	detUser := determinedCreateUser(t, *detUrl, authToken)
 	require.Equal(t, testutil.DexMockConnectorEmail, detUser.Username, "The new user has the same name as dex user")
@@ -89,7 +87,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName),
 			Transform: &pps.Transform{
-				Image: repoName,
+				Image: "pachyderm/opencv:1.0",
 				Cmd:   []string{"python3", "/edges.py"},
 				Stdin: nil,
 			},
@@ -105,6 +103,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	require.NoError(t, err)
 	current := determinedGetUsers(t, *detUrl, userToken)
 	require.Equal(t, len(*previous.Users)+1, len(*current.Users), "the new pipeline has created an additional service user in Determined")
+
 }
 
 func determinedLogin(t testing.TB, detUrl url.URL, username string, password string) string {
@@ -172,10 +171,10 @@ func doDeterminedRequest(t testing.TB, req *http.Request) []byte {
 	hc.Timeout = 15 * time.Second
 	var resp *http.Response
 	var err error
-	require.NoErrorWithinTRetryConstant(t, 120*time.Second, func() error {
+	require.NoErrorWithinTRetryConstant(t, 3*time.Minute, func() error { // DNJ TODO lower time
 		resp, err = hc.Do(req)
 		return errors.EnsureStack(err)
-	}, 5*time.Second, "Attempting to make determined request")
+	}, 10*time.Second, "Attempting to make determined request")
 	require.Equal(t, 200, resp.StatusCode, "Checking response code for Determined request")
 	responseBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err, "Reading Determined API response")
@@ -195,22 +194,4 @@ func determinedCreateWorkspace(t testing.TB, detUrl url.URL, authToken string, w
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	require.NoError(t, err, "Creating Determined create workspace request")
 	_ = doDeterminedRequest(t, req)
-}
-
-func determinedBaseUrl(t testing.TB, namespace string) *url.URL {
-	ctx := context.Background()
-	kube := testutil.GetKubeClient(t)
-	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), v1.GetOptions{}) // DNJ TODO - should this be in minikubetestenv?
-	detPort := service.Spec.Ports[0].NodePort
-	require.NoError(t, err, "Fininding Determined service")
-	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", v1.GetOptions{})
-	require.NoError(t, err, "Fininding node for Determined")
-	var detHost string
-	for _, addr := range node.Status.Addresses {
-		if addr.Type == "InternalIP" {
-			detHost = addr.Address
-		}
-	}
-	detUrl := net.FormatURL("http", detHost, int(detPort), "")
-	return detUrl
 }
