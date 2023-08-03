@@ -32,7 +32,7 @@ func TestWatchRepos(t *testing.T) {
 	// Create a watcher. The Watcher interfaces with the listener and already starts buffering events.
 	dsn := dbutil.GetDSN(dbOpts...)
 	listener := collection.NewPostgresListener(dsn)
-	watcher, err := postgresWatcher.NewWatcher(db, listener, t.Name(), "pfs.repos", postgresWatcher.WithBufferSize(10))
+	watcher, err := postgresWatcher.NewWatcher(db, listener, t.Name(), "pfs_repos", postgresWatcher.WithBufferSize(10))
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -58,7 +58,7 @@ func TestWatchRepos(t *testing.T) {
 	watcher.Close()
 
 	// Error handling for when the channel is blocked.
-	newWatcher, err := postgresWatcher.NewWatcher(db, listener, t.Name(), "pfs.repos", postgresWatcher.WithBufferSize(0))
+	newWatcher, err := postgresWatcher.NewWatcher(db, listener, t.Name(), "pfs_repos", postgresWatcher.WithBufferSize(0))
 	require.NoError(t, err)
 	defer newWatcher.Close()
 
