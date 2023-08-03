@@ -681,7 +681,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
 	waitForPostgres(t, ctx, kubeClient, namespace)
 	if opts.Determined {
-
+		waitForDetermined(t, ctx, kubeClient, namespace)
 	}
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
