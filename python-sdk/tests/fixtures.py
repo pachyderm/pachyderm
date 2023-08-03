@@ -99,7 +99,7 @@ class TestClient(_Client):
         )
         self.pipelines.append(pipeline)
 
-        with self.pfs.commit(branch=pfs.Branch(repo=repo)) as commit:
+        with self.pfs.commit(branch=pfs.Branch(repo=repo, name="master")) as commit:
             commit.put_file_from_bytes(path="file.dat", data=b"DATA")
         commit.wait()
 
