@@ -1,4 +1,4 @@
-package v2_7_0
+package v2_8_0
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/protobuf/proto"
 
+	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -13,7 +14,7 @@ import (
 
 func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo, error) {
 	// First collect all repos from collections.repos
-	var repoColRows []CollectionRecord
+	var repoColRows []v2_7_0.CollectionRecord
 	if err := sqlx.SelectContext(ctx, q, &repoColRows, `SELECT key, proto, createdat, updatedat FROM collections.repos ORDER BY createdat, key ASC`); err != nil {
 		return nil, errors.Wrap(err, "listing repos from collections.repos")
 	}
