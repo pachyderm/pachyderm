@@ -20,7 +20,7 @@ type APIServer interface {
 
 	StopJobInTransaction(*txncontext.TransactionContext, *pps_client.StopJobRequest) error
 	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
-	CreatePipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.CreatePipelineRequest) error
+	CreatePipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.CreatePipelineTransaction) error
 	// InspectPipelineInTransaction returns the pipeline information for a
 	// pipeline.  Note that the pipeline name may include ancestry syntax.
 	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps_client.PipelineInfo, error)

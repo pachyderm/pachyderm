@@ -1155,3 +1155,12 @@ func (x *SetClusterDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
 	return nil
 }
+
+func (x *CreatePipelineTransaction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
+	enc.AddString("user_json", x.UserJson)
+	return nil
+}

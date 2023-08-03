@@ -1178,6 +1178,12 @@ class SetClusterDefaultsResponse(betterproto.Message):
     affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
 
 
+@dataclass(eq=False, repr=False)
+class CreatePipelineTransaction(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+    user_json: str = betterproto.string_field(2)
+
+
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(

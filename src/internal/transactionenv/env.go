@@ -41,7 +41,7 @@ type PfsWrites interface {
 type PpsWrites interface {
 	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest) error
+	CreatePipeline(*pps.CreatePipelineTransaction) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -177,8 +177,8 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return res, errors.EnsureStack(err)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
-	req := proto.Clone(original).(*pps.CreatePipelineRequest)
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineTransaction) error {
+	req := proto.Clone(original).(*pps.CreatePipelineTransaction)
 	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.ctx, t.txnCtx, req))
 }
 
@@ -249,8 +249,8 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return errors.EnsureStack(err)
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineTransaction) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipelineV2: req})
 	return errors.EnsureStack(err)
 }
 
@@ -345,9 +345,12 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 // - in most cases some background job will also be necessary to cleanup resources created here
 func (env *TransactionEnv) PreTxOps(ctx context.Context, reqs []*transaction.TransactionRequest) error {
 	for _, r := range reqs {
-		if r.CreatePipeline != nil {
-			if r.CreatePipeline.Determined != nil {
-				if err := env.serviceEnv.PpsServer().CreateDetPipelineSideEffects(ctx, r.CreatePipeline.Pipeline, r.CreatePipeline.Determined.Workspaces); err != nil {
+		if r.CreatePipelineV2 != nil {
+			if r.CreatePipelineV2.CreatePipelineRequest == nil {
+				return errors.New("nil CreatePipelineRequest in CreatePipelineTransaction")
+			}
+			if r.CreatePipelineV2.CreatePipelineRequest.Determined != nil {
+				if err := env.serviceEnv.PpsServer().CreateDetPipelineSideEffects(ctx, r.CreatePipelineV2.CreatePipelineRequest.Pipeline, r.CreatePipelineV2.CreatePipelineRequest.Determined.Workspaces); err != nil {
 					return errors.Wrap(err, "apply determined pipeline side effects")
 				}
 			}
