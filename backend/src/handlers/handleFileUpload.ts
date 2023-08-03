@@ -62,7 +62,7 @@ const uploadStart = async (
         authToken,
         projectId,
       });
-      await pachClient.auth().whoAmI();
+      await pachClient.auth.whoAmI();
     } catch (e) {
       const {code} = (e as ApolloError).extensions;
       if (code !== 'UNIMPLEMENTED') {
@@ -111,7 +111,7 @@ const uploadFinish = async (
 
   if (!isTest && !authToken) {
     try {
-      await pachClient.auth().whoAmI();
+      await pachClient.auth.whoAmI();
     } catch (e) {
       const {code} = (e as ApolloError).extensions;
       if (code !== 'UNIMPLEMENTED') {
@@ -125,10 +125,10 @@ const uploadFinish = async (
   const upload = FileUploads.getUpload(req.body.uploadId);
   if (upload) {
     try {
-      const composedFileSet = await pachClient
-        .pfs()
-        .composeFileSet(FileUploads.getFileSetIds(req.body.uploadId));
-      commit = await pachClient.pfs().startCommit({
+      const composedFileSet = await pachClient.pfs.composeFileSet(
+        FileUploads.getFileSetIds(req.body.uploadId),
+      );
+      commit = await pachClient.pfs.startCommit({
         projectId: upload.projectId,
         branch: {
           name: upload.branch,
@@ -137,21 +137,19 @@ const uploadFinish = async (
           },
         },
       });
-      await pachClient.pfs().addFileSet({
+      await pachClient.pfs.addFileSet({
         projectId: upload.projectId,
         fileSetId: composedFileSet,
         commit,
       });
-      await pachClient
-        .pfs()
-        .finishCommit({projectId: upload.projectId, commit});
+      await pachClient.pfs.finishCommit({projectId: upload.projectId, commit});
       FileUploads.removeUpload(req.body.uploadId);
       return res.send({commitId: commit.id});
     } catch (err) {
       logError(err, '');
       if (commit) {
         try {
-          await pachClient.pfs().dropCommitSet({id: commit.id});
+          await pachClient.pfs.dropCommitSet({id: commit.id});
         } catch (err) {
           logError(err, 'dropCommitSet');
         }
@@ -218,7 +216,7 @@ const uploadChunk = async (
 
   if (!isTest && !authToken) {
     try {
-      await pachClient.auth().whoAmI();
+      await pachClient.auth.whoAmI();
     } catch (e) {
       const {code} = (e as ApolloError).extensions;
       if (code !== 'UNIMPLEMENTED') {
@@ -301,7 +299,7 @@ const uploadChunk = async (
       let chunks: any[] = [];
 
       try {
-        fileClient = await pachClient.pfs().fileSet();
+        fileClient = await pachClient.pfs.fileSet();
       } catch (err) {
         logError(err, 'fileSet');
         const message = (err as ServiceError).message;
@@ -352,15 +350,16 @@ const uploadChunk = async (
             FileUploads.addFile(
               fileName,
               uploadId,
-              await pachClient
-                .pfs()
-                .composeFileSet([upload.fileSets[fileName].id, fileSetId]),
+              await pachClient.pfs.composeFileSet([
+                upload.fileSets[fileName].id,
+                fileSetId,
+              ]),
             );
           }
           if (upload.expiration - Date.now() <= 60000) {
             await Promise.all(
               FileUploads.getFileSetIds(uploadId).map((fileSetId) =>
-                pachClient.pfs().renewFileSet({
+                pachClient.pfs.renewFileSet({
                   fileSetId,
                   duration: 1800, // 30 minutes
                 }),
@@ -372,7 +371,7 @@ const uploadChunk = async (
             upload.fileSets[fileName] &&
             !upload.fileSets[fileName].deleted
           ) {
-            await pachClient.pfs().renewFileSet({
+            await pachClient.pfs.renewFileSet({
               fileSetId: upload.fileSets[fileName].id,
               duration: 1800,
             });

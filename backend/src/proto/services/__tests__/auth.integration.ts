@@ -17,7 +17,7 @@ describe('services/auth', () => {
   describe('activate', () => {
     afterEach(async () => {
       const pachClient = await deactivateEnterprise();
-      pachClient.auth().deactivate();
+      pachClient.auth.deactivate();
     });
 
     it('enables auth', async () => {
@@ -36,14 +36,14 @@ describe('services/auth', () => {
       const pachClient = await activateEnterprise();
       await activateAuth(pachClient);
 
-      const res = await pachClient.auth().deactivate();
+      const res = await pachClient.auth.deactivate();
       expect(res).toStrictEqual({});
     });
 
     it('errors if auth is not active', async () => {
       const pachClient = await activateEnterprise();
 
-      await expect(pachClient.auth().deactivate()).rejects.toThrow(
+      await expect(pachClient.auth.deactivate()).rejects.toThrow(
         '12 UNIMPLEMENTED: the auth service is not activated',
       );
     });
@@ -53,8 +53,8 @@ describe('services/auth', () => {
     afterEach(async () => {
       const pachClient = await deactivateEnterprise({deactivateAuth: true});
 
-      const pps = pachClient.pps();
-      const pfs = pachClient.pfs();
+      const pps = pachClient.pps;
+      const pfs = pachClient.pfs;
       await pps.deleteAll();
       await pfs.deleteAll();
     });
@@ -63,13 +63,13 @@ describe('services/auth', () => {
       const pachClient = await activateEnterprise();
       await activateAuth(pachClient);
 
-      const pfs = pachClient.pfs();
+      const pfs = pachClient.pfs;
       await pfs.createProject({name: 'test'});
       await pfs.createRepo({projectId: 'test', repo: {name: 'images'}});
 
-      const res = await pachClient
-        .auth()
-        .getRoleBinding({resource: {type: 2, name: 'test/images'}});
+      const res = await pachClient.auth.getRoleBinding({
+        resource: {type: 2, name: 'test/images'},
+      });
 
       expect(res?.binding?.entriesMap).toStrictEqual([
         ['pach:root', {rolesMap: [['repoOwner', true]]}],
@@ -80,14 +80,14 @@ describe('services/auth', () => {
       const pachClient = await activateEnterprise();
       await activateAuth(pachClient);
 
-      const pfs = pachClient.pfs();
+      const pfs = pachClient.pfs;
       await pfs.createProject({name: 'test'});
       await pfs.createRepo({projectId: 'test', repo: {name: 'images'}});
 
       // using int type
-      const intRes = await pachClient
-        .auth()
-        .getPermissions({resource: {type: 2, name: 'test/images'}});
+      const intRes = await pachClient.auth.getPermissions({
+        resource: {type: 2, name: 'test/images'},
+      });
 
       expect(intRes.rolesList).toStrictEqual([
         'clusterAdmin',
@@ -96,7 +96,7 @@ describe('services/auth', () => {
       ]);
 
       // using enum type
-      const enumRes = await pachClient.auth().getPermissions({
+      const enumRes = await pachClient.auth.getPermissions({
         resource: {type: ResourceType.REPO, name: 'test/images'},
       });
 
@@ -111,19 +111,19 @@ describe('services/auth', () => {
       const pachClient = await activateEnterprise();
       await activateAuth(pachClient);
 
-      const pfs = pachClient.pfs();
+      const pfs = pachClient.pfs;
       await pfs.createProject({name: 'test'});
       await pfs.createRepo({projectId: 'test', repo: {name: 'images'}});
 
-      await pachClient.auth().modifyRoleBinding({
+      await pachClient.auth.modifyRoleBinding({
         resource: {type: 2, name: 'test/images'},
         principal: 'pach:root',
         rolesList: ['repoWriter'],
       });
 
-      const res = await pachClient
-        .auth()
-        .getRoleBinding({resource: {type: 2, name: 'test/images'}});
+      const res = await pachClient.auth.getRoleBinding({
+        resource: {type: 2, name: 'test/images'},
+      });
 
       expect(res?.binding?.entriesMap).toStrictEqual([
         ['pach:root', {rolesMap: [['repoWriter', true]]}],
@@ -135,8 +135,8 @@ describe('services/auth', () => {
     afterEach(async () => {
       const pachClient = await deactivateEnterprise({deactivateAuth: true});
 
-      const pps = pachClient.pps();
-      const pfs = pachClient.pfs();
+      const pps = pachClient.pps;
+      const pfs = pachClient.pfs;
       await pps.deleteAll();
       await pfs.deleteAll();
     });
@@ -145,11 +145,11 @@ describe('services/auth', () => {
       const pachClient = await activateEnterprise();
       await activateAuth(pachClient);
 
-      const pfs = pachClient.pfs();
+      const pfs = pachClient.pfs;
       await pfs.createProject({name: 'test'});
       await pfs.createRepo({projectId: 'test', repo: {name: 'images'}});
 
-      let auth = pachClient.auth();
+      let auth = pachClient.auth;
       expect(
         await auth.authorize({
           permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
@@ -208,7 +208,7 @@ describe('services/auth', () => {
         ttl: 111111,
       });
       const robotPachClient = getTestPachClient(token);
-      auth = robotPachClient.auth();
+      auth = robotPachClient.auth;
       expect(
         await auth.authorize({
           permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],

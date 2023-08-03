@@ -29,7 +29,7 @@ const searchResolver: SearchResolver = {
         //Check if query is commit or job id
         if (UUID_WITHOUT_DASHES_REGEX.test(query)) {
           const jobSet = jobInfosToGQLJobSet(
-            await pachClient.pps().inspectJobSet({id: query, projectId}),
+            await pachClient.pps.inspectJobSet({id: query, projectId}),
             query,
           );
 
@@ -49,8 +49,8 @@ const searchResolver: SearchResolver = {
         }
 
         const [repos, pipelines] = await Promise.all([
-          pachClient.pfs().listRepo({projectIds: [projectId]}),
-          pachClient.pps().listPipeline({projectIds: [projectId]}),
+          pachClient.pfs.listRepo({projectIds: [projectId]}),
+          pachClient.pps.listPipeline({projectIds: [projectId]}),
         ]);
 
         const filteredRepos = repos.filter(

@@ -7,7 +7,7 @@ interface VersionResolver {
 const versionResolver: VersionResolver = {
   Query: {
     versionInfo: async (_parent, _args, {pachClient}) => {
-      const versionInfo = await pachClient.version().getVersion();
+      const versionInfo = await pachClient.version.getVersion();
       return {
         pachdVersion: versionInfo,
         consoleVersion: process.env.REACT_APP_RELEASE_VERSION,

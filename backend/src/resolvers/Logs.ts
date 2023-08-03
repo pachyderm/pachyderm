@@ -49,9 +49,10 @@ const calculateSince = (startTime?: Maybe<number>) => {
 const logsResolver: LogsResolver = {
   Query: {
     workspaceLogs: async (_field, {args: {projectId, start}}, {pachClient}) => {
-      const logs = await pachClient
-        .pps()
-        .getLogs({projectId, since: calculateSince(start)});
+      const logs = await pachClient.pps.getLogs({
+        projectId,
+        since: calculateSince(start),
+      });
 
       return logs.map(parseWorkspaceLog);
     },
@@ -73,7 +74,7 @@ const logsResolver: LogsResolver = {
     ) => {
       let logs;
       if (cursor) {
-        const logsStream = await pachClient.pps().getLogsStream({
+        const logsStream = await pachClient.pps.getLogsStream({
           projectId,
           pipelineName: pipelineName,
           since: calculateSince(cursor.timestamp.seconds),
@@ -115,7 +116,7 @@ const logsResolver: LogsResolver = {
           throw new ApolloError('could not find cursor', 'INVALID_ARGUMENT');
         }
       } else {
-        logs = await pachClient.pps().getLogs({
+        logs = await pachClient.pps.getLogs({
           projectId,
           pipelineName: pipelineName,
           since: calculateSince(start),
@@ -152,9 +153,10 @@ const logsResolver: LogsResolver = {
   Subscription: {
     workspaceLogs: {
       subscribe: async (_field, {args: {projectId, start}}, {pachClient}) => {
-        const stream = await pachClient
-          .pps()
-          .getLogsStream({projectId, since: calculateSince(start)});
+        const stream = await pachClient.pps.getLogsStream({
+          projectId,
+          since: calculateSince(start),
+        });
 
         return {
           [Symbol.asyncIterator]: () =>
@@ -176,7 +178,7 @@ const logsResolver: LogsResolver = {
         {args: {projectId, pipelineName, jobId, start}},
         {pachClient},
       ) => {
-        const stream = await pachClient.pps().getLogsStream({
+        const stream = await pachClient.pps.getLogsStream({
           projectId,
           pipelineName: pipelineName,
           jobId: jobId || undefined,

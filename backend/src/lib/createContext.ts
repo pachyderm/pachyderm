@@ -36,7 +36,7 @@ const createContext = async ({
     account = await getAccountFromIdToken(idToken);
   } else {
     try {
-      await pachClient.auth().whoAmI();
+      await pachClient.auth.whoAmI();
     } catch (e) {
       const {code} = (e as ApolloError).extensions;
       if (code === 'UNIMPLEMENTED') {

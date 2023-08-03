@@ -90,7 +90,10 @@ import {GRPC_MAX_MESSAGE_LENGTH} from './lib/constants';
 
 let client: APIClient;
 
-const pfs = ({credentialMetadata, plugins = []}: ServiceArgs) => {
+const pfsServiceRpcHandler = ({
+  credentialMetadata,
+  plugins = [],
+}: ServiceArgs) => {
   client =
     client ??
     new APIClient(...grpcApiConstructorArgs(), {
@@ -902,4 +905,4 @@ const pfs = ({credentialMetadata, plugins = []}: ServiceArgs) => {
   return pfsService;
 };
 
-export default pfs;
+export default pfsServiceRpcHandler;

@@ -25,8 +25,8 @@ async function retryAnalyticsContext() {
         });
 
         const [clusterInfo, enterpriseInfo] = await Promise.all([
-          pachClient.admin().inspectCluster(),
-          pachClient.enterprise().getState(),
+          pachClient.admin.inspectCluster(),
+          pachClient.enterprise.getState(),
         ]);
 
         const {expiration, state} = enterpriseInfoToGQLInfo(enterpriseInfo);

@@ -11,7 +11,7 @@ interface EnterpriseResolver {
 const enterpriseResolver: EnterpriseResolver = {
   Query: {
     enterpriseInfo: async (_parent, _args, {pachClient}) => {
-      return enterpriseInfoToGQLInfo(await pachClient.enterprise().getState());
+      return enterpriseInfoToGQLInfo(await pachClient.enterprise.getState());
     },
   },
 };

@@ -165,7 +165,9 @@ export interface CreatePipelineRequestOptions
 
 let client: APIClient;
 
-const pps = ({credentialMetadata}: Pick<ServiceArgs, 'credentialMetadata'>) => {
+const ppsServiceRpcHandler = ({
+  credentialMetadata,
+}: Pick<ServiceArgs, 'credentialMetadata'>) => {
   client = client ?? new APIClient(...grpcApiConstructorArgs());
 
   return {
@@ -655,4 +657,4 @@ const pps = ({credentialMetadata}: Pick<ServiceArgs, 'credentialMetadata'>) => {
   };
 };
 
-export default pps;
+export default ppsServiceRpcHandler;

@@ -17,7 +17,7 @@ interface BranchResolver {
 const branchResolver: BranchResolver = {
   Query: {
     branch: async (_field, {args: {projectId, branch}}, {pachClient}) => {
-      const branchInfo = await pachClient.pfs().inspectBranch({
+      const branchInfo = await pachClient.pfs.inspectBranch({
         projectId,
         name: branch.name,
         repo: branch.repo || undefined,
@@ -30,7 +30,7 @@ const branchResolver: BranchResolver = {
       }
     },
     branches: async (_field, {args: {projectId, repoName}}, {pachClient}) => {
-      const branches = await pachClient.pfs().listBranch({repoName, projectId});
+      const branches = await pachClient.pfs.listBranch({repoName, projectId});
       return branches.map((branch) => {
         if (branch.branch) {
           return branchInfoToGQLBranch(branch.branch);
@@ -71,16 +71,17 @@ const branchResolver: BranchResolver = {
             }
           : undefined;
 
-        await pachClient.pfs().createBranch({
+        await pachClient.pfs.createBranch({
           head: headObject,
           branch: branchObject || undefined,
           provenance: provenanceList,
           newCommitSet: newCommitSet || false,
         });
 
-        const created = await pachClient
-          .pfs()
-          .inspectBranch({projectId, ...branchObject});
+        const created = await pachClient.pfs.inspectBranch({
+          projectId,
+          ...branchObject,
+        });
         if (created.branch) {
           return branchInfoToGQLBranch(created.branch);
         }

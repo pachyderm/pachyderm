@@ -43,17 +43,18 @@ const getProjectHealth = (pipelines: PipelineInfo.AsObject[]) => {
 const projectsResolver: ProjectsResolver = {
   Query: {
     project: async (_field, {id}, {pachClient}) => {
-      const project = await pachClient.pfs().inspectProject(id);
+      const project = await pachClient.pfs.inspectProject(id);
       return rpcToGraphqlProject(project);
     },
     projects: async (_field, _args, {pachClient}) => {
-      const projects = await pachClient.pfs().listProject();
+      const projects = await pachClient.pfs.listProject();
       return projects.map((project) => rpcToGraphqlProject(project));
     },
     projectStatus: async (_field, {id}, {pachClient}) => {
-      const projectPipelines = await pachClient
-        .pps()
-        .listPipeline({projectIds: [id], details: false});
+      const projectPipelines = await pachClient.pps.listPipeline({
+        projectIds: [id],
+        details: false,
+      });
 
       return {id, status: getProjectHealth(projectPipelines)};
     },
@@ -63,11 +64,9 @@ const projectsResolver: ProjectsResolver = {
       {pachClient},
     ) => {
       const [repos, pipelines, jobsMap] = await Promise.all([
-        pachClient.pfs().listRepo({projectIds: [projectId]}),
-        pachClient
-          .pps()
-          .listPipeline({projectIds: [projectId], details: false}),
-        pachClient.pps().listJobSetServerDerivedFromListJobs({
+        pachClient.pfs.listRepo({projectIds: [projectId]}),
+        pachClient.pps.listPipeline({projectIds: [projectId], details: false}),
+        pachClient.pps.listJobSetServerDerivedFromListJobs({
           projectId,
           limit: jobSetsLimit || DEFAULT_JOBS_LIMIT,
         }),
@@ -91,12 +90,12 @@ const projectsResolver: ProjectsResolver = {
       {args: {name, description}},
       {pachClient},
     ) => {
-      await pachClient.pfs().createProject({
+      await pachClient.pfs.createProject({
         name,
         description: description || undefined,
       });
       return {
-        ...rpcToGraphqlProject(await pachClient.pfs().inspectProject(name)),
+        ...rpcToGraphqlProject(await pachClient.pfs.inspectProject(name)),
         status: ProjectStatus.HEALTHY,
       };
     },
@@ -105,12 +104,12 @@ const projectsResolver: ProjectsResolver = {
       {args: {name, description}},
       {pachClient},
     ) => {
-      await pachClient.pfs().createProject({
+      await pachClient.pfs.createProject({
         name,
         description: description,
         update: true,
       });
-      return rpcToGraphqlProject(await pachClient.pfs().inspectProject(name));
+      return rpcToGraphqlProject(await pachClient.pfs.inspectProject(name));
     },
     deleteProjectAndResources: async (
       _parent,
@@ -118,9 +117,9 @@ const projectsResolver: ProjectsResolver = {
       {pachClient},
     ) => {
       try {
-        await pachClient.pps().deletePipelines({projectIds: [name]});
-        await pachClient.pfs().deleteRepos({projectIds: [name]});
-        await pachClient.pfs().deleteProject({projectId: name});
+        await pachClient.pps.deletePipelines({projectIds: [name]});
+        await pachClient.pfs.deleteRepos({projectIds: [name]});
+        await pachClient.pfs.deleteProject({projectId: name});
         return true;
       } catch (e) {
         throw new ApolloError(`Failed to delete project '${name}'`);

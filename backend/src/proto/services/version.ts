@@ -6,7 +6,13 @@ import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
 
 let client: APIClient;
 
-const version = () => {
+/**
+ * 1. Creates GRPC API Client. The connection is lazily created. The first RPC
+ *    that fires will be cold.
+ * 2. Builds RPC protobuff request based on the arguments to the function
+ * 3. Fires off the RPC.
+ */
+const versionServiceRpcHandler = () => {
   client = client ?? new APIClient(...grpcApiConstructorArgs());
 
   return {
@@ -23,4 +29,4 @@ const version = () => {
   };
 };
 
-export default version;
+export default versionServiceRpcHandler;

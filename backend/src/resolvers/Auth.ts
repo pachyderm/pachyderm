@@ -71,10 +71,10 @@ const authResolver: AuthResolver = {
       }
     },
     getPermissions: async (_field, {args: {resource}}, {pachClient}) => {
-      return await pachClient.auth().getPermissions({resource});
+      return await pachClient.auth.getPermissions({resource});
     },
     getRoles: async (_field, {args: {resource}}, {pachClient}) => {
-      const roleBindings = await pachClient.auth().getRoleBinding({
+      const roleBindings = await pachClient.auth.getRoleBinding({
         resource: {
           name: resource.name,
           type: toProtoResourceType(resource.type),
@@ -97,7 +97,7 @@ const authResolver: AuthResolver = {
       {pachClient},
     ) => {
       try {
-        const res = await pachClient.auth().authorize({
+        const res = await pachClient.auth.authorize({
           permissionsList,
           resource,
         });
@@ -155,7 +155,7 @@ const authResolver: AuthResolver = {
 
         let pachToken;
         try {
-          pachToken = await pachClient.auth().authenticate(idToken);
+          pachToken = await pachClient.auth.authenticate(idToken);
         } catch (e) {
           log.error(
             {
@@ -176,7 +176,7 @@ const authResolver: AuthResolver = {
       {args: {resource, principal, rolesList}},
       {pachClient},
     ) => {
-      await pachClient.auth().modifyRoleBinding({
+      await pachClient.auth.modifyRoleBinding({
         resource: {
           name: resource.name,
           type: toProtoResourceType(resource.type),

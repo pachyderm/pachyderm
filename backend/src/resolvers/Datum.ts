@@ -31,9 +31,12 @@ const datumResolver: DatumResolver = {
       {args: {projectId, id, jobId, pipelineId}},
       {pachClient},
     ) => {
-      const datum = await pachClient
-        .pps()
-        .inspectDatum({projectId, id, jobId, pipelineName: pipelineId});
+      const datum = await pachClient.pps.inspectDatum({
+        projectId,
+        id,
+        jobId,
+        pipelineName: pipelineId,
+      });
       return datumInfoToGQLDatum(datum.toObject(), jobId);
     },
     datums: async (
@@ -47,7 +50,7 @@ const datumResolver: DatumResolver = {
         ? filter.map((state) => toProtoDatumState(state))
         : DEFAULT_FILTERS;
 
-      const datums = await pachClient.pps().listDatums({
+      const datums = await pachClient.pps.listDatums({
         projectId,
         jobId,
         pipelineName: pipelineId,
@@ -80,9 +83,12 @@ const datumResolver: DatumResolver = {
         throw new ApolloError(`invalid datum id`, 'INVALID_ARGUMENT');
       }
       try {
-        const datum = await pachClient
-          .pps()
-          .inspectDatum({projectId, id, jobId, pipelineName: pipelineId});
+        const datum = await pachClient.pps.inspectDatum({
+          projectId,
+          id,
+          jobId,
+          pipelineName: pipelineId,
+        });
         return datumInfoToGQLDatum(datum.toObject(), jobId);
       } catch (e) {
         if (e instanceof NotFoundError) {

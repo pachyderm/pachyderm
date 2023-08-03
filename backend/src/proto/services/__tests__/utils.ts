@@ -1,9 +1,9 @@
-import client from '../../client';
+import apiClientRequestWrapper from '../../client';
 
 export const AUTH_TOKEN = 'pizza';
 
 export const getTestPachClient = (authToken?: string) => {
-  return client({
+  return apiClientRequestWrapper({
     authToken: authToken ?? AUTH_TOKEN,
   });
 };
@@ -12,8 +12,8 @@ export const activateEnterprise = async () => {
   const enterpriseKey = process.env.PACHYDERM_ENTERPRISE_KEY || '';
   const pachClient = getTestPachClient();
 
-  const enterprise = pachClient.enterprise();
-  const license = pachClient.license();
+  const enterprise = pachClient.enterprise;
+  const license = pachClient.license;
 
   await license.activateLicense(enterpriseKey);
   await license.addCluster('localhost', 'localhost:1650', 'secret');
@@ -32,10 +32,10 @@ export const deactivateEnterprise = async ({
 }: deactivateEnterpriseArgs = {}) => {
   const pachClient = getTestPachClient();
 
-  const enterprise = pachClient.enterprise();
-  const license = pachClient.license();
+  const enterprise = pachClient.enterprise;
+  const license = pachClient.license;
 
-  if (deactivateAuth) await pachClient.auth().deactivate();
+  if (deactivateAuth) await pachClient.auth.deactivate();
 
   await license.deleteCluster('localhost');
   await enterprise.deactivate();
@@ -44,6 +44,8 @@ export const deactivateEnterprise = async ({
   return pachClient;
 };
 
-export const activateAuth = async (pachClient: ReturnType<typeof client>) => {
-  return await pachClient.auth().activate(AUTH_TOKEN);
+export const activateAuth = async (
+  pachClient: ReturnType<typeof apiClientRequestWrapper>,
+) => {
+  return await pachClient.auth.activate(AUTH_TOKEN);
 };

@@ -11,8 +11,8 @@ describe('enterprise', () => {
     expect(process.env.PACHYDERM_ENTERPRISE_KEY).not.toBeFalsy();
 
     const pachClient = await activateEnterprise();
-    const enterprise = pachClient.enterprise();
-    const license = pachClient.license();
+    const enterprise = pachClient.enterprise;
+    const license = pachClient.license;
 
     const clusterList = await license.listClusters();
     const userClusterList = await license.listUserClusters();

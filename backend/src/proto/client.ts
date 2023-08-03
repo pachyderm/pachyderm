@@ -1,17 +1,16 @@
 import {Metadata} from '@grpc/grpc-js';
 
 import {GRPCPlugin, ServiceDefinition} from './lib/types';
-import admin from './services/admin';
-import auth from './services/auth';
-import enterprise from './services/enterprise';
-import license from './services/license';
-import pfs from './services/pfs';
-import pps from './services/pps';
-import version from './services/version';
+import adminServiceRpcHandler from './services/admin';
+import authServiceRpcHandler from './services/auth';
+import enterpriseServiceRpcHandler from './services/enterprise';
+import licenseServiceRpcHandler from './services/license';
+import pfsServiceRpcHandler from './services/pfs';
+import ppsServiceRpcHandler from './services/pps';
+import versionServiceRpcHandler from './services/version';
 
 interface ClientArgs {
   authToken?: string;
-  projectId?: string;
   plugins?: GRPCPlugin[];
 }
 
@@ -52,110 +51,47 @@ const attachPlugins = <T extends ServiceDefinition>(
   return new Proxy(service, serviceProxyHandler);
 };
 
-const client = ({
+function bindPluginsToServices<T extends ServiceDefinition>(
+  services: Record<string, T>,
+  plugins: GRPCPlugin[],
+) {
+  for (const [key, value] of Object.entries(services)) {
+    services[key] = attachPlugins(value, plugins);
+  }
+}
+
+/**
+ * The apiClientRequestWrapper function performs the following tasks:
+ * - It establishes a GRPC API client for every service in Pachyderm, injecting
+ *     a requests metadata like the authentication token into RPC service calls.
+ * - It loads the plugins' proxies to the services.
+ * - Lastly, it returns these services encapsulated in an object.
+ */
+const apiClientRequestWrapper = ({
   authToken = '',
-  projectId = '',
   plugins = [],
 }: ClientArgs = {}) => {
   const credentialMetadata = new Metadata();
   credentialMetadata.add('authn-token', authToken);
-  credentialMetadata.add('project-id', projectId);
+  credentialMetadata.add('project-id', '');
 
-  let pfsService: ReturnType<typeof pfs> | undefined;
-  let ppsService: ReturnType<typeof pps> | undefined;
-  let authService: ReturnType<typeof auth> | undefined;
-  let adminService: ReturnType<typeof admin> | undefined;
-  let versionService: ReturnType<typeof version> | undefined;
-  let enterpriseService: ReturnType<typeof enterprise> | undefined;
-  let licenseService: ReturnType<typeof license> | undefined;
+  const enrichedServices = {
+    pfs: pfsServiceRpcHandler({credentialMetadata, plugins}),
+    pps: ppsServiceRpcHandler({credentialMetadata}),
+    auth: authServiceRpcHandler({credentialMetadata}),
+    admin: adminServiceRpcHandler({credentialMetadata}),
+    version: versionServiceRpcHandler(),
+    enterprise: enterpriseServiceRpcHandler({credentialMetadata}),
+    license: licenseServiceRpcHandler({credentialMetadata}),
+  };
+  bindPluginsToServices(enrichedServices, plugins);
 
-  // NOTE: These service clients are singletons, as we
-  // don't want to create a new instance of APIClient for
-  // every call stream in a transaction.
-
-  // TODO: revisit this. These have changed now.
-  const methods = {
-    license: () => {
-      if (licenseService) return licenseService;
-
-      licenseService = attachPlugins(
-        license({
-          credentialMetadata,
-        }),
-        plugins,
-      );
-
-      return licenseService;
-    },
-    enterprise: () => {
-      if (enterpriseService) return enterpriseService;
-
-      enterpriseService = attachPlugins(
-        enterprise({
-          credentialMetadata,
-        }),
-        plugins,
-      );
-
-      return enterpriseService;
-    },
-    pfs: () => {
-      if (pfsService) return pfsService;
-
-      pfsService = attachPlugins(
-        pfs({
-          credentialMetadata,
-          plugins,
-        }),
-        plugins,
-      );
-      return pfsService;
-    },
-    pps: () => {
-      if (ppsService) return ppsService;
-
-      ppsService = attachPlugins(
-        pps({
-          credentialMetadata,
-        }),
-        plugins,
-      );
-      return ppsService;
-    },
-    auth: () => {
-      if (authService) return authService;
-
-      authService = attachPlugins(
-        auth({
-          credentialMetadata,
-        }),
-        plugins,
-      );
-      return authService;
-    },
-    admin: () => {
-      if (adminService) return adminService;
-
-      adminService = attachPlugins(
-        admin({
-          credentialMetadata,
-        }),
-        plugins,
-      );
-      return adminService;
-    },
+  return {
+    ...enrichedServices,
     attachCredentials: (header: string, value: string) => {
       credentialMetadata.set(header, value);
     },
-    version: () => {
-      if (versionService) return versionService;
-
-      versionService = attachPlugins(version(), plugins);
-      return versionService;
-    },
   };
-
-  return methods;
 };
 
-export default client;
+export default apiClientRequestWrapper;

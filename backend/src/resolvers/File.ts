@@ -69,7 +69,7 @@ const fileResolver: FileResolver = {
       let diffTotals: Record<string, FileCommitState>;
       limit = limit || DEFAULT_FILE_LIMIT;
 
-      const files = await pachClient.pfs().listFile({
+      const files = await pachClient.pfs.listFile({
         projectId,
         commitId: commitId || '',
         path: path || '/',
@@ -83,7 +83,7 @@ const fileResolver: FileResolver = {
       });
 
       const commit = commitInfoToGQLCommit(
-        await pachClient.pfs().inspectCommit({
+        await pachClient.pfs.inspectCommit({
           projectId,
           wait: CommitState.COMMIT_STATE_UNKNOWN,
           commit: {
@@ -97,7 +97,7 @@ const fileResolver: FileResolver = {
       );
 
       if (commit.originKind !== OriginKind.ALIAS && commit.finished !== -1) {
-        const diffResponse = await pachClient.pfs().diffFile({
+        const diffResponse = await pachClient.pfs.diffFile({
           projectId,
           newFileObject: {
             commitId: commitId || '',
@@ -187,7 +187,7 @@ const fileResolver: FileResolver = {
       {args: {branch, files, repo}},
       {pachClient},
     ) => {
-      const fileClient = await pachClient.pfs().modifyFile();
+      const fileClient = await pachClient.pfs.modifyFile();
       fileClient.autoCommit({name: branch, repo: {name: repo}});
       files.forEach((file) => {
         fileClient.putFileFromURL(file.path, file.url);
@@ -200,13 +200,13 @@ const fileResolver: FileResolver = {
       {args: {projectId, repo, branch, filePaths}},
       {pachClient, log},
     ) => {
-      const deleteCommit = await pachClient.pfs().startCommit({
+      const deleteCommit = await pachClient.pfs.startCommit({
         projectId,
         branch: {name: branch, repo: {name: repo}},
       });
 
       try {
-        const modifyFileClient = await pachClient.pfs().modifyFile();
+        const modifyFileClient = await pachClient.pfs.modifyFile();
         await modifyFileClient
           .setCommit(deleteCommit)
           .deleteFiles(filePaths)
@@ -215,7 +215,7 @@ const fileResolver: FileResolver = {
         log.error({err: error}, 'Error deleting files');
         throw new ApolloError('Error deleting files');
       }
-      await pachClient.pfs().finishCommit({projectId, commit: deleteCommit});
+      await pachClient.pfs.finishCommit({projectId, commit: deleteCommit});
       return deleteCommit.id;
     },
   },

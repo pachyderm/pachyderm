@@ -26,7 +26,7 @@ const handleFileDownload = async (req: Request, res: Response) => {
 
   if (!isTest && !authToken && pachdAddress) {
     try {
-      await pachClient.auth().whoAmI();
+      await pachClient.auth.whoAmI();
     } catch (e) {
       const {code} = (e as ApolloError).extensions;
       if (code !== 'UNIMPLEMENTED') {
@@ -47,7 +47,7 @@ const handleFileDownload = async (req: Request, res: Response) => {
       authToken,
       projectId,
     });
-    data = await pachClient.pfs().getFile({
+    data = await pachClient.pfs.getFile({
       projectId,
       commitId,
       path,

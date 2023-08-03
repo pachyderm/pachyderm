@@ -21,15 +21,13 @@ const repoResolver: RepoResolver = {
   Query: {
     repo: async (_parent, {args: {projectId, id}}, {pachClient}) => {
       return repoInfoToGQLRepo(
-        await pachClient.pfs().inspectRepo({projectId, name: id}),
+        await pachClient.pfs.inspectRepo({projectId, name: id}),
       );
     },
     repos: async (_parent, {args: {projectId, jobSetId}}, {pachClient}) => {
       if (jobSetId) {
         const jobs = await getJobsFromJobSet({
-          jobSet: await pachClient
-            .pps()
-            .inspectJobSet({id: jobSetId, projectId}),
+          jobSet: await pachClient.pps.inspectJobSet({id: jobSetId, projectId}),
           projectId,
           pachClient,
         });
@@ -41,12 +39,12 @@ const repoResolver: RepoResolver = {
           return acc;
         }, {} as {[key: string]: JobInfo.AsObject});
 
-        return (await pachClient.pfs().listRepo({projectIds: [projectId]}))
+        return (await pachClient.pfs.listRepo({projectIds: [projectId]}))
           .filter((repo) => repo.repo?.name && jobPipelines[repo.repo?.name])
           .map((repo) => repoInfoToGQLRepo(repo));
       }
 
-      return (await pachClient.pfs().listRepo({projectIds: [projectId]})).map(
+      return (await pachClient.pfs.listRepo({projectIds: [projectId]})).map(
         (repo) => repoInfoToGQLRepo(repo),
       );
     },
@@ -55,7 +53,7 @@ const repoResolver: RepoResolver = {
     linkedPipeline: async (repo, _args, {pachClient}) => {
       try {
         return pipelineInfoToGQLPipeline(
-          await pachClient.pps().inspectPipeline({
+          await pachClient.pps.inspectPipeline({
             pipelineId: repo.id,
             projectId: repo.projectId,
           }),
@@ -66,7 +64,7 @@ const repoResolver: RepoResolver = {
     },
     lastCommit: async (repo, _args, {pachClient}) => {
       try {
-        const commits = await pachClient.pfs().listCommit({
+        const commits = await pachClient.pfs.listCommit({
           repo: {
             name: repo.name,
           },
@@ -86,13 +84,13 @@ const repoResolver: RepoResolver = {
       {args: {projectId, name, description, update}},
       {pachClient},
     ) => {
-      await pachClient.pfs().createRepo({
+      await pachClient.pfs.createRepo({
         projectId,
         repo: {name},
         description: description || undefined,
         update: update || false,
       });
-      const repo = await pachClient.pfs().inspectRepo({projectId, name});
+      const repo = await pachClient.pfs.inspectRepo({projectId, name});
 
       return repoInfoToGQLRepo(repo);
     },
@@ -101,7 +99,7 @@ const repoResolver: RepoResolver = {
       {args: {projectId, repo, force}},
       {pachClient},
     ) => {
-      await pachClient.pfs().deleteRepo({
+      await pachClient.pfs.deleteRepo({
         projectId,
         repo: {name: repo.name},
         force: force || undefined,

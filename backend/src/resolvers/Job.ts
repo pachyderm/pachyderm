@@ -31,7 +31,7 @@ const pipelineJobResolver: PipelineJobResolver = {
     ) => {
       if (!id) {
         const latestJob = (
-          await pachClient.pps().listJobs({
+          await pachClient.pps.listJobs({
             pipelineId: pipelineName,
             projectId,
             number: 1,
@@ -40,7 +40,7 @@ const pipelineJobResolver: PipelineJobResolver = {
         return jobInfoToGQLJob(latestJob);
       }
       return jobInfoToGQLJob(
-        await pachClient.pps().inspectJob({id, pipelineName, projectId}),
+        await pachClient.pps.inspectJob({id, pipelineName, projectId}),
       );
     },
     jobs: async (
@@ -92,7 +92,7 @@ const pipelineJobResolver: PipelineJobResolver = {
         jqFilter = jqCombine(jqFilter, jqSelect(jqIn('.state', jobsStates)));
       }
 
-      const jobs = await pachClient.pps().listJobs({
+      const jobs = await pachClient.pps.listJobs({
         details: details ?? undefined,
         pipelineId,
         jqFilter,
@@ -125,7 +125,7 @@ const pipelineJobResolver: PipelineJobResolver = {
       const pipelineJobs = await Promise.all(
         pipelineIds
           ? pipelineIds.map((pipelineId) =>
-              pachClient.pps().listJobs({
+              pachClient.pps.listJobs({
                 number,
                 pipelineId,
                 projectId,
@@ -140,9 +140,11 @@ const pipelineJobResolver: PipelineJobResolver = {
     jobSet: async (_parent, {args: {id, projectId}}, {pachClient}) => {
       return jobInfosToGQLJobSet(
         await getJobsFromJobSet({
-          jobSet: await pachClient
-            .pps()
-            .inspectJobSet({id, projectId, details: false}),
+          jobSet: await pachClient.pps.inspectJobSet({
+            id,
+            projectId,
+            details: false,
+          }),
           projectId,
           pachClient,
         }),
@@ -150,12 +152,10 @@ const pipelineJobResolver: PipelineJobResolver = {
       );
     },
     jobSets: async (_parent, {args: {projectId, limit}}, {pachClient}) => {
-      const jobsMap = await pachClient
-        .pps()
-        .listJobSetServerDerivedFromListJobs({
-          projectId,
-          limit: limit || DEFAULT_JOBS_LIMIT,
-        });
+      const jobsMap = await pachClient.pps.listJobSetServerDerivedFromListJobs({
+        projectId,
+        limit: limit || DEFAULT_JOBS_LIMIT,
+      });
 
       return {
         items: jobsMapToGQLJobSets(jobsMap),

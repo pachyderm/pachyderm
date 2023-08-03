@@ -9,7 +9,7 @@ interface AdminResolver {
 const adminResolver: AdminResolver = {
   Query: {
     adminInfo: async (_parent, _args, {pachClient}) => {
-      const clusterInfo = await pachClient.admin().inspectCluster();
+      const clusterInfo = await pachClient.admin.inspectCluster();
       return {
         clusterId: clusterInfo.id,
       };

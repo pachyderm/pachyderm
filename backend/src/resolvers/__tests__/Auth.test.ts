@@ -138,7 +138,7 @@ describe('Auth resolver', () => {
         .mockResolvedValue({rolesList: ['clusterAdmin']});
 
       const pachClient = {
-        auth: jest.fn().mockReturnValue({getPermissions}),
+        auth: {getPermissions},
       };
 
       const args: GetPermissionsArgs = {

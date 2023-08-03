@@ -29,7 +29,7 @@ import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
 
 let client: APIClient;
 
-const auth = ({
+const authServiceRpcHandler = ({
   credentialMetadata,
 }: Pick<ServiceArgs, 'credentialMetadata'>) => {
   client = client ?? new APIClient(...grpcApiConstructorArgs());
@@ -198,4 +198,4 @@ const auth = ({
   };
 };
 
-export default auth;
+export default authServiceRpcHandler;

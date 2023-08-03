@@ -20,9 +20,10 @@ const pipelineResolver: PipelineResolver = {
       {args: {id: pipelineId, projectId}},
       {pachClient},
     ) => {
-      const pipeline = await pachClient
-        .pps()
-        .inspectPipeline({pipelineId, projectId});
+      const pipeline = await pachClient.pps.inspectPipeline({
+        pipelineId,
+        projectId,
+      });
 
       return pipelineInfoToGQLPipeline(pipeline);
     },
@@ -35,9 +36,10 @@ const pipelineResolver: PipelineResolver = {
 
       if (jobSetId) {
         const jobs = await getJobsFromJobSet({
-          jobSet: await pachClient
-            .pps()
-            .inspectJobSet({id: jobSetId, projectId: projectIds[0] || ''}),
+          jobSet: await pachClient.pps.inspectJobSet({
+            id: jobSetId,
+            projectId: projectIds[0] || '',
+          }),
           projectId: projectIds[0] || '',
           pachClient,
         });
@@ -47,7 +49,7 @@ const pipelineResolver: PipelineResolver = {
           .join(' or ')})`;
       }
 
-      return (await pachClient.pps().listPipeline({jq, projectIds})).map(
+      return (await pachClient.pps.listPipeline({jq, projectIds})).map(
         (pipeline) => pipelineInfoToGQLPipeline(pipeline),
       );
     },
@@ -77,7 +79,7 @@ const pipelineResolver: PipelineResolver = {
           }
         : undefined;
 
-      await pachClient.pps().createPipeline({
+      await pachClient.pps.createPipeline({
         pipeline: {name, project: {name: projectId}},
         transform: {
           cmdList: transform.cmdList,
@@ -95,13 +97,14 @@ const pipelineResolver: PipelineResolver = {
         update: update || undefined,
       });
 
-      const pipeline = await pachClient
-        .pps()
-        .inspectPipeline({pipelineId: name, projectId});
+      const pipeline = await pachClient.pps.inspectPipeline({
+        pipelineId: name,
+        projectId,
+      });
       return pipelineInfoToGQLPipeline(pipeline);
     },
     deletePipeline: async (_field, {args: {projectId, name}}, {pachClient}) => {
-      await pachClient.pps().deletePipeline({projectId, pipeline: {name}});
+      await pachClient.pps.deletePipeline({projectId, pipeline: {name}});
       return true;
     },
   },

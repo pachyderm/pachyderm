@@ -43,7 +43,7 @@ const commitResolver: CommitResolver = {
 
       if (!id) {
         try {
-          const commits = await pachClient.pfs().listCommit({
+          const commits = await pachClient.pfs.listCommit({
             projectId,
             repo: {
               name: repoName,
@@ -67,7 +67,7 @@ const commitResolver: CommitResolver = {
         }
       } else {
         commit = commitInfoToGQLCommit(
-          await pachClient.pfs().inspectCommit({
+          await pachClient.pfs.inspectCommit({
             projectId,
             wait: CommitState.COMMIT_STATE_UNKNOWN,
             commit: {
@@ -90,7 +90,7 @@ const commitResolver: CommitResolver = {
       let diff: Diff | null = null;
 
       if (commitId && repoName && branchName) {
-        const diffResponse = await pachClient.pfs().diffFile({
+        const diffResponse = await pachClient.pfs.diffFile({
           projectId,
           newFileObject: {
             commitId: commitId,
@@ -139,7 +139,7 @@ const commitResolver: CommitResolver = {
         );
       }
 
-      const commits = await pachClient.pfs().listCommit({
+      const commits = await pachClient.pfs.listCommit({
         projectId,
         repo: {
           name: repoName,
@@ -187,7 +187,7 @@ const commitResolver: CommitResolver = {
         throw new ApolloError(`invalid commit id`, 'INVALID_ARGUMENT');
       }
       try {
-        const commit = await pachClient.pfs().inspectCommit({
+        const commit = await pachClient.pfs.inspectCommit({
           projectId,
           wait: CommitState.COMMIT_STATE_UNKNOWN,
           // We want to specify the repo name but not the branch name
@@ -218,7 +218,7 @@ const commitResolver: CommitResolver = {
         );
       }
 
-      const commits = await pachClient.pfs().findCommits({
+      const commits = await pachClient.pfs.findCommits({
         commit: {
           id: commitId || '',
           branch: {
@@ -244,7 +244,7 @@ const commitResolver: CommitResolver = {
       const foundCommits = await Promise.all(
         foundCommitIds.map(async (commit) => {
           const commitInfo = commitInfoToGQLCommit(
-            await pachClient.pfs().inspectCommit({
+            await pachClient.pfs.inspectCommit({
               projectId,
               wait: CommitState.COMMIT_STATE_UNKNOWN,
               commit: {
@@ -259,7 +259,7 @@ const commitResolver: CommitResolver = {
             commitInfo.originKind !== OriginKind.ALIAS &&
             commitInfo.finished !== -1
           ) {
-            const diffResponse = await pachClient.pfs().diffFile({
+            const diffResponse = await pachClient.pfs.diffFile({
               projectId,
               newFileObject: {
                 commitId: commitInfo.id || '',
@@ -284,7 +284,7 @@ const commitResolver: CommitResolver = {
 
       let cursor = '';
       if (lastCommitSearched) {
-        const lastCommitInfo = await pachClient.pfs().inspectCommit({
+        const lastCommitInfo = await pachClient.pfs.inspectCommit({
           projectId,
           wait: CommitState.COMMIT_STATE_UNKNOWN,
           commit: {
@@ -308,7 +308,7 @@ const commitResolver: CommitResolver = {
       {args: {projectId, branchName, repoName}},
       {pachClient},
     ) => {
-      const commit = await pachClient.pfs().startCommit({
+      const commit = await pachClient.pfs.startCommit({
         projectId,
         branch: {repo: {name: repoName}, name: branchName},
       });
@@ -316,7 +316,7 @@ const commitResolver: CommitResolver = {
       return commitToGQLCommit(commit);
     },
     finishCommit: async (_field, {args: {projectId, commit}}, {pachClient}) => {
-      await pachClient.pfs().finishCommit({projectId, commit});
+      await pachClient.pfs.finishCommit({projectId, commit});
       return true;
     },
   },

@@ -21,8 +21,8 @@ export const getProjectDAG = async ({
   pachClient: PachClient;
 }) => {
   const [repos, pipelines] = await Promise.all([
-    pachClient.pfs().listRepo({projectIds: [projectId]}),
-    pachClient.pps().listPipeline({projectIds: [projectId]}),
+    pachClient.pfs.listRepo({projectIds: [projectId]}),
+    pachClient.pps.listPipeline({projectIds: [projectId]}),
   ]);
 
   return convertPachydermTypesToVertex(repos, pipelines);
@@ -40,9 +40,11 @@ export const getProjectGlobalIdDAG = async ({
 }) => {
   // if given a global ID, we want to construct a DAG using only
   // nodes referred to by jobs sharing that global id
-  const jobSet = await pachClient
-    .pps()
-    .inspectJobSet({id: jobSetId, projectId, details: false});
+  const jobSet = await pachClient.pps.inspectJobSet({
+    id: jobSetId,
+    projectId,
+    details: false,
+  });
 
   // stabilize elkjs inputs.
   // listRepo and listPipeline are both stabilized on 'name',

@@ -24,7 +24,7 @@ import {grpcApiConstructorArgs} from '../utils/createGrpcApiClient';
 
 let client: APIClient;
 
-const license = ({
+const licenseServiceRpcHandler = ({
   credentialMetadata,
 }: Pick<ServiceArgs, 'credentialMetadata'>) => {
   client = client ?? new APIClient(...grpcApiConstructorArgs());
@@ -153,4 +153,4 @@ const license = ({
   };
 };
 
-export default license;
+export default licenseServiceRpcHandler;

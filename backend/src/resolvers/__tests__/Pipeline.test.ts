@@ -64,12 +64,17 @@ describe('Pipeline resolver', () => {
     });
 
     it('should return pipeline list filtered by globalId', async () => {
-      const {data} = await executeQuery<PipelinesQuery>(GET_PIPELINES_QUERY, {
-        args: {
-          projectIds: [projectId],
-          jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
+      const {data, errors} = await executeQuery<PipelinesQuery>(
+        GET_PIPELINES_QUERY,
+        {
+          args: {
+            projectIds: [projectId],
+            jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
+          },
         },
-      });
+      );
+
+      expect(errors).toBeUndefined();
 
       expect(data?.pipelines).toHaveLength(1);
       expect(data?.pipelines[0]?.id).toBe('Solar-Panel-Data-Sorting_montage');

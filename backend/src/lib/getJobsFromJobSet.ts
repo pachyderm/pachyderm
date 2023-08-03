@@ -17,8 +17,7 @@ const getJobsFromJobSet = async ({
 }: getJobsFromJobSetArgs) => {
   const jobPromises = jobSet.map(({job}) => {
     if (job?.id && job?.pipeline?.name) {
-      return pachClient
-        .pps()
+      return pachClient.pps
         .inspectJob({
           id: job.id,
           projectId,
