@@ -101,6 +101,7 @@ message Trigger {
 
 // These are the different places where a commit may be originated from
 enum OriginKind {
+  reserved 4;
   ORIGIN_KIND_UNKNOWN = 0;
   USER = 1;
   AUTO = 2;
