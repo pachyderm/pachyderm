@@ -18,6 +18,7 @@ describe('LandingHeader', () => {
 
   beforeAll(() => {
     server.listen();
+    server.use(mockGetVersionInfo());
   });
 
   afterEach(() => {
@@ -28,7 +29,6 @@ describe('LandingHeader', () => {
   afterAll(() => server.close());
 
   it('should show the hpe branding when enterprise is active', async () => {
-    server.use(mockGetVersionInfo());
     server.use(mockGetAccountAuth());
     server.use(mockGetEnterpriseInfo());
     loginUser();
@@ -38,8 +38,6 @@ describe('LandingHeader', () => {
   });
 
   it('should show the console branding when enterprise is inactive', async () => {
-    server.use(mockGetVersionInfo());
-
     render(<Header />);
 
     await screen.findByRole('heading', {name: 'Console'});
