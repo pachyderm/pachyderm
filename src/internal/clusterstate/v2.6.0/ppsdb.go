@@ -2,10 +2,11 @@ package v2_6_0
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -17,16 +18,25 @@ func branchlessCommitsPPS(ctx context.Context, tx *pachsql.Tx) error {
 	if err != nil {
 		return errors.Wrap(err, "collecting jobs")
 	}
-	for i, ji := range jis {
-		log.Info(ctx, "removing branch from job output commit",
-			zap.String("job", jobKey(ji.Job)),
-			zap.String("progress", fmt.Sprintf("%v/%v", i, len(jis))),
-		)
-		// TODO(provenance): nil commit.Branch field in storage
-		ji.OutputCommit.Repo = ji.OutputCommit.Branch.Repo
-		if err := updateCollectionProto(ctx, tx, "jobs", jobKey(ji.Job), jobKey(ji.Job), ji); err != nil {
-			return errors.Wrapf(err, "update collections.jobs with key %q", jobKey(ji.Job))
+	// Update the output commit for jobs.
+	if err := func() (retErr error) {
+		ctx, end := log.SpanContext(ctx, "updateJobs")
+		defer end(log.Errorp(&retErr))
+		batcher := newPostgresBatcher(ctx, tx)
+		for _, ji := range jis {
+			ji.OutputCommit.Repo = ji.OutputCommit.Branch.Repo
+			data, err := proto.Marshal(ji)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			stmt := fmt.Sprintf("UPDATE collections.jobs SET proto=decode('%v', 'hex') WHERE key='%v'", hex.EncodeToString(data), jobKey(ji.Job))
+			if err := batcher.Add(stmt); err != nil {
+				return err
+			}
 		}
+		return batcher.Close()
+	}(); err != nil {
+		return err
 	}
 	pis, err := listCollectionProtos(ctx, tx, "pipelines", &pps.PipelineInfo{})
 	if err != nil {
