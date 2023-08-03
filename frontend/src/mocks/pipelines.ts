@@ -58,7 +58,7 @@ const MONTAGE_PIPELINE: Pipeline = buildPipeline({
   egress: false,
   jsonSpec:
     '{\n  "transform": {\n    "image": "dpokidov/imagemagick:7.1.0-23",\n    "cmd": [\n      "sh"\n    ],\n    "stdin": [\n      "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L /pfs/images /pfs/edges -type f | sort) /pfs/out/montage.png"\n    ]\n  },\n  "input": {\n    "cross": [\n      {\n        "pfs": {\n          "project": "default",\n          "name": "images",\n          "repo": "images",\n          "repoType": "user",\n          "branch": "master",\n          "glob": "/"\n        }\n      },\n      {\n        "pfs": {\n          "project": "default",\n          "name": "edges",\n          "repo": "edges",\n          "repoType": "user",\n          "branch": "master",\n          "glob": "/"\n        }\n      }\n    ]\n  },\n  "reprocessSpec": "until_success"\n}',
-  reason: '',
+  reason: 'Pipeline failed because we have no memory!',
   __typename: 'Pipeline',
 });
 

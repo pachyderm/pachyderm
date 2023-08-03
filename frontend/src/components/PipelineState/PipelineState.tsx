@@ -24,7 +24,7 @@ const PipelineState: React.FC<PipelineStateProps> = ({state}) => {
   }, [state]);
 
   return (
-    <Group spacing={8} align="center" data-testid="PipelineState__state">
+    <Group spacing={8} align="center">
       <Circle color={color} />
       <h6>{readablePipelineState(state)}</h6>
     </Group>
