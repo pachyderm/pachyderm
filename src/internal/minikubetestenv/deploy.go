@@ -452,7 +452,7 @@ func waitForPostgres(t testing.TB, ctx context.Context, kubeClient *kube.Clients
 }
 
 func waitForDetermined(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
-	waitForLabeledPod(t, ctx, kubeClient, namespace, "app=determined-master-pachyderm")
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "determined-system=master")
 }
 
 func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, label string) {
