@@ -585,8 +585,12 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		client.authenticationToken = context.SessionToken
 	}
 
-	// Verify cluster deployment ID
+	// Verify cluster deployment ID and project.
 	clusterInfo, err := client.InspectClusterWithVersionAndProject(version.Version, &pfs.Project{Name: context.Project})
+	if err != nil && (status.Code(err) == codes.Unauthenticated || status.Code(err) == codes.PermissionDenied) {
+		fmt.Fprintf(os.Stderr, "error checking for project %q: %v; retrying without project check", context.Project, err)
+		clusterInfo, err = client.InspectClusterWithVersionAndProject(version.Version, nil)
+	}
 	if err != nil {
 		scrubbedErr := grpcutil.ScrubGRPC(err)
 		if status.Code(err) == codes.Unimplemented {
