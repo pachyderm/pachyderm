@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -332,14 +331,15 @@ func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJo
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
 	return nil, nil
 }
-func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	b, err := protojson.Marshal(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal CreatePipelineRequest")
-	}
-	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipelineV2: &pps.CreatePipelineTransaction{
-		CreatePipelineRequest: req,
-		UserJson:              string(b),
-	}})
-	return nil, nil
-}
+
+// func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+// 	b, err := protojson.Marshal(req)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "could not marshal CreatePipelineRequest")
+// 	}
+// 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipelineV2: &pps.CreatePipelineTransaction{
+// 		CreatePipelineRequest: req,
+// 		UserJson:              string(b),
+// 	}})
+// 	return nil, nil
+// }
