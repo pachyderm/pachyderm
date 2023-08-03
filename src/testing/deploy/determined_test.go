@@ -171,7 +171,7 @@ func doDeterminedRequest(t testing.TB, req *http.Request) []byte {
 	hc.Timeout = 15 * time.Second
 	var resp *http.Response
 	var err error
-	require.NoErrorWithinTRetryConstant(t, 3*time.Minute, func() error { // DNJ TODO lower time
+	require.NoErrorWithinTRetryConstant(t, 3*time.Minute, func() error {
 		resp, err = hc.Do(req)
 		return errors.EnsureStack(err)
 	}, 10*time.Second, "Attempting to make determined request")

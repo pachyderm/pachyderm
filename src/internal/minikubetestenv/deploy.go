@@ -525,7 +525,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 func DetNodeportHttpUrl(t testing.TB, namespace string) *url.URL {
 	ctx := context.Background()
 	kube := testutil.GetKubeClient(t)
-	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), metav1.GetOptions{}) // DNJ TODO - should this be in minikubetestenv?
+	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), metav1.GetOptions{})
 	detPort := service.Spec.Ports[0].NodePort
 	require.NoError(t, err, "Fininding Determined service")
 	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", metav1.GetOptions{})
