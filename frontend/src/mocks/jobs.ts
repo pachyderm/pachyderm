@@ -38,6 +38,7 @@ export const buildJob = (job: Partial<Job>): Job => {
     transform: null,
     __typename: 'Job',
   };
+
   return merge(defaultJob, job);
 };
 
@@ -272,7 +273,7 @@ export const ALL_JOBSETS: JobSet[] = [
   buildJobSet({
     id: '1dc67e479f03498badcc6180be4ee6ce',
     state: JobState.JOB_CREATED,
-    createdAt: 1690899572,
+    createdAt: 1690899647,
     startedAt: 1690899578,
     inProgress: true,
     jobs: [MONTAGE_JOB_1D, EDGES_JOB_1D],
@@ -304,7 +305,7 @@ export const ALL_JOBSETS: JobSet[] = [
   buildJobSet({
     id: 'bc322db1b24c4d16873e1a4db198b5c9',
     state: JobState.JOB_SUCCESS,
-    createdAt: 1690899772,
+    createdAt: 1690899573,
     startedAt: 1690899778,
     finishedAt: 1690903580,
     jobs: [MONTAGE_JOB_BC],
@@ -312,8 +313,8 @@ export const ALL_JOBSETS: JobSet[] = [
 ];
 
 export const mockEmptyJobsets = () =>
-  mockJobsQuery((_req, res, ctx) => {
-    return res(ctx.data(MOCK_EMPTY_JOBS));
+  mockJobSetsQuery((_req, res, ctx) => {
+    return res(ctx.data(MOCK_EMPTY_JOBSETS));
   });
 
 export const mockGetAllJobsets = () =>

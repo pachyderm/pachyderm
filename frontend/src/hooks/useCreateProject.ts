@@ -1,7 +1,6 @@
 import {CreateProjectArgs, Project} from '@graphqlTypes';
 
 import {useCreateProjectMutation} from '@dash-frontend/generated/hooks';
-import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
 
 const useCreateProject = (onCompleted?: () => void) => {
   const [createProjectMutation, mutationResult] = useCreateProjectMutation({

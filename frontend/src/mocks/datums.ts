@@ -29,6 +29,7 @@ export const buildDatum = (datum: Partial<Datum>): Datum => {
     uploadBytes: null,
     __typename: 'Datum',
   };
+
   return merge(defaultDatum, datum);
 };
 
