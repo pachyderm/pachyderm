@@ -1,5 +1,6 @@
 import {
   mockJobsQuery,
+  mockJobSetQuery,
   mockJobSetsQuery,
   JobsQuery,
   Job,
@@ -269,47 +270,57 @@ export const MOCK_EMPTY_JOBSETS: JobSetsQuery = {
   },
 };
 
+export const JOBSET_1D: JobSet = buildJobSet({
+  id: '1dc67e479f03498badcc6180be4ee6ce',
+  state: JobState.JOB_CREATED,
+  createdAt: 1690899647,
+  startedAt: 1690899578,
+  inProgress: true,
+  jobs: [MONTAGE_JOB_1D, EDGES_JOB_1D],
+});
+
+export const JOBSET_A4: JobSet = buildJobSet({
+  id: 'a4423427351e42aabc40c1031928628e',
+  state: JobState.JOB_FAILURE,
+  createdAt: 1690899628,
+  startedAt: 1690899628,
+  finishedAt: 1690899630,
+  jobs: [MONTAGE_JOB_A4, EDGES_JOB_A4],
+});
+
+export const JOBSET_5C: JobSet = buildJobSet({
+  id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
+  state: JobState.JOB_SUCCESS,
+  createdAt: 1690899612,
+  startedAt: 1690899615,
+  finishedAt: 1690899618,
+  jobs: [MONTAGE_JOB_5C, EDGES_JOB_5C],
+});
+
+export const JOBSET_CF: JobSet = buildJobSet({
+  id: 'cf302e9203874015be2d453d75864721',
+  state: JobState.JOB_SUCCESS,
+  createdAt: 1690899572,
+  startedAt: 1690899578,
+  finishedAt: 1690899580,
+  jobs: [EDGES_JOB_CF],
+});
+
+export const JOBSET_BC: JobSet = buildJobSet({
+  id: 'bc322db1b24c4d16873e1a4db198b5c9',
+  state: JobState.JOB_SUCCESS,
+  createdAt: 1690899573,
+  startedAt: 1690899778,
+  finishedAt: 1690903580,
+  jobs: [MONTAGE_JOB_BC],
+});
+
 export const ALL_JOBSETS: JobSet[] = [
-  buildJobSet({
-    id: '1dc67e479f03498badcc6180be4ee6ce',
-    state: JobState.JOB_CREATED,
-    createdAt: 1690899647,
-    startedAt: 1690899578,
-    inProgress: true,
-    jobs: [MONTAGE_JOB_1D, EDGES_JOB_1D],
-  }),
-  buildJobSet({
-    id: 'a4423427351e42aabc40c1031928628e',
-    state: JobState.JOB_FAILURE,
-    createdAt: 1690899628,
-    startedAt: 1690899628,
-    finishedAt: 1690899630,
-    jobs: [MONTAGE_JOB_A4, EDGES_JOB_A4],
-  }),
-  buildJobSet({
-    id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
-    state: JobState.JOB_SUCCESS,
-    createdAt: 1690899612,
-    startedAt: 1690899615,
-    finishedAt: 1690899618,
-    jobs: [MONTAGE_JOB_5C, EDGES_JOB_5C],
-  }),
-  buildJobSet({
-    id: 'cf302e9203874015be2d453d75864721',
-    state: JobState.JOB_SUCCESS,
-    createdAt: 1690899572,
-    startedAt: 1690899578,
-    finishedAt: 1690899580,
-    jobs: [EDGES_JOB_CF],
-  }),
-  buildJobSet({
-    id: 'bc322db1b24c4d16873e1a4db198b5c9',
-    state: JobState.JOB_SUCCESS,
-    createdAt: 1690899573,
-    startedAt: 1690899778,
-    finishedAt: 1690903580,
-    jobs: [MONTAGE_JOB_BC],
-  }),
+  JOBSET_1D,
+  JOBSET_A4,
+  JOBSET_5C,
+  JOBSET_CF,
+  JOBSET_BC,
 ];
 
 export const mockEmptyJobsets = () =>
@@ -327,6 +338,15 @@ export const mockGetAllJobsets = () =>
           hasNextPage: false,
           __typename: 'PageableJobSet',
         },
+      }),
+    );
+  });
+
+export const mockGetJobSet_1D = () =>
+  mockJobSetQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        jobSet: JOBSET_1D,
       }),
     );
   });

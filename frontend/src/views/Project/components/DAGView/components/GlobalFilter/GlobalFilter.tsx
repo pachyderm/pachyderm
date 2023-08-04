@@ -1,6 +1,7 @@
 import classnames from 'classnames';
 import React from 'react';
 
+import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-frontend/constants/pachCore';
 import {
   Icon,
@@ -12,8 +13,6 @@ import {
   FilterSVG,
   ChevronDownSVG,
 } from '@pachyderm/components';
-
-import BrandedDocLink from '../BrandedDocLink';
 
 import styles from './GlobalFilter.module.css';
 import useGlobalFilter from './hooks/useGlobalFilter';
@@ -75,7 +74,6 @@ const GlobalFilter: React.FC = () => {
               )}
               <Input
                 placeholder="Copy and paste your Global ID"
-                data-testid="GlobalFilter__name"
                 type="text"
                 id="globalId"
                 name="globalId"

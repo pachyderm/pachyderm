@@ -5,13 +5,13 @@ import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {NO_DAG_MESSAGE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import View from '@dash-frontend/components/View';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
+import GlobalFilter from '@dash-frontend/views/Project/components/DAGView/components/GlobalFilter';
 import {
   Tooltip,
   CheckboxCheckedSVG,
