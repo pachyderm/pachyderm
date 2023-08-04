@@ -3,6 +3,7 @@ FROM huggingface/transformers-pytorch-gpu:4.29.2
 ENV PFS_MOUNT_DIR=/pfs
 ENV MOUNT_SERVER_LOG_DIR=/tmp/mount-server.log
 
+USER root
 RUN mkdir -p /pfs /mnt/pfs 
 RUN apt-get update && apt-get -y install curl fuse
 RUN echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
