@@ -189,7 +189,7 @@ func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
 Description: {{ .Description}}
 {{- end -}}
 {{- if .CreatedAt }}
-Created at: {{ .CreatedAt }}
+Created at: {{ prettyTime .CreatedAt }}
 {{- end -}}
 {{- if .AuthInfo }}
 Roles: {{.AuthInfo.Roles | commafy}}
