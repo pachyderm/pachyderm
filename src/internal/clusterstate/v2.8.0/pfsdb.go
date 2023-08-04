@@ -13,7 +13,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func generateTriggerFunctionStatement(schema, table string) string {
+const (
+	// ReposChannelName
+	ReposChannelName = "pfs_repos"
+)
+
+func generateTriggerFunctionStatement(schema, table, channel string) string {
 	template := `
 	CREATE OR REPLACE FUNCTION %s.notify_%s() RETURNS TRIGGER AS $$
 	DECLARE
@@ -26,7 +31,7 @@ func generateTriggerFunctionStatement(schema, table string) string {
 			row := NEW;
 		END IF;
 		payload := TG_OP || ' ' || row.id::text;
-		PERFORM pg_notify('%s_%s', payload);
+		PERFORM pg_notify('%s', payload);
 		return row;
 	END;
 	$$ LANGUAGE plpgsql;
@@ -35,7 +40,7 @@ func generateTriggerFunctionStatement(schema, table string) string {
 		AFTER INSERT OR UPDATE OR DELETE ON %s.%s
 		FOR EACH ROW EXECUTE PROCEDURE %s.notify_%s();
 	`
-	return fmt.Sprintf(template, schema, table, schema, table, schema, table, schema, table)
+	return fmt.Sprintf(template, schema, table, channel, schema, table, schema, table)
 }
 
 func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo, error) {
@@ -104,7 +109,7 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// Create a trigger that notifies on changes to pfs.repos
 	// This is used by the PPS API to watch for changes to repos
-	if _, err := tx.ExecContext(ctx, generateTriggerFunctionStatement("pfs", "repos")); err != nil {
+	if _, err := tx.ExecContext(ctx, generateTriggerFunctionStatement("pfs", "repos", ReposChannelName)); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.repos")
 	}
 	return nil
