@@ -1,18 +1,24 @@
+import {mockSearchResultsQuery} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
+import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {click, withContextProviders, type} from '@dash-frontend/testHelpers';
 
-import Search from '../Search';
+import SearchComponent from '../Search';
 
 describe('Search', () => {
-  const renderTestbed = () => {
-    const SearchComponent = withContextProviders(() => {
-      return <Search />;
-    });
+  const server = setupServer();
 
-    render(<SearchComponent />);
-  };
+  const Search = withContextProviders(SearchComponent);
+
+  beforeAll(() => {
+    server.listen();
+  });
+
+  afterEach(() => server.resetHandlers());
+
+  afterAll(() => server.close());
 
   const assertDropdown = () => {
     const dropdown = screen.getByTestId('Search__dropdown');
@@ -24,17 +30,29 @@ describe('Search', () => {
   };
 
   beforeEach(() => {
-    window.history.replaceState({}, '', '/lineage/Solar-Panel-Data-Sorting');
+    window.history.replaceState({}, '', '/lineage/default');
   });
+
   afterEach(() => {
-    window.localStorage.removeItem(
-      'pachyderm-console-Solar-Panel-Data-Sorting',
-    );
+    window.localStorage.removeItem('pachyderm-console-default');
   });
 
   it('should display empty state messages', async () => {
-    window.history.replaceState({}, '', '/lineage/Empty-Project');
-    renderTestbed();
+    server.use(
+      mockSearchResultsQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            searchResults: {
+              pipelines: [],
+              repos: [],
+              jobSet: null,
+            },
+          }),
+        );
+      }),
+    );
+
+    render(<Search />);
 
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
@@ -54,7 +72,25 @@ describe('Search', () => {
   });
 
   it('should underline matched search term', async () => {
-    renderTestbed();
+    server.use(
+      mockSearchResultsQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            searchResults: {
+              pipelines: [],
+              repos: [
+                {
+                  name: 'images',
+                  id: 'images',
+                },
+              ],
+              jobSet: null,
+            },
+          }),
+        );
+      }),
+    );
+    render(<Search />);
 
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
@@ -66,7 +102,25 @@ describe('Search', () => {
   });
 
   it('should save recent searches and populate search bar', async () => {
-    renderTestbed();
+    server.use(
+      mockSearchResultsQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            searchResults: {
+              pipelines: [],
+              repos: [
+                {
+                  name: 'images',
+                  id: 'images',
+                },
+              ],
+              jobSet: null,
+            },
+          }),
+        );
+      }),
+    );
+    render(<Search />);
 
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
@@ -88,7 +142,26 @@ describe('Search', () => {
   });
 
   it('should clear saved search history', async () => {
-    renderTestbed();
+    server.use(
+      mockSearchResultsQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            searchResults: {
+              pipelines: [],
+              repos: [
+                {
+                  name: 'images',
+                  id: 'images',
+                },
+              ],
+              jobSet: null,
+            },
+          }),
+        );
+      }),
+    );
+    render(<Search />);
+
     expect(
       screen.getByText('There are no recent searches.'),
     ).toBeInTheDocument();
@@ -114,7 +187,25 @@ describe('Search', () => {
   });
 
   it('should route to selected repo', async () => {
-    renderTestbed();
+    server.use(
+      mockSearchResultsQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            searchResults: {
+              pipelines: [],
+              repos: [
+                {
+                  name: 'images',
+                  id: 'images',
+                },
+              ],
+              jobSet: null,
+            },
+          }),
+        );
+      }),
+    );
+    render(<Search />);
 
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
@@ -127,13 +218,35 @@ describe('Search', () => {
     await click(searchResult);
 
     assertDropdown().toBeHidden();
-    expect(window.location.pathname).toBe(
-      '/lineage/Solar-Panel-Data-Sorting/repos/images',
-    );
+    expect(window.location.pathname).toBe('/lineage/default/repos/images');
   });
 
   it('should route to selected pipeline', async () => {
-    renderTestbed();
+    server.use(
+      mockSearchResultsQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            searchResults: {
+              pipelines: [
+                {
+                  name: 'edges',
+                  id: 'default_edges',
+                },
+              ],
+              repos: [
+                {
+                  name: 'edges',
+                  id: 'edges',
+                },
+              ],
+              jobSet: null,
+            },
+          }),
+        );
+      }),
+    );
+    render(<Search />);
+
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
 
@@ -142,25 +255,37 @@ describe('Search', () => {
     await click((await screen.findAllByText('edges'))[1]);
 
     assertDropdown().toBeHidden();
-    expect(window.location.pathname).toBe(
-      '/lineage/Solar-Panel-Data-Sorting/pipelines/edges',
-    );
+    expect(window.location.pathname).toBe('/lineage/default/pipelines/edges');
     assertDropdown().toBeHidden();
   });
 
   it('should route to jobs for selected id', async () => {
-    renderTestbed();
+    server.use(
+      mockSearchResultsQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            searchResults: {
+              pipelines: [],
+              repos: [],
+              jobSet: {id: '1dc67e479f03498badcc6180be4ee6ce'},
+            },
+          }),
+        );
+      }),
+    );
+    render(<Search />);
 
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    await type(searchBar, '23b9af7d5d4343219bc8e02ff44cd55a');
+    await type(searchBar, '1dc67e479f03498badcc6180be4ee6ce');
     assertDropdown().toBeShown();
-    await click(await screen.findByText('23b9af7d5d4343219bc8e02ff44cd55a'));
+    await click(await screen.findByText('1dc67e479f03498badcc6180be4ee6ce'));
 
     assertDropdown().toBeHidden();
-    expect(window.location.pathname).toBe(
-      '/project/Solar-Panel-Data-Sorting/jobs/subjobs',
+    expect(window.location.pathname).toBe('/project/default/jobs/subjobs');
+    expect(window.location.search).toBe(
+      '?selectedJobs=1dc67e479f03498badcc6180be4ee6ce',
     );
   });
 });

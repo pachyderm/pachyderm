@@ -2,7 +2,6 @@ import React, {useCallback, useState} from 'react';
 
 import Header from '@dash-frontend/components/Header';
 import HeaderDropdown from '@dash-frontend/components/HeaderDropdown';
-import Search from '@dash-frontend/components/Search';
 import {
   SkeletonDisplayText,
   Tooltip,
@@ -13,6 +12,7 @@ import {
   Icon,
 } from '@pachyderm/components';
 
+import GlobalSearch from './components/GlobalSearch';
 import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
@@ -71,7 +71,7 @@ const ProjectHeader = () => {
         )}
       </Group>
       <div className={styles.dividerSearch} />
-      <Search />
+      <GlobalSearch />
       <HeaderDropdown />
     </Header>
   );
