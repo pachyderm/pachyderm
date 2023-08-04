@@ -22,7 +22,7 @@ data:
       - {{ .Values.console.config.oauthClientID | quote }}
       {{- end }}
       {{- if .Values.determined.enabled}}
-      - {{ default .Values.determined.oidc.clientId "determined" }}
+      - {{ default "determined" .Values.determined.oidc.clientId }}
       {{- end }}
     {{- if .Values.console.enabled }}
     - id: {{ .Values.console.config.oauthClientID }}
@@ -31,8 +31,8 @@ data:
       - {{ include "pachyderm.consoleRedirectURI" . | quote }}
     {{- end }}
     {{- if .Values.determined.enabled }}
-    - id: {{ default .Values.determined.oidc.clientId "determined" }}
-      name: {{ default .Values.determined.oidc.clientId "determined" }}
+    - id: {{ default "determined" .Values.determined.oidc.clientId }}
+      name: {{ default "determined" .Values.determined.oidc.clientId }}
       redirect_uris:
       - {{ required "A valid recipient url is required!" (printf "%s/oidc/callback" .Values.determined.oidc.idpRecipientUrl) }}
     {{- end }}

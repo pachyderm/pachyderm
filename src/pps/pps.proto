@@ -909,6 +909,11 @@ message SetClusterDefaultsResponse {
   repeated Pipeline affected_pipelines = 2;
 }
 
+message CreatePipelineTransaction {
+  CreatePipelineRequest create_pipeline_request = 1;
+  string user_json = 2; // the JSON the user originally submitted
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}

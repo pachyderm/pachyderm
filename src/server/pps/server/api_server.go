@@ -2236,7 +2236,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		}
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.CreatePipeline(request))
+		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{CreatePipelineRequest: request, UserJson: req.CreatePipelineRequestJson}))
 	}); err != nil {
 		return "", err
 	}
@@ -2293,7 +2293,8 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *
 	return nil
 }
 
-func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+	request := txn.CreatePipelineRequest
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
 	}
@@ -2334,6 +2335,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Tolerations:             request.Tolerations,
 			Determined:              request.Determined,
 		},
+		DetailsJson: txn.UserJson,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
@@ -2357,7 +2359,11 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	return pipelineInfo, nil
 }
 
-func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
+func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, txn *pps.CreatePipelineTransaction) error {
+	var request = txn.GetCreatePipelineRequest()
+	if request == nil {
+		return status.Error(codes.Internal, "empty CreatePipelineRequest in CreatePipelineTransaction")
+	}
 	var (
 		projectName          = request.Pipeline.Project.GetName()
 		pipelineName         = request.Pipeline.Name
@@ -2372,7 +2378,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			Pipeline: request.Pipeline,
 		}
 	}
-	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(txn, oldPipelineInfo)
 	if err != nil {
 		return err
 	}
@@ -2727,7 +2733,19 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 					return nil, errors.EnsureStack(err)
 				}
 			} else {
-				info.Details.Service.Ip = service.Spec.ClusterIP
+				if info.Details.Service.Type == "LoadBalancer" {
+					//GCP: service.Status.LoadBalancer.Ingress[0].IP
+					//AWS: service.Status.LoadBalancer.Ingress[0].Hostname
+					if len(service.Status.LoadBalancer.Ingress) == 1 {
+						if service.Status.LoadBalancer.Ingress[0].IP != "" {
+							info.Details.Service.Ip = service.Status.LoadBalancer.Ingress[0].IP
+						} else if service.Status.LoadBalancer.Ingress[0].Hostname != "" {
+							info.Details.Service.Ip = service.Status.LoadBalancer.Ingress[0].Hostname
+						}
+					}
+				} else {
+					info.Details.Service.Ip = service.Spec.ClusterIP
+				}
 			}
 		}
 

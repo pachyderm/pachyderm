@@ -68,16 +68,16 @@ type TransactionRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Exactly one of these fields should be set
-	CreateRepo      *pfs.CreateRepoRequest      `protobuf:"bytes,1,opt,name=create_repo,json=createRepo,proto3" json:"create_repo,omitempty"`
-	DeleteRepo      *pfs.DeleteRepoRequest      `protobuf:"bytes,2,opt,name=delete_repo,json=deleteRepo,proto3" json:"delete_repo,omitempty"`
-	StartCommit     *pfs.StartCommitRequest     `protobuf:"bytes,3,opt,name=start_commit,json=startCommit,proto3" json:"start_commit,omitempty"`
-	FinishCommit    *pfs.FinishCommitRequest    `protobuf:"bytes,4,opt,name=finish_commit,json=finishCommit,proto3" json:"finish_commit,omitempty"`
-	SquashCommitSet *pfs.SquashCommitSetRequest `protobuf:"bytes,5,opt,name=squash_commit_set,json=squashCommitSet,proto3" json:"squash_commit_set,omitempty"`
-	CreateBranch    *pfs.CreateBranchRequest    `protobuf:"bytes,6,opt,name=create_branch,json=createBranch,proto3" json:"create_branch,omitempty"`
-	DeleteBranch    *pfs.DeleteBranchRequest    `protobuf:"bytes,7,opt,name=delete_branch,json=deleteBranch,proto3" json:"delete_branch,omitempty"`
-	UpdateJobState  *pps.UpdateJobStateRequest  `protobuf:"bytes,8,opt,name=update_job_state,json=updateJobState,proto3" json:"update_job_state,omitempty"`
-	CreatePipeline  *pps.CreatePipelineRequest  `protobuf:"bytes,9,opt,name=create_pipeline,json=createPipeline,proto3" json:"create_pipeline,omitempty"`
-	StopJob         *pps.StopJobRequest         `protobuf:"bytes,10,opt,name=stop_job,json=stopJob,proto3" json:"stop_job,omitempty"`
+	CreateRepo       *pfs.CreateRepoRequest         `protobuf:"bytes,1,opt,name=create_repo,json=createRepo,proto3" json:"create_repo,omitempty"`
+	DeleteRepo       *pfs.DeleteRepoRequest         `protobuf:"bytes,2,opt,name=delete_repo,json=deleteRepo,proto3" json:"delete_repo,omitempty"`
+	StartCommit      *pfs.StartCommitRequest        `protobuf:"bytes,3,opt,name=start_commit,json=startCommit,proto3" json:"start_commit,omitempty"`
+	FinishCommit     *pfs.FinishCommitRequest       `protobuf:"bytes,4,opt,name=finish_commit,json=finishCommit,proto3" json:"finish_commit,omitempty"`
+	SquashCommitSet  *pfs.SquashCommitSetRequest    `protobuf:"bytes,5,opt,name=squash_commit_set,json=squashCommitSet,proto3" json:"squash_commit_set,omitempty"`
+	CreateBranch     *pfs.CreateBranchRequest       `protobuf:"bytes,6,opt,name=create_branch,json=createBranch,proto3" json:"create_branch,omitempty"`
+	DeleteBranch     *pfs.DeleteBranchRequest       `protobuf:"bytes,7,opt,name=delete_branch,json=deleteBranch,proto3" json:"delete_branch,omitempty"`
+	UpdateJobState   *pps.UpdateJobStateRequest     `protobuf:"bytes,8,opt,name=update_job_state,json=updateJobState,proto3" json:"update_job_state,omitempty"`
+	StopJob          *pps.StopJobRequest            `protobuf:"bytes,10,opt,name=stop_job,json=stopJob,proto3" json:"stop_job,omitempty"`
+	CreatePipelineV2 *pps.CreatePipelineTransaction `protobuf:"bytes,11,opt,name=create_pipeline_v2,json=createPipelineV2,proto3" json:"create_pipeline_v2,omitempty"`
 }
 
 func (x *TransactionRequest) Reset() {
@@ -168,16 +168,16 @@ func (x *TransactionRequest) GetUpdateJobState() *pps.UpdateJobStateRequest {
 	return nil
 }
 
-func (x *TransactionRequest) GetCreatePipeline() *pps.CreatePipelineRequest {
+func (x *TransactionRequest) GetStopJob() *pps.StopJobRequest {
 	if x != nil {
-		return x.CreatePipeline
+		return x.StopJob
 	}
 	return nil
 }
 
-func (x *TransactionRequest) GetStopJob() *pps.StopJobRequest {
+func (x *TransactionRequest) GetCreatePipelineV2() *pps.CreatePipelineTransaction {
 	if x != nil {
-		return x.StopJob
+		return x.CreatePipelineV2
 	}
 	return nil
 }
@@ -680,7 +680,7 @@ var file_transaction_transaction_proto_rawDesc = []byte{
 	0x66, 0x73, 0x2f, 0x70, 0x66, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x0d, 0x70, 0x70,
 	0x73, 0x2f, 0x70, 0x70, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x12, 0x0a, 0x10, 0x44,
 	0x65, 0x6c, 0x65, 0x74, 0x65, 0x41, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22,
-	0xa1, 0x05, 0x0a, 0x12, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52,
+	0xc1, 0x05, 0x0a, 0x12, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52,
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x3a, 0x0a, 0x0b, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65,
 	0x5f, 0x72, 0x65, 0x70, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x70, 0x66,
 	0x73, 0x5f, 0x76, 0x32, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x52, 0x65, 0x70, 0x6f, 0x52,
@@ -714,15 +714,17 @@ var file_transaction_transaction_proto_rawDesc = []byte{
 	0x61, 0x74, 0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x70, 0x70, 0x73, 0x5f,
 	0x76, 0x32, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74,
 	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0e, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65,
-	0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x46, 0x0a, 0x0f, 0x63, 0x72, 0x65, 0x61,
-	0x74, 0x65, 0x5f, 0x70, 0x69, 0x70, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x1d, 0x2e, 0x70, 0x70, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74,
-	0x65, 0x50, 0x69, 0x70, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x52, 0x0e, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x50, 0x69, 0x70, 0x65, 0x6c, 0x69, 0x6e, 0x65,
-	0x12, 0x31, 0x0a, 0x08, 0x73, 0x74, 0x6f, 0x70, 0x5f, 0x6a, 0x6f, 0x62, 0x18, 0x0a, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x16, 0x2e, 0x70, 0x70, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x53, 0x74, 0x6f, 0x70,
-	0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x07, 0x73, 0x74, 0x6f, 0x70,
-	0x4a, 0x6f, 0x62, 0x22, 0x3d, 0x0a, 0x13, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69,
+	0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x31, 0x0a, 0x08, 0x73, 0x74, 0x6f, 0x70,
+	0x5f, 0x6a, 0x6f, 0x62, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x70, 0x70, 0x73,
+	0x5f, 0x76, 0x32, 0x2e, 0x53, 0x74, 0x6f, 0x70, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x52, 0x07, 0x73, 0x74, 0x6f, 0x70, 0x4a, 0x6f, 0x62, 0x12, 0x4f, 0x0a, 0x12, 0x63,
+	0x72, 0x65, 0x61, 0x74, 0x65, 0x5f, 0x70, 0x69, 0x70, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x5f, 0x76,
+	0x32, 0x18, 0x0b, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x70, 0x70, 0x73, 0x5f, 0x76, 0x32,
+	0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x50, 0x69, 0x70, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x54,
+	0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x10, 0x63, 0x72, 0x65, 0x61,
+	0x74, 0x65, 0x50, 0x69, 0x70, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x56, 0x32, 0x4a, 0x04, 0x08, 0x09,
+	0x10, 0x0a, 0x52, 0x0f, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x5f, 0x70, 0x69, 0x70, 0x65, 0x6c,
+	0x69, 0x6e, 0x65, 0x22, 0x3d, 0x0a, 0x13, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69,
 	0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x26, 0x0a, 0x06, 0x63, 0x6f,
 	0x6d, 0x6d, 0x69, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x70, 0x66, 0x73,
 	0x5f, 0x76, 0x32, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d,
@@ -840,31 +842,31 @@ func file_transaction_transaction_proto_rawDescGZIP() []byte {
 
 var file_transaction_transaction_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_transaction_transaction_proto_goTypes = []interface{}{
-	(*DeleteAllRequest)(nil),           // 0: transaction_v2.DeleteAllRequest
-	(*TransactionRequest)(nil),         // 1: transaction_v2.TransactionRequest
-	(*TransactionResponse)(nil),        // 2: transaction_v2.TransactionResponse
-	(*Transaction)(nil),                // 3: transaction_v2.Transaction
-	(*TransactionInfo)(nil),            // 4: transaction_v2.TransactionInfo
-	(*TransactionInfos)(nil),           // 5: transaction_v2.TransactionInfos
-	(*BatchTransactionRequest)(nil),    // 6: transaction_v2.BatchTransactionRequest
-	(*StartTransactionRequest)(nil),    // 7: transaction_v2.StartTransactionRequest
-	(*InspectTransactionRequest)(nil),  // 8: transaction_v2.InspectTransactionRequest
-	(*DeleteTransactionRequest)(nil),   // 9: transaction_v2.DeleteTransactionRequest
-	(*ListTransactionRequest)(nil),     // 10: transaction_v2.ListTransactionRequest
-	(*FinishTransactionRequest)(nil),   // 11: transaction_v2.FinishTransactionRequest
-	(*pfs.CreateRepoRequest)(nil),      // 12: pfs_v2.CreateRepoRequest
-	(*pfs.DeleteRepoRequest)(nil),      // 13: pfs_v2.DeleteRepoRequest
-	(*pfs.StartCommitRequest)(nil),     // 14: pfs_v2.StartCommitRequest
-	(*pfs.FinishCommitRequest)(nil),    // 15: pfs_v2.FinishCommitRequest
-	(*pfs.SquashCommitSetRequest)(nil), // 16: pfs_v2.SquashCommitSetRequest
-	(*pfs.CreateBranchRequest)(nil),    // 17: pfs_v2.CreateBranchRequest
-	(*pfs.DeleteBranchRequest)(nil),    // 18: pfs_v2.DeleteBranchRequest
-	(*pps.UpdateJobStateRequest)(nil),  // 19: pps_v2.UpdateJobStateRequest
-	(*pps.CreatePipelineRequest)(nil),  // 20: pps_v2.CreatePipelineRequest
-	(*pps.StopJobRequest)(nil),         // 21: pps_v2.StopJobRequest
-	(*pfs.Commit)(nil),                 // 22: pfs_v2.Commit
-	(*timestamppb.Timestamp)(nil),      // 23: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),              // 24: google.protobuf.Empty
+	(*DeleteAllRequest)(nil),              // 0: transaction_v2.DeleteAllRequest
+	(*TransactionRequest)(nil),            // 1: transaction_v2.TransactionRequest
+	(*TransactionResponse)(nil),           // 2: transaction_v2.TransactionResponse
+	(*Transaction)(nil),                   // 3: transaction_v2.Transaction
+	(*TransactionInfo)(nil),               // 4: transaction_v2.TransactionInfo
+	(*TransactionInfos)(nil),              // 5: transaction_v2.TransactionInfos
+	(*BatchTransactionRequest)(nil),       // 6: transaction_v2.BatchTransactionRequest
+	(*StartTransactionRequest)(nil),       // 7: transaction_v2.StartTransactionRequest
+	(*InspectTransactionRequest)(nil),     // 8: transaction_v2.InspectTransactionRequest
+	(*DeleteTransactionRequest)(nil),      // 9: transaction_v2.DeleteTransactionRequest
+	(*ListTransactionRequest)(nil),        // 10: transaction_v2.ListTransactionRequest
+	(*FinishTransactionRequest)(nil),      // 11: transaction_v2.FinishTransactionRequest
+	(*pfs.CreateRepoRequest)(nil),         // 12: pfs_v2.CreateRepoRequest
+	(*pfs.DeleteRepoRequest)(nil),         // 13: pfs_v2.DeleteRepoRequest
+	(*pfs.StartCommitRequest)(nil),        // 14: pfs_v2.StartCommitRequest
+	(*pfs.FinishCommitRequest)(nil),       // 15: pfs_v2.FinishCommitRequest
+	(*pfs.SquashCommitSetRequest)(nil),    // 16: pfs_v2.SquashCommitSetRequest
+	(*pfs.CreateBranchRequest)(nil),       // 17: pfs_v2.CreateBranchRequest
+	(*pfs.DeleteBranchRequest)(nil),       // 18: pfs_v2.DeleteBranchRequest
+	(*pps.UpdateJobStateRequest)(nil),     // 19: pps_v2.UpdateJobStateRequest
+	(*pps.StopJobRequest)(nil),            // 20: pps_v2.StopJobRequest
+	(*pps.CreatePipelineTransaction)(nil), // 21: pps_v2.CreatePipelineTransaction
+	(*pfs.Commit)(nil),                    // 22: pfs_v2.Commit
+	(*timestamppb.Timestamp)(nil),         // 23: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                 // 24: google.protobuf.Empty
 }
 var file_transaction_transaction_proto_depIdxs = []int32{
 	12, // 0: transaction_v2.TransactionRequest.create_repo:type_name -> pfs_v2.CreateRepoRequest
@@ -875,8 +877,8 @@ var file_transaction_transaction_proto_depIdxs = []int32{
 	17, // 5: transaction_v2.TransactionRequest.create_branch:type_name -> pfs_v2.CreateBranchRequest
 	18, // 6: transaction_v2.TransactionRequest.delete_branch:type_name -> pfs_v2.DeleteBranchRequest
 	19, // 7: transaction_v2.TransactionRequest.update_job_state:type_name -> pps_v2.UpdateJobStateRequest
-	20, // 8: transaction_v2.TransactionRequest.create_pipeline:type_name -> pps_v2.CreatePipelineRequest
-	21, // 9: transaction_v2.TransactionRequest.stop_job:type_name -> pps_v2.StopJobRequest
+	20, // 8: transaction_v2.TransactionRequest.stop_job:type_name -> pps_v2.StopJobRequest
+	21, // 9: transaction_v2.TransactionRequest.create_pipeline_v2:type_name -> pps_v2.CreatePipelineTransaction
 	22, // 10: transaction_v2.TransactionResponse.commit:type_name -> pfs_v2.Commit
 	3,  // 11: transaction_v2.TransactionInfo.transaction:type_name -> transaction_v2.Transaction
 	1,  // 12: transaction_v2.TransactionInfo.requests:type_name -> transaction_v2.TransactionRequest
