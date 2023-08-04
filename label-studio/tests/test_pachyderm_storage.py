@@ -1,5 +1,5 @@
-import requests
 import pytest
+import json
 
 from label_studio_sdk import Client as LSClient
 from pachyderm_sdk import Client as PachClient
@@ -8,7 +8,7 @@ from pachyderm_sdk.api import pfs
 from tests.constants import LABEL_STUDIO_URL, AUTH_TOKEN, PACHD_ADDRESS
 
 
-## TODO: proper client config for CI
+# TODO: proper client config for CI
 @pytest.fixture(scope="session")
 def pach_client():
     return PachClient.from_config()
@@ -39,7 +39,7 @@ def pachyderm_data(pach_client):
 
     yield import_repo, commit_id, export_repo
 
-    # pach_client.pfs.delete_all()
+    pach_client.pfs.delete_all()
 
 
 @pytest.fixture(scope="session")
@@ -63,7 +63,7 @@ def project():
 
 
 @pytest.fixture
-def import_storage(pachyderm_data, project):
+def import_storage_id(pachyderm_data, project):
     import_repo, commit_id, _ = pachyderm_data
 
     # Create import storage
@@ -87,16 +87,18 @@ def import_storage(pachyderm_data, project):
 
     yield storage_id
 
-    # # Delete storage
-    # project.make_request('DELETE', f'/api/storages/pachyderm/{storage_id}')
+    # Delete storage
+    project.make_request("DELETE", f"/api/storages/pachyderm/{storage_id}")
 
-    # # Get all storages
-    # response = project.make_request('GET', f'/api/storages/pachyderm?project={project_id}')
-    # assert len(response.json()) == 0
+    # Get all storages
+    response = project.make_request(
+        "GET", f"/api/storages/pachyderm?project={project_id}"
+    )
+    assert len(response.json()) == 0
 
 
 @pytest.fixture
-def export_storage(pachyderm_data, project):
+def export_storage_id(pachyderm_data, project):
     _, _, export_repo = pachyderm_data
 
     # Create export storage
@@ -121,99 +123,120 @@ def export_storage(pachyderm_data, project):
 
     yield storage_id
 
-    # # Delete storage
-    # project.make_request("DELETE", f"/api/storages/export/pachyderm/{storage_id}")
+    # Delete storage
+    project.make_request("DELETE", f"/api/storages/export/pachyderm/{storage_id}")
 
-    # # Get all storages
-    # response = project.make_request(
-    #     "GET", f"/api/storages/export/pachyderm?project={project_id}"
-    # )
-    # assert len(response.json()) == 0
-
-
-# # Label Studio API: https://labelstud.io/api
-# def test_pachyderm_import_storage(pachyderm_data, project, import_storage):
-#     import_repo, commit_id, _ = pachyderm_data
-
-#     # Validate storage
-#     payload = {
-#         'pach_repo': import_repo.name,
-#         'pach_commit': commit_id,
-#         'pachd_address': PACHD_ADDRESS,
-#         'use_blob_urls': True,
-#         'title': 'Images',
-#         'project': project.id,
-#     }
-#     project.make_request('POST', '/api/storages/pachyderm/validate', json=payload)
-
-#     # Update storage
-#     payload = {
-#         'pach_repo': import_repo.name,
-#         'pach_commit': commit_id,
-#         'pachd_address': PACHD_ADDRESS,
-#         'use_blob_urls': True,
-#         'title': 'Images (updated)'
-#     }
-#     response = project.make_request('PATCH', f'/api/storages/pachyderm/{import_storage}', json=payload)
-#     assert response.json()['title'] == 'Images (updated)'
-
-#     # Get storage
-#     response = project.make_request('GET', f'/api/storages/pachyderm/{import_storage}')
-#     assert response.json()['title'] == 'Images (updated)'
+    # Get all storages
+    response = project.make_request(
+        "GET", f"/api/storages/export/pachyderm?project={project_id}"
+    )
+    assert len(response.json()) == 0
 
 
-# def test_pachyderm_export_storage(pachyderm_data, project, export_storage):
-#     _, _, export_repo = pachyderm_data
+# Label Studio API: https://labelstud.io/api
+def test_pachyderm_import_storage(pachyderm_data, project, import_storage_id):
+    import_repo, commit_id, _ = pachyderm_data
 
-#     # Validate storage
-#     payload = {
-#         'pach_repo': export_repo.name,
-#         'pachd_address': PACHD_ADDRESS,
-#         'use_blob_urls': True,
-#         'title': 'Labels',
-#         'project': project.id,
-#     }
-#     project.make_request('POST', '/api/storages/export/pachyderm/validate', json=payload)
+    # Validate storage
+    payload = {
+        "pach_repo": import_repo.name,
+        "pach_commit": commit_id,
+        "pachd_address": PACHD_ADDRESS,
+        "use_blob_urls": True,
+        "title": "Images",
+        "project": project.id,
+    }
+    project.make_request("POST", "/api/storages/pachyderm/validate", json=payload)
 
-#     # Update storage
-#     payload = {
-#         'pach_repo': export_repo.name,
-#         'pachd_address': PACHD_ADDRESS,
-#         'use_blob_urls': True,
-#         'title': 'Labels (updated)'
-#     }
-#     response = project.make_request('PATCH', f'/api/storages/export/pachyderm/{export_storage}', json=payload)
-#     assert response.json()['title'] == 'Labels (updated)'
+    # Update storage
+    payload = {
+        "pach_repo": import_repo.name,
+        "pach_commit": commit_id,
+        "pachd_address": PACHD_ADDRESS,
+        "use_blob_urls": True,
+        "title": "Images (updated)",
+    }
+    response = project.make_request(
+        "PATCH", f"/api/storages/pachyderm/{import_storage_id}", json=payload
+    )
+    assert response.json()["title"] == "Images (updated)"
 
-#     # Get storage
-#     response = project.make_request('GET', f'/api/storages/export/pachyderm/{export_storage}')
-#     assert response.json()['title'] == 'Labels (updated)'
+    # Get storage
+    response = project.make_request(
+        "GET", f"/api/storages/pachyderm/{import_storage_id}"
+    )
+    assert response.json()["title"] == "Images (updated)"
 
 
-def test_annotate_and_save(project, import_storage, export_storage, pach_client):
-    project.make_request("POST", f"/api/storages/pachyderm/{import_storage}/sync")
+def test_pachyderm_export_storage(pachyderm_data, project, export_storage_id):
+    _, _, export_repo = pachyderm_data
+
+    # Validate storage
+    payload = {
+        "pach_repo": export_repo.name,
+        "pachd_address": PACHD_ADDRESS,
+        "use_blob_urls": True,
+        "title": "Labels",
+        "project": project.id,
+    }
+    project.make_request(
+        "POST", "/api/storages/export/pachyderm/validate", json=payload
+    )
+
+    # Update storage
+    payload = {
+        "pach_repo": export_repo.name,
+        "pachd_address": PACHD_ADDRESS,
+        "use_blob_urls": True,
+        "title": "Labels (updated)",
+    }
+    response = project.make_request(
+        "PATCH", f"/api/storages/export/pachyderm/{export_storage_id}", json=payload
+    )
+    assert response.json()["title"] == "Labels (updated)"
+
+    # Get storage
+    response = project.make_request(
+        "GET", f"/api/storages/export/pachyderm/{export_storage_id}"
+    )
+    assert response.json()["title"] == "Labels (updated)"
+
+
+def test_annotate_and_save(
+    pachyderm_data, project, import_storage_id, export_storage_id, pach_client
+):
+    _, _, export_repo = pachyderm_data
+
+    project.make_request("POST", f"/api/storages/pachyderm/{import_storage_id}/sync")
 
     task_id = project.tasks[0]["id"]
-    result = [{
-        "original_width": 1280,
-        "original_height": 853,
-        "image_rotation": 0,
-        "value": {
-            "x": 27.687471665927234,
-            "y": 4.645161290322584,
-            "width": 36.544858870967744,
-            "height": 95.35483870967742,
-            "rotation": 0,
-            "rectanglelabels": ["Statue"],
-        },
-        "id": "L-ZO8nCsBf",
-        "from_name": "label",
-        "to_name": "image",
-        "type": "rectanglelabels",
-        "origin": "manual",
-    }]
+    result = [
+        {
+            "original_width": 1280,
+            "original_height": 853,
+            "image_rotation": 0,
+            "value": {
+                "x": 27.687471665927234,
+                "y": 4.645161290322584,
+                "width": 36.544858870967744,
+                "height": 95.35483870967742,
+                "rotation": 0,
+                "rectanglelabels": ["Statue"],
+            },
+            "id": "L-ZO8nCsBf",
+            "from_name": "label",
+            "to_name": "image",
+            "type": "rectanglelabels",
+            "origin": "manual",
+        }
+    ]
     project.create_annotation(task_id, result=result)
 
-    project.make_request("POST", f"/api/storages/export/pachyderm/{export_storage}/sync")
-    
-    # pach_client.
+    project.make_request(
+        "POST", f"/api/storages/export/pachyderm/{export_storage_id}/sync"
+    )
+
+    file = pfs.File.from_uri(f"{export_repo.name}@master:/{task_id}")
+    with pach_client.pfs.pfs_file(file=file) as pfs_file:
+        label = json.load(pfs_file)
+        assert label["id"] == task_id
