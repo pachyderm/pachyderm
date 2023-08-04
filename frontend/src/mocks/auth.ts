@@ -2,6 +2,8 @@ import {
   mockGetAuthorizeQuery,
   mockGetAccountQuery,
   mockGetRolesQuery,
+  mockAuthConfigQuery,
+  mockExchangeCodeMutation,
 } from '@graphqlTypes';
 
 export const mockEmptyGetAuthorize = () =>
@@ -83,6 +85,31 @@ export const mockEmptyGetRoles = () =>
               roles: [],
             },
           ],
+        },
+      }),
+    );
+  });
+
+export const mockAuthConfig = () =>
+  mockAuthConfigQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        authConfig: {
+          authEndpoint: '/dex/auth',
+          clientId: 'console-test',
+          pachdClientId: 'pachd',
+        },
+      }),
+    );
+  });
+
+export const mockExchangeCode = () =>
+  mockExchangeCodeMutation((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        exchangeCode: {
+          pachToken: 'abc',
+          idToken: '123',
         },
       }),
     );
