@@ -24,7 +24,7 @@ Pachyderm is cost-effective at scale, enabling data engineering teams to automat
 
 
 ## Getting Started
-To start deploying your end-to-end version-controlled data pipelines, run Pachyderm [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/) or you can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
+To start deploying your end-to-end version-controlled data pipelines, run Pachyderm [locally](https://docs.pachyderm.com/latest/set-up/local-deploy/) or you can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/set-up/cloud-deploy) in about 5 minutes. 
 
 You can also refer to our complete [documentation](https://docs.pachyderm.com) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
