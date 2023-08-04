@@ -327,17 +327,19 @@ func PrintDetailedPipelineInfo(w io.Writer, pipelineInfo *PrintablePipelineInfo)
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}{{if .Details.Description}}
 Description: {{.Details.Description}}{{end}}{{if .FullTimestamps }}
-Created: {{.Details.CreatedAt}}{{ else }}
+Created: {{prettyTime .Details.CreatedAt}}{{ else }}
 Created: {{prettyAgo .Details.CreatedAt}} {{end}}
 State: {{pipelineState .State}}
 Reason: {{.Reason}}
 Workers Available: {{.Details.WorkersAvailable}}/{{.Details.WorkersRequested}}
 Stopped: {{ .Stopped }}
 Parallelism Spec: {{.Details.ParallelismSpec}}
-{{ if .Details.ResourceRequests }}ResourceRequests:
+{{- if .Details.ResourceRequests }}
+ResourceRequests:
   CPU: {{ .Details.ResourceRequests.Cpu }}
   Memory: {{ .Details.ResourceRequests.Memory }} {{end}}
-{{ if .Details.ResourceLimits }}ResourceLimits:
+{{- if .Details.ResourceLimits }}
+ResourceLimits:
   CPU: {{ .Details.ResourceLimits.Cpu }}
   Memory: {{ .Details.ResourceLimits.Memory }}
   {{ if .Details.ResourceLimits.Gpu }}GPU:
@@ -345,11 +347,9 @@ Parallelism Spec: {{.Details.ParallelismSpec}}
     Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
 Datum Timeout: {{.Details.DatumTimeout}}
 Job Timeout: {{.Details.JobTimeout}}
-Input:
-{{pipelineInput .PipelineInfo}}
+Input: {{pipelineInput .PipelineInfo}}
 Output Branch: {{.Details.OutputBranch}}
-Transform:
-{{prettyTransform .Details.Transform}}
+Transform: {{prettyTransform .Details.Transform}}
 {{ if .Details.Egress }}Egress: {{egress .Details.Egress}} {{end}}
 {{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
 `)
@@ -528,7 +528,7 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}
-	return string(input) + "\n"
+	return string(input)
 }
 
 func prettyTransform(transform *ppsclient.Transform) (string, error) {
