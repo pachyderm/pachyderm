@@ -107,7 +107,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Id)
 	if jobInfo.Started != nil {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(jobInfo.Started))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
 		}
@@ -167,7 +167,7 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(jobSetInfo.Jobs)-success-failure, failure))
 	if created != nil {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", created.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(created))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(created))
 		}
@@ -176,7 +176,7 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 	}
 	if modified != nil {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", modified.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(modified))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(modified))
 		}
@@ -199,7 +199,7 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 	} else {
 		fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Details.Input))
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", pipelineInfo.Details.CreatedAt.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(pipelineInfo.Details.CreatedAt))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.Details.CreatedAt))
 		}
@@ -225,7 +225,7 @@ func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTi
 		}
 		fmt.Fprintf(w, "\t")
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", datumStatus.Started.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(datumStatus.Started))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(datumStatus.Started))
 		}
@@ -254,7 +254,7 @@ func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 		`ID: {{.Job.Id}}
 Pipeline: {{.Job.Pipeline.Name}}
 Project: {{.Job.Pipeline.Project.Name}}{{if .FullTimestamps}}
-Started: {{jobStarted .Started}}{{else}}
+Started: {{prettyTime .Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
@@ -465,13 +465,6 @@ func JobState(jobState ppsclient.JobState) string {
 	return "-"
 }
 
-func jobStarted(started *timestamppb.Timestamp) string {
-	if started == nil {
-		return "-"
-	}
-	return started.AsTime().GoString()
-}
-
 // Progress pretty prints the datum progress of a job.
 func Progress(ji *ppsclient.JobInfo) string {
 	if ji.DataRecovered != 0 {
@@ -593,16 +586,16 @@ func egress(e *ppsclient.Egress) string {
 
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
-	"jobStarted":           jobStarted,
 	"jobState":             JobState,
 	"datumState":           datumState,
 	"workerStatus":         workerStatus,
 	"pipelineInput":        pipelineInput,
 	"jobInput":             jobInput,
 	"prettyAgo":            pretty.Ago,
-	"prettyTimeDifference": pretty.TimeDifference,
 	"prettyDuration":       pretty.Duration,
 	"prettySize":           pretty.Size,
+	"prettyTime":           pretty.Timestamp,
+	"prettyTimeDifference": pretty.TimeDifference,
 	"prettyTransform":      prettyTransform,
 	"egress":               egress,
 }
