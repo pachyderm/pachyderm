@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -31,6 +32,8 @@ const (
 	jobInfoFileName string = "JobInfo.json"
 )
 
+var startTime time.Time
+
 type TestResultLine struct {
 	Time     time.Time `json:"Time"`
 	Action   string    `json:"Action"`
@@ -42,20 +45,24 @@ type TestResultLine struct {
 
 // This is built and runs in a pachyderm pipeline to egress data uploaded to pachyderm to postgresql.
 func main() {
+	startTime = time.Now()
 	log.InitPachctlLogger()
 	ctx := pctx.Background("")
+	logPerf(ctx, "begin run")
 	err := run(ctx)
 	if err != nil {
 		log.Exit(ctx, "Error during metric collection", zap.Error(err))
 	}
 }
 func run(ctx context.Context) error {
+
 	log.Info(ctx, "Running DB Migrate")
 	out, err := exec.Command("tern", "migrate").CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "Error running migrates. %v", string(out))
 	}
 	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
+	logPerf(ctx, "migrate done")
 	inputFolder := os.Args[1]
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(gotestresults.PostgresqlHost, 5432),
@@ -65,6 +72,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "Failed opening db connection")
 	}
+	logPerf(ctx, "db connected")
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)
 	if err != nil {
@@ -92,6 +100,7 @@ func run(ctx context.Context) error {
 		}
 		return nil
 	})
+	logPerf(ctx, "job info done")
 	if err != nil {
 		return errors.Wrapf(err, "Problem walking file tree for job info ")
 	}
@@ -104,6 +113,7 @@ func run(ctx context.Context) error {
 			return errors.Wrapf(err, "Problem inserting test results into DB ")
 		}
 	}
+	logPerf(ctx, "test results done")
 	return nil
 }
 
@@ -153,13 +163,13 @@ func insertJobInfo(
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			// Unique key constraint violation. In other words, the record already exists.
 			// Ignore insert to since we don't want to change the timestamp, but log it.
-			log.Info(ctx, "Job info already inserted, Skipping insert for workflow %v  job %v  executor %v\n", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
+			log.Info(ctx, "Job info already inserted, Skipping insert for workflow/job", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
 			return nil
 		}
 		return errors.Wrapf(err, "inserting job info for workflow %v  job %v  executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
 	}
 	jobInfoPaths[strings.TrimSuffix(path, d.Name())] = *jobInfo // read for use when inserting individual test results, don't insert if errored
-	log.Info(ctx, "Inserted job info for workflow %v job %v executor %v", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
+	log.Info(ctx, "Inserted job info for workflow and job", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
 	return nil
 }
 
@@ -173,12 +183,51 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	splitPath := strings.Split(path, "/")
 	fileName := splitPath[len(splitPath)-1]
 	resultsScanner := bufio.NewScanner(resultsFile)
+	egRead, ctx := errgroup.WithContext(ctx)
+	egRead.SetLimit(5)
+	egUpload, ctx := errgroup.WithContext(ctx)
+	egUpload.SetLimit(50)
+	chunkSize := 100
+	paramCount := 9 // DNJ TODO make constants
+	valuesBuilder := strings.Builder{}
+	var valuesParams string // set up query parameters to insert multiple values at once DNJ TODO - refactor for readability
+	for chunk := 0; chunk < chunkSize; chunk++ {
+		valuesBuilder.WriteString("(")
+		for param := 1; param <= paramCount; param++ {
+			valuesBuilder.WriteString(fmt.Sprintf("$%d", param+(chunk*paramCount)))
+			if param != paramCount {
+				valuesBuilder.WriteString(", ")
+			}
+		}
+		valuesBuilder.WriteString(")")
+		if chunk != chunkSize-1 {
+			valuesBuilder.WriteString(",")
+		}
+
+	}
+	valuesParams = valuesBuilder.String()
+	query := fmt.Sprintf(`INSERT INTO public.test_results (
+		id,
+		workflow_id,
+		job_id,
+		job_executor,
+		test_name,
+		package,
+		"action",
+		elapsed_seconds,
+		"output"
+	) VALUES %s`, valuesParams)
+	log.Info(ctx, query) // DNJ TODO
+	paramVals := &[]any{}
+	chunkIdx := 0
+	//paramValsChan := make(chan []any)
 	for resultsScanner.Scan() {
+		//egRead. Go(func() error {
 		resultJson := resultsScanner.Bytes()
 		var result TestResultLine
 		err = json.Unmarshal(resultJson, &result)
 		if err != nil {
-			log.Info(ctx, "Failed unmarshalling file as a test result - %s - %v. Continuing to parse results file.\n", zap.String("path", path), zap.Error(err))
+			log.Info(ctx, "Failed unmarshalling file as a test result. Continuing to parse results file.", zap.String("path", path), zap.Error(err))
 			continue
 		}
 		if result.Action == "output" {
@@ -189,17 +238,8 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		if !ok {
 			return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, fileName, jobInfoPaths))
 		}
-		_, err = db.Exec(`INSERT INTO public.test_results (
-									id, 
-									workflow_id, 
-									job_id, 
-									job_executor,
-									test_name, 
-									package, 
-									"action", 
-									elapsed_seconds, 
-									"output"
-								) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		//})
+		*paramVals = append(*paramVals,
 			uuid.New(),
 			jobInfo.WorkflowId,
 			jobInfo.JobId,
@@ -208,11 +248,29 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 			result.Package,
 			result.Action,
 			result.Elapsed,
-			result.Output,
-		)
-		if err != nil {
-			log.Info(ctx, "Failed updating SQL DB %s - %v - continuing to parse results file.\n", zap.ByteString("result JSON", (resultJson)), zap.Error(err))
+			result.Output)
+		// DNJT TOD - thread collection?
+		chunkIdx++
+		if chunkIdx >= chunkSize {
+			chunkIdx = 0
+			threadParamVals := paramVals
+			paramVals = &[]any{}
+			egUpload.Go(func() error {
+				_, err = db.Exec(query,
+					*threadParamVals...,
+				)
+				if err != nil {
+					log.Info(ctx, "Failed updating SQL DB - continuing to parse results file.\n", zap.ByteString("result JSON", (resultJson)), zap.Error(err))
+				}
+				return nil
+			})
+
 		}
 	}
-	return nil
+	err = egUpload.Wait()
+	return err
+}
+
+func logPerf(ctx context.Context, msg string) {
+	log.Info(ctx, fmt.Sprintf("Performance: %s", msg), zap.Duration("time since start", time.Since(startTime)))
 }
