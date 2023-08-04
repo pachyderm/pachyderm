@@ -274,27 +274,31 @@ Job Timeout: {{.Details.JobTimeout}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.Details.ParallelismSpec}}
-{{ if .Details.ResourceRequests }}ResourceRequests:
+{{- if .Details.ResourceRequests }}
+ResourceRequests:
   CPU: {{ .Details.ResourceRequests.Cpu }}
   Memory: {{ .Details.ResourceRequests.Memory }} {{end}}
-{{ if .Details.ResourceLimits }}ResourceLimits:
+{{- if .Details.ResourceLimits }}
+ResourceLimits:
   CPU: {{ .Details.ResourceLimits.Cpu }}
   Memory: {{ .Details.ResourceLimits.Memory }}
   {{ if .Details.ResourceLimits.Gpu }}GPU:
     Type: {{ .Details.ResourceLimits.Gpu.Type }}
     Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
-{{ if .Details.SidecarResourceRequests }}SidecarResourceRequests:
+{{- if .Details.SidecarResourceRequests }}
+SidecarResourceRequests:
   CPU: {{ .Details.SidecarResourceRequests.Cpu }}
   Memory: {{ .Details.SidecarResourceRequests.Memory }} {{end}}
-{{ if .Details.SidecarResourceLimits }}SidecarResourceLimits:
+{{- if .Details.SidecarResourceLimits }}
+SidecarResourceLimits:
   CPU: {{ .Details.SidecarResourceLimits.Cpu }}
   Memory: {{ .Details.SidecarResourceLimits.Memory }} {{end}}
-{{ if .Details.Service }}Service:
+{{- if .Details.Service }}
+Service:
 	{{ if .Details.Service.InternalPort }}InternalPort: {{ .Details.Service.InternalPort }} {{end}}
-	{{ if .Details.Service.ExternalPort }}ExternalPort: {{ .Details.Service.ExternalPort }} {{end}} {{end}}Input:
-{{jobInput .}}
-Transform:
-{{prettyTransform .Details.Transform}} {{if .OutputCommit}}
+	{{ if .Details.Service.ExternalPort }}ExternalPort: {{ .Details.Service.ExternalPort }} {{end}} {{end}}
+Input: {{jobInput . }}
+Transform: {{prettyTransform .Details.Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.Id}} {{end}}{{ if .Details.Egress }}
 Egress: {{egress .Details.Egress}} {{end}}
 `)
@@ -501,7 +505,7 @@ func jobInput(pji PrintableJobInfo) string {
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}
-	return string(input) + "\n"
+	return string(input)
 }
 
 func workerStatus(pji PrintableJobInfo) string {
