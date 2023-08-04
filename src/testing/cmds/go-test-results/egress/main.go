@@ -183,11 +183,9 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	splitPath := strings.Split(path, "/")
 	fileName := splitPath[len(splitPath)-1]
 	resultsScanner := bufio.NewScanner(resultsFile)
-	egRead, ctx := errgroup.WithContext(ctx)
-	egRead.SetLimit(5)
 	egUpload, ctx := errgroup.WithContext(ctx)
-	egUpload.SetLimit(50)
-	chunkSize := 100
+	egUpload.SetLimit(10)
+	chunkSize := 250
 	paramCount := 9 // DNJ TODO make constants
 	valuesBuilder := strings.Builder{}
 	var valuesParams string // set up query parameters to insert multiple values at once DNJ TODO - refactor for readability
@@ -217,12 +215,9 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		elapsed_seconds,
 		"output"
 	) VALUES %s`, valuesParams)
-	log.Info(ctx, query) // DNJ TODO
 	paramVals := &[]any{}
 	chunkIdx := 0
-	//paramValsChan := make(chan []any)
 	for resultsScanner.Scan() {
-		//egRead. Go(func() error {
 		resultJson := resultsScanner.Bytes()
 		var result TestResultLine
 		err = json.Unmarshal(resultJson, &result)
@@ -238,7 +233,7 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		if !ok {
 			return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, fileName, jobInfoPaths))
 		}
-		//})
+
 		*paramVals = append(*paramVals,
 			uuid.New(),
 			jobInfo.WorkflowId,
@@ -249,7 +244,6 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 			result.Action,
 			result.Elapsed,
 			result.Output)
-		// DNJT TOD - thread collection?
 		chunkIdx++
 		if chunkIdx >= chunkSize {
 			chunkIdx = 0
@@ -264,7 +258,6 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 				}
 				return nil
 			})
-
 		}
 	}
 	err = egUpload.Wait()
