@@ -71,20 +71,15 @@ const EDGES_PIPELINE: Pipeline = buildPipeline({
   createdAt: 1690221505,
   state: PipelineState.PIPELINE_RUNNING,
   nodeState: NodeState.IDLE,
-  stopped: false,
-  recentError: '',
   lastJobState: JobState.JOB_CREATED,
   lastJobNodeState: NodeState.RUNNING,
   type: PipelineType.STANDARD,
-  datumTimeoutS: null,
   datumTries: 3,
   jobTimeoutS: null,
   outputBranch: 'master',
   s3OutputRepo: null,
-  egress: false,
   jsonSpec:
     '{\n  "transform": {\n    "image": "pachyderm/opencv:1.0",\n    "cmd": [\n      "python3",\n      "/edges.py"\n    ]\n  },\n  "input": {\n    "pfs": {\n      "project": "default",\n      "name": "images",\n      "repo": "images",\n      "repoType": "user",\n      "branch": "master",\n      "glob": "/*"\n    }\n  },\n  "reprocessSpec": "until_success"\n}',
-  reason: '',
   __typename: 'Pipeline',
 });
 
@@ -98,4 +93,61 @@ export const mockPipelines = () =>
 export const mockGetMontagePipeline = () =>
   mockPipelineQuery((_req, res, ctx) => {
     return res(ctx.data({pipeline: MONTAGE_PIPELINE}));
+  });
+
+const SERVICE_PIPELINE: Pipeline = buildPipeline({
+  id: 'default_edges',
+  name: 'montage',
+  description:
+    'A pipeline that performs image edge detection by using the OpenCV library.',
+  version: 1,
+  createdAt: 1690221505,
+  state: PipelineState.PIPELINE_RUNNING,
+  nodeState: NodeState.RUNNING,
+  lastJobState: JobState.JOB_SUCCESS,
+  lastJobNodeState: NodeState.IDLE,
+  type: PipelineType.SERVICE,
+  datumTries: 3,
+  jobTimeoutS: null,
+  outputBranch: 'master',
+  s3OutputRepo: null,
+  jsonSpec:
+    '{\n  "transform": {\n    "image": "pachyderm/opencv:1.0",\n    "cmd": [\n      "python3",\n      "/edges.py"\n    ]\n  },\n  "input": {\n    "pfs": {\n      "project": "default",\n      "name": "images",\n      "repo": "images",\n      "repoType": "user",\n      "branch": "master",\n      "glob": "/*"\n    }\n  },\n  "reprocessSpec": "until_success"\n}',
+  __typename: 'Pipeline',
+});
+
+export const mockGetServicePipeline = () =>
+  mockPipelineQuery((_req, res, ctx) => {
+    return res(ctx.data({pipeline: SERVICE_PIPELINE}));
+  });
+
+const SPOUT_PIPELINE: Pipeline = buildPipeline({
+  id: 'default_edges',
+  name: 'montage',
+  description:
+    'A pipeline that performs image edge detection by using the OpenCV library.',
+  version: 1,
+  createdAt: 1690221505,
+  state: PipelineState.PIPELINE_RUNNING,
+  nodeState: NodeState.RUNNING,
+  stopped: false,
+  recentError: '',
+  lastJobState: null,
+  lastJobNodeState: null,
+  type: PipelineType.SPOUT,
+  datumTimeoutS: null,
+  datumTries: 3,
+  jobTimeoutS: null,
+  outputBranch: 'master',
+  s3OutputRepo: null,
+  egress: false,
+  jsonSpec:
+    '{\n  "transform": {\n    "image": "pachyderm/opencv:1.0",\n    "cmd": [\n      "python3",\n      "/edges.py"\n    ]\n  },\n  "input": {\n    "pfs": {\n      "project": "default",\n      "name": "images",\n      "repo": "images",\n      "repoType": "user",\n      "branch": "master",\n      "glob": "/*"\n    }\n  },\n  "reprocessSpec": "until_success"\n}',
+  reason: '',
+  __typename: 'Pipeline',
+});
+
+export const mockGetSpoutPipeline = () =>
+  mockPipelineQuery((_req, res, ctx) => {
+    return res(ctx.data({pipeline: SPOUT_PIPELINE}));
   });

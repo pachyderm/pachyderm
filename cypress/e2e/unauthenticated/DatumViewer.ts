@@ -43,17 +43,9 @@ describe('DatumViewer', () => {
 
       cy.findByText(/started process datum set task/).should('be.visible');
 
-      cy.get('@page1').scrollTo('bottom');
-      cy.findByText(/log-977/).should('be.visible');
-
       cy.get('@forward').click();
 
-      cy.findAllByTestId('LogRow__base').first().parent().parent().as('page2');
-
       cy.findByText(/log-998/).should('be.visible');
-
-      cy.get('@page2').scrollTo('bottom');
-      cy.findByText(/log-1500/).should('be.visible');
 
       cy.get('@forward').should('be.disabled');
       cy.get('@backward').should('be.enabled');

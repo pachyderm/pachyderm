@@ -1,12 +1,15 @@
 import {render, screen} from '@testing-library/react';
-import {mocked} from 'jest-mock';
 import React from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
 
 import useClipboardCopy from '../useClipboardCopy';
 
-const queryCommandMock = mocked(window.document.queryCommandSupported);
+Object.assign(navigator, {
+  clipboard: {
+    writeText: jest.fn(),
+  },
+});
 
 const ClipboardComponent: React.FC = () => {
   const {copy, copied, reset, supported} = useClipboardCopy('copy text');
@@ -30,8 +33,8 @@ describe('useClipboardCopy', () => {
 
     await click(copyButton);
 
-    expect(window.document.execCommand).toHaveBeenCalledTimes(1);
-    expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('copy text');
   });
 
   it('should return a value indicating that the text has been copied', async () => {
@@ -64,7 +67,9 @@ describe('useClipboardCopy', () => {
   });
 
   it('should return a value indicating if the copy command is supported', async () => {
-    queryCommandMock.mockReturnValueOnce(false);
+    Object.assign(navigator, {
+      clipboard: null,
+    });
 
     render(<ClipboardComponent />);
 

@@ -24,7 +24,7 @@ export type LogsViewerFormValues = {
   highlightUserLogs: boolean;
 };
 
-const useLogsViewer = (startTime?: number | null) => {
+const useLogsViewer = (isSkippedDatum: boolean, startTime?: number | null) => {
   const {projectId, pipelineId, jobId, datumId} = useUrlState();
   const {isServiceOrSpout, pipelineType} = useCurrentPipeline();
 
@@ -73,7 +73,7 @@ const useLogsViewer = (startTime?: number | null) => {
         cursor: currentCursor,
       },
     },
-    skip: !pipelineType || !dropdownValues[selectedTime],
+    skip: isSkippedDatum || !pipelineType || !dropdownValues[selectedTime],
     notifyOnNetworkStatusChange: true,
     pollInterval: shouldPoll ? LOGS_POLL_INTERVAL_MS : 0,
   });

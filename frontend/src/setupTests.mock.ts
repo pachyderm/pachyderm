@@ -70,6 +70,12 @@ Object.defineProperty(window.document, 'execCommand', {
   writable: true,
 });
 
+Object.assign(navigator, {
+  clipboard: {
+    writeText: jest.fn(),
+  },
+});
+
 // This method needs an implementation due to CodeMirror
 // https://github.com/jsdom/jsdom/pull/3533
 // https://github.com/jsdom/jsdom/issues/3002

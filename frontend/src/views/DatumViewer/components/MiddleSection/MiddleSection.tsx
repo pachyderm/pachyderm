@@ -34,7 +34,7 @@ const MiddleSection = () => {
     refetch,
     page,
     setPage,
-  } = useLogsViewer(startTime);
+  } = useLogsViewer(isSkippedDatum, startTime);
 
   return (
     <FullPagePanelModal.Body>

@@ -68,8 +68,9 @@ describe('ProjectRow RBAC', () => {
       await screen.findByText('Set Active Project: "ProjectA"'),
     ).toBeInTheDocument();
     await click(screen.getByRole('button', {name: 'Copy'}));
-
-    expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      'pachctl config update context --project ProjectA',
+    );
   });
 
   it('should not allow CRUD actions without permission', async () => {

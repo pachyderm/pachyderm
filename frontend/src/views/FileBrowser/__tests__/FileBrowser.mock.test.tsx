@@ -191,7 +191,9 @@ describe('File Browser', () => {
       });
       await click(copyAction);
 
-      expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'cron@0918ac9d5daa76b86e3bb5e88e4c43a4',
+      );
     });
 
     it('should display file info per table row', async () => {
@@ -283,7 +285,9 @@ describe('File Browser', () => {
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
       await click((await screen.findAllByText('Copy Path'))[0]);
 
-      expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'cron@master=0918ac9d5daa76b86e3bb5e88e4c43a4:/AT-AT.png',
+      );
     });
 
     it('should delete file on action click', async () => {
@@ -487,7 +491,9 @@ describe('File Browser', () => {
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
       await click((await screen.findAllByText('Copy Path'))[0]);
 
-      expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'cron@master=0918ac9d5daa76b86e3bb5e88e4c43a4:/liberty.png',
+      );
     });
 
     it('should delete file on action click', async () => {

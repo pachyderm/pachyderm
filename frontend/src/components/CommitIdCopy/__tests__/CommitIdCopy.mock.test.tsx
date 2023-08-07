@@ -24,6 +24,8 @@ describe('CommitIdCopy', () => {
     const copyAction = await screen.findByTestId('CommitIdCopy_copy');
     await click(copyAction);
 
-    expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      'test@master=0918ac9d',
+    );
   });
 });

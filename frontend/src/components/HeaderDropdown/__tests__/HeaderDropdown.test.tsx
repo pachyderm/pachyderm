@@ -143,7 +143,8 @@ describe('HeaderDropdown', () => {
       await screen.findByText('Set Active Project: "projectA"'),
     ).toBeInTheDocument();
     await click(screen.getByRole('button', {name: 'Copy'}));
-
-    expect(window.document.execCommand).toHaveBeenCalledWith('copy');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      'pachctl config update context --project projectA',
+    );
   });
 });

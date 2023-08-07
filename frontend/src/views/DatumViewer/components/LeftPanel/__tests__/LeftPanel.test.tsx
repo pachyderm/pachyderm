@@ -57,6 +57,8 @@ describe('Datum Viewer Left Panel', () => {
     server.use(mockGetJob5CDatum05());
   });
 
+  afterEach(() => server.resetHandlers());
+
   afterAll(() => server.close());
 
   describe('Jobs', () => {

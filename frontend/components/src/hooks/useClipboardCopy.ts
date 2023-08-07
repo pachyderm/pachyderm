@@ -1,36 +1,29 @@
-import {useCallback, useState, useEffect} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 
 const useClipboardCopy = (copyText: string) => {
   const [copied, setCopied] = useState(false);
   const [supported, setSupported] = useState(false);
 
   useEffect(() => {
-    if (
-      typeof document !== 'undefined' &&
-      document.queryCommandSupported('copy')
-    ) {
-      setSupported(true);
+    if (!navigator.clipboard) {
+      return setSupported(false);
     }
-  }, [setSupported]);
+    setSupported(true);
+  }, []);
 
-  const copy = useCallback(() => {
+  const copy = useCallback(async () => {
     if (!supported) return;
-
-    const area = document.createElement('textarea');
-    area.style.cssText =
-      'position: absolute; left: -999em; top: -999em, opacity: 0';
-    area.setAttribute('aria-hidden', 'true');
-    area.value = copyText;
-    document.body.appendChild(area);
-    area.select();
-    document.execCommand('copy');
-    area.remove();
-    setCopied(true);
-  }, [supported, copyText, setCopied]);
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopied(true);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  }, [supported, copyText]);
 
   const reset = useCallback(() => {
     setCopied(false);
-  }, [setCopied]);
+  }, []);
 
   return {
     copy,
