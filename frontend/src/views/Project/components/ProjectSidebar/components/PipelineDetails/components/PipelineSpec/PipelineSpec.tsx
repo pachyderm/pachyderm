@@ -12,7 +12,7 @@ const PipelineSpec = () => {
   return (
     <div className={styles.base}>
       {loading ? (
-        <SkeletonBodyText lines={10} data-testid="PipelineSpec__loader" />
+        <SkeletonBodyText lines={10} />
       ) : (
         <ConfigFilePreview config={JSON.parse(pipeline?.jsonSpec || '{}')} />
       )}

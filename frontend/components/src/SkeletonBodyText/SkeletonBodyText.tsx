@@ -18,6 +18,7 @@ export const SkeletonBodyText: React.FC<SkeletonBodyTextProps> = ({
     className={classnames(styles.base, {
       [styles.disableShimmer]: disableShimmer,
     })}
+    role="status"
     {...props}
   >
     {range(lines).map((i) => (
