@@ -1550,7 +1550,7 @@ jobs:
           name: Set up Label Studio
            ## TODO: custom label studio image
           command: |
-            docker run -d -it -p 8080:8080 hpesmalyala/label-studio:pachyderm-ci-testing label-studio -b \
+            docker run -d -it --net="host" hpesmalyala/label-studio:pachyderm-ci-testing label-studio -b \
             --username $LABEL_STUDIO_USERNAME \
             --password $LABEL_STUDIO_PASSWORD \
             --user-token $LABEL_STUDIO_USER_TOKEN
