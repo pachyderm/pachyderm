@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
@@ -2200,13 +2201,13 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		})
 	}
 
-	var defaults pps.ClusterDefaults
-	if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &defaults); err != nil {
+	var wrapper pps.ClusterDefaults
+	if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &wrapper); err != nil {
 		return "", badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not unmarshal %s: %v", effectiveSpecJSON, err)},
 		})
 	}
-	var request = defaults.GetCreatePipelineRequest()
+	var request = wrapper.GetCreatePipelineRequest()
 	request.Update = req.Update
 	request.Reprocess = req.Reprocess
 
@@ -3723,6 +3724,85 @@ func jsonMergePatch(target, patch string) (string, error) {
 		return "", errors.Wrap(err, "could not marshal merge patch result")
 	}
 	return string(result), nil
+}
+
+var protomap sync.Map
+
+func cacheType(d protoreflect.MessageDescriptor) map[string]string {
+	if fields, ok := protomap.Load(d.FullName()); ok {
+		return fields.(map[string]string)
+	}
+	var (
+		fields = make(map[string]string)
+		ff     = d.Fields()
+		flen   = ff.Len()
+	)
+	for i := 0; i < flen; i++ {
+		var f = ff.Get(i)
+		fields[string(f.Name())] = f.JSONName()
+		fields[string(f.JSONName())] = f.JSONName()
+	}
+	protomap.Store(d.FullName(), fields)
+	return fields
+}
+
+// canonicalizeFieldNames canonicalizes the field names of a JSON object
+// representing a protobuf message of the same type as prototype.  It converts
+// the original protobuf field name to the JSON name (which defaults to
+// camelCase, or the value of the json_name option).  It knows how to descend
+// into objects, arrays and maps, and stops when it encounters a
+// non–protobuf-message (returning the raw non–protobuf-message).  It returns an
+// error if there are two copies of the same field.
+func canonicalizeFieldNames(obj map[string]any, protoDescriptor protoreflect.MessageDescriptor) (map[string]any, error) {
+	var (
+		fieldMap = cacheType(protoDescriptor)
+		fields   = protoDescriptor.Fields()
+		oo       = make(map[string]any)
+	)
+	fmt.Println(protoDescriptor.FullName(), fieldMap)
+	for k, v := range obj {
+		//fmt.Printf("QQQ: %v: %s → %s: %v\n", protoDescriptor.FullName(), k, fieldMap[k], v)
+		field := fields.ByJSONName(fieldMap[k])
+		if field == nil {
+			return nil, errors.Errorf("could not find info for field %s/%s", k, fieldMap[k])
+		}
+		if v == nil {
+			oo[fieldMap[k]] = nil
+			continue
+		}
+		if field.Kind() == protoreflect.MessageKind {
+			if field.IsMap() {
+				m := make(map[string]any)
+				if mm, ok := v.(map[string]any); ok {
+					for k, v := range mm {
+						var err error
+						vv, ok := v.(map[string]any)
+						if !ok {
+							return nil, errors.Errorf("expected value of %s to be map[string]any; got %T", k, v)
+						}
+						if m[k], err = canonicalizeFieldNames(vv, field.Message().Fields().ByNumber(2).Message()); err != nil {
+							return nil, errors.Wrapf(err, "could not canonicalize %s", k)
+						}
+					}
+				} else {
+					return nil, errors.Errorf("expected map[string]any; got %T", v)
+				}
+				oo[fieldMap[k]] = m
+			} else {
+				var err error
+				vv, ok := v.(map[string]any)
+				if !ok {
+					return nil, errors.Errorf("expected map[string]any for %s; got %T", fieldMap[k], v)
+				}
+				if oo[fieldMap[k]], err = canonicalizeFieldNames(vv, field.Message()); err != nil {
+					return nil, errors.Wrapf(err, "could not canonicalize %s", fieldMap[k])
+				}
+			}
+		} else {
+			oo[fieldMap[k]] = v
+		}
+	}
+	return oo, nil
 }
 
 // mergePatch implements the RFC 7396 algorithm.  To quote the RFC “If the patch
