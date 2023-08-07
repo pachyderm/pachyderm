@@ -2195,7 +2195,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
 		})
 	}
-	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON)); err != nil {
+	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), &pps.ClusterDefaults{}); err != nil {
 		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
 		})
@@ -3711,13 +3711,22 @@ func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterD
 
 // jsonMergePatch merges a JSON patch in string form with a JSON target, also in
 // string form.
-func jsonMergePatch(target, patch string) (string, error) {
-	var targetObject, patchObject any
+func jsonMergePatch(target, patch string, prototype proto.Message) (string, error) {
+	var targetObject, patchObject map[string]any
 	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal target JSON")
 	}
 	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal patch JSON")
+	}
+	if prototype != nil {
+		var err error
+		if targetObject, err = canonicalizeFieldNames(targetObject, prototype.ProtoReflect().Descriptor()); err != nil {
+			return "", errors.Wrap(err, "could not canonicalize field names in target object")
+		}
+		if patchObject, err = canonicalizeFieldNames(patchObject, prototype.ProtoReflect().Descriptor()); err != nil {
+			return "", errors.Wrap(err, "could not canonicalize field names in patch object")
+		}
 	}
 	result, err := json.Marshal(mergePatch(targetObject, patchObject))
 	if err != nil {
