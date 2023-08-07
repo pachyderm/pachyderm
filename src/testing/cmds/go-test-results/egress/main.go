@@ -57,7 +57,6 @@ func main() {
 	}
 }
 func run(ctx context.Context) error {
-
 	log.Info(ctx, "Running DB Migrate")
 	out, err := exec.Command("tern", "migrate").CombinedOutput()
 	if err != nil {
@@ -155,10 +154,20 @@ func insertJobInfo(
 							tag,
 							pull_requests,
 							username
-						) VALUES (:workflowid, :jobid, :jobexecutor, :jobname, :jobtimestamp, :jobnumexecutors, :commit, :branch, :tag, :pullrequests, :username)`,
+						) VALUES (
+							:workflowid, 
+							:jobid, 
+							:jobexecutor, 
+							:jobname, 
+							:jobtimestamp, 
+							:jobnumexecutors, 
+							:commit, 
+							:branch, 
+							:tag, 
+							:pullrequests, 
+							:username)`,
 		jobInfo,
 	)
-
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -180,14 +189,13 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		return errors.Wrapf(err, "opening results file ")
 	}
 	defer resultsFile.Close()
-
 	// get job info previously inserted in order to link foreign keys to jobs table
 	fileName := filepath.Base(path)
 	jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
 	if !ok {
 		return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, filepath.Base(path), jobInfoPaths))
 	}
-	query := constructResultInsert()
+	query := constructResultInsert(uploadChunkSize)
 	paramVals := &[]any{}
 	resultsScanner := bufio.NewScanner(resultsFile)
 	egUpload, ctx := errgroup.WithContext(ctx)
@@ -204,7 +212,6 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		if result.Action == "output" {
 			continue // output is mostly logs and coverage and it's not that useful, so we don't store output-only actions
 		}
-
 		*paramVals = append(*paramVals,
 			uuid.New(),
 			jobInfo.WorkflowId,
@@ -219,18 +226,12 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		chunkIdx++
 		if chunkIdx >= uploadChunkSize {
 			chunkIdx = 0
-			threadParamVals := paramVals
+			flushResults(ctx, db, egUpload, query, paramVals)
 			paramVals = &[]any{}
-			egUpload.Go(func() error {
-				_, err = db.Exec(query,
-					*threadParamVals...,
-				)
-				if err != nil {
-					log.Info(ctx, "Failed updating SQL DB - continuing to parse results file.\n", zap.ByteString("result JSON", (resultJson)), zap.Error(err))
-				}
-				return nil
-			})
 		}
+	}
+	if chunkIdx > 0 { // we have a partial chunk that needs to upload
+		flushResults(ctx, db, egUpload, constructResultInsert(chunkIdx), paramVals)
 	}
 	err = egUpload.Wait()
 	if err != nil {
@@ -242,11 +243,11 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	return nil
 }
 
-func constructResultInsert() string {
+func constructResultInsert(chunkSize int) string {
 	valuesBuilder := strings.Builder{}
 	var valuesParams string
 	// set up query parameters to insert multiple values at once
-	for chunk := 0; chunk < uploadChunkSize; chunk++ {
+	for chunk := 0; chunk < chunkSize; chunk++ {
 		valuesBuilder.WriteString("(")
 		for param := 1; param <= testResultFieldCount; param++ {
 			valuesBuilder.WriteString(fmt.Sprintf("$%d", param+(chunk*testResultFieldCount)))
@@ -255,7 +256,7 @@ func constructResultInsert() string {
 			}
 		}
 		valuesBuilder.WriteString(")")
-		if chunk != uploadChunkSize-1 {
+		if chunk != chunkSize-1 {
 			valuesBuilder.WriteString(",")
 		}
 
@@ -273,6 +274,19 @@ func constructResultInsert() string {
 		"output"
 	) VALUES %s`, valuesParams)
 	return query
+}
+
+func flushResults(ctx context.Context, db *sqlx.DB, egUpload *errgroup.Group, query string, paramVals *[]any) {
+	threadParamVals := paramVals
+	egUpload.Go(func() error {
+		_, err := db.Exec(query,
+			*threadParamVals...,
+		)
+		if err != nil {
+			log.Info(ctx, "Failed updating SQL DB - continuing to parse results file.", zap.Error(err))
+		}
+		return nil
+	})
 }
 
 func logPerf(ctx context.Context, msg string) {
