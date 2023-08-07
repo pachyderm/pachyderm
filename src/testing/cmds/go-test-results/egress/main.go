@@ -29,7 +29,10 @@ import (
 )
 
 const (
-	jobInfoFileName string = "JobInfo.json"
+	jobInfoFileName      string = "JobInfo.json"
+	uploadGoroutineLimit int    = 20
+	uploadChunkSize      int    = 250
+	testResultFieldCount int    = 9
 )
 
 var startTime time.Time
@@ -48,7 +51,6 @@ func main() {
 	startTime = time.Now()
 	log.InitPachctlLogger()
 	ctx := pctx.Background("")
-	logPerf(ctx, "begin run")
 	err := run(ctx)
 	if err != nil {
 		log.Exit(ctx, "Error during metric collection", zap.Error(err))
@@ -62,7 +64,6 @@ func run(ctx context.Context) error {
 		return errors.Wrapf(err, "Error running migrates. %v", string(out))
 	}
 	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
-	logPerf(ctx, "migrate done")
 	inputFolder := os.Args[1]
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(gotestresults.PostgresqlHost, 5432),
@@ -72,7 +73,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "Failed opening db connection")
 	}
-	logPerf(ctx, "db connected")
+	defer db.Close()
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)
 	if err != nil {
@@ -180,25 +181,81 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	}
 	defer resultsFile.Close()
 
-	splitPath := strings.Split(path, "/")
-	fileName := splitPath[len(splitPath)-1]
+	// get job info previously inserted in order to link foreign keys to jobs table
+	fileName := filepath.Base(path)
+	jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
+	if !ok {
+		return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, filepath.Base(path), jobInfoPaths))
+	}
+	query := constructResultInsert()
+	paramVals := &[]any{}
 	resultsScanner := bufio.NewScanner(resultsFile)
 	egUpload, ctx := errgroup.WithContext(ctx)
-	egUpload.SetLimit(10)
-	chunkSize := 250
-	paramCount := 9 // DNJ TODO make constants
+	chunkIdx := 0
+	egUpload.SetLimit(uploadGoroutineLimit)
+	for resultsScanner.Scan() {
+		resultJson := resultsScanner.Bytes()
+		var result TestResultLine
+		err = json.Unmarshal(resultJson, &result)
+		if err != nil {
+			log.Info(ctx, "Failed unmarshalling file as a test result. Continuing to parse results file.", zap.String("path", path), zap.Error(err))
+			continue
+		}
+		if result.Action == "output" {
+			continue // output is mostly logs and coverage and it's not that useful, so we don't store output-only actions
+		}
+
+		*paramVals = append(*paramVals,
+			uuid.New(),
+			jobInfo.WorkflowId,
+			jobInfo.JobId,
+			jobInfo.JobExecutor,
+			result.TestName,
+			result.Package,
+			result.Action,
+			result.Elapsed,
+			result.Output,
+		)
+		chunkIdx++
+		if chunkIdx >= uploadChunkSize {
+			chunkIdx = 0
+			threadParamVals := paramVals
+			paramVals = &[]any{}
+			egUpload.Go(func() error {
+				_, err = db.Exec(query,
+					*threadParamVals...,
+				)
+				if err != nil {
+					log.Info(ctx, "Failed updating SQL DB - continuing to parse results file.\n", zap.ByteString("result JSON", (resultJson)), zap.Error(err))
+				}
+				return nil
+			})
+		}
+	}
+	err = egUpload.Wait()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	if err = resultsScanner.Err(); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
+func constructResultInsert() string {
 	valuesBuilder := strings.Builder{}
-	var valuesParams string // set up query parameters to insert multiple values at once DNJ TODO - refactor for readability
-	for chunk := 0; chunk < chunkSize; chunk++ {
+	var valuesParams string
+	// set up query parameters to insert multiple values at once
+	for chunk := 0; chunk < uploadChunkSize; chunk++ {
 		valuesBuilder.WriteString("(")
-		for param := 1; param <= paramCount; param++ {
-			valuesBuilder.WriteString(fmt.Sprintf("$%d", param+(chunk*paramCount)))
-			if param != paramCount {
+		for param := 1; param <= testResultFieldCount; param++ {
+			valuesBuilder.WriteString(fmt.Sprintf("$%d", param+(chunk*testResultFieldCount)))
+			if param != testResultFieldCount { // don't add last seperator since we are done
 				valuesBuilder.WriteString(", ")
 			}
 		}
 		valuesBuilder.WriteString(")")
-		if chunk != chunkSize-1 {
+		if chunk != uploadChunkSize-1 {
 			valuesBuilder.WriteString(",")
 		}
 
@@ -215,53 +272,7 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		elapsed_seconds,
 		"output"
 	) VALUES %s`, valuesParams)
-	paramVals := &[]any{}
-	chunkIdx := 0
-	for resultsScanner.Scan() {
-		resultJson := resultsScanner.Bytes()
-		var result TestResultLine
-		err = json.Unmarshal(resultJson, &result)
-		if err != nil {
-			log.Info(ctx, "Failed unmarshalling file as a test result. Continuing to parse results file.", zap.String("path", path), zap.Error(err))
-			continue
-		}
-		if result.Action == "output" {
-			continue // output is mostly logs and coverage and it's not that useful, so we don't store output-only actions
-		}
-		// get job info previously inserted in order to link foreign keys to jobs table
-		jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
-		if !ok {
-			return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, fileName, jobInfoPaths))
-		}
-
-		*paramVals = append(*paramVals,
-			uuid.New(),
-			jobInfo.WorkflowId,
-			jobInfo.JobId,
-			jobInfo.JobExecutor,
-			result.TestName,
-			result.Package,
-			result.Action,
-			result.Elapsed,
-			result.Output)
-		chunkIdx++
-		if chunkIdx >= chunkSize {
-			chunkIdx = 0
-			threadParamVals := paramVals
-			paramVals = &[]any{}
-			egUpload.Go(func() error {
-				_, err = db.Exec(query,
-					*threadParamVals...,
-				)
-				if err != nil {
-					log.Info(ctx, "Failed updating SQL DB - continuing to parse results file.\n", zap.ByteString("result JSON", (resultJson)), zap.Error(err))
-				}
-				return nil
-			})
-		}
-	}
-	err = egUpload.Wait()
-	return err
+	return query
 }
 
 func logPerf(ctx context.Context, msg string) {
