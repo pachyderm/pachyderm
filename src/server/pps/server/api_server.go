@@ -2196,7 +2196,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	}
 	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON)); err != nil {
 		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
 		})
 	}
 
