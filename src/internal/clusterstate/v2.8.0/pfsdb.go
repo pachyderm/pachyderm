@@ -1,19 +1,51 @@
-package v2_7_0
+package v2_8_0
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/protobuf/proto"
 
+	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+const (
+	// ReposChannelName
+	ReposChannelName = "pfs_repos"
+)
+
+func generateTriggerFunctionStatement(schema, table, channel string) string {
+	template := `
+	CREATE OR REPLACE FUNCTION %s.notify_%s() RETURNS TRIGGER AS $$
+	DECLARE
+		row record;
+		payload text;
+	BEGIN
+		IF TG_OP = 'DELETE' THEN
+			row := OLD;
+		ELSE
+			row := NEW;
+		END IF;
+		payload := TG_OP || ' ' || row.id::text;
+		PERFORM pg_notify('%s', payload);
+		return row;
+	END;
+	$$ LANGUAGE plpgsql;
+
+	CREATE TRIGGER notify
+		AFTER INSERT OR UPDATE OR DELETE ON %s.%s
+		FOR EACH ROW EXECUTE PROCEDURE %s.notify_%s();
+	`
+	return fmt.Sprintf(template, schema, table, channel, schema, table, schema, table)
+}
+
 func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo, error) {
 	// First collect all repos from collections.repos
-	var repoColRows []CollectionRecord
+	var repoColRows []v2_7_0.CollectionRecord
 	if err := sqlx.SelectContext(ctx, q, &repoColRows, `SELECT key, proto, createdat, updatedat FROM collections.repos ORDER BY createdat, key ASC`); err != nil {
 		return nil, errors.Wrap(err, "listing repos from collections.repos")
 	}
@@ -64,13 +96,9 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			UNIQUE (name, project_id, type)
 		);
-	`); err != nil {
-		return errors.Wrap(err, "creating pfs.repos table")
-	}
-	if _, err := tx.ExecContext(ctx, `
 		CREATE INDEX name_type_idx ON pfs.repos (name, type);
 	`); err != nil {
-		return errors.Wrap(err, "creating index on type and name")
+		return errors.Wrap(err, "creating pfs.repos table")
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TRIGGER set_updated_at
@@ -81,36 +109,7 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// Create a trigger that notifies on changes to pfs.repos
 	// This is used by the PPS API to watch for changes to repos
-	if _, err := tx.ExecContext(ctx, `
-		CREATE OR REPLACE FUNCTION pfs.notify_repos() RETURNS TRIGGER AS $$
-		DECLARE
-			row record;
-			base_channel text;
-			payload text;
-			key text;
-		BEGIN
-			IF TG_OP = 'DELETE' THEN
-				row := OLD;
-			ELSE
-				row := NEW;
-			END IF;
-			SELECT project.name || '/' || row.name INTO key
-			FROM core.projects project
-			WHERE project.id = row.project_id;
-			base_channel := 'pfs.repos';
-			payload := TG_OP || ' ' || row.id::text || ' ' || key;
-			PERFORM pg_notify(base_channel, payload);
-			return row;
-		END;
-		$$ LANGUAGE plpgsql;
-	`); err != nil {
-		return errors.Wrap(err, "creating notify trigger on pfs.repos")
-	}
-	if _, err := tx.ExecContext(ctx, `
-		CREATE TRIGGER notify
-			AFTER INSERT OR UPDATE OR DELETE ON pfs.repos
-			FOR EACH ROW EXECUTE PROCEDURE pfs.notify_repos();
-	`); err != nil {
+	if _, err := tx.ExecContext(ctx, generateTriggerFunctionStatement("pfs", "repos", ReposChannelName)); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.repos")
 	}
 	return nil

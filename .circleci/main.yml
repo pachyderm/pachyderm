@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.20.6"
+    default: "1.20.7"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -481,6 +481,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
+      TEST_ENV: << parameters.env >>
       BUCKET: << parameters.bucket >>
       GOOGLE_PROJECT_ID: build-release-001
       GOOGLE_COMPUTE_ZONE: us-east1-b

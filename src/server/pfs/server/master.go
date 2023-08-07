@@ -3,9 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"path"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
