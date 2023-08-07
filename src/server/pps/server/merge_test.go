@@ -37,7 +37,7 @@ func TestJSONMergePatch(t *testing.T) {
 
 		{`{"a": [{"b":"c"}]}`, `{"a": [1]}`, `{"a": [1]}`},
 
-		// FIXME: {`["a","b"]`, `["c","d"]`, `["c","d"]`},
+		{`["a","b"]`, `["c","d"]`, `["c","d"]`},
 
 		{`{"a":"b"}`, `["c"] `, `["c"]`},
 
@@ -47,7 +47,7 @@ func TestJSONMergePatch(t *testing.T) {
 
 		{`{"e":null}`, `{"a":1}`, `{"e":null,"a":1}`},
 
-		// FIXME: {`[1,2]`, `{"a":"b","c":null}`, `{"a":"b"}`},
+		{`[1,2]`, `{"a":"b","c":null}`, `{"a":"b"}`},
 
 		{`{}`, `{"a":{"bb":{"ccc":null}}}`, `{"a":{"bb":{}}}`},
 	}
@@ -108,44 +108,113 @@ func TestCanonicalizeFieldNames(t *testing.T) {
 		},
 		{
 			`{
-	"pipeline": {
-		"name": "wordcount",
-		"project": {
-			"name": "projectName"
-		}
-	},
-	"transform": {
-		"image": "wordcount-image",
-		"cmd": ["/binary", "/pfs/data", "/pfs/out"]
-	},
-	"input": {
-		"pfs": {
-			"repo": "data",
-			"glob": "/*"
-		}
-	},
-	"s3_out": true
-}`,
+				"pipeline": {
+					"name": "wordcount",
+					"project": {
+						"name": "projectName"
+					}
+				},
+				"transform": {
+					"image": "wordcount-image",
+					"cmd": ["/binary", "/pfs/data", "/pfs/out"]
+				},
+				"input": {
+					"pfs": {
+						"repo": "data",
+						"glob": "/*"
+					}
+				},
+				"s3_out": true
+			}`,
 			&pps.CreatePipelineRequest{},
 			`{
-	"pipeline": {
-		"name": "wordcount",
-		"project": {
-			"name": "projectName"
-		}
-	},
-	"transform": {
-		"image": "wordcount-image",
-		"cmd": ["/binary", "/pfs/data", "/pfs/out"]
-	},
-	"input": {
-		"pfs": {
-			"repo": "data",
-			"glob": "/*"
-		}
-	},
-	"s3Out": true
-}`,
+				"pipeline": {
+					"name": "wordcount",
+					"project": {
+						"name": "projectName"
+					}
+				},
+				"transform": {
+					"image": "wordcount-image",
+					"cmd": ["/binary", "/pfs/data", "/pfs/out"]
+				},
+				"input": {
+					"pfs": {
+						"repo": "data",
+						"glob": "/*"
+					}
+				},
+				"s3Out": true
+			}`,
+		},
+		{
+			`{
+				"pipeline": {
+				"name": "wordcount",
+				"project": {
+					"name": "projectName"
+				}
+				},
+				"transform": {
+				"image": "wordcount-image",
+				"cmd": [
+					"/binary",
+					"/pfs/data",
+					"/pfs/out"
+				]
+				},
+				"input": {
+				"cross": [
+					{
+						"pfs": {
+							"repo": "data",
+							"glob": "/*"
+						}
+					},
+					{
+						"pfs": {
+							"repo": "data2",
+							"glob": "/*"
+						}
+					}
+				]
+				},
+				"s3_out": true
+			}`,
+			&pps.CreatePipelineRequest{},
+			`{
+				"pipeline": {
+				"name": "wordcount",
+				"project": {
+					"name": "projectName"
+				}
+				},
+				"transform": {
+				"image": "wordcount-image",
+				"cmd": [
+					"/binary",
+					"/pfs/data",
+					"/pfs/out"
+				]
+				},
+				"input": {
+				"cross": [
+					{
+						"pfs": {
+							"repo": "data",
+							"glob": "/*"
+						}
+					},
+					{
+						"pfs": {
+							"repo": "data2",
+							"glob": "/*"
+						}
+					}
+				]
+				},
+				"s3Out": true
+			}`,
 		},
 	}
 

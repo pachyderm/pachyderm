@@ -2195,7 +2195,14 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
 		})
 	}
-	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), &pps.ClusterDefaults{}); err != nil {
+	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), func(obj any) (any, error) {
+		switch obj := obj.(type) {
+		case map[string]any:
+			return canonicalizeFieldNames(obj, (&pps.ClusterDefaults{}).ProtoReflect().Descriptor())
+		default:
+			return nil, errors.Errorf("expected map[string]any; got %T", obj)
+		}
+	}); err != nil {
 		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
 		})
@@ -3709,23 +3716,25 @@ func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterD
 	return &pps.GetClusterDefaultsResponse{ClusterDefaultsJson: clusterDefaults.Json}, nil
 }
 
+type canonicalizeFunc func(any) (any, error)
+
 // jsonMergePatch merges a JSON patch in string form with a JSON target, also in
 // string form.
-func jsonMergePatch(target, patch string, prototype proto.Message) (string, error) {
-	var targetObject, patchObject map[string]any
+func jsonMergePatch(target, patch string, f canonicalizeFunc) (string, error) {
+	var targetObject, patchObject any
 	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal target JSON")
 	}
 	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal patch JSON")
 	}
-	if prototype != nil {
+	if f != nil {
 		var err error
-		if targetObject, err = canonicalizeFieldNames(targetObject, prototype.ProtoReflect().Descriptor()); err != nil {
-			return "", errors.Wrap(err, "could not canonicalize field names in target object")
+		if targetObject, err = f(targetObject); err != nil {
+			return "", errors.Wrap(err, "could not canonicalize target object")
 		}
-		if patchObject, err = canonicalizeFieldNames(patchObject, prototype.ProtoReflect().Descriptor()); err != nil {
-			return "", errors.Wrap(err, "could not canonicalize field names in patch object")
+		if patchObject, err = f(patchObject); err != nil {
+			return "", errors.Wrap(err, "could not canonicalize target object")
 		}
 	}
 	result, err := json.Marshal(mergePatch(targetObject, patchObject))
@@ -3780,7 +3789,8 @@ func canonicalizeFieldNames(obj map[string]any, protoDescriptor protoreflect.Mes
 			continue
 		}
 		if field.Kind() == protoreflect.MessageKind {
-			if field.IsMap() {
+			switch {
+			case field.IsMap():
 				m := make(map[string]any)
 				if mm, ok := v.(map[string]any); ok {
 					for k, v := range mm {
@@ -3797,7 +3807,28 @@ func canonicalizeFieldNames(obj map[string]any, protoDescriptor protoreflect.Mes
 					return nil, errors.Errorf("expected map[string]any; got %T", v)
 				}
 				oo[fieldMap[k]] = m
-			} else {
+			case field.IsList():
+				ll, ok := v.([]any)
+				if !ok {
+					return nil, errors.Errorf("expected []any; got %T", v)
+				}
+				l := make([]any, len(ll))
+				for i, v := range ll {
+					if field.Kind() == protoreflect.MessageKind {
+						var err error
+						vv, ok := v.(map[string]any)
+						if !ok {
+							return nil, errors.Errorf("expected value to be map[string]any; got %T", v)
+						}
+						if l[i], err = canonicalizeFieldNames(vv, field.Message()); err != nil {
+							return nil, errors.Wrapf(err, "could not canonicalize item %d", i)
+						}
+					} else {
+						l[i] = v
+					}
+				}
+				oo[fieldMap[k]] = l
+			default:
 				var err error
 				vv, ok := v.(map[string]any)
 				if !ok {
