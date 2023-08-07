@@ -3,6 +3,7 @@ package logging
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"reflect"
 	"time"
@@ -160,6 +161,11 @@ func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) 
 	f = append(f, zap.Uint32("grpc.code", uint32(s.Code()))) // always want code, even if it's 0 (= "OK")
 	if msg := s.Message(); msg != "" {
 		f = append(f, zap.String("grpc.message", msg))
+	}
+	if details := s.Details(); len(details) > 0 {
+		for i, d := range details {
+			f = append(f, zap.Any(fmt.Sprintf("detail %d", i), d))
+		}
 	}
 	return pctx.Child(ctx, "", pctx.WithFields(f...))
 }
