@@ -1515,7 +1515,7 @@ jobs:
             poetry version << parameters.version >>
             poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
   test-label-studio:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -1526,11 +1526,31 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - install-minikube
+      - install-helm
+      - install-kubectl
+      - start-minikube
+      - wait-for-minikube
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+      - run:
+          name: Install pach
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+            pachctl version
       - run:
           name: Set up Label Studio
            ## TODO: custom label studio image
           command: |
-            docker run -d -it -p 8080:8080 heartexlabs/label-studio:1.8.0 label-studio -b \
+            docker run -d -it -p 8080:8080 hpesmalyala/label-studio:pachyderm-ci-testing label-studio -b \
             --username $LABEL_STUDIO_USERNAME \
             --password $LABEL_STUDIO_PASSWORD \
             --user-token $LABEL_STUDIO_USER_TOKEN
@@ -1540,46 +1560,8 @@ jobs:
           name: Run tests
           command: |
             pip3 install -r requirements.txt
-            python3 -m pytest
-      # - run:
-      #     name: Install pachctl
-      #     command: |
-      #       sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
-      # - install-minikube
-      # - install-helm
-      # - install-kubectl
-      # - start-minikube
-      # - wait-for-minikube
-      # - run:
-      #     name: Install pach
-      #     command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
-      # - run:
-      #     name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
-      #     command: |
-      #       sleep 20
-      #       kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
-      #       pachctl version
-      # - run:
-      #     name: Set up Label Studio
-      #      ## TODO: custom label studio image
-      #     command: |
-      #       docker run -it -p 8080:8080 heartexlabs/label-studio:1.8.0 \
-      #       -e LABEL_STUDIO_USERNAME=user@domain.com \
-      #       -e LABEL_STUDIO_PASSWORD=pass \
-      #       -e LABEL_STUDIO_USER_TOKEN=abcdef \
-      #       label-studio -b
-      # - run:
-      #     name: Add task to pach
-      #     command: |
-      #       pachctl create repo images
-      #       pachctl put file images@master:liberty.jpg -f https://docs.pachyderm.com/images/opencv/liberty.jpg
-      # - run:
-      #     name: Run tests
-      #     command: |
-      #       pip install pytest
-      #       pytest
+            PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
     
-
 
 workflows:
   integration-tests:
@@ -1806,7 +1788,11 @@ workflows:
           - << pipeline.parameters.run-label-studio-jobs >>
           - << pipeline.parameters.run-core-jobs >>
     jobs:
-      - test-label-studio
+      - test-label-studio:
+          requires:
+            - build-pachctl-bin
+      - build-pachctl-bin:
+          version: $CIRCLE_SHA1
 
   release:
     jobs:
