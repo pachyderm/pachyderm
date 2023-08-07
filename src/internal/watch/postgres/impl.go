@@ -29,10 +29,9 @@ const (
 )
 
 type Event struct {
-	Id         uint64
-	NaturalKey string
-	EventType  EventType
-	Error      error
+	Id        uint64
+	EventType EventType
+	Error     error
 }
 
 // New version of postgresWatcher
@@ -121,8 +120,8 @@ func (w *watcher) send(event *Event) {
 
 func parseNotification(payload string) Event {
 	parts := strings.Split(payload, " ")
-	// The payload is a string that consists of: "<TG_OP> <id> <key>"
-	if len(parts) != 3 {
+	// The payload is a string that consists of: "<TG_OP> <id>"
+	if len(parts) != 2 {
 		return Event{Error: errors.Errorf("failed to parse notification payload '%s', wrong number of parts: %d", payload, len(parts))}
 	}
 	event := Event{}
@@ -141,6 +140,5 @@ func parseNotification(payload string) Event {
 		return Event{Error: errors.Wrap(err, "failed to parse notification payload's id")}
 	}
 	event.Id = uint64(id)
-	event.NaturalKey = parts[2]
 	return event
 }
