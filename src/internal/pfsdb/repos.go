@@ -124,7 +124,9 @@ func (iter *RepoIterator) NextWithID(ctx context.Context, id *pachsql.ID, dst **
 	}
 	row := iter.repos[iter.index]
 	*dst, err = getRepoFromRepoRow(ctx, iter.tx, &row)
-	*id = pachsql.ID(row.ID)
+	if id != nil {
+		*id = pachsql.ID(row.ID)
+	}
 	if err != nil {
 		return errors.Wrap(err, "getting repoInfo from repo row")
 	}
@@ -134,28 +136,7 @@ func (iter *RepoIterator) NextWithID(ctx context.Context, id *pachsql.ID, dst **
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
 func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
-	if dst == nil {
-		return errors.Wrap(fmt.Errorf("repo is nil"), "get next repo")
-	}
-	var err error
-	if iter.index >= len(iter.repos) {
-		iter.index = 0
-		iter.offset += iter.limit
-		iter.repos, err = listRepoPage(ctx, iter.tx, iter.limit, iter.offset, iter.where, iter.whereVal)
-		if err != nil {
-			return errors.Wrap(err, "list repo page")
-		}
-		if len(iter.repos) == 0 {
-			return stream.EOS()
-		}
-	}
-	row := iter.repos[iter.index]
-	*dst, err = getRepoFromRepoRow(ctx, iter.tx, &row)
-	if err != nil {
-		return errors.Wrap(err, "getting repoInfo from repo row")
-	}
-	iter.index++
-	return nil
+	return iter.NextWithID(ctx, nil, dst)
 }
 
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
