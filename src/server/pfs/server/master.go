@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
 	"path"
 	"time"
 
@@ -105,7 +106,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			// watch for new repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, "pfs.repos")
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, v2_8_0.ReposChannelName)
 			if err != nil {
 				return errors.Wrap(err, "new watcher")
 			}
@@ -166,7 +167,6 @@ func (d *driver) watchRepos(ctx context.Context) error {
 }
 
 func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
-	log.Info(ctx, fmt.Sprintf("event: %+v", ev))
 	if ev.Error != nil {
 		return ev.Error
 	}
