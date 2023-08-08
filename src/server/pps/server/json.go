@@ -112,7 +112,6 @@ func makeMessageCanonicalizer(d protoreflect.MessageDescriptor) (canonicalizer, 
 			fieldCanonicalizers[name] = identityCanonicalizer
 			fieldCanonicalizers[jsonName] = identityCanonicalizer
 		case protoreflect.EnumKind:
-			// FIXME: canonicalise to strings
 			c := makeEnumCanonicalizer(field.Enum())
 			fieldCanonicalizers[name] = c
 			fieldCanonicalizers[jsonName] = c
@@ -147,7 +146,10 @@ func makeMessageCanonicalizer(d protoreflect.MessageDescriptor) (canonicalizer, 
 			if !ok {
 				return nil, errors.Errorf("unexpected field %q in %s", k, d.FullName())
 			}
-			// FIXME: this can be checked once at make-time
+			// TODO(CORE-1897): This can be checked once at
+			// make-time.  Requires a little bit of thought to do so
+			// without instantiating the field canonicalizer at
+			// make-time.
 			switch {
 			case f.IsList():
 				vv, ok := v.([]any)
