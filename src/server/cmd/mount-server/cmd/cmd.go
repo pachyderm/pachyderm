@@ -15,6 +15,7 @@ import (
 func MountServerCmd() *cobra.Command {
 	var mountDir string
 	var allowOther bool
+	var sockDir string
 	rootCmd := &cobra.Command{
 		Use:   os.Args[0],
 		Short: "Start a mount server for controlling FUSE mounts via a local REST API.",
@@ -23,6 +24,7 @@ func MountServerCmd() *cobra.Command {
 			serverOpts := &fuse.ServerOptions{
 				MountDir:   mountDir,
 				AllowOther: allowOther,
+				SockDir:    sockDir,
 			}
 			pfscmds.PrintWarning()
 			c, err := client.NewOnUserMachine(pctx.TODO(), "user", client.WithDialTimeout(5*time.Second))
@@ -34,6 +36,7 @@ func MountServerCmd() *cobra.Command {
 	}
 	rootCmd.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
 	rootCmd.Flags().BoolVar(&allowOther, "allow-other", true, "Mount is created with allow-other option")
+	rootCmd.Flags().StringVar(&sockDir, "sock-dir", "/tmp", "Socket directory to be used e.g /tmp")
 
 	return rootCmd
 }

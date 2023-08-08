@@ -23,10 +23,12 @@ class MountServerClient(MountInterface):
     def __init__(
         self,
         mount_dir: str,
+        sock_dir: str,
     ):
         self.client = AsyncHTTPClient()
         self.mount_dir = mount_dir
-        self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
+        self.sock_dir = sock_dir
+        self.address = f"http://tmp/pfs_fuse_server.sock"
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # TODO: Would be preferable to auto-detect this, but unclear how
         self.nopriv = NONPRIV_CONTAINER
@@ -73,7 +75,7 @@ class MountServerClient(MountInterface):
             if not await self._is_mount_server_running():
                 self._unmount()
 
-                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
+                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir} --sock-dir {self.sock_dir}"
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")
