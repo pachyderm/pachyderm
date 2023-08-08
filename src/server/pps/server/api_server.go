@@ -3774,7 +3774,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			if err != nil {
 				return errors.Wrap(err, "could not marshal spec to JSON")
 			}
-			wrapperJSON, err := jsonMergePatch(string(canonicalJSON), string(specJSON))
+			wrapperJSON, err := jsonMergePatch(string(canonicalJSON), string(specJSON), clusterDefaultsCanonicalizer)
 			if err != nil {
 				return errors.Wrapf(err, "invalid merger of cluster defaults with pipeline %q", pi.GetPipeline())
 			}
