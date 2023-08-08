@@ -1,23 +1,27 @@
+import {mockProjectDetailsQuery, mockProjectQuery} from '@graphqlTypes';
 import {render, waitFor, screen} from '@testing-library/react';
 import Cookies from 'js-cookie';
+import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {useDAGData} from '@dash-frontend/hooks/useDAGData';
 import useProject from '@dash-frontend/hooks/useProject';
-import {DagDirection} from '@dash-frontend/lib/types';
+import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {withContextProviders} from '@dash-frontend/testHelpers';
 
 const windowLocation = window.location;
 
 describe('errorLink', () => {
+  const server = setupServer();
+
+  beforeAll(() => {
+    server.listen();
+  });
+
+  afterAll(() => server.close());
+
   describe('unauthenticated', () => {
     const TestBed = withContextProviders(() => {
-      useDAGData({
-        projectId: 'Solar-Panel-Data-Sorting',
-        nodeHeight: 60,
-        nodeWidth: 120,
-        direction: DagDirection.RIGHT,
-      });
+      useProjectDetails('bogus');
 
       return <>test</>;
     });
@@ -30,6 +34,33 @@ describe('errorLink', () => {
     });
 
     it('should log the user out if they receive an unauthenticated error', async () => {
+      server.use(
+        mockProjectDetailsQuery((_req, res, ctx) => {
+          return res(
+            ctx.errors([
+              {
+                message: 'User is not authenticated',
+                locations: [
+                  {
+                    line: 2,
+                    column: 3,
+                  },
+                ],
+                path: ['projectDetails'],
+                extensions: {
+                  code: 'UNAUTHENTICATED',
+                  exception: {
+                    stacktrace: [
+                      'AuthenticationError: User is not authenticated',
+                    ],
+                  },
+                },
+              },
+            ]),
+          );
+        }),
+      );
+
       window.localStorage.setItem('auth-token', 'expired');
       Cookies.set('dashAuthToken', 'dashAuthToken');
       Cookies.set('dashAddress', 'dashAddress');
@@ -70,6 +101,31 @@ describe('errorLink', () => {
     });
 
     it('should redirect the user to /not-found if a resource does not exist', async () => {
+      server.use(
+        mockProjectQuery((_req, res, ctx) => {
+          return res(
+            ctx.errors([
+              {
+                message: 'projects bogus not found',
+                locations: [
+                  {
+                    line: 2,
+                    column: 3,
+                  },
+                ],
+                path: ['project'],
+                extensions: {
+                  code: 'NOT_FOUND',
+                  exception: {
+                    stacktrace: ['NotFoundError: projects bogus not found'],
+                  },
+                },
+              },
+            ]),
+          );
+        }),
+      );
+
       render(<TestBed />);
 
       expect(
