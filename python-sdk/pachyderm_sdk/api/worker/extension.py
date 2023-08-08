@@ -49,5 +49,4 @@ class WorkerStub(_GeneratedWorkerStub):
             yield
         except Exception as error:
             self.__error = repr(error)
-            # TODO: Probably want better logging here than a print statement.
             print(f"{self.__error}\nReporting above error to worker.")

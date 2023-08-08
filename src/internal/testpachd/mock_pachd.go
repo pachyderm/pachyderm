@@ -1494,6 +1494,8 @@ type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
 type createDetPipelineSideEffectsFunc func(context.Context, *pps.Pipeline, []string) error
+type getClusterDefaultsFunc func(context.Context, *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error)
+type setClusterDefaultsFunc func(context.Context, *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1531,6 +1533,8 @@ type mockQueryLoki struct{ handler queryLokiFunc }
 type mockCreateDetPipelineSideEffects struct {
 	handler createDetPipelineSideEffectsFunc
 }
+type mockGetClusterDefaults struct{ handler getClusterDefaultsFunc }
+type mockSetClusterDefaults struct{ handler setClusterDefaultsFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1568,6 +1572,8 @@ func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.
 func (mock *mockCreateDetPipelineSideEffects) Use(cb createDetPipelineSideEffectsFunc) {
 	mock.handler = cb
 }
+func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc) { mock.handler = cb }
+func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc) { mock.handler = cb }
 
 type ppsServerAPI struct {
 	pps.UnimplementedAPIServer
@@ -1610,6 +1616,8 @@ type mockPPSServer struct {
 	GetKubeEvents                mockGetKubeEvents
 	QueryLoki                    mockQueryLoki
 	CreateDetPipelineSideEffects mockCreateDetPipelineSideEffects
+	GetClusterDefaults           mockGetClusterDefaults
+	SetClusterDefaults           mockSetClusterDefaults
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1815,6 +1823,18 @@ func (api *ppsServerAPI) CreateDetPipelineSideEffects(ctx context.Context, pipel
 		return api.mock.CreateDetPipelineSideEffects.handler(ctx, pipeline, workspaces)
 	}
 	return errors.Errorf("unhandled pachd mock pps.CreateDetPipelineSideEffects")
+}
+func (api *ppsServerAPI) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
+	if api.mock.GetClusterDefaults.handler != nil {
+		return api.mock.GetClusterDefaults.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.GetClusterDefaults")
+}
+func (api *ppsServerAPI) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
+	if api.mock.SetClusterDefaults.handler != nil {
+		return api.mock.SetClusterDefaults.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.SetClusterDefaults")
 }
 
 /* Transaction Server Mocks */

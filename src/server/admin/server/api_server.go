@@ -2,13 +2,14 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"go.uber.org/zap"
@@ -19,12 +20,14 @@ import (
 type Env struct {
 	ClusterID string
 	Config    *pachconfig.Configuration
+	PFSServer pfs.APIServer
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
 	return Env{
 		ClusterID: senv.ClusterID(),
 		Config:    senv.Config(),
+		PFSServer: senv.PfsServer(),
 	}
 }
 
@@ -49,12 +52,14 @@ func NewAPIServer(env Env) APIServer {
 			ProxyHost:         host,
 			ProxyTls:          tls,
 		},
+		pfsServer: env.PFSServer,
 	}
 }
 
 type apiServer struct {
 	admin.UnimplementedAPIServer
 	clusterInfo *admin.ClusterInfo
+	pfsServer   pfs.APIServer
 }
 
 const (
@@ -97,6 +102,12 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 			} else if clientVersion.Additional != "" {
 				response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtClientIsPreview, serverVersion.Canonical()))
 			}
+		}
+	}
+
+	if n := request.GetCurrentProject().GetName(); n != "" {
+		if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
+			return nil, errors.Wrapf(err, "could not inspect project %q", n)
 		}
 	}
 	return response, nil

@@ -117,7 +117,6 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Describes: apps,
 				Logs:      apps,
 				LokiLogs:  apps,
-				Binaries:  pachApps,
 				Profiles:  pachApps,
 			},
 			InputRepos: true,
@@ -442,7 +441,7 @@ func (s *debugServer) makeBinariesTask(server debug.Debug_DumpV2Server, apps []*
 				defer rp(ctx)
 				for _, pod := range app.Pods {
 					if pod.Ip == "" {
-						log.Info(ctx, "skipping debug bindary for pod with empty IP", zap.String("pod", pod.Name))
+						log.Info(ctx, "skipping debug binary for pod with empty IP", zap.String("pod", pod.Name))
 						continue
 					}
 					if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, "binary"), func(w io.Writer) (retErr error) {

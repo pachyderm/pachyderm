@@ -1552,6 +1552,146 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	validatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
 	commands = append(commands, cmdutil.CreateAliases(validatePipeline, "validate pipeline", pipelines))
 
+	var cluster bool
+	inspectDefaults := &cobra.Command{
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
+		Short: "Return defaults.",
+		Long:  "Return cluster or project defaults.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			if cluster {
+				resp, err := client.PpsAPIClient.GetClusterDefaults(mainCtx, &pps.GetClusterDefaultsRequest{})
+				if err != nil {
+					return errors.Wrap(err, "could not get cluster defaults")
+				}
+				fmt.Println(resp.ClusterDefaultsJson)
+				return nil
+			}
+			return errors.New("--cluster must be specified")
+		}),
+		Hidden: true,
+	}
+	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
+	//inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
+	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults"))
+
+	var pathname string
+	createDefaults := &cobra.Command{
+		Use:   "{{alias}} [--cluster]",
+		Short: "Set cluster defaults.",
+		Long:  "Set cluster defaults.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if cluster {
+				r, err := fileIndicatorToReadCloser(pathname)
+				if err != nil {
+					return errors.Wrapf(err, "could not open path %q for reading", pathname)
+				}
+				b, err := io.ReadAll(r)
+				if err != nil {
+					return errors.Wrapf(err, "could not read from %q", pathname)
+				}
+				b = bytes.TrimSpace(b) // remove leading & trailing whitespace
+				// validate that the provided defaults parse
+				var cd pps.ClusterDefaults
+				if err := protojson.Unmarshal(b, &cd); err != nil {
+					return errors.Wrapf(err, "invalid cluster defaults")
+				}
+				var req pps.SetClusterDefaultsRequest
+				req.ClusterDefaultsJson = string(b)
+
+				client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+
+				if _, err := client.PpsAPIClient.SetClusterDefaults(mainCtx, &pps.SetClusterDefaultsRequest{
+					ClusterDefaultsJson: string(b),
+				}); err != nil {
+					return errors.Wrap(err, "could not set cluster defaults")
+				}
+				return nil
+			}
+			return errors.New("--cluster must be specified")
+		}),
+		Hidden: true,
+	}
+	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
+	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
+	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
+
+	deleteDefaults := &cobra.Command{
+		Use:   "{{alias}} [--cluster]",
+		Short: "Delete defaults.",
+		Long:  "Delete defaults.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if cluster {
+				client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+
+				if _, err := client.PpsAPIClient.SetClusterDefaults(mainCtx, &pps.SetClusterDefaultsRequest{
+					ClusterDefaultsJson: "{}",
+				}); err != nil {
+					return errors.Wrap(err, "could not set cluster defaults")
+				}
+				return nil
+			}
+			return errors.New("--cluster must be specified")
+		}),
+		Hidden: true,
+	}
+	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
+	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
+
+	updateDefaults := &cobra.Command{
+		Use:   "{{alias}} [--cluster]",
+		Short: "Update defaults.",
+		Long:  "Update defaults.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if cluster {
+				r, err := fileIndicatorToReadCloser(pathname)
+				if err != nil {
+					return errors.Wrapf(err, "could not open path %q for reading", pathname)
+				}
+				b, err := io.ReadAll(r)
+				if err != nil {
+					return errors.Wrapf(err, "could not read from %q", pathname)
+				}
+				b = bytes.TrimSpace(b) // remove leading & trailing whitespace
+				// validate that the provided defaults parse
+				var cd pps.ClusterDefaults
+				if err := protojson.Unmarshal(b, &cd); err != nil {
+					return errors.Wrapf(err, "invalid cluster defaults")
+				}
+				var req pps.SetClusterDefaultsRequest
+				req.ClusterDefaultsJson = string(b)
+				client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				if _, err := client.PpsAPIClient.SetClusterDefaults(mainCtx, &pps.SetClusterDefaultsRequest{
+					ClusterDefaultsJson: string(b),
+				}); err != nil {
+					return errors.Wrap(err, "could not set cluster defaults")
+				}
+				return nil
+			}
+			return errors.New("--cluster must be specified")
+		}),
+		Hidden: true,
+	}
+	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
+	updateDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
+	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
+
 	return commands
 }
 

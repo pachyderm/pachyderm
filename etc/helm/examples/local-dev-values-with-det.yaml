@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+# SPDX-License-Identifier: Apache-2.0
+deployTarget: "CUSTOM"
+
+pachd:
+  image:
+    tag: local
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512M
+  service:
+    type: NodePort
+  metrics:
+    enabled: false
+  clusterDeploymentID: dev
+  pachAuthClusterRoleBindings:
+    allClusterUsers:
+      ["debugger", "projectOwner", "projectCreator", "repoOwner", "robotUser", "secretAdmin", "pachdLogReader"]
+  # to enable enterprise features pass in pachd.activateEnterprise=true, and a valid pachd.enterpriseLicenseKey
+  activateEnterprise: true
+  additionalTrustedPeers:
+    - console-local
+  rootToken: "pizza"
+  enterpriseLicenseKey: ""
+  oauthRedirectURI: "http://localhost:8283/authorization-code/callback" 
+  storage:
+    backend: MINIO
+    minio:
+      bucket: "pachyderm-test"
+      endpoint: "minio.default.svc.cluster.local:9000"
+      id: "minioadmin"
+      secret: "minioadmin"
+      secure: "false"
+      signature: ""
+
+proxy:
+  enabled: true
+  host: localhost:8283 
+  service:
+    type: LoadBalancer
+    httpPort: 8283
+
+etcd:
+  service:
+    type: NodePort
+
+postgresql:
+  service:
+    type: NodePort
+    
+console:
+  enabled: true
+  image:
+    tag: 49648661011fa26986a6f71ffabe77d1f286eef3 
+  config:
+    oauthRedirectURI: http://localhost:8283/oauth/callback/?inline=true #http://localhost:8283/dex/auth 
+    disableTelemetry: true
+
+oidc:
+  issuerURI: "http://pachd.default.svc.cluster.local:30658/dex" 
+  userAccessibleOauthIssuerHost: "http://localhost:8283"
+  additionalClients:
+    - id: console-local
+      name: console-local
+      secret: "123"
+      redirect_uris:
+        - http://localhost:4000/oauth/callback/?inline=true
+    - id: determined-local
+      name: determined-local
+      secret: "123"
+      redirect_uris:
+        - http://localhost:8282/oauth/callback/?inline=true
+
+determined:
+  imageRegistry: registry-1.docker.io/determinedai
+  imagePullSecretName: detregcred
+  maxSlotsPerPod: 0
+  enabled: true
+  enterpriseEdition: true
+  useNodePortForMaster: false
+  useNodePortForDB: false
+  detVersion: 0.23.1
+  masterPort: 8282
+  oidc:
+    enabled: true 
+    idpRecipientUrl: http://localhost:8282
+    idpSsoUrl: http://pachd.default.svc.cluster.local:30658/dex #"http://localhost:8283" 
+    clientSecret: "123"
