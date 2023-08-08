@@ -2194,19 +2194,19 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
 		})
 	}
-	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON)); err != nil {
+	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), clusterDefaultsCanonicalizer); err != nil {
 		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
 		})
 	}
 
-	var defaults pps.ClusterDefaults
-	if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &defaults); err != nil {
+	var wrapper pps.ClusterDefaults
+	if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &wrapper); err != nil {
 		return "", badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not unmarshal %s: %v", effectiveSpecJSON, err)},
 		})
 	}
-	var request = defaults.GetCreatePipelineRequest()
+	var request = wrapper.GetCreatePipelineRequest()
 	request.Update = req.Update
 	request.Reprocess = req.Reprocess
 
@@ -3712,52 +3712,6 @@ func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterD
 		clusterDefaults.Json = "{}"
 	}
 	return &pps.GetClusterDefaultsResponse{ClusterDefaultsJson: clusterDefaults.Json}, nil
-}
-
-// jsonMergePatch merges a JSON patch in string form with a JSON target, also in
-// string form.
-func jsonMergePatch(target, patch string) (string, error) {
-	var targetObject, patchObject any
-	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
-		return "", errors.Wrap(err, "could not unmarshal target JSON")
-	}
-	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
-		return "", errors.Wrap(err, "could not unmarshal patch JSON")
-	}
-	result, err := json.Marshal(mergePatch(targetObject, patchObject))
-	if err != nil {
-		return "", errors.Wrap(err, "could not marshal merge patch result")
-	}
-	return string(result), nil
-}
-
-// mergePatch implements the RFC 7396 algorithm.  To quote the RFC “If the patch
-// is anything other than an object, the result will always be to replace the
-// entire target with the entire patch.  Also, it is not possible to patch part
-// of a target that is not an object, such as to replace just some of the values
-// in an array.”  If the patch _is_ an object, then non-null values replace
-// target values, and null values delete target values.
-func mergePatch(target, patch any) any {
-	switch patch := patch.(type) {
-	case map[string]any:
-		var targetMap map[string]any
-		switch t := target.(type) {
-		case map[string]any:
-			targetMap = t
-		default:
-			targetMap = make(map[string]any)
-		}
-		for name, value := range patch {
-			if value == nil {
-				delete(targetMap, name)
-			} else {
-				targetMap[name] = mergePatch(targetMap[name], value)
-			}
-		}
-		return targetMap
-	default:
-		return patch
-	}
 }
 
 func badRequest(ctx context.Context, msg string, violations []*errdetails.BadRequest_FieldViolation) error {
