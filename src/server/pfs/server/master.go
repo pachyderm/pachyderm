@@ -95,7 +95,6 @@ func (d *driver) master(ctx context.Context) {
 }
 
 func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
-	log.Info(ctx, fmt.Sprintf("event: %+v", ev))
 	if ev.Error != nil {
 		return ev.Error
 	}
@@ -194,35 +193,38 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				}
 			})
 			// get existing entries.
+			existingRepos := make([]*postgres.Event, 0)
 			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 				iter, err := pfsdb.ListRepo(ctx, tx)
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}
-				dummyID := pachsql.ID(0)
-				id := &dummyID
+				rowID := pachsql.ID(0)
 				var repoInfo *pfs.RepoInfo
 				for {
-					if err := iter.NextWithID(ctx, id, &repoInfo); err != nil {
+					if err := iter.NextWithID(ctx, &rowID, &repoInfo); err != nil {
 						if stream.IsEOS(err) {
 							break
 						}
 						return errors.Wrap(err, "listing repo by ID")
 					}
-					if uint64(*id) == 0 {
+					if rowID == 0 {
 						return errors.New("repo id should not be 0")
 					}
 					event := &postgres.Event{
-						Id:        uint64(*id),
+						Id:        uint64(rowID),
 						EventType: postgres.EventInsert,
 					}
-					if err := d.manageRepos(ctx, ring, repos, event); err != nil {
-						return errors.Wrap(err, "manage repos for existing entries")
-					}
+					existingRepos = append(existingRepos, event)
 				}
 				return nil
 			}); err != nil {
 				return errors.Wrap(err, "list repos")
+			}
+			for _, event := range existingRepos {
+				if err := d.manageRepos(ctx, ring, repos, event); err != nil {
+					return errors.Wrap(err, "manage repos for existing entries")
+				}
 			}
 			return errors.Wrap(eg.Wait(), "waiting for manageRepos goroutines to finish")
 		},
