@@ -1,57 +1,65 @@
-import {mockGetCommitsQuery, Commit, OriginKind} from '@graphqlTypes';
+import {
+  mockGetCommitsQuery,
+  Commit,
+  OriginKind,
+  mockCommitQuery,
+  mockCommitDiffQuery,
+} from '@graphqlTypes';
 
 import generateId from '@dash-frontend/lib/generateId';
 
-export const IMAGE_COMMITS: Commit[] = [
-  {
-    repoName: 'images',
-    branch: {
-      name: 'master',
-      repo: null,
-      __typename: 'Branch',
-    },
-    description: 'commit not finished',
-    originKind: OriginKind.USER,
-    id: '4eb1aa567dab483f93a109db4641ee75',
-    started: 1690221505,
-    finished: -1,
-    sizeBytes: 0,
-    sizeDisplay: '0 B',
-    __typename: 'Commit',
+const COMMIT_4E: Commit = {
+  repoName: 'images',
+  branch: {
+    name: 'master',
+    repo: null,
+    __typename: 'Branch',
   },
-  {
-    repoName: 'images',
-    branch: {
-      name: 'master',
-      repo: null,
-      __typename: 'Branch',
-    },
-    description: 'added mako',
-    originKind: OriginKind.USER,
-    id: '4a83c74809664f899261baccdb47cd90',
-    started: 1690221505,
-    finished: 1690321505,
-    sizeBytes: 139232,
-    sizeDisplay: '139.24 kB',
-    __typename: 'Commit',
+  description: 'commit not finished',
+  originKind: OriginKind.USER,
+  id: '4eb1aa567dab483f93a109db4641ee75',
+  started: 1690221505,
+  finished: -1,
+  sizeBytes: 0,
+  sizeDisplay: '0 B',
+  __typename: 'Commit',
+};
+
+export const COMMIT_4A: Commit = {
+  repoName: 'images',
+  branch: {
+    name: 'master',
+    repo: null,
+    __typename: 'Branch',
   },
-  {
-    repoName: 'images',
-    branch: {
-      name: 'master',
-      repo: null,
-      __typename: 'Branch',
-    },
-    description: 'sold materia',
-    originKind: OriginKind.USER,
-    id: 'c43fffd650a24b40b7d9f1bf90fcfdbe',
-    started: 1690221505,
-    finished: 1690221505,
-    sizeBytes: 58644,
-    sizeDisplay: '58.65 kB',
-    __typename: 'Commit',
+  description: 'added mako',
+  originKind: OriginKind.USER,
+  id: '4a83c74809664f899261baccdb47cd90',
+  started: 1690221505,
+  finished: 1690321505,
+  sizeBytes: 139232,
+  sizeDisplay: '139.24 kB',
+  __typename: 'Commit',
+};
+
+export const COMMIT_C4: Commit = {
+  repoName: 'images',
+  branch: {
+    name: 'master',
+    repo: null,
+    __typename: 'Branch',
   },
-];
+  description: 'sold materia',
+  originKind: OriginKind.USER,
+  id: 'c43fffd650a24b40b7d9f1bf90fcfdbe',
+  started: 1690221505,
+  finished: 1690221505,
+  sizeBytes: 58644,
+  sizeDisplay: '58.65 kB',
+  __typename: 'Commit',
+};
+
+export const IMAGE_COMMITS: Commit[] = [COMMIT_4E, COMMIT_4A, COMMIT_C4];
 
 type generateCommitsArgs = {
   n: number;
@@ -92,6 +100,24 @@ export const mockGetImageCommits = () =>
     return res(
       ctx.data({
         commits: {items: IMAGE_COMMITS, cursor: null, parentCommit: null},
+      }),
+    );
+  });
+
+export const mockGetCommitA4 = () =>
+  mockCommitQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        commit: COMMIT_4A,
+      }),
+    );
+  });
+
+export const mockEmptyCommitDiff = () =>
+  mockCommitDiffQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        commitDiff: null,
       }),
     );
   });

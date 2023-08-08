@@ -7,168 +7,20 @@ import {
 } from '@testing-library/react';
 import React from 'react';
 
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   click,
-  type,
   withContextProviders,
   mockServer,
 } from '@dash-frontend/testHelpers';
 
-import {default as LeftPanelComponent} from '../components/LeftPanel';
 import FileBrowserComponent from '../FileBrowser';
 const FileBrowser = withContextProviders(() => {
   return <FileBrowserComponent />;
 });
 
-const LeftPanel = withContextProviders(() => {
-  return <LeftPanelComponent />;
-});
-
 window.open = jest.fn();
 
 describe('File Browser', () => {
-  describe('Left Panel', () => {
-    it('should format commit list item correctly', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
-      );
-      render(<FileBrowser />);
-      expect(
-        (await screen.findAllByTestId('CommitList__listItem'))[0],
-      ).toHaveTextContent(
-        `${getStandardDate(1614136191)}9d5daa0918ac4c43a476b86e3bb5e88e`,
-      );
-    });
-
-    it('should load commits and select latest commit if commitId is not in the url', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/latest',
-      );
-      render(<FileBrowser />);
-      const selectedDatum = (
-        await screen.findAllByTestId('CommitList__listItem')
-      )[0];
-      expect(selectedDatum).toHaveClass('selected');
-      expect(selectedDatum).toHaveTextContent(
-        '9d5daa0918ac4c43a476b86e3bb5e88e',
-      );
-
-      expect(await screen.findByTestId('LeftPanel_crumb')).toHaveTextContent(
-        'Commit: 9d5daa...',
-      );
-    });
-
-    it('should load commits and select commit from url', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a5',
-      );
-      render(<FileBrowser />);
-      const selectedDatum = (
-        await screen.findAllByTestId('CommitList__listItem')
-      )[3];
-      expect(selectedDatum).toHaveClass('selected');
-      expect(selectedDatum).toHaveTextContent(
-        '0918ac9d5daa76b86e3bb5e88e4c43a5',
-      );
-
-      expect(await screen.findByTestId('LeftPanel_crumb')).toHaveTextContent(
-        'Commit: 0918ac...',
-      );
-    });
-
-    it('should allow users to search for a commit', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
-      );
-      render(<FileBrowser />);
-
-      const search = await screen.findByTestId('CommitList__search');
-
-      expect(
-        screen.queryByText('No matching commits found'),
-      ).not.toBeInTheDocument();
-
-      await type(search, '9d5daa0918ac4c22a476b86e3bb5e88e');
-      await screen.findByText('No matching commits found');
-      await click(await screen.findByTestId('CommitList__searchClear'));
-      expect(search).toHaveTextContent('');
-      await type(search, 'werweriuowiejrklwkejrwiepriojw');
-      expect(screen.getByText('Enter exact commit ID')).toBeInTheDocument();
-      await click(await screen.findByTestId('CommitList__searchClear'));
-      expect(search).toHaveTextContent('');
-      await type(search, '9d5daa0918ac4c43a476b86e3bb5e88e');
-
-      const selectedDatum = await screen.findByTestId('CommitList__listItem');
-      expect(selectedDatum).toHaveTextContent(
-        '9d5daa0918ac4c43a476b86e3bb5e88e',
-      );
-      expect(
-        screen.queryByText('No matching commits found'),
-      ).not.toBeInTheDocument();
-    });
-
-    it('should allow users to switch branches', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/master/latest',
-      );
-      render(<FileBrowser />);
-
-      const dropdown = await screen.findByTestId('DropdownButton__button');
-
-      expect(dropdown).toHaveTextContent('master');
-      let selectedCommit = (
-        await screen.findAllByTestId('CommitList__listItem')
-      )[0];
-      expect(selectedCommit).toHaveTextContent(
-        '23b9af7d5d4343219bc8e02ff4acd33a',
-      );
-
-      await click(dropdown);
-      await click(await screen.findByText('test'));
-      expect(dropdown).toHaveTextContent('test');
-
-      selectedCommit = (
-        await screen.findAllByTestId('CommitList__listItem')
-      )[0];
-      expect(selectedCommit).toHaveTextContent(
-        'd4280503cdb44fb984f07952eae8c1ac',
-      );
-    });
-
-    // TODO: Fix. This test is now broken because we are paging off of commitId.
-    it.skip('should allow a user to page through the commit list', async () => {
-      window.history.replaceState(
-        {},
-        '',
-        '/lineage/Load-Project/repos/load-repo-0/branch/master/commit/0-0',
-      );
-      render(<LeftPanel />);
-      const forwards = await screen.findByTestId('Pager__forward');
-      const backwards = await screen.findByTestId('Pager__backward');
-      expect(await screen.findByText('Commits 1 - 50')).toBeInTheDocument();
-      expect(backwards).toBeDisabled();
-      let commits = await screen.findAllByTestId('CommitList__listItem');
-      expect(commits[0]).toHaveTextContent('0-0');
-      expect(commits[49]).toHaveTextContent('0-49');
-      await click(forwards);
-      expect(await screen.findByText('Commits 51 - 100')).toBeInTheDocument();
-      commits = await screen.findAllByTestId('CommitList__listItem');
-      expect(commits[0]).toHaveTextContent('0-50');
-      expect(commits[49]).toHaveTextContent('0-99');
-    });
-  });
-
   describe('Middle Section', () => {
     beforeEach(() => {
       window.history.replaceState(

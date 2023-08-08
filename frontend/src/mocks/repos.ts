@@ -3,29 +3,120 @@ import {
   mockReposQuery,
   Repo,
   OriginKind,
+  mockRepoQuery,
 } from '@graphqlTypes';
+import merge from 'lodash/merge';
 
-export const ALL_REPOS_WITH_COMMIT: Repo[] = [
-  {
+export const buildRepo = (repo: Partial<Repo>): Repo => {
+  const defaultRepo = {
     branches: [
       {
         name: 'master',
         __typename: 'Branch',
       },
     ],
-    createdAt: 1690221506,
-    description: 'Output repo for pipeline default/montage.',
-    id: 'montage',
-    name: 'montage',
+    createdAt: 1690221504,
+    description: '',
+    id: 'images',
+    name: 'images',
     sizeDisplay: '0 B',
-    sizeBytes: 31783,
+    sizeBytes: 14783,
     access: true,
     projectId: 'default',
-    authInfo: {
-      rolesList: ['clusterAdmin'],
-      __typename: 'AuthInfo',
-    },
+    linkedPipeline: null,
+    lastCommit: null,
+    authInfo: null,
     __typename: 'Repo',
+  };
+
+  return merge(defaultRepo, repo);
+};
+
+const REPO_MONTAGE: Repo = buildRepo({
+  branches: [
+    {
+      name: 'master',
+      __typename: 'Branch',
+    },
+  ],
+  createdAt: 1690221506,
+  description: 'Output repo for pipeline default/montage.',
+  id: 'montage',
+  name: 'montage',
+  sizeDisplay: '0 B',
+  sizeBytes: 31783,
+  access: true,
+  projectId: 'default',
+  authInfo: {
+    rolesList: ['clusterAdmin'],
+    __typename: 'AuthInfo',
+  },
+  __typename: 'Repo',
+});
+
+const REPO_EDGES: Repo = buildRepo({
+  branches: [
+    {
+      name: 'master',
+      __typename: 'Branch',
+    },
+  ],
+  createdAt: 1690221505,
+  description: 'Output repo for pipeline default/edges.',
+  id: 'edges',
+  name: 'edges',
+  sizeDisplay: '22.79 kB',
+  sizeBytes: 22783,
+  access: true,
+  projectId: 'default',
+  authInfo: {
+    rolesList: ['clusterAdmin'],
+    __typename: 'AuthInfo',
+  },
+  __typename: 'Repo',
+});
+
+const REPO_IMAGES: Repo = buildRepo({
+  branches: [
+    {
+      name: 'master',
+      __typename: 'Branch',
+    },
+  ],
+  createdAt: 1690221504,
+  description: '',
+  id: 'images',
+  name: 'images',
+  sizeDisplay: '0 B',
+  sizeBytes: 14783,
+  access: true,
+  projectId: 'default',
+  authInfo: {
+    rolesList: ['clusterAdmin'],
+    __typename: 'AuthInfo',
+  },
+  __typename: 'Repo',
+});
+
+const REPO_EMPTY: Repo = buildRepo({
+  branches: [],
+  createdAt: 1690221494,
+  description: '',
+  id: 'empty',
+  name: 'empty',
+  sizeDisplay: '0 B',
+  sizeBytes: 0,
+  access: true,
+  projectId: 'ProjectA',
+  authInfo: {
+    rolesList: ['clusterAdmin', 'repoOwner'],
+    __typename: 'AuthInfo',
+  },
+  __typename: 'Repo',
+});
+export const ALL_REPOS_WITH_COMMIT: Repo[] = [
+  buildRepo({
+    ...REPO_MONTAGE,
     lastCommit: {
       repoName: 'montage',
       branch: {
@@ -42,27 +133,9 @@ export const ALL_REPOS_WITH_COMMIT: Repo[] = [
       sizeDisplay: '797 B',
       __typename: 'Commit',
     },
-  },
-  {
-    branches: [
-      {
-        name: 'master',
-        __typename: 'Branch',
-      },
-    ],
-    createdAt: 1690221505,
-    description: 'Output repo for pipeline default/edges.',
-    id: 'edges',
-    name: 'edges',
-    sizeDisplay: '22.79 kB',
-    sizeBytes: 22783,
-    access: true,
-    projectId: 'default',
-    authInfo: {
-      rolesList: ['clusterAdmin'],
-      __typename: 'AuthInfo',
-    },
-    __typename: 'Repo',
+  }),
+  buildRepo({
+    ...REPO_EDGES,
     lastCommit: {
       repoName: 'edges',
       branch: {
@@ -79,27 +152,9 @@ export const ALL_REPOS_WITH_COMMIT: Repo[] = [
       sizeDisplay: '1.85 kB',
       __typename: 'Commit',
     },
-  },
-  {
-    branches: [
-      {
-        name: 'master',
-        __typename: 'Branch',
-      },
-    ],
-    createdAt: 1690221504,
-    description: '',
-    id: 'images',
-    name: 'images',
-    sizeDisplay: '0 B',
-    sizeBytes: 14783,
-    access: true,
-    projectId: 'default',
-    authInfo: {
-      rolesList: ['clusterAdmin'],
-      __typename: 'AuthInfo',
-    },
-    __typename: 'Repo',
+  }),
+  buildRepo({
+    ...REPO_IMAGES,
     lastCommit: {
       repoName: 'images',
       branch: {
@@ -116,106 +171,15 @@ export const ALL_REPOS_WITH_COMMIT: Repo[] = [
       sizeDisplay: '0 B',
       __typename: 'Commit',
     },
-  },
-  {
-    branches: [],
-    createdAt: 1690221494,
-    description: '',
-    id: 'empty',
-    name: 'empty',
-    sizeDisplay: '0 B',
-    sizeBytes: 0,
-    access: true,
-    projectId: 'ProjectA',
-    authInfo: {
-      rolesList: ['clusterAdmin', 'repoOwner'],
-      __typename: 'AuthInfo',
-    },
-    __typename: 'Repo',
-    lastCommit: null,
-  },
+  }),
+  REPO_EMPTY,
 ];
 
 export const ALL_REPOS: Repo[] = [
-  {
-    branches: [
-      {
-        name: 'master',
-        __typename: 'Branch',
-      },
-    ],
-    createdAt: 1690221506,
-    description: 'Output repo for pipeline default/montage.',
-    id: 'montage',
-    name: 'montage',
-    sizeDisplay: '0 B',
-    sizeBytes: 31783,
-    access: true,
-    projectId: 'default',
-    authInfo: {
-      rolesList: ['clusterAdmin'],
-      __typename: 'AuthInfo',
-    },
-    __typename: 'Repo',
-  },
-  {
-    branches: [
-      {
-        name: 'master',
-        __typename: 'Branch',
-      },
-    ],
-    createdAt: 1690221505,
-    description: 'Output repo for pipeline default/edges.',
-    id: 'edges',
-    name: 'edges',
-    sizeDisplay: '22.79 kB',
-    sizeBytes: 22783,
-    access: true,
-    projectId: 'default',
-    authInfo: {
-      rolesList: ['clusterAdmin'],
-      __typename: 'AuthInfo',
-    },
-    __typename: 'Repo',
-  },
-  {
-    branches: [
-      {
-        name: 'master',
-        __typename: 'Branch',
-      },
-    ],
-    createdAt: 1690221504,
-    description: '',
-    id: 'images',
-    name: 'images',
-    sizeDisplay: '0 B',
-    sizeBytes: 14783,
-    access: true,
-    projectId: 'default',
-    authInfo: {
-      rolesList: ['clusterAdmin'],
-      __typename: 'AuthInfo',
-    },
-    __typename: 'Repo',
-  },
-  {
-    branches: [],
-    createdAt: 1690221494,
-    description: '',
-    id: 'empty',
-    name: 'empty',
-    sizeDisplay: '0 B',
-    sizeBytes: 0,
-    access: true,
-    projectId: 'ProjectA',
-    authInfo: {
-      rolesList: ['clusterAdmin', 'repoOwner'],
-      __typename: 'AuthInfo',
-    },
-    __typename: 'Repo',
-  },
+  REPO_MONTAGE,
+  REPO_EDGES,
+  REPO_IMAGES,
+  REPO_EMPTY,
 ];
 
 export const mockReposWithCommit = () =>
@@ -226,4 +190,9 @@ export const mockReposWithCommit = () =>
 export const mockRepos = () =>
   mockReposQuery((_req, res, ctx) => {
     return res(ctx.data({repos: ALL_REPOS}));
+  });
+
+export const mockRepoImages = () =>
+  mockRepoQuery((_req, res, ctx) => {
+    return res(ctx.data({repo: REPO_IMAGES}));
   });
