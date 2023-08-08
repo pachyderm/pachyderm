@@ -1780,13 +1780,12 @@ workflows:
             - python-sdk-build
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
-  ## TODO: move to nightly tests
   label-studio:
     when:
       condition:
         or:
           - << pipeline.parameters.run-label-studio-jobs >>
-          - << pipeline.parameters.run-core-jobs >>
+          - << pipeline.parameters.run_load_tests >> # Eventually switch back to run-core-jobs
     jobs:
       - test-label-studio:
           requires:
