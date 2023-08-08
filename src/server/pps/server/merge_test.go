@@ -17,48 +17,108 @@ import (
 )
 
 func TestJSONMergePatch(t *testing.T) {
-	var testCases = []struct{ target, patch, result string }{
+	var testCases = []struct {
+		target, patch, result string
+		canonicalizer         canonicalizer
+	}{
 		// first example in RFC 7396
-		{`{"a": "b", "c": {"d": "e", "f": "g"}}`, `{"a":"z", "c": {"f": null}}`, `{"a": "z", "c": {"d": "e"}}`},
+		{`{"a": "b", "c": {"d": "e", "f": "g"}}`, `{"a":"z", "c": {"f": null}}`, `{"a": "z", "c": {"d": "e"}}`, nil},
 
 		// second example in RFC 7396
 		{
 			`{"title": "Goodbye!", "author": {"givenName": "John", "familyName": "Doe"}, "tags":["example", "sample"], "content": "This will be unchanged"}`, ` {"title": "Hello!", "phoneNumber": "+01-123-456-7890", "author": {"familyName": null}, "tags": ["example"]}`, `{"title": "Hello!", "author": {"givenName": "John"}, "tags": ["example"], "content": "This will be unchanged", "phoneNumber": "+01-123-456-7890"}`,
-		},
+			nil},
 
 		// test cases from Appendix A of RFC 7396
-		{`{"a":"b"}`, `{"a":"c"}`, `{"a":"c"}`},
+		{`{"a":"b"}`, `{"a":"c"}`, `{"a":"c"}`, nil},
 
-		{`{"a":"b"}`, `{"b":"c"}`, `{"a":"b", "b":"c"}`},
+		{`{"a":"b"}`, `{"b":"c"}`, `{"a":"b", "b":"c"}`, nil},
 
-		{`{"a":"b"}`, `{"a":null}`, `{}`},
+		{`{"a":"b"}`, `{"a":null}`, `{}`, nil},
 
-		{`{"a":"b","b":"c"}`, `{"a":null}`, `{"b":"c"}`},
+		{`{"a":"b","b":"c"}`, `{"a":null}`, `{"b":"c"}`, nil},
 
-		{`{"a":["b"]}`, `{"a":"c"}`, `{"a":"c"}`},
+		{`{"a":["b"]}`, `{"a":"c"}`, `{"a":"c"}`, nil},
 
-		{`{"a":"c"}`, `{"a":["b"]}`, `{"a":["b"]}`},
+		{`{"a":"c"}`, `{"a":["b"]}`, `{"a":["b"]}`, nil},
 
-		{`{"a": {"b": "c"}}`, `{"a": {  "b": "d","c": null}}`, `{"a": {"b": "d"}}`},
+		{`{"a": {"b": "c"}}`, `{"a": {  "b": "d","c": null}}`, `{"a": {"b": "d"}}`, nil},
 
-		{`{"a": [{"b":"c"}]}`, `{"a": [1]}`, `{"a": [1]}`},
+		{`{"a": [{"b":"c"}]}`, `{"a": [1]}`, `{"a": [1]}`, nil},
 
-		{`["a","b"]`, `["c","d"]`, `["c","d"]`},
+		{`["a","b"]`, `["c","d"]`, `["c","d"]`, nil},
 
-		{`{"a":"b"}`, `["c"] `, `["c"]`},
+		{`{"a":"b"}`, `["c"] `, `["c"]`, nil},
 
-		{`{"a":"foo"}`, `null`, `null`},
+		{`{"a":"foo"}`, `null`, `null`, nil},
 
-		{`{"a":"foo"}`, `"bar"`, `"bar"`},
+		{`{"a":"foo"}`, `"bar"`, `"bar"`, nil},
 
-		{`{"e":null}`, `{"a":1}`, `{"e":null,"a":1}`},
+		{`{"e":null}`, `{"a":1}`, `{"e":null,"a":1}`, nil},
 
-		{`[1,2]`, `{"a":"b","c":null}`, `{"a":"b"}`},
+		{`[1,2]`, `{"a":"b","c":null}`, `{"a":"b"}`, nil},
 
-		{`{}`, `{"a":{"bb":{"ccc":null}}}`, `{"a":{"bb":{}}}`},
+		{`{}`, `{"a":{"bb":{"ccc":null}}}`, `{"a":{"bb":{}}}`, nil},
+
+		// Pachyderm-specific merge
+		{
+			`{"create_pipeline_request": {"datum_tries": 16, "autoscaling": false, "datum_timeout": "4m"}}`,
+			`{
+				"create_pipeline_request": {
+					"pipeline": {
+						"name": "first"
+					},
+					"input": {
+						"pfs": {
+							"glob": "/*",
+							"repo": "input"
+						}
+					},
+					"parallelism_spec": {
+						"constant": 1
+					},
+					"transform": {
+						"cmd": [
+							"/bin/bash"
+						],
+						"stdin": [
+							"cp /pfs/input/* /pfs/out"
+						]
+					},
+					"datumTimeout": "1s"
+				}
+			}`,
+			`{
+				"createPipelineRequest": {
+					"pipeline": {
+						"name": "first"
+					},
+					"input": {
+						"pfs": {
+							"glob": "/*",
+							"repo": "input"
+						}
+					},
+					"parallelismSpec": {
+						"constant": 1
+					},
+					"transform": {
+						"cmd": [
+							"/bin/bash"
+						],
+						"stdin": [
+							"cp /pfs/input/* /pfs/out"
+						]
+					},
+					"datumTries": 16,
+					"datumTimeout": "1s",
+					"autoscaling": false
+				}
+			}`,
+			clusterDefaultsCanonicalizer},
 	}
 	for i, c := range testCases {
-		result, err := jsonMergePatch(c.target, c.patch, nil)
+		result, err := jsonMergePatch(c.target, c.patch, c.canonicalizer)
 		if err != nil {
 			t.Errorf("test case %d: %v", i, err)
 			continue
