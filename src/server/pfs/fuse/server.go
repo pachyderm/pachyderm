@@ -48,6 +48,8 @@ type ServerOptions struct {
 	Unmount chan struct{}
 	// True if allow-other option is to be specified
 	AllowOther bool
+	// Socket directory for Unix Domain Socket
+	SockDir string
 }
 
 type ConfigRequest struct {
@@ -946,7 +948,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	})
 
 	// Using unix domain socket
-	sockPath := "/run/pfs_fuse_server.sock"
+	sockPath := sopts.SockDir + "/pfs_fuse_server.sock"
 
 	srv := &http.Server{Handler: router}
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
