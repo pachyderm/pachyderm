@@ -8,7 +8,6 @@ from pachyderm_sdk.api import pfs
 from tests.constants import LABEL_STUDIO_URL, AUTH_TOKEN, PACHD_ADDRESS
 
 
-# TODO: proper client config for CI
 @pytest.fixture(scope="session")
 def pach_client():
     return PachClient.from_pachd_address(PACHD_ADDRESS)
@@ -22,14 +21,10 @@ def pachyderm_data(pach_client):
     with pach_client.pfs.commit(
         branch=pfs.Branch(repo=import_repo, name="master")
     ) as commit:
-        # TODO: switch out
         commit.put_file_from_url(
             path='/liberty.jpg',
             url='https://docs.pachyderm.com/images/opencv/liberty.jpg',
         )
-
-        # f = open("/Users/malyala/Downloads/liberty.jpg", "rb")
-        # commit.put_file_from_file(path="/liberty.jpg", file=f)
         commit_id = commit.id
 
     export_repo = pfs.Repo(name="labels", type="user")

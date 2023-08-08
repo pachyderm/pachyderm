@@ -2099,7 +2099,6 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - aws-prerelease-testing
-      ## TODO: add to release?
 
 commands:
   install-helm:
