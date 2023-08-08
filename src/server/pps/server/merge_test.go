@@ -5,12 +5,15 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestJSONMergePatch(t *testing.T) {
@@ -75,174 +78,7 @@ func TestJSONMergePatch(t *testing.T) {
 	}
 }
 
-func TestCanonicalizeFieldNames(t *testing.T) {
-	var testCases = []struct {
-		value     string
-		prototype proto.Message
-		result    string
-	}{
-		{
-			`{"mount_path": "foo"}`,
-			&pps.SecretMount{},
-			`{"mountPath": "foo"}`,
-		},
-		{
-			`{
-				"contexts": {
-					"foo": {
-						"pachdAddress": "foo"
-					},
-					"bar": {
-						"pachd_address": "quux"
-					}
-				}
-			}`,
-			&config.ConfigV2{},
-			`{
-				"contexts": {
-					"foo": {
-						"pachdAddress": "foo"
-					},
-					"bar": {
-						"pachdAddress": "quux"
-					}
-				}
-			}`,
-		},
-		{
-			`{
-				"pipeline": {
-					"name": "wordcount",
-					"project": {
-						"name": "projectName"
-					}
-				},
-				"transform": {
-					"image": "wordcount-image",
-					"cmd": ["/binary", "/pfs/data", "/pfs/out"]
-				},
-				"input": {
-					"pfs": {
-						"repo": "data",
-						"glob": "/*"
-					}
-				},
-				"s3_out": true
-			}`,
-			&pps.CreatePipelineRequest{},
-			`{
-				"pipeline": {
-					"name": "wordcount",
-					"project": {
-						"name": "projectName"
-					}
-				},
-				"transform": {
-					"image": "wordcount-image",
-					"cmd": ["/binary", "/pfs/data", "/pfs/out"]
-				},
-				"input": {
-					"pfs": {
-						"repo": "data",
-						"glob": "/*"
-					}
-				},
-				"s3Out": true
-			}`,
-		},
-		{
-			`{
-				"pipeline": {
-				"name": "wordcount",
-				"project": {
-					"name": "projectName"
-				}
-				},
-				"transform": {
-				"image": "wordcount-image",
-				"cmd": [
-					"/binary",
-					"/pfs/data",
-					"/pfs/out"
-				]
-				},
-				"input": {
-				"cross": [
-					{
-						"pfs": {
-							"repo": "data",
-							"glob": "/*"
-						}
-					},
-					{
-						"pfs": {
-							"repo": "data2",
-							"glob": "/*"
-						}
-					}
-				]
-				},
-				"s3_out": true
-			}`,
-			&pps.CreatePipelineRequest{},
-			`{
-				"pipeline": {
-				"name": "wordcount",
-				"project": {
-					"name": "projectName"
-				}
-				},
-				"transform": {
-				"image": "wordcount-image",
-				"cmd": [
-					"/binary",
-					"/pfs/data",
-					"/pfs/out"
-				]
-				},
-				"input": {
-				"cross": [
-					{
-						"pfs": {
-							"repo": "data",
-							"glob": "/*"
-						}
-					},
-					{
-						"pfs": {
-							"repo": "data2",
-							"glob": "/*"
-						}
-					}
-				]
-				},
-				"s3Out": true
-			}`,
-		},
-	}
-
-	for i, c := range testCases {
-		var v, r map[string]any
-		if err := json.Unmarshal([]byte(c.value), &v); err != nil {
-			t.Errorf("test case %d: bad value: %v", i, err)
-			continue
-		}
-		if err := json.Unmarshal([]byte(c.result), &r); err != nil {
-			t.Errorf("test case %d: bad value: %v", i, err)
-			continue
-		}
-		result, err := canonicalizeFieldNames(v, c.prototype.ProtoReflect().Descriptor())
-		if err != nil {
-			t.Errorf("test case %d: %v", i, err)
-			continue
-		}
-		if !reflect.DeepEqual(result, r) {
-			t.Errorf("test case %d: expected %v; got %v", i, r, result)
-		}
-	}
-}
-
-func TestFoo(t *testing.T) {
+func TestCanonicalization(t *testing.T) {
 	var testCases = []struct {
 		value     string
 		prototype proto.Message
@@ -448,6 +284,10 @@ func TestFoo(t *testing.T) {
 		{`{"accept_return_code": [9223372036854775807]}`, &pps.Transform{AcceptReturnCode: []int64{9223372036854775807}}, `{"acceptReturnCode": [9223372036854775807]}`},
 		// nulls should round-trip
 		{`{"pipeline": null}`, &pps.CreatePipelineRequest{}, `{"pipeline": null}`},
+		// timestamps are special-cased
+		{`{"creation_timestamp": "1776-07-04T12:00:00Z"}`, &pps.SecretInfo{CreationTimestamp: timestamppb.New(time.Date(1776, time.July, 4, 12, 0, 0, 0, time.UTC))}, `{"creationTimestamp": "1776-07-04T12:00:00Z"}`},
+		// durations are special-cased
+		{`{"download_time": "1s"}`, &pps.ProcessStats{DownloadTime: durationpb.New(time.Second)}, `{"downloadTime": "1s"}`},
 	}
 	// have to use json.Number for numbers in order to preserve precision
 	unmarshal := func(s string, dest any) error {
