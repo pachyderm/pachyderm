@@ -3,9 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
-	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
 	"path"
 	"time"
+
+	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
@@ -147,8 +148,8 @@ func (d *driver) watchRepos(ctx context.Context) error {
 						return errors.New("repo id should not be 0")
 					}
 					event := &postgres.Event{
-						Id:        uint64(rowID),
-						EventType: postgres.EventInsert,
+						Id:   uint64(rowID),
+						Type: postgres.EventInsert,
 					}
 					existingRepos = append(existingRepos, event)
 				}
@@ -167,11 +168,11 @@ func (d *driver) watchRepos(ctx context.Context) error {
 }
 
 func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
-	if ev.Error != nil {
-		return ev.Error
+	if ev.Err != nil {
+		return ev.Err
 	}
 	lockPrefix := path.Join("repos", fmt.Sprintf("%d", ev.Id))
-	if ev.EventType == postgres.EventDelete {
+	if ev.Type == postgres.EventDelete {
 		if cancel, ok := repos[ev.Id]; ok {
 			if err := ring.Unlock(lockPrefix); err != nil {
 				return err
