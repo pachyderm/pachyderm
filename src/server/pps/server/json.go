@@ -39,6 +39,8 @@ func makeEnumCanonicalizer(d protoreflect.EnumDescriptor) canonicalizer {
 			return value, nil
 		case string:
 			return value, nil
+		case nil:
+			return nil, nil
 		default:
 			return nil, errors.Errorf("expected number or string; got %T", value)
 		}
@@ -97,6 +99,9 @@ func makeMessageCanonicalizer(d protoreflect.MessageDescriptor) (canonicalizer, 
 					if err != nil {
 						return nil, errors.Wrapf(err, "could not make nested canonicalizer for %s", d.FullName())
 					}
+					if value == nil {
+						return nil, nil
+					}
 					return c(value)
 				}
 			}(field.Message())
@@ -127,6 +132,10 @@ func makeMessageCanonicalizer(d protoreflect.MessageDescriptor) (canonicalizer, 
 				var l = make([]any, len(vv))
 				for i, o := range vv {
 					var err error
+					if o == nil {
+						l[i] = nil
+						continue
+					}
 					if l[i], err = fieldCanonicalizers[k](o); err != nil {
 						return nil, errors.Wrapf(err, "couldn’t canonicalize %s", f.FullName())
 					}
@@ -143,6 +152,10 @@ func makeMessageCanonicalizer(d protoreflect.MessageDescriptor) (canonicalizer, 
 				}
 				for kk, vv := range vm {
 					var o any
+					if vv == nil {
+						m[kk] = nil
+						continue
+					}
 					if o, err = fieldCanonicalizers[k](map[string]any{"key": kk, "value": vv}); err != nil {
 						return nil, errors.Wrapf(err, "couldn’t canonicalize %s[%s] (%v)", f.FullName(), kk, vv)
 					}
@@ -155,6 +168,10 @@ func makeMessageCanonicalizer(d protoreflect.MessageDescriptor) (canonicalizer, 
 				newValue[f.JSONName()] = m
 			default:
 				var err error
+				if v == nil {
+					newValue[f.JSONName()] = nil
+					continue
+				}
 				newValue[f.JSONName()], err = fieldCanonicalizers[k](v)
 				if err != nil {
 					return nil, errors.Wrapf(err, "could not canonicalize field %s (%v)", f.FullName(), v)

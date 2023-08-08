@@ -446,6 +446,8 @@ func TestFoo(t *testing.T) {
 		{`{"fileFormat":{"type":16783}}`, &pfs.SQLDatabaseEgress{FileFormat: &pfs.SQLDatabaseEgress_FileFormat{Type: pfs.SQLDatabaseEgress_FileFormat_Type(16783)}}, `{"fileFormat":{"type":16783}}`},
 		// int64s that exceed float64’s capacity should still work
 		{`{"accept_return_code": [9223372036854775807]}`, &pps.Transform{AcceptReturnCode: []int64{9223372036854775807}}, `{"acceptReturnCode": [9223372036854775807]}`},
+		// nulls should round-trip
+		{`{"pipeline": null}`, &pps.CreatePipelineRequest{}, `{"pipeline": null}`},
 	}
 	// have to use json.Number for numbers in order to preserve precision
 	unmarshal := func(s string, dest any) error {
