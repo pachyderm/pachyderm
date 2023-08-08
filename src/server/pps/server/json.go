@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -212,10 +213,17 @@ func makeMessageCanonicalizer(d protoreflect.MessageDescriptor) (canonicalizer, 
 // string form.
 func jsonMergePatch(target, patch string, f canonicalizer) (string, error) {
 	var targetObject, patchObject any
-	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
+	// The default json decoder will decode numbers to floats, which can
+	// lose precision; by explicitly creating a decoder and using
+	// json.Number we avoid that.
+	d := json.NewDecoder(strings.NewReader(target))
+	d.UseNumber()
+	if err := d.Decode(&targetObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal target JSON")
 	}
-	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
+	d = json.NewDecoder(strings.NewReader(patch))
+	d.UseNumber()
+	if err := d.Decode(&patchObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal patch JSON")
 	}
 	if f != nil {
