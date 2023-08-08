@@ -3,6 +3,7 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -53,7 +54,7 @@ func TestCreateRepo(t *testing.T) {
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.CreateRepo(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create repo again with same name")
-		require.True(t, pfsdb.ErrRepoAlreadyExists{Project: "default", Name: testRepoName}.Is(err))
+		require.True(t, errors.Is(pfsdb.ErrRepoAlreadyExists{Project: "default", Name: testRepoName}, err))
 		fmt.Println("hello")
 		return nil
 	}), "double create should fail and result in rollback")
@@ -71,10 +72,10 @@ func TestDeleteRepo(t *testing.T) {
 		require.NoError(t, pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type), "should be able to delete repo")
 		_, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, "unknown")
 		require.YesError(t, err, "get repo should not find row")
-		require.True(t, pfsdb.ErrRepoNotFound{Project: "default", Name: testRepoName, Type: "unknown"}.Is(err))
+		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: "default", Name: testRepoName, Type: "unknown"}, err))
 		err = pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type)
 		require.YesError(t, err, "double delete should be an error")
-		require.True(t, pfsdb.ErrRepoNotFound{Project: createInfo.Repo.Project.Name, Name: testRepoName, Type: createInfo.Repo.Type}.Is(err))
+		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: createInfo.Repo.Project.Name, Name: testRepoName, Type: createInfo.Repo.Type}, err))
 		return nil
 	}))
 }
@@ -113,7 +114,7 @@ func TestGetRepo(t *testing.T) {
 		require.Equal(t, len(createInfo.Branches), len(getInfo.Branches))
 		_, err = pfsdb.GetRepo(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent repo")
-		require.True(t, pfsdb.ErrRepoNotFound{ID: 3}.Is(err))
+		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{ID: 3}, err))
 		return nil
 	}))
 }
