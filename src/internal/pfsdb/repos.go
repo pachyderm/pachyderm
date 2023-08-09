@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/jackc/pgconn"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"time"
@@ -71,8 +72,13 @@ func (err ErrRepoAlreadyExists) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, err.Error())
 }
 
-func isErrRepoAlreadyExists(err error) bool {
-	return strings.Contains(err.Error(), "SQLSTATE 23505")
+func IsErrRepoAlreadyExists(err error) bool {
+	targetErr := &pgconn.PgError{}
+	ok := errors.As(err, targetErr)
+	if !ok {
+		return false
+	}
+	return targetErr.Code == "23505" // duplicate key SQLSTATE
 }
 
 // RepoIterator batches a page of repoRow entries. Entries can be retrieved using iter.Next().
@@ -195,7 +201,7 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects where name=$3), $4);",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description)
-	if err != nil && isErrRepoAlreadyExists(err) {
+	if err != nil && IsErrRepoAlreadyExists(err) {
 		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name}
 	}
 	return errors.Wrap(err, "create repo")
