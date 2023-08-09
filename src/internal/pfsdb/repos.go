@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"time"
@@ -247,7 +246,6 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo,
 	if id == 0 {
 		return nil, errors.New("invalid id: 0")
 	}
-	log.Info(ctx, fmt.Sprintf("get id :%d", id))
 	row := &repoRow{}
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name;", getRepoAndBranches), id).StructScan(row)
 	if err != nil {

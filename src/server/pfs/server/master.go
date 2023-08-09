@@ -196,6 +196,7 @@ func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, 
 	ctx, cancel := pctx.WithCancel(ctx)
 	repos[ev.Id] = cancel
 	go func() {
+		log.Info(ctx, fmt.Sprintf("starting manageRepos routines for repo:%v, id:%v", key, ev.Id))
 		backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 			ctx, cancel := pctx.WithCancel(ctx)
 			defer cancel()
