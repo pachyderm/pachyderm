@@ -87,14 +87,14 @@ type RepoIterator struct {
 }
 
 type repoRow struct {
-	ID          uint64    `db:"id"`
-	Name        string    `db:"name"`
-	ProjectID   string    `db:"project_id"`
-	ProjectName string    `db:"proj_name"`
-	Description string    `db:"description"`
-	RepoType    string    `db:"type"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID          pachsql.ID `db:"id"`
+	Name        string     `db:"name"`
+	ProjectID   string     `db:"project_id"`
+	ProjectName string     `db:"proj_name"`
+	Description string     `db:"description"`
+	RepoType    string     `db:"type"`
+	CreatedAt   time.Time  `db:"created_at"`
+	UpdatedAt   time.Time  `db:"updated_at"`
 	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
 	// Each entry is prefixed with '//x' and entries are delimited by a ','
 	Branches string `db:"branches"`
