@@ -49,7 +49,7 @@ type ServerOptions struct {
 	// True if allow-other option is to be specified
 	AllowOther bool
 	// Socket directory for Unix Domain Socket
-	SockDir string
+	SockPath string
 }
 
 type ConfigRequest struct {
@@ -948,9 +948,15 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	})
 
 	// Using unix domain socket
-	sockPath := sopts.SockDir + "/pfs_fuse_server.sock"
+	var sockPath string
+	var srv *http.Server
+	if len(sopts.SockPath) > 0 {
+		sockPath = sopts.SockPath
+		srv = &http.Server{Handler: router}
+	} else {
+		srv = &http.Server{Addr: ":9002", Handler: router}
+	}
 
-	srv := &http.Server{Handler: router}
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
 
 	go func() {
@@ -968,8 +974,15 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
-	socket, err := net.Listen("unix", sockPath)
-	srv.Serve(socket)
+	var socket net.Listener
+	var err error
+	if len(sopts.SockPath) > 0 {
+		socket, err = net.Listen("unix", sockPath)
+		srv.Serve(socket)
+	} else {
+		err = srv.ListenAndServe()
+	}
+
 	return errors.EnsureStack(err)
 }
 
