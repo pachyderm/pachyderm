@@ -841,6 +841,25 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	return nil
 }
 
+func (x *CreatePipelineV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("create_pipeline_request_json", x.CreatePipelineRequestJson)
+	enc.AddBool("dry_run", x.DryRun)
+	enc.AddBool("update", x.Update)
+	enc.AddBool("reprocess", x.Reprocess)
+	return nil
+}
+
+func (x *CreatePipelineV2Response) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("effective_create_pipeline_request_json", x.EffectiveCreatePipelineRequestJson)
+	return nil
+}
+
 func (x *InspectPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil

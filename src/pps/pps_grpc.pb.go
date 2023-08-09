@@ -32,6 +32,7 @@ const (
 	API_ListDatum_FullMethodName          = "/pps_v2.API/ListDatum"
 	API_RestartDatum_FullMethodName       = "/pps_v2.API/RestartDatum"
 	API_CreatePipeline_FullMethodName     = "/pps_v2.API/CreatePipeline"
+	API_CreatePipelineV2_FullMethodName   = "/pps_v2.API/CreatePipelineV2"
 	API_InspectPipeline_FullMethodName    = "/pps_v2.API/InspectPipeline"
 	API_ListPipeline_FullMethodName       = "/pps_v2.API/ListPipeline"
 	API_DeletePipeline_FullMethodName     = "/pps_v2.API/DeletePipeline"
@@ -75,6 +76,7 @@ type APIClient interface {
 	ListDatum(ctx context.Context, in *ListDatumRequest, opts ...grpc.CallOption) (API_ListDatumClient, error)
 	RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreatePipelineV2(ctx context.Context, in *CreatePipelineV2Request, opts ...grpc.CallOption) (*CreatePipelineV2Response, error)
 	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error)
 	ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (API_ListPipelineClient, error)
 	DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -329,6 +331,15 @@ func (c *aPIClient) RestartDatum(ctx context.Context, in *RestartDatumRequest, o
 func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, API_CreatePipeline_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) CreatePipelineV2(ctx context.Context, in *CreatePipelineV2Request, opts ...grpc.CallOption) (*CreatePipelineV2Response, error) {
+	out := new(CreatePipelineV2Response)
+	err := c.cc.Invoke(ctx, API_CreatePipelineV2_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -683,6 +694,7 @@ type APIServer interface {
 	ListDatum(*ListDatumRequest, API_ListDatumServer) error
 	RestartDatum(context.Context, *RestartDatumRequest) (*emptypb.Empty, error)
 	CreatePipeline(context.Context, *CreatePipelineRequest) (*emptypb.Empty, error)
+	CreatePipelineV2(context.Context, *CreatePipelineV2Request) (*CreatePipelineV2Response, error)
 	InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error)
 	ListPipeline(*ListPipelineRequest, API_ListPipelineServer) error
 	DeletePipeline(context.Context, *DeletePipelineRequest) (*emptypb.Empty, error)
@@ -758,6 +770,9 @@ func (UnimplementedAPIServer) RestartDatum(context.Context, *RestartDatumRequest
 }
 func (UnimplementedAPIServer) CreatePipeline(context.Context, *CreatePipelineRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePipeline not implemented")
+}
+func (UnimplementedAPIServer) CreatePipelineV2(context.Context, *CreatePipelineV2Request) (*CreatePipelineV2Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreatePipelineV2 not implemented")
 }
 func (UnimplementedAPIServer) InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectPipeline not implemented")
@@ -1053,6 +1068,24 @@ func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(APIServer).CreatePipeline(ctx, req.(*CreatePipelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_CreatePipelineV2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePipelineV2Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).CreatePipelineV2(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_CreatePipelineV2_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).CreatePipelineV2(ctx, req.(*CreatePipelineV2Request))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1534,6 +1567,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreatePipeline",
 			Handler:    _API_CreatePipeline_Handler,
+		},
+		{
+			MethodName: "CreatePipelineV2",
+			Handler:    _API_CreatePipelineV2_Handler,
 		},
 		{
 			MethodName: "InspectPipeline",
