@@ -235,7 +235,6 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	for _, o := range opts {
 		o(col.postgresCollection)
 	}
-	//	log.Info(ctx, fmt.Sprintf("Retrieving rows from collection.%s", name))
 	rr, err := tx.QueryContext(ctx, fmt.Sprintf(`SELECT key, proto FROM collections.%s`, name))
 	if err != nil {
 		return errors.Wrap(err, "could not read table")
@@ -267,37 +266,6 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 		vals[oldKey] = pair{newKey, proto.Clone(newVal)}
 
 	}
-
-	/*  Original code for building the UPDATEs and sending them to Postgres
-
-	log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name))
-	i := 0
-	for oldKey, pair := range vals {
-		if err := col.withKey(oldKey, func(oldKey string) error {
-			return col.withKey(pair.key, func(newKey string) error {
-				params, err := col.getWriteParams(newKey, pair.val)
-				if err != nil {
-					return err
-				}
-
-				updateFields := []string{}
-				for k := range params {
-					updateFields = append(updateFields, fmt.Sprintf("%s = :%s", k, k))
-				}
-				params["oldKey"] = oldKey
-
-				query := fmt.Sprintf("update collections.%s set %s where key = :oldKey", col.table, strings.Join(updateFields, ", "))
-
-				_, err = col.tx.NamedExecContext(ctx, query, params)
-				i++
-				log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name), zap.String("old", oldKey), zap.String("new", newKey), zap.String("progress", fmt.Sprintf("%d/%d", i, len(vals))))
-				return col.mapSQLError(err, oldKey)
-			})
-		}); err != nil {
-			return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
-		}
-	}
-	*/
 
 	// Optimized code for building the UPDATEs and sending them to Postgres in batches
 	// NOTE: This code necessitated upgrading from sqlx 1.2.0 to sqlx 1.3.x to get batching support for named variables
