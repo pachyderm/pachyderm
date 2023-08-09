@@ -24,7 +24,7 @@ import (
 const (
 	getRepoAndBranches = "SELECT repo.id, repo.name, repo.type, repo.project_id, " +
 		"repo.description, array_agg(branch.proto) AS branches, repo.created_at, repo.updated_at, project.name AS proj_name FROM pfs.repos repo " +
-		"LEFT JOIN core.projects project ON repo.project_id = project.id " +
+		"JOIN core.projects project ON repo.project_id = project.id " +
 		"LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
 	noBranches = "{NULL}"
 )
