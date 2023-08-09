@@ -242,7 +242,6 @@ func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName
 }
 
 // todo(fahad): rewrite branch related code during the branches migration.
-// todo(fahad): do we need to worry about a repo with more than the default postgres LIMIT number of branches?
 // GetRepo retrieves an entry from the pfs.repos table by using the row id.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
 	if id == 0 {
