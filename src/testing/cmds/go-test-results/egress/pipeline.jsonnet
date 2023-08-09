@@ -28,7 +28,7 @@ function(version, pghost, pguser)
         }]
     },
     "parallelism_spec": {
-        "constant": 4
+        "constant": 2
     },
 }
 

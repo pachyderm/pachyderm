@@ -30,8 +30,8 @@ import (
 
 const (
 	jobInfoFileName      string = "JobInfo.json"
-	uploadGoroutineLimit int    = 20
-	uploadChunkSize      int    = 250
+	uploadGoroutineLimit int    = 10
+	uploadChunkSize      int    = 50
 	testResultFieldCount int    = 9
 )
 
@@ -267,7 +267,6 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 
 func flushResults(ctx context.Context, db *sqlx.DB, egUpload *errgroup.Group, query string, paramVals *[]ResultRow) {
 	threadParamVals := paramVals
-	log.Info(ctx, "Flushing test results to DB.", zap.Int("Number of rows", len(*threadParamVals)))
 	egUpload.Go(func() error {
 		_, err := db.NamedExec(query,
 			*threadParamVals,
