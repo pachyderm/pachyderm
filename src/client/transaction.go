@@ -331,15 +331,3 @@ func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJo
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
 	return nil, nil
 }
-
-// func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-// 	b, err := protojson.Marshal(req)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "could not marshal CreatePipelineRequest")
-// 	}
-// 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipelineV2: &pps.CreatePipelineTransaction{
-// 		CreatePipelineRequest: req,
-// 		UserJson:              string(b),
-// 	}})
-// 	return nil, nil
-// }
