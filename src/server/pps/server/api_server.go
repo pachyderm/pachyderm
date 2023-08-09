@@ -2186,61 +2186,47 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	if defaultsJSON == "" {
 		defaultsJSON = "{}"
 	}
-	reqJSON, err := json.Marshal(struct {
-		CreatePipelineRequest json.RawMessage `json:"create_pipeline_request"`
-	}{json.RawMessage(req.GetCreatePipelineRequestJson())})
+	var effectiveSpec *pps.CreatePipelineRequest
+	effectiveSpecJSON, effectiveSpec, err = makeEffectiveSpec(defaultsJSON, req.GetCreatePipelineRequestJson())
 	if err != nil {
-		return "", badRequest(ctx, "could not unmarshal Create Pipeline Request JSON within cluster defaults", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		return "", badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: effectiveSpecJSON},
+			{Field: "cluster defaults", Description: defaultsJSON},
 		})
 	}
-	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), clusterDefaultsCanonicalizer); err != nil {
-		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
-		})
-	}
-
-	var wrapper pps.ClusterDefaults
-	if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &wrapper); err != nil {
-		return "", badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not unmarshal %s: %v", effectiveSpecJSON, err)},
-		})
-	}
-	var request = wrapper.GetCreatePipelineRequest()
-	request.Update = req.Update
-	request.Reprocess = req.Reprocess
-
-	if request.Pipeline == nil {
+	effectiveSpec.Update = req.Update
+	effectiveSpec.Reprocess = req.Reprocess
+	if effectiveSpec.Pipeline == nil {
 		return "", errors.New("request.Pipeline cannot be nil")
 	}
-	ensurePipelineProject(request.GetPipeline())
+	ensurePipelineProject(effectiveSpec.GetPipeline())
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
-	tracing.TagAnySpan(span, "project", request.Pipeline.Project.GetName(), "pipeline", request.Pipeline.Name)
+	tracing.TagAnySpan(span, "project", effectiveSpec.Pipeline.Project.GetName(), "pipeline", effectiveSpec.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", err)
 	}()
-	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline)
+	extended.PersistAny(ctx, a.env.EtcdClient, effectiveSpec.Pipeline)
 
-	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
+	if err := a.validateEnterpriseChecks(ctx, effectiveSpec); err != nil {
 		return "", err
 	}
 
-	if err := a.validateSecret(ctx, request); err != nil {
+	if err := a.validateSecret(ctx, effectiveSpec); err != nil {
 		return "", err
 	}
-	if request.Determined != nil {
-		if err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces); err != nil {
+	if effectiveSpec.Determined != nil {
+		if err := a.CreateDetPipelineSideEffects(ctx, effectiveSpec.Pipeline, effectiveSpec.Determined.Workspaces); err != nil {
 			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{CreatePipelineRequest: request, UserJson: req.CreatePipelineRequestJson}))
+		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{CreatePipelineRequest: effectiveSpec, UserJson: req.CreatePipelineRequestJson}))
 	}); err != nil {
 		return "", err
 	}
-	b, err := protojson.Marshal(request)
+	b, err := protojson.Marshal(effectiveSpec)
 	if err != nil {
 		return "", errors.Wrap(err, "could not marshal CreatePipelineRequest")
 	}
@@ -3777,22 +3763,14 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 				}
 				pi.DetailsJson = string(b)
 			}
-			type wrapper struct {
-				CreatePipelineRequest json.RawMessage `json:"createPipelineRequest"`
-			}
-			oldWrapperJSON, err := json.Marshal(wrapper{CreatePipelineRequest: []byte(pi.DetailsJson)})
-			newWrapperJSON, err := jsonMergePatch(string(canonicalJSON), string(oldWrapperJSON), clusterDefaultsCanonicalizer)
+			_, effectiveSpec, err := makeEffectiveSpec(string(canonicalJSON), pi.DetailsJson)
 			if err != nil {
-				return errors.Wrapf(err, "invalid merger of cluster defaults with pipeline %q", pi.GetPipeline())
+				return errors.Wrap(err, "could not create effective spec")
 			}
-			var newWrapper pps.ClusterDefaults
-			if err := protojson.Unmarshal([]byte(newWrapperJSON), &newWrapper); err != nil {
-				return errors.Wrapf(err, "could not unmarshal effective spec %q", newWrapperJSON)
-			}
-			if !proto.Equal(spec, newWrapper.CreatePipelineRequest) {
-				newWrapper.CreatePipelineRequest.Update = true
+			if !proto.Equal(spec, effectiveSpec) {
+				effectiveSpec.Update = true
 				pp[pi.GetPipeline()] = &pps.CreatePipelineTransaction{
-					CreatePipelineRequest: newWrapper.CreatePipelineRequest,
+					CreatePipelineRequest: effectiveSpec,
 					UserJson:              pi.DetailsJson,
 				}
 			}

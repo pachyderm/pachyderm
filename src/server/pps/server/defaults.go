@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -281,4 +282,28 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("could not make ClusterDefaults canonicalizer: %v", err))
 	}
+}
+
+// makeEffectiveSpec creates an effective spec from the cluster defaults (a
+// JSON-encoded ClusterDefaults) and user spec (a JSON-encoded
+// CreatePipelineRequest) by merging the user spec into the cluster defaults.
+// It returns the effective spec as both JSON and a CreatePipelineRequest.
+func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.CreatePipelineRequest, error) {
+	type wrapper struct {
+		CreatePipelineRequest json.RawMessage `json:"createPipelineRequest"`
+	}
+	userWrapper, err := json.Marshal(wrapper{CreatePipelineRequest: []byte(userSpecJSON)})
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not marshal user spec %q", userSpecJSON)
+	}
+	effectiveSpec, err := jsonMergePatch(clusterDefaultsJSON, string(userWrapper), clusterDefaultsCanonicalizer)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not merge user wrapper %q into cluster defaults %q", string(userWrapper), clusterDefaultsJSON)
+	}
+
+	var effectiveWrapper pps.ClusterDefaults
+	if err := protojson.Unmarshal([]byte(effectiveSpec), &effectiveWrapper); err != nil {
+		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %q", effectiveSpec)
+	}
+	return effectiveSpec, effectiveWrapper.CreatePipelineRequest, nil
 }
