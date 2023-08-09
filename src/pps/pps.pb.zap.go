@@ -494,7 +494,8 @@ func (x *PipelineInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("type", x.Type.String())
 	enc.AddString("auth_token", x.AuthToken)
 	enc.AddObject("details", x.Details)
-	enc.AddString("details_json", x.DetailsJson)
+	enc.AddString("user_spec_json", x.UserSpecJson)
+	enc.AddString("effective_spec_json", x.EffectiveSpecJson)
 	return nil
 }
 
@@ -1162,5 +1163,6 @@ func (x *CreatePipelineTransaction) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	}
 	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
 	enc.AddString("user_json", x.UserJson)
+	enc.AddString("effective_json", x.EffectiveJson)
 	return nil
 }
