@@ -173,7 +173,7 @@ func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoS
 		return a.driver.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
 			return a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects, srv.Send)
 		})
-	}), "list repo")
+	}, dbutil.WithReadOnly()), "list repo")
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -705,7 +705,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 					return a.driver.detectZombie(ctx, output, fsckServer.Send)
 				})
 			})
-		}), "list repo")
+		}, dbutil.WithReadOnly()), "list repo")
 	}
 	return nil
 }

@@ -394,7 +394,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		}
 		referencedCommits, err = d.listReferencedCommits(tx)
 		return err
-	}); err != nil {
+	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "fsck: tx")
 	}
 	dangCs := fsckDanglingCommits(repoInfos, referencedCommits)

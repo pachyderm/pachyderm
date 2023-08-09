@@ -153,7 +153,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 					existingRepos = append(existingRepos, event)
 				}
 				return nil
-			}); err != nil {
+			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "list repos")
 			}
 			for _, event := range existingRepos {
@@ -189,7 +189,7 @@ func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, 
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		repo, err = pfsdb.GetRepo(ctx, tx, pachsql.ID(ev.Id))
 		return errors.Wrap(err, "get repo from event id")
-	}); err != nil {
+	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "get repo")
 	}
 	key := pfsdb.RepoKey(repo.Repo)
