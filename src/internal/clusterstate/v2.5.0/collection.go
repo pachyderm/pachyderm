@@ -235,7 +235,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	for _, o := range opts {
 		o(col.postgresCollection)
 	}
-//	log.Info(ctx, fmt.Sprintf("Retrieving rows from collection.%s", name))
+	//	log.Info(ctx, fmt.Sprintf("Retrieving rows from collection.%s", name))
 	rr, err := tx.QueryContext(ctx, fmt.Sprintf(`SELECT key, proto FROM collections.%s`, name))
 	if err != nil {
 		return errors.Wrap(err, "could not read table")
@@ -304,66 +304,75 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 
 	log.Info(ctx, fmt.Sprintf("Migrating %s [%d rows]", name, len(vals)))
 
-	batch_size := 1000	// Maximum size of each batch
-	batch_count := 0    // Incrementing count of the number of rows in the current batch
-	total_count := 0    // Incrementing count of the total number of rows 
-    query := ""			// String to hold the UPDATE query
+	batch_size := 1000 // Maximum size of each batch
+	batch_count := 0   // Incrementing count of the number of rows in the current batch
+	total_count := 0   // Incrementing count of the total number of rows
+	query := ""        // String to hold the UPDATE query
 
-	// Create a map that will contain the substring of the SET clause for each column in the UPDATE statement.
+	// Create an array that will contain the substring of the SET clause for each column in the UPDATE statement.
 	// For example, the substring for the "idx_name" column would be "idx_name = :idx_name"
 	// In that substring, "idx_name" is the column name, and ":idx_name" is a placeholder for the actual value.
 	columnSubstrings := []string{}
 
-    // Loop through each row that needs to be updated
+	// Loop through each row that needs to be updated
 	for oldKey, pair := range vals {
 
-		// Increment our counters
-		batch_count++
-		total_count++
+		// These two function calls handle updating an oldKey (with no project reference) to a newKey (with project reference)
+		if err := col.withKey(oldKey, func(oldKey string) error {
+			return col.withKey(pair.key, func(newKey string) error {
 
-		// Get the parameters for the current row
-		params, err := col.getWriteParams(pair.key, pair.val)
+				// Increment our counters
+				batch_count++
+				total_count++
 
-		if err != nil {
-			return err
-		}		
-		
-		// Create the query string. This only needs to be done on the first time through, as only the values change with each row, 
-		// not the query string itself.  The query string has placeholders for the values that change from one row to the next.
-		if total_count == 1 {
-			
-			// Loop through each parameter in the current row
-			for k := range params {
-				// Add the UPDATE/SET substring for this column 
-				columnSubstrings = append(columnSubstrings, fmt.Sprintf("%s = :%s", k, k))
-			}
+				// Get the parameters for the current row
+				params, err := col.getWriteParams(pair.key, pair.val)
 
-			query = fmt.Sprintf("update collections.%s set %s where key = :oldKey", col.table, strings.Join(columnSubstrings, ", "))
-		}
+				if err != nil {
+					return err
+				}
 
-		// Add the old key to the parameters. There isn't a column for it (which is why it isn't in params[] to begin with), by it 
-		// gets used in the WHERE clause. Note that if the key hasn't changed, "key" and "oldKey" will have the same values.
-		params["oldKey"] = oldKey
+				// Create the query string. This only needs to be done on the first time through, as only the values change with each row,
+				// not the query string itself.  The query string has placeholders for the values that change from one row to the next.
+				if total_count == 1 {
 
-		// Add the params object to the batch of parameters that we are building
-		param_batch := []any{}
-		param_batch = append(param_batch, params)
+					// Loop through each parameter in the current row
+					for k := range params {
+						// Add the UPDATE/SET substring for this column
+						columnSubstrings = append(columnSubstrings, fmt.Sprintf("%s = :%s", k, k))
+					}
 
-		// If we've reached the batch limit, or if we're on the last row, send the updates to Postgres
-		if batch_count == batch_size || total_count == len(vals) {
+					query = fmt.Sprintf("update collections.%s set %s where key = :oldKey", col.table, strings.Join(columnSubstrings, ", "))
+				}
 
-			// Execute the UPDATE query with the collected batch of parameters
-			_, err = tx.NamedExecContext(ctx, query, param_batch)
+				// Add the old key to the parameters. There isn't a column for it (which is why it isn't in params[] to begin with), by it
+				// gets used in the WHERE clause.
+				params["oldKey"] = oldKey
 
-			if err != nil {
+				// Add the params object to the batch of parameters that we are building
+				param_batch := []any{}
+				param_batch = append(param_batch, params)
+
+				// If we've reached the batch limit, or if we're on the last row, send the updates to Postgres
+				if batch_count == batch_size || total_count == len(vals) {
+
+					// Execute the UPDATE query with the collected batch of parameters
+					_, err = tx.NamedExecContext(ctx, query, param_batch)
+
+					if err != nil {
+						return col.mapSQLError(err, oldKey)
+					}
+
+					log.Debug(ctx, "Sent batch", zap.String("Sent", fmt.Sprintf("%d", batch_count)), zap.String("Progress", fmt.Sprintf("%d/%d", total_count, len(vals))))
+
+					// Reset the count in preparation for the next batch
+					batch_count = 0
+				}
+
 				return col.mapSQLError(err, oldKey)
-			}		
-
-			log.Debug(ctx, "Sent batch", zap.String("Sent", fmt.Sprintf("%d", batch_count)), zap.String("Progress", fmt.Sprintf("%d/%d", total_count, len(vals))))
-
-			// Reset the variables in preparation for the next batch
-			batch_count = 0
-			param_batch = nil
+			})
+		}); err != nil {
+			return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
 		}
 
 	}
