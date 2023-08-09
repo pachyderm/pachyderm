@@ -318,26 +318,21 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 	return nil
 }
 
-func (d *driver) listReferencedCommits(ctx context.Context) (map[string]*pfs.Commit, error) {
+func (d *driver) listReferencedCommits(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
 	cs := make(map[string]*pfs.Commit)
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		var ids []string
-		if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
-			return errors.Wrap(err, "select commit ids from pfs.commit_totals")
-		}
-		for _, id := range ids {
-			cs[id] = pfsdb.ParseCommit(id)
-		}
-		ids = make([]string, 0)
-		if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
-			return errors.Wrap(err, "select commit ids from pfs.commit_diffs")
-		}
-		for _, id := range ids {
-			cs[id] = pfsdb.ParseCommit(id)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
+	var ids []string
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
+	}
+	ids = make([]string, 0)
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
 	}
 	return cs, nil
 }
@@ -366,40 +361,41 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfos := make(map[string]*pfs.RepoInfo)
+	referencedCommits := make(map[string]*pfs.Commit)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		repoIter, err := pfsdb.ListRepo(ctx, tx)
 		if err != nil {
-			return errors.Wrap(err, "fsck: create repo iterator")
+			return errors.Wrap(err, "list repo iterator")
 		}
-		return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, repoIter, func(repo *pfs.RepoInfo) error {
+		if err := stream.ForEach[*pfs.RepoInfo](ctx, repoIter, func(repo *pfs.RepoInfo) error {
 			repoInfos[pfsdb.RepoKey(repo.Repo)] = repo
 			commitInfo := &pfs.CommitInfo{}
-			if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
+			if err := d.commits.ReadWrite(tx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
 				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 				return nil
 			}); err != nil {
-				return errors.EnsureStack(err)
+				return errors.Wrap(err, "get commits by commits repo index")
 			}
 			branchInfo := &pfs.BranchInfo{}
-			err := d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
+			err := d.branches.ReadWrite(tx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
 				branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 				return nil
 			})
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "get commits by branch repo index")
 
-		}), "fsck: list repos")
+		}); err != nil {
+			return errors.Wrap(err, "for each repo")
+		}
+		if err := fsckBranches(branchInfos, commitInfos, onError); err != nil {
+			return errors.Wrap(err, "branches")
+		}
+		if err := fsckCommits(commitInfos, onError); err != nil {
+			return errors.Wrap(err, "commits")
+		}
+		referencedCommits, err = d.listReferencedCommits(tx)
+		return err
 	}); err != nil {
-		return errors.EnsureStack(err)
-	}
-	if err := fsckBranches(branchInfos, commitInfos, onError); err != nil {
-		return err
-	}
-	if err := fsckCommits(commitInfos, onError); err != nil {
-		return err
-	}
-	referencedCommits, err := d.listReferencedCommits(ctx)
-	if err != nil {
-		return err
+		return errors.Wrap(err, "fsck: tx")
 	}
 	dangCs := fsckDanglingCommits(repoInfos, referencedCommits)
 	if !fix && len(dangCs) > 0 {
