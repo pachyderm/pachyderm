@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strconv"
 	"strings"
 	"time"
 
 	"google.golang.org/protobuf/proto"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,7 +23,7 @@ import (
 
 const (
 	getRepoAndBranches = "SELECT repo.id, repo.name, repo.type, repo.project_id, " +
-		"repo.description, array_agg(branch.proto) AS branches, repo.created_at, repo.updated_at FROM pfs.repos repo " +
+		"repo.description, array_agg(branch.proto) AS branches, repo.created_at, repo.updated_at, project.name AS proj_name FROM pfs.repos repo " +
 		"LEFT JOIN core.projects project ON repo.project_id = project.id " +
 		"LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
 	noBranches = "{NULL}"
@@ -102,15 +99,14 @@ type RepoIterator struct {
 }
 
 type repoRow struct {
-	ID                 uint64    `db:"id"`
-	Name               string    `db:"name"`
-	ProjectID          string    `db:"project_id"`
-	ProjectName        string    `db:"proj_name"`
-	ProjectDescription string    `db:"proj_desc"`
-	Description        string    `db:"description"`
-	RepoType           string    `db:"type"`
-	CreatedAt          time.Time `db:"created_at"`
-	UpdatedAt          time.Time `db:"updated_at"`
+	ID          uint64    `db:"id"`
+	Name        string    `db:"name"`
+	ProjectID   string    `db:"project_id"`
+	ProjectName string    `db:"proj_name"`
+	Description string    `db:"description"`
+	RepoType    string    `db:"type"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
 	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
 	// Each entry is prefixed with '//x' and entries are delimited by a ','
 	Branches string `db:"branches"`
@@ -134,7 +130,7 @@ func (iter *RepoIterator) NextWithID(ctx context.Context, id *pachsql.ID, dst **
 		}
 	}
 	row := iter.repos[iter.index]
-	*dst, err = getRepoFromRepoRow(ctx, iter.tx, &row)
+	*dst, err = getRepoFromRepoRow(&row)
 	*id = pachsql.ID(row.ID)
 	if err != nil {
 		return errors.Wrap(err, "getting repoInfo from repo row")
@@ -161,7 +157,7 @@ func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
 		}
 	}
 	row := iter.repos[iter.index]
-	*dst, err = getRepoFromRepoRow(ctx, iter.tx, &row)
+	*dst, err = getRepoFromRepoRow(&row)
 	if err != nil {
 		return errors.Wrap(err, "getting repoInfo from repo row")
 	}
@@ -207,13 +203,13 @@ func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, where 
 	var page []repoRow
 	if where != "" && whereVal != nil {
 		if err := tx.SelectContext(ctx, &page,
-			fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id ORDER BY repo.id ASC LIMIT $2 OFFSET $3;", getRepoAndBranches, where),
+			fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $2 OFFSET $3;", getRepoAndBranches, where),
 			whereVal, limit, offset); err != nil {
 			return nil, errors.Wrap(err, "could not get repo page")
 		}
 		return page, nil
 	}
-	err := tx.SelectContext(ctx, &page, getRepoAndBranches+"GROUP BY repo.id ORDER BY repo.id ASC LIMIT $1 OFFSET $2 ;", limit, offset)
+	err := tx.SelectContext(ctx, &page, getRepoAndBranches+"GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2 ;", limit, offset)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get repo page")
 	}
@@ -265,7 +261,7 @@ func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName
 	if repoProject == "" {
 		repoProject = "default"
 	}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
@@ -284,14 +280,14 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo,
 	}
 	log.Info(ctx, fmt.Sprintf("get id :%d", id))
 	row := &repoRow{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id;", getRepoAndBranches), id).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name;", getRepoAndBranches), id).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrRepoNotFound{ID: id}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
 	}
-	return getRepoFromRepoRow(ctx, tx, row)
+	return getRepoFromRepoRow(row)
 }
 
 // GetRepoByName retrieves an entry from the pfs.repos table by project, repo name, and type.
@@ -300,13 +296,12 @@ func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 	if err != nil {
 		return nil, err
 	}
-	return getRepoFromRepoRow(ctx, tx, row)
+	return getRepoFromRepoRow(row)
 }
 
-func getRepoFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs.RepoInfo, error) {
-	proj, err := getProjectFromRepoRow(ctx, tx, row)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting project from repo row")
+func getRepoFromRepoRow(row *repoRow) (*pfs.RepoInfo, error) {
+	proj := &pfs.Project{
+		Name: row.ProjectName,
 	}
 	branches, err := getBranchesFromRepoRow(row)
 	if err != nil {
@@ -316,26 +311,13 @@ func getRepoFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs
 		Repo: &pfs.Repo{
 			Name:    row.Name,
 			Type:    row.RepoType,
-			Project: proj.Project,
+			Project: proj,
 		},
 		Description: row.Description,
 		Branches:    branches,
 		Created:     timestamppb.New(row.CreatedAt),
 	}
 	return repoInfo, nil
-}
-
-// todo(fahad): should this be a join too?
-func getProjectFromRepoRow(ctx context.Context, tx *pachsql.Tx, row *repoRow) (*pfs.ProjectInfo, error) {
-	id, err := strconv.ParseUint(row.ProjectID, 10, 64)
-	if err != nil {
-		return nil, errors.Wrap(err, "get project from repo row: parsing project ID")
-	}
-	projInfo, err := coredb.GetProject(ctx, tx, pachsql.ID(id))
-	if err != nil {
-		return nil, errors.Wrap(err, "get project from repo row: get project")
-	}
-	return projInfo, nil
 }
 
 func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
