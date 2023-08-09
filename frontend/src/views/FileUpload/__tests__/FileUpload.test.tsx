@@ -1,9 +1,4 @@
-import {
-  render,
-  waitFor,
-  waitForElementToBeRemoved,
-  screen,
-} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
@@ -219,5 +214,34 @@ describe('views/FileUpload', () => {
         screen.queryByLabelText('Commit Selected Files'),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it('should show an error when there is an upload error', async () => {
+    server.use(
+      rest.post('/upload/start', (req, res, ctx) => {
+        return res(ctx.status(500), ctx.json({error: 'Bad things happened!'}));
+      }),
+    );
+
+    render(<FileUpload />);
+
+    const submitButton = screen.getByLabelText('Upload Selected Files');
+    const fileInput = screen.getByLabelText('Attach Files');
+    const file = new File(['hello'], 'hello.txt', {type: 'text/plain'});
+
+    await waitFor(() => expect(fileInput).toBeEnabled());
+    await upload(fileInput, [file]);
+    await screen.findByText('hello.txt');
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Upload Selected Files')).toBeEnabled(),
+    );
+    await click(submitButton);
+
+    expect(
+      await screen.findByText(
+        'Sorry that we experienced some technical difficulties, Please try uploading again.',
+      ),
+    ).toBeInTheDocument();
   });
 });
