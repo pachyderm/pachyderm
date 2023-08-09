@@ -2122,6 +2122,19 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 	}
 }
 
+func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (resp *pps.CreatePipelineV2Response, err error) {
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+
+	js, err := a.createPipeline(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &pps.CreatePipelineV2Response{
+		EffectiveCreatePipelineRequestJson: js,
+	}, nil
+}
+
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
 //
 // Implementation note:
@@ -2148,8 +2161,57 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	js, err := protojson.Marshal(request)
+	if err != nil {
+		return nil, unknownError(ctx, "could not marshal CreatePipelineRequest to JSON", err)
+	}
+	v2Req := &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: string(js),
+		Update:                    request.Update,
+		Reprocess:                 request.Reprocess,
+	}
+	if _, err := a.createPipeline(ctx, v2Req); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (effectiveSpecJSON string, err error) {
+	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	if err != nil {
+		return "", status.Error(codes.Internal, "could not get cluster defaults")
+	}
+
+	defaultsJSON := clusterDefaultsResponse.GetClusterDefaultsJson()
+	if defaultsJSON == "" {
+		defaultsJSON = "{}"
+	}
+	reqJSON, err := json.Marshal(struct {
+		CreatePipelineRequest json.RawMessage `json:"create_pipeline_request"`
+	}{json.RawMessage(req.GetCreatePipelineRequestJson())})
+	if err != nil {
+		return "", badRequest(ctx, "could not unmarshal Create Pipeline Request JSON within cluster defaults", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		})
+	}
+	if effectiveSpecJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), clusterDefaultsCanonicalizer); err != nil {
+		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
+		})
+	}
+
+	var wrapper pps.ClusterDefaults
+	if err := protojson.Unmarshal([]byte(effectiveSpecJSON), &wrapper); err != nil {
+		return "", badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not unmarshal %s: %v", effectiveSpecJSON, err)},
+		})
+	}
+	var request = wrapper.GetCreatePipelineRequest()
+	request.Update = req.Update
+	request.Reprocess = req.Reprocess
+
 	if request.Pipeline == nil {
-		return nil, errors.New("request.Pipeline cannot be nil")
+		return "", errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(request.GetPipeline())
 
@@ -2157,28 +2219,32 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "project", request.Pipeline.Project.GetName(), "pipeline", request.Pipeline.Name)
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr)
+		tracing.TagAnySpan(span, "err", err)
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline)
 
 	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	if err := a.validateSecret(ctx, request); err != nil {
-		return nil, err
+		return "", err
 	}
 	if request.Determined != nil {
 		if err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces); err != nil {
-			return nil, errors.Wrap(err, "create det pipeline side effects")
+			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}); err != nil {
-		return nil, err
+		return "", err
 	}
-	return &emptypb.Empty{}, nil
+	b, err := protojson.Marshal(request)
+	if err != nil {
+		return "", errors.Wrap(err, "could not marshal CreatePipelineRequest")
+	}
+	return string(b), nil
 }
 
 // CreateDetPipelineSideEffects modifies state outside pachyderm's database involved in running determined/pachyderm pipelines.
@@ -3640,52 +3706,6 @@ func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterD
 		clusterDefaults.Json = "{}"
 	}
 	return &pps.GetClusterDefaultsResponse{ClusterDefaultsJson: clusterDefaults.Json}, nil
-}
-
-// jsonMergePatch merges a JSON patch in string form with a JSON target, also in
-// string form.
-func jsonMergePatch(target, patch string) (string, error) {
-	var targetObject, patchObject any
-	if err := json.Unmarshal([]byte(target), &targetObject); err != nil {
-		return "", errors.Wrap(err, "could not unmarshal target JSON")
-	}
-	if err := json.Unmarshal([]byte(patch), &patchObject); err != nil {
-		return "", errors.Wrap(err, "could not unmarshal patch JSON")
-	}
-	result, err := json.Marshal(mergePatch(targetObject, patchObject))
-	if err != nil {
-		return "", errors.Wrap(err, "could not marshal merge patch result")
-	}
-	return string(result), nil
-}
-
-// mergePatch implements the RFC 7396 algorithm.  To quote the RFC “If the patch
-// is anything other than an object, the result will always be to replace the
-// entire target with the entire patch.  Also, it is not possible to patch part
-// of a target that is not an object, such as to replace just some of the values
-// in an array.”  If the patch _is_ an object, then non-null values replace
-// target values, and null values delete target values.
-func mergePatch(target, patch any) any {
-	switch patch := patch.(type) {
-	case map[string]any:
-		var targetMap map[string]any
-		switch t := target.(type) {
-		case map[string]any:
-			targetMap = t
-		default:
-			targetMap = make(map[string]any)
-		}
-		for name, value := range patch {
-			if value == nil {
-				delete(targetMap, name)
-			} else {
-				targetMap[name] = mergePatch(targetMap[name], value)
-			}
-		}
-		return targetMap
-	default:
-		return patch
-	}
 }
 
 func badRequest(ctx context.Context, msg string, violations []*errdetails.BadRequest_FieldViolation) error {
