@@ -27,6 +27,7 @@ import {
   SpinnerSVG,
   Tooltip,
   Button,
+  SkeletonBodyText,
 } from '@pachyderm/components';
 
 import {Chip} from '../Chip';
@@ -40,16 +41,12 @@ type InfoPanelProps = {
   className?: string;
 };
 
-const InfoPanel: React.FC<InfoPanelProps> = ({
-  lastPipelineJob,
-  pipelineLoading,
-  className,
-}) => {
+const InfoPanel: React.FC<InfoPanelProps> = ({className}) => {
   const {
     job,
     totalRuntime,
     jobDetails,
-    loading,
+    jobLoading,
     started,
     datumMetrics,
     runtimeMetrics,
@@ -57,44 +54,50 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
     jobConfig,
     logsDatumRoute,
     addLogsQueryParams,
-  } = useInfoPanel({
-    pipelineJob: lastPipelineJob,
-    pipelineLoading: !!pipelineLoading,
-  });
+  } = useInfoPanel();
 
   return (
     <div
       className={classnames(styles.base, className)}
       data-testid="InfoPanel__description"
     >
-      <div className={styles.section}>
-        <div className={styles.stateHeader}>
-          <div className={styles.state}>
-            {job ? (
-              <Icon>{getJobStateIcon(getVisualJobState(job.state))}</Icon>
-            ) : null}
-            <span data-testid="InfoPanel__state" className={styles.stateText}>
-              <h6>{job?.state ? readableJobState(job?.state) : ''}</h6>
-            </span>
-          </div>
-          <Switch>
-            <Route path={LINEAGE_PIPELINE_PATH} exact>
-              <Button
-                buttonType="ghost"
-                to={logsDatumRoute}
-                disabled={!logsDatumRoute}
-              >
-                Inspect Job
-              </Button>
-            </Route>
-          </Switch>
-        </div>
-        {loading ? (
-          <div data-testid="InfoPanel__loading" className={styles.datumCard}>
-            <LoadingDots />
-          </div>
+      <section className={styles.section} aria-label="Job Details">
+        {jobLoading ? (
+          <SkeletonBodyText />
         ) : (
-          <div className={styles.datumCard}>
+          <div className={styles.stateHeader}>
+            <div className={styles.state}>
+              {job && (
+                <Icon>{getJobStateIcon(getVisualJobState(job.state))}</Icon>
+              )}
+              {job?.state && (
+                <span
+                  data-testid="InfoPanel__state"
+                  className={styles.stateText}
+                >
+                  <h6>{readableJobState(job.state)}</h6>
+                </span>
+              )}
+            </div>
+            <Switch>
+              <Route path={LINEAGE_PIPELINE_PATH} exact>
+                <Button
+                  buttonType="ghost"
+                  to={logsDatumRoute}
+                  disabled={!logsDatumRoute}
+                >
+                  Inspect Job
+                </Button>
+              </Route>
+            </Switch>
+          </div>
+        )}
+        {jobLoading ? (
+          <aside data-testid="InfoPanel__loading" className={styles.datumCard}>
+            <LoadingDots />
+          </aside>
+        ) : (
+          <aside className={styles.datumCard}>
             <div className={styles.datumCardHeader}>
               <div className={styles.datumCardRow}>
                 <div>
@@ -146,33 +149,36 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
                 </Link>
               ))}
             </div>
-          </div>
+          </aside>
         )}
         {job?.reason && (
           <Description
             term="Failure Reason"
-            loading={loading}
+            loading={jobLoading}
             className={styles.inputs}
             data-testid="InfoPanel__reason"
           >
             {extractAndShortenIds(job.reason)}
           </Description>
         )}
-      </div>
-      <div className={styles.section}>
+      </section>
+      <section className={styles.section} aria-label="Job Runtime Statistics">
         <RuntimeStats
-          loading={loading}
+          loading={jobLoading}
           started={started}
           totalRuntime={totalRuntime}
           runtimeMetrics={runtimeMetrics}
         />
-      </div>
-      <div className={styles.section}>
+      </section>
+      <section
+        className={styles.section}
+        aria-label="Related Pipeline and Repo information"
+      >
         <div className={styles.inputSection}>
-          {inputs.length ? (
+          {inputs.length !== 0 && (
             <Description
               term="Input Repos"
-              loading={loading}
+              loading={jobLoading}
               data-testid="InfoPanel__repos"
               className={styles.inputs}
             >
@@ -184,27 +190,27 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
                 />
               ))}
             </Description>
-          ) : null}
+          )}
         </div>
         <div className={styles.inputSection}>
           <Description
             term="Pipeline"
-            loading={loading}
+            loading={jobLoading}
             className={styles.inputs}
           >
-            {job?.pipelineName ? (
+            {job?.pipelineName && (
               <PipelineLink
                 data-testid="InfoPanel__pipeline"
                 name={job.pipelineName}
               />
-            ) : null}
+            )}
           </Description>
         </div>
         <div className={styles.inputSection}>
-          {job?.outputCommit && job?.outputBranch ? (
+          {job?.outputCommit && job?.outputBranch && (
             <Description
               term="Output Commit"
-              loading={loading}
+              loading={jobLoading}
               data-testid="InfoPanel__output"
               className={styles.inputs}
             >
@@ -215,10 +221,10 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
                 repoName={job.pipelineName}
               />
             </Description>
-          ) : null}
+          )}
         </div>
-      </div>
-      {!loading && jobConfig ? (
+      </section>
+      {!jobLoading && jobConfig ? (
         <ConfigFilePreview
           title="Job Definition"
           data-testid="InfoPanel__details"

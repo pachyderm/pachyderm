@@ -11,24 +11,15 @@ import {
 import {Input} from '@dash-frontend/lib/types';
 import {logsViewerDatumRoute} from '@dash-frontend/views/Project/utils/routes';
 
-type infoPanelProps = {
-  pipelineJob?: JobQuery['job'];
-  pipelineLoading: boolean;
-};
-
-const useInfoPanel = ({pipelineJob, pipelineLoading}: infoPanelProps) => {
+const useInfoPanel = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
   const {getUpdatedSearchParams} = useUrlQueryState();
 
-  const {job: specifiedJob, loading: jobLoading} = useJob(
-    {
-      id: jobId,
-      pipelineName: pipelineId,
-      projectId,
-    },
-    {skip: pipelineLoading || !!pipelineJob},
-  );
-  const job = pipelineJob || specifiedJob;
+  const {job, loading: jobLoading} = useJob({
+    id: jobId,
+    pipelineName: pipelineId,
+    projectId,
+  });
 
   const started = useMemo(() => {
     return job?.startedAt ? getStandardDate(job?.startedAt) : 'N/A';
@@ -182,7 +173,7 @@ const useInfoPanel = ({pipelineJob, pipelineLoading}: infoPanelProps) => {
     job,
     totalRuntime,
     jobDetails,
-    loading: jobLoading,
+    jobLoading,
     started,
     datumMetrics,
     runtimeMetrics,

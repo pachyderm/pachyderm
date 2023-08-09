@@ -18,6 +18,7 @@ const SkeletonDisplayText: React.FC<SkeletonDisplayTextProps> = ({
       {...(Boolean(color) && {[styles[color]]: true})},
       className,
     )}
+    role="status"
     {...rest}
   />
 );

@@ -91,8 +91,15 @@ export const mockPipelines = () =>
   });
 
 export const mockGetMontagePipeline = () =>
-  mockPipelineQuery((_req, res, ctx) => {
-    return res(ctx.data({pipeline: MONTAGE_PIPELINE}));
+  mockPipelineQuery((req, res, ctx) => {
+    if (
+      req.variables.args.id === 'montage' &&
+      req.variables.args.projectId === 'default'
+    ) {
+      return res(ctx.data({pipeline: MONTAGE_PIPELINE}));
+    } else {
+      return res();
+    }
   });
 
 const SERVICE_PIPELINE: Pipeline = buildPipeline({
@@ -148,6 +155,13 @@ const SPOUT_PIPELINE: Pipeline = buildPipeline({
 });
 
 export const mockGetSpoutPipeline = () =>
-  mockPipelineQuery((_req, res, ctx) => {
-    return res(ctx.data({pipeline: SPOUT_PIPELINE}));
+  mockPipelineQuery((req, res, ctx) => {
+    if (
+      req.variables.args.id === 'montage' &&
+      req.variables.args.projectId === 'default'
+    ) {
+      return res(ctx.data({pipeline: SPOUT_PIPELINE}));
+    } else {
+      return res();
+    }
   });

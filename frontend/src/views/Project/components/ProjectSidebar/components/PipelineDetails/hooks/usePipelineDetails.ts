@@ -1,7 +1,7 @@
 import {Permission, ResourceType} from '@graphqlTypes';
 
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
-import {useJobs} from '@dash-frontend/hooks/useJobs';
+import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {LINEAGE_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
@@ -14,14 +14,13 @@ const usePipelineDetails = () => {
     isServiceOrSpout,
     isSpout,
   } = useCurrentPipeline();
-  const {jobs, loading: jobsLoading} = useJobs(
+  const {job, loading: jobsLoading} = useJob(
     {
       projectId,
-      pipelineId,
-      limit: 1,
+      pipelineName: pipelineId,
     },
     {
-      skip: !pipeline || pipelineLoading,
+      skip: isSpout || !pipeline || pipelineLoading,
     },
   );
 
@@ -35,9 +34,9 @@ const usePipelineDetails = () => {
   return {
     projectId,
     pipelineId,
-    loading: pipelineLoading || jobsLoading,
+    pipelineAndJobloading: pipelineLoading || jobsLoading,
     pipeline,
-    lastJob: jobs[0],
+    lastJob: job,
     isServiceOrSpout,
     isSpout,
     tabsBasePath,

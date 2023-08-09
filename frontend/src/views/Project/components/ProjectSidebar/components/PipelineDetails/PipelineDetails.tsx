@@ -24,7 +24,7 @@ import styles from './PipelineDetails.module.css';
 
 const PipelineDetails: React.FC = () => {
   const {
-    loading,
+    pipelineAndJobloading,
     pipeline,
     lastJob,
     isServiceOrSpout,
@@ -49,8 +49,8 @@ const PipelineDetails: React.FC = () => {
         data-testid="PipelineDetails__scrollableContent"
       >
         <div className={styles.title}>
-          {loading ? (
-            <SkeletonDisplayText data-testid="PipelineDetails__pipelineNameSkeleton" />
+          {pipelineAndJobloading ? (
+            <SkeletonDisplayText />
           ) : (
             <Title>{pipeline?.name}</Title>
           )}
@@ -58,7 +58,7 @@ const PipelineDetails: React.FC = () => {
             <div className={styles.description}>{pipeline?.description}</div>
           )}
           {repo?.authInfo?.rolesList && (
-            <Description term="Your Roles" loading={loading}>
+            <Description term="Your Roles" loading={pipelineAndJobloading}>
               <Group spacing={8}>
                 {repo?.authInfo?.rolesList.join(', ') || 'None'}
                 <ButtonLink onClick={openRolesModal}>
@@ -71,12 +71,18 @@ const PipelineDetails: React.FC = () => {
           )}
           {!isSpout && (
             <>
-              <Description term="Most Recent Job Start" loading={loading}>
+              <Description
+                term="Most Recent Job Start"
+                loading={pipelineAndJobloading}
+              >
                 {lastJob?.createdAt
                   ? getStandardDate(lastJob?.createdAt)
                   : 'N/A'}
               </Description>
-              <Description term="Most Recent Job ID" loading={loading}>
+              <Description
+                term="Most Recent Job ID"
+                loading={pipelineAndJobloading}
+              >
                 {lastJob?.id}
               </Description>
             </>
@@ -91,35 +97,37 @@ const PipelineDetails: React.FC = () => {
             />
           )}
         </div>
-        <Tabs.RouterTabs
-          basePathTabId={!isServiceOrSpout ? TAB_ID.JOB : TAB_ID.INFO}
-          basePath={tabsBasePath}
-        >
-          <Tabs.TabsHeader className={styles.tabsHeader}>
-            {!loading && !isServiceOrSpout && (
-              <Tabs.Tab id={TAB_ID.JOB} key={TAB_ID.JOB}>
-                Job Overview
+        {!pipelineAndJobloading && (
+          <Tabs.RouterTabs
+            basePathTabId={!isServiceOrSpout ? TAB_ID.JOB : TAB_ID.INFO}
+            basePath={tabsBasePath}
+          >
+            <Tabs.TabsHeader className={styles.tabsHeader}>
+              {!isServiceOrSpout && (
+                <Tabs.Tab id={TAB_ID.JOB} key={TAB_ID.JOB}>
+                  Job Overview
+                </Tabs.Tab>
+              )}
+              <Tabs.Tab id={TAB_ID.INFO} key={TAB_ID.INFO}>
+                Pipeline Info
               </Tabs.Tab>
+              <Tabs.Tab id={TAB_ID.SPEC} key={TAB_ID.SPEC}>
+                Spec
+              </Tabs.Tab>
+            </Tabs.TabsHeader>
+            {!isServiceOrSpout && (
+              <Tabs.TabPanel id={TAB_ID.JOB}>
+                <InfoPanel className={styles.paddingUnset} />
+              </Tabs.TabPanel>
             )}
-            <Tabs.Tab id={TAB_ID.INFO} key={TAB_ID.INFO}>
-              Pipeline Info
-            </Tabs.Tab>
-            <Tabs.Tab id={TAB_ID.SPEC} key={TAB_ID.SPEC}>
-              Spec
-            </Tabs.Tab>
-          </Tabs.TabsHeader>
-          {!loading && !isServiceOrSpout && (
-            <Tabs.TabPanel id={TAB_ID.JOB}>
-              <InfoPanel lastPipelineJob={lastJob} pipelineLoading={loading} />
+            <Tabs.TabPanel id={TAB_ID.INFO}>
+              <PipelineInfo />
             </Tabs.TabPanel>
-          )}
-          <Tabs.TabPanel id={TAB_ID.INFO}>
-            <PipelineInfo />
-          </Tabs.TabPanel>
-          <Tabs.TabPanel id={TAB_ID.SPEC}>
-            <PipelineSpec />
-          </Tabs.TabPanel>
-        </Tabs.RouterTabs>
+            <Tabs.TabPanel id={TAB_ID.SPEC}>
+              <PipelineSpec />
+            </Tabs.TabPanel>
+          </Tabs.RouterTabs>
+        )}
       </div>
     </>
   );

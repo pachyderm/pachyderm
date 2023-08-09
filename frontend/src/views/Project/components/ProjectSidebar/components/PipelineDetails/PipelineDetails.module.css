@@ -8,11 +8,6 @@
   margin-bottom: 1rem;
 }
 
-section {
-  overflow-y: scroll;
-  padding-bottom: 0.5rem;
-}
-
 .tabsHeader {
   display: flex;
   position: sticky;
@@ -30,4 +25,8 @@ section {
 .sidebarContent {
   overflow-y: scroll;
   padding-bottom: 4rem;
+}
+
+.paddingUnset {
+  padding-top: unset;
 }
