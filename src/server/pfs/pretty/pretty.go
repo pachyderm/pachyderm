@@ -51,7 +51,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 		fmt.Fprintf(w, "%s.%s\t", repoInfo.Repo.Name, repoInfo.Repo.Type)
 	}
 	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
+		fmt.Fprintf(w, "%s\t", pretty.Timestamp(repoInfo.Created))
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
 	}
@@ -86,7 +86,7 @@ func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .FullTimestamps}}
-Created: {{.Created}}{{else}}
+Created: {{prettyTime .Created}}{{else}}
 Created: {{prettyAgo .Created}}{{end}}{{if .Details}}
 Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{end}}{{if .AuthInfo}}
 Roles: {{ .AuthInfo.Roles | commafy }}
@@ -172,7 +172,7 @@ func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
 		`Name: {{.Branch.Repo.Name}}@{{.Branch.Name}}{{if .Head}}
 Head Commit: {{ .Head.Branch.Repo.Name}}@{{.Head.Id}} {{end}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Repo.Name}}@{{.Name}} {{end}} {{end}}{{if .Trigger}}
+Provenance: {{range .Provenance}}{{.Repo.Name}}@{{.Name}} {{end}}{{end}}{{if .Trigger}}
 Trigger: {{printTrigger .Trigger}} {{end}}
 `)
 	if err != nil {
@@ -189,7 +189,7 @@ func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
 Description: {{ .Description}}
 {{- end -}}
 {{- if .CreatedAt }}
-Created at: {{ .CreatedAt }}
+Created at: {{ prettyTime .CreatedAt }}
 {{- end -}}
 {{- if .AuthInfo }}
 Roles: {{.AuthInfo.Roles | commafy}}
@@ -217,7 +217,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		fmt.Fprintf(w, "-\t")
 	} else {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", commitInfo.Finished.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(commitInfo.Finished))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
 		}
@@ -266,7 +266,7 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(commitSetInfo.Commits)-success-failure, failure))
 	if created != nil {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", created.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(created))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(created))
 		}
@@ -275,7 +275,7 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	}
 	if modified != nil {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", modified.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(modified))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(modified))
 		}
@@ -343,9 +343,9 @@ func PrintDetailedCommitInfo(w io.Writer, commitInfo *PrintableCommitInfo) error
 Original Branch: {{.Commit.Branch.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.Id}}{{end}}{{if .FullTimestamps}}
-Started: {{.Started}}{{else}}
+Started: {{prettyTime .Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
-Finished: {{.Finished}}{{else}}
+Finished: {{prettyTime .Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}{{if .Details}}
 Size: {{prettySize .Details.SizeBytes}}{{end}}
 `)
@@ -372,7 +372,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 		if fileInfo.Committed == nil {
 			fmt.Fprintf(w, "-\t")
 		} else if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(fileInfo.Committed))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 		}
@@ -415,6 +415,7 @@ func fileType(fileType pfs.FileType) string {
 var funcMap = template.FuncMap{
 	"prettyAgo":    pretty.Ago,
 	"prettySize":   pretty.Size,
+	"prettyTime":   pretty.Timestamp,
 	"fileType":     fileType,
 	"printTrigger": printTrigger,
 	"commafy":      pretty.Commafy,
