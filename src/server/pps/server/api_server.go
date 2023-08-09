@@ -3744,15 +3744,14 @@ func unknownError(ctx context.Context, msg string, err error) error {
 func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
 	var (
 		cd pps.ClusterDefaults
-		pi pps.PipelineInfo
-		pp map[*pps.Pipeline]*pps.CreatePipelineV2Request
+		pp map[*pps.Pipeline]*pps.CreatePipelineTransaction
 	)
 	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
 		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
-	canonicalJSON, err := protojson.Marshal(&cd)
+	canonicalJSON, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(&cd)
 	if err != nil {
 		return nil, badRequest(ctx, "could not canonicalize cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
@@ -3767,41 +3766,50 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		// JSON and merged with the new defaults.  The result of the
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
-		pp = make(map[*pps.Pipeline]*pps.CreatePipelineV2Request)
-		if err := a.pipelines.ReadOnly(ctx).List(&pi, col.DefaultOptions(), func(_ string) error {
-			spec := ppsutil.PipelineReqFromInfo(&pi)
-			specJSON, err := protojson.Marshal(&pps.ClusterDefaults{CreatePipelineRequest: spec})
-			if err != nil {
-				return errors.Wrap(err, "could not marshal spec to JSON")
+		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+			spec := ppsutil.PipelineReqFromInfo(pi)
+			// if the old details are missing, synthesize them
+			if pi.DetailsJson == "" {
+				b, err := protojson.Marshal(spec)
+				if err != nil {
+					return errors.Wrap(err, "could not marshal spec to JSON")
+				}
+				pi.DetailsJson = string(b)
 			}
-			wrapperJSON, err := jsonMergePatch(string(canonicalJSON), string(specJSON), clusterDefaultsCanonicalizer)
+			type wrapper struct {
+				CreatePipelineRequest json.RawMessage `json:"createPipelineRequest"`
+			}
+			oldWrapperJSON, err := json.Marshal(wrapper{CreatePipelineRequest: []byte(pi.DetailsJson)})
+			newWrapperJSON, err := jsonMergePatch(string(canonicalJSON), string(oldWrapperJSON), clusterDefaultsCanonicalizer)
 			if err != nil {
 				return errors.Wrapf(err, "invalid merger of cluster defaults with pipeline %q", pi.GetPipeline())
 			}
-			var wrapper pps.ClusterDefaults
-			if err := protojson.Unmarshal([]byte(wrapperJSON), &wrapper); err != nil {
-				fmt.Println("QQQ wrapperJSON:", wrapperJSON, "; cd:", req.GetClusterDefaultsJson(), "; spec:", string(specJSON))
-				return errors.Wrap(err, "could not unmarshal effective spec wrapper")
+			var newWrapper pps.ClusterDefaults
+			if err := protojson.Unmarshal([]byte(newWrapperJSON), &newWrapper); err != nil {
+				return errors.Wrapf(err, "could not unmarshal effective spec %q", newWrapperJSON)
 			}
-			if !proto.Equal(spec, wrapper.CreatePipelineRequest) {
-				effectiveSpecJSON, err := protojson.Marshal(wrapper.CreatePipelineRequest)
-				if err != nil {
-					return errors.Wrap(err, "could not marshal effect")
-				}
-				pp[pi.GetPipeline()] = &pps.CreatePipelineV2Request{
-					CreatePipelineRequestJson: string(effectiveSpecJSON),
-					Reprocess:                 req.Reprocess,
+			if !proto.Equal(spec, newWrapper.CreatePipelineRequest) {
+				newWrapper.CreatePipelineRequest.Update = true
+				pp[pi.GetPipeline()] = &pps.CreatePipelineTransaction{
+					CreatePipelineRequest: newWrapper.CreatePipelineRequest,
+					UserJson:              pi.DetailsJson,
 				}
 			}
 			return nil
 		}); err != nil {
-			return nil, unknownError(ctx, "could not check pipelines for updates", err)
+			return nil, unknownError(ctx, "could not list pipelines", err)
 		}
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
 			return err
+		}
+		for _, p := range pp {
+			if err := a.CreatePipelineInTransaction(ctx, txnCtx, p); err != nil {
+				return errors.Wrapf(err, "could not regenerate pipeline %v", p.CreatePipelineRequest.Pipeline)
+			}
 		}
 		return nil
 	}); err != nil {

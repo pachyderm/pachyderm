@@ -1586,12 +1586,15 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Set cluster defaults.",
 		Long:  "Set cluster defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if reprocess {
+				regenerate = true
+			}
 			if cluster {
 				rc, err := fileIndicatorToReadCloser(pathname)
 				if err != nil {
 					return errors.Wrapf(err, "could not open path %q for reading", pathname)
 				}
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate)
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess)
 			}
 			return errors.New("--cluster must be specified")
 		}),
@@ -1599,6 +1602,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	}
 	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
 	createDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
+	createDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
@@ -1608,7 +1612,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "Delete defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if cluster {
-				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), false)
+				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), false, false)
 			}
 			return errors.New("--cluster must be specified")
 		}),
@@ -1627,7 +1631,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				if err != nil {
 					return errors.Wrapf(err, "could not open path %q for reading", pathname)
 				}
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, false)
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, false, false)
 			}
 			return errors.New("--cluster must be specified")
 		}),
@@ -1640,7 +1644,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	return commands
 }
 
-func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate bool) error {
+func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate, reprocess bool) error {
 	b, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Wrap(err, "could not read cluster defaults")
@@ -1654,6 +1658,7 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	var req = &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: string(b),
 		Regenerate:          regenerate,
+		Reprocess:           reprocess,
 	}
 
 	client, err := pachctlCfg.NewOnUserMachine(ctx, false)
