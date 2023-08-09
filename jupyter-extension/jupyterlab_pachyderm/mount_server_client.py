@@ -4,6 +4,7 @@ import platform
 import json
 import asyncio
 import os
+import requests_unixsocket
 from pathlib import Path
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
@@ -15,7 +16,7 @@ from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR, NONPRIV_CONTAINER
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
-
+requests_unixsocket.monkeypatch()
 
 class MountServerClient(MountInterface):
     """Client interface for the mount-server backend."""
@@ -23,12 +24,12 @@ class MountServerClient(MountInterface):
     def __init__(
         self,
         mount_dir: str,
-        sock_dir: str,
+        sock_path: str,
     ):
         self.client = AsyncHTTPClient()
         self.mount_dir = mount_dir
-        self.sock_dir = sock_dir
-        self.address = f"http://tmp/pfs_fuse_server.sock"
+        self.sock_path = sock_path
+        self.address = 'http+unix://%2Ftmp%2Fpfs.sock'
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # TODO: Would be preferable to auto-detect this, but unclear how
         self.nopriv = NONPRIV_CONTAINER
@@ -75,7 +76,7 @@ class MountServerClient(MountInterface):
             if not await self._is_mount_server_running():
                 self._unmount()
 
-                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir} --sock-dir {self.sock_dir}"
+                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir} --sock-path {self.sock_path}"
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")
