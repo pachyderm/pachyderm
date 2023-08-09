@@ -46,6 +46,18 @@ type TestResultLine struct {
 	Output   string    `json:"Output"`
 }
 
+type ResultRow struct {
+	Id             string  `db:"id"`
+	WorkflowId     string  `db:"workflowid"`
+	JobId          string  `db:"jobid"`
+	JobExecutor    int     `db:"jobexecutor"`
+	TestName       string  `db:"testname"`
+	Package        string  `db:"package"`
+	Action         string  `db:"action"`
+	ElapsedSeconds float32 `db:"elapsedseconds"`
+	Output         string  `db:"output"`
+}
+
 // This is built and runs in a pachyderm pipeline to egress data uploaded to pachyderm to postgresql.
 func main() {
 	startTime = time.Now()
@@ -195,8 +207,18 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	if !ok {
 		return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, filepath.Base(path), jobInfoPaths))
 	}
-	query := constructResultInsert(uploadChunkSize)
-	paramVals := &[]any{}
+	query := `INSERT INTO public.test_results (
+		id,
+		workflow_id,
+		job_id,
+		job_executor,
+		test_name,
+		package,
+		"action",
+		elapsed_seconds,
+		"output"
+	) VALUES (:id, :workflowid, :jobid, :jobexecutor, :testname, :package, :action, :elapsedseconds, :output)`
+	paramVals := &[]ResultRow{}
 	resultsScanner := bufio.NewScanner(resultsFile)
 	egUpload, ctx := errgroup.WithContext(ctx)
 	chunkIdx := 0
@@ -212,26 +234,26 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		if result.Action == "output" {
 			continue // output is mostly logs and coverage and it's not that useful, so we don't store output-only actions
 		}
-		*paramVals = append(*paramVals,
-			uuid.New(),
-			jobInfo.WorkflowId,
-			jobInfo.JobId,
-			jobInfo.JobExecutor,
-			result.TestName,
-			result.Package,
-			result.Action,
-			result.Elapsed,
-			result.Output,
-		)
+		*paramVals = append(*paramVals, ResultRow{
+			Id:             uuid.New().String(),
+			WorkflowId:     jobInfo.WorkflowId,
+			JobId:          jobInfo.JobId,
+			JobExecutor:    jobInfo.JobExecutor,
+			TestName:       result.TestName,
+			Package:        result.Package,
+			Action:         result.Action,
+			ElapsedSeconds: result.Elapsed,
+			Output:         result.Output,
+		})
 		chunkIdx++
 		if chunkIdx >= uploadChunkSize {
 			chunkIdx = 0
 			flushResults(ctx, db, egUpload, query, paramVals)
-			paramVals = &[]any{}
+			paramVals = &[]ResultRow{}
 		}
 	}
 	if chunkIdx > 0 { // we have a partial chunk that needs to upload
-		flushResults(ctx, db, egUpload, constructResultInsert(chunkIdx), paramVals)
+		flushResults(ctx, db, egUpload, query, paramVals)
 	}
 	err = egUpload.Wait()
 	if err != nil {
@@ -243,44 +265,12 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	return nil
 }
 
-func constructResultInsert(chunkSize int) string {
-	valuesBuilder := strings.Builder{}
-	var valuesParams string
-	// set up query parameters to insert multiple values at once
-	for chunk := 0; chunk < chunkSize; chunk++ {
-		valuesBuilder.WriteString("(")
-		for param := 1; param <= testResultFieldCount; param++ {
-			valuesBuilder.WriteString(fmt.Sprintf("$%d", param+(chunk*testResultFieldCount)))
-			if param != testResultFieldCount { // don't add last seperator since we are done
-				valuesBuilder.WriteString(", ")
-			}
-		}
-		valuesBuilder.WriteString(")")
-		if chunk != chunkSize-1 {
-			valuesBuilder.WriteString(",")
-		}
-
-	}
-	valuesParams = valuesBuilder.String()
-	query := fmt.Sprintf(`INSERT INTO public.test_results (
-		id,
-		workflow_id,
-		job_id,
-		job_executor,
-		test_name,
-		package,
-		"action",
-		elapsed_seconds,
-		"output"
-	) VALUES %s`, valuesParams)
-	return query
-}
-
-func flushResults(ctx context.Context, db *sqlx.DB, egUpload *errgroup.Group, query string, paramVals *[]any) {
+func flushResults(ctx context.Context, db *sqlx.DB, egUpload *errgroup.Group, query string, paramVals *[]ResultRow) {
 	threadParamVals := paramVals
+	log.Info(ctx, "Flushing test results to DB.", zap.Int("Number of rows", len(*threadParamVals)))
 	egUpload.Go(func() error {
-		_, err := db.Exec(query,
-			*threadParamVals...,
+		_, err := db.NamedExec(query,
+			*threadParamVals,
 		)
 		if err != nil {
 			log.Info(ctx, "Failed updating SQL DB - continuing to parse results file.", zap.Error(err))
