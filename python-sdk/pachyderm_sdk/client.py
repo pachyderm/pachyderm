@@ -1,5 +1,4 @@
 """The Client used to interact with a Pachyderm instance."""
-import contextlib
 import os
 from pathlib import Path
 from typing import Optional, Union
@@ -31,7 +30,6 @@ from .constants import (
     PACHD_SERVICE_PORT_ENV,
     WORKER_PORT_ENV,
 )
-from .errors import AuthServiceNotActivated, BadClusterDeploymentID
 from .interceptor import MetadataClientInterceptor, MetadataType
 
 __all__ = ("Client",)
