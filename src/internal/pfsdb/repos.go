@@ -29,12 +29,16 @@ const (
 	noBranches = "{NULL}"
 )
 
+// RepoID is the row id for a repo entry in postgres.
+// A separate type is defined for safety so row ids must be explicitly cast for use in another table.
+type RepoID uint64
+
 // ErrRepoNotFound is returned by GetRepo() when a repo is not found in postgres.
 type ErrRepoNotFound struct {
 	Project string
 	Name    string
 	Type    string
-	ID      pachsql.ID
+	ID      RepoID
 }
 
 // Error satisfies the error interface.
@@ -93,21 +97,21 @@ type RepoIterator struct {
 }
 
 type repoRow struct {
-	ID          pachsql.ID `db:"id"`
-	Name        string     `db:"name"`
-	ProjectID   string     `db:"project_id"`
-	ProjectName string     `db:"proj_name"`
-	Description string     `db:"description"`
-	RepoType    string     `db:"type"`
-	CreatedAt   time.Time  `db:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at"`
+	ID          RepoID    `db:"id"`
+	Name        string    `db:"name"`
+	ProjectID   string    `db:"project_id"`
+	ProjectName string    `db:"proj_name"`
+	Description string    `db:"description"`
+	RepoType    string    `db:"type"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
 	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
 	// Each entry is prefixed with '//x' and entries are delimited by a ','
 	Branches string `db:"branches"`
 }
 
 // NextWithID is like Next, but populates the 'id' and 'dst' parameters each iteration where 'id' is a pointer to the row ID and dst is the repoInfo.
-func (iter *RepoIterator) NextWithID(ctx context.Context, id *pachsql.ID, dst **pfs.RepoInfo) error {
+func (iter *RepoIterator) NextWithID(ctx context.Context, id *RepoID, dst **pfs.RepoInfo) error {
 	if dst == nil {
 		return errors.Wrap(fmt.Errorf("repo is nil"), "get next repo")
 	}
@@ -126,7 +130,7 @@ func (iter *RepoIterator) NextWithID(ctx context.Context, id *pachsql.ID, dst **
 	row := iter.repos[iter.index]
 	*dst, err = getRepoFromRepoRow(&row)
 	if id != nil {
-		*id = pachsql.ID(row.ID)
+		*id = row.ID
 	}
 	if err != nil {
 		return errors.Wrap(err, "getting repoInfo from repo row")
@@ -225,12 +229,12 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repo
 	return nil
 }
 
-func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (pachsql.ID, error) {
+func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (RepoID, error) {
 	row, err := getRepoRowByName(ctx, tx, repoProject, repoName, repoType)
 	if err != nil {
-		return pachsql.ID(0), err
+		return RepoID(0), err
 	}
-	return pachsql.ID(row.ID), nil
+	return row.ID, nil
 }
 
 func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*repoRow, error) {
@@ -251,7 +255,7 @@ func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName
 
 // todo(fahad): rewrite branch related code during the branches migration.
 // GetRepo retrieves an entry from the pfs.repos table by using the row id.
-func GetRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID) (*pfs.RepoInfo, error) {
+func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, error) {
 	if id == 0 {
 		return nil, errors.New("invalid id: 0")
 	}
@@ -338,8 +342,8 @@ func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	return nil
 }
 
-// UpdateRepo overwrites an existing repo entry by pachsql.ID.
-func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID, repo *pfs.RepoInfo) error {
+// UpdateRepo overwrites an existing repo entry by RepoID.
+func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id RepoID, repo *pfs.RepoInfo) error {
 	if repo.Repo.Type == "" {
 		repo.Repo.Type = "unknown"
 	}

@@ -134,7 +134,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}
-				rowID := pachsql.ID(0)
+				rowID := pfsdb.RepoID(0)
 				var repoInfo *pfs.RepoInfo
 				for {
 					if err := iter.NextWithID(ctx, &rowID, &repoInfo); err != nil {
@@ -187,7 +187,7 @@ func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, 
 	var repo *pfs.RepoInfo
 	var err error
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		repo, err = pfsdb.GetRepo(ctx, tx, pachsql.ID(ev.Id))
+		repo, err = pfsdb.GetRepo(ctx, tx, pfsdb.RepoID(ev.Id))
 		return errors.Wrap(err, "get repo from event id")
 	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "get repo")
