@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
-	"google.golang.org/protobuf/proto"
 	"time"
 
 	units "github.com/docker/go-units"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"

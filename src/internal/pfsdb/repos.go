@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"github.com/jackc/pgconn"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/jackc/pgconn"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -317,8 +317,7 @@ func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
 	return branches, nil
 }
 
-// UpsertRepo updates all fields of an existing repo entry in the pfs.repos table by name. If 'upsert' is set to true, UpsertRepo()
-// will attempt to call CreateRepo() if the entry does not exist.
+// UpsertRepo updates all fields of an existing repo entry in the pfs.repos table by name. UpsertRepo() will attempt to call CreateRepo() if the entry does not exist.
 func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	id, err := GetRepoID(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
 	if err != nil {
