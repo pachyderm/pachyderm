@@ -199,7 +199,8 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	if repo.Repo.Project == nil {
 		repo.Repo.Project = &pfs.Project{Name: "default"}
 	}
-	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects where name=$3), $4);",
+	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
+		"VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects where name=$3), $4);",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description)
 	if err != nil && IsErrRepoAlreadyExists(err) {
 		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name}
@@ -209,7 +210,8 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 
 // DeleteRepo deletes an entry in the pfs.repos table.
 func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) error {
-	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.repos WHERE project_id=(SELECT id FROM core.projects WHERE name=$1) AND name=$2 AND type=$3;", repoProject, repoName, repoType)
+	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.repos "+
+		"WHERE project_id=(SELECT id FROM core.projects WHERE name=$1) AND name=$2 AND type=$3;", repoProject, repoName, repoType)
 	if err != nil {
 		return errors.Wrap(err, "delete repo")
 	}
@@ -236,7 +238,8 @@ func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName
 	if repoProject == "" {
 		repoProject = "default"
 	}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) "+
+		"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
@@ -317,16 +320,22 @@ func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
 	return branches, nil
 }
 
-// UpsertRepo updates all fields of an existing repo entry in the pfs.repos table by name. UpsertRepo() will attempt to call CreateRepo() if the entry does not exist.
+// UpsertRepo will attempt to insert a repo. If the repo already exists, it will update its description.
 func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
-	id, err := GetRepoID(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
-	if err != nil {
-		if IsErrRepoNotFound(err) {
-			return errors.Wrap(CreateRepo(ctx, tx, repo), "create repo if not exists")
-		}
-		return errors.Wrap(err, "get repo id")
+	if repo.Repo.Type == "" {
+		repo.Repo.Type = "unknown"
 	}
-	return errors.Wrap(UpdateRepo(ctx, tx, id, repo), "update existing repo")
+	if repo.Repo.Project == nil {
+		repo.Repo.Project = &pfs.Project{Name: "default"}
+	}
+	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
+		"VALUES ($1, $2, (SELECT id from core.projects where name=$3), $4) "+
+		"ON CONFLICT (name, type, project_id) DO UPDATE SET description=$5;",
+		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, repo.Description)
+	if err != nil {
+		return errors.Wrap(err, "upsert repo")
+	}
+	return nil
 }
 
 // UpdateRepo overwrites an existing repo entry by pachsql.ID.
@@ -337,7 +346,8 @@ func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id pachsql.ID, repo *pfs.Re
 	if repo.Repo.Project == nil {
 		repo.Repo.Project = &pfs.Project{Name: "default"}
 	}
-	res, err := tx.ExecContext(ctx, "UPDATE pfs.repos SET name=$1, type=$2::pfs.repo_type, project_id=(SELECT id FROM core.projects WHERE name=$3), description=$4 WHERE id=$5;",
+	res, err := tx.ExecContext(ctx, "UPDATE pfs.repos SET name=$1, type=$2::pfs.repo_type, "+
+		"project_id=(SELECT id FROM core.projects WHERE name=$3), description=$4 WHERE id=$5;",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, id)
 	if err != nil {
 		return errors.Wrap(err, "update repo")
