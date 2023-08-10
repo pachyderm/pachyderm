@@ -56,21 +56,37 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
         switch (fileMajorType) {
           case 'image':
             return (
-              <img className={styles.preview} src={fileLink} alt={fileName} />
+              <img
+                className={styles.preview}
+                src={fileLink}
+                alt={fileName}
+                data-testid="FilePreview__image"
+              />
             );
           case 'video':
-            return <video controls className={styles.preview} src={fileLink} />;
+            return (
+              <video
+                controls
+                className={styles.preview}
+                src={fileLink}
+                data-testid="FilePreview__video"
+              />
+            );
           case 'audio':
             return (
               <audio className={styles.preview} controls>
-                <source src={fileLink} />
+                <source src={fileLink} data-testid="FilePreview__audio" />
               </audio>
             );
         }
         switch (fileType) {
           case 'xml':
             return (
-              <IFramePreview downloadLink={fileLink} fileName={fileName} />
+              <IFramePreview
+                downloadLink={fileLink}
+                fileName={fileName}
+                data-testid="FilePreview__xml"
+              />
             );
           case 'yml':
           case 'yaml':

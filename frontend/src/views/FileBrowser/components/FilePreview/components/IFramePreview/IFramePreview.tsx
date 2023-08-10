@@ -7,16 +7,18 @@ import styles from './IFramePreview.module.css';
 type FilePreviewProps = {
   downloadLink: string;
   fileName: string;
+  'data-testid'?: string;
 };
 
 const IFramePreview: React.FC<FilePreviewProps> = ({
   downloadLink,
   fileName,
+  'data-testid': dataTestId,
 }) => {
   return (
     <ContentWrapper>
       <iframe
-        data-testid="IFramePreview__iframe"
+        data-testid={dataTestId || 'IFramePreview__iframe'}
         className={styles.base}
         src={downloadLink}
         title={fileName}

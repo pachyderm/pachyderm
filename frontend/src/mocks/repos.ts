@@ -1,11 +1,14 @@
 import {
   mockReposWithCommitQuery,
   mockReposQuery,
+  mockRepoWithLinkedPipelineQuery,
   Repo,
   OriginKind,
   mockRepoQuery,
 } from '@graphqlTypes';
 import merge from 'lodash/merge';
+
+import {buildPipeline} from './pipelines';
 
 export const buildRepo = (repo: Partial<Repo>): Repo => {
   const defaultRepo = {
@@ -195,4 +198,24 @@ export const mockRepos = () =>
 export const mockRepoImages = () =>
   mockRepoQuery((_req, res, ctx) => {
     return res(ctx.data({repo: REPO_IMAGES}));
+  });
+
+export const mockRepoWithLinkedPipeline = () =>
+  mockRepoWithLinkedPipelineQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        repo: buildRepo({
+          linkedPipeline: buildPipeline({}),
+        }),
+      }),
+    );
+  });
+
+export const mockRepoWithNullLinkedPipeline = () =>
+  mockRepoWithLinkedPipelineQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        repo: REPO_IMAGES,
+      }),
+    );
   });
