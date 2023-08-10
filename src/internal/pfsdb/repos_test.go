@@ -154,15 +154,15 @@ func TestListRepos(t *testing.T) {
 		iter, err := pfsdb.ListRepo(cbCtx, tx)
 		require.NoError(t, err, "should be able to list repos")
 		i := 0
-		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+		require.NoError(t, stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
 			if err != nil {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
-			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
-			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
-			require.Equal(t, expectedInfos[i].Description, repo.Description)
-			require.Equal(t, len(expectedInfos[i].Branches), len(repo.Branches))
+			require.Equal(t, expectedInfos[i].Repo.Name, repoPair.RepoInfo.Repo.Name)
+			require.Equal(t, expectedInfos[i].Repo.Type, repoPair.RepoInfo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repoPair.RepoInfo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repoPair.RepoInfo.Description)
+			require.Equal(t, len(expectedInfos[i].Branches), len(repoPair.RepoInfo.Branches))
 			i++
 			return nil
 		}))
@@ -191,14 +191,14 @@ func TestListReposByIdxType(t *testing.T) {
 		iter, err := pfsdb.ListRepoByIdxType(cbCtx, tx, "user")
 		require.NoError(t, err, "should be able to list repos")
 		i := 0
-		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+		require.NoError(t, stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
 			if err != nil {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
-			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
-			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
-			require.Equal(t, expectedInfos[i].Description, repo.Description)
+			require.Equal(t, expectedInfos[i].Repo.Name, repoPair.RepoInfo.Repo.Name)
+			require.Equal(t, expectedInfos[i].Repo.Type, repoPair.RepoInfo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repoPair.RepoInfo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repoPair.RepoInfo.Description)
 			i++
 			return nil
 		}))
@@ -227,14 +227,14 @@ func TestListReposByIdxName(t *testing.T) {
 		iter, err := pfsdb.ListRepoByIdxName(cbCtx, tx, testRepoName)
 		require.NoError(t, err, "should be able to list repos")
 		i := 0
-		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+		require.NoError(t, stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
 			if err != nil {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
-			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
-			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
-			require.Equal(t, expectedInfos[i].Description, repo.Description)
+			require.Equal(t, expectedInfos[i].Repo.Name, repoPair.RepoInfo.Repo.Name)
+			require.Equal(t, expectedInfos[i].Repo.Type, repoPair.RepoInfo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repoPair.RepoInfo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repoPair.RepoInfo.Description)
 			i++
 			return nil
 		}))

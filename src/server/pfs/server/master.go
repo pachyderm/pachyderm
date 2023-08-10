@@ -134,25 +134,14 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}
-				rowID := pfsdb.RepoID(0)
-				var repoInfo *pfs.RepoInfo
-				for {
-					if err := iter.NextWithID(ctx, &rowID, &repoInfo); err != nil {
-						if stream.IsEOS(err) {
-							break
-						}
-						return errors.Wrap(err, "listing repo by ID")
-					}
-					if rowID == 0 {
-						return errors.New("repo id should not be 0")
-					}
+				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
 					event := &postgres.Event{
-						Id:        uint64(rowID),
+						Id:        uint64(repoPair.ID),
 						EventType: postgres.EventInsert,
 					}
 					existingRepos = append(existingRepos, event)
-				}
-				return nil
+					return nil
+				}), "for each repo")
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "list repos")
 			}

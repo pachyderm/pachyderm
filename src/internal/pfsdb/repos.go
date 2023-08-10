@@ -85,6 +85,12 @@ func IsDuplicateKeyErr(err error) bool {
 	return targetErr.Code == "23505" // duplicate key SQLSTATE
 }
 
+// RepoPair is an (id, repoInfo) tuple returned by the repo iterator.
+type RepoPair struct {
+	ID       RepoID
+	RepoInfo *pfs.RepoInfo
+}
+
 // RepoIterator batches a page of repoRow entries. Entries can be retrieved using iter.Next().
 type RepoIterator struct {
 	limit    int
@@ -110,8 +116,8 @@ type repoRow struct {
 	Branches string `db:"branches"`
 }
 
-// NextWithID is like Next, but populates the 'id' and 'dst' parameters each iteration where 'id' is a pointer to the row ID and dst is the repoInfo.
-func (iter *RepoIterator) NextWithID(ctx context.Context, id *RepoID, dst **pfs.RepoInfo) error {
+// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
+func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
 	if dst == nil {
 		return errors.Wrap(fmt.Errorf("repo is nil"), "get next repo")
 	}
@@ -128,20 +134,16 @@ func (iter *RepoIterator) NextWithID(ctx context.Context, id *RepoID, dst **pfs.
 		}
 	}
 	row := iter.repos[iter.index]
-	*dst, err = getRepoFromRepoRow(&row)
-	if id != nil {
-		*id = row.ID
-	}
+	repo, err := getRepoFromRepoRow(&row)
 	if err != nil {
 		return errors.Wrap(err, "getting repoInfo from repo row")
 	}
+	*dst = RepoPair{
+		RepoInfo: repo,
+		ID:       row.ID,
+	}
 	iter.index++
 	return nil
-}
-
-// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
-func (iter *RepoIterator) Next(ctx context.Context, dst **pfs.RepoInfo) error {
-	return iter.NextWithID(ctx, nil, dst)
 }
 
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
@@ -204,7 +206,7 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 		repo.Repo.Project = &pfs.Project{Name: "default"}
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
-		"VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects where name=$3), $4);",
+		"VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects WHERE name=$3), $4);",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description)
 	if err != nil && IsDuplicateKeyErr(err) { // a duplicate key implies that an entry for the repo already exists.
 		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name}
