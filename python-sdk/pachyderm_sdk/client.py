@@ -247,15 +247,6 @@ class Client:
             transaction_id=active_context.active_transaction,
         )
 
-        # Verify the deployment ID of the active context with the cluster.
-        expected_deployment_id = active_context.cluster_deployment_id
-        if expected_deployment_id:
-            cluster_info = client.admin.inspect_cluster()
-            if cluster_info.deployment_id != expected_deployment_id:
-                raise BadClusterDeploymentID(
-                    expected_deployment_id, cluster_info.deployment_id
-                )
-
         return client
 
     @property
