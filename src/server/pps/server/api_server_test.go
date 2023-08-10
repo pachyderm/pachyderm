@@ -536,7 +536,7 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
 	d.UseNumber()
 	if err := d.Decode(&spec); err != nil {
-		t.Errorf("could not decode effectuve spec %s: %v", r.EffectiveSpecJson, err)
+		t.Errorf("could not decode effective spec %s: %v", r.EffectiveSpecJson, err)
 	}
 	if spec["salt"] != "mysalt" {
 		t.Error("salt should be set in the effective spec")
