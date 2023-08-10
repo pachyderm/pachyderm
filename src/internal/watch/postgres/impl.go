@@ -20,8 +20,6 @@ const (
 	EventUpdate
 	// EventDelete happens when an item is removed
 	EventDelete
-	// EventError happens when an error occurred
-	EventError
 )
 
 const (
@@ -29,9 +27,9 @@ const (
 )
 
 type Event struct {
-	Id        uint64
+	Id        pachsql.ID
 	EventType EventType
-	Error     error
+	Err       error
 }
 
 // New version of postgresWatcher
@@ -101,7 +99,7 @@ func (w *watcher) Notify(m *pq.Notification) {
 }
 
 func (w *watcher) Error(err error) {
-	w.send(&Event{Error: err})
+	w.send(&Event{Err: err})
 }
 
 // Send the given event to the watcher, but abort the watcher if the send would
@@ -113,7 +111,7 @@ func (w *watcher) send(event *Event) {
 	default:
 		go func() {
 			w.listener.Unregister(w) //nolint:errcheck
-			w.events <- &Event{EventType: EventError, Error: errors.Errorf("failed to send event, watcher %s is blocked", w.id)}
+			w.events <- &Event{Err: errors.Errorf("failed to send event, watcher %s is blocked", w.id)}
 		}()
 	}
 }
@@ -122,7 +120,7 @@ func parseNotification(payload string) Event {
 	parts := strings.Split(payload, " ")
 	// The payload is a string that consists of: "<TG_OP> <id>"
 	if len(parts) != 2 {
-		return Event{Error: errors.Errorf("failed to parse notification payload '%s', wrong number of parts: %d", payload, len(parts))}
+		return Event{Err: errors.Errorf("failed to parse notification payload '%s', wrong number of parts: %d", payload, len(parts))}
 	}
 	event := Event{}
 	switch parts[0] {
@@ -133,12 +131,12 @@ func parseNotification(payload string) Event {
 	case "DELETE":
 		event.EventType = EventDelete
 	default:
-		return Event{Error: errors.Errorf("failed to parse notification payload '%s', unknown TG_OP: %s", payload, parts[0])}
+		return Event{Err: errors.Errorf("failed to parse notification payload '%s', unknown TG_OP: %s", payload, parts[0])}
 	}
 	id, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return Event{Error: errors.Wrap(err, "failed to parse notification payload's id")}
+		return Event{Err: errors.Wrap(err, "failed to parse notification payload's id")}
 	}
-	event.Id = uint64(id)
+	event.Id = pachsql.ID(id)
 	return event
 }

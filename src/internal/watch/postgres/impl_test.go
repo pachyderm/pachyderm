@@ -70,7 +70,5 @@ func TestWatchRepos(t *testing.T) {
 
 	events = newWatcher.Watch()
 	event := <-events
-	require.Equal(t, postgresWatcher.EventError, event.EventType)
-	require.ErrorContains(t, event.Error, fmt.Sprintf("failed to send event, watcher %s is blocked", t.Name()))
-	newWatcher.Close()
+	require.ErrorContains(t, event.Err, fmt.Sprintf("failed to send event, watcher %s is blocked", t.Name()))
 }
