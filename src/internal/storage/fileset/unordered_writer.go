@@ -21,8 +21,8 @@ type UnorderedWriter struct {
 	buffer                     *Buffer
 	ttl                        time.Duration
 	renewer                    *Renewer
-	ids                        []ID
-	getParentID                func() (*ID, error)
+	hs                         []Handle
+	getParentID                func() (*Handle, error)
 	validator                  func(string) error
 	maxFanIn                   int
 }
@@ -121,13 +121,13 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	if err := cb(w); err != nil {
 		return err
 	}
-	id, err := w.Close()
+	h, err := w.Close()
 	if err != nil {
 		return err
 	}
-	uw.ids = append(uw.ids, *id)
+	uw.hs = append(uw.hs, *h)
 	if uw.renewer != nil {
-		if err := uw.renewer.Add(uw.ctx, *id); err != nil {
+		if err := uw.renewer.Add(uw.ctx, *h); err != nil {
 			return err
 		}
 	}
@@ -148,15 +148,15 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
 		uw.buffer.Delete(p, datum)
-		var ids []ID
+		var hs []Handle
 		if uw.getParentID != nil {
 			parentID, err := uw.getParentID()
 			if err != nil {
 				return err
 			}
-			ids = []ID{*parentID}
+			hs = []Handle{*parentID}
 		}
-		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...))
+		fs, err := uw.storage.Open(uw.ctx, append(hs, uw.hs...))
 		if err != nil {
 			return err
 		}
@@ -187,24 +187,22 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 	}, opts...)
 }
 
-func (uw *UnorderedWriter) AddFileSet(ctx context.Context, id ID) error {
+func (uw *UnorderedWriter) AddFileSet(ctx context.Context, h Handle) error {
 	if err := uw.serialize(ctx); err != nil {
 		return err
 	}
-	uw.ids = append(uw.ids, id)
+	uw.hs = append(uw.hs, h)
 	if uw.renewer != nil {
-		return uw.renewer.Add(uw.ctx, id)
+		return uw.renewer.Add(uw.ctx, h)
 	}
 	return nil
 }
 
 // Close closes the writer.
-func (uw *UnorderedWriter) Close(ctx context.Context) (*ID, error) {
+func (uw *UnorderedWriter) Close(ctx context.Context) (*Handle, error) {
 	defer uw.storage.filesetSem.Release(1)
 	if err := uw.serialize(ctx); err != nil {
 		return nil, err
 	}
-	return uw.storage.newComposite(uw.ctx, &Composite{
-		Layers: idsToHex(uw.ids),
-	}, uw.ttl)
+	return uw.storage.Compose(ctx, uw.hs, uw.ttl)
 }

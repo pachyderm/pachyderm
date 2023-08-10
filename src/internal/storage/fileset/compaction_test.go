@@ -38,26 +38,26 @@ func TestIsCompacted(t *testing.T) {
 			SizeBytes: 1000 * units.KB,
 		},
 	}
-	id1, err := s.newPrimitive(ctx, prim1, track.NoTTL)
+	h1, err := s.newPrimitive(ctx, prim1, track.NoTTL)
 	require.NoError(t, err)
-	id2, err := s.newPrimitive(ctx, prim2, track.NoTTL)
+	h2, err := s.newPrimitive(ctx, prim2, track.NoTTL)
 	require.NoError(t, err)
-	id3, err := s.newPrimitive(ctx, prim3, track.NoTTL)
+	h3, err := s.newPrimitive(ctx, prim3, track.NoTTL)
 	require.NoError(t, err)
 	// Basic failure case
-	id, err := s.Compose(ctx, []ID{*id1, *id2}, track.NoTTL)
+	id, err := s.Compose(ctx, []Handle{*h1, *h2}, track.NoTTL)
 	require.NoError(t, err)
 	isCompacted, err := s.IsCompacted(ctx, *id)
 	require.NoError(t, err)
 	require.False(t, isCompacted)
 	// Basic success case
-	id, err = s.Compose(ctx, []ID{*id2, *id1}, track.NoTTL)
+	h, err := s.Compose(ctx, []Handle{*h2, *h1}, track.NoTTL)
 	require.NoError(t, err)
 	isCompacted, err = s.IsCompacted(ctx, *id)
 	require.NoError(t, err)
 	require.True(t, isCompacted)
 	// Success case with composites
-	complexId, err := s.Compose(ctx, []ID{*id3, *id}, track.NoTTL)
+	complexId, err := s.Compose(ctx, []Handle{*h3, *h}, track.NoTTL)
 	require.NoError(t, err)
 	isCompacted, err = s.IsCompacted(ctx, *complexId)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 	}
 	// Create file sets in runs of maxFanIn to ensure compactions occur at each step.
 	var totalScore int64
-	var ids []ID
+	var hs []Handle
 	for i := 0; i < numFileSets/maxFanIn; i++ {
 		stepBase := stepBases[rand.Intn(len(stepBases))]
 		for j := 0; j < maxFanIn; j++ {
@@ -90,21 +90,21 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 				},
 			}
 			totalScore += compactionScore(prim)
-			id, err := s.newPrimitive(ctx, prim, track.NoTTL)
+			h, err := s.newPrimitive(ctx, prim, track.NoTTL)
 			require.NoError(t, err)
-			ids = append(ids, *id)
+			hs = append(hs, *h)
 		}
 	}
 	// Simulate compaction by accumulating the number of files and byte size.
 	var count int
-	compact := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-		if len(ids) > maxFanIn {
-			return nil, errors.Errorf("number of file sets being compacted (%v) greater than max fan-in (%v)", len(ids), maxFanIn)
+	compact := func(ctx context.Context, hs []Handle, ttl time.Duration) (*Handle, error) {
+		if len(hs) > maxFanIn {
+			return nil, errors.Errorf("number of file sets being compacted (%v) greater than max fan-in (%v)", len(hs), maxFanIn)
 		}
 		count++
 		additive, deletive := &index.Index{}, &index.Index{}
-		for _, id := range ids {
-			prim, err := s.getPrimitive(ctx, id)
+		for _, h := range hs {
+			prim, err := s.getPrimitive(ctx, h.id)
 			if err != nil {
 				return nil, err
 			}
@@ -117,10 +117,10 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 			Deletive: deletive,
 		}, ttl)
 	}
-	id, err := s.CompactLevelBased(ctx, ids, maxFanIn, time.Minute, compact)
+	h, err := s.CompactLevelBased(ctx, hs, maxFanIn, time.Minute, compact)
 	require.NoError(t, err)
 	// Check the compaction score of the final file set to ensure no file sets were lost.
-	prims, err := s.flattenPrimitives(ctx, []ID{*id})
+	prims, err := s.flattenPrimitives(ctx, []Handle{*h})
 	require.NoError(t, err)
 	var checkScore int64
 	for _, prim := range prims {
@@ -153,24 +153,24 @@ func TestCompactLevelBasedRenewal(t *testing.T) {
 	var id *ID
 	eg.Go(func() error {
 		defer cancel()
-		var ids []ID
+		var hs []Handle
 		for i := 0; i < numFileSets; i++ {
 			prim := &Primitive{
 				Additive: &index.Index{
 					NumFiles: 1,
 				},
 			}
-			id, err := s.newPrimitive(ctx, prim, track.NoTTL)
+			h, err := s.newPrimitive(ctx, prim, track.NoTTL)
 			if err != nil {
 				return err
 			}
-			ids = append(ids, *id)
+			hs = append(hs, *h)
 		}
-		compact := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+		compact := func(ctx context.Context, hs []Handle, ttl time.Duration) (*Handle, error) {
 			time.Sleep(3 * ttl)
 			additive := &index.Index{}
-			for _, id := range ids {
-				prim, err := s.getPrimitive(ctx, id)
+			for _, h := range hs {
+				prim, err := s.getPrimitive(ctx, h.id)
 				if err != nil {
 					return nil, err
 				}

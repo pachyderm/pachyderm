@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -17,63 +18,33 @@ var errNoTotalFileSet = errors.Errorf("no total fileset")
 
 const commitTrackerPrefix = "commit/"
 
-type commitStore interface {
-	// AddFileSet appends a fileset to the diff.
-	AddFileSet(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
-	// AddFileSetTx is identical to AddFileSet except it runs in the provided transaction.
-	AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, filesetID fileset.ID) error
-	// SetTotalFileSet sets the total file set for the commit, overwriting whatever is there.
-	SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
-	// SetTotalFileSetTx is like SetTotalFileSet, but in a transaction
-	SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error
-	// SetDiffFileSet sets the diff file set for the commit, overwriting whatever is there.
-	SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
-	// SetDiffFileSetTx is like SetDiffFileSet, but in a transaction
-	SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error
-	// GetTotalFileSet returns the total file set for a commit.
-	GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
-	// GetTotalFileSetTx is like GetTotalFileSet, but in a transaction
-	GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error)
-	// GetDiffFileSet returns the diff file set for a commit
-	GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
-	// DropFileSets clears the diff and total file sets for the commit.
-	DropFileSets(ctx context.Context, commit *pfs.Commit) error
-	// DropFileSetsTx is identical to DropFileSets except it runs in the provided transaction.
-	DropFileSetsTx(tx *pachsql.Tx, commit *pfs.Commit) error
-}
-
-var _ commitStore = &postgresCommitStore{}
-
-// TODO: add deleter for the commitStore and stop making permanent filesets, keep the filesets
-// around, by referencing them with commit-fileset objects.
-type postgresCommitStore struct {
+type commitStore struct {
 	db *pachsql.DB
 	s  *fileset.Storage
 	tr track.Tracker
 }
 
-func newPostgresCommitStore(db *pachsql.DB, tr track.Tracker, s *fileset.Storage) *postgresCommitStore {
-	return &postgresCommitStore{
+func newCommitStore(db *pachsql.DB, tr track.Tracker, s *fileset.Storage) *commitStore {
+	return &commitStore{
 		db: db,
 		s:  s,
 		tr: tr,
 	}
 }
 
-func (cs *postgresCommitStore) AddFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
+func (cs *commitStore) AddFileSet(ctx context.Context, commit *pfs.Commit, h fileset.Handle) error {
 	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
-		return cs.AddFileSetTx(tx, commit, id)
+		return cs.AddFileSetTx(tx, commit, h)
 	})
 }
 
-func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error {
-	id2, err := cs.s.CloneTx(tx, id, defaultTTL)
+func (cs *commitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, h fileset.Handle) error {
+	id, err := cs.s.Import(tx, h)
 	if err != nil {
 		return err
 	}
-	id = *id2
 
-	oid := commitDiffTrackerID(commit, id)
+	oid := commitDiffTrackerID(commit, *id)
 	pointsTo := []string{id.TrackerID()}
 	if _, err := tx.Exec(
 		`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
@@ -89,19 +60,19 @@ func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, 
 	return errors.EnsureStack(cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL))
 }
 
-func (cs *postgresCommitStore) GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
-	var id *fileset.ID
+func (cs *commitStore) GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.Handle, error) {
+	var h *fileset.Handle
 	if err := dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
-		id, err = cs.GetTotalFileSetTx(tx, commit)
+		h, err = cs.GetTotalFileSetTx(tx, commit)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return id, nil
+	return h, nil
 }
 
-func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error) {
+func (cs *commitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.Handle, error) {
 	id, err := getTotal(tx, commit)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -109,64 +80,72 @@ func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 	if id == nil {
 		return nil, errNoTotalFileSet
 	}
-	return cs.s.CloneTx(tx, *id, defaultTTL)
+	return cs.s.Export(tx, *id, defaultTTL)
 }
 
-func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
-	var ids []fileset.ID
+func (cs *commitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.Handle, error) {
+	var h *fileset.Handle
 	if err := dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
-		var err error
-		ids, err = getDiff(tx, commit)
+		ids, err := getDiff(tx, commit)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
-		return nil
+		h, err = cs.s.ExportCompose(tx, ids, defaultTTL)
+		return err
 	}); err != nil {
 		return nil, err
 	}
-	return cs.s.Compose(ctx, ids, defaultTTL)
+	return h, nil
 }
 
-func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
+func (cs *commitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.Handle) error {
 	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.SetTotalFileSetTx(tx, commit, id)
 	})
 }
 
-func (cs *postgresCommitStore) SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error {
+func (cs *commitStore) SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, h fileset.Handle) error {
 	if err := dropTotal(tx, cs.tr, commit); err != nil {
 		return err
 	}
-	return setTotal(tx, cs.tr, commit, id)
+	id, err := cs.s.Import(tx, h)
+	if err != nil {
+		return err
+	}
+	return setTotal(tx, cs.tr, commit, *id)
 }
 
-func (cs *postgresCommitStore) SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
+func (cs *commitStore) SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.Handle) error {
 	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.SetDiffFileSetTx(tx, commit, id)
 	})
 }
 
-func (cs *postgresCommitStore) SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error {
+func (cs *commitStore) SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, h fileset.Handle) error {
 	if err := cs.dropDiff(tx, commit); err != nil {
 		return err
 	}
-	return setDiff(tx, cs.tr, commit, id)
+	id, err := cs.s.Import(tx, h)
+	if err != nil {
+		return err
+	}
+	return setDiff(tx, cs.tr, commit, *id)
 }
 
-func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Commit) error {
+func (cs *commitStore) DropFileSets(ctx context.Context, commit *pfs.Commit) error {
 	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.DropFileSetsTx(tx, commit)
 	})
 }
 
-func (cs *postgresCommitStore) DropFileSetsTx(tx *pachsql.Tx, commit *pfs.Commit) error {
+func (cs *commitStore) DropFileSetsTx(tx *pachsql.Tx, commit *pfs.Commit) error {
 	if err := dropTotal(tx, cs.tr, commit); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return cs.dropDiff(tx, commit)
 }
 
-func (cs *postgresCommitStore) dropDiff(tx *pachsql.Tx, commit *pfs.Commit) error {
+func (cs *commitStore) dropDiff(tx *pachsql.Tx, commit *pfs.Commit) error {
 	diffIDs, err := getDiff(tx, commit)
 	if err != nil {
 		return err
@@ -250,9 +229,16 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID
 }
 
 func commitDiffTrackerID(commit *pfs.Commit, fs fileset.ID) string {
-	return commitTrackerPrefix + pfsdb.CommitKey(commit) + "/diff/" + fs.HexString()
+	return commitTrackerPrefix + pfsdb.CommitKey(commit) + "/diff/" + trimPrefix(fs.TrackerID(), fileset.TrackerPrefix)
 }
 
 func commitTotalTrackerID(commit *pfs.Commit, fs fileset.ID) string {
-	return commitTrackerPrefix + pfsdb.CommitKey(commit) + "/total/" + fs.HexString()
+	return commitTrackerPrefix + pfsdb.CommitKey(commit) + "/total/" + trimPrefix(fs.TrackerID(), fileset.TrackerPrefix)
+}
+
+func trimPrefix(x, prefix string) string {
+	if !strings.HasPrefix(x, prefix) {
+		panic(x)
+	}
+	return strings.TrimPrefix(x, prefix)
 }

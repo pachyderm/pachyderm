@@ -722,11 +722,11 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 }
 
 func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error) {
-	fsid, err := fileset.ParseID(req.FileSetId)
+	h, err := fileset.ParseHandle(req.FileSetId)
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.driver.shardFileSet(ctx, *fsid)
+	shards, err := a.driver.shardFileSet(ctx, *h)
 	if err != nil {
 		return nil, err
 	}
@@ -745,7 +745,7 @@ func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) 
 }
 
 func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
-	fsid, err := fileset.ParseID(request.FileSetId)
+	fsid, err := fileset.ParseHandle(request.FileSetId)
 	if err != nil {
 		return err
 	}
@@ -757,7 +757,7 @@ func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContex
 
 // RenewFileSet implements the pfs.RenewFileSet RPC
 func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (_ *emptypb.Empty, retErr error) {
-	fsid, err := fileset.ParseID(req.FileSetId)
+	fsid, err := fileset.ParseHandle(req.FileSetId)
 	if err != nil {
 		return nil, err
 	}
@@ -769,15 +769,11 @@ func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetReque
 
 // ComposeFileSet implements the pfs.ComposeFileSet RPC
 func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	var fsids []fileset.ID
-	for _, id := range req.FileSetIds {
-		fsid, err := fileset.ParseID(id)
-		if err != nil {
-			return nil, err
-		}
-		fsids = append(fsids, *fsid)
+	hs, err := fileset.ParseHandles(req.FileSetIds)
+	if err != nil {
+		return nil, err
 	}
-	filesetID, err := a.driver.composeFileSet(ctx, fsids, time.Duration(req.TtlSeconds)*time.Second, req.Compact)
+	filesetID, err := a.driver.composeFileSet(ctx, hs, time.Duration(req.TtlSeconds)*time.Second, req.Compact)
 	if err != nil {
 		return nil, err
 	}
@@ -798,15 +794,11 @@ func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageReque
 }
 
 func (a *apiServer) PutCache(ctx context.Context, req *pfs.PutCacheRequest) (resp *emptypb.Empty, retErr error) {
-	var fsids []fileset.ID
-	for _, id := range req.FileSetIds {
-		fsid, err := fileset.ParseID(id)
-		if err != nil {
-			return nil, err
-		}
-		fsids = append(fsids, *fsid)
+	hs, err := fileset.ParseHandles(req.FileSetIds)
+	if err != nil {
+		return nil, err
 	}
-	if err := a.driver.putCache(ctx, req.Key, req.Value, fsids, req.Tag); err != nil {
+	if err := a.driver.putCache(ctx, req.Key, req.Value, hs, req.Tag); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

@@ -52,13 +52,13 @@ func NewCache(db *pachsql.DB, tracker track.Tracker, maxSize int) *Cache {
 	}
 }
 
-func (c *Cache) Put(ctx context.Context, key string, value *anypb.Any, ids []ID, tag string) error {
+func (c *Cache) Put(ctx context.Context, key string, value *anypb.Any, hs []Handle, tag string) error {
 	data, err := proto.Marshal(value)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	return dbutil.WithTx(ctx, c.db, func(ctx context.Context, tx *pachsql.Tx) error {
-		if err := c.put(tx, key, data, ids, tag); err != nil {
+		if err := c.put(tx, key, data, idsFromHandles(hs), tag); err != nil {
 			return err
 		}
 		return c.applyEvictionPolicy(tx)

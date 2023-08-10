@@ -83,7 +83,7 @@ type driver struct {
 	branches col.PostgresCollection
 
 	storage     *storage.Server
-	commitStore commitStore
+	commitStore *commitStore
 
 	cache *fileset.Cache
 }
@@ -117,7 +117,7 @@ func newDriver(env Env) (*driver, error) {
 		return nil, err
 	}
 	d.storage = storageSrv
-	d.commitStore = newPostgresCommitStore(env.DB, storageSrv.Tracker, storageSrv.Filesets)
+	d.commitStore = newCommitStore(env.DB, storageSrv.Tracker, storageSrv.Filesets)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, storageSrv.Tracker, 10000)
 	return d, nil
@@ -732,11 +732,11 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 }
 
 func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
-	diffID, err := d.getCompactedDiffFileSet(ctx, commit)
+	diffH, err := d.getCompactedDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
 	}
-	diffFileSet, err := d.storage.Filesets.Open(ctx, []fileset.ID{*diffID})
+	diffFileSet, err := d.storage.Filesets.Open(ctx, []fileset.Handle{*diffH})
 	if err != nil {
 		return false, err
 	}
@@ -771,7 +771,7 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 	return found, nil
 }
 
-func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.Handle, error) {
 	diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -2134,8 +2134,8 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *
 	return commit, nil
 }
 
-func (d *driver) putCache(ctx context.Context, key string, value *anypb.Any, fileSetIds []fileset.ID, tag string) error {
-	return d.cache.Put(ctx, key, value, fileSetIds, tag)
+func (d *driver) putCache(ctx context.Context, key string, value *anypb.Any, hs []fileset.Handle, tag string) error {
+	return d.cache.Put(ctx, key, value, hs, tag)
 }
 
 func (d *driver) getCache(ctx context.Context, key string) (*anypb.Any, error) {

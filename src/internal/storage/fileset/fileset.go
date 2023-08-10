@@ -47,6 +47,10 @@ import (
 )
 
 // ID is the unique identifier for a fileset
+// ID's should never be sent over the wire. Do not add serialization or HexString methods to this type.
+// IDs are used by PFS and PJS to pin Filesets, and relate them to other objects in the system.
+//
+// TODO: change this to a pachhash
 type ID [16]byte
 
 func newID() ID {
@@ -57,23 +61,17 @@ func newID() ID {
 	return id
 }
 
-// ParseID parses a string into an ID or returns an error
-func ParseID(x string) (*ID, error) {
-	id, err := parseID([]byte(x))
-	if err != nil {
-		return nil, err
-	}
-	return &id, nil
-}
-
-// HexString returns the ID encoded with the hex alphabet.
-func (id ID) HexString() string {
-	return hex.EncodeToString(id[:])
+func parseID(x string) (ID, error) {
+	return parse16byte([]byte(x))
 }
 
 // TrackerID returns the tracker ID for the fileset.
 func (id ID) TrackerID() string {
-	return TrackerPrefix + id.HexString()
+	return TrackerPrefix + id.hexString()
+}
+
+func (id ID) hexString() string {
+	return hex.EncodeToString(id[:])
 }
 
 // Scan implements sql.Scanner
@@ -81,9 +79,9 @@ func (id *ID) Scan(src interface{}) error {
 	var err error
 	switch x := src.(type) {
 	case []byte:
-		*id, err = parseID(x)
+		*id, err = parse16byte(x)
 	case string:
-		*id, err = parseID([]byte(x))
+		*id, err = parse16byte([]byte(x))
 	default:
 		return errors.Errorf("scanning fileset.ID: can't turn %T into fileset.ID", src)
 	}
@@ -92,10 +90,52 @@ func (id *ID) Scan(src interface{}) error {
 
 // Value implements sql.Valuer
 func (id ID) Value() (driver.Value, error) {
-	return id.HexString(), nil
+	return id.hexString(), nil
 }
 
-func parseID(x []byte) (ID, error) {
+// Handles are given out through the API to access Filesets.
+type Handle struct {
+	id ID
+}
+
+// ParseID parses a string into an ID or returns an error
+func ParseHandle(x string) (*Handle, error) {
+	id, err := parse16byte([]byte(x))
+	if err != nil {
+		return nil, err
+	}
+	return &Handle{id: id}, nil
+}
+
+func (h Handle) HexString() string {
+	return hex.EncodeToString(h.id[:])
+}
+
+func (h Handle) String() string {
+	return h.HexString()
+}
+
+// ParseID parses a string into an ID or returns an error
+func ParseHandles(xs []string) (ret []Handle, _ error) {
+	for _, x := range xs {
+		h, err := ParseHandle(x)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, *h)
+	}
+	return ret, nil
+}
+
+func HandlessToHexStrings(hs []Handle) []string {
+	var xs []string
+	for _, h := range hs {
+		xs = append(xs, h.String())
+	}
+	return xs
+}
+
+func parse16byte(x []byte) ([16]byte, error) {
 	x = bytes.Replace(x, []byte{'-'}, []byte{}, -1)
 	id := ID{}
 	if len(x) < 32 {
@@ -111,26 +151,6 @@ func parseID(x []byte) (ID, error) {
 	return id, nil
 }
 
-func HexStringsToIDs(xs []string) ([]ID, error) {
-	ids := []ID{}
-	for _, x := range xs {
-		id, err := ParseID(x)
-		if err != nil {
-			return nil, err
-		}
-		ids = append(ids, *id)
-	}
-	return ids, nil
-}
-
-func IDsToHexStrings(ids []ID) []string {
-	var xs []string
-	for _, id := range ids {
-		xs = append(xs, id.HexString())
-	}
-	return xs
-}
-
 // PointsTo returns a slice of the chunk.IDs which this fileset immediately points to.
 // Transitively reachable chunks are not included in the slice.
 func (p *Primitive) PointsTo() []chunk.ID {
@@ -144,11 +164,11 @@ func (p *Primitive) PointsTo() []chunk.ID {
 func (c *Composite) PointsTo() ([]ID, error) {
 	ids := make([]ID, len(c.Layers))
 	for i := range c.Layers {
-		id, err := ParseID(c.Layers[i])
+		id, err := parse16byte([]byte(c.Layers[i]))
 		if err != nil {
 			return nil, err
 		}
-		ids[i] = *id
+		ids[i] = id
 	}
 	return ids, nil
 }
@@ -193,10 +213,16 @@ func (efs emptyFileSet) Shards(_ context.Context, _ ...index.Option) ([]*index.P
 	return []*index.PathRange{{}}, nil
 }
 
-func idsToHex(xs []ID) []string {
-	ys := make([]string, len(xs))
+func idsFromHandles(hs []Handle) []ID {
+	return mapSlice(hs, func(h Handle) ID {
+		return h.id
+	})
+}
+
+func mapSlice[X, Y any](xs []X, fn func(X) Y) []Y {
+	ys := make([]Y, len(xs))
 	for i := range xs {
-		ys[i] = xs[i].HexString()
+		ys[i] = fn(xs[i])
 	}
 	return ys
 }

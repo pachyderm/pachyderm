@@ -36,7 +36,7 @@ type testFile struct {
 	data  []byte
 }
 
-func writeFileSet(ctx context.Context, t *testing.T, s *Storage, files []*testFile) ID {
+func writeFileSet(ctx context.Context, t *testing.T, s *Storage, files []*testFile) Handle {
 	w := s.NewWriter(ctx)
 	for _, file := range files {
 		require.NoError(t, w.Add(file.path, file.datum, bytes.NewReader(file.data)))
@@ -88,10 +88,10 @@ func TestWriteThenRead(t *testing.T) {
 	}
 
 	// Write the files to the fileset.
-	id := writeFileSet(ctx, t, storage, files)
+	h := writeFileSet(ctx, t, storage, files)
 
 	// Read the files from the fileset, checking against the recorded files.
-	fs, err := storage.Open(ctx, []ID{id})
+	fs, err := storage.Open(ctx, []Handle{h})
 	require.NoError(t, err)
 	fileIter := files
 	err = fs.Iterate(ctx, func(f File) error {
@@ -131,7 +131,7 @@ func TestWriteThenReadFuzz(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		// Write the files to the fileset.
 		id := writeFileSet(ctx, t, storage, files)
-		r, err := storage.Open(ctx, []ID{id})
+		r, err := storage.Open(ctx, []Handle{id})
 		require.NoError(t, err)
 		filesIter := files
 		require.NoError(t, r.Iterate(ctx, func(f File) error {
@@ -176,14 +176,14 @@ func TestCopy(t *testing.T) {
 
 	initialChunkCount := countChunks(t, fileSets)
 	// Copy intial fileset to a new copy fileset.
-	r := fileSets.newReader(originalID)
+	r := fileSets.newReader(originalID.id)
 	wCopy := fileSets.newWriter(context.Background())
 	require.NoError(t, CopyFiles(ctx, wCopy, r))
 	copyID, err := wCopy.Close()
 	require.NoError(t, err)
 
 	// Compare initial fileset and copy fileset.
-	rCopy := fileSets.newReader(*copyID)
+	rCopy := fileSets.newReader(copyID.id)
 	require.NoError(t, rCopy.Iterate(ctx, func(f File) error {
 		checkFile(ctx, t, f, files[0])
 		files = files[1:]
@@ -290,24 +290,24 @@ func oldRandomBytes(random *rand.Rand, n int) []byte {
 
 func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, msg string, compact bool) {
 	storage := newTestStorage(ctx, t)
-	var ids []ID
+	var hs []Handle
 	write := func(data []byte) {
 		w := storage.NewWriter(ctx)
 		require.NoError(t, w.Add("test", DefaultFileDatum, bytes.NewReader(data)), msg)
-		id, err := w.Close()
+		h, err := w.Close()
 		require.NoError(t, err, msg)
-		ids = append(ids, *id)
+		hs = append(hs, *h)
 	}
 	getHash := func() []byte {
 		if compact {
-			compactFunc := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-				return storage.Compact(ctx, ids, ttl)
+			compactFunc := func(ctx context.Context, hs []Handle, ttl time.Duration) (*Handle, error) {
+				return storage.Compact(ctx, hs, ttl)
 			}
-			id, err := storage.CompactLevelBased(ctx, ids, 10, time.Minute, compactFunc)
+			h, err := storage.CompactLevelBased(ctx, hs, 10, time.Minute, compactFunc)
 			require.NoError(t, err)
-			ids = []ID{*id}
+			hs = []Handle{*h}
 		}
-		fs, err := storage.Open(ctx, ids)
+		fs, err := storage.Open(ctx, hs)
 		require.NoError(t, err, msg)
 		var found bool
 		var hash []byte
@@ -333,21 +333,21 @@ func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, ms
 		require.True(t, bytes.Equal(expected, stableHash))
 	}
 	// Compute hash after writing to two writers.
-	ids = nil
+	hs = nil
 	size := len(data) / 2
 	for offset := 0; offset < len(data); offset += size {
 		write(data[offset : offset+size])
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
 	// Compute hash after writing to ten writers.
-	ids = nil
+	hs = nil
 	size = len(data) / 10
 	for offset := 0; offset < len(data); offset += size {
 		write(data[offset : offset+size])
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
 	// Compute hash after writing to one hundred writers.
-	ids = nil
+	hs = nil
 	size = len(data) / 100
 	for offset := 0; offset < len(data); offset += size {
 		write(data[offset : offset+size])

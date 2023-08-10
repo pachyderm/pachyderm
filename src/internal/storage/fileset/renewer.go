@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 )
 
-// Renewer renews file sets by ID
+// Renewer renews file sets by Handle
 // It is a renew.StringSet wrapped for type safety
 type Renewer struct {
 	r *renew.StringSet
@@ -15,35 +15,35 @@ type Renewer struct {
 
 func newRenewer(ctx context.Context, storage *Storage, ttl time.Duration) *Renewer {
 	rf := func(ctx context.Context, id string, ttl time.Duration) error {
-		fsid, err := ParseID(id)
+		h, err := ParseHandle(id)
 		if err != nil {
 			return err
 		}
-		_, err = storage.SetTTL(ctx, *fsid, ttl)
+		_, err = storage.SetTTL(ctx, *h, ttl)
 		return err
 	}
-	cf := func(ctx context.Context, ids []string, ttl time.Duration) (string, error) {
-		var fsids []ID
-		for _, id := range ids {
-			fsid, err := ParseID(id)
+	cf := func(ctx context.Context, hStrs []string, ttl time.Duration) (string, error) {
+		var hs []Handle
+		for _, hStr := range hStrs {
+			h, err := ParseHandle(hStr)
 			if err != nil {
 				return "", err
 			}
-			fsids = append(fsids, *fsid)
+			hs = append(hs, *h)
 		}
-		fsid, err := storage.Compose(ctx, fsids, ttl)
+		h, err := storage.Compose(ctx, hs, ttl)
 		if err != nil {
 			return "", err
 		}
-		return fsid.HexString(), nil
+		return h.String(), nil
 	}
 	return &Renewer{
 		r: renew.NewStringSet(ctx, ttl, rf, cf),
 	}
 }
 
-func (r *Renewer) Add(ctx context.Context, id ID) error {
-	return r.r.Add(ctx, id.HexString())
+func (r *Renewer) Add(ctx context.Context, h Handle) error {
+	return r.r.Add(ctx, h.String())
 }
 
 func (r *Renewer) Context() context.Context {
