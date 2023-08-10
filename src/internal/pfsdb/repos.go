@@ -76,7 +76,7 @@ func (err ErrRepoAlreadyExists) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, err.Error())
 }
 
-func IsErrRepoAlreadyExists(err error) bool {
+func IsDuplicateKeyErr(err error) bool {
 	targetErr := &pgconn.PgError{}
 	ok := errors.As(err, targetErr)
 	if !ok {
@@ -206,7 +206,7 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
 		"VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects where name=$3), $4);",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description)
-	if err != nil && IsErrRepoAlreadyExists(err) {
+	if err != nil && IsDuplicateKeyErr(err) { // a duplicate key implies that an entry for the repo already exists.
 		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name}
 	}
 	return errors.Wrap(err, "create repo")
