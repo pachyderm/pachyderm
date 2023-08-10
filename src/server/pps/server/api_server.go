@@ -2176,7 +2176,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (effectiveSpecJSON string, err error) {
+func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
 	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	if err != nil {
 		return "", status.Error(codes.Internal, "could not get cluster defaults")
@@ -2194,9 +2194,41 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			{Field: "cluster defaults", Description: defaultsJSON},
 		})
 	}
-	effectiveSpec.Update = req.Update
-	effectiveSpec.Reprocess = req.Reprocess
-	if effectiveSpec.Pipeline == nil {
+	if wrappedJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), clusterDefaultsCanonicalizer); err != nil {
+		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
+		})
+	}
+
+	var wrapper pps.ClusterDefaults
+	if err := protojson.Unmarshal([]byte(wrappedJSON), &wrapper); err != nil {
+		return "", badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not unmarshal %s: %v", wrappedJSON, err)},
+		})
+	}
+	// to get the effective spec from the wrapped JSON, we must unmarshal and then marshal
+	var (
+		wrapped           map[string]any
+		effectiveSpec     any
+		effectiveSpecJSON []byte
+	)
+	d := json.NewDecoder(strings.NewReader(wrappedJSON))
+	d.UseNumber()
+	if err := d.Decode(&wrapped); err != nil {
+		return "", unknownError(ctx, fmt.Sprintf("could not decode wrapped spec %s", wrappedJSON), err)
+	}
+	if effectiveSpec = wrapped["createPipelineRequest"]; effectiveSpec == nil {
+		return "", errors.Errorf("wrapped spec %v missing createPipelineRequest", wrapped)
+	}
+	if effectiveSpecJSON, err = json.Marshal(effectiveSpec); err != nil {
+		return "", errors.Errorf("could not marshale effective spec %v", effectiveSpec)
+	}
+
+	var request = wrapper.GetCreatePipelineRequest()
+	request.Update = req.Update
+	request.Reprocess = req.Reprocess
+
+	if request.Pipeline == nil {
 		return "", errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(effectiveSpec.GetPipeline())
@@ -2222,7 +2254,11 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		}
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{CreatePipelineRequest: effectiveSpec, UserJson: req.CreatePipelineRequestJson}))
+		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{
+			CreatePipelineRequest: request,
+			EffectiveJson:         string(effectiveSpecJSON),
+			UserJson:              req.CreatePipelineRequestJson,
+		}))
 	}); err != nil {
 		return "", err
 	}
@@ -2321,7 +2357,8 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			Tolerations:             request.Tolerations,
 			Determined:              request.Determined,
 		},
-		DetailsJson: txn.UserJson,
+		UserSpecJson:      txn.UserJson,
+		EffectiveSpecJson: "QQQ",
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err

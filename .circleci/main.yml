@@ -1195,6 +1195,10 @@ jobs:
                   pulumi config set pachdVersion << parameters.pachdVersion >>
                   [[ ! -z "<< parameters.helmChartVersion >>" ]] && pulumi config set helmChartVersion << parameters.helmChartVersion >>
                   pulumi config set --secret rdsPGDBPassword ${PULUMI_TEST_DB_PW}
+                  if ! [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
+                  then
+                    pulumi config set enableConsole false
+                  fi
             - pulumi/update:
                 stack: pachyderm/core/<< parameters.env >>
                 working_directory: ./etc/testing/circle/workloads/pulumi/aws/
