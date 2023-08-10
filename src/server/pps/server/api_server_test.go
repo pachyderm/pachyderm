@@ -465,7 +465,7 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "salt": "mysalt"}}`,
 	})
 	require.NoError(t, err, "SetClusterDefaults failed")
 
@@ -508,5 +508,43 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
 	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
 	require.False(t, req.Autoscaling, "spec must override default")
-	t.Log(resp.EffectiveCreatePipelineRequestJson)
+	require.Equal(t, req.Salt, "mysalt", "default must apply if not overridden")
+	// validate that the user and effective specs are correct
+	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
+	if err != nil {
+		t.Fatal("could not retrieve pipeline", err)
+	}
+	if r.UserSpecJson == "" {
+		t.Error("missing user spec")
+	}
+	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
+	d.UseNumber()
+	var spec map[string]any
+	if err := d.Decode(&spec); err != nil {
+		t.Errorf("could not decode user spec %s: %v", r.UserSpecJson, err)
+	}
+	if _, ok := spec["salt"]; ok {
+		t.Error("salt should not be found in the user spec")
+	}
+	if spec["autoscaling"] == true {
+		t.Error("user spec should have autoscaling = false")
+	}
+
+	if r.EffectiveSpecJson == "" {
+		t.Error("missing effective spec")
+	}
+	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
+	d.UseNumber()
+	if err := d.Decode(&spec); err != nil {
+		t.Errorf("could not decode effectuve spec %s: %v", r.EffectiveSpecJson, err)
+	}
+	if spec["salt"] != "mysalt" {
+		t.Error("salt should be set in the effective spec")
+	}
+	if spec["autoscaling"] == true {
+		t.Error("effective spec should have autoscaling = false")
+	}
+	if spec["datumTries"] != json.Number("4") {
+		t.Error("effective spec should have datumTries = 4")
+	}
 }
