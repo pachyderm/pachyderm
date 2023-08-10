@@ -2358,7 +2358,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			Determined:              request.Determined,
 		},
 		UserSpecJson:      txn.UserJson,
-		EffectiveSpecJson: "QQQ",
+		EffectiveSpecJson: txn.EffectiveJson,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
