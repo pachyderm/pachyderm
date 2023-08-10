@@ -18,12 +18,18 @@ const useDeleteProjectModal = (projectName: string, onHide?: () => void) => {
   const name = watch('name');
   const isFormComplete =
     Boolean(name) && name.toLowerCase() === projectName.toLowerCase();
-  const handleSubmit = useCallback(() => {
-    deleteProject({
-      name: projectName.trim(),
-    });
-    reset();
+
+  const handleSubmit = useCallback(async () => {
+    try {
+      await deleteProject({
+        name: projectName.trim(),
+      });
+      reset();
+    } catch (e) {
+      console.error(e);
+    }
   }, [projectName, deleteProject, reset]);
+
   return {
     formCtx,
     error: error?.message,

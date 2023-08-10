@@ -38,16 +38,20 @@ const useUpdateProjectModal = (
   const isFormComplete = isEmpty(formErrors);
 
   const handleSubmit = useCallback(
-    (values: UpdateProjectFormValues) => {
-      updateProjectMutation({
-        variables: {
-          args: {
-            name: projectName || '',
-            description: values.description,
+    async (values: UpdateProjectFormValues) => {
+      try {
+        await updateProjectMutation({
+          variables: {
+            args: {
+              name: projectName || '',
+              description: values.description,
+            },
           },
-        },
-      });
-      reset();
+        });
+        reset();
+      } catch (e) {
+        console.error(e);
+      }
     },
     [updateProjectMutation, projectName, reset],
   );

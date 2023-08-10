@@ -44,12 +44,16 @@ const useCreateProjectModal = (onHide?: () => void) => {
   const isFormComplete = Boolean(name) && isEmpty(formErrors);
 
   const handleSubmit = useCallback(
-    (values: CreateProjectFormValues) => {
-      createProject({
-        name: values.name.trim(),
-        description: values.description,
-      });
-      reset();
+    async (values: CreateProjectFormValues) => {
+      try {
+        await createProject({
+          name: values.name.trim(),
+          description: values.description,
+        });
+        reset();
+      } catch (e) {
+        console.error(e);
+      }
     },
     [createProject, reset],
   );

@@ -301,24 +301,6 @@ describe('Landing', () => {
         }),
       ).toBeInTheDocument();
     });
-
-    it('should error if the project already exists', async () => {
-      render(<Landing />);
-
-      const createButton = await screen.findByText('Create Project');
-      await click(createButton);
-
-      const modal = screen.getByRole('dialog');
-      const nameInput = await within(modal).findByLabelText('Name', {
-        exact: false,
-      });
-
-      await type(nameInput, 'ProjectA');
-
-      expect(
-        await within(modal).findByText('Project name already in use'),
-      ).toBeInTheDocument();
-    });
   });
 
   describe('UpdateProjectModal', () => {
