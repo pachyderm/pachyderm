@@ -2,6 +2,7 @@ import os
 from distutils.util import strtobool
 
 PFS_MOUNT_DIR = os.environ.get("PFS_MOUNT_DIR", "/pfs")
+PFS_SOCK_PATH = os.environ.get("PFS_SOCK_PATH", "/tmp/pfs.sock")
 SIDECAR_MODE = strtobool(os.environ.get("SIDECAR_MODE", "False").lower())
 MOUNT_SERVER_LOG_DIR = os.environ.get("MOUNT_SERVER_LOG_DIR") # defaults to stdout/stderr
 NONPRIV_CONTAINER = os.environ.get("NONPRIV_CONTAINER") # Unset assume --privileged container
