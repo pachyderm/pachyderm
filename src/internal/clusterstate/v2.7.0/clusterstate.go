@@ -22,13 +22,13 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "creating core schema")
 			}
 			return nil
-		}).
+		}, migrations.Squash).
 		Apply("Create core.projects table", func(ctx context.Context, env migrations.Env) error {
 			if err := createProjectsTable(ctx, env.Tx); err != nil {
 				return errors.Wrap(err, "creating core.projects table")
 			}
 			return nil
-		}).
+		}, migrations.Squash).
 		Apply("Migrate collections.projects to core.projects", func(ctx context.Context, env migrations.Env) error {
 			if err := env.LockTables(ctx, "collections.projects"); err != nil {
 				return errors.Wrap(err, "acquiring exclusive lock on collections.projects table")
@@ -37,5 +37,5 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "migrating collections.projects to core.projects")
 			}
 			return nil
-		})
+		}, migrations.Squash)
 }
