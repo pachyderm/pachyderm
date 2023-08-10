@@ -1049,7 +1049,7 @@ pgbouncer:
     #  cpu: "1"
     #  memory: "2G"
   # maxConnections specifies the maximum number of concurrent connections into pgbouncer.
-  maxConnections: 1000
+  maxConnections: 100000
   # defaultPoolSize specifies the maximum number of concurrent connections from pgbouncer to the postgresql database.
   defaultPoolSize: 20
 
