@@ -7,7 +7,6 @@ import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
 import {GET_PROJECT_STATUS_QUERY} from '@dash-frontend/queries/GetProjectStatusQuery';
 import {Status} from '@grpc/grpc-js/build/src/constants';
 
-import projects from '@dash-backend/mock/fixtures/projects';
 import {
   executeMutation,
   executeQuery,
@@ -31,8 +30,15 @@ describe('Projects Resolver', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.project.id).toBe(
-        projects['Solar-Panel-Data-Sorting'].getProject()?.getName(),
+
+      expect(data?.project).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          createdAt: null,
+          description:
+            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+          id: 'Solar-Panel-Data-Sorting',
+        }),
       );
     });
 
@@ -48,7 +54,7 @@ describe('Projects Resolver', () => {
     });
   });
   describe('projects', () => {
-    it('should return projects when the project service is implemented', async () => {
+    it('should return projects', async () => {
       const {data} = await executeQuery<{
         projects: Project[];
       }>(GET_PROJECTS_QUERY);
@@ -59,6 +65,7 @@ describe('Projects Resolver', () => {
         expect.arrayContaining([
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
             id: 'Solar-Panel-Data-Sorting',
@@ -66,6 +73,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
             id: 'Data-Cleaning-Process',
@@ -73,6 +81,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
             id: 'Solar-Power-Data-Logger-Team-Collab',
@@ -80,6 +89,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
             id: 'Solar-Price-Prediction-Modal',
@@ -87,6 +97,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Multiple pipelines outputting to different forms of egress',
             id: 'Egress-Examples',
@@ -94,6 +105,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
             id: 'Empty-Project',
@@ -101,6 +113,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
             id: 'Trait-Discovery',
@@ -108,6 +121,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Contains two DAGs spanning across this and Multi-Project-Pipeline-B',
             id: 'Multi-Project-Pipeline-A',
@@ -115,6 +129,7 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description:
               'Contains two DAGs spanning across this and Multi-Project-Pipeline-A',
             id: 'Multi-Project-Pipeline-B',
@@ -122,12 +137,14 @@ describe('Projects Resolver', () => {
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description: 'Project for testing frontend load',
             id: 'Load-Project',
             status: null,
           },
           {
             __typename: 'Project',
+            createdAt: null,
             description: 'Project for testing pipeline types',
             id: 'Pipelines-Project',
             status: null,

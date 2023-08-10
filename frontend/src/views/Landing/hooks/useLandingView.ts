@@ -7,7 +7,12 @@ import {useForm} from 'react-hook-form';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-import {SortableItem, useSort, stringComparator} from '@pachyderm/components';
+import {
+  SortableItem,
+  useSort,
+  stringComparator,
+  numberComparator,
+} from '@pachyderm/components';
 
 type sortOptionsType = {
   [key: string]: SortableItem<Project>;
@@ -18,6 +23,17 @@ type statusFormType = {
 };
 
 const sortOptions: sortOptionsType = {
+  Newest: {
+    name: 'Newest',
+    reverse: true,
+    func: numberComparator,
+    accessor: (project: Project) => project.createdAt?.seconds ?? 0,
+  },
+  Oldest: {
+    name: 'Oldest',
+    func: numberComparator,
+    accessor: (project: Project) => project.createdAt?.seconds ?? 0,
+  },
   'Name A-Z': {
     name: 'Name A-Z',
     func: stringComparator,

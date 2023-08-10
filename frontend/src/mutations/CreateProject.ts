@@ -6,6 +6,10 @@ export const CREATE_PROJECT_MUTATION = gql`
       id
       description
       status
+      createdAt {
+        seconds
+        nanos
+      }
     }
   }
 `;

@@ -26,6 +26,7 @@ interface ProjectsResolver {
 const rpcToGraphqlProject = (project: ProjectInfo.AsObject) => ({
   id: project.project?.name || '',
   description: project.description,
+  createdAt: project?.createdAt,
 });
 
 const getProjectHealth = (pipelines: PipelineInfo.AsObject[]) => {

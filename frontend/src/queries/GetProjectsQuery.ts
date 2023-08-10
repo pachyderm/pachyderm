@@ -6,6 +6,10 @@ export const GET_PROJECTS_QUERY = gql`
       id
       description
       status
+      createdAt {
+        seconds
+        nanos
+      }
     }
   }
 `;

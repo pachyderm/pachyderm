@@ -176,6 +176,90 @@ describe('Landing', () => {
     ).toEqual(['ProjectC', 'ProjectB', 'ProjectA']);
   });
 
+  it('should allow the user to sort by created date newest', async () => {
+    render(<Landing />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'ProjectA',
+        level: 5,
+      }),
+    ).toBeInTheDocument();
+
+    const projectsPanel = screen.getByRole('tabpanel', {
+      name: /projects 3/i,
+    });
+    const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
+      level: 5,
+    });
+
+    // Starts in A-Z order
+    expect(
+      projectNamesAZ.map((projectName) => projectName.textContent),
+    ).toEqual(['ProjectA', 'ProjectB', 'ProjectC']);
+
+    const sortDropdown = await screen.findByRole('button', {
+      name: /Sort by/,
+    });
+    await click(sortDropdown);
+    const nameSort = await screen.findByRole('menuitem', {name: 'Newest'});
+    await click(nameSort);
+
+    const projectNamesZA = within(projectsPanel).getAllByRole('heading', {
+      level: 5,
+    });
+    expect(
+      projectNamesZA.map((projectName) => projectName.textContent),
+    ).toEqual(['ProjectA', 'ProjectB', 'ProjectC']);
+
+    const creationDates = screen.getAllByTestId('ProjectRow__created');
+    expect(creationDates[0]).toHaveTextContent('Sep 13, 2020; 12:26');
+    expect(creationDates[1]).toHaveTextContent('Jul 14, 2017; 2:40');
+    expect(creationDates[2]).toHaveTextContent('May 13, 2014; 16:53');
+  });
+
+  it('should allow the user to sort by created date oldest', async () => {
+    render(<Landing />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'ProjectA',
+        level: 5,
+      }),
+    ).toBeInTheDocument();
+
+    const projectsPanel = screen.getByRole('tabpanel', {
+      name: /projects 3/i,
+    });
+    const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
+      level: 5,
+    });
+
+    // Starts in A-Z order
+    expect(
+      projectNamesAZ.map((projectName) => projectName.textContent),
+    ).toEqual(['ProjectA', 'ProjectB', 'ProjectC']);
+
+    const sortDropdown = await screen.findByRole('button', {
+      name: /Sort by/,
+    });
+    await click(sortDropdown);
+    const nameSort = await screen.findByRole('menuitem', {name: 'Oldest'});
+    await click(nameSort);
+
+    const projectNamesZA = within(projectsPanel).getAllByRole('heading', {
+      level: 5,
+    });
+    expect(
+      projectNamesZA.map((projectName) => projectName.textContent),
+    ).toEqual(['ProjectC', 'ProjectB', 'ProjectA']);
+
+    const creationDates = screen.getAllByTestId('ProjectRow__created');
+    expect(creationDates[0]).toHaveTextContent('May 13, 2014; 16:53');
+    expect(creationDates[1]).toHaveTextContent('Jul 14, 2017; 2:40');
+    expect(creationDates[2]).toHaveTextContent('Sep 13, 2020; 12:26');
+  });
+
   it('should allow the user to filter projects by status', async () => {
     render(<Landing />);
     const projects = await screen.findByTestId('Landing__view');
@@ -266,6 +350,7 @@ describe('Landing', () => {
                 id: args.name,
                 description: args.description,
                 status: ProjectStatus.HEALTHY,
+                createdAt: {seconds: 1600000000, nanos: 248610000},
                 __typename: 'Project',
               },
             }),

@@ -832,6 +832,7 @@ export type PipelinesQueryArgs = {
 
 export type Project = {
   __typename?: 'Project';
+  createdAt?: Maybe<Timestamp>;
   description?: Maybe<Scalars['String']>;
   id: Scalars['String'];
   status?: Maybe<ProjectStatus>;
@@ -2271,6 +2272,11 @@ export type ProjectResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project'],
 > = ResolversObject<{
+  createdAt?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
   description?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
@@ -3003,6 +3009,11 @@ export type CreateProjectMutation = {
     id: string;
     description?: string | null;
     status?: ProjectStatus | null;
+    createdAt?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
   };
 };
 
@@ -3934,7 +3945,16 @@ export type ProjectQueryVariables = Exact<{
 
 export type ProjectQuery = {
   __typename?: 'Query';
-  project: {__typename?: 'Project'; id: string; description?: string | null};
+  project: {
+    __typename?: 'Project';
+    id: string;
+    description?: string | null;
+    createdAt?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+  };
 };
 
 export type ProjectStatusQueryVariables = Exact<{
@@ -3959,6 +3979,11 @@ export type ProjectsQuery = {
     id: string;
     description?: string | null;
     status?: ProjectStatus | null;
+    createdAt?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
   }>;
 };
 

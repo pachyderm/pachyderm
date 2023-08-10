@@ -283,6 +283,10 @@ export const CreateProjectDocument = gql`
       id
       description
       status
+      createdAt {
+        seconds
+        nanos
+      }
     }
   }
 `;
@@ -2746,6 +2750,10 @@ export const ProjectDocument = gql`
     project(id: $id) {
       id
       description
+      createdAt {
+        seconds
+        nanos
+      }
     }
   }
 `;
@@ -2861,6 +2869,10 @@ export const ProjectsDocument = gql`
       id
       description
       status
+      createdAt {
+        seconds
+        nanos
+      }
     }
   }
 `;

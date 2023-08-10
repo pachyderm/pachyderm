@@ -5,6 +5,10 @@ export const GET_PROJECT_QUERY = gql`
     project(id: $id) {
       id
       description
+      createdAt {
+        seconds
+        nanos
+      }
     }
   }
 `;

@@ -16,18 +16,21 @@ export const ALL_PROJECTS: ProjectsQuery = {
       description: 'A description for project a',
       __typename: 'Project',
       status: null,
+      createdAt: {seconds: 1600000000, nanos: 248610000},
     },
     {
       id: 'ProjectB',
       description: 'A description for project b',
       __typename: 'Project',
       status: null,
+      createdAt: {seconds: 1500000000, nanos: 248610000},
     },
     {
       id: 'ProjectC',
       description: 'A description for project c',
       __typename: 'Project',
       status: null,
+      createdAt: {seconds: 1400000000, nanos: 248610000},
     },
   ],
 };

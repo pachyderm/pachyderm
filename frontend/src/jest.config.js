@@ -18,6 +18,8 @@ baseConfig.moduleNameMapper = {
   ...moduleNameMapper,
 };
 
+process.env.TZ = 'UTC'; // Set timezone so tests with times pass locally and in CI.
+
 module.exports = {
   testTimeout: baseConfig.testTimeout, // testTimeout doesn't get picked up inside of projects https://github.com/jestjs/jest/issues/9696
   projects: [

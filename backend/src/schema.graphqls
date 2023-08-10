@@ -310,6 +310,7 @@ type Project {
   id: String!
   description: String
   status: ProjectStatus
+  createdAt: Timestamp
 }
 
 type ProjectDetails {

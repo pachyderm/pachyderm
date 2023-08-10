@@ -620,10 +620,19 @@ describe('services/pfs', () => {
   describe('listProject', () => {
     it('should return a list of projects in the pachyderm cluster', async () => {
       const client = await createSandbox('listProject');
-
       const projects = await client.pfs.listProject();
 
-      expect(projects).toHaveLength(1);
+      expect(projects).toEqual(
+        expect.arrayContaining([
+          {
+            project: {name: 'default'},
+            description: '',
+            authInfo: undefined,
+            // Example: createdAt: { seconds: 1691596017, nanos: 248610000 }
+            createdAt: {seconds: expect.any(Number), nanos: expect.any(Number)},
+          },
+        ]),
+      );
     });
   });
   describe('inspectProject', () => {
@@ -631,8 +640,15 @@ describe('services/pfs', () => {
       const client = await createSandbox('inspectProject');
       const projectInfo = await client.pfs.inspectProject('default');
 
-      expect(projectInfo?.project?.name).toBe('default');
-      expect(projectInfo?.description).toBe('');
+      expect(projectInfo).toEqual(
+        expect.objectContaining({
+          project: {name: 'default'},
+          description: '',
+          authInfo: undefined,
+          // Example: createdAt: { seconds: 1691596017, nanos: 248610000 }
+          createdAt: {seconds: expect.any(Number), nanos: expect.any(Number)},
+        }),
+      );
     });
   });
   describe('deleteProject', () => {

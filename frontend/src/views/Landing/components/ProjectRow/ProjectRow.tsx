@@ -8,6 +8,7 @@ import ActiveProjectModal from '@dash-frontend/components/ActiveProjectModal';
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
 import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
 import {useVerifiedAuthorizationLazy} from '@dash-frontend/hooks/useVerifiedAuthorizationLazy';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Button,
@@ -191,6 +192,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
                 data-testid="ProjectRow__status"
               />
             </Info>
+            {project.createdAt?.seconds && (
+              <Info header="Created On" headerId="created-date">
+                <span data-testid="ProjectRow__created">
+                  {getStandardDate(project.createdAt?.seconds || 0)}
+                </span>
+              </Info>
+            )}
             <Info
               header="Description"
               headerId="project-description"
