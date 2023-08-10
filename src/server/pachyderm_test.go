@@ -1354,6 +1354,7 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 	require.NoError(t, rc.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, rc.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 
+	port := c.GetAddress().Port
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, rc.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
@@ -1361,7 +1362,7 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 		[]string{"bash"},
 		[]string{
 			"echo $PACH_TOKEN | pachctl auth use-auth-token",
-			"pachctl config update context --pachd-address $(echo grpc://pachd.$PACH_NAMESPACE.svc.cluster.local:30660)",
+			fmt.Sprintf("pachctl config update context --pachd-address $(echo grpc://pachd.$PACH_NAMESPACE.svc.cluster.local:%d)", port),
 			"echo $(pachctl auth whoami) >/pfs/out/file2",
 			"pachctl list repo",
 		},

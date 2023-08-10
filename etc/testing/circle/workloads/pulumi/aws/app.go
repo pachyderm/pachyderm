@@ -69,6 +69,10 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if err != nil {
 		pachdImageTag = "2.5.3"
 	}
+	enableConsole, err := cfg.TryBool("enableConsole")
+	if err != nil {
+		enableConsole = true
+	}
 	helmChartVersion, err := cfg.Try("helmChartVersion")
 	if err != nil {
 		helmChartVersion = ""
@@ -175,7 +179,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 			},
 		},
 		"console": pulumi.Map{
-			"enabled": pulumi.Bool(true),
+			"enabled": pulumi.Bool(enableConsole),
 		},
 		"pachd": pulumi.Map{
 			"localhostIssuer": pulumi.String("true"),
