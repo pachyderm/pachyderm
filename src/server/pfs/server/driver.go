@@ -827,7 +827,7 @@ func (d *driver) listProjectInTransaction(ctx context.Context, txnCtx *txncontex
 	return errors.Wrap(stream.ForEach[*pfs.ProjectInfo](ctx, projIter, cb), "list projects")
 }
 
-// TODO: delete all repos and pipelines within project
+// TODONE: delete all repos and pipelines within project
 func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
 	if err := project.ValidateName(); err != nil {
 		return errors.Wrap(err, "invalid project name")
