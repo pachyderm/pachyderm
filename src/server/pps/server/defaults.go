@@ -294,16 +294,21 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 	}
 	userWrapper, err := json.Marshal(wrapper{CreatePipelineRequest: []byte(userSpecJSON)})
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "could not marshal user spec %q", userSpecJSON)
+		return "", nil, errors.Wrapf(err, "could not marshal user spec %s", userSpecJSON)
 	}
-	effectiveSpec, err := jsonMergePatch(clusterDefaultsJSON, string(userWrapper), clusterDefaultsCanonicalizer)
+	wrappedSpecJSON, err := jsonMergePatch(clusterDefaultsJSON, string(userWrapper), clusterDefaultsCanonicalizer)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "could not merge user wrapper %q into cluster defaults %q", string(userWrapper), clusterDefaultsJSON)
+		return "", nil, errors.Wrapf(err, "could not merge user wrapper %s into cluster defaults %s", string(userWrapper), clusterDefaultsJSON)
+	}
+	d := json.NewDecoder(strings.NewReader(wrappedSpecJSON))
+	var w wrapper
+	if err := d.Decode(&w); err != nil {
+		return "", nil, errors.Wrapf(err, "could not unmarshal wrapped spec %s", wrappedSpecJSON)
 	}
 
 	var effectiveWrapper pps.ClusterDefaults
-	if err := protojson.Unmarshal([]byte(effectiveSpec), &effectiveWrapper); err != nil {
-		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %q", effectiveSpec)
+	if err := protojson.Unmarshal([]byte(wrappedSpecJSON), &effectiveWrapper); err != nil {
+		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %s", wrappedSpecJSON)
 	}
-	return effectiveSpec, effectiveWrapper.CreatePipelineRequest, nil
+	return string(w.CreatePipelineRequest), effectiveWrapper.CreatePipelineRequest, nil
 }
