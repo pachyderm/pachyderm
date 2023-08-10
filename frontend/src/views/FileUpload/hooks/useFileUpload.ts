@@ -25,6 +25,9 @@ type FileUploadFormValues = {
 const useFileUpload = () => {
   const formCtx = useForm<FileUploadFormValues>({
     mode: 'onChange',
+    defaultValues: {
+      path: '/',
+    },
   });
 
   const {
