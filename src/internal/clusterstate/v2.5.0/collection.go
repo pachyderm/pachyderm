@@ -270,7 +270,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	}
 	log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name))
 	i := 0
-    batcher := newPostgresBatcher(ctx, tx)
+	batcher := newPostgresBatcher(ctx, tx)
 
 	for oldKey, pair := range vals {
 		if err := col.withKey(oldKey, func(oldKey string) error {
@@ -290,10 +290,10 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 				}
 
 				query := fmt.Sprintf("update collections.%s set %s where key = '%s'", col.table, strings.Join(updateFields, ", "), oldKey)
-                err = batcher.Add(query)
-                if err != nil {
-                    return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
-                }
+				err = batcher.Add(query)
+				if err != nil {
+				    return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
+				}
 
 				i++
 				log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name), zap.String("old", oldKey), zap.String("new", newKey), zap.String("progress", fmt.Sprintf("%d/%d", i, len(vals))))
