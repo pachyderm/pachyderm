@@ -52,7 +52,7 @@ func TestWatchRepos(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		event := <-events
 		require.Equal(t, postgresWatcher.EventInsert, event.EventType)
-		require.Equal(t, uint64(i+1), event.Id)
+		require.Equal(t, i+1, int(event.Id))
 		results = append(results, event)
 	}
 	require.Len(t, results, 10)
