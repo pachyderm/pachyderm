@@ -1,0 +1,8 @@
+ignore:
+  - '**/generated/*'
+  - '**/generated/**/*'
+  - 'backend/src/proto/proto/**/*'
+  - 'backend/src/proto/index.ts'
+  - 'backend/src/mock/**/*'
+  - 'backend/src/mock/*'
+  - 'frontend/src/mocks/*'

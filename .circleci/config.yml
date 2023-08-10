@@ -16,7 +16,7 @@ orbs:
 parameters:
   working-pachyderm-version:
     type: string
-    default: "2.6.0"
+    default: '2.6.0'
   run_nightly_tag:
     type: boolean
     default: false
@@ -120,9 +120,9 @@ jobs:
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: cd backend && npm run test -- --collect-coverage
+      - run: npm run test --prefix backend -- --coverage
       - codecov/upload:
-          file: backend/coverage/lcov.info
+          file: ./backend/coverage/lcov.info
   test-backend-integration:
     resource_class: large
     machine:
@@ -131,23 +131,23 @@ jobs:
       - checkout
       - run: cd backend && npm ci
       - run-pachyderm-ce
-      - run: npm run integration-test --prefix backend
+      - run: npm run integration-test --prefix backend -- --coverage
+      - codecov/upload:
+          file: ./backend/coverage/lcov.info
   test-frontend-components:
     executor: xlarge-node
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: cd frontend && npm run test:components -- --collect-coverage
-      - codecov/upload:
-          file: frontend/coverage/lcov.info
+      - run: npm run test:components --prefix frontend
   test-frontend-react:
     executor: xlarge-node
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: cd frontend && npm run test:frontend:base -- --runInBand --collect-coverage
+      - run: npm run test:frontend:base --prefix frontend -- --runInBand --coverage
       - codecov/upload:
-          file: frontend/coverage/lcov.info
+          file: ./frontend/src/coverage/lcov.info
 
   test-e2e-mock:
     resource_class: large
@@ -324,7 +324,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
-            - "21:6b:bd:d2:06:57:1f:fa:79:33:e3:dd:1a:63:5e:ed"
+            - '21:6b:bd:d2:06:57:1f:fa:79:33:e3:dd:1a:63:5e:ed'
       - run:
           name: setup pachydermbuildbot git
           command: |
