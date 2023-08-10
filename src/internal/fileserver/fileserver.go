@@ -12,10 +12,12 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/conditionalrequest"
@@ -33,7 +35,26 @@ import (
 var (
 	//go:embed templates/*
 	templateFS embed.FS
-	templates  = template.Must(template.ParseFS(templateFS, "templates/*"))
+	templates  = template.Must(template.New("").Funcs(template.FuncMap{
+		"humanizeBytes": func(x int64) string {
+			return humanize.Bytes(uint64(x))
+		},
+		"basename": func(x string) string {
+			return path.Base(x)
+		},
+		"dirname": func(x string) string {
+			return path.Dir(x)
+		},
+		"path": func(info *pfs.FileInfo) string {
+			return path.Clean(path.Join(info.GetFile().GetCommit().GetRepo().GetProject().GetName(),
+				info.GetFile().GetCommit().GetRepo().GetName(),
+				info.GetFile().GetCommit().GetId(),
+				info.GetFile().GetPath()))
+		},
+		"rfc3339": func(x time.Time) string {
+			return x.Format(time.RFC3339)
+		},
+	}).ParseFS(templateFS, "templates/*"))
 )
 
 // Server is an http.Handler that can download from and upload to PFS.
@@ -46,6 +67,7 @@ type Request struct {
 	Request        *http.Request
 	ResponseWriter http.ResponseWriter
 	RequestID      string
+	HTML           bool
 }
 
 // ServeHTTP implements http.Handler for the /pfs/ route.
@@ -59,6 +81,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		ResponseWriter: w,
 		PachClient:     pachClient,
 		RequestID:      log.RequestID(ctx),
+		HTML:           acceptsHTML(req),
 	}
 
 	switch req.Method {
@@ -75,11 +98,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (r *Request) get(ctx context.Context) {
 	req := r.Request
 	parts := strings.Split(req.URL.Path, "/")
-	switch len(parts) {
-	case 5, 6: // /pfs/project/repo/commit|branch(/path)
-		if len(parts) == 5 {
-			parts = append(parts, "")
-		}
+	switch {
+	case len(parts) == 5:
+		http.Redirect(r.ResponseWriter, r.Request, r.Request.URL.Path+"/", http.StatusMovedPermanently)
+		return
+	case len(parts) >= 6: // /pfs/project/repo/commit|branch/path/to/some/file
+		parts[5] = path.Join(parts[5:]...)
 	default:
 		// Someday we can have a projects page, project repo page, repo commit page, etc.
 		r.displayErrorf(ctx, http.StatusBadRequest,
@@ -162,7 +186,11 @@ func (r *Request) get(ctx context.Context) {
 
 	// If a directory, show a directory listing.
 	if info.GetFileType() == pfs.FileType_DIR {
-		r.displayDirectoryListing(ctx, file)
+		if !strings.HasSuffix(r.Request.URL.Path, "/") {
+			http.Redirect(r.ResponseWriter, r.Request, r.Request.URL.Path+"/", http.StatusMovedPermanently)
+			return
+		}
+		r.displayDirectoryListing(ctx, info)
 		return
 	}
 
@@ -176,15 +204,31 @@ func (r *Request) get(ctx context.Context) {
 	r.sendFile(ctx, info)
 }
 
-func (r *Request) displayDirectoryListing(ctx context.Context, file *pfs.File) {
+func (r *Request) displayDirectoryListing(ctx context.Context, info *pfs.FileInfo) {
 	ctx, c := pctx.WithCancel(ctx)
 	defer c()
 
 	res, err := r.PachClient.PfsAPIClient.ListFile(ctx, &pfs.ListFileRequest{
-		File: file,
+		File: info.GetFile(),
 	})
 	if err != nil {
 		r.displayGRPCError(ctx, "problem listing directory: ", err)
+	}
+	w := r.ResponseWriter
+	if r.HTML {
+		if err := templates.ExecuteTemplate(w, "directory-listing-header.html", info); err != nil {
+			log.Info(ctx, "problem executing directory-listing-header.html template", zap.Error(err))
+			fmt.Fprintf(w, "\n\nerror executing template: %v", err)
+			return
+		}
+		defer func() {
+			if err := templates.ExecuteTemplate(w, "directory-listing-footer.html", nil); err != nil {
+				log.Info(ctx, "problem executing directory-listing-footer.html template", zap.Error(err))
+				fmt.Fprintf(w, "\n\nerror executing template: %v", err)
+				return
+
+			}
+		}()
 	}
 	for {
 		msg, err := res.Recv()
@@ -192,11 +236,19 @@ func (r *Request) displayDirectoryListing(ctx context.Context, file *pfs.File) {
 			if errors.Is(err, io.EOF) {
 				return
 			}
-			log.Error(ctx, "directory listing stream broke unexpectedly", zap.Error(err))
-			fmt.Fprintf(r.ResponseWriter, "\n\nstream broken: %v", err)
+			log.Info(ctx, "directory listing stream broke unexpectedly", zap.Error(err))
+			fmt.Fprintf(w, "\n\nstream broken: %v", err)
 			return
 		}
-		fmt.Fprintf(r.ResponseWriter, "%s\t%s\t%v\n", msg.GetFile().GetPath(), msg.GetFile().GetDatum(), msg.GetSizeBytes())
+		if r.HTML {
+			if err := templates.ExecuteTemplate(w, "directory-listing-row.html", msg); err != nil {
+				log.Info(ctx, "problem executing directory-listing-row.html template", zap.Error(err))
+				fmt.Fprintf(w, "\n\nerror executing template: %v", err)
+				return
+			}
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%v\n", msg.GetFile().GetPath(), msg.GetFile().GetDatum(), msg.GetSizeBytes())
+		}
 	}
 }
 
@@ -251,7 +303,7 @@ func (r *Request) sendFile(ctx context.Context, info *pfs.FileInfo) {
 			if errors.Is(err, io.EOF) {
 				return
 			}
-			log.Error(ctx, "download stream broke unexpectedly", zap.Error(err))
+			log.Info(ctx, "download stream broke unexpectedly", zap.Error(err))
 			fmt.Fprintf(w, "\n\nstream broke: %v", err)
 			return
 		}
@@ -261,7 +313,7 @@ func (r *Request) sendFile(ctx context.Context, info *pfs.FileInfo) {
 		}
 		n, err := w.Write(buf)
 		if err != nil {
-			log.Error(ctx, "write error during download", zap.Error(err))
+			log.Info(ctx, "write error during download", zap.Error(err))
 			return
 		}
 		limit -= int64(n)
@@ -295,7 +347,7 @@ func (r *Request) displayErrorf(ctx context.Context, code int, format string, ar
 	w := r.ResponseWriter
 	msg := fmt.Sprintf(format, args...)
 	var err error
-	if acceptsHTML(r.Request) {
+	if r.HTML {
 		w.Header().Set("content-type", "text/html")
 		w.WriteHeader(code)
 		err = templates.ExecuteTemplate(w, "error.html", struct {
@@ -308,6 +360,6 @@ func (r *Request) displayErrorf(ctx context.Context, code int, format string, ar
 		_, err = io.Copy(w, strings.NewReader(msg))
 	}
 	if err != nil {
-		log.Error(ctx, "failed to display error", zap.Error(err), zap.String("message", msg))
+		log.Info(ctx, "failed to display error", zap.Error(err), zap.String("message", msg))
 	}
 }
