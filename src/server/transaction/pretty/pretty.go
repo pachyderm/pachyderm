@@ -32,7 +32,7 @@ type PrintableTransactionInfo struct {
 func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", info.Transaction.Id)
 	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", info.Started.String())
+		fmt.Fprintf(w, "%s\t", pretty.Timestamp(info.Started))
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(info.Started))
 	}
@@ -44,7 +44,7 @@ func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTi
 func PrintDetailedTransactionInfo(info *PrintableTransactionInfo) error {
 	template, err := template.New("TransactionInfo").Funcs(funcMap).Parse(
 		`ID: {{.Transaction.ID}}{{if .FullTimestamps}}
-Started: {{.Started}}{{else}}
+Started: {{prettyTime .Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}
 Requests:
 {{transactionRequests .Requests .Responses}}
@@ -180,6 +180,7 @@ func transactionRequests(
 
 var funcMap = template.FuncMap{
 	"prettyAgo":           pretty.Ago,
+	"prettyTime":          pretty.Timestamp,
 	"prettySize":          pretty.Size,
 	"transactionRequests": transactionRequests,
 }

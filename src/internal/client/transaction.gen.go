@@ -495,6 +495,10 @@ func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v
 	return nil, unsupportedError("CreatePipeline")
 }
 
+func (c *unsupportedPpsBuilderClient) CreatePipelineV2(_ context.Context, _ *pps_v2.CreatePipelineV2Request, opts ...grpc.CallOption) (*pps_v2.CreatePipelineV2Response, error) {
+	return nil, unsupportedError("CreatePipelineV2")
+}
+
 func (c *unsupportedPpsBuilderClient) CreateSecret(_ context.Context, _ *pps_v2.CreateSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreateSecret")
 }
