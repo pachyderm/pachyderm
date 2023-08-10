@@ -14,7 +14,7 @@ var state_2_1_0 migrations.State = state_2_0_0.
 	}).
 	Apply("Remove old EnterpriseConfig record from etcd", func(ctx context.Context, env migrations.Env) error {
 		return enterpriseserver.DeleteEnterpriseConfigFromEtcd(ctx, env.EtcdClient)
-	}, migrations.Squash).
+	}).
 	Apply("create pfs cache v1", func(ctx context.Context, env migrations.Env) error {
 		return fileset.CreatePostgresCacheV1(ctx, env.Tx)
 	}, migrations.Squash)
