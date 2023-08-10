@@ -2224,7 +2224,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{
 			CreatePipelineRequest: effectiveSpec,
-			EffectiveJson:         string(effectiveSpecJSON),
+			EffectiveJson:         effectiveSpecJSON,
 			UserJson:              req.CreatePipelineRequestJson,
 		}))
 	}); err != nil {
@@ -3742,12 +3742,6 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
-	canonicalJSON, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(&cd)
-	if err != nil {
-		return nil, badRequest(ctx, "could not canonicalize cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
-			{Field: "cluster_defaults_json", Description: err.Error()},
-		})
-	}
 
 	if req.Regenerate {
 		// Determine if the new defaults imply changes to any pipelines.
@@ -3771,14 +3765,12 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			if pi.EffectiveSpecJson == "" {
 				pi.EffectiveSpecJson = pi.UserSpecJson
 			}
-			effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(string(canonicalJSON), pi.UserSpecJson)
+			effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), pi.UserSpecJson)
 			if err != nil {
 				return errors.Wrap(err, "could not create effective spec")
 			}
 			var oldEffectiveSpec pps.CreatePipelineRequest
-			d := json.NewDecoder(strings.NewReader(pi.EffectiveSpecJson))
-			d.UseNumber()
-			if err := d.Decode(&oldEffectiveSpec); err != nil {
+			if err := protojson.Unmarshal([]byte(pi.EffectiveSpecJson), &oldEffectiveSpec); err != nil {
 				return errors.Wrap(err, "could not unmarshal old effective spec JSON")
 			}
 			if !proto.Equal(&oldEffectiveSpec, effectiveSpec) {

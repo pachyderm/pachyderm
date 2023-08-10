@@ -301,14 +301,22 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 		return "", nil, errors.Wrapf(err, "could not merge user wrapper %s into cluster defaults %s", string(userWrapper), clusterDefaultsJSON)
 	}
 	d := json.NewDecoder(strings.NewReader(wrappedSpecJSON))
-	var w wrapper
+	var w map[string]any
 	if err := d.Decode(&w); err != nil {
 		return "", nil, errors.Wrapf(err, "could not unmarshal wrapped spec %s", wrappedSpecJSON)
+	}
+	createPipelineRequest, ok := w["createPipelineRequest"]
+	if !ok {
+		return "", nil, errors.Wrapf(err, "missing createPipelineRequest in wrapped spec %s", wrappedSpecJSON)
+	}
+	effectiveSpecJSON, err := json.Marshal(createPipelineRequest)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not marshal effective spec %v", createPipelineRequest)
 	}
 
 	var effectiveWrapper pps.ClusterDefaults
 	if err := protojson.Unmarshal([]byte(wrappedSpecJSON), &effectiveWrapper); err != nil {
 		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %s", wrappedSpecJSON)
 	}
-	return string(w.CreatePipelineRequest), effectiveWrapper.CreatePipelineRequest, nil
+	return string(effectiveSpecJSON), effectiveWrapper.CreatePipelineRequest, nil
 }
