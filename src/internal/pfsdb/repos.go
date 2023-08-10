@@ -91,6 +91,9 @@ type RepoPair struct {
 	RepoInfo *pfs.RepoInfo
 }
 
+// this dropped global variable instantiation forces the compiler to check whether RepoIterator implements stream.Iterator.
+var _ stream.Iterator[RepoPair] = &RepoIterator{}
+
 // RepoIterator batches a page of repoRow entries. Entries can be retrieved using iter.Next().
 type RepoIterator struct {
 	limit    int
