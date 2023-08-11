@@ -41,7 +41,7 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
 
-	expectedContainerImage := "pachyderm/haberdashery:abc123"
+	expectedContainerImage := "{{ .Values.global.image.registry }}pachyderm/haberdashery:abc123"
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
