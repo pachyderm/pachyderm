@@ -3302,6 +3302,150 @@
           ]
         },
         {
+          "name": "RunPFSLoadTestRequest",
+          "longName": "RunPFSLoadTestRequest",
+          "fullName": "debug_v2.RunPFSLoadTestRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "spec",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "branch",
+              "description": "",
+              "label": "",
+              "type": "Branch",
+              "longType": "pfs_v2.Branch",
+              "fullType": "pfs_v2.Branch",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "seed",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "state_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RunPFSLoadTestResponse",
+          "longName": "RunPFSLoadTestResponse",
+          "fullName": "debug_v2.RunPFSLoadTestResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "spec",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "branch",
+              "description": "",
+              "label": "",
+              "type": "Branch",
+              "longType": "pfs_v2.Branch",
+              "fullType": "pfs_v2.Branch",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "seed",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "error",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "duration",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "state_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "SetLogLevelRequest",
           "longName": "SetLogLevelRequest",
           "fullName": "debug_v2.SetLogLevelRequest",
@@ -3620,6 +3764,30 @@
               "responseLongType": "DumpChunk",
               "responseFullType": "debug_v2.DumpChunk",
               "responseStreaming": true
+            },
+            {
+              "name": "RunPFSLoadTest",
+              "description": "RunLoadTest runs a load test.",
+              "requestType": "RunPFSLoadTestRequest",
+              "requestLongType": "RunPFSLoadTestRequest",
+              "requestFullType": "debug_v2.RunPFSLoadTestRequest",
+              "requestStreaming": false,
+              "responseType": "RunPFSLoadTestResponse",
+              "responseLongType": "RunPFSLoadTestResponse",
+              "responseFullType": "debug_v2.RunPFSLoadTestResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "RunPFSLoadTestDefault",
+              "description": "RunLoadTestDefault runs the default load tests.",
+              "requestType": "Empty",
+              "requestLongType": ".google.protobuf.Empty",
+              "requestFullType": "google.protobuf.Empty",
+              "requestStreaming": false,
+              "responseType": "RunPFSLoadTestResponse",
+              "responseLongType": "RunPFSLoadTestResponse",
+              "responseFullType": "debug_v2.RunPFSLoadTestResponse",
+              "responseStreaming": false
             }
           ]
         }
@@ -9794,7 +9962,15 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "append",
@@ -11545,7 +11721,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "add_file",
@@ -11557,7 +11741,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "delete_file",
@@ -11569,7 +11761,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "copy_file",
@@ -11581,7 +11781,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             }
           ]
         },
@@ -11986,150 +12194,6 @@
               "type": "int64",
               "longType": "int64",
               "fullType": "int64",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "name": "RunLoadTestRequest",
-          "longName": "RunLoadTestRequest",
-          "fullName": "pfs_v2.RunLoadTestRequest",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "spec",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "branch",
-              "description": "",
-              "label": "",
-              "type": "Branch",
-              "longType": "Branch",
-              "fullType": "pfs_v2.Branch",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "seed",
-              "description": "",
-              "label": "",
-              "type": "int64",
-              "longType": "int64",
-              "fullType": "int64",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "state_id",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "name": "RunLoadTestResponse",
-          "longName": "RunLoadTestResponse",
-          "fullName": "pfs_v2.RunLoadTestResponse",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "spec",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "branch",
-              "description": "",
-              "label": "",
-              "type": "Branch",
-              "longType": "Branch",
-              "fullType": "pfs_v2.Branch",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "seed",
-              "description": "",
-              "label": "",
-              "type": "int64",
-              "longType": "int64",
-              "fullType": "int64",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "error",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "duration",
-              "description": "",
-              "label": "",
-              "type": "Duration",
-              "longType": "google.protobuf.Duration",
-              "fullType": "google.protobuf.Duration",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "state_id",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -13103,30 +13167,6 @@
               "responseType": "Empty",
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
-              "responseStreaming": false
-            },
-            {
-              "name": "RunLoadTest",
-              "description": "RunLoadTest runs a load test.",
-              "requestType": "RunLoadTestRequest",
-              "requestLongType": "RunLoadTestRequest",
-              "requestFullType": "pfs_v2.RunLoadTestRequest",
-              "requestStreaming": false,
-              "responseType": "RunLoadTestResponse",
-              "responseLongType": "RunLoadTestResponse",
-              "responseFullType": "pfs_v2.RunLoadTestResponse",
-              "responseStreaming": false
-            },
-            {
-              "name": "RunLoadTestDefault",
-              "description": "RunLoadTestDefault runs the default load tests.",
-              "requestType": "Empty",
-              "requestLongType": ".google.protobuf.Empty",
-              "requestFullType": "google.protobuf.Empty",
-              "requestStreaming": false,
-              "responseType": "RunLoadTestResponse",
-              "responseLongType": "RunLoadTestResponse",
-              "responseFullType": "pfs_v2.RunLoadTestResponse",
               "responseStreaming": false
             },
             {

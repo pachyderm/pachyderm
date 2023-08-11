@@ -257,3 +257,27 @@ func (x *DumpChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("progress", x.GetProgress())
 	return nil
 }
+
+func (x *RunPFSLoadTestRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("spec", x.Spec)
+	enc.AddObject("branch", x.Branch)
+	enc.AddInt64("seed", x.Seed)
+	enc.AddString("state_id", x.StateId)
+	return nil
+}
+
+func (x *RunPFSLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("spec", x.Spec)
+	enc.AddObject("branch", x.Branch)
+	enc.AddInt64("seed", x.Seed)
+	enc.AddString("error", x.Error)
+	protoextensions.AddDuration(enc, "duration", x.Duration)
+	enc.AddString("state_id", x.StateId)
+	return nil
+}

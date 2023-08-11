@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	testclient "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -40,6 +41,7 @@ import (
 	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
@@ -69,6 +71,7 @@ type RealEnv struct {
 	LicenseServer            license.APIServer
 	PPSServer                ppsapi.APIServer
 	PFSServer                pfsapi.APIServer
+	DebugServer              debug.DebugServer
 	TransactionServer        txnserver.APIServer
 	VersionServer            pb.APIServer
 	ProxyServer              proxy.APIServer
@@ -260,6 +263,12 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		require.NoError(t, err)
 		linkServers(&realEnv.MockPachd.PPS, realEnv.PPSServer)
 	}
+
+	// Debug
+	realEnv.DebugServer = debugserver.NewDebugServer(debugserver.Env{
+		DB: ,
+		BackgroundContext: ctx,
+	}, false)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)

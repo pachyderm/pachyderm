@@ -47,6 +47,9 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -63,12 +66,14 @@ const (
 )
 
 type Env struct {
-	DB            *pachsql.DB
-	SidecarClient *client.APIClient
-	Name          string
-	GetLokiClient func() (*loki.Client, error)
-	KubeClient    kubernetes.Interface
-	Config        pachconfig.Configuration
+	DB                *pachsql.DB
+	SidecarClient     *client.APIClient
+	Name              string
+	GetLokiClient     func() (*loki.Client, error)
+	KubeClient        kubernetes.Interface
+	Config            pachconfig.Configuration
+	BackgroundContext context.Context
+	TaskService       task.Service
 
 	GetPachClient func(context.Context) *client.APIClient
 }
@@ -85,8 +90,8 @@ type debugServer struct {
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(env Env) debug.DebugServer {
-	return &debugServer{
+func NewDebugServer(env Env, enableWorker bool) debug.DebugServer {
+	s := &debugServer{
 		env:           env,
 		name:          env.Name,
 		sidecarClient: env.SidecarClient,
@@ -94,6 +99,20 @@ func NewDebugServer(env Env) debug.DebugServer {
 		database:      env.DB,
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
+	}
+	if enableWorker {
+		go runWorker(env)
+	}
+	return s
+}
+
+func runWorker(env Env) {
+	eg, ctx := errgroup.WithContext(env.BackgroundContext)
+	eg.Go(func() error {
+		return pfsload.Worker(env.GetPachClient(pctx.Child(ctx, "pfsload")), env.TaskService) //nolint:errcheck
+	})
+	if err := eg.Wait(); err != nil {
+		log.Error(ctx, "worker exiting", zap.Error(err))
 	}
 }
 

@@ -8,8 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -49,9 +47,6 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	go func() {
-		pfsload.Worker(env.GetPachClient(pctx.Child(env.BackgroundContext, "pfsload")), env.TaskService) //nolint:errcheck
-	}()
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 
@@ -72,6 +67,5 @@ func NewPachwAPIServer(env Env) (pfsserver.APIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }

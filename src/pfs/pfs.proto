@@ -561,22 +561,6 @@ message ClearCacheRequest {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
-message RunLoadTestRequest {
-  string spec = 1;
-  Branch branch = 2;
-  int64 seed = 3;
-  string state_id = 4;
-}
-
-message RunLoadTestResponse {
-  string spec = 1;
-  Branch branch = 2;
-  int64 seed = 3;
-  string error = 4;
-  google.protobuf.Duration duration = 5;
-  string state_id = 6;
-}
-
 message ObjectStorageEgress {
   string url = 1;
 }
@@ -713,12 +697,7 @@ service API {
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
   rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
   rpc ClearCache(ClearCacheRequest) returns (google.protobuf.Empty) {}
-
-  // RunLoadTest runs a load test.
-  rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
-  // RunLoadTestDefault runs the default load tests.
-  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
-
+ 
   // ListTask lists PFS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 
