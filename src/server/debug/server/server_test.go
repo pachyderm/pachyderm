@@ -19,7 +19,6 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
@@ -326,7 +325,7 @@ func TestQueryLoki(t *testing.T) {
 				sleepAtPage: test.sleepAtPage,
 			})
 			d := &debugServer{
-				env: &serviceenv.TestServiceEnv{
+				env: Env{
 					LokiClient: &loki.Client{Address: s.URL},
 				},
 			}
@@ -430,7 +429,7 @@ metadata:
 	// Build a debug server connected to fake k8s that contains a few valid and invalid sample
 	// secrets.
 	s := &debugServer{
-		env: &serviceenv.TestServiceEnv{
+		env: Env{
 			KubeClient: fake.NewSimpleClientset(
 				&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
@@ -494,7 +493,7 @@ metadata:
 					Type: "helm.sh/release.v2",
 				},
 			),
-			Configuration: &pachconfig.Configuration{
+			Config: pachconfig.Configuration{
 				GlobalConfiguration: &pachconfig.GlobalConfiguration{
 					Namespace: "default",
 				},
