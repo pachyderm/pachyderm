@@ -3,9 +3,9 @@ package v2_5_0
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"strings"
-	"encoding/hex"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
@@ -283,7 +283,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 				updateFields := []string{}
 				for k := range params {
 					if k == "proto" {
-						updateFields = append(updateFields, fmt.Sprintf("proto = decode('%v', 'hex') ", hex.EncodeToString([]byte(params["proto"].([]uint8)))))    
+						updateFields = append(updateFields, fmt.Sprintf("proto = decode('%v', 'hex') ", hex.EncodeToString([]byte(params["proto"].([]uint8)))))
 					} else {
 						updateFields = append(updateFields, fmt.Sprintf("%s = '%s'", k, params[k]))
 					}
@@ -292,7 +292,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 				query := fmt.Sprintf("update collections.%s set %s where key = '%s'", col.table, strings.Join(updateFields, ", "), oldKey)
 				err = batcher.Add(query)
 				if err != nil {
-				    return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
+					return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
 				}
 
 				i++
