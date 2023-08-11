@@ -77,10 +77,7 @@ func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error 
 }
 
 func (pachwb *pachwBuilder) registerDebugServer(ctx context.Context) error {
-	apiServer, err := pachwb.newDebugServer()
-	if err != nil {
-		return err
-	}
+	apiServer := pachwb.newDebugServer()
 	pachwb.forGRPCServer(func(s *grpc.Server) { debug.RegisterDebugServer(s, apiServer) })
 	return nil
 }

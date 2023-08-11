@@ -92,14 +92,10 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 
 	workerapi.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	lokiClient, err := env.GetLokiClient()
-	if err != nil {
-		return err
-	}
 	debugSrv := debugserver.NewDebugServer(debugserver.Env{
 		DB:            env.GetDBClient(),
 		SidecarClient: pachClient,
-		LokiClient:    lokiClient,
+		GetLokiClient: env.GetLokiClient,
 		Name:          env.Config().PodName,
 		GetPachClient: pachClient.WithCtx,
 		KubeClient:    env.GetKubeClient(),

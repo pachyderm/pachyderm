@@ -65,7 +65,7 @@ type Env struct {
 	DB            *pachsql.DB
 	SidecarClient *client.APIClient
 	Name          string
-	LokiClient    *loki.Client
+	GetLokiClient func() (*loki.Client, error)
 	KubeClient    kubernetes.Interface
 	Config        pachconfig.Configuration
 
@@ -1057,7 +1057,8 @@ func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.Ap
 }
 
 func (s *debugServer) hasLoki() bool {
-	return s.env.LokiClient != nil
+	_, err := s.env.GetLokiClient()
+	return err == nil
 }
 
 func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debug.App, pod, container string) error {
@@ -1208,10 +1209,10 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) (retResult
 		})
 	}
 
-	if s.env.LokiClient == nil {
-		return nil, errors.EnsureStack(errors.Errorf("no loki client"))
+	c, err := s.env.GetLokiClient()
+	if err != nil {
+		return nil, errors.EnsureStack(errors.Errorf("get loki client: %w", err))
 	}
-	c := s.env.LokiClient
 	// We used to just stream the output, but that results in logs from different streams
 	// (stdout/stderr) being randomly interspersed with each other, which is hard to follow when
 	// written in text form.  We also used "FORWARD" and basically got the first 30,000 logs

@@ -326,7 +326,9 @@ func TestQueryLoki(t *testing.T) {
 			})
 			d := &debugServer{
 				env: Env{
-					LokiClient: &loki.Client{Address: s.URL},
+					GetLokiClient: func() (*loki.Client, error) {
+						return &loki.Client{Address: s.URL}, nil
+					},
 				},
 			}
 

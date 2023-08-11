@@ -323,10 +323,7 @@ func (b *builder) registerVersionServer(ctx context.Context) error {
 }
 
 func (b *builder) registerDebugServer(ctx context.Context) error {
-	apiServer, err := b.newDebugServer()
-	if err != nil {
-		return err
-	}
+	apiServer := b.newDebugServer()
 	b.forGRPCServer(func(s *grpc.Server) { debugclient.RegisterDebugServer(s, apiServer) })
 	return nil
 }
@@ -443,17 +440,13 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 	debug.SetMemoryLimit(target)
 }
 
-func (b *builder) newDebugServer() (debugclient.DebugServer, error) {
-	lokiClient, err := b.env.GetLokiClient()
-	if err != nil {
-		return nil, err
-	}
+func (b *builder) newDebugServer() debugclient.DebugServer {
 	return debugserver.NewDebugServer(debugserver.Env{
 		Config:        *b.env.Config(),
 		Name:          b.env.Config().PachdPodName,
 		DB:            b.env.GetDBClient(),
 		SidecarClient: nil,
-		LokiClient:    lokiClient,
+		GetLokiClient: b.env.GetLokiClient,
 		GetPachClient: b.env.GetPachClient,
-	}), nil
+	})
 }
