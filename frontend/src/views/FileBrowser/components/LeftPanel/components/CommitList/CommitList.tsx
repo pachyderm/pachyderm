@@ -91,18 +91,25 @@ const CommitList: React.FC<CommitListProps> = ({
       {loading ? (
         <LoadingDots />
       ) : displayCommits && displayCommits.length !== 0 ? (
-        displayCommits.map((commit) => (
-          <ListItem
-            data-testid="CommitList__listItem"
-            key={commit.id}
-            state={commit.id === selectedCommitId ? 'selected' : 'default'}
-            text={getStandardDate(commit.started)}
-            RightIconSVG={CaretRightSVG}
-            captionText={commit.id}
-            onClick={() => updateSelectedCommit(commit.id, commit.branch?.name)}
-            role="listitem"
-          />
-        ))
+        displayCommits.map((commit) => {
+          const selected = commit.id === selectedCommitId;
+          const onClick = () =>
+            !selected
+              ? updateSelectedCommit(commit.id, commit.branch?.name)
+              : null;
+          return (
+            <ListItem
+              data-testid="CommitList__listItem"
+              key={commit.id}
+              state={selected ? 'selected' : 'default'}
+              text={getStandardDate(commit.started)}
+              RightIconSVG={CaretRightSVG}
+              captionText={commit.id}
+              onClick={onClick}
+              role="listitem"
+            />
+          );
+        })
       ) : (
         <EmptyState title="" message="No commits found for this repo." />
       )}

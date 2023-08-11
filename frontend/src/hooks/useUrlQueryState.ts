@@ -113,7 +113,7 @@ const useUrlQueryState = () => {
 
       const searchParams = getUpdatedSearchParams(newState, true);
 
-      return browserHistory.push(`${updatedPath}?${searchParams}`);
+      return browserHistory.replace(`${updatedPath}?${searchParams}`);
     },
     [browserHistory, getUpdatedSearchParams],
   );
@@ -130,7 +130,7 @@ const useUrlQueryState = () => {
         searchParams.toString() !== window.location.search ||
         pathname !== updatedPath
       ) {
-        return browserHistory.push(`${updatedPath}?${searchParams}`);
+        return browserHistory.replace(`${updatedPath}?${searchParams}`);
       }
     },
     [browserHistory, getUpdatedSearchParams],
@@ -166,7 +166,7 @@ const useUrlQueryState = () => {
   );
 
   const clearSearchParamsAndGo = useCallback(() => {
-    return browserHistory.push(window.location.pathname);
+    return browserHistory.replace(window.location.pathname);
   }, [browserHistory]);
 
   return {
