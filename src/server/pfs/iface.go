@@ -20,16 +20,16 @@ type APIServer interface {
 	DeleteRepoInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteRepoRequest) ([]*pfs_client.Repo, error)
 	DeleteReposInTransaction(*txncontext.TransactionContext, []*pfs_client.Repo, bool) error
 
-	StartCommitInTransaction(*txncontext.TransactionContext, *pfs_client.StartCommitRequest) (*pfs_client.Commit, error)
+	StartCommitInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.StartCommitRequest) (*pfs_client.Commit, error)
 	FinishCommitInTransaction(*txncontext.TransactionContext, *pfs_client.FinishCommitRequest) error
 	InspectCommitInTransaction(*txncontext.TransactionContext, *pfs_client.InspectCommitRequest) (*pfs_client.CommitInfo, error)
 
 	InspectCommitSetInTransaction(*txncontext.TransactionContext, *pfs_client.CommitSet, bool) ([]*pfs_client.CommitInfo, error)
-	SquashCommitSetInTransaction(*txncontext.TransactionContext, *pfs_client.SquashCommitSetRequest) error
+	SquashCommitSetInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.SquashCommitSetRequest) error
 
-	CreateBranchInTransaction(*txncontext.TransactionContext, *pfs_client.CreateBranchRequest) error
+	CreateBranchInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.CreateBranchRequest) error
 	InspectBranchInTransaction(*txncontext.TransactionContext, *pfs_client.InspectBranchRequest) (*pfs_client.BranchInfo, error)
-	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
+	DeleteBranchInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
 
 	AddFileSetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFileSetRequest) error
 	ActivateAuthInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.ActivateAuthRequest) (*pfs_client.ActivateAuthResponse, error)

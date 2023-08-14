@@ -28,7 +28,7 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "could not create default project")
 			}
 			return nil
-		}).
+		}, migrations.Squash).
 		Apply("Rename default project to “default”", func(ctx context.Context, env migrations.Env) error {
 			if err := env.LockTables(ctx,
 				"collections.repos",
@@ -54,7 +54,7 @@ func Migrate(state migrations.State) migrations.State {
 				return err
 			}
 			return nil
-		})
+		}, migrations.Squash)
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE
 }

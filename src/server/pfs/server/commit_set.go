@@ -156,7 +156,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 
 // dropCommitSet is only implemented for commits with no children, so if any
 // commits in the commitSet have children the operation will fail.
-func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+func (d *driver) dropCommitSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
 	css, err := d.subvenantCommitSets(txnCtx, commitset)
 	if err != nil {
 		return err
@@ -182,7 +182,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	// the data from the given commits, which is why it is an error to drop any
 	// non-head commits (until generalized drop semantics are implemented).
 	for _, ci := range cis {
-		if err := d.deleteCommit(txnCtx, ci); err != nil {
+		if err := d.deleteCommit(ctx, txnCtx, ci); err != nil {
 			return err
 		}
 	}
@@ -192,7 +192,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	return nil
 }
 
-func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
 	css, err := d.subvenantCommitSets(txnCtx, commitset)
 	if err != nil {
 		return err
@@ -213,7 +213,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 		}
 	}
 	for _, ci := range commitInfos {
-		if err := d.deleteCommit(txnCtx, ci); err != nil {
+		if err := d.deleteCommit(ctx, txnCtx, ci); err != nil {
 			return err
 		}
 	}
@@ -234,7 +234,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 // 2. check whether the commit was at the head of a branch, and update the branch head if necessary
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
-func (d *driver) deleteCommit(txnCtx *txncontext.TransactionContext, ci *pfs.CommitInfo) error {
+func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, ci *pfs.CommitInfo) error {
 	// make sure all children are finished, so we don't lose data
 	for _, child := range ci.ChildCommits {
 		var childInfo pfs.CommitInfo

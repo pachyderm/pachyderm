@@ -120,7 +120,6 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 			return errors.EnsureStack(err)
 		}
 		state := loginInfo.State
-
 		// Get the initial URL from the grpc, which should point to the dex login page
 		getResp, err := hc.Get(loginInfo.LoginUrl)
 		if err != nil {
