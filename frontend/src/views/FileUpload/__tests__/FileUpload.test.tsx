@@ -3,6 +3,7 @@ import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {mockRepoImages} from '@dash-frontend/mocks';
 import {
   type,
   withContextProviders,
@@ -20,13 +21,14 @@ describe('views/FileUpload', () => {
     return <FileUploadComponent />;
   });
 
-  beforeAll(() => {
-    server.listen();
+  beforeAll(() => server.listen());
+
+  beforeEach(() => {
+    server.resetHandlers();
+    server.use(mockRepoImages());
   });
 
-  afterAll(() => {
-    server.close();
-  });
+  afterAll(() => server.close());
 
   it('should require a path', async () => {
     render(<FileUpload />);

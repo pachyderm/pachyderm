@@ -21,14 +21,14 @@ describe('File Preview', () => {
     },
   );
 
-  beforeAll(() => {
-    server.listen();
+  beforeAll(() => server.listen());
+
+  beforeEach(() => {
+    server.resetHandlers();
     server.use(mockRepoWithLinkedPipeline());
   });
 
-  afterAll(() => {
-    server.close();
-  });
+  afterAll(() => server.close());
 
   describe('File Preview File Types', () => {
     it.each(['md', 'mkd', 'mdown', 'markdown'])(

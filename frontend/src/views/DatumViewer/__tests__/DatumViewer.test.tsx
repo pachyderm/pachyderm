@@ -35,13 +35,12 @@ const JobDatumViewer = withContextProviders(() => {
 describe('Datum Viewer', () => {
   const server = setupServer();
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockEmptyGetAuthorize());
-    server.use(mockGetVersionInfo());
-  });
+  beforeAll(() => server.listen());
 
   beforeEach(() => {
+    server.resetHandlers();
+    server.use(mockEmptyGetAuthorize());
+    server.use(mockGetVersionInfo());
     server.use(mockGetMontagePipeline());
     server.use(mockGetMontageJob_5C());
     server.use(mockGetMontageJobs());
@@ -49,8 +48,6 @@ describe('Datum Viewer', () => {
     server.use(mockGetJob5CDatum05());
     server.use(mockEmptyGetLogs());
   });
-
-  afterEach(() => server.resetHandlers());
 
   afterAll(() => server.close());
 

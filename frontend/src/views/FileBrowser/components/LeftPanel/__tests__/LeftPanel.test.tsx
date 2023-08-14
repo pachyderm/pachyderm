@@ -27,18 +27,15 @@ const LeftPanel = withContextProviders(({selectedCommitId}) => {
 describe('Left Panel', () => {
   const server = setupServer();
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockEmptyGetAuthorize());
-    server.use(mockGetVersionInfo());
-  });
+  beforeAll(() => server.listen());
 
   beforeEach(() => {
+    server.resetHandlers();
+    server.use(mockEmptyGetAuthorize());
+    server.use(mockGetVersionInfo());
     server.use(mockGetImageCommits());
     server.use(mockGetBranchesMasterOnly());
   });
-
-  afterEach(() => server.resetHandlers());
 
   afterAll(() => server.close());
 

@@ -20,8 +20,14 @@ import HeaderDropdownComponent from '../HeaderDropdown';
 describe('HeaderDropdown', () => {
   const server = setupServer();
 
-  beforeAll(() => {
-    server.listen();
+  beforeAll(() => server.listen());
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    server.resetHandlers();
+    server.use(mockGetVersionInfo());
+    server.use(mockGetAccountAuth());
+    server.use(mockGetEnterpriseInfo());
   });
 
   afterAll(() => server.close());
@@ -31,16 +37,8 @@ describe('HeaderDropdown', () => {
   });
 
   describe('with Auth', () => {
-    beforeAll(() => {
-      server.use(mockGetVersionInfo());
-      server.use(mockGetAccountAuth());
-      server.use(mockGetEnterpriseInfo());
+    beforeEach(() => {
       loginUser();
-    });
-
-    afterAll(() => {
-      server.resetHandlers();
-      window.localStorage.clear();
     });
 
     it('should show account name, versions, and copyright', async () => {
@@ -103,7 +101,8 @@ describe('HeaderDropdown', () => {
   });
 
   describe('without Auth', () => {
-    beforeAll(() => {
+    beforeEach(() => {
+      server.resetHandlers();
       server.use(mockGetVersionInfo());
     });
 

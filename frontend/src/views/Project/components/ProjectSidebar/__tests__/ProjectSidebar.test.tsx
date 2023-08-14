@@ -1,13 +1,4 @@
-import {
-  JobState,
-  NodeState,
-  PipelineState,
-  PipelineType,
-  mockCommitDiffQuery,
-  mockJobQuery,
-  mockPipelinesQuery,
-  mockRepoQuery,
-} from '@graphqlTypes';
+import {mockCommitDiffQuery, mockJobQuery, mockRepoQuery} from '@graphqlTypes';
 import {
   render,
   waitFor,
@@ -40,11 +31,10 @@ describe('ProjectSidebar', () => {
 
   const Project = withContextProviders(ProjectSidebar);
 
-  beforeAll(() => {
-    server.listen();
-  });
+  beforeAll(() => server.listen());
 
   beforeEach(() => {
+    server.resetHandlers();
     server.use(mockGetDag());
     server.use(mockGetMontagePipeline());
     server.use(mockGetMontageJob_5C());
@@ -52,8 +42,6 @@ describe('ProjectSidebar', () => {
     server.use(mockRepoImages());
     server.use(mockEmptyGetRoles());
   });
-
-  afterEach(() => server.resetHandlers());
 
   afterAll(() => server.close());
 

@@ -12,11 +12,9 @@ describe('Search', () => {
 
   const Search = withContextProviders(SearchComponent);
 
-  beforeAll(() => {
-    server.listen();
-  });
+  beforeAll(() => server.listen());
 
-  afterEach(() => server.resetHandlers());
+  beforeEach(() => server.resetHandlers());
 
   afterAll(() => server.close());
 

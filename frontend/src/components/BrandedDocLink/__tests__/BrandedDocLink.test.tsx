@@ -20,14 +20,12 @@ describe('BrandedDocLink', () => {
     ),
   );
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockGetVersionInfo());
-  });
+  beforeAll(() => server.listen());
 
-  afterEach(() => {
-    server.resetHandlers();
+  beforeEach(() => {
     window.localStorage.clear();
+    server.resetHandlers();
+    server.use(mockGetVersionInfo());
   });
 
   afterAll(() => server.close());

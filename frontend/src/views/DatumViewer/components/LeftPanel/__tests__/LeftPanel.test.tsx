@@ -42,22 +42,19 @@ describe('Datum Viewer Left Panel', () => {
     return <LeftPanelComponent />;
   });
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockEmptyGetAuthorize());
-    server.use(mockGetVersionInfo());
-  });
+  beforeAll(() => server.listen());
 
   beforeEach(() => {
     window.history.replaceState({}, '', basePath);
+    server.resetHandlers();
+    server.use(mockEmptyGetAuthorize());
+    server.use(mockGetVersionInfo());
     server.use(mockGetMontagePipeline());
     server.use(mockGetMontageJob_5C());
     server.use(mockGetMontageJobs());
     server.use(mockGetJob5CDatums());
     server.use(mockGetJob5CDatum05());
   });
-
-  afterEach(() => server.resetHandlers());
 
   afterAll(() => server.close());
 

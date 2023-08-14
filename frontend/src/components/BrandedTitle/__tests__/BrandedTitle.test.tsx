@@ -18,14 +18,12 @@ describe('BrandedTitle', () => {
     <BrandedTitleComponent title="Project" />
   ));
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockGetVersionInfo());
-  });
+  beforeAll(() => server.listen());
 
-  afterEach(() => {
+  beforeEach(() => {
     server.resetHandlers();
     window.localStorage.clear();
+    server.use(mockGetVersionInfo());
   });
 
   afterAll(() => server.close());

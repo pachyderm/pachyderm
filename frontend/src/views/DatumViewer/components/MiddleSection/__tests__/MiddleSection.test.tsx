@@ -52,27 +52,21 @@ const basePath =
 describe('Datum Viewer Middle Section', () => {
   const server = setupServer();
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockEmptyGetAuthorize());
-    server.use(mockGetVersionInfo());
-  });
+  beforeAll(() => server.listen());
 
   beforeEach(() => {
     window.history.replaceState({}, '', basePath);
+    window.localStorage.removeItem('pachyderm-console-default');
+    server.resetHandlers();
+    server.use(mockEmptyGetAuthorize());
+    server.use(mockGetVersionInfo());
     server.use(mockGetMontagePipeline());
     server.use(mockGetMontageJob_5C());
     server.use(mockGetJob5CDatum05());
     server.use(mockGetLogs());
   });
 
-  afterEach(() => server.resetHandlers());
-
   afterAll(() => server.close());
-
-  afterEach(() => {
-    window.localStorage.removeItem('pachyderm-console-default');
-  });
 
   describe('Logs Viewer', () => {
     it('should display empty state when there are no logs', async () => {

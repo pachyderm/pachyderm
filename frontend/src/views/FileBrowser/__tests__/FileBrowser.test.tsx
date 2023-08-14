@@ -21,21 +21,18 @@ const FileBrowser = withContextProviders(() => {
 describe('File Browser', () => {
   const server = setupServer();
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockEmptyGetAuthorize());
-    server.use(mockGetVersionInfo());
-  });
+  beforeAll(() => server.listen());
 
   beforeEach(() => {
+    server.resetHandlers();
     server.use(mockGetImageCommits());
     server.use(mockGetBranches());
     server.use(mockRepoImages());
     server.use(mockGetCommitA4());
     server.use(mockEmptyCommitDiff());
+    server.use(mockGetVersionInfo());
+    server.use(mockEmptyGetAuthorize());
   });
-
-  afterEach(() => server.resetHandlers());
 
   afterAll(() => server.close());
 
