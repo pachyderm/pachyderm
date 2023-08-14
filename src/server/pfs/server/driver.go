@@ -215,7 +215,7 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	return errors.EnsureStack(repos.Put(repo, &existingRepoInfo))
 }
 
-func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
+func (d *driver) inspectRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
 	// Validate arguments
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
@@ -414,7 +414,7 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		deleted, err = d.deleteReposInTransaction(txnCtx, projects)
+		deleted, err = d.deleteReposInTransaction(ctx, txnCtx, projects)
 		return err
 	}); err != nil {
 		return nil, errors.Wrap(err, "delete repos")
@@ -422,7 +422,7 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 	return deleted, nil
 }
 
-func (d *driver) deleteReposInTransaction(txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
+func (d *driver) deleteReposInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var ris []*pfs.RepoInfo
 	if err := d.listRepoInTransaction(txnCtx, false, "", projects, func(ri *pfs.RepoInfo) error {
 		ris = append(ris, ri)
@@ -430,10 +430,10 @@ func (d *driver) deleteReposInTransaction(txnCtx *txncontext.TransactionContext,
 	}); err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
-	return d.deleteReposHelper(txnCtx, ris, false)
+	return d.deleteReposHelper(ctx, txnCtx, ris, false)
 }
 
-func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
+func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
 	if len(ris) == 0 {
 		return nil, nil
 	}
@@ -457,7 +457,7 @@ func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []
 		}
 		bis = append(bis, bs...)
 	}
-	if err := d.deleteBranches(txnCtx, bis, force); err != nil {
+	if err := d.deleteBranches(ctx, txnCtx, bis, force); err != nil {
 		return nil, err
 	}
 	for _, ri := range ris {
@@ -469,7 +469,7 @@ func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []
 	return deleted, nil
 }
 
-func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
+func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Get(repo, repoInfo); err != nil {
@@ -495,7 +495,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 		bis = append(bis, bs...)
 	}
-	if err := d.deleteBranches(txnCtx, bis, force); err != nil {
+	if err := d.deleteBranches(ctx, txnCtx, bis, force); err != nil {
 		return err
 	}
 	for _, ri := range related {
@@ -509,10 +509,10 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 // delete branches from most provenance to least, that way if one
 // branch is provenant on another (which is likely the case when
 // multiple repos are provided) we delete them in the right order.
-func (d *driver) deleteBranches(txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo, force bool) error {
+func (d *driver) deleteBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo, force bool) error {
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) > len(branchInfos[j].Provenance) })
 	for _, bi := range branchInfos {
-		if err := d.deleteBranch(txnCtx, bi.Branch, force); err != nil {
+		if err := d.deleteBranch(ctx, txnCtx, bi.Branch, force); err != nil {
 			return errors.Wrapf(err, "delete branch %s", bi.Branch)
 		}
 	}
@@ -917,6 +917,7 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 //   - If 'parent' is set, it determines the parent commit, but 'branch' is
 //     still moved to point at the new commit
 func (d *driver) startCommit(
+	ctx context.Context,
 	txnCtx *txncontext.TransactionContext,
 	parent *pfs.Commit,
 	branch *pfs.Branch,
@@ -1814,7 +1815,7 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 // for 'branch' itself once 'b.Provenance' has been set.
 //
 // i.e. up to one branch in a repo can be present within a DAG
-func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
+func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branch == nil {
 		return errors.New("branch cannot be nil")
@@ -1822,7 +1823,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
 	}
-	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
+	if err := d.validateTrigger(ctx, txnCtx, branch, trigger); err != nil {
 		return err
 	}
 	if len(provenance) > 0 && trigger != nil {
@@ -1991,7 +1992,7 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 	return sendBis()
 }
 
-func (d *driver) listBranchInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, reverse bool, cb func(*pfs.BranchInfo) error) error {
+func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, reverse bool, cb func(*pfs.BranchInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -2022,7 +2023,7 @@ func (d *driver) listBranchInTransaction(txnCtx *txncontext.TransactionContext, 
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, force bool) error {
+func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, force bool) error {
 	// Validate arguments
 	if branch == nil {
 		return errors.New("branch cannot be nil")
@@ -2062,7 +2063,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 				return errors.EnsureStack(err)
 			}
 			del(&subvBranchInfo.DirectProvenance, branch)
-			if err := d.createBranch(txnCtx, subvBranch, nil, subvBranchInfo.DirectProvenance, nil); err != nil {
+			if err := d.createBranch(ctx, txnCtx, subvBranch, nil, subvBranchInfo.DirectProvenance, nil); err != nil {
 				return err
 			}
 		}
@@ -2085,7 +2086,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 
 func (d *driver) deleteAll(ctx context.Context) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		if _, err := d.deleteReposInTransaction(txnCtx, nil); err != nil {
+		if _, err := d.deleteReposInTransaction(ctx, txnCtx, nil); err != nil {
 			return errors.Wrap(err, "could not delete all repos")
 		}
 		if err := d.listProjectInTransaction(ctx, txnCtx, func(pi *pfs.ProjectInfo) error {

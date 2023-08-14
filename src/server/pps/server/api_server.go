@@ -414,12 +414,12 @@ const (
 // to perform 'operation' on the pipeline in 'info'
 func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineOperation, input *pps.Input, projectName, outputName string) error {
 	return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.authorizePipelineOpInTransaction(txnCtx, operation, input, projectName, outputName)
+		return a.authorizePipelineOpInTransaction(ctx, txnCtx, operation, input, projectName, outputName)
 	})
 }
 
 // authorizePipelineOpInTransaction is identical to authorizePipelineOp, but runs in the provided transaction
-func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.TransactionContext, operation pipelineOperation, input *pps.Input, projectName, outputName string) error {
+func (a *apiServer) authorizePipelineOpInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, operation pipelineOperation, input *pps.Input, projectName, outputName string) error {
 	_, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, skip authorization completely
@@ -468,7 +468,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		case pipelineOpUpdate, pipelineOpStartStop:
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
-			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+			if _, err := a.env.PFSServer.InspectRepoInTransaction(ctx, txnCtx, &pfs.InspectRepoRequest{
 				Repo: client.NewRepo(projectName, outputName),
 			}); errutil.IsNotFoundError(err) {
 				// special case: the pipeline output repo has been deleted (so the
@@ -2382,7 +2382,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			if input.Pfs.Project == "" {
 				input.Pfs.Project = projectName
 			}
-			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx,
+			if _, err := a.env.PFSServer.InspectRepoInTransaction(ctx, txnCtx,
 				&pfs.InspectRepoRequest{
 					Repo: client.NewSystemRepo(input.Pfs.Project, input.Pfs.Repo, input.Pfs.RepoType),
 				},
@@ -2410,7 +2410,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	if update {
 		operation = pipelineOpUpdate
 	}
-	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Project.GetName(), newPipelineInfo.Pipeline.Name); err != nil {
+	if err := a.authorizePipelineOpInTransaction(ctx, txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Project.GetName(), newPipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
 
@@ -2470,7 +2470,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		newPipelineInfo.SpecCommit = commitInfo.Commit
 	} else {
 		// create an empty spec commit to mark the update
-		newPipelineInfo.SpecCommit, err = a.env.PFSServer.StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
+		newPipelineInfo.SpecCommit, err = a.env.PFSServer.StartCommitInTransaction(ctx, txnCtx, &pfs.StartCommitRequest{
 			Branch: client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"),
 		})
 		if err != nil {
@@ -2536,7 +2536,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 
 	// Create or update the output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+	if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 		Branch:     outputBranch,
 		Provenance: provenance,
 	}); err != nil {
@@ -2556,7 +2556,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 				prevHead = branchInfo.Head
 			}
 
-			err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 				Branch:  client.NewBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
 				Head:    prevHead,
 				Trigger: input.Pfs.Trigger,
@@ -2575,7 +2575,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrap(err, "could not create meta repo")
 		}
-		if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+		if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 			Branch:     metaBranch,
 			Provenance: provenance, // same provenance as output branch
 		}); err != nil {
@@ -2929,11 +2929,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	var deleteErr error
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var deleteRepos []*pfs.Repo
-		deleteRepos, deleteErr = a.deletePipelineInTransaction(txnCtx, request)
+		deleteRepos, deleteErr = a.deletePipelineInTransaction(ctx, txnCtx, request)
 		if deleteErr != nil {
 			return deleteErr
 		}
-		return a.env.PFSServer.DeleteReposInTransaction(txnCtx, deleteRepos, request.Force)
+		return a.env.PFSServer.DeleteReposInTransaction(ctx, txnCtx, deleteRepos, request.Force)
 	}); err != nil {
 		return err
 	}
@@ -2943,7 +2943,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	return deleteErr
 }
 
-func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) ([]*pfs.Repo, error) {
+func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) ([]*pfs.Repo, error) {
 	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
 	pipelinesNameKey := ppsdb.PipelinesNameKey(request.Pipeline)
@@ -2977,12 +2977,12 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 	// check if the output repo exists--if not, the pipeline is non-functional and
 	// the rest of the delete operation continues without any auth checks
-	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(ctx, txnCtx, &pfs.InspectRepoRequest{
 		Repo: client.NewRepo(projectName, pipelineName)}); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return nil, errors.EnsureStack(err)
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), projectName, pipelineName); err != nil {
+		if err := a.authorizePipelineOpInTransaction(ctx, txnCtx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), projectName, pipelineName); err != nil {
 			return nil, err
 		}
 	}
@@ -3028,19 +3028,19 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		// this leaves the repo as a source repo, eliminating pipeline metadata
 		// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
 		if pipelineInfo.Details != nil {
-			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 				Branch: client.NewBranch(projectName, pipelineName, pipelineInfo.Details.OutputBranch),
 			}); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
 		}
 	}
-	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType)}); err == nil {
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(ctx, txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType)}); err == nil {
 		deleteRepos = append(deleteRepos, client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType))
 	} else if !errutil.IsNotFoundError(err) {
 		return nil, errors.Wrapf(err, "inspect spec repo for pipeline %q", pipelineName)
 	}
-	if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType)}); err == nil {
+	if _, err := a.env.PFSServer.InspectRepoInTransaction(ctx, txnCtx, &pfs.InspectRepoRequest{Repo: client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType)}); err == nil {
 		deleteRepos = append(deleteRepos, client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType))
 	} else if !errutil.IsNotFoundError(err) {
 		return nil, errors.Wrapf(err, "inspect meta repo for pipeline %q", pipelineName)
@@ -3102,13 +3102,13 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var rs []*pfs.Repo
 		for _, p := range ps {
-			deleteRepos, err := a.deletePipelineInTransaction(txnCtx, &pps.DeletePipelineRequest{Pipeline: p, KeepRepo: request.KeepRepo})
+			deleteRepos, err := a.deletePipelineInTransaction(ctx, txnCtx, &pps.DeletePipelineRequest{Pipeline: p, KeepRepo: request.KeepRepo})
 			if err != nil {
 				return err
 			}
 			rs = append(rs, deleteRepos...)
 		}
-		return a.env.PFSServer.DeleteReposInTransaction(txnCtx, rs, request.Force)
+		return a.env.PFSServer.DeleteReposInTransaction(ctx, txnCtx, rs, request.Force)
 	}); err != nil {
 		return nil, err
 	}
@@ -3129,14 +3129,14 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		// check if the caller is authorized to update this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
+		if err := a.authorizePipelineOpInTransaction(ctx, txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
 
 		// Restore branch provenance, which may create a new output commit/job
 		provenance := append(branchProvenance(pipelineInfo.Pipeline.Project, pipelineInfo.Details.Input),
 			client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
-		if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+		if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
 			Provenance: provenance,
 		}); err != nil {
@@ -3144,7 +3144,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 		// restore same provenance to meta repo
 		if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
-			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
 				Provenance: provenance,
 			}); err != nil {
@@ -3174,19 +3174,19 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
-			if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
+			if err := a.authorizePipelineOpInTransaction(ctx, txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
 				return err
 			}
 
 			// Remove branch provenance to prevent new output and meta commits from being created
-			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 				Branch:     client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
 				Provenance: nil,
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
 			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
-				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
 					Provenance: nil,
 				}); err != nil {
