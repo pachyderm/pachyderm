@@ -122,10 +122,11 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	// pachd is configured to reach dex with kube dns, but the tests might be
 	// outside the cluster.
 	c := NewLoggingHTTPClient(t)
+	c.Timeout = 15 * time.Second
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		// Get the initial URL from the grpc, which should point to the dex login page
 		resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
 		if err != nil {

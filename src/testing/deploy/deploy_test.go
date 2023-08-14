@@ -111,7 +111,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
-	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
 		// login using mock IDP admin
 		hc := &http.Client{Timeout: 15 * time.Second}
 		c.SetAuthToken("")

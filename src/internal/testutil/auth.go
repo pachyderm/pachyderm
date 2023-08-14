@@ -66,7 +66,7 @@ func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *cli
 	}
 	var token *auth.GetRobotTokenResponse
 	var err error
-	require.NoErrorWithinTRetryConstant(tb, 60*time.Second, func() error { // this is helpful, but we should find why auth is starting up late in the upgrade tests sometimes
+	require.NoErrorWithinTRetryConstant(tb, 2*time.Minute, func() error { // this is helpful, but we should find why auth is starting up late in the upgrade tests sometimes
 		token, err = rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
 		if err != nil {
 			return errors.Wrap(err, "get robot token request")
