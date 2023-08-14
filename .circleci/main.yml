@@ -1549,8 +1549,6 @@ jobs:
       - run:
           name: Clone Label Studio repo
           command: git clone https://github.com/pachyderm/label-studio.git label-studio
-      - setup_remote_docker:
-          version: 20.10.18
       - run:
           name: Build Label Studio image
           command: |
