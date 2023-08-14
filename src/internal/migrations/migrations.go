@@ -57,16 +57,27 @@ type State struct {
 	prev   *State
 	change Func
 	name   string
+	squash bool
+}
+
+type ApplyOpt func(*State)
+
+func Squash(s *State) {
+	s.squash = true
 }
 
 // Apply applies a Func to the state and returns a new state.
-func (s State) Apply(name string, fn Func) State {
-	return State{
+func (s State) Apply(name string, fn Func, opts ...ApplyOpt) State {
+	s2 := State{
 		prev:   &s,
 		change: fn,
 		n:      s.n + 1,
 		name:   strings.ToLower(name),
 	}
+	for _, opt := range opts {
+		opt(&s2)
+	}
+	return s2
 }
 
 // Number returns the number of changes to be applied before the state can be actualized.
@@ -101,33 +112,48 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	ctx, end := log.SpanContextL(ctx, "ApplyMigrations", log.InfoLevel)
 	defer end(log.Errorp(&retErr))
 
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelSnapshot,
-	})
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
 	env := baseEnv
-	env.Tx = tx
-	for _, state := range CollectStates(make([]State, 0, state.n+1), state) {
+	states := CollectStates(state)
+	for i, state := range states {
+		// if this state is not squashed into the previous, open a new transaction.
+		// otherwise do nothing, and reuse the previous transaction.
+		if !state.squash {
+			tx, err := db.BeginTxx(ctx, &sql.TxOptions{
+				Isolation: sql.LevelSnapshot,
+			})
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			env.Tx = tx
+		}
+		// Apply the migration
 		if err := ApplyMigrationTx(ctx, env, state); err != nil {
-			if err := tx.Rollback(); err != nil {
+			if err := env.Tx.Rollback(); err != nil {
 				log.Error(ctx, "problem rolling back migrations", zap.Error(err))
 			}
 			return errors.EnsureStack(err)
 		}
-	}
-	if err := tx.Commit(); err != nil {
-		log.Error(ctx, "failed to commit migration", zap.Error(err))
-		return errors.EnsureStack(err)
+		// If this is the last migation, or the next migration is not squashed, commit.
+		if i == len(states)-1 || !states[i+1].squash {
+			if err := env.Tx.Commit(); err != nil {
+				log.Error(ctx, "failed to commit migration", zap.Error(err))
+				return errors.EnsureStack(err)
+			}
+			env.Tx = nil
+		}
 	}
 	return nil
 }
 
 // CollectStates does a reverse order traversal of a linked list and adds each item to a slice
-func CollectStates(slice []State, s State) []State {
+func CollectStates(s State) []State {
+	out := make([]State, 0, s.n+1)
+	return collectStates(out, s)
+}
+
+func collectStates(slice []State, s State) []State {
 	if s.prev != nil {
-		slice = CollectStates(slice, *s.prev)
+		slice = collectStates(slice, *s.prev)
 	}
 	return append(slice, s)
 }

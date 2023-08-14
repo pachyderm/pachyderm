@@ -96,7 +96,7 @@ func (d *driver) master(ctx context.Context) {
 func (d *driver) watchRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	repos := make(map[pachsql.ID]context.CancelFunc)
+	repos := make(map[pfsdb.RepoID]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
 			cancel()
@@ -133,25 +133,14 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}
-				rowID := pachsql.ID(0)
-				var repoInfo *pfs.RepoInfo
-				for {
-					if err := iter.NextWithID(ctx, &rowID, &repoInfo); err != nil {
-						if stream.IsEOS(err) {
-							break
-						}
-						return errors.Wrap(err, "listing repo by ID")
-					}
-					if rowID == 0 {
-						return errors.New("repo id should not be 0")
-					}
+				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
 					event := &postgres.Event{
-						Id:        rowID,
+						Id:        uint64(repoPair.ID),
 						EventType: postgres.EventInsert,
 					}
 					existingRepos = append(existingRepos, event)
-				}
-				return nil
+					return nil
+				}), "for each repo")
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "list repos")
 			}
@@ -165,35 +154,36 @@ func (d *driver) watchRepos(ctx context.Context) error {
 	)
 }
 
-func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[pachsql.ID]context.CancelFunc, ev *postgres.Event) error {
+func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[pfsdb.RepoID]context.CancelFunc, ev *postgres.Event) error {
 	if ev.Err != nil {
 		return ev.Err
 	}
+	eventID := pfsdb.RepoID(ev.Id)
 	lockPrefix := path.Join("repos", fmt.Sprintf("%d", ev.Id))
 	if ev.EventType == postgres.EventDelete {
-		if cancel, ok := repos[ev.Id]; ok {
+		if cancel, ok := repos[eventID]; ok {
 			if err := ring.Unlock(lockPrefix); err != nil {
 				return err
 			}
 			cancel()
-			delete(repos, ev.Id)
+			delete(repos, eventID)
 		}
 		return nil
 	}
-	if _, ok := repos[ev.Id]; ok {
+	if _, ok := repos[eventID]; ok {
 		return nil
 	}
 	var repo *pfs.RepoInfo
 	var err error
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		repo, err = pfsdb.GetRepo(ctx, tx, pachsql.ID(ev.Id))
+		repo, err = pfsdb.GetRepo(ctx, tx, eventID)
 		return errors.Wrap(err, "get repo from event id")
 	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "get repo")
 	}
 	key := pfsdb.RepoKey(repo.Repo)
 	ctx, cancel := pctx.WithCancel(ctx)
-	repos[ev.Id] = cancel
+	repos[eventID] = cancel
 	go func() {
 		log.Info(ctx, fmt.Sprintf("starting manageRepos routines for repo:%v, id:%v", key, ev.Id))
 		backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck

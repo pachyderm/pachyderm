@@ -328,9 +328,9 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 		return d.repoSize(ctx, txnCtx, r)
 	}
 	forEach := func(iter *pfsdb.RepoIterator) error {
-		return errors.Wrap(stream.ForEach[*pfs.RepoInfo](ctx, iter, func(repo *pfs.RepoInfo) error {
-			processFunc := d.processListRepoInfo(repo, includeAuth && authActive, projects, checkAccess, collectPerms, repoSize, cb)
-			return errors.Wrap(processFunc(repo.Repo.Name), "list repos")
+		return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
+			processFunc := d.processListRepoInfo(repoPair.RepoInfo, includeAuth && authActive, projects, checkAccess, collectPerms, repoSize, cb)
+			return errors.Wrap(processFunc(repoPair.RepoInfo.Repo.Name), "list repos")
 		}), "could not get repos")
 	}
 	if repoType == "" {
@@ -341,7 +341,7 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 		}
 		return errors.Wrap(forEach(repoIter), "for each repo")
 	}
-	repoTypeIter, err := pfsdb.ListRepoByIdxType(ctx, txnCtx.SqlTx, repoType)
+	repoTypeIter, err := pfsdb.ListReposWithMatchingType(ctx, txnCtx.SqlTx, repoType)
 	if err != nil {
 		return errors.Wrap(err, "list repo by type")
 	}
@@ -517,13 +517,13 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 		return []*pfs.RepoInfo{ri}, nil
 	}
 	var related []*pfs.RepoInfo
-	iter, err := pfsdb.ListRepoByIdxName(ctx, txnCtx.SqlTx, repo.Name)
+	iter, err := pfsdb.ListReposWithMatchingName(ctx, txnCtx.SqlTx, repo.Name)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
-	if err := stream.ForEach[*pfs.RepoInfo](ctx, iter, func(otherRepo *pfs.RepoInfo) error {
-		if otherRepo.Repo.Project.Name == repo.Project.Name {
-			related = append(related, otherRepo)
+	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(otherRepo pfsdb.RepoPair) error {
+		if otherRepo.RepoInfo.Repo.Project.Name == repo.Project.Name {
+			related = append(related, otherRepo.RepoInfo)
 		}
 		return nil
 	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary

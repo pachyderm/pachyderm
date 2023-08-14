@@ -43,10 +43,10 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "list commits for DAG validation")
 			}
 			return validateExistingDAGs(cis)
-		}).
+		}, migrations.Squash).
 		Apply("Add commit_provenance table", func(ctx context.Context, env migrations.Env) error {
 			return SetupCommitProvenanceV0(ctx, env.Tx)
-		}).
+		}, migrations.Squash).
 		Apply("Remove Alias Commits", func(ctx context.Context, env migrations.Env) error {
 			// locking the following tables is necessary for the following 2 migration "Apply"s:
 			// "Remove Alias Commits", "Remove branch from the Commit key"
@@ -69,7 +69,7 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "delete dangling commit references")
 			}
 			return removeAliasCommits(ctx, env.Tx)
-		}).
+		}, migrations.Squash).
 		Apply("Remove branch from the Commit key", func(ctx context.Context, env migrations.Env) error {
 			// enforce known DB invariants
 			if err := deleteDanglingCommitRefs(ctx, env.Tx); err != nil {
@@ -79,11 +79,10 @@ func Migrate(state migrations.State) migrations.State {
 				return err
 			}
 			return branchlessCommitsPPS(ctx, env.Tx)
-		}).
+		}, migrations.Squash).
 		Apply("Add foreign key constraints on pfs.commits.commit_id -> collections.commits.key", func(ctx context.Context, env migrations.Env) error {
 			return SetupCommitProvenanceV01(ctx, env.Tx)
-		})
-
+		}, migrations.Squash)
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE
 }

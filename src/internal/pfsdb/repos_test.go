@@ -23,6 +23,7 @@ import (
 
 const (
 	testRepoName = "testRepoName"
+	testRepoType = "user"
 	testRepoDesc = "this is a test repo"
 )
 
@@ -39,11 +40,11 @@ func TestCreateRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	createInfo := testRepo(testRepoName, "user")
+	createInfo := testRepo(testRepoName, testRepoType)
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create repo")
-		getInfo, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, "user")
+		getInfo, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, testRepoType)
 		require.NoError(t, err, "should be able to get a repo")
 		require.Equal(t, createInfo.Repo.Name, getInfo.Repo.Name)
 		require.Equal(t, createInfo.Repo.Type, getInfo.Repo.Type)
@@ -65,7 +66,7 @@ func TestDeleteRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	createInfo := testRepo(testRepoName, "")
+	createInfo := testRepo(testRepoName, testRepoType)
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create repo")
@@ -93,7 +94,7 @@ func TestGetRepo(t *testing.T) {
 		require.NoError(t, db.Close())
 	})
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	createInfo := testRepo(testRepoName, "user")
+	createInfo := testRepo(testRepoName, testRepoType)
 	createInfo.Branches = []*pfs.Branch{
 		{Repo: createInfo.Repo, Name: "master"},
 		{Repo: createInfo.Repo, Name: "a"},
@@ -154,15 +155,15 @@ func TestListRepos(t *testing.T) {
 		iter, err := pfsdb.ListRepo(cbCtx, tx)
 		require.NoError(t, err, "should be able to list repos")
 		i := 0
-		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+		require.NoError(t, stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
 			if err != nil {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
-			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
-			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
-			require.Equal(t, expectedInfos[i].Description, repo.Description)
-			require.Equal(t, len(expectedInfos[i].Branches), len(repo.Branches))
+			require.Equal(t, expectedInfos[i].Repo.Name, repoPair.RepoInfo.Repo.Name)
+			require.Equal(t, expectedInfos[i].Repo.Type, repoPair.RepoInfo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repoPair.RepoInfo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repoPair.RepoInfo.Description)
+			require.Equal(t, len(expectedInfos[i].Branches), len(repoPair.RepoInfo.Branches))
 			i++
 			return nil
 		}))
@@ -183,22 +184,22 @@ func TestListReposByIdxType(t *testing.T) {
 		for i := 0; i < size; i++ {
 			createInfo := testRepo(fmt.Sprintf("%s%d", testRepoName, i), "unknown")
 			if i%2 == 0 {
-				createInfo.Repo.Type = "user"
+				createInfo.Repo.Type = testRepoType
 				expectedInfos = append(expectedInfos, createInfo)
 			}
 			require.NoError(t, pfsdb.CreateRepo(ctx, tx, createInfo), "should be able to create repo")
 		}
-		iter, err := pfsdb.ListRepoByIdxType(cbCtx, tx, "user")
+		iter, err := pfsdb.ListReposWithMatchingType(cbCtx, tx, testRepoType)
 		require.NoError(t, err, "should be able to list repos")
 		i := 0
-		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+		require.NoError(t, stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
 			if err != nil {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
-			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
-			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
-			require.Equal(t, expectedInfos[i].Description, repo.Description)
+			require.Equal(t, expectedInfos[i].Repo.Name, repoPair.RepoInfo.Repo.Name)
+			require.Equal(t, expectedInfos[i].Repo.Type, repoPair.RepoInfo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repoPair.RepoInfo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repoPair.RepoInfo.Description)
 			i++
 			return nil
 		}))
@@ -224,17 +225,17 @@ func TestListReposByIdxName(t *testing.T) {
 			require.NoError(t, pfsdb.CreateRepo(ctx, tx, createInfo), "should be able to create repo")
 			expectedInfos = append(expectedInfos, createInfo)
 		}
-		iter, err := pfsdb.ListRepoByIdxName(cbCtx, tx, testRepoName)
+		iter, err := pfsdb.ListReposWithMatchingName(cbCtx, tx, testRepoName)
 		require.NoError(t, err, "should be able to list repos")
 		i := 0
-		require.NoError(t, stream.ForEach[*pfs.RepoInfo](cbCtx, iter, func(repo *pfs.RepoInfo) error {
+		require.NoError(t, stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
 			if err != nil {
 				require.NoError(t, err, "should be able to iterate over repos")
 			}
-			require.Equal(t, expectedInfos[i].Repo.Name, repo.Repo.Name)
-			require.Equal(t, expectedInfos[i].Repo.Type, repo.Repo.Type)
-			require.Equal(t, expectedInfos[i].Repo.Project.Name, repo.Repo.Project.Name)
-			require.Equal(t, expectedInfos[i].Description, repo.Description)
+			require.Equal(t, expectedInfos[i].Repo.Name, repoPair.RepoInfo.Repo.Name)
+			require.Equal(t, expectedInfos[i].Repo.Type, repoPair.RepoInfo.Repo.Type)
+			require.Equal(t, expectedInfos[i].Repo.Project.Name, repoPair.RepoInfo.Repo.Project.Name)
+			require.Equal(t, expectedInfos[i].Description, repoPair.RepoInfo.Description)
 			i++
 			return nil
 		}))
@@ -248,7 +249,7 @@ func TestUpdateRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	repoInfo := testRepo(testRepoName, "")
+	repoInfo := testRepo(testRepoName, testRepoType)
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// test upsert correctness
@@ -266,7 +267,7 @@ func TestUpdateRepoByID(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	repoInfo := testRepo(testRepoName, "")
+	repoInfo := testRepo(testRepoName, testRepoType)
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, repoInfo), "should be able to create repo")

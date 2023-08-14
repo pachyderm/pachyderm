@@ -27,7 +27,7 @@ const (
 )
 
 type Event struct {
-	Id        pachsql.ID
+	Id        uint64
 	EventType EventType
 	Err       error
 }
@@ -137,6 +137,6 @@ func parseNotification(payload string) Event {
 	if err != nil {
 		return Event{Err: errors.Wrap(err, "failed to parse notification payload's id")}
 	}
-	event.Id = pachsql.ID(id)
+	event.Id = uint64(id)
 	return event
 }

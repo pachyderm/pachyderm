@@ -367,17 +367,17 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		if err != nil {
 			return errors.Wrap(err, "list repo iterator")
 		}
-		if err := stream.ForEach[*pfs.RepoInfo](ctx, repoIter, func(repo *pfs.RepoInfo) error {
-			repoInfos[pfsdb.RepoKey(repo.Repo)] = repo
+		if err := stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
+			repoInfos[pfsdb.RepoKey(repoPair.RepoInfo.Repo)] = repoPair.RepoInfo
 			commitInfo := &pfs.CommitInfo{}
-			if err := d.commits.ReadWrite(tx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
+			if err := d.commits.ReadWrite(tx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repoPair.RepoInfo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
 				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 				return nil
 			}); err != nil {
 				return errors.Wrap(err, "get commits by commits repo index")
 			}
 			branchInfo := &pfs.BranchInfo{}
-			err := d.branches.ReadWrite(tx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
+			err := d.branches.ReadWrite(tx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repoPair.RepoInfo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
 				branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 				return nil
 			})
