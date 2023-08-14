@@ -11,7 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-type EventType int
+type EventType uint8
 
 const (
 	// EventInsert happens when an item is added
@@ -27,9 +27,9 @@ const (
 )
 
 type Event struct {
-	Id        uint64
-	EventType EventType
-	Err       error
+	Id   uint64
+	Type EventType
+	Err  error
 }
 
 // New version of postgresWatcher
@@ -125,11 +125,11 @@ func parseNotification(payload string) Event {
 	event := Event{}
 	switch parts[0] {
 	case "INSERT":
-		event.EventType = EventInsert
+		event.Type = EventInsert
 	case "UPDATE":
-		event.EventType = EventUpdate
+		event.Type = EventUpdate
 	case "DELETE":
-		event.EventType = EventDelete
+		event.Type = EventDelete
 	default:
 		return Event{Err: errors.Errorf("failed to parse notification payload '%s', unknown TG_OP: %s", payload, parts[0])}
 	}

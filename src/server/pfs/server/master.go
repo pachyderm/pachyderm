@@ -135,8 +135,8 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				}
 				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
 					event := &postgres.Event{
-						Id:        uint64(repoPair.ID),
-						EventType: postgres.EventInsert,
+						Id:   uint64(repoPair.ID),
+						Type: postgres.EventInsert,
 					}
 					existingRepos = append(existingRepos, event)
 					return nil
@@ -160,7 +160,7 @@ func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, 
 	}
 	eventID := pfsdb.RepoID(ev.Id)
 	lockPrefix := path.Join("repos", fmt.Sprintf("%d", ev.Id))
-	if ev.EventType == postgres.EventDelete {
+	if ev.Type == postgres.EventDelete {
 		if cancel, ok := repos[eventID]; ok {
 			if err := ring.Unlock(lockPrefix); err != nil {
 				return err
