@@ -1555,7 +1555,7 @@ jobs:
           name: Build Label Studio image
           command: |
             cd label-studio
-            git checkout bonenfant/pachyderm-mountless
+            git checkout smalyala/pachyderm-mountless-fixes
             docker build -t pachyderm/label-studio:$CIRCLE_SHA1 .
       - run:
           name: Run Label Studio
