@@ -1514,6 +1514,26 @@ jobs:
           command: |
             poetry version << parameters.version >>
             poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
+  label-studio-ci-testing-docker-build:
+    executor: python
+    steps:
+      - setup_remote_docker:
+          version: 20.10.18
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Clone Label Studio repo
+          command: git clone https://github.com/pachyderm/label-studio.git label-studio
+      - run:
+          name: Build Docker image
+          command: |
+            cd label-studio
+            git checkout smalyala/pachyderm-mountless-fixes # TODO: remove after mountless changes merged into main
+            docker build -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
+      - run:
+          name: Docker push
+          command: docker push -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
   test-label-studio:
     resource_class: xlarge
     machine:
@@ -1547,18 +1567,9 @@ jobs:
             kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
             pachctl version
       - run:
-          name: Clone Label Studio repo
-          command: git clone https://github.com/pachyderm/label-studio.git label-studio
-      - run:
-          name: Build Label Studio image
-          command: |
-            cd label-studio
-            git checkout smalyala/pachyderm-mountless-fixes
-            docker build -t pachyderm/label-studio:$CIRCLE_SHA1 .
-      - run:
           name: Run Label Studio
           command: |
-            docker run -d -it --net="host" pachyderm/label-studio:$CIRCLE_SHA1 label-studio -b \
+            docker run -d -it --net="host" pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 label-studio -b \
             --username $LABEL_STUDIO_USERNAME \
             --password $LABEL_STUDIO_PASSWORD \
             --user-token $LABEL_STUDIO_USER_TOKEN
@@ -1568,7 +1579,7 @@ jobs:
           name: Run tests
           command: |
             pip3 install -r requirements.txt
-            PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest tests/test_pachyderm_storage.py
+            PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
     
 
 workflows:
@@ -1798,8 +1809,10 @@ workflows:
       - test-label-studio:
           requires:
             - build-pachctl-bin
+            - label-studio-ci-testing-docker-build
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
+      - label-studio-ci-testing-docker-build
 
   release:
     jobs:
