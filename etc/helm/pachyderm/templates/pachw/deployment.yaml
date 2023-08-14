@@ -184,7 +184,7 @@ spec:
         - configMapRef:
             name: pachd-config
             optional: true
-        image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        image: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachw
         readinessProbe:

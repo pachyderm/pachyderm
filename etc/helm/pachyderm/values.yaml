@@ -58,6 +58,8 @@ global:
   # Set security context runAs users. If running on openshift, set enabled to false as openshift creates its own contexts.
   securityContexts:
     enabled: true
+  image:
+    registry: docker.io/
 
 determined:
   enabled: false
