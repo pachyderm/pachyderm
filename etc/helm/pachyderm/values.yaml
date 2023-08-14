@@ -60,7 +60,6 @@ global:
     enabled: true
   image:
     registry: docker.io/
-    grafanaRegistry: https://grafana.github.io/
 
 determined:
   enabled: false
