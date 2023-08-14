@@ -17,6 +17,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -693,5 +694,5 @@ func TestDefaultPropagation(t *testing.T) {
 func unmarshalJSON(s string, v any) error {
 	d := json.NewDecoder(strings.NewReader(s))
 	d.UseNumber()
-	return d.Decode(v)
+	return errors.Wrapf(d.Decode(v), "could not unmarshal %q as JSON", s)
 }

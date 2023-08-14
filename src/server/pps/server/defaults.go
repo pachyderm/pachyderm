@@ -320,5 +320,5 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 func unmarshalJSON(s string, v any) error {
 	d := json.NewDecoder(strings.NewReader(s))
 	d.UseNumber()
-	return d.Decode(v)
+	return errors.Wrapf(d.Decode(v), "could not unmarshal %q as JSON", s)
 }
