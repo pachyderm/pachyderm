@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"time"
 
 	units "github.com/docker/go-units"
@@ -148,7 +149,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 }
 
 // validateTrigger returns an error if a trigger is invalid
-func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
 	if trigger == nil {
 		return nil
 	}
@@ -172,7 +173,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
-	if err := d.listBranchInTransaction(txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
+	if err := d.listBranchInTransaction(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
 		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {
