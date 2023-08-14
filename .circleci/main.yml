@@ -1534,7 +1534,7 @@ jobs:
             DOCKER_BUILDKIT=1 docker build -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
       - run:
           name: Docker push
-          command: docker push -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
+          command: docker push pachyderm/label-studio-ci-testing:$CIRCLE_SHA1
   test-label-studio:
     resource_class: xlarge
     machine:
