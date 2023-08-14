@@ -219,14 +219,10 @@ func jsonMergePatch(target, patch string, f canonicalizer) (string, error) {
 	// The default json decoder will decode numbers to floats, which can
 	// lose precision; by explicitly creating a decoder and using
 	// json.Number we avoid that.
-	d := json.NewDecoder(strings.NewReader(target))
-	d.UseNumber()
-	if err := d.Decode(&targetObject); err != nil {
+	if err := unmarshalJSON(target, &targetObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal target JSON")
 	}
-	d = json.NewDecoder(strings.NewReader(patch))
-	d.UseNumber()
-	if err := d.Decode(&patchObject); err != nil {
+	if err := unmarshalJSON(patch, &patchObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal patch JSON")
 	}
 	if f != nil {
@@ -319,4 +315,10 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %s", wrappedSpecJSON)
 	}
 	return string(effectiveSpecJSON), effectiveWrapper.CreatePipelineRequest, nil
+}
+
+func unmarshalJSON(s string, v any) error {
+	d := json.NewDecoder(strings.NewReader(s))
+	d.UseNumber()
+	return d.Decode(v)
 }

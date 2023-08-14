@@ -517,10 +517,8 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	if r.UserSpecJson == "" {
 		t.Error("missing user spec")
 	}
-	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
-	d.UseNumber()
 	var spec map[string]any
-	if err := d.Decode(&spec); err != nil {
+	if err := unmarshalJSON(r.UserSpecJson, &spec); err != nil {
 		t.Errorf("could not decode user spec %s: %v", r.UserSpecJson, err)
 	}
 	if _, ok := spec["salt"]; ok {
@@ -533,9 +531,7 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	if r.EffectiveSpecJson == "" {
 		t.Error("missing effective spec")
 	}
-	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
-	d.UseNumber()
-	if err := d.Decode(&spec); err != nil {
+	if err := unmarshalJSON(r.EffectiveSpecJson, &spec); err != nil {
 		t.Errorf("could not decode effective spec %s: %v", r.EffectiveSpecJson, err)
 	}
 	if spec["salt"] != "mysalt" {
@@ -547,4 +543,155 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	if spec["datumTries"] != json.Number("4") {
 		t.Error("effective spec should have datumTries = 4")
 	}
+}
+
+// TestDefaultPropagation tests that changed defaults propagate to a pipeline.
+func TestDefaultPropagation(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "metadata": {"annotations": {"foo": "bar"}}}}`,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+
+	repo := "input"
+	pipeline := "pipeline"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 4
+	}`
+	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+	require.NoError(t, err, "template must parse")
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, struct {
+		ProjectName, PipelineName, RepoName string
+	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: buf.String(),
+	})
+	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
+	require.True(t, req.Autoscaling, "default must apply to spec")
+	require.Equal(t, "bar", req.Metadata.Annotations["foo"], "default must apply to spec")
+
+	// validate that the user and effective specs are correct
+	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}, Details: true})
+	if err != nil {
+		t.Fatal("could not retrieve pipeline", err)
+	}
+	if r.UserSpecJson == "" {
+		t.Error("missing user spec")
+	}
+	var spec map[string]any
+	if err := unmarshalJSON(r.UserSpecJson, &spec); err != nil {
+		t.Errorf("could not decode user spec %s: %v", r.UserSpecJson, err)
+	}
+	if _, ok := spec["metadata"]; ok {
+		t.Error("metadata should not be found in the user spec")
+	}
+	if _, ok := spec["autoscaling"]; ok {
+		t.Error("autoscaling should not be found in the user spec")
+	}
+
+	if r.EffectiveSpecJson == "" {
+		t.Error("missing effective spec")
+	}
+	if err := unmarshalJSON(r.EffectiveSpecJson, &spec); err != nil {
+		t.Errorf("could not decode effective spec %s: %v", r.EffectiveSpecJson, err)
+	}
+	if _, ok := spec["metadata"]; !ok {
+		t.Error("metadata should be set in the effective spec")
+	}
+	if spec["autoscaling"] == false {
+		t.Error("effective spec should have autoscaling = true")
+	}
+	if spec["datumTries"] != json.Number("4") {
+		t.Error("effective spec should have datumTries = 4")
+	}
+
+	version := r.Version
+	salt := r.Details.Salt
+	// changing the defaults without regenerate set should have no effect on the pipeline
+	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": false, "metadata": {"annotations": {"baz": "quux"}}}}`,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+	r, err = env.PPSServer.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: r.Pipeline, Details: true})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	require.Equal(t, version, r.Version, "SetClusterDefaults with regenerate=false should have no effect on pipelines")
+	require.Equal(t, true, r.Details.Autoscaling, "SetClusterDefaults with regenerate=false should have no effect on pipelines")
+	require.Equal(t, "bar", r.Details.Metadata.Annotations["foo"], "SetClusterDefaults with regenerate=false should have no effect on pipelines")
+	require.Equal(t, "", r.Details.Metadata.Annotations["baz"], "SetClusterDefaults with regenerate=false should have no effect on pipelines")
+
+	// changing the defaults with regenerate set should have an effect, but without reprocess set the salt should remain the same
+	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "metadata": {"annotations": {"baz": "quux"}}, "salt": "mysalt2"}}`,
+		Regenerate:          true,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+	r, err = env.PPSServer.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: r.Pipeline, Details: true})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	require.NotEqual(t, version, r.Version, "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, true, r.Details.Autoscaling, "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, "", r.Details.Metadata.Annotations["foo"], "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, "quux", r.Details.Metadata.Annotations["baz"], "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, salt, r.Details.Salt, "SetClusterDefaults with regenerate=true should have an effect, but not on salt")
+
+	version = r.Version
+	// changing the defaults with regenerate set but no effective changes should have … no effect on the pipeline
+	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 12, "autoscaling": true, "metadata": {"annotations": {"baz": "quux"}}, "salt": "mysalt2"}}`,
+		Regenerate:          true,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+	r, err = env.PPSServer.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: r.Pipeline, Details: true})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	require.Equal(t, r.Version, version, "SetClusterDefaults which does not change an effective spec should have no effect")
+	require.Equal(t, int64(4), r.Details.DatumTries, "SetClusterDefaults which does not change an effective spec should have no effect")
+	require.Equal(t, true, r.Details.Autoscaling, "SetClusterDefaults which does not change an effective spec should have no effect")
+	require.Equal(t, salt, r.Details.Salt, "SetClusterDefaults which does not change an effective spec should have no effect")
+
+	// changing the defaults and setting reprocess should update the salt
+	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "metadata": {"annotations": {"foobar": "bazquux"}}, "salt": "mysalt2"}}`,
+		Regenerate:          true,
+		Reprocess:           true,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+	r, err = env.PPSServer.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: r.Pipeline, Details: true})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	require.NotEqual(t, version, r.Version, "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, true, r.Details.Autoscaling, "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, "", r.Details.Metadata.Annotations["foo"], "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, "", r.Details.Metadata.Annotations["baz"], "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.Equal(t, "bazquux", r.Details.Metadata.Annotations["foobar"], "SetClusterDefaults with regenerate=true should have an effect on pipelines")
+	require.NotEqual(t, salt, r.Details.Salt, "SetClusterDefaults with regenerate=true and reprocess=true should update salt")
+
+}
+
+func unmarshalJSON(s string, v any) error {
+	d := json.NewDecoder(strings.NewReader(s))
+	d.UseNumber()
+	return d.Decode(v)
 }

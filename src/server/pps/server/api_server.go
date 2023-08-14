@@ -3775,6 +3775,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			}
 			if !proto.Equal(&oldEffectiveSpec, effectiveSpec) {
 				effectiveSpec.Update = true
+				effectiveSpec.Reprocess = req.Reprocess
 				pp[pi.GetPipeline()] = &pps.CreatePipelineTransaction{
 					CreatePipelineRequest: effectiveSpec,
 					EffectiveJson:         effectiveSpecJSON,
@@ -3800,7 +3801,6 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 	}); err != nil {
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
-	// TODO(CORE-1708): add affected pipelines
 	var resp pps.SetClusterDefaultsResponse
 	for p := range pp {
 		resp.AffectedPipelines = append(resp.AffectedPipelines, p)
