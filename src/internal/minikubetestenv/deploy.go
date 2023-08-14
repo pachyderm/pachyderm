@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -48,6 +50,7 @@ const (
 const (
 	determinedRegistry       = "registry-1.docker.io/determinedai"
 	determinedRegistrySecret = "detregcred"
+	determinedLoginSecret    = "detlogin"
 )
 
 var (
@@ -448,6 +451,10 @@ func waitForPostgres(t testing.TB, ctx context.Context, kubeClient *kube.Clients
 	waitForLabeledPod(t, ctx, kubeClient, namespace, "app.kubernetes.io/name=postgresql")
 }
 
+func waitForDetermined(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "determined-system=master")
+}
+
 func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, label string) {
 	require.NoError(t, backoff.Retry(func() error {
 		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
@@ -514,6 +521,25 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
+// returns the Nodeport url for accessing the determined service via REST/HTTP with an empty Path
+func DetNodeportHttpUrl(t testing.TB, namespace string) *url.URL {
+	ctx := context.Background()
+	kube := testutil.GetKubeClient(t)
+	service, err := kube.CoreV1().Services(namespace).Get(ctx, fmt.Sprintf("determined-master-service-%s", namespace), metav1.GetOptions{})
+	detPort := service.Spec.Ports[0].NodePort
+	require.NoError(t, err, "Fininding Determined service")
+	node, err := kube.CoreV1().Nodes().Get(ctx, "minikube", metav1.GetOptions{})
+	require.NoError(t, err, "Fininding node for Determined")
+	var detHost string
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == "InternalIP" {
+			detHost = addr.Address
+		}
+	}
+	detUrl := net.FormatURL("http", detHost, int(detPort), "")
+	return detUrl
+}
+
 func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
 	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: licenseKeySecretName},
@@ -524,6 +550,7 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
 
+// Create the secret kubernetes uses to pull the Determined image
 func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
 	require.NotEqual(t, "", detDockerUser, "Missing required user for Determined integration testing")
 	require.NotEqual(t, "", detDockerPass, "Missing required password for Determined integration testing")
@@ -548,7 +575,22 @@ func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient
 			".dockerconfigjson": string(dockerConfig),
 		},
 	}, metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined secret setup", err)
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined regcred secret setup", err)
+}
+
+// Create the secret that pachd uses to connect
+func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
+	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      determinedLoginSecret,
+			Namespace: ns,
+		},
+		StringData: map[string]string{
+			"determined-username": "admin",
+			"determined-password": "",
+		},
+	}, metav1.CreateOptions{})
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
@@ -586,6 +628,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.Determined {
 		createSecretDeterminedRegcred(t, ctx, kubeClient, namespace)
+		createSecretDeterminedLogin(t, ctx, kubeClient, namespace)
 		valuesTemplate, err := template.ParseFiles(exampleValuesLocalPath(t, "int-test-values-with-det.yaml"))
 		require.NoError(t, err, "Creating determined values template")
 		valuesFile, err := os.CreateTemp("", "detvalues.*.yaml")
@@ -637,6 +680,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
 	waitForPostgres(t, ctx, kubeClient, namespace)
+	if opts.Determined {
+		waitForDetermined(t, ctx, kubeClient, namespace)
+	}
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
