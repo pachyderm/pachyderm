@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {render, waitFor, screen} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import {render, waitFor, screen, act} from '@testing-library/react';
 import React, {ReactElement} from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
@@ -36,20 +35,25 @@ const withContextProviders = (
 const WrappedTestComponent = withContextProviders(TestComponent);
 
 describe('NotificationBanner', () => {
-  it.skip('should show a notification banner and default to removing it after 3 seconds', async () => {
+  it('should show a notification banner and default to removing it after 3 seconds', async () => {
     jest.useFakeTimers('legacy');
-    const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
-    });
 
     render(<WrappedTestComponent />);
 
     const bannerButton = screen.getByText('Create Banner');
 
-    await user.click(bannerButton);
+    bannerButton.click();
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
 
     const banner = await screen.findByText('Test Banner');
     expect(banner).toBeInTheDocument();
+
+    act(() => {
+      jest.runAllTimers();
+    });
 
     await waitFor(() =>
       expect(screen.queryByText('Test Banner')).not.toBeInTheDocument(),
@@ -57,19 +61,25 @@ describe('NotificationBanner', () => {
     jest.useRealTimers();
   });
 
-  it.skip('should show the notification banner for the specified duration', async () => {
+  it('should show the notification banner for the specified duration', async () => {
     jest.useFakeTimers('legacy');
-    const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
-    });
+
     render(<WrappedTestComponent type="success" duration={2000} />);
 
     const bannerButton = screen.getByText('Create Banner');
 
-    await user.click(bannerButton);
+    bannerButton.click();
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
 
     const banner = await screen.findByText('Test Banner');
     expect(banner).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
 
     await waitFor(() =>
       expect(screen.queryByText('Test Banner')).not.toBeInTheDocument(),

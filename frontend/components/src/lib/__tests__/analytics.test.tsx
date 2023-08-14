@@ -4,8 +4,6 @@ import {mocked} from 'jest-mock';
 import Cookies from 'js-cookie';
 import React from 'react';
 
-import {click} from '@dash-frontend/testHelpers';
-
 import {
   captureTrackingCookies,
   getTrackingCookies,
@@ -15,6 +13,7 @@ import {
   fireUTM,
   initClickTracker,
   initPageTracker,
+  CLICK_TIMEOUT,
 } from '../analytics';
 
 jest.spyOn(sentryReact, 'captureException').mockImplementation(jest.fn());
@@ -132,8 +131,9 @@ describe('lib/analytics', () => {
     });
   });
 
-  // This test is broken. click will not fire more than once.
-  it.skip('should track specified clicks', async () => {
+  it('should track specified clicks', async () => {
+    jest.useFakeTimers();
+
     render(
       <>
         {/* eslint-disable-next-line testing-library/consistent-data-testid */}
@@ -146,14 +146,17 @@ describe('lib/analytics', () => {
 
     initClickTracker(track);
 
-    await click(randomButton);
+    randomButton.click();
     expect(track).toHaveBeenCalledTimes(0);
 
-    await click(contactButton);
-    await waitFor(() => expect(track).toHaveBeenCalledTimes(1));
+    jest.advanceTimersByTime(CLICK_TIMEOUT);
+    contactButton.click();
+    expect(track).toHaveBeenCalledTimes(1);
 
-    await click(contactButton);
-    await waitFor(() => expect(track).toHaveBeenCalledTimes(2));
+    jest.advanceTimersByTime(CLICK_TIMEOUT);
+    contactButton.click();
+    expect(track).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
   });
 
   it('should send an event to sentry when a click event fails', () => {
