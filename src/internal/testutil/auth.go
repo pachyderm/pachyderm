@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -57,13 +58,21 @@ func ActivateAuthClient(tb testing.TB, c *client.APIClient, port ...string) {
 // creates a new authenticated pach client, without re-activating
 func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
 	tb.Helper()
+
 	rootClient := UnauthenticatedPachClient(tb, c)
 	rootClient.SetAuthToken(RootToken)
 	if subject == auth.RootUser {
 		return rootClient
 	}
-	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
-	require.NoError(tb, err)
+	var token *auth.GetRobotTokenResponse
+	var err error
+	require.NoErrorWithinTRetryConstant(tb, 60*time.Second, func() error { // this is helpful, but we should find why auth is starting up late in the upgrade tests sometimes
+		token, err = rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
+		if err != nil {
+			return errors.Wrap(err, "get robot token request")
+		}
+		return nil
+	}, 5*time.Second, "authenticating pach client")
 	client := UnauthenticatedPachClient(tb, c)
 	client.SetAuthToken(token.Token)
 	return client
