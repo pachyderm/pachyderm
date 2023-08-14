@@ -91,7 +91,6 @@ func TestEtcdImageTag(t *testing.T) {
 	var statefulSet appsv1.StatefulSet
 	helm.UnmarshalK8SYaml(t, output, &statefulSet)
 
-	// expectedContainerImage := "pachyderm/etcd:blah"
 	expectedContainerImage := fmt.Sprintf("%spachyderm/etcd:blah", options.SetValues["global.image.registry"])
 	deploymentContainers := statefulSet.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
@@ -118,8 +117,6 @@ func TestPachdImageTag(t *testing.T) {
 
 	expectedContainerImage := fmt.Sprintf("%spachyderm/pachd:blah1234", options.SetValues["global.image.registry"])
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
-	// expectedContainerImage := "pachyderm/pachd:blah1234"
-	// deploymentContainers := deployment.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
 	}
@@ -143,8 +140,6 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
 
-	// expectedPachdContainerImage := "pachyderm/pachd:" + expectedTag
-	// expectedWorkerContainerImage := "pachyderm/worker:" + expectedTag
 	expectedPachdContainerImage := fmt.Sprintf("%spachyderm/pachd:"+expectedTag, options.SetValues["global.image.registry"])
 	expectedWorkerContainerImage := fmt.Sprintf("%spachyderm/worker:"+expectedTag, options.SetValues["global.image.registry"])
 
