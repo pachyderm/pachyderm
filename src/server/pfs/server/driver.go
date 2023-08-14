@@ -341,7 +341,7 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 		}
 		return errors.Wrap(forEach(repoIter), "for each repo")
 	}
-	repoTypeIter, err := pfsdb.ListRepoByIdxType(ctx, txnCtx.SqlTx, repoType)
+	repoTypeIter, err := pfsdb.ListReposWithMatchingType(ctx, txnCtx.SqlTx, repoType)
 	if err != nil {
 		return errors.Wrap(err, "list repo by type")
 	}
@@ -517,7 +517,7 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 		return []*pfs.RepoInfo{ri}, nil
 	}
 	var related []*pfs.RepoInfo
-	iter, err := pfsdb.ListRepoByIdxName(ctx, txnCtx.SqlTx, repo.Name)
+	iter, err := pfsdb.ListReposWithMatchingName(ctx, txnCtx.SqlTx, repo.Name)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}

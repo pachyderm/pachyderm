@@ -102,7 +102,7 @@ type RepoIterator struct {
 	index    int
 	tx       *pachsql.Tx
 	where    string
-	whereVal interface{}
+	whereVal string
 }
 
 type repoRow struct {
@@ -151,21 +151,21 @@ func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
 
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
 func ListRepo(ctx context.Context, tx *pachsql.Tx) (*RepoIterator, error) {
-	return listRepo(ctx, tx, "", nil)
+	return listRepo(ctx, tx, "", "")
 }
 
-// ListRepoByIdxType is like ListRepo but only iterates over repo.type = repoType.
-func ListRepoByIdxType(ctx context.Context, tx *pachsql.Tx, repoType string) (*RepoIterator, error) {
+// ListReposWithMatchingType is like ListRepo but only iterates over repo.type = repoType.
+func ListReposWithMatchingType(ctx context.Context, tx *pachsql.Tx, repoType string) (*RepoIterator, error) {
 	return listRepo(ctx, tx, "type", repoType)
 }
 
-// ListRepoByIdxName is like ListRepo but only iterates over repo.name = name.
-func ListRepoByIdxName(ctx context.Context, tx *pachsql.Tx, repoName string) (*RepoIterator, error) {
+// ListReposWithMatchingName is like ListRepo but only iterates over repo.name = name.
+func ListReposWithMatchingName(ctx context.Context, tx *pachsql.Tx, repoName string) (*RepoIterator, error) {
 	return listRepo(ctx, tx, "name", repoName)
 }
 
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
-func listRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*RepoIterator, error) {
+func listRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal string) (*RepoIterator, error) {
 	limit := 100
 	page, err := listRepoPage(ctx, tx, limit, 0, where, whereVal)
 	if err != nil {
@@ -176,16 +176,16 @@ func listRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal interf
 		limit: limit,
 		tx:    tx,
 	}
-	if where != "" && whereVal != nil {
+	if where != "" && whereVal != "" {
 		iter.where = where
 		iter.whereVal = whereVal
 	}
 	return iter, nil
 }
 
-func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, where string, whereVal interface{}) ([]repoRow, error) {
+func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, where string, whereVal string) ([]repoRow, error) {
 	var page []repoRow
-	if where != "" && whereVal != nil {
+	if where != "" && whereVal != "" {
 		if err := tx.SelectContext(ctx, &page,
 			fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $2 OFFSET $3;", getRepoAndBranches, where),
 			whereVal, limit, offset); err != nil {
@@ -203,10 +203,10 @@ func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, where 
 // CreateRepo creates an entry in the pfs.repos table.
 func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	if repo.Repo.Type == "" {
-		repo.Repo.Type = "unknown"
+		return errors.New(fmt.Sprintf("repo.Type is empty: %+v", repo.Repo))
 	}
 	if repo.Repo.Project == nil {
-		repo.Repo.Project = &pfs.Project{Name: "default"}
+		return errors.New(fmt.Sprintf("repo.Project is empty: %+v", repo.Repo))
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
 		"VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects WHERE name=$3), $4);",
@@ -332,10 +332,10 @@ func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
 // UpsertRepo will attempt to insert a repo. If the repo already exists, it will update its description.
 func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 	if repo.Repo.Type == "" {
-		repo.Repo.Type = "unknown"
+		return errors.New(fmt.Sprintf("repo.Type is empty: %+v", repo.Repo))
 	}
 	if repo.Repo.Project == nil {
-		repo.Repo.Project = &pfs.Project{Name: "default"}
+		return errors.New(fmt.Sprintf("repo.Project is empty: %+v", repo.Repo))
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
 		"VALUES ($1, $2, (SELECT id from core.projects where name=$3), $4) "+
@@ -350,10 +350,10 @@ func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 // UpdateRepo overwrites an existing repo entry by RepoID.
 func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id RepoID, repo *pfs.RepoInfo) error {
 	if repo.Repo.Type == "" {
-		repo.Repo.Type = "unknown"
+		return errors.New(fmt.Sprintf("repo.Type is empty: %+v", repo.Repo))
 	}
 	if repo.Repo.Project == nil {
-		repo.Repo.Project = &pfs.Project{Name: "default"}
+		return errors.New(fmt.Sprintf("repo.Project is empty: %+v", repo.Repo))
 	}
 	res, err := tx.ExecContext(ctx, "UPDATE pfs.repos SET name=$1, type=$2::pfs.repo_type, "+
 		"project_id=(SELECT id FROM core.projects WHERE name=$3), description=$4 WHERE id=$5;",
