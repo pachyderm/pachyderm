@@ -133,9 +133,9 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 
 // InspectRepoInTransaction is identical to InspectRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionContext, originalRequest *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
+func (a *apiServer) InspectRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, originalRequest *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
 	request := proto.Clone(originalRequest).(*pfs.InspectRepoRequest)
-	return a.driver.inspectRepo(txnCtx, request.Repo, true)
+	return a.driver.inspectRepo(ctx, txnCtx, request.Repo, true)
 }
 
 // InspectRepo implements the protobuf pfs.InspectRepo RPC
@@ -145,7 +145,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	var size int64
 	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		repoInfo, err = a.InspectRepoInTransaction(txnCtx, request)
+		repoInfo, err = a.InspectRepoInTransaction(ctx, txnCtx, request)
 		if err != nil {
 			return err
 		}
@@ -168,22 +168,22 @@ func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoS
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
-	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
+func (a *apiServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
+	return a.driver.deleteRepo(ctx, txnCtx, request.Repo, request.Force)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteReposInTransaction(txnCtx *txncontext.TransactionContext, repos []*pfs.Repo, force bool) error {
+func (a *apiServer) DeleteReposInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repos []*pfs.Repo, force bool) error {
 	var ris []*pfs.RepoInfo
 	for _, r := range repos {
-		ri, err := a.driver.inspectRepo(txnCtx, r, false) // evaluate auth in d.deleteReposHelper()
+		ri, err := a.driver.inspectRepo(ctx, txnCtx, r, false) // evaluate auth in d.deleteReposHelper()
 		if err != nil {
 			return errors.Wrap(err, "list repos for delete")
 		}
 		ris = append(ris, ri)
 	}
-	if _, err := a.driver.deleteReposHelper(txnCtx, ris, force); err != nil {
+	if _, err := a.driver.deleteReposHelper(ctx, txnCtx, ris, force); err != nil {
 		return err
 	}
 	return nil
@@ -222,8 +222,8 @@ func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposReq
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
-	return a.driver.startCommit(txnCtx, request.Parent, request.Branch, request.Description)
+func (a *apiServer) StartCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
+	return a.driver.startCommit(ctx, txnCtx, request.Parent, request.Branch, request.Description)
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
@@ -309,8 +309,8 @@ func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.AP
 
 // SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {
-	return a.driver.squashCommitSet(txnCtx, request.CommitSet)
+func (a *apiServer) SquashCommitSetInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {
+	return a.driver.squashCommitSet(ctx, txnCtx, request.CommitSet)
 }
 
 // SquashCommitSet implements the protobuf pfs.SquashCommitSet RPC
@@ -326,7 +326,7 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 // DropCommitSet implements the protobuf pfs.DropCommitSet RPC
 func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *emptypb.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.dropCommitSet(txnCtx, request.CommitSet)
+		return a.driver.dropCommitSet(ctx, txnCtx, request.CommitSet)
 	}); err != nil {
 		return nil, err
 	}
@@ -359,8 +359,8 @@ func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_Fin
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
-	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
+func (a *apiServer) CreateBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
+	return a.driver.createBranch(ctx, txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
 }
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
@@ -395,14 +395,14 @@ func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListB
 		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
 	}
 	return a.env.TxnEnv.WithReadContext(srv.Context(), func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.listBranchInTransaction(txnCtx, request.Repo, request.Reverse, srv.Send)
+		return a.driver.listBranchInTransaction(srv.Context(), txnCtx, request.Repo, request.Reverse, srv.Send)
 	})
 }
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteBranchRequest) error {
-	return a.driver.deleteBranch(txnCtx, request.Branch, request.Force)
+func (a *apiServer) DeleteBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteBranchRequest) error {
+	return a.driver.deleteBranch(ctx, txnCtx, request.Branch, request.Force)
 }
 
 // DeleteBranch implements the protobuf pfs.DeleteBranch RPC
