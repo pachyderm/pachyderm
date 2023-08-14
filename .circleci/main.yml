@@ -1519,6 +1519,7 @@ jobs:
     steps:
       - setup_remote_docker:
           version: 20.10.18
+          docker_layer_caching: true
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1530,7 +1531,7 @@ jobs:
           command: |
             cd label-studio
             git checkout smalyala/pachyderm-mountless-fixes # TODO: remove after mountless changes merged into main
-            docker build -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
+            DOCKER_BUILDKIT=1 docker build -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
       - run:
           name: Docker push
           command: docker push -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
