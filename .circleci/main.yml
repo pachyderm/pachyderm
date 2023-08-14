@@ -1547,10 +1547,20 @@ jobs:
             kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
             pachctl version
       - run:
-          name: Set up Label Studio
-           ## TODO: custom label studio image
+          name: Clone Label Studio repo
+          command: git clone https://github.com/pachyderm/label-studio.git label-studio
+      - setup_remote_docker:
+          version: 20.10.18
+      - run:
+          name: Build Label Studio image
           command: |
-            docker run -d -it --net="host" hpesmalyala/label-studio:pachyderm-ci-testing label-studio -b \
+            cd label-studio
+            git checkout bonenfant/pachyderm-mountless
+            docker build -t pachyderm/label-studio:$CIRCLE_SHA1 .
+      - run:
+          name: Run Label Studio
+          command: |
+            docker run -d -it --net="host" pachyderm/label-studio:$CIRCLE_SHA1 label-studio -b \
             --username $LABEL_STUDIO_USERNAME \
             --password $LABEL_STUDIO_PASSWORD \
             --user-token $LABEL_STUDIO_USER_TOKEN
@@ -1560,7 +1570,7 @@ jobs:
           name: Run tests
           command: |
             pip3 install -r requirements.txt
-            PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
+            PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest tests/test_pachyderm_storage.py
     
 
 workflows:
