@@ -1,10 +1,10 @@
 import {
   mockReposWithCommitQuery,
   mockReposQuery,
-  mockRepoWithLinkedPipelineQuery,
   Repo,
   OriginKind,
   mockRepoQuery,
+  mockRepoWithLinkedPipelineQuery,
 } from '@graphqlTypes';
 import merge from 'lodash/merge';
 
@@ -87,7 +87,7 @@ const REPO_IMAGES: Repo = buildRepo({
     },
   ],
   createdAt: 1690221504,
-  description: '',
+  description: 'repo of images',
   id: 'images',
   name: 'images',
   sizeDisplay: '0 B',
@@ -186,18 +186,46 @@ export const ALL_REPOS: Repo[] = [
 ];
 
 export const mockReposWithCommit = () =>
-  mockReposWithCommitQuery((_req, res, ctx) => {
-    return res(ctx.data({repos: ALL_REPOS_WITH_COMMIT}));
+  mockReposWithCommitQuery((req, res, ctx) => {
+    if (req.variables.args.projectId === 'default') {
+      return res(ctx.data({repos: ALL_REPOS_WITH_COMMIT}));
+    }
+    return res();
   });
 
 export const mockRepos = () =>
-  mockReposQuery((_req, res, ctx) => {
-    return res(ctx.data({repos: ALL_REPOS}));
+  mockReposQuery((req, res, ctx) => {
+    if (req.variables.args.projectId === 'default') {
+      return res(ctx.data({repos: ALL_REPOS}));
+    }
+    return res();
   });
 
 export const mockRepoImages = () =>
-  mockRepoQuery((_req, res, ctx) => {
-    return res(ctx.data({repo: REPO_IMAGES}));
+  mockRepoQuery((req, res, ctx) => {
+    const {projectId, id} = req.variables.args;
+    if (projectId === 'default' && id === 'images') {
+      return res(ctx.data({repo: REPO_IMAGES}));
+    }
+    return res();
+  });
+
+export const mockRepoMontage = () =>
+  mockRepoQuery((req, res, ctx) => {
+    const {projectId, id} = req.variables.args;
+    if (projectId === 'default' && id === 'montage') {
+      return res(ctx.data({repo: REPO_MONTAGE}));
+    }
+    return res();
+  });
+
+export const mockRepoImagesWithLinkedPipeline = () =>
+  mockRepoWithLinkedPipelineQuery((req, res, ctx) => {
+    const {projectId, id} = req.variables.args;
+    if (projectId === 'default' && id === 'images') {
+      return res(ctx.data({repo: REPO_IMAGES}));
+    }
+    return res();
   });
 
 export const mockRepoWithLinkedPipeline = () =>

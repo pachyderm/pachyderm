@@ -19,6 +19,7 @@ import {
   mockGetServicePipeline,
   mockGetSpoutPipeline,
   mockRepoImages,
+  mockRepoMontage,
   mockTrueGetAuthorize,
 } from '@dash-frontend/mocks';
 import {mockGetDag, mockGetLargerDag} from '@dash-frontend/mocks/dag';
@@ -197,7 +198,7 @@ describe('ProjectSidebar', () => {
       server.use(mockGetMontagePipeline());
       server.use(mockGetMontageJob_5C());
       server.use(mockTrueGetAuthorize());
-      server.use(mockRepoImages());
+      server.use(mockRepoMontage());
 
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
 

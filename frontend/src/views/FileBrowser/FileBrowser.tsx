@@ -21,8 +21,9 @@ import FileHistory from './components/FileHistory';
 import FilePreview from './components/FilePreview';
 import LeftPanel from './components/LeftPanel';
 import ListViewTable from './components/ListViewTable';
+import {FILE_DEFAULT_PAGE_SIZE} from './constants/FileBrowser';
 import styles from './FileBrowser.module.css';
-import useFileBrowser, {FILE_DEFAULT_PAGE_SIZE} from './hooks/useFileBrowser';
+import useFileBrowser from './hooks/useFileBrowser';
 
 const FileBrowser: React.FC = () => {
   const {repoId, branchId, projectId, filePath, commitId} = useUrlState();

@@ -103,6 +103,22 @@ export const mockGetImageCommits = () =>
       }),
     );
   });
+export const mockGetCommitsA4Only = () =>
+  mockGetCommitsQuery((req, res, ctx) => {
+    const {projectId, repoName, branchName} = req.variables.args;
+    if (
+      projectId === 'default' &&
+      repoName === 'images' &&
+      branchName === 'master'
+    ) {
+      return res(
+        ctx.data({
+          commits: {items: [COMMIT_4A], cursor: null, parentCommit: null},
+        }),
+      );
+    }
+    return res();
+  });
 
 export const mockGetCommitA4 = () =>
   mockCommitQuery((_req, res, ctx) => {

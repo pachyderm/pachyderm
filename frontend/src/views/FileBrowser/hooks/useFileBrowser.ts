@@ -11,9 +11,7 @@ import {
 } from '@dash-frontend/views/Project/utils/routes';
 import {useModal, usePreviousValue} from '@pachyderm/components';
 
-//TODO: Revisit with testing epic.
-const isTest = process.env.NODE_ENV === 'test';
-export const FILE_DEFAULT_PAGE_SIZE = isTest ? 15 : 50;
+import {FILE_DEFAULT_PAGE_SIZE} from '../constants/FileBrowser';
 
 const useFileBrowser = () => {
   const browserHistory = useHistory();
