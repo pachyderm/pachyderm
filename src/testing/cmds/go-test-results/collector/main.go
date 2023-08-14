@@ -192,6 +192,7 @@ func uploadTestResult(path string,
 	}
 	defer resultsFile.Close()
 	resultsPath := findDestinationPath(path, basePath, resultsFolder)
+	// upload files together to avoid no-op datums
 	return pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
 		if err = mf.PutFile(resultsPath, resultsFile); err != nil {
 			return err

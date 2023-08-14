@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 	log.Info(ctx, "Running DB Migrate")
 	out, err := exec.Command("tern", "migrate").CombinedOutput()
 	if err != nil {
-		return errors.Wrapf(err, "Error running migrates. %v", string(out))
+		return errors.Wrapf(err, "running migrates. %v", string(out))
 	}
 	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
 	inputFolder := os.Args[1]
@@ -82,13 +82,13 @@ func run(ctx context.Context) error {
 		dbutil.WithUserPassword(gotestresults.PostgresqlUser, gotestresults.PostgresqlPassword),
 	)
 	if err != nil {
-		return errors.Wrapf(err, "Failed opening db connection")
+		return errors.Wrapf(err, "opening db connection")
 	}
 	defer db.Close()
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)
 	if err != nil {
-		return errors.Wrapf(err, "Problem evaluating symlinks")
+		return errors.Wrapf(err, "evaluating symlinks")
 	}
 	jobInfoPaths := make(map[string]gotestresults.JobInfo)
 	var testResultPaths []string
@@ -114,7 +114,7 @@ func run(ctx context.Context) error {
 	})
 	logPerf(ctx, "job info done")
 	if err != nil {
-		return errors.Wrapf(err, "Problem walking file tree for job info ")
+		return errors.Wrapf(err, "walking file tree for job info ")
 	}
 	if len(jobInfoPaths) == 0 {
 		log.Info(ctx, "No new job info found, exiting without inserting test results.")
@@ -122,7 +122,7 @@ func run(ctx context.Context) error {
 	}
 	for _, path := range testResultPaths {
 		if err = insertTestResultFile(ctx, path, jobInfoPaths, db); err != nil {
-			return errors.Wrapf(err, "Problem inserting test results into DB ")
+			return errors.Wrapf(err, "inserting test results into DB ")
 		}
 	}
 	logPerf(ctx, "test results done")
@@ -132,16 +132,16 @@ func run(ctx context.Context) error {
 func readJobInfo(path string) (*gotestresults.JobInfo, error) {
 	jobInfoFile, err := os.Open(path)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unmarshalling job info json ")
+		return nil, errors.Wrapf(err, "opening job info json file")
 	}
 	defer jobInfoFile.Close()
 	jobInfoJson, err := io.ReadAll(jobInfoFile)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unmarshalling job info json ")
+		return nil, errors.Wrapf(err, "reading job info data")
 	}
 	var jobInfo gotestresults.JobInfo
 	if err = json.Unmarshal(jobInfoJson, &jobInfo); err != nil {
-		return nil, errors.Wrapf(err, "unmarshalling job info json ")
+		return nil, errors.Wrapf(err, "unmarshalling job info json")
 	}
 	return &jobInfo, nil
 }
@@ -185,13 +185,25 @@ func insertJobInfo(
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			// Unique key constraint violation. In other words, the record already exists.
 			// Ignore insert to since we don't want to change the timestamp, but log it.
-			log.Info(ctx, "Job info already inserted, Skipping insert for workflow/job", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
+			log.Info(ctx, "Job info already inserted, Skipping insert for workflow/job",
+				zap.String("Workflow id", jobInfo.WorkflowId),
+				zap.String("Job id", jobInfo.JobId),
+				zap.Int("Job Executor", jobInfo.JobExecutor),
+			)
 			return nil
 		}
-		return errors.Wrapf(err, "inserting job info for workflow %v  job %v  executor %v", jobInfo.WorkflowId, jobInfo.JobId, jobInfo.JobExecutor)
+		return errors.Wrapf(err, "inserting job info for workflow %v  job %v  executor %v",
+			jobInfo.WorkflowId,
+			jobInfo.JobId,
+			jobInfo.JobExecutor,
+		)
 	}
-	jobInfoPaths[strings.TrimSuffix(path, d.Name())] = *jobInfo // read for use when inserting individual test results, don't insert if errored
-	log.Info(ctx, "Inserted job info for workflow and job", zap.String("Workflow id", jobInfo.WorkflowId), zap.String("Job id", jobInfo.JobId), zap.Int("Job Executor", jobInfo.JobExecutor))
+	jobInfoPaths[strings.TrimSuffix(path, d.Name())] = *jobInfo // for use when inserting individual test results, don't insert results if errored
+	log.Info(ctx, "Inserted job info for workflow and job",
+		zap.String("Workflow id", jobInfo.WorkflowId),
+		zap.String("Job id", jobInfo.JobId),
+		zap.Int("Job Executor", jobInfo.JobExecutor),
+	)
 	return nil
 }
 
@@ -205,7 +217,12 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	fileName := filepath.Base(path)
 	jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
 	if !ok {
-		return errors.WithStack(fmt.Errorf("Failed to find job info for %v - file name %v - job infos %v ", path, filepath.Base(path), jobInfoPaths))
+		return errors.WithStack(fmt.Errorf(
+			"Failed to find job info for %v - file name %v - job infos %v ",
+			path,
+			filepath.Base(path),
+			jobInfoPaths,
+		))
 	}
 	query := `INSERT INTO public.test_results (
 		id,
@@ -228,7 +245,10 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 		var result TestResultLine
 		err = json.Unmarshal(resultJson, &result)
 		if err != nil {
-			log.Info(ctx, "Failed unmarshalling file as a test result. Continuing to parse results file.", zap.String("path", path), zap.Error(err))
+			log.Info(ctx, "Failed unmarshalling file as a test result. Continuing to parse results file.",
+				zap.String("path", path),
+				zap.Error(err),
+			)
 			continue
 		}
 		if result.Action == "output" {
@@ -267,11 +287,8 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 
 func flushResults(ctx context.Context, db *sqlx.DB, egUpload *errgroup.Group, query string, paramVals *[]ResultRow) {
 	threadParamVals := paramVals
-	egUpload.Go(func() error {
-		_, err := db.NamedExec(query,
-			*threadParamVals,
-		)
-		if err != nil {
+	egUpload.Go(func() error { // upload in goroutine so scanner can continue
+		if _, err := db.NamedExec(query, *threadParamVals); err != nil {
 			log.Info(ctx, "Failed updating SQL DB - continuing to parse results file.", zap.Error(err))
 		}
 		return nil
