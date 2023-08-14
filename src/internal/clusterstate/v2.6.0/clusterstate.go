@@ -81,7 +81,7 @@ func Migrate(state migrations.State) migrations.State {
 			return branchlessCommitsPPS(ctx, env.Tx)
 		}, migrations.Squash).
 		Apply("Add foreign key constraints on pfs.commits.commit_id -> collections.commits.key", func(ctx context.Context, env migrations.Env) error {
-			return SetupCommitProvenanceV01(ctx, env.Tx)
+			return setupCommitProvenanceV01(ctx, env.Tx)
 		}, migrations.Squash)
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE

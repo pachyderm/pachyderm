@@ -15,7 +15,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-func Projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		"projects",
 		db,
