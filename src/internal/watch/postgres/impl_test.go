@@ -24,7 +24,6 @@ func TestWatchRepos(t *testing.T) {
 	defer cancel()
 	dbOpts := dockertestenv.NewTestDirectDBOptions(t)
 	db := testutil.OpenDB(t, dbOpts...)
-	defer db.Close()
 
 	// Apply migrations
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
