@@ -212,7 +212,7 @@ func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
 		"VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects WHERE name=$3), $4);",
 		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description)
 	if err != nil && IsDuplicateKeyErr(err) { // a duplicate key implies that an entry for the repo already exists.
-		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name}
+		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name, Type: repo.Repo.Type}
 	}
 	return errors.Wrap(err, "create repo")
 }

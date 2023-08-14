@@ -55,7 +55,7 @@ func TestCreateRepo(t *testing.T) {
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.CreateRepo(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create repo again with same name")
-		require.True(t, errors.Is(pfsdb.ErrRepoAlreadyExists{Project: "default", Name: testRepoName}, err))
+		require.True(t, errors.Is(pfsdb.ErrRepoAlreadyExists{Project: "default", Name: testRepoName, Type: testRepoType}, err))
 		fmt.Println("hello")
 		return nil
 	}), "double create should fail and result in rollback")
