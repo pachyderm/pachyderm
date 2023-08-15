@@ -177,7 +177,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		return repo
 
 	}
-	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), false /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))
@@ -359,7 +359,6 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 }
 
 func TestUpgradeLoad(t *testing.T) {
-	t.Skip()
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}

@@ -24,7 +24,6 @@ import (
 var valueOverrides map[string]string = make(map[string]string)
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
@@ -77,7 +76,6 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 }
 
 func TestEnterpriseServerMember(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
