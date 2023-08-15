@@ -1686,7 +1686,7 @@ workflows:
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
-          resource_class: xlarge # amd64
+          resource_class: 2xlarge # amd64
           arch: amd64
       - deploy-tests:
           name: arm64 deploy tests
