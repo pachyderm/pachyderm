@@ -293,9 +293,8 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	for _, project := range projects {
 		projectNames = append(projectNames, project.GetName())
 	}
-	var filter pfsdb.RepoListFilter
+	filter := make(pfsdb.RepoListFilter)
 	if len(projects) != 0 {
-		filter = make(pfsdb.RepoListFilter)
 		filter[pfsdb.RepoProjects] = projectNames
 	}
 	var authActive bool
