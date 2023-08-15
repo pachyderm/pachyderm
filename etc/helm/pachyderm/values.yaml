@@ -58,6 +58,8 @@ global:
   # Set security context runAs users. If running on openshift, set enabled to false as openshift creates its own contexts.
   securityContexts:
     enabled: true
+  image:
+    registry: docker.io/
 
 determined:
   enabled: false
@@ -1047,9 +1049,9 @@ pgbouncer:
     #  cpu: "1"
     #  memory: "2G"
   # maxConnections specifies the maximum number of concurrent connections into pgbouncer.
-  maxConnections: 1000
+  maxConnections: 100000
   # defaultPoolSize specifies the maximum number of concurrent connections from pgbouncer to the postgresql database.
-  defaultPoolSize: 20
+  defaultPoolSize: 80
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
