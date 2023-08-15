@@ -138,7 +138,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
 				require.NoError(t, err)
 				if aliasCI.Commit.Id != latestDataCI.Commit.Id {
-					return errors.New("not ready")
+					return errors.Errorf("not ready alias commit: %v latest commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
 				}
 				return nil
 			})
