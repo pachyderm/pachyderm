@@ -201,6 +201,7 @@ func TestListReposFilter(t *testing.T) {
 		require.Equal(t, 3, i)
 		i = 0
 		filter[pfsdb.RepoTypes] = []string{testRepoType, "meta"}
+		filter[pfsdb.RepoProjects] = []string{"default", "random"}
 		iter, err = pfsdb.ListRepo(cbCtx, tx, filter)
 		seen := make(map[string]bool)
 		require.NoError(t, err, "should be able to list repos")

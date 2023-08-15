@@ -148,14 +148,18 @@ func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
 	return nil
 }
 
+// RepoFields is used in the ListRepoFilter and defines specific field names for type safety.
+// This should hopefully prevent a library user from misconfiguring the filter.
 type RepoFields string
 
 var (
 	RepoTypes    = RepoFields("type")
-	RepoProjects = RepoFields("project")
+	RepoProjects = RepoFields("project_id")
 	RepoNames    = RepoFields("name")
 )
 
+// RepoListFilter is a filter for listing repos. It ANDs together separate keys, but ORs together the key values:
+// where repo.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND repo.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
 type RepoListFilter map[RepoFields][]string
 
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
@@ -177,19 +181,22 @@ func ListRepo(ctx context.Context, tx *pachsql.Tx, filter RepoListFilter) (*Repo
 func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter RepoListFilter) ([]repoRow, error) {
 	var page []repoRow
 	where := ""
-	if len(filter) != 0 {
-		conditions := make([]string, 0)
-		for key, vals := range filter {
-			quotedVals := make([]string, 0)
-			for _, val := range vals {
-				quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
-			}
-			if len(vals) != 0 {
-				conditions = append(conditions, fmt.Sprintf("repo.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
-			}
+	conditions := make([]string, 0)
+	for key, vals := range filter {
+		if len(vals) == 0 {
+			continue
 		}
-		where = "WHERE " + strings.Join(conditions, " AND ")
+		quotedVals := make([]string, 0)
+		for _, val := range vals {
+			quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
+		}
+		if key == RepoProjects {
+			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+		} else {
+			conditions = append(conditions, fmt.Sprintf("repo.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
+		}
 	}
+	where = "WHERE " + strings.Join(conditions, " AND ")
 	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2;",
 		getRepoAndBranches, where), limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get repo page")
