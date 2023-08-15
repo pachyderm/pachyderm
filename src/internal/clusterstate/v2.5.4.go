@@ -15,4 +15,4 @@ var state_2_5_4 migrations.State = state_2_5_0.
 			return errors.Wrap(err, "could not alter column subject in table auth.auth_tokens from varchar(64) to varchar(128)")
 		}
 		return nil
-	})
+	}, migrations.Squash)
