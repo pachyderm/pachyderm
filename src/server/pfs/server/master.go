@@ -3,17 +3,15 @@ package server
 import (
 	"context"
 	"fmt"
-	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
 	"path"
 	"time"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -28,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -97,7 +96,7 @@ func (d *driver) master(ctx context.Context) {
 func (d *driver) watchRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	repos := make(map[uint64]context.CancelFunc)
+	repos := make(map[pfsdb.RepoID]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
 			cancel()
@@ -136,8 +135,8 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				}
 				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
 					event := &postgres.Event{
-						Id:        uint64(repoPair.ID),
-						EventType: postgres.EventInsert,
+						Id:   uint64(repoPair.ID),
+						Type: postgres.EventInsert,
 					}
 					existingRepos = append(existingRepos, event)
 					return nil
@@ -155,35 +154,36 @@ func (d *driver) watchRepos(ctx context.Context) error {
 	)
 }
 
-func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[uint64]context.CancelFunc, ev *postgres.Event) error {
-	if ev.Error != nil {
-		return ev.Error
+func (d *driver) manageRepos(ctx context.Context, ring *consistenthashing.Ring, repos map[pfsdb.RepoID]context.CancelFunc, ev *postgres.Event) error {
+	if ev.Err != nil {
+		return ev.Err
 	}
+	eventID := pfsdb.RepoID(ev.Id)
 	lockPrefix := path.Join("repos", fmt.Sprintf("%d", ev.Id))
-	if ev.EventType == postgres.EventDelete {
-		if cancel, ok := repos[ev.Id]; ok {
+	if ev.Type == postgres.EventDelete {
+		if cancel, ok := repos[eventID]; ok {
 			if err := ring.Unlock(lockPrefix); err != nil {
 				return err
 			}
 			cancel()
-			delete(repos, ev.Id)
+			delete(repos, eventID)
 		}
 		return nil
 	}
-	if _, ok := repos[ev.Id]; ok {
+	if _, ok := repos[eventID]; ok {
 		return nil
 	}
 	var repo *pfs.RepoInfo
 	var err error
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		repo, err = pfsdb.GetRepo(ctx, tx, pfsdb.RepoID(ev.Id))
+		repo, err = pfsdb.GetRepo(ctx, tx, eventID)
 		return errors.Wrap(err, "get repo from event id")
 	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "get repo")
 	}
 	key := pfsdb.RepoKey(repo.Repo)
 	ctx, cancel := pctx.WithCancel(ctx)
-	repos[ev.Id] = cancel
+	repos[eventID] = cancel
 	go func() {
 		log.Info(ctx, fmt.Sprintf("starting manageRepos routines for repo:%v, id:%v", key, ev.Id))
 		backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck

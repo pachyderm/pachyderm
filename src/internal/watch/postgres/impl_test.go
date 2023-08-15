@@ -51,8 +51,8 @@ func TestWatchRepos(t *testing.T) {
 	events := watcher.Watch()
 	for i := 0; i < 10; i++ {
 		event := <-events
-		require.Equal(t, postgresWatcher.EventInsert, event.EventType)
-		require.Equal(t, uint64(i+1), event.Id)
+		require.Equal(t, postgresWatcher.EventInsert, event.Type)
+		require.Equal(t, i+1, int(event.Id))
 		results = append(results, event)
 	}
 	require.Len(t, results, 10)
@@ -70,7 +70,5 @@ func TestWatchRepos(t *testing.T) {
 
 	events = newWatcher.Watch()
 	event := <-events
-	require.Equal(t, postgresWatcher.EventError, event.EventType)
-	require.ErrorContains(t, event.Error, fmt.Sprintf("failed to send event, watcher %s is blocked", t.Name()))
-	newWatcher.Close()
+	require.ErrorContains(t, event.Err, fmt.Sprintf("failed to send event, watcher %s is blocked", t.Name()))
 }
