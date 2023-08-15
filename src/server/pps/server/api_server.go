@@ -2222,7 +2222,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		return "", errors.Errorf("wrapped spec %v missing createPipelineRequest", wrapped)
 	}
 	if effectiveSpecJSON, err = json.Marshal(effectiveSpec); err != nil {
-		return "", errors.Errorf("could not marshale effective spec %v", effectiveSpec)
+		return "", errors.Errorf("could not marshal effective spec %v", effectiveSpec)
 	}
 
 	var request = wrapper.GetCreatePipelineRequest()
