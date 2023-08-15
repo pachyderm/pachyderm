@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 const (
@@ -491,7 +492,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, scrubbedErr)
 			return errors.Wrapf(scrubbedErr, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
-		if _, err := c.ListRepo(); err != nil { // go to the DB before declaring that we are connected
+		if _, err := c.PfsAPIClient.ListRepo(c.Ctx(), &pfs.ListRepoRequest{}); err != nil { // go to the DB before declaring that we are connected
 			scrubbedErr := grpcutil.ScrubGRPC(err)
 			t.Logf("retryable: failed to get repos on port %v: %v", pachAddress.Port, scrubbedErr)
 			return errors.Wrapf(scrubbedErr, "failed to get repos on port %v", pachAddress.Port)
