@@ -248,44 +248,24 @@ func (d *driver) getPermissionsInTransaction(txnCtx *txncontext.TransactionConte
 	return resp.Permissions, resp.Roles, nil
 }
 
-// NOTE if includeAuth = true, it is expected that auth is active
-func (d *driver) processListRepoInfo(
-	ctx context.Context,
+func (d *driver) hasProjectAccess(
 	txnCtx *txncontext.TransactionContext,
 	repoInfo *pfs.RepoInfo,
-	includeAuth bool,
-	projects []*pfs.Project,
-	checkProjectAccess func(string) error) (*pfs.RepoInfo, error) {
-	// Helper func to check whether a user is allowed to see the given repo in the result.
-	checkAccess := func(repo *pfs.Repo, checkProjectAccess func(string) error) error {
-		if err := checkProjectAccess(repo.Project.GetName()); err != nil {
+	checkProjectAccess func(string) error) (bool, error) {
+	if err := checkProjectAccess(repoInfo.Repo.Project.GetName()); err != nil {
+		if !errors.As(err, &auth.ErrNotAuthorized{}) {
+			return false, err
+		}
+		// Allow access if user has the right permissions at the individual Repo-level.
+		if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
 			if !errors.As(err, &auth.ErrNotAuthorized{}) {
-				return err
+				return false, errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
 			}
-			// Allow access if user has the right permissions at the individual Repo-level.
-			return d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ)
+			// User does not have permissions, so we should skip this repo.
+			return false, nil
 		}
-		return nil
 	}
-	if includeAuth {
-		if err := checkAccess(repoInfo.Repo, checkProjectAccess); err != nil {
-			if !errors.As(err, &auth.ErrNotAuthorized{}) {
-				return nil, errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
-			}
-			return nil, nil
-		}
-		permissions, roles, err := d.getPermissionsInTransaction(txnCtx, repoInfo.Repo)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
-		}
-		repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
-	}
-	size, err := d.repoSize(txnCtx, repoInfo)
-	if err != nil {
-		return nil, err
-	}
-	repoInfo.SizeBytesUpperBound = size
-	return repoInfo, nil
+	return true, nil
 }
 
 func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project) ([]*pfs.RepoInfo, error) {
@@ -296,6 +276,9 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	filter := make(pfsdb.RepoListFilter)
 	if len(projects) != 0 {
 		filter[pfsdb.RepoProjects] = projectNames
+	}
+	if repoType != "" { // blank type means return all, otherwise return a specific type
+		filter[pfsdb.RepoTypes] = []string{repoType}
 	}
 	var authActive bool
 	if includeAuth {
@@ -308,21 +291,33 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	// Cache the project level access because it applies to every repo within the same project.
 	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
 		return d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
-	}, 100 /* size */)
-	if repoType != "" { // blank type means return all, otherwise return a specific type
-		filter[pfsdb.RepoTypes] = []string{repoType}
-	}
+	}, 100)
 	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list repos of all types")
 	}
 	var repos []*pfs.RepoInfo
 	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-		repo, err := d.processListRepoInfo(ctx, txnCtx, repoPair.RepoInfo, includeAuth && authActive, projects, checkProjectAccess)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("processing repo: %+v", repo))
+		if authActive {
+			hasAccess, err := d.hasProjectAccess(txnCtx, repoPair.RepoInfo, checkProjectAccess)
+			if err != nil {
+				return errors.Wrap(err, "checking project access")
+			}
+			if !hasAccess {
+				return nil
+			}
+			permissions, roles, err := d.getPermissionsInTransaction(txnCtx, repoPair.RepoInfo.Repo)
+			if err != nil {
+				return errors.Wrapf(err, "error getting access level for %q", repoPair.RepoInfo.Repo)
+			}
+			repoPair.RepoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
 		}
-		repos = append(repos, repo)
+		size, err := d.repoSize(txnCtx, repoPair.RepoInfo)
+		if err != nil {
+			return errors.Wrapf(err, "getting repo size for %q", repoPair.RepoInfo.Repo)
+		}
+		repoPair.RepoInfo.SizeBytesUpperBound = size
+		repos = append(repos, repoPair.RepoInfo)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "for each repo")
