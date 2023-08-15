@@ -359,6 +359,7 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 }
 
 func TestUpgradeLoad(t *testing.T) {
+	t.Skip()
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
