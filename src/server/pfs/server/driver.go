@@ -250,60 +250,14 @@ func (d *driver) getPermissionsInTransaction(txnCtx *txncontext.TransactionConte
 
 // NOTE if includeAuth = true, it is expected that auth is active
 func (d *driver) processListRepoInfo(
+	ctx context.Context,
+	txnCtx *txncontext.TransactionContext,
 	repoInfo *pfs.RepoInfo,
 	includeAuth bool,
 	projects []*pfs.Project,
-	checkAccess func(*pfs.Repo) error,
-	collectRepoPerms func(*pfs.Repo) ([]auth.Permission, []string, error),
-	repoSize func(*pfs.Repo) (int64, error),
-	cb func(*pfs.RepoInfo) error,
-) func(string) error {
-	// Helper func to filter out repos based on projects.
-	projectsFilter := make(map[string]bool)
-	for _, project := range projects {
-		projectsFilter[project.GetName()] = true
-	}
-	keep := func(repo *pfs.Repo) bool {
-		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) == 0 {
-			return true
-		}
-		return projectsFilter[repo.Project.GetName()]
-	}
-	processFunc := func(string) error {
-		if !keep(repoInfo.Repo) {
-			return nil
-		}
-		if includeAuth {
-			if err := checkAccess(repoInfo.Repo); err != nil {
-				if !errors.As(err, &auth.ErrNotAuthorized{}) {
-					return errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
-				}
-				return nil
-			}
-			permissions, roles, err := collectRepoPerms(repoInfo.Repo)
-			if err != nil {
-				return errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
-			}
-			repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
-		}
-		size, err := repoSize(repoInfo.Repo)
-		if err != nil {
-			return err
-		}
-		repoInfo.SizeBytesUpperBound = size
-		return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
-	}
-	return processFunc
-}
-
-func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
+	checkProjectAccess func(string) error) (*pfs.RepoInfo, error) {
 	// Helper func to check whether a user is allowed to see the given repo in the result.
-	// Cache the project level access because it applies to every repo within the same project.
-	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
-		return d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
-	}, 100 /* size */)
-	checkAccess := func(repo *pfs.Repo) error {
+	checkAccess := func(repo *pfs.Repo, checkProjectAccess func(string) error) error {
 		if err := checkProjectAccess(repo.Project.GetName()); err != nil {
 			if !errors.As(err, &auth.ErrNotAuthorized{}) {
 				return err
@@ -313,39 +267,68 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 		}
 		return nil
 	}
-	collectPerms := func(r *pfs.Repo) ([]auth.Permission, []string, error) {
-		return d.getPermissionsInTransaction(txnCtx, r)
+	if includeAuth {
+		if err := checkAccess(repoInfo.Repo, checkProjectAccess); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return nil, errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
+			}
+			return nil, nil
+		}
+		permissions, roles, err := d.getPermissionsInTransaction(txnCtx, repoInfo.Repo)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
+		}
+		repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
+	}
+	size, err := d.repoSize(txnCtx, repoInfo)
+	if err != nil {
+		return nil, err
+	}
+	repoInfo.SizeBytesUpperBound = size
+	return repoInfo, nil
+}
+
+func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project) ([]*pfs.RepoInfo, error) {
+	projectNames := make([]string, 0)
+	for _, project := range projects {
+		projectNames = append(projectNames, project.GetName())
+	}
+	var filter pfsdb.RepoListFilter
+	if len(projects) != 0 {
+		filter = make(pfsdb.RepoListFilter)
+		filter[pfsdb.RepoProjects] = projectNames
 	}
 	var authActive bool
 	if includeAuth {
 		if _, err := txnCtx.WhoAmI(); err == nil {
 			authActive = true
 		} else if !errors.Is(err, auth.ErrNotActivated) {
-			return errors.Wrap(err, "check if auth is active")
+			return nil, errors.Wrap(err, "check if auth is active")
 		}
 	}
-	repoSize := func(r *pfs.Repo) (int64, error) {
-		return d.repoSize(ctx, txnCtx, r)
+	// Cache the project level access because it applies to every repo within the same project.
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	}, 100 /* size */)
+	if repoType != "" { // blank type means return all, otherwise return a specific type
+		filter[pfsdb.RepoTypes] = []string{repoType}
 	}
-	forEach := func(iter *pfsdb.RepoIterator) error {
-		return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-			processFunc := d.processListRepoInfo(repoPair.RepoInfo, includeAuth && authActive, projects, checkAccess, collectPerms, repoSize, cb)
-			return errors.Wrap(processFunc(repoPair.RepoInfo.Repo.Name), "list repos")
-		}), "could not get repos")
-	}
-	if repoType == "" {
-		// blank type means return all
-		repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx)
-		if err != nil {
-			return errors.Wrap(err, "could not list repos of all types")
-		}
-		return errors.Wrap(forEach(repoIter), "for each repo")
-	}
-	repoTypeIter, err := pfsdb.ListReposWithMatchingType(ctx, txnCtx.SqlTx, repoType)
+	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
 	if err != nil {
-		return errors.Wrap(err, "list repo by type")
+		return nil, errors.Wrap(err, "could not list repos of all types")
 	}
-	return errors.Wrapf(forEach(repoTypeIter), "could not get repos of type %q", repoType)
+	var repos []*pfs.RepoInfo
+	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
+		repo, err := d.processListRepoInfo(ctx, txnCtx, repoPair.RepoInfo, includeAuth && authActive, projects, checkProjectAccess)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("processing repo: %+v", repo))
+		}
+		repos = append(repos, repo)
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "for each repo")
+	}
+	return repos, nil
 }
 
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
@@ -361,14 +344,11 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 }
 
 func (d *driver) deleteReposInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
-	var ris []*pfs.RepoInfo
-	if err := d.listRepoInTransaction(ctx, txnCtx, false /* includeAuth */, "", projects, func(ri *pfs.RepoInfo) error {
-		ris = append(ris, ri)
-		return nil
-	}); err != nil {
+	repos, err := d.listRepoInTransaction(ctx, txnCtx, false /* includeAuth */, "", projects)
+	if err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
-	return d.deleteReposHelper(ctx, txnCtx, ris, false)
+	return d.deleteReposHelper(ctx, txnCtx, repos, false)
 }
 
 func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
@@ -517,14 +497,15 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 		return []*pfs.RepoInfo{ri}, nil
 	}
 	var related []*pfs.RepoInfo
-	iter, err := pfsdb.ListReposWithMatchingName(ctx, txnCtx.SqlTx, repo.Name)
+	filter := make(pfsdb.RepoListFilter)
+	filter[pfsdb.RepoNames] = []string{repo.Name}
+	filter[pfsdb.RepoProjects] = []string{repo.Project.Name}
+	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
 	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(otherRepo pfsdb.RepoPair) error {
-		if otherRepo.RepoInfo.Repo.Project.Name == repo.Project.Name {
-			related = append(related, otherRepo.RepoInfo)
-		}
+		related = append(related, otherRepo.RepoInfo)
 		return nil
 	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
 		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
@@ -776,13 +757,14 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 	var errs error
-	if err := d.listRepoInTransaction(ctx, txnCtx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		errs = errors.Join(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
-		return nil
-	}); err != nil {
-		return err
+	repos, err := d.listRepoInTransaction(ctx, txnCtx, false, "", []*pfs.Project{project})
+	if err != nil {
+		return errors.Wrap(err, "list repos to determine if any still exist")
 	}
-	if errs != nil {
+	for _, repoInfo := range repos {
+		errs = errors.Join(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
+	}
+	if errs != nil && force == false {
 		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
 	if err := coredb.DeleteProject(ctx, txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {
@@ -947,11 +929,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Put(commitInfo.Commit, commitInfo))
 }
 
-func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) (int64, error) {
-	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
-	if err != nil {
-		return 0, errors.EnsureStack(err)
-	}
+func (d *driver) repoSize(txnCtx *txncontext.TransactionContext, repoInfo *pfs.RepoInfo) (int64, error) {
 	for _, branch := range repoInfo.Branches {
 		if branch.Name == "master" {
 			branchInfo := &pfs.BranchInfo{}

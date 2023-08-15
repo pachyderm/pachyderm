@@ -130,7 +130,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 			// Get existing entries.
 			existingRepos := make([]*postgres.Event, 0)
 			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-				iter, err := pfsdb.ListRepo(ctx, tx)
+				iter, err := pfsdb.ListRepo(ctx, tx, nil)
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}

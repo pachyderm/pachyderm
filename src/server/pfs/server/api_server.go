@@ -101,7 +101,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "list projects")
 	}
 	// Create role bindings for repos created before auth activation
-	repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx)
+	repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "list projects")
 	}
@@ -155,7 +155,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 		if err != nil {
 			return err
 		}
-		size, err = a.driver.repoSize(ctx, txnCtx, repoInfo.Repo)
+		size, err = a.driver.repoSize(txnCtx, repoInfo)
 		return err
 	}); err != nil {
 		return nil, err
@@ -169,11 +169,25 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	return errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+	var repos []*pfs.RepoInfo
+	var err error
+	if err := errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		return a.driver.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			return a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects, srv.Send)
+			repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
+			if err != nil {
+				return err
+			}
+			return nil
 		})
-	}, dbutil.WithReadOnly()), "list repo")
+	}, dbutil.WithReadOnly()), "list repo"); err != nil {
+		return err
+	}
+	for _, repo := range repos {
+		if err := errors.Wrap(srv.Send(repo), "sending repo"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -681,31 +695,37 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 		target.GetBranch().GetRepo().EnsureProject()
 		return a.driver.detectZombie(ctx, target, fsckServer.Send)
 	}
+	var repos []*pfs.RepoInfo
+	var err error
 	if request.GetZombieAll() {
-		return errors.Wrap(dbutil.WithTx(fsckServer.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(fsckServer.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 			return a.driver.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
 				// list meta repos as a proxy for finding pipelines
-				return a.driver.listRepoInTransaction(ctx, txnCxt, false /* includeAuth */, pfs.MetaRepoType, nil /* projectsFilter */, func(info *pfs.RepoInfo) error {
-					// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
-					output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
-					for output != nil {
-						info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
-						if err != nil {
-							return err
-						}
-						// we will be reading the whole file system, so unfinished commits would be very slow
-						if info.Error == "" && info.Finished != nil {
-							break
-						}
-						output = info.ParentCommit
-					}
-					if output == nil {
-						return nil
-					}
-					return a.driver.detectZombie(ctx, output, fsckServer.Send)
-				})
+				repos, err = a.driver.listRepoInTransaction(ctx, txnCxt, false, pfs.MetaRepoType, nil)
+				return errors.Wrap(err, "list repos in tx by meta repo type")
 			})
-		}, dbutil.WithReadOnly()), "list repo")
+		}, dbutil.WithReadOnly()); err != nil {
+			return err
+		}
+		for _, info := range repos {
+			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
+			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
+			for output != nil {
+				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+				if err != nil {
+					return err
+				}
+				// we will be reading the whole file system, so unfinished commits would be very slow
+				if info.Error == "" && info.Finished != nil {
+					break
+				}
+				output = info.ParentCommit
+			}
+			if output == nil {
+				return nil
+			}
+			return a.driver.detectZombie(ctx, output, fsckServer.Send)
+		}
 	}
 	return nil
 }

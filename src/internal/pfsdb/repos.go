@@ -96,13 +96,12 @@ var _ stream.Iterator[RepoPair] = &RepoIterator{}
 
 // RepoIterator batches a page of repoRow entries. Entries can be retrieved using iter.Next().
 type RepoIterator struct {
-	limit    int
-	offset   int
-	repos    []repoRow
-	index    int
-	tx       *pachsql.Tx
-	where    string
-	whereVal string
+	limit  int
+	offset int
+	repos  []repoRow
+	index  int
+	tx     *pachsql.Tx
+	filter RepoListFilter
 }
 
 type repoRow struct {
@@ -128,7 +127,7 @@ func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
 	if iter.index >= len(iter.repos) {
 		iter.index = 0
 		iter.offset += iter.limit
-		iter.repos, err = listRepoPage(ctx, iter.tx, iter.limit, iter.offset, iter.where, iter.whereVal)
+		iter.repos, err = listRepoPage(ctx, iter.tx, iter.limit, iter.offset, iter.filter)
 		if err != nil {
 			return errors.Wrap(err, "list repo page")
 		}
@@ -149,52 +148,50 @@ func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
 	return nil
 }
 
-// ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
-func ListRepo(ctx context.Context, tx *pachsql.Tx) (*RepoIterator, error) {
-	return listRepo(ctx, tx, "", "")
-}
+type RepoFields string
 
-// ListReposWithMatchingType is like ListRepo but only iterates over repo.type = repoType.
-func ListReposWithMatchingType(ctx context.Context, tx *pachsql.Tx, repoType string) (*RepoIterator, error) {
-	return listRepo(ctx, tx, "type", repoType)
-}
+var (
+	RepoTypes    = RepoFields("type")
+	RepoProjects = RepoFields("project")
+	RepoNames    = RepoFields("name")
+)
 
-// ListReposWithMatchingName is like ListRepo but only iterates over repo.name = name.
-func ListReposWithMatchingName(ctx context.Context, tx *pachsql.Tx, repoName string) (*RepoIterator, error) {
-	return listRepo(ctx, tx, "name", repoName)
-}
+type RepoListFilter map[RepoFields][]string
 
 // ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
-func listRepo(ctx context.Context, tx *pachsql.Tx, where string, whereVal string) (*RepoIterator, error) {
+func ListRepo(ctx context.Context, tx *pachsql.Tx, filter RepoListFilter) (*RepoIterator, error) {
 	limit := 100
-	page, err := listRepoPage(ctx, tx, limit, 0, where, whereVal)
+	page, err := listRepoPage(ctx, tx, limit, 0, filter)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
 	iter := &RepoIterator{
-		repos: page,
-		limit: limit,
-		tx:    tx,
-	}
-	if where != "" && whereVal != "" {
-		iter.where = where
-		iter.whereVal = whereVal
+		repos:  page,
+		limit:  limit,
+		tx:     tx,
+		filter: filter,
 	}
 	return iter, nil
 }
 
-func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, where string, whereVal string) ([]repoRow, error) {
+func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter RepoListFilter) ([]repoRow, error) {
 	var page []repoRow
-	if where != "" && whereVal != "" {
-		if err := tx.SelectContext(ctx, &page,
-			fmt.Sprintf("%s WHERE repo.%s = $1 GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $2 OFFSET $3;", getRepoAndBranches, where),
-			whereVal, limit, offset); err != nil {
-			return nil, errors.Wrap(err, "could not get repo page")
+	where := ""
+	if len(filter) != 0 {
+		conditions := make([]string, 0)
+		for key, vals := range filter {
+			quotedVals := make([]string, 0)
+			for _, val := range vals {
+				quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
+			}
+			if len(vals) != 0 {
+				conditions = append(conditions, fmt.Sprintf("repo.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
+			}
 		}
-		return page, nil
+		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
-	err := tx.SelectContext(ctx, &page, getRepoAndBranches+"GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2 ;", limit, offset)
-	if err != nil {
+	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2;",
+		getRepoAndBranches, where), limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get repo page")
 	}
 	return page, nil
