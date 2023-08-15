@@ -568,7 +568,7 @@ jobs:
         type: string
         default: amd64
     resource_class: << parameters.resource_class >>
-    parallelism: 4
+    parallelism: 6
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:

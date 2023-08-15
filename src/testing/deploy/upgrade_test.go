@@ -80,7 +80,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	upgradeTest(t, context.Background(), true /* parallelOK */, 2, fromVersions,
+	upgradeTest(t, context.Background(), true /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
@@ -177,7 +177,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		return repo
 
 	}
-	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 2, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))
