@@ -145,7 +145,7 @@ jobs:
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: npm run test:frontend:base --prefix frontend -- --runInBand --coverage
+      - run: npm run test:frontend:base --prefix frontend -- --coverage
       - codecov/upload:
           file: ./frontend/src/coverage/lcov.info
 
