@@ -116,7 +116,7 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 func (s *postgresStore) getFromCache(id ID) (*Metadata, error) {
 	md, ok := s.cache.Get(id)
 	if !ok {
-		return nil, pacherr.NewNotExist("memory-filesets", id.HexString())
+		return nil, pacherr.NewNotExist("memory-filesets", id.hexString())
 	}
 	return proto.Clone(md).(*Metadata), nil
 }

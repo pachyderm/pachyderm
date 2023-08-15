@@ -115,9 +115,13 @@ func (s *Storage) newReader(id ID) *Reader {
 }
 
 // Open opens a file set for reading.
-func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
+func (s *Storage) Open(ctx context.Context, hs []Handle) (FileSet, error) {
+	return s.open(ctx, idsFromHandles(hs))
+}
+
+func (s *Storage) open(ctx context.Context, ids []ID) (FileSet, error) {
 	var err error
-	ids, err = s.FlattenAll(ctx, ids)
+	ids, err = s.flattenAll(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -137,11 +141,11 @@ func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 // Compose produces a composite fileset from the filesets under ids.
 // It does not perform a merge or check that the filesets at ids in any way
 // other than ensuring that they exist.
-func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-	var result *ID
+func (s *Storage) Compose(ctx context.Context, hs []Handle, ttl time.Duration) (*Handle, error) {
+	var result *Handle
 	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
-		result, err = s.ComposeTx(tx, ids, ttl)
+		result, err = s.ComposeTx(tx, hs, ttl)
 		return err
 	}); err != nil {
 		return nil, err
@@ -152,34 +156,106 @@ func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID
 // ComposeTx produces a composite fileset from the filesets under ids.
 // It does not perform a merge or check that the filesets at ids in any way
 // other than ensuring that they exist.
-func (s *Storage) ComposeTx(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*ID, error) {
-	c := &Composite{
-		Layers: idsToHex(ids),
+func (s *Storage) ComposeTx(tx *pachsql.Tx, hs []Handle, ttl time.Duration) (*Handle, error) {
+	if ttl == track.NoTTL {
+		return nil, errors.New("cannot export fileset with no ttl")
 	}
-	return s.newCompositeTx(tx, c, ttl)
+	return s.composeTx(tx, idsFromHandles(hs), ttl)
 }
 
-// CloneTx creates a new fileset, identical to the fileset at id, but with the specified ttl.
-// The ttl can be ignored by using track.NoTTL
-func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error) {
+func (s *Storage) composeTx(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*Handle, error) {
+	if ttl == track.NoTTL {
+		return nil, errors.New("must set TTL")
+	}
+	id, err := s.newCompositeTx(tx, ids, ttl)
+	if err != nil {
+		return nil, err
+	}
+	return &Handle{*id}, err
+}
+
+// Import takes a handle and returns an ID suitable for use in join tables.
+func (s *Storage) Import(tx *pachsql.Tx, h Handle) (*ID, error) {
+	md, err := s.store.GetTx(tx, h.id)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	switch x := md.Value.(type) {
+	case *Metadata_Primitive:
+		return s.newPrimitiveTx(tx, x.Primitive, track.NoTTL)
+	case *Metadata_Composite:
+		var layers []ID
+		for _, idStr := range x.Composite.Layers {
+			id, err := parseID(idStr)
+			if err != nil {
+				return nil, err
+			}
+			layers = append(layers, id)
+		}
+		return s.newCompositeTx(tx, layers, track.NoTTL)
+	default:
+		return nil, errors.Errorf("cannot clone type %T", md.Value)
+	}
+}
+
+// Export takes an ID from a join table,
+func (s *Storage) Export(tx *pachsql.Tx, id ID, ttl time.Duration) (*Handle, error) {
+	if ttl == track.NoTTL {
+		return nil, errors.New("cannot export fileset with no ttl")
+	}
 	md, err := s.store.GetTx(tx, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	switch x := md.Value.(type) {
 	case *Metadata_Primitive:
-		return s.newPrimitiveTx(tx, x.Primitive, ttl)
+		id, err := s.newPrimitiveTx(tx, x.Primitive, ttl)
+		if err != nil {
+			return nil, err
+		}
+		return &Handle{*id}, err
 	case *Metadata_Composite:
-		return s.newCompositeTx(tx, x.Composite, ttl)
+		var layers []ID
+		for _, idStr := range x.Composite.Layers {
+			id, err := parseID(idStr)
+			if err != nil {
+				return nil, err
+			}
+			layers = append(layers, id)
+		}
+		id, err := s.newCompositeTx(tx, layers, ttl)
+		if err != nil {
+			return nil, err
+		}
+		return &Handle{*id}, err
 	default:
 		return nil, errors.Errorf("cannot clone type %T", md.Value)
 	}
 }
 
+func (s *Storage) ExportCompose(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*Handle, error) {
+	if ttl == track.NoTTL {
+		return nil, errors.New("cannot export fileset with no ttl")
+	}
+	h, err := s.composeTx(tx, ids, ttl)
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
+}
+
 // Flatten iterates through IDs and replaces references to composite file sets
 // with all their layers in place and executes the user provided callback
 // against each primitive file set.
-func (s *Storage) Flatten(ctx context.Context, ids []ID, cb func(id ID) error) error {
+func (s *Storage) Flatten(ctx context.Context, hs []Handle, cb func(id ID) error) error {
+	var ids []ID
+	for _, h := range hs {
+		ids = append(ids, h.id)
+	}
+	return s.flatten(ctx, ids, cb)
+}
+
+func (s *Storage) flatten(ctx context.Context, ids []ID, cb func(id ID) error) error {
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {
@@ -198,7 +274,7 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID, cb func(id ID) error) e
 			if err != nil {
 				return err
 			}
-			if err := s.Flatten(ctx, ids, cb); err != nil {
+			if err := s.flatten(ctx, ids, cb); err != nil {
 				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
@@ -213,9 +289,13 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID, cb func(id ID) error) e
 }
 
 // FlattenAll is like Flatten, but collects the primitives to return to the user.
-func (s *Storage) FlattenAll(ctx context.Context, ids []ID) ([]ID, error) {
+func (s *Storage) FlattenAll(ctx context.Context, hs []Handle) ([]ID, error) {
+	return s.flattenAll(ctx, idsFromHandles(hs))
+}
+
+func (s *Storage) flattenAll(ctx context.Context, ids []ID) ([]ID, error) {
 	flattened := make([]ID, 0, len(ids))
-	if err := s.Flatten(ctx, ids, func(id ID) error {
+	if err := s.flatten(ctx, ids, func(id ID) error {
 		flattened = append(flattened, id)
 		return nil
 	}); err != nil {
@@ -224,8 +304,8 @@ func (s *Storage) FlattenAll(ctx context.Context, ids []ID) ([]ID, error) {
 	return flattened, nil
 }
 
-func (s *Storage) flattenPrimitives(ctx context.Context, ids []ID) ([]*Primitive, error) {
-	ids, err := s.FlattenAll(ctx, ids)
+func (s *Storage) flattenPrimitives(ctx context.Context, hs []Handle) ([]*Primitive, error) {
+	ids, err := s.FlattenAll(ctx, hs)
 	if err != nil {
 		return nil, err
 	}
@@ -247,18 +327,18 @@ func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, er
 // Concat is a special case of Merge, where the filesets each contain paths for distinct ranges.
 // The path ranges must be non-overlapping and the ranges must be lexigraphically sorted.
 // Concat always returns the ID of a primitive fileset.
-func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+func (s *Storage) Concat(ctx context.Context, hs []Handle, ttl time.Duration) (*Handle, error) {
 	var size int64
 	additive := index.NewWriter(ctx, s.chunks, "additive-index-writer")
 	deletive := index.NewWriter(ctx, s.chunks, "deletive-index-writer")
-	for _, id := range ids {
-		md, err := s.store.Get(ctx, id)
+	for _, h := range hs {
+		md, err := s.store.Get(ctx, h.id)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 		prim := md.GetPrimitive()
 		if prim == nil {
-			return nil, errors.Errorf("file set %v is not primitive", id)
+			return nil, errors.Errorf("file set %v is not primitive", h)
 		}
 		if prim.Additive != nil {
 			if err := additive.WriteIndex(prim.Additive); err != nil {
@@ -280,30 +360,37 @@ func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID,
 	if err != nil {
 		return nil, err
 	}
-	return s.newPrimitive(ctx, &Primitive{
+	id, err := s.newPrimitive(ctx, &Primitive{
 		Additive:  additiveIdx,
 		Deletive:  deletiveIdx,
 		SizeBytes: size,
 	}, ttl)
+	if err != nil {
+		return nil, err
+	}
+	return &Handle{id: *id}, nil
 }
 
-// Drop allows a fileset to be deleted if it is not otherwise referenced.
-func (s *Storage) Drop(ctx context.Context, id ID) error {
-	_, err := s.SetTTL(ctx, id, track.ExpireNow)
+// Drop allows a Fileset to be immediately GC'd if nothing else references it.
+func (s *Storage) Drop(ctx context.Context, h Handle) error {
+	_, err := s.SetTTL(ctx, h, track.ExpireNow)
 	return err
 }
 
 // SetTTL sets the time-to-live for the fileset at id
-func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
-	oid := id.TrackerID()
+func (s *Storage) SetTTL(ctx context.Context, h Handle, ttl time.Duration) (time.Time, error) {
+	if ttl == track.NoTTL {
+		return time.Time{}, errors.New("SetTTL cannot be used to remove a TTL")
+	}
+	oid := h.id.TrackerID()
 	res, err := s.tracker.SetTTL(ctx, oid, ttl)
 	return res, err
 }
 
 // SizeUpperBound returns an upper bound for the size of the data in the file set in bytes.
 // The upper bound is cheaper to compute than the actual size.
-func (s *Storage) SizeUpperBound(ctx context.Context, id ID) (int64, error) {
-	prims, err := s.flattenPrimitives(ctx, []ID{id})
+func (s *Storage) SizeUpperBound(ctx context.Context, h Handle) (int64, error) {
+	prims, err := s.flattenPrimitives(ctx, []Handle{h})
 	if err != nil {
 		return 0, err
 	}
@@ -315,8 +402,8 @@ func (s *Storage) SizeUpperBound(ctx context.Context, id ID) (int64, error) {
 }
 
 // Size returns the size of the data in the file set in bytes.
-func (s *Storage) Size(ctx context.Context, id ID) (int64, error) {
-	fs, err := s.Open(ctx, []ID{id})
+func (s *Storage) Size(ctx context.Context, h Handle) (int64, error) {
+	fs, err := s.Open(ctx, []Handle{h})
 	if err != nil {
 		return 0, err
 	}
@@ -399,11 +486,11 @@ func (s *Storage) newPrimitiveTx(tx *pachsql.Tx, prim *Primitive, ttl time.Durat
 	return &id, nil
 }
 
-func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Duration) (*ID, error) {
+func (s *Storage) newComposite(ctx context.Context, layers []ID, ttl time.Duration) (*ID, error) {
 	var result *ID
 	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
-		result, err = s.newCompositeTx(tx, comp, ttl)
+		result, err = s.newCompositeTx(tx, layers, ttl)
 		return err
 	}); err != nil {
 		return nil, err
@@ -411,19 +498,17 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 	return result, nil
 }
 
-func (s *Storage) newCompositeTx(tx *pachsql.Tx, comp *Composite, ttl time.Duration) (*ID, error) {
+func (s *Storage) newCompositeTx(tx *pachsql.Tx, layers []ID, ttl time.Duration) (*ID, error) {
 	id := newID()
 	md := &Metadata{
 		Value: &Metadata_Composite{
-			Composite: comp,
+			Composite: &Composite{
+				Layers: mapSlice(layers, func(x ID) string { return x.hexString() }),
+			},
 		},
 	}
-	ids, err := comp.PointsTo()
-	if err != nil {
-		return nil, err
-	}
 	var pointsTo []string
-	for _, id := range ids {
+	for _, id := range layers {
 		pointsTo = append(pointsTo, id.TrackerID())
 	}
 	if err := s.store.SetTx(tx, id, md); err != nil {
@@ -457,9 +542,9 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, oid string) error {
 	if !strings.HasPrefix(oid, TrackerPrefix) {
 		return errors.Errorf("don't know how to delete %v", oid)
 	}
-	id, err := ParseID(oid[len(TrackerPrefix):])
+	id, err := parseID(oid[len(TrackerPrefix):])
 	if err != nil {
 		return err
 	}
-	return d.store.DeleteTx(tx, *id)
+	return d.store.DeleteTx(tx, id)
 }

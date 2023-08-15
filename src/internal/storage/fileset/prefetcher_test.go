@@ -21,9 +21,9 @@ func createTestFileSet(tb testing.TB, ctx context.Context, s *Storage, numFiles 
 		data := randutil.Bytes(random, fileSize)
 		require.NoError(tb, w.Add(fmt.Sprintf("%08d", i), DefaultFileDatum, bytes.NewReader(data)))
 	}
-	id, err := w.Close()
+	h, err := w.Close()
 	require.NoError(tb, err)
-	fs, err := s.Open(ctx, []ID{*id})
+	fs, err := s.Open(ctx, []Handle{*h})
 	require.NoError(tb, err)
 	return fs
 }

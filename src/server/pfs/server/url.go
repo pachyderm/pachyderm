@@ -125,11 +125,11 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			if err != nil {
 				return err
 			}
-			fsid, err := fileset.ParseID(result.Id)
+			h, err := fileset.ParseHandle(result.Id)
 			if err != nil {
 				return err
 			}
-			return errors.EnsureStack(uw.AddFileSet(ctx, *fsid))
+			return errors.EnsureStack(uw.AddFileSet(ctx, *h))
 		})
 	})
 	return errors.EnsureStack(eg.Wait())
@@ -189,15 +189,15 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	var bytesWritten int64
 	eg.Go(func() error {
 		return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-			fsID, err := d.getFileSet(ctx, file.Commit)
+			h, err := d.getFileSet(ctx, file.Commit)
 			if err != nil {
 				return err
 			}
-			if err := renewer.Add(ctx, *fsID); err != nil {
+			if err := renewer.Add(ctx, *h); err != nil {
 				return err
 			}
 			file := proto.Clone(file).(*pfs.File)
-			file.Commit = client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
+			file.Commit = client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", h.HexString())
 			src, err := d.getFile(ctx, file, basePathRange)
 			if err != nil {
 				return err

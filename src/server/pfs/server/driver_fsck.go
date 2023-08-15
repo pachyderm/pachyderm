@@ -469,7 +469,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		if err := r.Add(ctx, *id); err != nil {
 			return err
 		}
-		datumsFS, err := d.storage.Filesets.Open(ctx, []fileset.ID{*id})
+		datumsFS, err := d.storage.Filesets.Open(ctx, []fileset.Handle{*id})
 		if err != nil {
 			return err
 		}
