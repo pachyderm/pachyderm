@@ -764,7 +764,7 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 	for _, repoInfo := range repos {
 		errs = errors.Join(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
 	}
-	if errs != nil && force == false {
+	if errs != nil && !force {
 		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
 	if err := coredb.DeleteProject(ctx, txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {

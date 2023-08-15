@@ -724,7 +724,9 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			if output == nil {
 				return nil
 			}
-			return a.driver.detectZombie(ctx, output, fsckServer.Send)
+			if err := a.driver.detectZombie(ctx, output, fsckServer.Send); err != nil {
+				return errors.Wrap(err, "fsck")
+			}
 		}
 	}
 	return nil
