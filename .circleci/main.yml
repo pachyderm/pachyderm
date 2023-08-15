@@ -561,6 +561,9 @@ jobs:
           file: /tmp/test-results/coverage.txt
   deploy-tests:
     parameters:
+      num_executors:
+        type: integer
+        default: 4
       resource_class:
         type: string
         default: 2xlarge
@@ -568,7 +571,7 @@ jobs:
         type: string
         default: amd64
     resource_class: << parameters.resource_class >>
-    parallelism: 6
+    parallelism:  << parameters.num_executors >>
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -1688,10 +1691,12 @@ workflows:
           name: amd64 deploy tests
           resource_class: 2xlarge # amd64
           arch: amd64
+          num_executors: 6
       - deploy-tests:
           name: arm64 deploy tests
           resource_class: arm.xlarge # arm64
           arch: arm64
+          num_executors: 2
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:

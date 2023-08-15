@@ -48,6 +48,8 @@ cmds=(
   'kubectl logs --namespace=test-cluster-4 --tail=1500 -l suite=pachyderm,app=pachd --previous --prefix=true'
   'kubectl logs --namespace=test-cluster-5 --tail=1500 -l suite=pachyderm,app=pachd --previous --prefix=true'
   'kubectl logs --namespace=test-cluster-6 --tail=1500 -l suite=pachyderm,app=pachd --previous --prefix=true'
+  'kubectl logs storage-provisioner -n kube-system'
+  'kubectl logs storage-provisioner -n kube-system --previous'
   'sudo dmesg | tail -n 40'
   'minikube logs | tail -n 100'
   'top -b -n 1 | head -n 40'
