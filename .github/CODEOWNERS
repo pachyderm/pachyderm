@@ -6,3 +6,5 @@
 # Integrations
 /src/server/pfs/s3       @pachyderm/INT
 /src/server/pfs/fuse     @pachyderm/INT
+/src/*/*.proto           @pachyderm/INT
+/python-sdk              @pachyderm/INT
