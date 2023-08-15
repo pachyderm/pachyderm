@@ -1530,7 +1530,6 @@ jobs:
           name: Build Docker image
           command: |
             cd label-studio
-            git checkout smalyala/pachyderm-mountless-fixes # TODO: remove after mountless changes merged into default branch of our Label Studio fork
             DOCKER_BUILDKIT=1 docker build -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
       - run:
           name: Docker push
