@@ -2169,6 +2169,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		CreatePipelineRequestJson: string(js),
 		Update:                    request.Update,
 		Reprocess:                 request.Reprocess,
+		DryRun:                    request.DryRun,
 	}
 	if _, err := a.createPipeline(ctx, v2Req); err != nil {
 		return nil, err
@@ -2200,6 +2201,13 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		return "", errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(effectiveSpec.GetPipeline())
+	b, err := protojson.Marshal(effectiveSpec)
+	if err != nil {
+		return "", errors.Wrap(err, "could not marshal CreatePipelineRequest")
+	}
+	if req.DryRun {
+		return string(b), nil
+	}
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
@@ -2229,10 +2237,6 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		}))
 	}); err != nil {
 		return "", err
-	}
-	b, err := protojson.Marshal(effectiveSpec)
-	if err != nil {
-		return "", errors.Wrap(err, "could not marshal CreatePipelineRequest")
 	}
 	return string(b), nil
 }
