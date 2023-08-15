@@ -491,6 +491,11 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, scrubbedErr)
 			return errors.Wrapf(scrubbedErr, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
+		if _, err := c.ListRepo(); err != nil { // go to the DB before declaring that we are connected
+			scrubbedErr := grpcutil.ScrubGRPC(err)
+			t.Logf("retryable: failed to get repos on port %v: %v", pachAddress.Port, scrubbedErr)
+			return errors.Wrapf(scrubbedErr, "failed to get repos on port %v", pachAddress.Port)
+		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
 	t.Logf("Success connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
