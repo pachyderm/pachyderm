@@ -67,7 +67,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 		return err
 	}
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		commit, err := d.startCommit(txnCtx, nil, branch, "")
+		commit, err := d.startCommit(ctx, txnCtx, nil, branch, "")
 		if err != nil {
 			return err
 		}
