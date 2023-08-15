@@ -146,10 +146,7 @@ export const usePipeline = (
     }
     catch(e) {
       if (e instanceof ServerConnection.ResponseError) {
-        // statusText is the only place that the user will get yaml parsing
-        // errors (though it will also include Pachyderm errors, e.g.
-        // "missing input repo").
-        setErrorMessage('Error creating pipeline: ' + e.response.statusText);
+        setErrorMessage('Error retrieving pipeline: ' + e.response.statusText);
       } else {
         throw e;
       }
