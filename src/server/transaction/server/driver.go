@@ -165,8 +165,8 @@ func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.Transact
 			err = directTxn.UpdateJobState(request.UpdateJobState)
 		} else if request.StopJob != nil {
 			err = directTxn.StopJob(request.StopJob)
-		} else if request.CreatePipeline != nil {
-			err = directTxn.CreatePipeline(request.CreatePipeline)
+		} else if request.CreatePipelineV2 != nil {
+			err = directTxn.CreatePipeline(request.CreatePipelineV2)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}
