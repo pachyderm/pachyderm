@@ -851,7 +851,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(mainCtx, pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false, dryRun)
+			return pipelineHelper(mainCtx, pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false, dryRun, output, raw)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -862,6 +862,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "Specify the username to push images as.")
 	createPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) in which to create the pipeline.")
 	createPipeline.Flags().BoolVar(&dryRun, "dry-run", false, "If true, pipeline will not actually be created.")
+	createPipeline.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAliases(createPipeline, "create pipeline", pipelines))
 
 	var reprocess bool
@@ -878,7 +879,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(mainCtx, pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true, dryRun)
+			return pipelineHelper(mainCtx, pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true, dryRun, output, raw)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -890,6 +891,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess all datums that were already processed by previous version of the pipeline.")
 	updatePipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) in which to create the pipeline.")
 	updatePipeline.Flags().BoolVar(&dryRun, "dry-run", false, "If true, pipeline will not actually be updated.")
+	updatePipeline.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAliases(updatePipeline, "update pipeline", pipelines))
 
 	runCron := &cobra.Command{
@@ -1750,7 +1752,7 @@ func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, 
 	return []byte(res.Json), nil
 }
 
-func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, project, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool) error {
+func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, project, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool, output string, raw bool) error {
 	// validate arguments
 	if pipelinePath != "" && jsonnetPath != "" {
 		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
@@ -1834,20 +1836,31 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 				txClient.Ctx(),
 				v2Req,
 			)
-			if dryRun {
-				d := json.NewDecoder(strings.NewReader(resp.EffectiveCreatePipelineRequestJson))
-				d.UseNumber()
-				var effectiveSpec any
-				if err := d.Decode(&effectiveSpec); err != nil {
-					return errors.Wrapf(err, "could not decode effective spec %q", resp.EffectiveCreatePipelineRequestJson)
-				}
-				b, err := json.MarshalIndent(effectiveSpec, "", "\t")
-				if err != nil {
-					return errors.Wrap(err, "could not marshal effective spec")
-				}
-				fmt.Println(string(b))
+			if err != nil {
+				return errors.Wrap(err, "could not create pipeline")
 			}
-			return grpcutil.ScrubGRPC(err)
+			if dryRun {
+				if raw {
+					d := json.NewDecoder(strings.NewReader(resp.EffectiveCreatePipelineRequestJson))
+					d.UseNumber()
+					var effectiveSpec any
+					if err := d.Decode(&effectiveSpec); err != nil {
+						return errors.Wrapf(err, "could not decode effective spec %q", resp.EffectiveCreatePipelineRequestJson)
+					}
+					if err := cmdutil.Encoder(output, os.Stdout).Encode(effectiveSpec); err != nil {
+						return errors.Wrap(err, "could not encode effective spec")
+					}
+					return nil
+				} else if output != "" {
+					return errors.New("cannot set --output (-o) without --raw")
+				}
+				var cpr pps.CreatePipelineRequest
+				if err := protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &cpr); err != nil {
+					return errors.Wrapf(err, "could not unmarshal effective create pipeline request %s", resp.EffectiveCreatePipelineRequestJson)
+				}
+				return pretty.PrintCreatePipelineRequest(os.Stdout, &cpr)
+			}
+			return nil
 		}); err != nil {
 			return err
 		}
