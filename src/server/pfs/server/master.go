@@ -98,7 +98,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 	defer cancel()
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
-			// watch for repo events.
+			// Watch for repo events.
 			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, v2_8_0.ReposChannelName)
 			if err != nil {
 				return errors.Wrap(err, "new watcher")
@@ -118,7 +118,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "list repos")
 			}
-			// process new repo events.
+			// Process new repo events.
 			return d.handleRepoEvents(ctx, ring, watcher)
 		})
 }
