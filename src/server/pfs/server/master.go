@@ -95,10 +95,17 @@ func (d *driver) master(ctx context.Context) {
 func (d *driver) watchRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
+	repos := make(map[pfsdb.RepoID]context.CancelFunc)
+	defer func() {
+		for _, cancel := range repos {
+			cancel()
+		}
+	}()
+	ringPrefix := path.Join(d.prefix, masterLockPath, "ring")
+	return consistenthashing.WithRing(ctx, d.etcdClient, ringPrefix,
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			// Watch for repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, pfsdb.ReposChannelName)
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, ringPrefix, pfsdb.ReposChannelName)
 			if err != nil {
 				return errors.Wrap(err, "new watcher")
 			}
@@ -111,6 +118,8 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				}
 				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
 					lockPrefix := path.Join("repos", fmt.Sprintf("%d", repoPair.ID))
+					ctx, cancel := pctx.WithCancel(ctx)
+					repos[repoPair.ID] = cancel
 					d.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
 					return nil
 				}), "for each repo")
@@ -118,17 +127,11 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				return errors.Wrap(err, "list repos")
 			}
 			// Process new repo events.
-			return d.handleRepoEvents(ctx, ring, watcher.Watch())
+			return d.handleRepoEvents(ctx, ring, repos, watcher.Watch())
 		})
 }
 
-func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.Ring, watcherChan <-chan *postgres.Event) error {
-	repos := make(map[pfsdb.RepoID]context.CancelFunc)
-	defer func() {
-		for _, cancel := range repos {
-			cancel()
-		}
-	}()
+func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.Ring, repos map[pfsdb.RepoID]context.CancelFunc, watcherChan <-chan *postgres.Event) error {
 	for {
 		select {
 		case event, ok := <-watcherChan:
