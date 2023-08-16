@@ -167,8 +167,6 @@ func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.R
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "get repo")
 			}
-			ctx, cancel = pctx.WithCancel(ctx)
-			repos[repoID] = cancel
 			d.manageRepo(ctx, ring, repo, lockPrefix)
 		case <-ctx.Done():
 			return nil
