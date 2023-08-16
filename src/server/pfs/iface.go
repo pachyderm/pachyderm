@@ -16,9 +16,9 @@ type APIServer interface {
 	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
 
 	CreateRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
-	InspectRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.InspectRepoRequest) (*pfs_client.RepoInfo, error)
-	DeleteRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.DeleteRepoRequest) error
-	DeleteReposInTransaction(context.Context, *txncontext.TransactionContext, []*pfs_client.Repo, bool) error
+	InspectRepoInTransaction(*txncontext.TransactionContext, *pfs_client.InspectRepoRequest) (*pfs_client.RepoInfo, error)
+	DeleteRepoInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteRepoRequest) (bool, error)
+	DeleteReposInTransaction(*txncontext.TransactionContext, []*pfs_client.Repo, bool) error
 
 	StartCommitInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.StartCommitRequest) (*pfs_client.Commit, error)
 	FinishCommitInTransaction(*txncontext.TransactionContext, *pfs_client.FinishCommitRequest) error

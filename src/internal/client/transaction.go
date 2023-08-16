@@ -296,7 +296,7 @@ func (c *pfsBuilderClient) CreateRepo(ctx context.Context, req *pfs.CreateRepoRe
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreateRepo: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *pfsBuilderClient) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest, opts ...grpc.CallOption) (*pfs.DeleteRepoResponse, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteRepo: req})
 	return nil, nil
 }

@@ -341,7 +341,7 @@ func (c *unsupportedPfsBuilderClient) DeleteProject(_ context.Context, _ *pfs_v2
 	return nil, unsupportedError("DeleteProject")
 }
 
-func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.DeleteRepoRequest, opts ...grpc.CallOption) (*pfs_v2.DeleteRepoResponse, error) {
 	return nil, unsupportedError("DeleteRepo")
 }
 
