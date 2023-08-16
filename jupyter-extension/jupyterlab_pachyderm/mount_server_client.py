@@ -170,7 +170,7 @@ class MountServerClient(MountInterface):
     async def mount(self, body):
         await self._ensure_mount_server()
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_mount", body=json.dumps(body))
+            response = self.session.put(f"{self.address}/_mount", data=json.dumps(body))
             result = response.text.encode("utf-8")
         else:
             response = await self.client.fetch(
@@ -184,7 +184,7 @@ class MountServerClient(MountInterface):
     async def unmount(self, body):
         await self._ensure_mount_server()
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_unmount", body=json.dumps(body))
+            response = self.session.put(f"{self.address}/_unmount", data=json.dumps(body))
             result = response.text.encode("utf-8")
         else:
             response = await self.client.fetch(
@@ -231,7 +231,7 @@ class MountServerClient(MountInterface):
         await self._ensure_mount_server()
         slug = '&'.join(f"{k}={v}" for k,v in slug.items() if v is not None)
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_show_datum?{slug}")
+            response = self.session.put(f"{self.address}/_show_datum?{slug}", data='{}')
             result = response.text.encode("utf-8")
         else:
             response = await self.client.fetch(
