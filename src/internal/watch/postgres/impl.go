@@ -34,7 +34,7 @@ type Event struct {
 
 // New version of postgresWatcher
 // implements both Watcher and Notifier interfaces
-type watcher struct {
+type Watcher struct {
 	db       *pachsql.DB
 	listener collection.PostgresListener
 	events   chan *Event
@@ -43,10 +43,10 @@ type watcher struct {
 	once     sync.Once
 }
 
-type WatcherOption func(*watcher)
+type WatcherOption func(*Watcher)
 
-func NewWatcher(db *pachsql.DB, listener collection.PostgresListener, id string, channel string, opts ...WatcherOption) (*watcher, error) {
-	w := &watcher{
+func NewWatcher(db *pachsql.DB, listener collection.PostgresListener, id string, channel string, opts ...WatcherOption) (*Watcher, error) {
+	w := &Watcher{
 		db:       db,
 		listener: listener,
 		id:       id,
@@ -66,17 +66,17 @@ func NewWatcher(db *pachsql.DB, listener collection.PostgresListener, id string,
 }
 
 func WithBufferSize(size int) WatcherOption {
-	return func(w *watcher) {
+	return func(w *Watcher) {
 		w.events = make(chan *Event, size)
 	}
 }
 
 // Implement Watcher Interface
-func (w *watcher) Watch() <-chan *Event {
+func (w *Watcher) Watch() <-chan *Event {
 	return w.events
 }
 
-func (w *watcher) Close() {
+func (w *Watcher) Close() {
 	w.once.Do(func() {
 		w.listener.Unregister(w) //nolint:errcheck
 		close(w.events)
@@ -85,27 +85,27 @@ func (w *watcher) Close() {
 
 // Implement Notifier Interface
 
-func (w *watcher) ID() string {
+func (w *Watcher) ID() string {
 	return w.id
 }
 
-func (w *watcher) Channel() string {
+func (w *Watcher) Channel() string {
 	return w.channel
 }
 
-func (w *watcher) Notify(m *pq.Notification) {
+func (w *Watcher) Notify(m *pq.Notification) {
 	event := parseNotification(m.Extra)
 	w.send(&event)
 }
 
-func (w *watcher) Error(err error) {
+func (w *Watcher) Error(err error) {
 	w.send(&Event{Err: err})
 }
 
-// Send the given event to the watcher, but abort the watcher if the send would
-// block. If this happens, the watcher is not keeping up with events. Spawn a
-// goroutine to write an error, then close the watcher.
-func (w *watcher) send(event *Event) {
+// Send the given event to the Watcher, but abort the Watcher if the send would
+// block. If this happens, the Watcher is not keeping up with events. Spawn a
+// goroutine to write an error, then close the Watcher.
+func (w *Watcher) send(event *Event) {
 	select {
 	case w.events <- event:
 	default:
