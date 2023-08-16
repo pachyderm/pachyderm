@@ -1574,7 +1574,8 @@ jobs:
             --password $LABEL_STUDIO_PASSWORD \
             --user-token $LABEL_STUDIO_USER_TOKEN
 
-            sleep 20  # Wait for Label Studio server to start
+            # Wait for Label Studio server to start
+            while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/api/projects -H "Authorization: Token $LABEL_STUDIO_USER_TOKEN")" != "200" ]]; do sleep 5; done
       - run:
           name: Run tests
           command: |

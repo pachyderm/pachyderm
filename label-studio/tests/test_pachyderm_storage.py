@@ -10,11 +10,19 @@ from tests.constants import LABEL_STUDIO_URL, AUTH_TOKEN, PACHD_ADDRESS
 
 @pytest.fixture(scope="session")
 def pach_client():
+    """Returns a Pachyderm client connected to a pachd instance."""
     return PachClient.from_pachd_address(PACHD_ADDRESS)
 
 
 @pytest.fixture
 def pachyderm_data(pach_client):
+    """
+    Creates two Pachyderm repos, images and labels. Images contains an image
+    file to be annotated in Label Studio. Labels is the output repo that
+    stores Label Studio annotations. Yields the two repos and the commit ID
+    associated with the image file.
+    """
+
     import_repo = pfs.Repo(name="images", type="user")
     pach_client.pfs.create_repo(repo=import_repo)
 
@@ -22,8 +30,8 @@ def pachyderm_data(pach_client):
         branch=pfs.Branch(repo=import_repo, name="master")
     ) as commit:
         commit.put_file_from_url(
-            path='/liberty.jpg',
-            url='https://docs.pachyderm.com/images/opencv/liberty.jpg',
+            path="/liberty.jpg",
+            url="https://docs.pachyderm.com/images/opencv/liberty.jpg",
         )
         commit_id = commit.id
 
@@ -39,6 +47,7 @@ def pachyderm_data(pach_client):
 
 @pytest.fixture(scope="session")
 def project():
+    """Creates and returns a Label Studio project."""
     ls_client = LSClient(url=LABEL_STUDIO_URL, api_key=AUTH_TOKEN)
     ls_client.check_connection()
 
@@ -59,6 +68,11 @@ def project():
 
 @pytest.fixture
 def import_storage_id(pachyderm_data, project):
+    """
+    Adds a Pachyderm import storage to the Label Studio project and yields the
+    ID associated with the storage.
+    """
+
     import_repo, commit_id, _ = pachyderm_data
 
     # Create import storage
@@ -94,6 +108,11 @@ def import_storage_id(pachyderm_data, project):
 
 @pytest.fixture
 def export_storage_id(pachyderm_data, project):
+    """
+    Adds a Pachyderm export storage to the Label Studio project and yields the
+    ID associated with the storage.
+    """
+
     _, _, export_repo = pachyderm_data
 
     # Create export storage
@@ -128,8 +147,12 @@ def export_storage_id(pachyderm_data, project):
     assert len(response.json()) == 0
 
 
-# Label Studio API: https://labelstud.io/api
 def test_pachyderm_import_storage(pachyderm_data, project, import_storage_id):
+    """
+    Tests endpoints associated with a Pachyderm import storage. See API here:
+    https://labelstud.io/api.
+    """
+
     import_repo, commit_id, _ = pachyderm_data
 
     # Validate storage
@@ -164,6 +187,10 @@ def test_pachyderm_import_storage(pachyderm_data, project, import_storage_id):
 
 
 def test_pachyderm_export_storage(pachyderm_data, project, export_storage_id):
+    """
+    Tests endpoints associated with a Pachyderm export storage. See API here:
+    https://labelstud.io/api.
+    """
     _, _, export_repo = pachyderm_data
 
     # Validate storage
@@ -200,6 +227,11 @@ def test_pachyderm_export_storage(pachyderm_data, project, export_storage_id):
 def test_annotate_and_save(
     pachyderm_data, project, import_storage_id, export_storage_id, pach_client
 ):
+    """
+    An end-to-end test that reads data from Pachyderm import storage, annotates
+    the data, and saves the annotation to Pachyderm export storage.
+    """
+
     _, _, export_repo = pachyderm_data
 
     project.make_request("POST", f"/api/storages/pachyderm/{import_storage_id}/sync")
