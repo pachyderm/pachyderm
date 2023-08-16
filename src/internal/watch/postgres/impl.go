@@ -33,7 +33,7 @@ type Event struct {
 }
 
 // New version of postgresWatcher
-// implements both watcher and Notifier interfaces
+// implements both Watcher and Notifier interfaces
 type watcher struct {
 	db       *pachsql.DB
 	listener collection.PostgresListener
@@ -71,7 +71,7 @@ func WithBufferSize(size int) WatcherOption {
 	}
 }
 
-// Implement watcher Interface
+// Implement Watcher Interface
 func (w *watcher) Watch() <-chan *Event {
 	return w.events
 }
