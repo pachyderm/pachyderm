@@ -515,20 +515,16 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	require.NoError(t, err, "InspectPipeline must succeed")
 
 	require.NotEqual(t, r.UserSpecJson, "", "user spec must not be blank")
-	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
-	d.UseNumber()
 	var spec map[string]any
-	err = d.Decode(&spec)
-	require.NoError(t, err, "Decode of user spec %s must succeed", r.UserSpecJson)
+	err = unmarshalJSON(r.UserSpecJson, &spec)
+	require.NoError(t, err, "user spec %s must unmarshal", r.UserSpecJson)
 	_, ok := spec["salt"]
 	require.False(t, ok, "salt must not be found in the user spec")
 	require.False(t, spec["autoscaling"].(bool), "user spec must have autoscaling set to false")
 
-	require.NotEqual(t, r.EffectiveSpecJson, "", "user spec must not be blank")
-	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
-	d.UseNumber()
-	err = d.Decode(&spec)
-	require.NoError(t, err, "Decode of effective spec %s must succeed", r.EffectiveSpecJson)
+	require.NotEqual(t, r.EffectiveSpecJson, "", "effective spec must not be blank")
+	err = unmarshalJSON(r.EffectiveSpecJson, &spec)
+	require.NoError(t, err, "effective spec %s must unmarshal", r.EffectiveSpecJson)
 	require.Equal(t, spec["salt"], "mysalt", "salt must be set in the effective spec")
 	require.False(t, spec["autoscaling"].(bool), "effective spec must have autoscaling set to false")
 	require.Equal(t, spec["datumTries"], json.Number("4"), "effective spec must have datumTries = 4")
@@ -588,21 +584,17 @@ func TestDefaultPropagation(t *testing.T) {
 	require.NoError(t, err, "InspectPipeline must succeed")
 
 	require.NotEqual(t, r.UserSpecJson, "", "user spec must not be blank")
-	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
-	d.UseNumber()
 	var spec map[string]any
-	err = d.Decode(&spec)
-	require.NoError(t, err, "Decode of user spec %s must succeed", r.UserSpecJson)
+	err = unmarshalJSON(r.UserSpecJson, &spec)
+	require.NoError(t, err, "user spec %s must unmarshal", r.UserSpecJson)
 	_, ok := spec["metadata"]
 	require.False(t, ok, "metadata must not be found in the user spec")
 	_, ok = spec["autoscaling"]
 	require.False(t, ok, "autoscaling must not be found in the user spec")
 
 	require.NotEqual(t, r.EffectiveSpecJson, "", "user spec must not be blank")
-	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
-	d.UseNumber()
-	err = d.Decode(&spec)
-	require.NoError(t, err, "Decode of effective spec %s must succeed", r.EffectiveSpecJson)
+	err = unmarshalJSON(r.EffectiveSpecJson, &spec)
+	require.NoError(t, err, "effective spec %s must unmarshal", r.EffectiveSpecJson)
 	_, ok = spec["metadata"]
 	require.True(t, ok, "metadata must  be found in the effective spec")
 	require.True(t, spec["autoscaling"].(bool), "autoscaling must be true in the effective spec")
