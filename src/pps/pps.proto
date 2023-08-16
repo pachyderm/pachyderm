@@ -465,8 +465,8 @@ message PipelineInfo {
   }
   Details details = 12;
   reserved "details_json";
-  string user_spec_json = 13;
-  string effective_spec_json = 14;
+  string user_spec_json = 13; // The user-submitted pipeline spec in JSON format.
+  string effective_spec_json = 14; // The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults.
 }
 
 message PipelineInfos {
