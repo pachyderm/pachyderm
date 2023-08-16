@@ -111,13 +111,15 @@ func (d *driver) watchRepos(ctx context.Context) error {
 			}
 			defer watcher.Close()
 			// Get existing entries.
-			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-				iter, err := pfsdb.ListRepo(ctx, tx, nil)
+			if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+				iter, err := pfsdb.ListRepo(cbCtx, tx, nil)
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}
-				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
+				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
 					lockPrefix := path.Join("repos", fmt.Sprintf("%d", repoPair.ID))
+					// cbCtx cannot be used here because it expires at the end of the callback and the
+					// goroutines spawned by manageRepo need to live until the main master routine is cancelled.
 					ctx, cancel := pctx.WithCancel(ctx)
 					repos[repoPair.ID] = cancel
 					d.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
