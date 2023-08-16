@@ -38,6 +38,7 @@ describe('JobSet SubJobs List', () => {
 
     const job1 = screen.getAllByTestId('JobsList__row')[1];
     expect(job1).toHaveTextContent('@edges');
+    expect(job1).toHaveTextContent('v:1');
     expect(job1).toHaveTextContent('0 Total');
     expect(job1).toHaveTextContent('In Progress');
     expect(job1).toHaveTextContent('1dc67e...');
@@ -45,6 +46,7 @@ describe('JobSet SubJobs List', () => {
 
     const job2 = screen.getAllByTestId('JobsList__row')[4];
     expect(job2).toHaveTextContent('@montage');
+    expect(job1).toHaveTextContent('v:1');
     expect(job2).toHaveTextContent('1 Total');
     expect(job2).toHaveTextContent('5c1aa9...');
     expect(job2).toHaveTextContent('3 s');
@@ -140,7 +142,7 @@ describe('JobSet SubJobs List', () => {
     expect(jobs[3]).toHaveTextContent('cf302e...');
   });
 
-  it('should filter jobs by ID or Pipeline', async () => {
+  it('should filter jobs by ID, Pipeline, or Pipeline Version', async () => {
     render(<JobSetList />);
 
     await waitForElementToBeRemoved(() =>
@@ -164,6 +166,17 @@ describe('JobSet SubJobs List', () => {
     jobs = screen.getAllByTestId('JobsList__row');
     expect(jobs).toHaveLength(1);
     expect(jobs[0]).toHaveTextContent('@montage');
+
+    await click(screen.getByTestId('Filter__jobIdsa44234...Chip'));
+    await click(screen.getByTestId('Filter__pipelineStepsmontageChip'));
+
+    await click(screen.getByLabelText('expand filters'));
+    await click(screen.getByText('Select versions'));
+    await click(screen.getByLabelText('2'));
+
+    jobs = screen.getAllByTestId('JobsList__row');
+    expect(jobs).toHaveLength(2);
+    expect(jobs[0]).toHaveTextContent('v:2');
   });
 
   it('should display an empty state', async () => {

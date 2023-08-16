@@ -10,6 +10,7 @@ export const JobOverviewFragment = gql`
     finishedAt
     restarts
     pipelineName
+    pipelineVersion
     reason
     dataProcessed
     dataSkipped

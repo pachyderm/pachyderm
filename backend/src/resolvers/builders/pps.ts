@@ -136,6 +136,7 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
     finishedAt: jobInfo.finished?.seconds,
     restarts: jobInfo.restart,
     pipelineName: jobInfo.job?.pipeline?.name || '',
+    pipelineVersion: jobInfo.pipelineVersion,
     transform: jobInfo.details?.transform,
     inputString: jobInfo.details?.input
       ? JSON.stringify(removeGeneratedSuffixes(jobInfo.details?.input), null, 2)

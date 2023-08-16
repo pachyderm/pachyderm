@@ -44,9 +44,9 @@ const DropdownFilter: React.FC<DropdownFilterProps> = ({
     <Dropdown formCtx={formCtx} className={styles.base}>
       <Dropdown.Button className={styles.dropdownFilterButton}>
         {filterValues.length === 0 && `Select ${multiselectFilter.noun}s`}
-        {filterValues.length > 0 && `${shorten(filterValues[0], 6)}, `}
-        {filterValues.length > 1 && `${shorten(filterValues[1], 6)}, `}
-        {filterValues.length > 2 && `+ ${filterValues.length - 2}`}
+        {filterValues.length > 0 && `${shorten(filterValues[0], 6)}`}
+        {filterValues.length > 1 && `, ${shorten(filterValues[1], 6)}`}
+        {filterValues.length > 2 && `, +${filterValues.length - 2}`}
       </Dropdown.Button>
       <Dropdown.Menu className={styles.menu}>
         <div className={styles.search}>

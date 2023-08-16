@@ -37,6 +37,7 @@ describe('Jobs', () => {
           startedAt: 1614126191,
           finishedAt: 1614126194,
           pipelineName: 'montage',
+          pipelineVersion: 1,
         }),
       );
     });
@@ -61,6 +62,7 @@ describe('Jobs', () => {
           startedAt: 1616533100,
           finishedAt: 1616533103,
           pipelineName: 'montage',
+          pipelineVersion: 0,
         }),
       );
     });

@@ -246,6 +246,7 @@ type Job {
   state: JobState!
   nodeState: NodeState!
   pipelineName: String!
+  pipelineVersion: Int!
   transformString: String
   transform: Transform
   inputString: String

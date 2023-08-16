@@ -14,6 +14,7 @@ interface ListParams extends SelectableResource {
   jobStatus?: NodeState[];
   jobId?: string[];
   pipelineStep?: string[];
+  pipelineVersion?: string[];
   pipelineState?: NodeState[];
   commitType?: OriginKind[];
   branchName?: string[];
@@ -33,6 +34,7 @@ export interface ViewStateLists {
   jobStatus?: string[];
   jobId?: string[];
   pipelineStep?: string[];
+  pipelineVersion?: string[];
   pipelineState?: string[];
   commitType?: string[];
   branchName?: string[];
@@ -55,6 +57,7 @@ const LIST_TYPES: (keyof ListParams)[] = [
   'jobId',
   'pipelineStep',
   'pipelineState',
+  'pipelineVersion',
   'commitType',
   'branchName',
   'commitId',

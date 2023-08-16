@@ -52,6 +52,7 @@ type FormValues = {
   jobStatus: NodeState[];
   jobIds: string[];
   pipelineSteps: string[];
+  pipelineVersions: string[];
 };
 
 type useJobsFiltersProps = {
@@ -68,6 +69,7 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       jobStatus: [],
       jobIds: [],
       pipelineSteps: [],
+      pipelineVersions: [],
     },
   });
 
@@ -76,6 +78,7 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
   const jobStatusFilters = watch('jobStatus');
   const jobIdFilters = watch('jobIds');
   const pipelineStepsFilters = watch('pipelineSteps');
+  const pipelineVersionsFilters = watch('pipelineVersions');
 
   useEffect(() => {
     const {selectedPipelines, selectedJobs} = searchParams;
@@ -95,11 +98,13 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       jobStatus: jobStatusFilters,
       jobId: jobIdFilters,
       pipelineStep: pipelineStepsFilters,
+      pipelineVersion: pipelineVersionsFilters,
     });
   }, [
     jobIdFilters,
     jobStatusFilters,
     pipelineStepsFilters,
+    pipelineVersionsFilters,
     sortFilter,
     updateSearchParamsAndGo,
   ]);
@@ -117,6 +122,12 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       name: 'pipelineSteps',
       noun: 'step',
       values: [...new Set(jobs?.map((job) => job.pipelineName))],
+    },
+    {
+      label: 'Pipeline Version',
+      name: 'pipelineVersions',
+      noun: 'version',
+      values: [...new Set(jobs?.map((job) => job.pipelineVersion.toString()))],
     },
   ];
 
@@ -138,8 +149,18 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       name: step,
       value: step,
     }));
-    return [...jobStatuses, ...jobIds, ...pipelineSteps];
-  }, [jobIdFilters, jobStatusFilters, pipelineStepsFilters]);
+    const pipelineVersions = pipelineVersionsFilters.map((version) => ({
+      field: 'pipelineVersions',
+      name: version,
+      value: version,
+    }));
+    return [...jobStatuses, ...jobIds, ...pipelineSteps, ...pipelineVersions];
+  }, [
+    jobIdFilters,
+    jobStatusFilters,
+    pipelineStepsFilters,
+    pipelineVersionsFilters,
+  ]);
 
   const staticFilterKeys = [sortFilter];
   const filteredJobs = useMemo(
@@ -150,7 +171,11 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
             searchParams.jobStatus.includes(job.nodeState)) &&
           (!searchParams.jobId || searchParams.jobId.includes(job.id)) &&
           (!searchParams.pipelineStep ||
-            searchParams.pipelineStep.includes(job.pipelineName))
+            searchParams.pipelineStep.includes(job.pipelineName)) &&
+          (!searchParams.pipelineVersion ||
+            searchParams.pipelineVersion.includes(
+              job.pipelineVersion.toString(),
+            ))
         );
       }),
     [
@@ -158,6 +183,7 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       searchParams.jobStatus,
       searchParams.jobId,
       searchParams.pipelineStep,
+      searchParams.pipelineVersion,
     ],
   );
 

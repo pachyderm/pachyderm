@@ -80,10 +80,10 @@ const JobsList: React.FC<JobsListProps> = ({
           <Table>
             <Table.Head sticky>
               <Table.Row>
+                <Table.HeaderCell>ID</Table.HeaderCell>
                 <Table.HeaderCell>Pipeline</Table.HeaderCell>
                 <Table.HeaderCell>Datums Processed</Table.HeaderCell>
                 <Table.HeaderCell>Started</Table.HeaderCell>
-                <Table.HeaderCell>ID</Table.HeaderCell>
                 <Table.HeaderCell>Duration</Table.HeaderCell>
                 <Table.HeaderCell>D/L</Table.HeaderCell>
                 <Table.HeaderCell>U/L</Table.HeaderCell>
@@ -103,10 +103,15 @@ const JobsList: React.FC<JobsListProps> = ({
                     job.pipelineName,
                   )}
                 >
+                  <Table.DataCell width={6}>
+                    {job?.id.slice(0, 6)}...
+                  </Table.DataCell>
                   <Table.DataCell>
                     {getJobStateIcon(getVisualJobState(job.state), true)}
                     {' @'}
                     {job.pipelineName}
+                    {' v:'}
+                    {job.pipelineVersion}
                   </Table.DataCell>
                   <Table.DataCell>
                     {`${job.dataTotal} Total`}

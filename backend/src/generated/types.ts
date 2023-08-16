@@ -422,6 +422,7 @@ export type Job = {
   outputBranch?: Maybe<Scalars['String']>;
   outputCommit?: Maybe<Scalars['String']>;
   pipelineName: Scalars['String'];
+  pipelineVersion: Scalars['Int'];
   reason?: Maybe<Scalars['String']>;
   restarts: Scalars['Int'];
   startedAt?: Maybe<Scalars['Int']>;
@@ -1920,6 +1921,7 @@ export type JobResolvers<
     ContextType
   >;
   pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  pipelineVersion?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   restarts?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   startedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -2870,6 +2872,7 @@ export type JobOverviewFragment = {
   finishedAt?: number | null;
   restarts: number;
   pipelineName: string;
+  pipelineVersion: number;
   reason?: string | null;
   dataProcessed: number;
   dataSkipped: number;
@@ -2902,6 +2905,7 @@ export type JobSetFieldsFragment = {
     finishedAt?: number | null;
     restarts: number;
     pipelineName: string;
+    pipelineVersion: number;
     reason?: string | null;
     dataProcessed: number;
     dataSkipped: number;
@@ -3540,6 +3544,7 @@ export type JobQuery = {
     finishedAt?: number | null;
     restarts: number;
     pipelineName: string;
+    pipelineVersion: number;
     dataProcessed: number;
     dataSkipped: number;
     dataFailed: number;
@@ -3586,6 +3591,7 @@ export type JobSetsQuery = {
         finishedAt?: number | null;
         restarts: number;
         pipelineName: string;
+        pipelineVersion: number;
         reason?: string | null;
         dataProcessed: number;
         dataSkipped: number;
@@ -3629,6 +3635,7 @@ export type JobsByPipelineQuery = {
     finishedAt?: number | null;
     restarts: number;
     pipelineName: string;
+    pipelineVersion: number;
     dataProcessed: number;
     dataSkipped: number;
     dataFailed: number;
@@ -3671,6 +3678,7 @@ export type JobsQuery = {
       finishedAt?: number | null;
       restarts: number;
       pipelineName: string;
+      pipelineVersion: number;
       dataProcessed: number;
       dataSkipped: number;
       dataFailed: number;
@@ -3716,6 +3724,7 @@ export type JobSetQuery = {
       finishedAt?: number | null;
       restarts: number;
       pipelineName: string;
+      pipelineVersion: number;
       reason?: string | null;
       dataProcessed: number;
       dataSkipped: number;
@@ -3920,6 +3929,7 @@ export type ProjectDetailsQuery = {
         finishedAt?: number | null;
         restarts: number;
         pipelineName: string;
+        pipelineVersion: number;
         reason?: string | null;
         dataProcessed: number;
         dataSkipped: number;
