@@ -27,7 +27,7 @@ func TestWatchRepos(t *testing.T) {
 
 	// Apply migrations
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.State_2_8_0), "should be able to set up tables")
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 
 	// Create a watcher. The Watcher interfaces with the listener and already starts buffering events.
 	dsn := dbutil.GetDSN(dbOpts...)
