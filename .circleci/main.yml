@@ -566,7 +566,7 @@ jobs:
         default: 4
       resource_class:
         type: string
-        default: 2xlarge
+        default: xlarge
       arch:
         type: string
         default: amd64
@@ -1689,7 +1689,7 @@ workflows:
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
-          resource_class: 2xlarge # amd64
+          resource_class: xlarge # amd64
           arch: amd64
           num_executors: 6
       - deploy-tests:

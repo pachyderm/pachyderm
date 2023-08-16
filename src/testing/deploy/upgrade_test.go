@@ -132,7 +132,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
-			require.NoErrorWithinTRetry(t, 5*time.Minute, func() error { // 5 minutes is too long, but it's a stop gap. We should find a proper fix when pipelines aren't failing.
+			require.NoErrorWithinTRetry(t, 3*time.Minute, func() error {
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
