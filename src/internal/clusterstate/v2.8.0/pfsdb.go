@@ -3,7 +3,6 @@ package v2_8_0
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/protobuf/proto"
@@ -105,7 +104,7 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// Create a trigger that notifies on changes to pfs.repos
 	// This is used by the PPS API to watch for changes to repos
-	if _, err := tx.ExecContext(ctx, generateTriggerFunctionStatement("pfs", "repos", pfsdb.ReposChannelName)); err != nil {
+	if _, err := tx.ExecContext(ctx, generateTriggerFunctionStatement("pfs", "repos", "pfs_repos")); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.repos")
 	}
 	return nil
