@@ -465,7 +465,7 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "salt": "mysalt"}}`,
 	})
 	require.NoError(t, err, "SetClusterDefaults failed")
 
@@ -508,5 +508,84 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
 	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
 	require.False(t, req.Autoscaling, "spec must override default")
-	t.Log(resp.EffectiveCreatePipelineRequestJson)
+	require.Equal(t, req.Salt, "mysalt", "default must apply if not overridden")
+	// validate that the user and effective specs are correct
+	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
+	require.NoError(t, err, "InspectPipeline must succeed")
+
+	require.NotEqual(t, r.UserSpecJson, "", "user spec must not be blank")
+	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
+	d.UseNumber()
+	var spec map[string]any
+	err = d.Decode(&spec)
+	require.NoError(t, err, "Decode of user spec %s must succeed", r.UserSpecJson)
+	_, ok := spec["salt"]
+	require.False(t, ok, "salt must not be found in the user spec")
+	require.False(t, spec["autoscaling"].(bool), "user spec must have autoscaling set to false")
+
+	require.NotEqual(t, r.EffectiveSpecJson, "", "user spec must not be blank")
+	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
+	d.UseNumber()
+	err = d.Decode(&spec)
+	require.NoError(t, err, "decode of effective spec %s must succeed", r.EffectiveSpecJson)
+	require.Equal(t, spec["salt"], "mysalt", "salt must be set in the effective spec")
+	require.False(t, spec["autoscaling"].(bool), "effective spec must have autoscaling set to false")
+	require.Equal(t, spec["datumTries"], json.Number("4"), "effective spec must have datumTries = 4")
+}
+
+// TestCreatePipelineDryRun tests that creating a pipeline with dry run set to
+// true does not create a pipeline, but does return a correct effective spec.
+func TestCreatePipelineDryRun(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+
+	repo := "input"
+	pipeline := "pipeline"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 4,
+		"autoscaling": false
+	}`
+	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+	require.NoError(t, err, "template must parse")
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, struct {
+		ProjectName, PipelineName, RepoName string
+	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: buf.String(),
+		DryRun:                    true,
+	})
+	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
+	require.False(t, req.Autoscaling, "spec must override default")
+
+	if _, err = env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline}}); err == nil {
+		t.Error("InspectPipeline should fail if pipeline was not created")
+	}
 }
