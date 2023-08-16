@@ -1,4 +1,4 @@
-FROM huggingface/transformers-pytorch-gpu:4.29.2
+FROM determinedai/environments:cuda-11.8-pytorch-2.0-gpu-mpi-0.24.0
 
 ENV PFS_MOUNT_DIR=/pfs
 ENV MOUNT_SERVER_LOG_DIR=/tmp/mount-server.log
