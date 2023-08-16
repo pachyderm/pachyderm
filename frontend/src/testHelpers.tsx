@@ -12,9 +12,6 @@ import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 
 import LoggedInProvider from './providers/LoggedInProvider';
 
-export {default as server} from '@dash-backend/index';
-export {default as mockServer} from '@dash-backend/mock';
-
 // Two timeout intervals should ensure that new data
 // is hydrated if render is performed between events
 export const SUBSCRIPTION_TIMEOUT = SUBSCRIPTION_INTERVAL * 2;

@@ -1,4 +1,4 @@
-import {JobQuery, DatumFilter} from '@graphqlTypes';
+import {DatumFilter} from '@graphqlTypes';
 import {useCallback, useMemo} from 'react';
 
 import {useJob} from '@dash-frontend/hooks/useJob';

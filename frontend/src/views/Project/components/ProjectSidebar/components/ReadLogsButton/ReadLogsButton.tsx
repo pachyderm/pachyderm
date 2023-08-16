@@ -2,7 +2,6 @@ import React, {useCallback} from 'react';
 
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import {useJob} from '@dash-frontend/hooks/useJob';
-import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
