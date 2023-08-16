@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 )
 
 func Migrate(state migrations.State) migrations.State {
@@ -24,11 +23,11 @@ func Migrate(state migrations.State) migrations.State {
 					Name: "default", // hardcoded so that pfs.DefaultProjectName may change in the future
 				},
 			}
-			if err := pfsdb.Projects(nil, nil).ReadWrite(env.Tx).Create("default", defaultProject); err != nil {
+			if err := projects(nil, nil).ReadWrite(env.Tx).Create("default", defaultProject); err != nil {
 				return errors.Wrap(err, "could not create default project")
 			}
 			return nil
-		}).
+		}, migrations.Squash).
 		Apply("Rename default project to “default”", func(ctx context.Context, env migrations.Env) error {
 			if err := env.LockTables(ctx,
 				"collections.repos",
@@ -54,7 +53,7 @@ func Migrate(state migrations.State) migrations.State {
 				return err
 			}
 			return nil
-		})
+		}, migrations.Squash)
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE
 }

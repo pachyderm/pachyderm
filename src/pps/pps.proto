@@ -464,7 +464,9 @@ message PipelineInfo {
     Determined determined = 36;
   }
   Details details = 12;
-  string details_json = 13;
+  reserved "details_json";
+  string user_spec_json = 13;
+  string effective_spec_json = 14;
 }
 
 message PipelineInfos {
@@ -725,6 +727,17 @@ message CreatePipelineRequest {
   Determined determined = 38;
 }
 
+message CreatePipelineV2Request {
+  string create_pipeline_request_json = 1;  // a JSON-encoded CreatePipelineRequest
+  bool dry_run = 2;
+  bool update = 3;
+  bool reprocess = 4;
+}
+
+message CreatePipelineV2Response {
+  string effective_create_pipeline_request_json = 1;
+}
+
 message InspectPipelineRequest {
   Pipeline pipeline = 1;
   // When true, return PipelineInfos with the details field, which requires
@@ -898,6 +911,12 @@ message SetClusterDefaultsResponse {
   repeated Pipeline affected_pipelines = 2;
 }
 
+message CreatePipelineTransaction {
+  CreatePipelineRequest create_pipeline_request = 1;
+  string user_json = 2; // the JSON the user originally submitted
+  string effective_json = 3; // the effective spec: the result of merging the user JSON into the cluster defaults
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -913,6 +932,7 @@ service API {
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc CreatePipelineV2(CreatePipelineV2Request) returns (CreatePipelineV2Response) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (stream PipelineInfo) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}

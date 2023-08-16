@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	v2_6_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.6.0"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -30,7 +31,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 			col.NewPostgresCollection("commits", db, nil, &pfs.CommitInfo{}, nil)))
 		_, err = tx.ExecContext(ctx, `CREATE SCHEMA pfs`)
 		require.NoError(suite, err)
-		require.NoError(suite, SetupCommitProvenanceV0(ctx, tx))
+		require.NoError(suite, v2_6_0.SetupCommitProvenanceV0(ctx, tx))
 	})
 	suite.Cleanup(func() {
 		db.Close()

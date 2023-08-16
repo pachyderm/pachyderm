@@ -554,7 +554,8 @@ class PipelineInfo(betterproto.Message):
     type: "PipelineInfoPipelineType" = betterproto.enum_field(10)
     auth_token: str = betterproto.string_field(11)
     details: "PipelineInfoDetails" = betterproto.message_field(12)
-    details_json: str = betterproto.string_field(13)
+    user_spec_json: str = betterproto.string_field(13)
+    effective_spec_json: str = betterproto.string_field(14)
 
 
 @dataclass(eq=False, repr=False)
@@ -936,6 +937,19 @@ class CreatePipelineRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CreatePipelineV2Request(betterproto.Message):
+    create_pipeline_request_json: str = betterproto.string_field(1)
+    dry_run: bool = betterproto.bool_field(2)
+    update: bool = betterproto.bool_field(3)
+    reprocess: bool = betterproto.bool_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class CreatePipelineV2Response(betterproto.Message):
+    effective_create_pipeline_request_json: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class InspectPipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     details: bool = betterproto.bool_field(2)
@@ -1165,6 +1179,13 @@ class SetClusterDefaultsResponse(betterproto.Message):
     affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
 
 
+@dataclass(eq=False, repr=False)
+class CreatePipelineTransaction(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+    user_json: str = betterproto.string_field(2)
+    effective_json: str = betterproto.string_field(3)
+
+
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(
@@ -1221,6 +1242,11 @@ class ApiStub:
             "/pps_v2.API/CreatePipeline",
             request_serializer=CreatePipelineRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_create_pipeline_v2 = channel.unary_unary(
+            "/pps_v2.API/CreatePipelineV2",
+            request_serializer=CreatePipelineV2Request.SerializeToString,
+            response_deserializer=CreatePipelineV2Response.FromString,
         )
         self.__rpc_inspect_pipeline = channel.unary_unary(
             "/pps_v2.API/InspectPipeline",
@@ -1591,6 +1617,22 @@ class ApiStub:
             request.determined = determined
 
         return self.__rpc_create_pipeline(request)
+
+    def create_pipeline_v2(
+        self,
+        *,
+        create_pipeline_request_json: str = "",
+        dry_run: bool = False,
+        update: bool = False,
+        reprocess: bool = False
+    ) -> "CreatePipelineV2Response":
+        request = CreatePipelineV2Request()
+        request.create_pipeline_request_json = create_pipeline_request_json
+        request.dry_run = dry_run
+        request.update = update
+        request.reprocess = reprocess
+
+        return self.__rpc_create_pipeline_v2(request)
 
     def inspect_pipeline(
         self, *, pipeline: "Pipeline" = None, details: bool = False
@@ -2039,6 +2081,18 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def create_pipeline_v2(
+        self,
+        create_pipeline_request_json: str,
+        dry_run: bool,
+        update: bool,
+        reprocess: bool,
+        context: "grpc.ServicerContext",
+    ) -> "CreatePipelineV2Response":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def inspect_pipeline(
         self, pipeline: "Pipeline", details: bool, context: "grpc.ServicerContext"
     ) -> "PipelineInfo":
@@ -2316,6 +2370,11 @@ class ApiBase:
                 self.create_pipeline,
                 request_deserializer=CreatePipelineRequest.FromString,
                 response_serializer=CreatePipelineRequest.SerializeToString,
+            ),
+            "CreatePipelineV2": grpc.unary_unary_rpc_method_handler(
+                self.create_pipeline_v2,
+                request_deserializer=CreatePipelineV2Request.FromString,
+                response_serializer=CreatePipelineV2Request.SerializeToString,
             ),
             "InspectPipeline": grpc.unary_unary_rpc_method_handler(
                 self.inspect_pipeline,
