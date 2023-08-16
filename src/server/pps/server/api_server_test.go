@@ -512,38 +512,26 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	require.Equal(t, req.Salt, "mysalt", "default must apply if not overridden")
 	// validate that the user and effective specs are correct
 	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
-	if err != nil {
-		t.Fatal("could not retrieve pipeline", err)
-	}
-	if r.UserSpecJson == "" {
-		t.Error("missing user spec")
-	}
-	var spec map[string]any
-	if err := unmarshalJSON(r.UserSpecJson, &spec); err != nil {
-		t.Errorf("could not decode user spec %s: %v", r.UserSpecJson, err)
-	}
-	if _, ok := spec["salt"]; ok {
-		t.Error("salt should not be found in the user spec")
-	}
-	if spec["autoscaling"] == true {
-		t.Error("user spec should have autoscaling = false")
-	}
+	require.NoError(t, err, "InspectPipeline must succeed")
 
-	if r.EffectiveSpecJson == "" {
-		t.Error("missing effective spec")
-	}
-	if err := unmarshalJSON(r.EffectiveSpecJson, &spec); err != nil {
-		t.Errorf("could not decode effective spec %s: %v", r.EffectiveSpecJson, err)
-	}
-	if spec["salt"] != "mysalt" {
-		t.Error("salt should be set in the effective spec")
-	}
-	if spec["autoscaling"] == true {
-		t.Error("effective spec should have autoscaling = false")
-	}
-	if spec["datumTries"] != json.Number("4") {
-		t.Error("effective spec should have datumTries = 4")
-	}
+	require.NotEqual(t, r.UserSpecJson, "", "user spec must not be blank")
+	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
+	d.UseNumber()
+	var spec map[string]any
+	err = d.Decode(&spec)
+	require.NoError(t, err, "Decode of user spec %s must succeed", r.UserSpecJson)
+	_, ok := spec["salt"]
+	require.False(t, ok, "salt must not be found in the user spec")
+	require.False(t, spec["autoscaling"].(bool), "user spec must have autoscaling set to false")
+
+	require.NotEqual(t, r.EffectiveSpecJson, "", "user spec must not be blank")
+	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
+	d.UseNumber()
+	err = d.Decode(&spec)
+	require.NoError(t, err, "Decode of effective spec %s must succeed", r.EffectiveSpecJson)
+	require.Equal(t, spec["salt"], "mysalt", "salt must be set in the effective spec")
+	require.False(t, spec["autoscaling"].(bool), "effective spec must have autoscaling set to false")
+	require.Equal(t, spec["datumTries"], json.Number("4"), "effective spec must have datumTries = 4")
 }
 
 // TestDefaultPropagation tests that changed defaults propagate to a pipeline.
@@ -597,38 +585,28 @@ func TestDefaultPropagation(t *testing.T) {
 
 	// validate that the user and effective specs are correct
 	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}, Details: true})
-	if err != nil {
-		t.Fatal("could not retrieve pipeline", err)
-	}
-	if r.UserSpecJson == "" {
-		t.Error("missing user spec")
-	}
-	var spec map[string]any
-	if err := unmarshalJSON(r.UserSpecJson, &spec); err != nil {
-		t.Errorf("could not decode user spec %s: %v", r.UserSpecJson, err)
-	}
-	if _, ok := spec["metadata"]; ok {
-		t.Error("metadata should not be found in the user spec")
-	}
-	if _, ok := spec["autoscaling"]; ok {
-		t.Error("autoscaling should not be found in the user spec")
-	}
+	require.NoError(t, err, "InspectPipeline must succeed")
 
-	if r.EffectiveSpecJson == "" {
-		t.Error("missing effective spec")
-	}
-	if err := unmarshalJSON(r.EffectiveSpecJson, &spec); err != nil {
-		t.Errorf("could not decode effective spec %s: %v", r.EffectiveSpecJson, err)
-	}
-	if _, ok := spec["metadata"]; !ok {
-		t.Error("metadata should be set in the effective spec")
-	}
-	if spec["autoscaling"] == false {
-		t.Error("effective spec should have autoscaling = true")
-	}
-	if spec["datumTries"] != json.Number("4") {
-		t.Error("effective spec should have datumTries = 4")
-	}
+	require.NotEqual(t, r.UserSpecJson, "", "user spec must not be blank")
+	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
+	d.UseNumber()
+	var spec map[string]any
+	err = d.Decode(&spec)
+	require.NoError(t, err, "Decode of user spec %s must succeed", r.UserSpecJson)
+	_, ok := spec["metadata"]
+	require.False(t, ok, "metadata must not be found in the user spec")
+	_, ok = spec["autoscaling"]
+	require.False(t, ok, "autoscaling must not be found in the user spec")
+
+	require.NotEqual(t, r.EffectiveSpecJson, "", "user spec must not be blank")
+	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
+	d.UseNumber()
+	err = d.Decode(&spec)
+	require.NoError(t, err, "Decode of effective spec %s must succeed", r.EffectiveSpecJson)
+	_, ok = spec["metadata"]
+	require.True(t, ok, "metadata must  be found in the effective spec")
+	require.True(t, spec["autoscaling"].(bool), "autoscaling must be true in the effective spec")
+	require.Equal(t, spec["datumTries"], json.Number("4"), "effective spec must have datumTries = 4")
 
 	version := r.Version
 	salt := r.Details.Salt
