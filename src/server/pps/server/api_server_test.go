@@ -511,42 +511,26 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	require.Equal(t, req.Salt, "mysalt", "default must apply if not overridden")
 	// validate that the user and effective specs are correct
 	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
-	if err != nil {
-		t.Fatal("could not retrieve pipeline", err)
-	}
-	if r.UserSpecJson == "" {
-		t.Error("missing user spec")
-	}
+	require.NoError(t, err, "InspectPipeline must succeed")
+
+	require.NotEqual(t, r.UserSpecJson, "", "user spec must not be blank")
 	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
 	d.UseNumber()
 	var spec map[string]any
-	if err := d.Decode(&spec); err != nil {
-		t.Errorf("could not decode user spec %s: %v", r.UserSpecJson, err)
-	}
-	if _, ok := spec["salt"]; ok {
-		t.Error("salt should not be found in the user spec")
-	}
-	if spec["autoscaling"] == true {
-		t.Error("user spec should have autoscaling = false")
-	}
+	err = d.Decode(&spec)
+	require.NoError(t, err, "Decode of user spec %s must succeed", r.UserSpecJson)
+	_, ok := spec["salt"]
+	require.False(t, ok, "salt must not be found in the user spec")
+	require.False(t, spec["autoscaling"].(bool), "user spec must have autoscaling set to false")
 
-	if r.EffectiveSpecJson == "" {
-		t.Error("missing effective spec")
-	}
+	require.NotEqual(t, r.EffectiveSpecJson, "", "user spec must not be blank")
 	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
 	d.UseNumber()
-	if err := d.Decode(&spec); err != nil {
-		t.Errorf("could not decode effective spec %s: %v", r.EffectiveSpecJson, err)
-	}
-	if spec["salt"] != "mysalt" {
-		t.Error("salt should be set in the effective spec")
-	}
-	if spec["autoscaling"] == true {
-		t.Error("effective spec should have autoscaling = false")
-	}
-	if spec["datumTries"] != json.Number("4") {
-		t.Error("effective spec should have datumTries = 4")
-	}
+	err = d.Decode(&spec)
+	require.NoError(t, err, "decode of effective spec %s must succeed", r.EffectiveSpecJson)
+	require.Equal(t, spec["salt"], "mysalt", "salt must be set in the effective spec")
+	require.False(t, spec["autoscaling"].(bool), "effective spec must have autoscaling set to false")
+	require.Equal(t, spec["datumTries"], json.Number("4"), "effective spec must have datumTries = 4")
 }
 
 // TestCreatePipelineDryRun tests that creating a pipeline with dry run set to
