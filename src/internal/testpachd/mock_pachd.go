@@ -1191,7 +1191,7 @@ func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequ
 	if api.mock.DeleteRepo.handler != nil {
 		return api.mock.DeleteRepo.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
+	return false, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
 }
 func (api *pfsServerAPI) DeleteRepos(ctx context.Context, req *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error) {
 	if api.mock.DeleteRepos.handler != nil {

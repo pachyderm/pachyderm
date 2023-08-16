@@ -332,14 +332,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				if len(res.GetDeletedRepos()) == 0 {
-					return errors.New("No repos deleted.")
+				if res == false {
+					return errors.New("No repo deleted.")
 				} else {
-					var deleted []string
-					for _, repo := range res.GetDeletedRepos() {
-						deleted = append(deleted, repo.String())
-					}
-					fmt.Fprintf(os.Stderr, "deleted repos: %v\n", strings.Join(deleted, ","))
+					fmt.Fprintf(os.Stderr, "Repo deleted.")
 				}
 				return errors.EnsureStack(err)
 			})

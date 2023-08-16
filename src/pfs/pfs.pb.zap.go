@@ -291,13 +291,7 @@ func (x *DeleteRepoResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	deleted_reposArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.DeletedRepos {
-			enc.AppendObject(v)
-		}
-		return nil
-	}
-	enc.AddArray("deleted_repos", zapcore.ArrayMarshalerFunc(deleted_reposArrMarshaller))
+	enc.AddBool("deleted", x.Deleted)
 	return nil
 }
 

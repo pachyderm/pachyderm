@@ -298,7 +298,7 @@ func (c *pfsBuilderClient) CreateRepo(ctx context.Context, req *pfs.CreateRepoRe
 }
 func (c *pfsBuilderClient) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest, opts ...grpc.CallOption) (*pfs.DeleteRepoResponse, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteRepo: req})
-	return nil, nil
+	return true, nil
 }
 func (c *pfsBuilderClient) StartCommit(ctx context.Context, req *pfs.StartCommitRequest, opts ...grpc.CallOption) (*pfs.Commit, error) {
 	// Note that since we are batching requests (no extra round-trips), we do not
