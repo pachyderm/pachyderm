@@ -122,7 +122,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 					// goroutines spawned by manageRepo need to live until the main master routine is cancelled.
 					ctx, cancel := pctx.WithCancel(ctx)
 					repos[repoPair.ID] = cancel
-					d.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
+					go d.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
 					return nil
 				}), "for each repo")
 			}, dbutil.WithReadOnly()); err != nil {
@@ -169,7 +169,7 @@ func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.R
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "get repo")
 			}
-			d.manageRepo(ctx, ring, repo, lockPrefix)
+			go d.manageRepo(ctx, ring, repo, lockPrefix)
 		case <-ctx.Done():
 			return nil
 		}
@@ -178,39 +178,37 @@ func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.R
 
 func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repo *pfs.RepoInfo, lockPrefix string) {
 	key := pfsdb.RepoKey(repo.Repo)
-	go func() {
-		backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
-			ctx, cancel := pctx.WithCancel(ctx)
-			defer cancel()
-			var err error
-			ctx, err = ring.Lock(ctx, lockPrefix)
-			if err != nil {
-				return errors.Wrap(err, "locking repo lock")
-			}
-			defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
-			var eg errgroup.Group
-			eg.Go(func() error {
-				return backoff.RetryUntilCancel(ctx, func() error {
-					return d.manageBranches(ctx, key)
-				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-					log.Error(ctx, "managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-					return nil
-				})
+	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+		ctx, cancel := pctx.WithCancel(ctx)
+		defer cancel()
+		var err error
+		ctx, err = ring.Lock(ctx, lockPrefix)
+		if err != nil {
+			return errors.Wrap(err, "locking repo lock")
+		}
+		defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return backoff.RetryUntilCancel(ctx, func() error {
+				return d.manageBranches(ctx, key)
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				log.Error(ctx, "managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+				return nil
 			})
-			eg.Go(func() error {
-				return backoff.RetryUntilCancel(ctx, func() error {
-					return d.finishRepoCommits(ctx, key)
-				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-					log.Error(ctx, "finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-					return nil
-				})
-			})
-			return errors.EnsureStack(eg.Wait())
-		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			log.Error(ctx, "managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-			return nil
 		})
-	}()
+		eg.Go(func() error {
+			return backoff.RetryUntilCancel(ctx, func() error {
+				return d.finishRepoCommits(ctx, key)
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				log.Error(ctx, "finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+				return nil
+			})
+		})
+		return errors.EnsureStack(eg.Wait())
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		log.Error(ctx, "managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+		return nil
+	})
 }
 
 func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
