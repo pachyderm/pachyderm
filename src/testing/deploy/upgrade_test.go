@@ -132,13 +132,15 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
+			_, err = c.WaitCommitSetAll(latestDataCI.Commit.Id)
+			require.NoError(t, err)
 			require.NoErrorWithinTRetry(t, 3*time.Minute, func() error {
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
 				require.NoError(t, err)
 				if aliasCI.Commit.Id != latestDataCI.Commit.Id {
-					return errors.Errorf("not ready alias commit: %v latest commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
+					return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
 				}
 				return nil
 			})
