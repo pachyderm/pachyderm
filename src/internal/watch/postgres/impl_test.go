@@ -30,7 +30,7 @@ func TestWatchRepos(t *testing.T) {
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 
-	// Create a watcher. The Watcher interfaces with the listener and already starts buffering events.
+	// Create a watcher. The watcher interfaces with the listener and already starts buffering events.
 	dsn := dbutil.GetDSN(dbOpts...)
 	listener := collection.NewPostgresListener(dsn)
 	watcher, err := postgresWatcher.NewWatcher(db, listener, t.Name(), pfsdb.ReposChannelName, postgresWatcher.WithBufferSize(10))

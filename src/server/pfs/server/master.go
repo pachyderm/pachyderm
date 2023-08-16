@@ -118,11 +118,11 @@ func (d *driver) watchRepos(ctx context.Context) error {
 				return errors.Wrap(err, "list repos")
 			}
 			// Process new repo events.
-			return d.handleRepoEvents(ctx, ring, watcher)
+			return d.handleRepoEvents(ctx, ring, watcher.Watch())
 		})
 }
 
-func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.Ring, watcher *postgres.Watcher) error {
+func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.Ring, watcherChan <-chan *postgres.Event) error {
 	repos := make(map[pfsdb.RepoID]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
@@ -131,7 +131,7 @@ func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.R
 	}()
 	for {
 		select {
-		case event, ok := <-watcher.Watch():
+		case event, ok := <-watcherChan:
 			if !ok {
 				return errors.Wrap(fmt.Errorf("unexpected close on events channel"), "watch repo events")
 			}
