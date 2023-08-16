@@ -50,7 +50,7 @@ const useUpdateProjectModal = (
         });
         reset();
       } catch (e) {
-        console.error(e);
+        return;
       }
     },
     [updateProjectMutation, projectName, reset],

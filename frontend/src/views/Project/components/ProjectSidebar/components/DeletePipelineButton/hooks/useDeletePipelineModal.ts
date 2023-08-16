@@ -28,16 +28,20 @@ const useDeletePipelineButton = () => {
     error,
   } = useDeletePipeline(onCompleted);
 
-  const onDelete = useCallback(() => {
+  const onDelete = useCallback(async () => {
     if (pipelineId) {
-      deletePipeline({
-        variables: {
-          args: {
-            name: pipelineId,
-            projectId,
+      try {
+        await deletePipeline({
+          variables: {
+            args: {
+              name: pipelineId,
+              projectId,
+            },
           },
-        },
-      });
+        });
+      } catch (e) {
+        return;
+      }
     }
   }, [pipelineId, projectId, deletePipeline]);
 

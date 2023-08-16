@@ -42,13 +42,17 @@ const useCreateRepoModal = (onHide?: () => void) => {
   const isFormComplete = Boolean(name) && isEmpty(formErrors);
 
   const handleSubmit = useCallback(
-    (values: CreateRepoFormValues) => {
-      createRepo({
-        projectId,
-        name: values.name.trim(),
-        description: values.description,
-      });
-      reset();
+    async (values: CreateRepoFormValues) => {
+      try {
+        await createRepo({
+          projectId,
+          name: values.name.trim(),
+          description: values.description,
+        });
+        reset();
+      } catch (e) {
+        return;
+      }
     },
     [createRepo, projectId, reset],
   );

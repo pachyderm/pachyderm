@@ -5,9 +5,11 @@ const ifServerError = (
 ): error is ServerError => true;
 
 const getServerErrorMessage = (error: ApolloError | undefined) => {
-  return ifServerError(error?.networkError)
-    ? error?.networkError.result.errors[0].extensions.details
-    : error?.message;
+  return (
+    (ifServerError(error?.networkError) &&
+      error?.networkError?.result?.errors[0].extensions.details) ||
+    error?.message
+  );
 };
 
 export default getServerErrorMessage;

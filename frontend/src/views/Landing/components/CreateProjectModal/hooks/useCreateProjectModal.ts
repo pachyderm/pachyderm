@@ -52,7 +52,7 @@ const useCreateProjectModal = (onHide?: () => void) => {
         });
         reset();
       } catch (e) {
-        console.error(e);
+        return;
       }
     },
     [createProject, reset],

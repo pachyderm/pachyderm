@@ -23,18 +23,22 @@ const useDeleteRepoButton = () => {
 
   const {deleteRepo, loading: updating, error} = useDeleteRepo(onCompleted);
 
-  const onDelete = () => {
+  const onDelete = async () => {
     if (repoId) {
-      deleteRepo({
-        variables: {
-          args: {
-            repo: {
-              name: repoId,
+      try {
+        await deleteRepo({
+          variables: {
+            args: {
+              repo: {
+                name: repoId,
+              },
+              projectId,
             },
-            projectId,
           },
-        },
-      });
+        });
+      } catch (e) {
+        return;
+      }
     }
   };
 

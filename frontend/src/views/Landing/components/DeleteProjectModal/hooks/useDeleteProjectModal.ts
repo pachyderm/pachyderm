@@ -26,7 +26,7 @@ const useDeleteProjectModal = (projectName: string, onHide?: () => void) => {
       });
       reset();
     } catch (e) {
-      console.error(e);
+      return;
     }
   }, [projectName, deleteProject, reset]);
 
