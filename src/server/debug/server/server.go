@@ -60,6 +60,10 @@ const (
 	databasePrefix  = "database"
 )
 
+var (
+	profileTypes = []string{"heap", "goroutine"}
+)
+
 type debugServer struct {
 	debug.UnimplementedDebugServer
 
@@ -291,7 +295,18 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			}
 		}
 		if len(sys.Profiles) > 0 {
-			ts = append(ts, s.makeProfilesTask(server, sys.Profiles))
+			var profCount int
+			for _, app := range sys.Profiles {
+				for _, p := range app.Pods {
+					profCount += len(p.Containers) * len(profileTypes)
+				}
+			}
+			rp := recordProgress(server, "profiles", profCount)
+			for _, app := range sys.Profiles {
+				for _, pod := range app.Pods {
+					ts = append(ts, s.makeProfileTask(server, app, pod, rp))
+				}
+			}
 		}
 		if len(sys.Binaries) > 0 {
 			ts = append(ts, s.makeBinariesTask(server, sys.Binaries))
@@ -398,32 +413,31 @@ func (s *debugServer) makeLokiTask(app *debug.App, rp incProgressFunc) taskFunc 
 	}
 }
 
-func (s *debugServer) makeProfilesTask(server debug.Debug_DumpV2Server, apps []*debug.App) taskFunc {
+// note: calls rp() once per profile
+func (s *debugServer) makeProfileTask(server debug.Debug_DumpV2Server, app *debug.App, pod *debug.Pod, rp incProgressFunc) taskFunc {
 	return func(ctx context.Context, dfs DumpFS) error {
-		var errs error
-		rp := recordProgress(server, "profiles", len(apps))
-		for _, app := range apps {
-			func() {
-				if app.Timeout != nil {
-					var cf context.CancelFunc
-					ctx, cf = context.WithTimeout(ctx, app.Timeout.AsDuration())
-					defer cf()
-				}
-				defer rp(ctx)
-				for _, pod := range app.Pods {
-					for _, c := range pod.Containers {
-						for _, profile := range []string{"heap", "goroutine"} {
-							if err := s.collectProfile(ctx, dfs, app, pod, c, profile); err != nil {
-								errors.JoinInto(&errs, err)
-							}
-						}
-					}
-				}
-			}()
+		if app.Timeout != nil && len(app.Pods) > 0 {
+			var cf context.CancelFunc
+			d := int64(app.Timeout.AsDuration()) / int64(len(app.Pods))
+			ctx, cf = context.WithTimeout(ctx, time.Duration(d))
+			defer cf()
 		}
-		log.Error(ctx, "profile errors", zap.Error(errs))
+		var errs error
+		for _, c := range pod.Containers {
+			for _, profile := range profileTypes {
+				func() {
+					defer rp(ctx)
+					if err := s.collectProfile(ctx, dfs, app, pod, c, profile); err != nil {
+						errors.JoinInto(
+							&errs,
+							errors.Wrapf(err, "collect profile %q for container %q", profile, c),
+						)
+					}
+				}()
+			}
+		}
+		log.Error(ctx, "profile errors", zap.String("pod", pod.Name), zap.Error(errs))
 		return errs
-
 	}
 }
 
