@@ -8,6 +8,7 @@ import {
   mockPipelineQuery,
 } from '@graphqlTypes';
 import merge from 'lodash/merge';
+import range from 'lodash/range';
 
 export const buildPipeline = (pipeline: Partial<Pipeline>): Pipeline => {
   const defaultPipeline = {
@@ -118,8 +119,27 @@ const SERVICE_PIPELINE: Pipeline = buildPipeline({
   jobTimeoutS: null,
   outputBranch: 'master',
   s3OutputRepo: null,
-  jsonSpec:
-    '{\n  "transform": {\n    "image": "pachyderm/opencv:1.0",\n    "cmd": [\n      "python3",\n      "/edges.py"\n    ]\n  },\n  "input": {\n    "pfs": {\n      "project": "default",\n      "name": "images",\n      "repo": "images",\n      "repoType": "user",\n      "branch": "master",\n      "glob": "/*"\n    }\n  },\n  "reprocessSpec": "until_success"\n}',
+  jsonSpec: JSON.stringify(
+    {
+      transform: {
+        image: 'pachyderm/opencv:1.0',
+        cmd: ['python3', '/edges.py'],
+      },
+      input: {
+        pfs: {
+          project: 'default',
+          name: 'images',
+          repo: 'images',
+          repoType: 'user',
+          branch: 'master',
+          glob: '/*',
+        },
+      },
+      reprocessSpec: 'until_success',
+    },
+    null,
+    2,
+  ),
   __typename: 'Pipeline',
 });
 
@@ -164,4 +184,41 @@ export const mockGetSpoutPipeline = () =>
     } else {
       return res();
     }
+  });
+
+export const mockGetManyPipelinesWithManyWorkers = (
+  numPipelines = 1,
+  numWorkers = 1,
+) =>
+  mockPipelinesQuery((_req, res, ctx) => {
+    const pipelines = range(0, numPipelines).map((i) => {
+      return buildPipeline({
+        name: `pipeline-${i}`,
+        jsonSpec: JSON.stringify(
+          {
+            parallelismSpec: {
+              constant: numWorkers,
+            },
+            transform: {
+              image: 'pachyderm/opencv:1.0',
+              cmd: ['python3', '/edges.py'],
+            },
+            input: {
+              pfs: {
+                project: 'default',
+                name: 'images',
+                repo: 'images',
+                repoType: 'user',
+                branch: 'master',
+                glob: '/*',
+              },
+            },
+          },
+          null,
+          2,
+        ),
+      });
+    });
+
+    return res(ctx.data({pipelines}));
   });

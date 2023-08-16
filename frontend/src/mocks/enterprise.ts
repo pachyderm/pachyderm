@@ -1,9 +1,12 @@
 import {mockGetEnterpriseInfoQuery, EnterpriseState} from '@graphqlTypes';
 
-// 30 days into the future
-const currentDate = new Date();
-currentDate.setDate(currentDate.getDate() + 30);
-const timestamp = Math.floor(currentDate.getTime() / 1000);
+export const getFutureTimeStamp = (days = 30) => {
+  const currentDate = new Date();
+
+  currentDate.setDate(currentDate.getDate() + days);
+
+  return Math.floor(currentDate.getTime() / 1000);
+};
 
 export const mockGetEnterpriseInfo = () =>
   mockGetEnterpriseInfoQuery((_req, res, ctx) => {
@@ -11,7 +14,31 @@ export const mockGetEnterpriseInfo = () =>
       ctx.data({
         enterpriseInfo: {
           state: EnterpriseState.ACTIVE,
-          expiration: timestamp,
+          expiration: getFutureTimeStamp(),
+        },
+      }),
+    );
+  });
+
+export const mockGetEnterpriseInfoInactive = () =>
+  mockGetEnterpriseInfoQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        enterpriseInfo: {
+          state: EnterpriseState.NONE,
+          expiration: -1,
+        },
+      }),
+    );
+  });
+
+export const mockGetEnterpriseInfoExpiring = () =>
+  mockGetEnterpriseInfoQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        enterpriseInfo: {
+          state: EnterpriseState.ACTIVE,
+          expiration: getFutureTimeStamp(1),
         },
       }),
     );
