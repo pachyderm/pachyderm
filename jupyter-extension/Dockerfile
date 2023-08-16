@@ -32,3 +32,7 @@ COPY dist dist
 WORKDIR /home/jovyan
 RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller
 RUN pip install determined==0.23.3
+RUN pip install requests-unixsocket==0.3.0
+RUN pip install jupyterlab_pachyderm
+RUN pip uninstall -y urllib3
+RUN pip install urllib3==1.26.16
