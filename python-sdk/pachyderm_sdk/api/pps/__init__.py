@@ -554,7 +554,8 @@ class PipelineInfo(betterproto.Message):
     type: "PipelineInfoPipelineType" = betterproto.enum_field(10)
     auth_token: str = betterproto.string_field(11)
     details: "PipelineInfoDetails" = betterproto.message_field(12)
-    details_json: str = betterproto.string_field(13)
+    user_spec_json: str = betterproto.string_field(13)
+    effective_spec_json: str = betterproto.string_field(14)
 
 
 @dataclass(eq=False, repr=False)
@@ -1176,6 +1177,13 @@ class SetClusterDefaultsRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class SetClusterDefaultsResponse(betterproto.Message):
     affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CreatePipelineTransaction(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+    user_json: str = betterproto.string_field(2)
+    effective_json: str = betterproto.string_field(3)
 
 
 class ApiStub:

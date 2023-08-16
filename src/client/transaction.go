@@ -331,7 +331,3 @@ func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJo
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
 	return nil, nil
 }
-func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipeline: req})
-	return nil, nil
-}
