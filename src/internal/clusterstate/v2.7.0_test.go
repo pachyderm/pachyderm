@@ -27,12 +27,22 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 	projectNames := []string{"testProject1", "testProject2", "testProject3", strings.Repeat("A", 51)}
+	repoNames := []string{"testRepo1", "testRepo2", "testRepo3"}
 	for _, name := range projectNames {
 		projectInfo := pfs.ProjectInfo{Project: &pfs.Project{Name: name}, Description: "test project", CreatedAt: timestamppb.Now()}
 		b, err := proto.Marshal(&projectInfo)
 		require.NoError(t, err)
 		_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, projectInfo.Project.String(), b)
 		require.NoError(t, err)
+
+		// Create repos for each project.
+		for _, repoName := range repoNames {
+			repoInfo := pfs.RepoInfo{Repo: &pfs.Repo{Name: repoName, Type: pfs.UserRepoType, Project: projectInfo.Project}, Description: "test repo"}
+			b, err = proto.Marshal(&repoInfo)
+			require.NoError(t, err)
+			_, err = tx.ExecContext(ctx, `INSERT INTO collections.repos(key, proto) VALUES($1, $2)`, repoInfo.Repo.String(), b)
+			require.NoError(t, err)
+		}
 	}
 	require.NoError(t, tx.Commit())
 }
