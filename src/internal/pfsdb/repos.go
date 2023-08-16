@@ -22,6 +22,9 @@ import (
 )
 
 const (
+	// ReposChannelName is used to watch events for the repos table.
+	ReposChannelName = "pfs_repos"
+
 	getRepoAndBranches = "SELECT repo.id, repo.name, repo.type, repo.project_id, " +
 		"repo.description, array_agg(branch.proto) AS branches, repo.created_at, repo.updated_at, project.name AS proj_name FROM pfs.repos repo " +
 		"JOIN core.projects project ON repo.project_id = project.id " +

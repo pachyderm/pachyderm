@@ -11,7 +11,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -99,7 +98,7 @@ func (d *driver) watchRepos(ctx context.Context) error {
 	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			// Watch for repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, v2_8_0.ReposChannelName)
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, masterLockPath, pfsdb.ReposChannelName)
 			if err != nil {
 				return errors.Wrap(err, "new watcher")
 			}
