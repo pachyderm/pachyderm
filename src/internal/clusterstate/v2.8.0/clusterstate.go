@@ -20,11 +20,11 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "creating pfs.repos table")
 			}
 			return nil
-		}).
+		}, migrations.Squash).
 		Apply("Migrate collections.repos to pfs.repos", func(ctx context.Context, env migrations.Env) error {
 			if err := migrateRepos(ctx, env.Tx); err != nil {
 				return errors.Wrap(err, "migrating repos")
 			}
 			return nil
-		})
+		}, migrations.Squash)
 }

@@ -26,7 +26,7 @@ var schemaUpdate = `
                   ON DELETE CASCADE
 `
 
-func SetupCommitProvenanceV01(ctx context.Context, tx *pachsql.Tx) error {
+func setupCommitProvenanceV01(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.ExecContext(ctx, schemaUpdate)
 	return errors.EnsureStack(err)
 }

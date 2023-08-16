@@ -7,16 +7,15 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-func Projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		"projects",
 		db,
