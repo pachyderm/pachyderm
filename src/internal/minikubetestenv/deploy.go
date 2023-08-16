@@ -663,6 +663,12 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		pachAddress.Secured = true
 	}
 	helmOpts.ValuesFiles = opts.ValuesFiles
+	err := kubeClient.AppsV1().Deployments(namespace).Delete(ctx, "pg-bouncer", metav1.DeleteOptions{})
+	if err == nil {
+		require.NoError(t, err)
+		t.Log("DNJ TODO WAITING FOR PGBOUNCER DOWN")
+		time.Sleep(15 * time.Second)
+	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
 			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
