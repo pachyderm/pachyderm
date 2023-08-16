@@ -465,7 +465,7 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "salt": "mysalt"}}`,
 	})
 	require.NoError(t, err, "SetClusterDefaults failed")
 
@@ -508,6 +508,29 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
 	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
 	require.False(t, req.Autoscaling, "spec must override default")
+	require.Equal(t, req.Salt, "mysalt", "default must apply if not overridden")
+	// validate that the user and effective specs are correct
+	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
+	require.NoError(t, err, "InspectPipeline must succeed")
+
+	require.NotEqual(t, r.UserSpecJson, "", "user spec must not be blank")
+	d := json.NewDecoder(strings.NewReader(r.UserSpecJson))
+	d.UseNumber()
+	var spec map[string]any
+	err = d.Decode(&spec)
+	require.NoError(t, err, "Decode of user spec %s must succeed", r.UserSpecJson)
+	_, ok := spec["salt"]
+	require.False(t, ok, "salt must not be found in the user spec")
+	require.False(t, spec["autoscaling"].(bool), "user spec must have autoscaling set to false")
+
+	require.NotEqual(t, r.EffectiveSpecJson, "", "user spec must not be blank")
+	d = json.NewDecoder(strings.NewReader(r.EffectiveSpecJson))
+	d.UseNumber()
+	err = d.Decode(&spec)
+	require.NoError(t, err, "decode of effective spec %s must succeed", r.EffectiveSpecJson)
+	require.Equal(t, spec["salt"], "mysalt", "salt must be set in the effective spec")
+	require.False(t, spec["autoscaling"].(bool), "effective spec must have autoscaling set to false")
+	require.Equal(t, spec["datumTries"], json.Number("4"), "effective spec must have datumTries = 4")
 }
 
 // TestCreatePipelineDryRun tests that creating a pipeline with dry run set to
