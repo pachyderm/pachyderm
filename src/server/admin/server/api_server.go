@@ -46,11 +46,11 @@ func NewAPIServer(env Env) APIServer {
 	}
 	return &apiServer{
 		clusterInfo: &admin.ClusterInfo{
-			Id:                env.ClusterID,
-			DeploymentId:      env.Config.DeploymentID,
-			VersionWarningsOk: true,
-			ProxyHost:         host,
-			ProxyTls:          tls,
+			Id:           env.ClusterID,
+			DeploymentId: env.Config.DeploymentID,
+			WarningsOk:   true,
+			ProxyHost:    host,
+			ProxyTls:     tls,
 		},
 		pfsServer: env.PFSServer,
 	}
@@ -85,30 +85,30 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	clientVersion := request.GetClientVersion()
 	if clientVersion == nil {
 		log.Info(ctx, "version skew: client called InspectCluster without sending its version; it is probably outdated and needs to be upgraded")
-		response.VersionWarnings = append(response.VersionWarnings, msgNoVersionReq)
+		response.Warnings = append(response.Warnings, msgNoVersionReq)
 		return response, nil
 	}
 
 	if err := versionpb.IsCompatible(clientVersion, serverVersion); err != nil {
 		log.Info(ctx, "version skew: client is using an incompatible version", zap.Error(err), zap.String("clientVersion", clientVersion.Canonical()), zap.String("serverVersion", serverVersion.Canonical()))
 		if errors.Is(err, versionpb.ErrClientTooOld) {
-			response.VersionWarnings = append(response.VersionWarnings, msgClientTooOld)
+			response.Warnings = append(response.Warnings, msgClientTooOld)
 		}
 		if errors.Is(err, versionpb.ErrServerTooOld) {
-			response.VersionWarnings = append(response.VersionWarnings, msgServerTooOld)
+			response.Warnings = append(response.Warnings, msgServerTooOld)
 		}
 		if errors.Is(err, versionpb.ErrIncompatiblePreview) {
 			if serverVersion.Additional != "" {
-				response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtServerIsPreview, serverVersion.Canonical()))
+				response.Warnings = append(response.Warnings, fmt.Sprintf(fmtServerIsPreview, serverVersion.Canonical()))
 			} else if clientVersion.Additional != "" {
-				response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtClientIsPreview, serverVersion.Canonical()))
+				response.Warnings = append(response.Warnings, fmt.Sprintf(fmtClientIsPreview, serverVersion.Canonical()))
 			}
 		}
 	}
 
 	if n := request.GetCurrentProject().GetName(); n != "" {
 		if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
-			response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
+			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
 		}
 	}
 	return response, nil
