@@ -216,7 +216,7 @@ class MountServerClient(MountInterface):
     async def mount_datums(self, body):
         await self._ensure_mount_server()
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_mount_datums", body=json.dumps(body))
+            response = self.session.put(f"{self.address}/_mount_datums", data=json.dumps(body))
             result = response.text.encode("utf-8")
         else:
             response = await self.client.fetch(
