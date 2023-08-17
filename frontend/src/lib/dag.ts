@@ -115,9 +115,9 @@ const normalizeDAGData = async (
       sections,
       sources,
       targets,
-      junctionPoints,
-      labels,
-      layoutOptions,
+      junctionPoints: _junctionPoints,
+      labels: _labels,
+      layoutOptions: _layoutOptions,
       ...rest
     }) => ({
       ...rest,

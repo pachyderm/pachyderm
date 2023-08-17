@@ -47,7 +47,7 @@ module.exports = {
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/naming-convention': 'off',
     '@typescript-eslint/no-unused-vars': [
-      'warn',
+      'error',
       {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',

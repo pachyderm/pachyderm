@@ -6,7 +6,7 @@ type MarkProps = {
   type?: 'pipeline' | 'repo';
 };
 
-const Mark: React.FC<MarkProps> = ({type, children}) => (
+const Mark: React.FC<MarkProps> = ({children}) => (
   <span className={styles.base}>{children}</span>
 );
 

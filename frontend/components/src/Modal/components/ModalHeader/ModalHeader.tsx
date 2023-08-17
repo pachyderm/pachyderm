@@ -17,11 +17,11 @@ export interface ModalHeaderProps
 
 const ModalHeader: React.FC<ModalHeaderProps> = ({
   children,
-  onHide,
-  actionable = false,
+  onHide: _onHide,
+  actionable: _actionable = false,
   small = false,
   withStatus = false,
-  ref, // Note: The ModalHeader from Bootstrap errors out when forwarding a ref
+  ref: _ref, // Note: The ModalHeader from Bootstrap errors out when forwarding a ref
   ...props
 }) => {
   return (

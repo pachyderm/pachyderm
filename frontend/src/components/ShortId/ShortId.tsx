@@ -7,7 +7,7 @@ interface ShortIdProps {
   error?: boolean;
 }
 
-const ShortId: React.FC<ShortIdProps> = ({inputString, error}) => {
+const ShortId: React.FC<ShortIdProps> = ({inputString}) => {
   const shortId = inputString.slice(0, 8);
   inputString.replace(/[a-zA-Z0-9_-]{64}|[a-zA-Z0-9_-]{32}/, 'ID');
 

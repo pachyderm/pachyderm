@@ -1,4 +1,4 @@
-import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
+import {Metadata} from '@grpc/grpc-js';
 
 import {
   BranchObject,

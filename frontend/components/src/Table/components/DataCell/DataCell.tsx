@@ -17,7 +17,7 @@ const DataCell: React.FC<DataCellProps> = ({
   children,
   rightAligned = false,
   className,
-  cellRef,
+  cellRef: _callRef,
   sticky = false,
   isSelected = false,
   ...rest

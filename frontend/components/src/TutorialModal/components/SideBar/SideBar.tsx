@@ -9,7 +9,7 @@ import styles from './SideBar.module.css';
 
 const SideBar = ({
   currentStory,
-  currentTask,
+  currentTask: _currentTask,
   handleStoryChange,
   stories,
   taskSections,

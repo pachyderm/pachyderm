@@ -17,7 +17,7 @@ const Head: React.FC<HeadProps> = ({
   children,
   className,
   sticky,
-  screenReaderOnly = false,
+  screenReaderOnly: _screenReaderOnly = false,
   isSelected = false,
   hasCheckbox = false,
   onClick,

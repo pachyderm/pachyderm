@@ -41,7 +41,7 @@ async function readAllDirectoryEntries(
 
 // Wrap readEntries in a promise to make working with readEntries easier
 async function readEntriesPromise(directoryReader: FileSystemDirectoryReader) {
-  return await new Promise<FileSystemEntry[]>((resolve, reject) => {
+  return await new Promise<FileSystemEntry[]>((resolve) => {
     directoryReader.readEntries(resolve, (err) => err.message);
   });
 }
