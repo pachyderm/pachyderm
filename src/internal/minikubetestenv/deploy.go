@@ -665,7 +665,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts.ValuesFiles = opts.ValuesFiles
 	err := kubeClient.AppsV1().Deployments(namespace).Delete(ctx, "pg-bouncer", metav1.DeleteOptions{})
 	if err == nil {
-		require.NoError(t, err)
+		// require.NoError(t, err)
 		t.Log("DNJ TODO WAITING FOR PGBOUNCER DOWN")
 		time.Sleep(15 * time.Second)
 	}
