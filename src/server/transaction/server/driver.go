@@ -150,7 +150,7 @@ func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.Transact
 		if request.CreateRepo != nil {
 			err = directTxn.CreateRepo(request.CreateRepo)
 		} else if request.DeleteRepo != nil {
-			err = directTxn.DeleteRepo(request.DeleteRepo)
+			_, err = directTxn.DeleteRepo(request.DeleteRepo)
 		} else if request.StartCommit != nil {
 			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {

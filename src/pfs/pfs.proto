@@ -216,6 +216,12 @@ message DeleteReposRequest {
   bool all = 3;
 }
 
+// DeleteRepoResponse returns the repos that were deleted by a DeleteRepo call.
+message DeleteRepoResponse {
+  // The repos that were deleted, perhaps none.
+  bool deleted = 1;
+}
+
 message DeleteReposResponse {
   repeated Repo repos = 1;
 }
@@ -621,7 +627,7 @@ service API {
   // ListRepo returns info about all repos.
   rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
-  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteRepo(DeleteRepoRequest) returns (DeleteRepoResponse) {}
   // DeleteRepos deletes more than one repo at once.  It attempts to
   // delete every repo matching the DeleteReposRequest.  When deleting
   // all repos matching a project, any repos not deletable by the
