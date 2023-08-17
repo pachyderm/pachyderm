@@ -18,10 +18,12 @@ def test_bad_connection():
     client = TestClient(nodeid="test_bad_connection", port=9999)
     with pytest.raises(ConnectionError):
         client.get_version()
+
     # Catching a Connection Error from a stream is flaky - sometimes a
     #   grpc.RpcError is raised as expected and other times a
     #   grpc._channel._MultiThreadedRendezvous is raised in a code path
     #   that the interceptor cannot catch.
     from grpc._channel import _MultiThreadedRendezvous
+
     with pytest.raises((ConnectionError, _MultiThreadedRendezvous)):
         list(client.pfs.list_repo())
