@@ -601,6 +601,7 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 					if d.ResourceType == "project" {
 						fmt.Fprintf(os.Stderr, "project %q not found; retrying without project check\n", d.ResourceName)
 						gotDetail = true
+						break
 					}
 				}
 			}
