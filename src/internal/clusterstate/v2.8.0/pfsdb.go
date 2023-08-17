@@ -169,6 +169,7 @@ func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+// commitAncestry is how we model the commit graph within a single repo.
 func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS pfs.commit_ancestry (
