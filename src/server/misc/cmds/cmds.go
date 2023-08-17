@@ -14,9 +14,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
-	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -145,37 +143,37 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 				return errors.Wrap(err, "encode")
 			}
 
-			var info *admin.ClusterInfo
+			u := &url.URL{}
 			getPrefix := func() error {
-				c, err := pachctlCfg.NewOnUserMachine(ctx, false, client.WithDialTimeout(time.Second))
+				tctx, cancel := context.WithTimeout(ctx, time.Second)
+				defer cancel()
+				c, err := pachctlCfg.NewOnUserMachine(tctx, false)
 				if err != nil {
 					return err
 				}
 				defer c.Close()
-				info, err = c.InspectCluster()
+				info, err := c.InspectCluster()
 				if err != nil {
 					return errors.Wrap(err, "lookup cluster address")
 				}
+				host := info.GetProxyHost()
+				if host == "" {
+					return errors.New("server does not know its public hostname")
+				}
+				if info.GetProxyTls() {
+					u.Scheme = "https"
+				} else {
+					u.Scheme = "http"
+				}
+				u.Host = host
+				u.Path = "/archive/" + path + ".zip"
 				return nil
 			}
 			if err := getPrefix(); err != nil {
 				fmt.Println(path)
 				return err
 			}
-			if host := info.GetProxyHost(); host != "" {
-				scheme := "http"
-				if info.GetProxyTls() {
-					scheme = "https"
-				}
-				u := &url.URL{
-					Scheme: scheme,
-					Host:   info.GetProxyHost(),
-					Path:   "/archive/" + path + ".zip",
-				}
-				fmt.Println(u.String())
-			} else {
-				fmt.Println(path)
-			}
+			fmt.Println(u.String())
 			return nil
 		}),
 	}
