@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -44,7 +46,21 @@ func (err ErrProjectNotFound) Is(other error) bool {
 }
 
 func (err ErrProjectNotFound) GRPCStatus() *status.Status {
-	return status.New(codes.NotFound, err.Error())
+	var nameOrID string
+	switch {
+	case err.Name != "":
+		nameOrID = err.Name
+	case err.ID != 0:
+		nameOrID = strconv.Itoa(int(err.ID))
+	}
+	s, err2 := status.New(codes.NotFound, err.Error()).WithDetails(&errdetails.ResourceInfo{
+		ResourceType: "project",
+		ResourceName: nameOrID,
+	})
+	if err2 != nil {
+		return status.New(codes.Internal, "could not add details to NotFound status")
+	}
+	return s
 }
 
 // ErrProjectAlreadyExists is returned by CreateProject() when a project with the same name already exists in postgres.

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -587,9 +588,27 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 
 	// Verify cluster deployment ID and project.
 	clusterInfo, err := client.InspectClusterWithVersionAndProject(version.Version, &pfs.Project{Name: context.Project})
-	if err != nil && (status.Code(err) == codes.Unauthenticated || status.Code(err) == codes.PermissionDenied) {
-		fmt.Fprintf(os.Stderr, "error checking for project %q: %v; retrying without project check", context.Project, err)
-		clusterInfo, err = client.InspectClusterWithVersionAndProject(version.Version, nil)
+	if err != nil {
+		var s = status.Convert(err)
+		if s.Code() == codes.Unauthenticated || s.Code() == codes.PermissionDenied {
+			fmt.Fprintf(os.Stderr, "error checking for project %q: %v; retrying without project check\n", context.Project, err)
+			clusterInfo, err = client.InspectClusterWithVersionAndProject(version.Version, nil)
+		} else if s.Code() == codes.NotFound {
+			var gotDetail bool
+			for _, d := range s.Details() {
+				switch d := d.(type) {
+				case *errdetails.ResourceInfo:
+					if d.ResourceType == "project" {
+						fmt.Fprintf(os.Stderr, "project %q not found; retrying without project check\n", d.ResourceName)
+						gotDetail = true
+					}
+				}
+			}
+			if !gotDetail {
+				fmt.Fprintf(os.Stderr, "%v; retrying without project check\n", err)
+			}
+			clusterInfo, err = client.InspectClusterWithVersionAndProject(version.Version, nil)
+		}
 	}
 	if err != nil {
 		scrubbedErr := grpcutil.ScrubGRPC(err)
