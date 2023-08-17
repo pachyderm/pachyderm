@@ -17,13 +17,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-// ID is the auto-incrementing primary key used for entries in postgres tables.
-type ID uint64
+// ProjectID is the row id for a repo entry in postgres.
+// A separate type is defined for safety so row ids must be explicitly cast for use in another table.
+type ProjectID uint64
 
 // ErrProjectNotFound is returned by GetProject() when a project is not found in postgres.
 type ErrProjectNotFound struct {
 	Name string
-	ID   ID
+	ID   ProjectID
 }
 
 // Error satisfies the error interface.
@@ -83,7 +84,7 @@ type ProjectIterator struct {
 }
 
 type projectRow struct {
-	ID          ID        `db:"id"`
+	ID          ProjectID `db:"id"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
 	CreatedAt   time.Time `db:"created_at"`
@@ -169,13 +170,8 @@ func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) erro
 	return nil
 }
 
-func DeleteAllProjects(ctx context.Context, tx *pachsql.Tx) error {
-	_, err := tx.ExecContext(ctx, "TRUNCATE core.projects;")
-	return errors.Wrap(err, "could not delete all project rows")
-}
-
 // GetProject is like GetProjectByName, but retrieves an entry using the row id.
-func GetProject(ctx context.Context, tx *pachsql.Tx, id ID) (*pfs.ProjectInfo, error) {
+func GetProject(ctx context.Context, tx *pachsql.Tx, id ProjectID) (*pfs.ProjectInfo, error) {
 	return getProject(ctx, tx, "id", id)
 }
 
@@ -194,7 +190,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 			if name, ok := whereVal.(string); ok {
 				return nil, ErrProjectNotFound{Name: name}
 			}
-			return nil, ErrProjectNotFound{ID: whereVal.(ID)}
+			return nil, ErrProjectNotFound{ID: whereVal.(ProjectID)}
 		}
 		return nil, errors.Wrap(err, "scanning project row")
 	}
@@ -209,7 +205,7 @@ func UpsertProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 }
 
 // UpdateProject overwrites an existing project entry by ID.
-func UpdateProject(ctx context.Context, tx *pachsql.Tx, id ID, project *pfs.ProjectInfo) error {
+func UpdateProject(ctx context.Context, tx *pachsql.Tx, id ProjectID, project *pfs.ProjectInfo) error {
 	return updateProject(ctx, tx, project, "id", id, false)
 }
 
