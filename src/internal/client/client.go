@@ -590,10 +590,11 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	clusterInfo, err := client.InspectClusterWithVersionAndProject(version.Version, &pfs.Project{Name: context.Project})
 	if err != nil {
 		var s = status.Convert(err)
-		if s.Code() == codes.Unauthenticated || s.Code() == codes.PermissionDenied {
+		switch s.Code() {
+		case codes.Unauthenticated, codes.PermissionDenied:
 			fmt.Fprintf(os.Stderr, "error checking for project %q: %v; retrying without project check\n", context.Project, err)
 			clusterInfo, err = client.InspectClusterWithVersionAndProject(version.Version, nil)
-		} else if s.Code() == codes.NotFound {
+		case codes.NotFound:
 			var gotDetail bool
 			for _, d := range s.Details() {
 				switch d := d.(type) {
