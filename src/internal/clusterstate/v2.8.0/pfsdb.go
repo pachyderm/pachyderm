@@ -130,3 +130,69 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	return nil
 }
+
+// alterCommitsTable1 adds useful new columns to pfs.commits table.
+// Note that this is not the end all be all. We will need to make more changes after data has been migrated.
+// TODO
+// - rename int_id to id
+// - make repo_id not null
+// - make origin not null
+// - make updated_at not null and default to current timestamp
+func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE TYPE pfs.commit_origin AS ENUM ('unknown', 'user', 'auto', 'fsck');
+
+	ALTER TABLE IF EXISTS pfs.commits
+		ADD COLUMN IF NOT EXISTS repo_id bigint REFERENCES pfs.repos(id),
+		ADD COLUMN IF NOT EXISTS origin pfs.commit_origin,
+		ADD COLUMN IF NOT EXISTS description text DEFAULT '',
+		ADD COLUMN IF NOT EXISTS start_time timestamptz,
+		ADD COLUMN IF NOT EXISTS finishing_time timestamptz,
+		ADD COLUMN IF NOT EXISTS finished_time timestamptz,
+		ADD COLUMN IF NOT EXISTS compacting_time timestamptz,
+		ADD COLUMN IF NOT EXISTS validating_time timestamptz,
+		ADD COLUMN IF NOT EXISTS error text,
+		ADD COLUMN IF NOT EXISTS size bigint,
+		ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+
+	CREATE TRIGGER set_updated_at
+		BEFORE UPDATE ON pfs.commits
+		FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "altering commits table")
+	}
+	if _, err := tx.ExecContext(ctx, `
+	`); err != nil {
+		return errors.Wrap(err, "creating set_updated_at trigger")
+	}
+	return nil
+}
+
+func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS pfs.commit_ancestry (
+		from_id bigint REFERENCES pfs.commits(int_id),
+		to_id bigint REFERENCES pfs.commits(int_id),
+		PRIMARY KEY (from_id, to_id)
+	);
+
+	CREATE INDEX ON pfs.commit_ancestry (from_id);
+	CREATE INDEX ON pfs.commit_ancestry (to_id);
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "creating commit_ancestry table")
+	}
+	return nil
+}
+
+// Migrate commits from collections.commits to pfs.commits
+func migrateCommits(ctx context.Context, tx *pachsql.Tx) error {
+	if err := alterCommitsTable1(ctx, tx); err != nil {
+		return err
+	}
+	if err := createCommitAncestryTable(ctx, tx); err != nil {
+		return err
+	}
+	return nil
+}

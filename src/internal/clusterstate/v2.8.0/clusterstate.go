@@ -26,5 +26,11 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "migrating repos")
 			}
 			return nil
+		}, migrations.Squash).
+		Apply("Migrate collections.commits to pfs.commits", func(ctx context.Context, env migrations.Env) error {
+			if err := migrateCommits(ctx, env.Tx); err != nil {
+				return errors.Wrap(err, "migrating commits")
+			}
+			return nil
 		}, migrations.Squash)
 }
