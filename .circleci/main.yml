@@ -1514,7 +1514,7 @@ jobs:
           command: |
             poetry version << parameters.version >>
             poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
-  label-studio-ci-testing-docker-build:
+  build-label-studio-ci-testing-image:
     executor: python
     steps:
       - setup_remote_docker:
@@ -1575,7 +1575,15 @@ jobs:
             --user-token $LABEL_STUDIO_USER_TOKEN
 
             # Wait for Label Studio server to start
-            while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/api/projects -H "Authorization: Token $LABEL_STUDIO_USER_TOKEN")" != "200" ]]; do sleep 5; done
+            timeout=300
+            while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/api/projects -H "Authorization: Token $LABEL_STUDIO_USER_TOKEN")" != "200" ]]; do 
+              timeout=$((timeout - 5))
+              if [ $timeout -eq 0 ]; then
+                echo "Timed out waiting for Label Studio"
+                exit 1
+              fi
+              sleep 5
+            done
       - run:
           name: Run tests
           command: |
@@ -1809,11 +1817,13 @@ workflows:
     jobs:
       - test-label-studio:
           requires:
+            - build-docker-images
             - build-pachctl-bin
-            - label-studio-ci-testing-docker-build
+            - build-label-studio-ci-testing-image
+      - build-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
-      - label-studio-ci-testing-docker-build
+      - build-label-studio-ci-testing-image
 
   release:
     jobs:
