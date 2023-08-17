@@ -177,8 +177,8 @@ class MountServerClient(MountInterface):
                 f"{self.address}/_mount",
                 method="PUT",
                 body=json.dumps(body),
+            )
             result = response.body
-        )
         return result
 
     async def unmount(self, body):
@@ -301,7 +301,7 @@ class MountServerClient(MountInterface):
 
     async def auth_login_token(self, oidc):
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_unmount", data=f'{oidc}')
+            response = self.session.put(f"{self.address}/auth/_login_token", data=f'{oidc}')
             result = response.text.encode("utf-8")
             response.raise_for_status()
         else:
