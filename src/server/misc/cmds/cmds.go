@@ -11,10 +11,12 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -145,7 +147,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 
 			var info *admin.ClusterInfo
 			getPrefix := func() error {
-				c, err := pachctlCfg.NewOnUserMachine(ctx, false)
+				c, err := pachctlCfg.NewOnUserMachine(ctx, false, client.WithDialTimeout(time.Second))
 				if err != nil {
 					return err
 				}
