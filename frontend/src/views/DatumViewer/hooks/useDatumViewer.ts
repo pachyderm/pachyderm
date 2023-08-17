@@ -12,7 +12,7 @@ const useDatumViewer = (onCloseRoute: string) => {
   const {projectId, pipelineId, jobId, datumId} = useUrlState();
   const {updateSearchParamsAndGo} = useUrlQueryState();
   const browserHistory = useHistory();
-  const {pipelineType} = useCurrentPipeline();
+  const {isServiceOrSpout} = useCurrentPipeline();
 
   const {
     job,
@@ -41,7 +41,7 @@ const useDatumViewer = (onCloseRoute: string) => {
     job,
     jobLoading,
     error,
-    pipelineType,
+    isServiceOrSpout,
   };
 };
 

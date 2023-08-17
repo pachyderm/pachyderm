@@ -40,19 +40,19 @@ const LogsControls: React.FC<LogsControlsProps> = ({
   formCtx,
 }) => {
   const {pipelineId, datumId} = useUrlState();
-  const {isSpout} = useCurrentPipeline();
+  const {isServiceOrSpout} = useCurrentPipeline();
 
   const [disableExport, setDisableExport] = useState(true);
 
   const defaultLabel = useMemo(() => {
-    if (isSpout) {
+    if (isServiceOrSpout) {
       return 'Pipeline Start Time';
     } else if (datumId) {
       return 'Datum Start Time';
     } else {
       return 'Job Start Time';
     }
-  }, [datumId, isSpout]);
+  }, [datumId, isServiceOrSpout]);
 
   useEffect(() => {
     setDisableExport(

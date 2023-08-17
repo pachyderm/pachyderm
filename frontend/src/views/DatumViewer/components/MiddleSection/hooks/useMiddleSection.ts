@@ -8,8 +8,7 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const useMiddleSection = () => {
   const {projectId, jobId, pipelineId, datumId} = useUrlState();
-
-  const {pipeline, pipelineType, isSpout} = useCurrentPipeline();
+  const {pipeline, pipelineType, isServiceOrSpout} = useCurrentPipeline();
 
   const {job, loading: loadingJob} = useJob(
     {
@@ -17,7 +16,7 @@ const useMiddleSection = () => {
       pipelineName: pipelineId,
       projectId,
     },
-    {skip: !pipelineType || isSpout},
+    {skip: !pipelineType || isServiceOrSpout},
   );
 
   const {datum, loading: loadingDatum} = useDatum(
@@ -30,8 +29,10 @@ const useMiddleSection = () => {
     {skip: datumId === ''},
   );
 
+  const currentJobId = jobId || job?.id;
+
   const {headerText, headerValue} = useMemo(() => {
-    if (isSpout) {
+    if (isServiceOrSpout) {
       return {
         headerText: 'Pipeline logs for',
         headerValue: pipelineId,
@@ -41,24 +42,24 @@ const useMiddleSection = () => {
     } else {
       return {
         headerText: 'Job Logs for',
-        headerValue: jobId || job?.id,
+        headerValue: currentJobId,
       };
     }
-  }, [datumId, isSpout, job?.id, jobId, pipelineId]);
+  }, [datumId, isServiceOrSpout, currentJobId, pipelineId]);
 
-  const startTime = isSpout ? pipeline?.createdAt : job?.createdAt;
+  const startTime = isServiceOrSpout ? pipeline?.createdAt : job?.createdAt;
 
   const isSkippedDatum = datum?.state === DatumState.SKIPPED;
 
   return {
-    jobId,
+    jobId: currentJobId,
     job,
     headerText,
     headerValue,
     startTime,
     loading: loadingJob || loadingDatum,
     isSkippedDatum,
-    isSpout,
+    isServiceOrSpout,
   };
 };
 

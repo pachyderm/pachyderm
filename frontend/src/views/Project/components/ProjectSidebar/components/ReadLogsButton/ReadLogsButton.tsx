@@ -17,9 +17,9 @@ interface ReadLogsButtonProps {
 const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
   const {projectId, pipelineId, jobId} = useUrlState();
   const {getUpdatedSearchParams} = useUrlQueryState();
-  const {isSpout} = useCurrentPipeline();
+  const {isServiceOrSpout} = useCurrentPipeline();
 
-  const buttonText = !isSpout ? 'Inspect Jobs' : 'Read Logs';
+  const buttonText = !isServiceOrSpout ? 'Inspect Jobs' : 'Read Logs';
 
   const {job} = useJob(
     {
@@ -33,7 +33,7 @@ const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
 
   let logsLink = '';
 
-  if (isSpout) {
+  if (isServiceOrSpout) {
     logsLink = logsViewerLatestRoute(
       {
         projectId,

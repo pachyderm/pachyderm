@@ -198,26 +198,14 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs',
+        '/lineage/default/pipelines/montage/logs',
       );
     });
 
-    it('should hide the datum panel when clicking on a job', async () => {
+    it('should hide the left panel', async () => {
       render(<PipelineDatumViewer />);
-      await screen.findByTestId('JobList__list');
-      await click((await screen.findAllByTestId('JobList__listItem'))[0]);
-      expect(screen.queryByTestId('DatumList__list')).not.toBeInTheDocument();
-      await screen.findByTestId('JobList__list');
-    });
-
-    it('should hide the datum filter options in the right panel', async () => {
-      render(<PipelineDatumViewer />);
-
-      await click(await screen.findByText('Filter'));
-      await screen.findByText('Sort Jobs By');
-      expect(
-        screen.queryByText('Filter Datums by Status'),
-      ).not.toBeInTheDocument();
+      await screen.findByTestId('SidePanel__right');
+      expect(screen.queryByTestId('SidePanel__left')).not.toBeInTheDocument();
     });
 
     it('should show pipeline info in the right panel', async () => {

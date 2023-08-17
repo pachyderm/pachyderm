@@ -24,8 +24,12 @@ export type LogsViewerFormValues = {
   highlightUserLogs: boolean;
 };
 
-const useLogsViewer = (isSkippedDatum: boolean, startTime?: number | null) => {
-  const {projectId, pipelineId, jobId, datumId} = useUrlState();
+const useLogsViewer = (
+  isSkippedDatum: boolean,
+  startTime?: number | null,
+  jobId?: string,
+) => {
+  const {projectId, pipelineId, datumId} = useUrlState();
   const {isServiceOrSpout, pipelineType} = useCurrentPipeline();
 
   const [selectedLogsMap, setSelectedLogsMap] = useState<{

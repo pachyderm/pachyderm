@@ -14,12 +14,11 @@ const MiddleSection = () => {
   const {
     headerText,
     headerValue,
-    job,
     jobId,
     startTime,
     loading: loadingData,
     isSkippedDatum,
-    isSpout,
+    isServiceOrSpout,
   } = useMiddleSection();
 
   const {
@@ -34,12 +33,12 @@ const MiddleSection = () => {
     refetch,
     page,
     setPage,
-  } = useLogsViewer(isSkippedDatum, startTime);
+  } = useLogsViewer(isSkippedDatum, startTime, jobId);
 
   return (
     <FullPagePanelModal.Body>
       <div className={styles.base}>
-        {!isSpout && <DatumHeaderBreadcrumbs jobId={jobId || job?.id} />}
+        {!isServiceOrSpout && <DatumHeaderBreadcrumbs jobId={jobId} />}
         <div className={styles.header} data-testid="MiddleSection__title">
           <h6>{headerText}</h6>
           <CaptionText color="black" className={styles.headerId}>

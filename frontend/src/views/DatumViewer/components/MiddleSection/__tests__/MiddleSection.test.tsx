@@ -222,7 +222,7 @@ describe('Datum Viewer Middle Section', () => {
       render(<MiddleSection />);
       expect(
         await screen.findByTestId('MiddleSection__title'),
-      ).toHaveTextContent('Job Logs for5c1aa9bc87dd411ba5a1be0c80a3ebc2');
+      ).toHaveTextContent('Pipeline logs formontage');
     });
 
     it('export options should download and copy selected logs', async () => {

@@ -19,7 +19,7 @@ type DatumViewerProps = {
   onCloseRoute: string;
 };
 const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
-  const {isOpen, onClose, jobId, datumId, job, pipelineType} =
+  const {isOpen, onClose, jobId, datumId, job, isServiceOrSpout} =
     useDatumViewer(onCloseRoute);
   return (
     <>
@@ -28,9 +28,9 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
           show={isOpen}
           onHide={onClose}
           hideType="exit"
-          hideLeftPanel={pipelineType === PipelineType.SPOUT}
+          hideLeftPanel={isServiceOrSpout}
         >
-          {pipelineType === PipelineType.SPOUT && (
+          {isServiceOrSpout && (
             <>
               <MiddleSection key={jobId} />
               <FullPagePanelModal.RightPanel>
@@ -38,26 +38,19 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
               </FullPagePanelModal.RightPanel>
             </>
           )}
-          {pipelineType === PipelineType.SERVICE && (
+
+          {!isServiceOrSpout && (
             <>
               <LeftPanel job={job} />
-              <MiddleSection key={jobId} />
-              <FullPagePanelModal.RightPanel>
-                <PipelineInfo />
-              </FullPagePanelModal.RightPanel>
-            </>
-          )}
-
-          {pipelineType === PipelineType.STANDARD && (
-            <>
-              <LeftPanel job={job} />
-
               <MiddleSection key={`${jobId}-${datumId}`} />
               <FullPagePanelModal.RightPanel>
                 {datumId ? (
                   <DatumDetails className={styles.overflowYScroll} />
                 ) : (
-                  <InfoPanel className={styles.overflowYScroll} />
+                  <InfoPanel
+                    hideReadLogs={true}
+                    className={styles.overflowYScroll}
+                  />
                 )}
               </FullPagePanelModal.RightPanel>
             </>
