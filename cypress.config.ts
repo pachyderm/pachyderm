@@ -22,13 +22,21 @@ export default defineConfig({
       config.env.AUTH_PASSWORD = process.env.PACHYDERM_AUTH_PASSWORD;
 
       on('task', {
-        readFileMaybe: (filename) => {
+        readDownloadedFileMaybe: (filename) => {
           const downloadsFolder = config.downloadsFolder;
           const filepath = path.join(downloadsFolder, filename);
           if (fs.existsSync(filepath)) {
             return fs.readFileSync(filepath, 'utf8');
           }
           return null;
+        },
+        deleteDownloadedFile: (filename) => {
+          const downloadsFolder = config.downloadsFolder;
+          const filepath = path.join(downloadsFolder, filename);
+          if (fs.existsSync(filepath)) {
+            fs.unlinkSync(filepath);
+          }
+          return true;
         },
       });
 

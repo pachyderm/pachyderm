@@ -2,6 +2,7 @@ describe('Download Canvas', () => {
   beforeEach(() => {
     cy.visit('/');
     cy.findByText('Projects');
+    cy.task('deleteDownloadedFile', 'Solar-Power-Data-Logger-Team-Collab.svg');
   });
 
   it("should download a Project's canvas correctly", () => {
@@ -17,11 +18,38 @@ describe('Download Canvas', () => {
     cy.findByText('Projects');
     cy.visit('/lineage/Solar-Power-Data-Logger-Team-Collab');
 
-    cy.findByRole('button', {name: 'Open DAG controls menu'}).click();
+    cy.findByRole('button', {
+      name: 'Open DAG controls menu',
+      timeout: 15_000,
+    }).click();
     cy.findByText('Download Canvas').click();
 
     cy.waitUntil(() =>
-      cy.task('readFileMaybe', `Solar-Power-Data-Logger-Team-Collab.svg`),
-    ).should('have.string', 'Solar-Power-Data-Logger-Team-Collab');
+      cy.task(
+        'readDownloadedFileMaybe',
+        `Solar-Power-Data-Logger-Team-Collab.svg`,
+      ),
+    ).then((svgContent: unknown) => {
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(
+        svgContent as string,
+        'image/svg+xml',
+      );
+      const textElements = svgDoc.querySelectorAll('text');
+      expect(textElements.length).to.be.greaterThan(0);
+
+      const svgTextArray = Array.from(textElements).map((el) => el.textContent);
+      svgTextArray.pop(); // Last line contains downloaded datetime that we don't need to assert on
+
+      expect(svgTextArray).to.deep.equal([
+        'cron',
+        'processor',
+        'Output',
+        'Pipeline',
+        'Unknown',
+        'Subjob',
+        'Success',
+      ]);
+    });
   });
 });
