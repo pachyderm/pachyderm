@@ -446,6 +446,7 @@ func (b *builder) newDebugServer() debugclient.DebugServer {
 		Name:          b.env.Config().PachdPodName,
 		DB:            b.env.GetDBClient(),
 		SidecarClient: nil,
+		KubeClient:    b.env.GetKubeClient(),
 		GetLokiClient: b.env.GetLokiClient,
 		GetPachClient: b.env.GetPachClient,
 	})
