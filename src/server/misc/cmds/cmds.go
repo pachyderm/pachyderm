@@ -13,11 +13,13 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
@@ -26,7 +28,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Cmds(ctx context.Context) []*cobra.Command {
+func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var d net.Dialer
@@ -136,11 +138,42 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		Short: "Generates the encoded part of an archive download URL.",
 		Long:  "Generates the encoded part of an archive download URL.",
 		Run: cmdutil.Run(func(args []string) error {
-			u, err := archiveserver.EncodeV1(args)
+			path, err := archiveserver.EncodeV1(args)
 			if err != nil {
 				return errors.Wrap(err, "encode")
 			}
-			fmt.Println(u)
+
+			var info *admin.ClusterInfo
+			getPrefix := func() error {
+				c, err := pachctlCfg.NewOnUserMachine(ctx, false)
+				if err != nil {
+					return err
+				}
+				defer c.Close()
+				info, err = c.InspectCluster()
+				if err != nil {
+					return errors.Wrap(err, "lookup cluster address")
+				}
+				return nil
+			}
+			if err := getPrefix(); err != nil {
+				fmt.Println(path)
+				return err
+			}
+			if host := info.GetProxyHost(); host != "" {
+				scheme := "http"
+				if info.GetProxyTls() {
+					scheme = "https"
+				}
+				u := &url.URL{
+					Scheme: scheme,
+					Host:   info.GetProxyHost(),
+					Path:   "/archive/" + path + ".zip",
+				}
+				fmt.Println(u.String())
+			} else {
+				fmt.Println(path)
+			}
 			return nil
 		}),
 	}
