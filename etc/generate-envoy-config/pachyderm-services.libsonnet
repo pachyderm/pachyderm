@@ -123,7 +123,7 @@
       no_traffic_healthy_interval: '10s',
     },
   },
-  'pachd-archive': {
+  'pachd-http': {
     internal_port: 1659,
     service: 'pachd-proxy-backend',
     routes: [
@@ -132,7 +132,7 @@
           prefix: '/archive',
         },
         route: {
-          cluster: 'pachd-archive',
+          cluster: 'pachd-http',
           idle_timeout: '600s',
           timeout: '604800s',
         },

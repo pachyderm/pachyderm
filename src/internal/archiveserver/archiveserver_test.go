@@ -105,13 +105,18 @@ func doTest(t *testing.T, method, url string) (int, *bytes.Buffer) {
 	fake.PfsAPIClient = &fakePFS{}
 
 	ctx := pctx.TestContext(t)
-	s := NewHTTP(0, func(ctx context.Context) *client.APIClient { return fake.WithCtx(ctx) })
-
 	req := httptest.NewRequest(method, url, nil)
 	req = req.WithContext(ctx)
-
 	rec := httptest.NewRecorder()
-	s.mux.ServeHTTP(rec, req)
+
+	as := &Server{
+		ClientFactory: func(ctx context.Context) *client.APIClient {
+			return fake.WithCtx(ctx)
+		},
+	}
+	mux := new(http.ServeMux)
+	mux.Handle("/archive/", as)
+	mux.ServeHTTP(rec, req)
 	return rec.Code, rec.Body
 }
 
@@ -129,12 +134,6 @@ var testData = []struct {
 		method:   "GET",
 		url:      "http://pachyderm.example.com/what-is-this?",
 		wantCode: http.StatusNotFound,
-	},
-	{
-		name:     "health",
-		method:   "GET",
-		url:      "http://pachyderm.example.com/healthz",
-		wantCode: http.StatusOK,
 	},
 	{
 		name:      "empty download",
