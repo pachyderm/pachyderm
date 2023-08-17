@@ -1,4 +1,3 @@
-import {PipelineType} from '@graphqlTypes';
 import React from 'react';
 
 import InfoPanel from '@dash-frontend/components/InfoPanel/';
