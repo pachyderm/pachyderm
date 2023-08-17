@@ -4,7 +4,7 @@ import platform
 import json
 import asyncio
 import os
-import requests_unixsocket
+import pycurl
 from pathlib import Path
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
@@ -28,15 +28,15 @@ class MountServerClient(MountInterface):
         mount_dir: str,
         sock_path: str,
         ):
-        self.client = AsyncHTTPClient()
-        self.session = requests_unixsocket.Session()
+        
         self.mount_dir = mount_dir
         self.sock_path = sock_path
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            self.address = 'http+unix://%2Ftmp%2Fpfs.sock'
+            self.address = 'http://localhost'
+            AsyncHTTPClient.configure('tornado.curl_httpclient.CurlAsyncHTTPClient')
         else:
             self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
-
+        self.client = AsyncHTTPClient()
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # TODO: Would be preferable to auto-detect this, but unclear how
         self.nopriv = NONPRIV_CONTAINER
@@ -135,65 +135,50 @@ class MountServerClient(MountInterface):
 
         return True
 
+    async def _get(self, resource):
+        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
+            response = await self.client.fetch(f"{self.address}/{resource}", prepare_curl_callback=lambda curl: curl.setopt(pycurl.UNIX_SOCKET_PATH, self.sock_path))
+        else:
+            response = await self.client.fetch(f"{self.address}/{resource}")
+        return response
+    
+
+    async def _put(self, resource, body):
+        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
+            response = await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body), prepare_curl_callback=lambda curl: curl.setopt(pycurl.UNIX_SOCKET_PATH, self.sock_path))
+        else:
+            response = await self.client.fetch(f"{self.address}/_mount", method="PUT", body=json.dumps(body),)
+        return response
 
     async def list_repos(self):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.get(f"{self.address}/repos")
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(f"{self.address}/repos")
-            result = response.body
-        return result
+        resource = "repos"
+        response = await self._get(resource)
+        return response.body
 
     async def list_mounts(self):
         await self._ensure_mount_server()
-       
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.get(f"{self.address}/mounts")
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(f"{self.address}/mounts")
-            result = response.body
-        return result
+        resource = "mounts"
+        response = await self._get(resource)
+        return response.body
 
     async def list_projects(self):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.get(f"{self.address}/projects")
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(f"{self.address}/projects")
-            result = response.body
-        return result
+        resource = "projects"
+        response = await self._get(resource)
+        return response.body
         
     async def mount(self, body):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_mount", data=json.dumps(body))
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/_mount",
-                method="PUT",
-                body=json.dumps(body),
-            result = response.body
-        )
-        return result
+        resource = "_mount"
+        response = await self._put(resource, body)
+        return response.body
 
     async def unmount(self, body):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_unmount", data=json.dumps(body))
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/_unmount",
-                method="PUT",
-                body=json.dumps(body),
-            )
-            result = response.body
-        return result
+        resource = "_unmount"
+        response = await self._put(resource, body)
+        return response.body
 
     async def commit(self, body):
         await self._ensure_mount_server()
@@ -201,121 +186,69 @@ class MountServerClient(MountInterface):
 
     async def unmount_all(self):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_unmount_all", data={})
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/_unmount_all",
-                method="PUT",
-                body="{}"
-            )
-            result = response.body
-        return result
+        resource = "_unmount_all"
+        response = await self._put(resource, {})
+        return response.body
 
     async def mount_datums(self, body):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_mount_datums", body=json.dumps(body))
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/_mount_datums",
-                method="PUT",
-                body=json.dumps(body),
-            )
-            result = response.body
-        return result
+        resource = "_mount_datums"
+        response = await self._put(resource, body)
+        return response.body
 
     async def show_datum(self, slug):
         await self._ensure_mount_server()
         slug = '&'.join(f"{k}={v}" for k,v in slug.items() if v is not None)
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_show_datum?{slug}", data='{}')
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/_show_datum?{slug}",
-                method="PUT",
-                body="{}",
-            )
-            result = response.body
-        return result
+        resource = "_show_datum?" + slug
+        response = await self._put(resource, {})
+        return response.body
 
     async def get_datums(self):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.get(f"{self.address}/datums")
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(f"{self.address}/datums")
-            result = response.body
-        return result
+        resource = "datums"
+        response = await self._get(resource)
+        return response.body
 
     async def config(self, body=None):
         await self._ensure_mount_server()
         if body is None:
             try:
-                if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-                    response = self.session.get(f"{self.address}/config")
-                    result = response.text.encode("utf-8")
-                else:
-                    response = await self.client.fetch(f"{self.address}/config")
-                    result = response.body
+                resource = "config"
+                response = await self._get(resource)
             except HTTPClientError as e:
                 if e.code == 404:
                     return json.dumps({"cluster_status": "INVALID"})
                 raise e
         else:
-                if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-                    response = self.session.put(f"{self.address}/config", data=json.dumps(body))
-                    result = response.text.encode("utf-8")
-                else:
-                    response = await self.client.fetch(
-                    f"{self.address}/config", method="PUT", body=json.dumps(body))
-                    result=response.body
-
-        return result
+            resource = "config"
+            response = await self._put(resource, body)
+        return response.body
 
     async def auth_login(self):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_login", data="{}")
-            result_json = response.json()
-            oidc = result_json['oidc_state']
-            result = response.text.encode("utf-8")
-        else:
-            response = await self.client.fetch(
-            f"{self.address}/auth/_login", method="PUT", body="{}")
-            resp_json = json.loads(response.body.decode())
-            # may bubble exception up to handler if oidc_state not in response
-            oidc = resp_json['oidc_state']
-            result = response.body
+        resource = "_login"
+        response = await self._put(resource, {})
+        resp_json = json.loads(response.body.decode())
+        # may bubble exception up to handler if oidc_state not in response
+        oidc = resp_json['oidc_state']
 
         # we explicitly send the login_token request and do not await here.
         # the reason for this is that we want the user to be redirected to
         # the login page without awaiting the result of the login before
         # doing so.
         asyncio.create_task(self.auth_login_token(oidc))
-        return result
+        return response.body
 
     async def auth_login_token(self, oidc):
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/_unmount", data=f'{oidc}')
-            result = response.text.encode("utf-8")
-            response.raise_for_status()
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/auth/_login_token", method="PUT", body=f'{oidc}'
-            )
-            result=response.body
-            response.rethrow()
+        resource = "auth/_login_token"
+        response = await self._put(resource, {})
+        response.rethrow()
         pach_config_path = Path.home().joinpath('.pachyderm', 'config.json')
         if pach_config_path.is_file():
             # if config already exists, need to add new context into it and
             # switch active context over
             try:
-                write_token_to_config(pach_config_path, result.decode())
+                write_token_to_config(pach_config_path, response.body.decode())
             except Exception as e:
                 get_logger().warn("Failed writing session token: ", e.args)
                 raise e
@@ -323,30 +256,19 @@ class MountServerClient(MountInterface):
             # otherwise, write the entire config to file
             os.makedirs(os.path.dirname(pach_config_path), exist_ok=True)
             with open(pach_config_path, 'w') as f:
-                f.write(result.decode())
-
-        return result
+                f.write(response.body.decode())
+        return response.body
 
     async def auth_logout(self):
         await self._ensure_mount_server()
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.put(f"{self.address}/auth/_logout", data={})
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/auth/_logout", method="PUT", body="{}"
-            )
+        resource = "auth/_logout"
+        response = await self._put(resource, {})
         return response
 
     async def health(self):
-        get_logger().debug(f"Default Schema: {DEFAULT_SCHEMA}")
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = self.session.get(f"{self.address}/health")
-            result = response.text.encode("utf-8")
-            get_logger().debug(f"Health check {result}")
-        else:
-            response = await self.client.fetch(f"{self.address}/health")
-            result = response.body
-        return result
+        resource = "health"
+        response = await self._get(resource)
+        return response.body
 
 
 def write_token_to_config(pach_config_path, mount_server_config_str):
