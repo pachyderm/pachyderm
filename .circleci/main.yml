@@ -1589,7 +1589,6 @@ jobs:
           command: |
             pip3 install -r requirements.txt
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
-    
 
 workflows:
   integration-tests:
