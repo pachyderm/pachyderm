@@ -165,6 +165,7 @@ jobs:
           path: /tmp/cypress-videos
   test-e2e-community-edition:
     resource_class: xlarge
+    parallelism: 3
     machine:
       image: ubuntu-2004:202201-02
     steps:
