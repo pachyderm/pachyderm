@@ -350,8 +350,18 @@ Job Timeout: {{.Details.JobTimeout}}
 Input: {{pipelineInput .PipelineInfo.GetDetails.Input}}
 Output Branch: {{.Details.OutputBranch}}
 Transform: {{prettyTransform .Details.Transform}}
-{{ if .Details.Egress }}Egress: {{egress .Details.Egress}} {{end}}
-{{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
+{{ if .Details.Egress -}}
+Egress: {{ egress .Details.Egress }}
+{{ end -}}
+{{ if .Details.RecentError -}}
+Recent Error: {{ .Details.RecentError }}
+{{ end -}}
+{{ if .UserSpecJson -}}
+User Spec: {{ .UserSpecJson | json "  " "  " }}
+{{ end -}}
+{{ if .EffectiveSpecJson -}}
+Effective Spec: {{ .EffectiveSpecJson | json "  " "  " }}
+{{ end -}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -618,6 +628,14 @@ func egress(e *ppsclient.Egress) string {
 	return string(s)
 }
 
+func js(prefix, indent, s string) (string, error) {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, []byte(s), prefix, indent); err != nil {
+		return "", errors.Wrapf(err, "could not indent JSON %q", s)
+	}
+	return buf.String(), nil
+}
+
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
 	"jobState":             JobState,
@@ -632,4 +650,5 @@ var funcMap = template.FuncMap{
 	"prettyTimeDifference": pretty.TimeDifference,
 	"prettyTransform":      prettyTransform,
 	"egress":               egress,
+	"json":                 js,
 }
