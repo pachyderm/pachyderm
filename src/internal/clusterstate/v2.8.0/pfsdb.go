@@ -134,7 +134,7 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 // alterCommitsTable1 adds useful new columns to pfs.commits table.
 // Note that this is not the end all be all. We will need to make more changes after data has been migrated.
 // TODO
-// - rename int_id to id
+// - rename int_id to id? This will requires changing all references as well.
 // - make repo_id not null
 // - make origin not null
 // - make updated_at not null and default to current timestamp
