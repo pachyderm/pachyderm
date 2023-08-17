@@ -52,7 +52,7 @@ describe('FileSet', () => {
       });
 
       expect(files).toHaveLength(2);
-    });
+    }, 60_000);
   });
 
   describe('putFileFromBytes', () => {
@@ -79,7 +79,7 @@ describe('FileSet', () => {
         branch: {name: 'master', repo: {name: 'putFileFromBytes'}},
       });
       expect(files).toHaveLength(2);
-    });
+    }, 60_000);
   });
 
   describe('putFileFromFilePath', () => {

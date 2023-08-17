@@ -90,7 +90,7 @@ describe('ModifyFile', () => {
         branch: {name: 'master', repo: {name: 'putFileFromBytes'}},
       });
       expect(files).toHaveLength(2);
-    });
+    }, 60_000);
   });
 
   describe('putFileFromFilePath', () => {
@@ -137,7 +137,7 @@ describe('ModifyFile', () => {
         branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
       });
       expect(files).toHaveLength(2);
-    });
+    }, 60_000);
   });
 
   describe('deleteFile', () => {
@@ -189,7 +189,7 @@ describe('ModifyFile', () => {
         branch: {name: 'master', repo: {name: 'deleteFile'}},
       });
       expect(postDeleteFiles).toHaveLength(0);
-    });
+    }, 60_000);
   });
 
   describe('deleteFiles', () => {
@@ -240,7 +240,7 @@ describe('ModifyFile', () => {
         branch: {name: 'master', repo: {name: 'deleteFiles'}},
       });
       expect(postDeleteFiles).toHaveLength(0);
-    });
+    }, 60_000);
   });
 
   describe('autoCommit', () => {

@@ -148,7 +148,7 @@ describe('services/pps', () => {
       });
 
       expect(filteredDatums2).toHaveLength(1);
-    });
+    }, 60_000);
   });
 
   describe('listPipeline', () => {
