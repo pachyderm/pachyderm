@@ -13,11 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-const (
-	// ReposChannelName
-	ReposChannelName = "pfs_repos"
-)
-
 func generateTriggerFunctionStatement(schema, table, channel string) string {
 	template := `
 	CREATE OR REPLACE FUNCTION %s.notify_%s() RETURNS TRIGGER AS $$
@@ -109,7 +104,7 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// Create a trigger that notifies on changes to pfs.repos
 	// This is used by the PPS API to watch for changes to repos
-	if _, err := tx.ExecContext(ctx, generateTriggerFunctionStatement("pfs", "repos", ReposChannelName)); err != nil {
+	if _, err := tx.ExecContext(ctx, generateTriggerFunctionStatement("pfs", "repos", "pfs_repos")); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.repos")
 	}
 	return nil
