@@ -34,7 +34,7 @@ type Env struct {
 	Listener     col.PostgresListener
 
 	AuthServer authserver.APIServer
-	PPS        PPS
+	GetPPS     func() PPS
 	// TODO: remove this, the load tests need a pachClient
 	GetPachClient func(ctx context.Context) *client.APIClient
 
@@ -64,7 +64,7 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		TaskService:  env.GetTaskService(etcdPrefix),
 
 		AuthServer:    env.AuthServer(),
-		PPS:           env.PpsServer(),
+		GetPPS:        func() PPS { return env.PpsServer() },
 		GetPachClient: env.GetPachClient,
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
