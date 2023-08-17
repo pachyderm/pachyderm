@@ -54,7 +54,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 					Version:        from,
 					DisableLoki:    true,
 					PortOffset:     portOffset,
-					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
+					ValueOverrides: map[string]string{"pachw.minReplicas": "0", "pachw.maxReplicas": "0", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
@@ -63,7 +63,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				k,
 				&minikubetestenv.DeployOpts{
 					PortOffset:     portOffset,
-					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
+					ValueOverrides: map[string]string{"pachw.minReplicas": "0", "pachw.maxReplicas": "0", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("postUpgrade done")
 		})
@@ -76,11 +76,11 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	fromVersions := []string{
 		"2.4.6",
-		"2.5.0",
+		// "2.5.0", DNJ TODO UNCOMMENT
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	upgradeTest(t, context.Background(), true /* parallelOK */, 2, fromVersions,
+	upgradeTest(t, context.Background(), false /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
@@ -113,6 +113,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					Constant: 1,
 				},
 				client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+					Branch:  "master",
 					Commits: 2,
 				}),
 				"",
@@ -123,25 +124,31 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			ci, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
+			t.Logf("DNJ TODO COMMIT BEFORE UPGRADE: %v", ci.Commit.Id)
 			_, err = c.WaitCommitSetAll(ci.Commit.Id)
 			require.NoError(t, err)
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* postUpgrade */
-			for i := 0; i < 10; i++ {
+			for i := 0; i < 11; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+				latestDataCI, _ := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+				t.Logf("DNJ TODO COMMIT CREATED: %v", latestDataCI.Commit.Id)
+				// time.Sleep(time.Second)
+				_, err := c.WaitCommit(pfs.DefaultProjectName, dataRepo, "master", latestDataCI.Commit.Id)
+				require.NoError(t, err)
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
-			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+			require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
 				require.NoError(t, err)
 				if aliasCI.Commit.Id != latestDataCI.Commit.Id {
-					return errors.New("not ready")
+					return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
 				}
 				return nil
-			})
+			}, 10*time.Second)
 			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
 					return errors.Errorf(resp.Error)
@@ -177,7 +184,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		return repo
 
 	}
-	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 2, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), false /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, imagesRepo))

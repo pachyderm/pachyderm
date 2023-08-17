@@ -48,7 +48,6 @@ type DeterminedUserList struct {
 }
 
 func TestDeterminedInstallAndIntegration(t *testing.T) {
-	t.Parallel()
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
