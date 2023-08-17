@@ -13,10 +13,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
-	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	etcd "go.etcd.io/etcd/client/v3"
 )
+
+type PPS interface {
+	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
+}
 
 // Env is the dependencies needed to run the PFS API server
 type Env struct {
@@ -29,9 +34,7 @@ type Env struct {
 	Listener     col.PostgresListener
 
 	AuthServer authserver.APIServer
-	// TODO: a reasonable repo metadata solution would let us get rid of this circular dependency
-	// permissions might also work.
-	GetPPSServer func() ppsserver.APIServer
+	PPS        PPS
 	// TODO: remove this, the load tests need a pachClient
 	GetPachClient func(ctx context.Context) *client.APIClient
 
@@ -60,7 +63,7 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		TaskService:  env.GetTaskService(etcdPrefix),
 
 		AuthServer:    env.AuthServer(),
-		GetPPSServer:  env.PpsServer,
+		PPS:           env.PpsServer(),
 		GetPachClient: env.GetPachClient,
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
