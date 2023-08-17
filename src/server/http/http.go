@@ -95,14 +95,14 @@ func CSRFWrapper(h http.Handler) http.HandlerFunc {
 // ListenAndServe begins serving the server, and returns when the context is canceled or the server
 // dies on its own.
 func (h *Server) ListenAndServe(ctx context.Context) error {
-	log.AddLoggerToHTTPServer(ctx, "download", h.server)
+	log.AddLoggerToHTTPServer(ctx, "pachhttp", h.server)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- h.server.ListenAndServe()
 	}()
 	select {
 	case <-ctx.Done():
-		log.Info(ctx, "terminating download server", zap.Error(context.Cause(ctx)))
+		log.Info(ctx, "terminating pachhttp server", zap.Error(context.Cause(ctx)))
 		return errors.EnsureStack(h.server.Shutdown(ctx))
 	case err := <-errCh:
 		return err
