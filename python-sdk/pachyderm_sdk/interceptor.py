@@ -2,11 +2,11 @@
 Implementation of a gRPC interceptor used to set request metadata
 and catch connection errors.
 """
-
 from os import environ
-from typing import Any, Callable, Sequence, Optional, Tuple, Union
+from typing import Callable, Sequence, Optional, Tuple, Union, cast
 
 import grpc
+from betterproto import Message
 from grpc_interceptor import ClientCallDetails, ClientInterceptor
 
 from .errors import AuthServiceNotActivated
@@ -18,18 +18,34 @@ class MetadataClientInterceptor(ClientInterceptor):
     def __init__(self, metadata: MetadataType):
         self.metadata = metadata
 
-    def intercept(self, method: Callable, request: Any, call_details: ClientCallDetails):
+    def intercept(
+        self, method: Callable, request: Message, call_details: ClientCallDetails
+    ):
         call_details_metadata = list(call_details.metadata or [])
         call_details_metadata.extend(self.metadata)
         new_details = call_details._replace(metadata=call_details_metadata)
-        future = method(request, new_details)
-        future.add_done_callback(_check_connection_error)
+
+        # Error handling happens different depending on whether the response
+        #   is Unary or Stream. If the response is a stream, then the error
+        #   will be raised before the "done_callback" is called and will
+        #   therefore be caught by the try-except block. If the response is
+        #   Unary then the error "done_callback" will be called before the
+        #   error is raised.
+        try:
+            future = method(request, new_details)
+            future.add_done_callback(lambda f: _check_errors(f, request))
+        except grpc.RpcError as error:
+            # gRPC error types are confusing - instantiated errors are Futures.
+            # ref: github.com/grpc/grpc/issues/25334#issuecomment-772730080
+            error = cast(error, grpc.Future)
+            _check_errors(error, request)
         return future
 
 
-def _check_connection_error(grpc_future: grpc.Future):
+def _check_errors(grpc_future: grpc.Future, request: Message):
     """Callback function that checks if a gRPC.Future experienced a
-    ConnectionError and attempt to sanitize the error message for the user.
+    ConnectionError or TypeError and attempt to sanitize the error
+    message for the user.
     """
     error: Optional[grpc.Call] = grpc_future.exception()
     if error is not None:
@@ -43,4 +59,14 @@ def _check_connection_error(grpc_future: grpc.Future):
                     " python_pachyderm within the pipeline. "
                 )
             raise ConnectionError(error_message) from error
+        unable_to_serialize = "Exception serializing request" in error.details()
+        if error.code() == grpc.StatusCode.INTERNAL and unable_to_serialize:
+            error_message = (
+                "An error occurred while trying to serialize the following"
+                f" {request.__class__.__qualname__} message.\n "
+                " This is most likely due to one of the fields of"
+                " this message having a value with an incorrect type.\n"
+                f"\tMessage: {request}"
+            )
+            raise TypeError(error_message) from error
         raise AuthServiceNotActivated.try_from(error)
