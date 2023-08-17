@@ -43,6 +43,7 @@ type Env struct {
 	PachwInSidecar    bool
 }
 
+// TODO: move this to serviceenv
 func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {
 	// Setup etcd, object storage, and database clients.
 	objClient, err := obj.NewClient(env.Context(), env.Config().StorageBackend, env.Config().StorageRoot)
