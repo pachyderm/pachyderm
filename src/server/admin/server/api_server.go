@@ -63,11 +63,12 @@ type apiServer struct {
 }
 
 const (
-	msgNoVersionReq    = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
-	msgClientTooOld    = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
-	msgServerTooOld    = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
-	fmtServerIsPreview = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
-	fmtClientIsPreview = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
+	msgNoVersionReq        = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
+	msgClientTooOld        = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
+	msgServerTooOld        = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
+	fmtServerIsPreview     = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
+	fmtClientIsPreview     = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
+	fmtInspectProjectError = "WARNING: Could not inspect project %q: %v"
 )
 
 func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
@@ -107,7 +108,7 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 
 	if n := request.GetCurrentProject().GetName(); n != "" {
 		if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
-			return nil, errors.Wrapf(err, "could not inspect project %q", n)
+			response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
 		}
 	}
 	return response, nil
