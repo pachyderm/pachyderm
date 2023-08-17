@@ -2627,7 +2627,7 @@ type ListBranchRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repo    *Repo `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
+	Repo    *Repo `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`        // If nil, list all branches.  Doesn't work if auth is enabled.
 	Reverse bool  `protobuf:"varint,2,opt,name=reverse,proto3" json:"reverse,omitempty"` // Returns branches oldest to newest
 }
 

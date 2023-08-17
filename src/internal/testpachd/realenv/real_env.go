@@ -202,7 +202,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		realEnv.MockPPSTransactionServer = testpachd.NewMockPPSTransactionServer()
 		realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.Api)
 		realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
-			Use(func(txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
+			Use(func(ctx context.Context, txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 				return nil, col.ErrNotFound{
 					Type: "pipelines",
 					Key:  pipeline.String(),

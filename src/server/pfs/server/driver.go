@@ -352,7 +352,7 @@ func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.Trans
 	// filter out repos that cannot be deleted
 	var filter []*pfs.RepoInfo
 	for _, ri := range ris {
-		ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
+		ok, err := d.canDeleteRepo(ctx, txnCtx, ri.Repo)
 		if err != nil {
 			return nil, err
 		} else if ok {
@@ -388,7 +388,7 @@ func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		}
 		return nil
 	}
-	if ok, err := d.canDeleteRepo(txnCtx, repo); err != nil {
+	if ok, err := d.canDeleteRepo(ctx, txnCtx, repo); err != nil {
 		return errors.Wrapf(err, "error checking whether repo %q can be deleted", repo.String())
 	} else if !ok {
 		return nil
@@ -507,7 +507,7 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 	return related, nil
 }
 
-func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo) (bool, error) {
+func (d *driver) canDeleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) (bool, error) {
 	userRepo := proto.Clone(repo).(*pfs.Repo)
 	userRepo.Type = pfs.UserRepoType
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, userRepo, auth.Permission_REPO_DELETE); err != nil {
@@ -516,7 +516,7 @@ func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.
 		}
 		return false, errors.Wrapf(err, "check repo %q is authorized for deletion", userRepo.String())
 	}
-	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
+	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(repo)); err == nil {
 		return false, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 	} else if err != nil && !errutil.IsNotFoundError(err) {
 		return false, errors.Wrapf(err, "inspect pipeline %q", pps.RepoPipeline(repo).String())
@@ -897,7 +897,7 @@ func (d *driver) startCommit(
 	return newCommitInfo.Commit, nil
 }
 
-func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description, commitError string, force bool) error {
+func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description, commitError string, force bool) error {
 	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
@@ -908,7 +908,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		}
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
+		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")

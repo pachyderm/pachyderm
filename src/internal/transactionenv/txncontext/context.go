@@ -114,24 +114,24 @@ func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
 
 // Finish applies the deferred logic in the pfsPropagator and ppsPropagator to
 // the transaction
-func (t *TransactionContext) Finish() error {
+func (t *TransactionContext) Finish(ctx context.Context) error {
 	if t.PfsPropagater != nil {
-		if err := t.PfsPropagater.Run(); err != nil {
+		if err := t.PfsPropagater.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsPropagater != nil {
-		if err := t.PpsPropagater.Run(); err != nil {
+		if err := t.PpsPropagater.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsJobStopper != nil {
-		if err := t.PpsJobStopper.Run(); err != nil {
+		if err := t.PpsJobStopper.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsJobFinisher != nil {
-		if err := t.PpsJobFinisher.Run(); err != nil {
+		if err := t.PpsJobFinisher.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -143,14 +143,14 @@ func (t *TransactionContext) Finish() error {
 type PfsPropagater interface {
 	PropagateBranch(branch *pfs.Branch) error
 	DeleteBranch(branch *pfs.Branch)
-	Run() error
+	Run(context.Context) error
 }
 
 // PpsPropagater is the interface that PPS implements to start jobs at the end
 // of a transaction.  It is defined here to avoid a circular dependency.
 type PpsPropagater interface {
 	PropagateJobs()
-	Run() error
+	Run(context.Context) error
 }
 
 // PpsJobStopper is the interface that PPS implements to stop jobs of deleted
@@ -158,10 +158,10 @@ type PpsPropagater interface {
 // circular dependency.
 type PpsJobStopper interface {
 	StopJobs(commitset *pfs.CommitSet)
-	Run() error
+	Run(context.Context) error
 }
 
 type PpsJobFinisher interface {
 	FinishJob(commitInfo *pfs.CommitInfo)
-	Run() error
+	Run(context.Context) error
 }

@@ -75,7 +75,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return d.finishCommit(txnCtx, commit, "", "", false)
+		return d.finishCommit(ctx, txnCtx, commit, "", "", false)
 	})
 }
 

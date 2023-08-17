@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -44,7 +46,7 @@ func (t *Propagater) DeleteBranch(branch *pfs.Branch) {
 
 // Run performs any final tasks and cleanup tasks in the transaction, such as
 // propagating branches
-func (t *Propagater) Run() error {
+func (t *Propagater) Run(ctx context.Context) error {
 	branches := make([]*pfs.Branch, 0, len(t.branches))
 	for _, branch := range t.branches {
 		branches = append(branches, branch)

@@ -143,7 +143,7 @@ func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.
 
 func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
 	req := proto.Clone(original).(*pfs.FinishCommitRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) SquashCommitSet(original *pfs.SquashCommitSetRequest) error {
@@ -163,7 +163,7 @@ func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) erro
 
 func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
 	req := proto.Clone(original).(*pps.StopJobRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().StopJobInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().StopJobInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
@@ -302,7 +302,7 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb 
 	if err != nil {
 		return err
 	}
-	return txnCtx.Finish()
+	return txnCtx.Finish(ctx)
 }
 
 func (env *TransactionEnv) waitReady(ctx context.Context) error {

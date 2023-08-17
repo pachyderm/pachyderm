@@ -324,7 +324,7 @@ message InspectBranchRequest {
 }
 
 message ListBranchRequest {
-  Repo repo = 1;
+  Repo repo = 1; // If nil, list all branches.  Doesn't work if auth is enabled.
   bool reverse = 2; // Returns branches oldest to newest
 }
 

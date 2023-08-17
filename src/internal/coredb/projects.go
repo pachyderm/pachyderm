@@ -35,7 +35,7 @@ func (err ErrProjectNotFound) Error() string {
 	if id := err.ID; id != 0 {
 		return fmt.Sprintf("project id=%d not found", id)
 	}
-	return "project not found"
+	return "project (unspecified) not found"
 }
 
 func (err ErrProjectNotFound) Is(other error) bool {
