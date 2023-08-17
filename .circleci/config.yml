@@ -75,7 +75,7 @@ commands:
           version: 2.20.2
       - install-pachyderm-dependencies
       - run:
-          name: Deploy Pachyderm With Console (Port-Forward)
+          name: Deploy Pachyderm With Console (Proxy)
           command: etc/testing/circle/deploy-pachyderm-with-console.sh
   activate-pachyderm-enterprise:
     steps:
@@ -277,27 +277,6 @@ jobs:
             \`\`\`
 
             </details>
-
-            <details><summary>Port Forwarding</summary>
-
-            \`\`\`bash
-            helm repo add pachyderm https://pachyderm.github.io/helmchart
-            helm repo update
-            helm uninstall pachd
-
-            helm install \\
-              --wait --timeout 10m pachd pach/pachyderm \\
-              --version=$PACHYDERM_VERSION \\
-              --set deployTarget=LOCAL \\
-              --set console.image.tag=<<pipeline.git.revision>> \\
-              --set console.config.disableTelemetry=true \\
-              --set pachd.image.tag=$RELEASE_COMMIT
-
-            pachctl config import-kube local --overwrite
-            pachctl config set active-context local
-            pachctl port-forward
-            \`\`\`
-            </details>
             "
 
   test-docker-console-can-render:
@@ -310,8 +289,8 @@ jobs:
       - run-pachyderm-with-console
       - run: touch .env.development.local
       - run:
-          name: Run Build Cypress tests
-          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-build
+          name: Run 'Build' Cypress tests
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
