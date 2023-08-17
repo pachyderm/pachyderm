@@ -33,13 +33,14 @@ class MetadataClientInterceptor(ClientInterceptor):
         #   error is raised.
         try:
             future = method(request, new_details)
-            future.add_done_callback(lambda f: _check_errors(f, request))
         except grpc.RpcError as error:
             # gRPC error types are confusing - instantiated errors are Futures.
             # ref: github.com/grpc/grpc/issues/25334#issuecomment-772730080
             error = cast(error, grpc.Future)
             _check_errors(error, request)
-        return future
+        else:
+            future.add_done_callback(lambda f: _check_errors(f, request))
+            return future
 
 
 def _check_errors(grpc_future: grpc.Future, request: Message):
