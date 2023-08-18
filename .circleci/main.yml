@@ -1484,7 +1484,7 @@ jobs:
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
-            poetry run pytest -vvv tests
+            poetry run pytest -vvv pachyderm_sdk tests
   python-sdk-test-publish:
     executor: python
     working_directory: ~/project/python-sdk
