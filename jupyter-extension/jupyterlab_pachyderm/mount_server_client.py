@@ -18,7 +18,9 @@ lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
 HTTP_UNIX_SOCKET_SCHEMA="http_unix"
 HTTP_SCHEMA="http"
+
 DEFAULT_SCHEMA=HTTP_UNIX_SOCKET_SCHEMA
+#DEFAULT_SCHEMA=HTTP_SCHEMA
 
 class MountServerClient(MountInterface):
     """Client interface for the mount-server backend."""
@@ -30,12 +32,14 @@ class MountServerClient(MountInterface):
         ):
         
         self.mount_dir = mount_dir
-        self.sock_path = sock_path
+
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
             self.address = 'http://localhost'
             AsyncHTTPClient.configure('tornado.curl_httpclient.CurlAsyncHTTPClient')
+            self.sock_path = sock_path
         else:
             self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
+            self.sock_path = ""
         self.client = AsyncHTTPClient()
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # TODO: Would be preferable to auto-detect this, but unclear how
@@ -85,8 +89,9 @@ class MountServerClient(MountInterface):
         async with lock:
             if not await self._is_mount_server_running():
                 self._unmount()
-
                 mount_server_cmd = f"mount-server --mount-dir {self.mount_dir} --sock-path {self.sock_path}"
+                if self.sock_path == "":
+                    mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")
@@ -141,13 +146,12 @@ class MountServerClient(MountInterface):
         else:
             response = await self.client.fetch(f"{self.address}/{resource}")
         return response
-    
 
     async def _put(self, resource, body):
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
             response = await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body), prepare_curl_callback=lambda curl: curl.setopt(pycurl.UNIX_SOCKET_PATH, self.sock_path))
         else:
-            response = await self.client.fetch(f"{self.address}/_mount", method="PUT", body=json.dumps(body),)
+            response = await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body),)
         return response
 
     async def list_repos(self):
