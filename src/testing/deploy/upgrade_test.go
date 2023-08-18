@@ -130,9 +130,16 @@ func TestUpgradeTrigger(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
-			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-			require.NoError(t, err)
+			var latestDataCI *pfs.CommitInfo
+			var err error
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+				latestDataCI, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				return nil
+			})
+			require.NoErrorWithinTRetry(t, 10*time.Minute, func() error {
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
