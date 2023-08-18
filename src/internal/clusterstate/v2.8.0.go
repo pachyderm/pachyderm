@@ -5,4 +5,4 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 )
 
-var State_2_8_0 migrations.State = v2_8_0.Migrate(state_2_7_0)
+var state_2_8_0 migrations.State = v2_8_0.Migrate(state_2_7_0)
