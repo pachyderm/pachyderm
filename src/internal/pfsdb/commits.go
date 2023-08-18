@@ -2,7 +2,11 @@ package pfsdb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -24,8 +28,9 @@ type CommitID uint64
 
 // ErrCommitNotFound is returned by GetCommit() when a commit is not found in postgres.
 type ErrCommitNotFound struct {
-	Repo string
-	ID   CommitID
+	Repo        string
+	ID          CommitID
+	CommitSetID string
 }
 
 // Error satisfies the error interface.
@@ -33,7 +38,7 @@ func (err ErrCommitNotFound) Error() string {
 	if id := err.ID; id != 0 {
 		return fmt.Sprintf("commit id=%d not found", id)
 	}
-	return fmt.Sprintf("commit %s/%s not found", err.Repo, err.ID)
+	return fmt.Sprintf("commit %s/%s not found", err.Repo, err.CommitSetID)
 }
 
 func (err ErrCommitNotFound) GRPCStatus() *status.Status {
@@ -82,20 +87,23 @@ type CommitIterator struct {
 }
 
 type commitRow struct {
-	ID             CommitID  `db:"id"`
+	ID             CommitID  `db:"int_id"`
 	CommitSetID    string    `db:"commit_set_id"`
-	RepoID         CommitID  `db:"repo_id"`
+	RepoID         RepoID    `db:"repo_id"`
 	Origin         string    `db:"origin"`
 	Description    string    `db:"description"`
 	StartTime      time.Time `db:"start_time"`
 	FinishingTime  time.Time `db:"finishing_time"`
 	FinishedTime   time.Time `db:"finished_time"`
-	CompactingTime time.Time `db:"compacting_time"`
-	ValidatingTime time.Time `db:"validating_time"`
+	CompactingTime int64     `db:"compacting_time"`
+	ValidatingTime int64     `db:"validating_time"`
 	Error          string    `db:"error"`
 	Size           uint64    `db:"size"`
 	CreatedAt      time.Time `db:"created_at"`
-	UpdatedAt      time.Time `db:"updated_at"`
+	RepoName       string    `db:"repo_name"`
+	RepoType       string    `db:"repo_type"`
+	ProjectName    string    `db:"proj_name"`
+	//UpdatedAt      time.Time `db:"updated_at"`
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
@@ -162,9 +170,43 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	return nil, nil
 }
 
+func sanitizeTimestamppb(timestamp *timestamppb.Timestamp) time.Time {
+	if timestamp != nil {
+		return timestamp.AsTime()
+	}
+	return time.Time{}
+}
+
+func durationpbToBigInt(duration *durationpb.Duration) int64 {
+	if duration != nil {
+		return duration.Seconds
+	}
+	return 0
+}
+
 // CreateCommit creates an entry in the pfs.commits table.
 func CreateCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.CommitInfo) error {
-	return nil
+	if commit.Commit.Repo == nil {
+		return errors.New(fmt.Sprintf("commit.Repo is nil: %+v", commit.Commit))
+	}
+	if commit.Details == nil { // stub in an empty details struct to avoid panics.
+		commit.Details = &pfs.CommitInfo_Details{}
+	}
+	query := `
+		INSERT INTO pfs.commits 
+    	(commit_set_id, repo_id, origin, start_time, description, finishing_time, finished_time, compacting_time, 
+    	 validating_time, error, size) 
+		VALUES ($1, (SELECT id from pfs.repos WHERE name=$2 AND type=$3 AND project_id=(SELECT id from core.projects WHERE name=$4)), 
+		        $5::pfs.commit_origin, $6, $7, $8, $9, $10, $11, $12, $13);`
+	_, err := tx.ExecContext(ctx, query, commit.Commit.Id, commit.Commit.Repo.Name, commit.Commit.Repo.Type,
+		commit.Commit.Repo.Project.Name, strings.ToLower(commit.Origin.Kind.String()), sanitizeTimestamppb(commit.Started),
+		commit.Description, sanitizeTimestamppb(commit.Finishing), sanitizeTimestamppb(commit.Finished),
+		durationpbToBigInt(commit.Details.CompactingTime), durationpbToBigInt(commit.Details.ValidatingTime),
+		commit.Error, commit.Details.SizeBytes)
+	if err != nil && IsDuplicateKeyErr(err) { // a duplicate key implies that an entry for the repo already exists.
+		return ErrCommitAlreadyExists{CommitSetID: commit.Commit.Id, Repo: RepoKey(commit.Commit.Repo)}
+	}
+	return errors.Wrap(err, "create commit")
 }
 
 // DeleteCommit deletes an entry in the pfs.commits table.
@@ -186,11 +228,48 @@ func getCommitRowByName(ctx context.Context, tx *pachsql.Tx, commitSetID string)
 }
 
 func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInfo, error) {
-	return nil, nil
+	if id == 0 {
+		return nil, errors.New("invalid id: 0")
+	}
+	row := &commitRow{}
+	getCommit := `
+	SELECT 
+    	commit.int_id, commit.commit_set_id, commit.repo_id, commit.origin, commit.description, commit.start_time, 
+    	commit.finishing_time, commit.finished_time, commit.compacting_time, commit.validating_time, commit.created_at, 
+    	commit.error, commit.size, repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
+		FROM pfs.commits commit
+		JOIN pfs.repos repo ON commit.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id`
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE int_id=$1", getCommit), id).StructScan(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrCommitNotFound{ID: id}
+		}
+		return nil, errors.Wrap(err, "scanning commit row")
+	}
+	fmt.Printf("%+v", row)
+	return getCommitFromCommitRow(row)
 }
 
 func getCommitFromCommitRow(row *commitRow) (*pfs.CommitInfo, error) {
-	return nil, nil
+	repo := &pfs.Repo{
+		Name: row.RepoName,
+		Type: row.RepoType,
+		Project: &pfs.Project{
+			Name: row.ProjectName,
+		},
+	}
+	commitInfo := &pfs.CommitInfo{
+		Commit: &pfs.Commit{
+			Repo: repo,
+			Id:   row.CommitSetID,
+			Branch: &pfs.Branch{
+				Repo: repo,
+				Name: "", //todo(fahad): figure out how to get this.
+			},
+		},
+	}
+	return commitInfo, nil
 }
 
 // UpsertCommit will attempt to insert a commit. If the commit already exists, it will update its description.

@@ -149,8 +149,8 @@ func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN IF NOT EXISTS start_time timestamptz,
 		ADD COLUMN IF NOT EXISTS finishing_time timestamptz,
 		ADD COLUMN IF NOT EXISTS finished_time timestamptz,
-		ADD COLUMN IF NOT EXISTS compacting_time timestamptz,
-		ADD COLUMN IF NOT EXISTS validating_time timestamptz,
+		ADD COLUMN IF NOT EXISTS compacting_time bigint,
+		ADD COLUMN IF NOT EXISTS validating_time bigint,
 		ADD COLUMN IF NOT EXISTS error text,
 		ADD COLUMN IF NOT EXISTS size bigint,
 		ADD COLUMN IF NOT EXISTS updated_at timestamptz;
