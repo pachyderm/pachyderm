@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 class ClusterInfo(betterproto.Message):
     id: str = betterproto.string_field(1)
     deployment_id: str = betterproto.string_field(2)
-    version_warnings_ok: bool = betterproto.bool_field(3)
-    version_warnings: List[str] = betterproto.string_field(4)
+    warnings_ok: bool = betterproto.bool_field(3)
+    warnings: List[str] = betterproto.string_field(4)
     proxy_host: str = betterproto.string_field(5)
     proxy_tls: bool = betterproto.bool_field(6)
 

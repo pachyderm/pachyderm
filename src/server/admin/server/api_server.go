@@ -46,11 +46,11 @@ func NewAPIServer(env Env) APIServer {
 	}
 	return &apiServer{
 		clusterInfo: &admin.ClusterInfo{
-			Id:                env.ClusterID,
-			DeploymentId:      env.Config.DeploymentID,
-			VersionWarningsOk: true,
-			ProxyHost:         host,
-			ProxyTls:          tls,
+			Id:           env.ClusterID,
+			DeploymentId: env.Config.DeploymentID,
+			WarningsOk:   true,
+			ProxyHost:    host,
+			ProxyTls:     tls,
 		},
 		pfsServer: env.PFSServer,
 	}
@@ -63,11 +63,12 @@ type apiServer struct {
 }
 
 const (
-	msgNoVersionReq    = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
-	msgClientTooOld    = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
-	msgServerTooOld    = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
-	fmtServerIsPreview = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
-	fmtClientIsPreview = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
+	msgNoVersionReq        = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
+	msgClientTooOld        = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
+	msgServerTooOld        = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
+	fmtServerIsPreview     = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
+	fmtClientIsPreview     = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
+	fmtInspectProjectError = "WARNING: Could not inspect project %q: %v"
 )
 
 func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
@@ -84,30 +85,30 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	clientVersion := request.GetClientVersion()
 	if clientVersion == nil {
 		log.Info(ctx, "version skew: client called InspectCluster without sending its version; it is probably outdated and needs to be upgraded")
-		response.VersionWarnings = append(response.VersionWarnings, msgNoVersionReq)
+		response.Warnings = append(response.Warnings, msgNoVersionReq)
 		return response, nil
 	}
 
 	if err := versionpb.IsCompatible(clientVersion, serverVersion); err != nil {
 		log.Info(ctx, "version skew: client is using an incompatible version", zap.Error(err), zap.String("clientVersion", clientVersion.Canonical()), zap.String("serverVersion", serverVersion.Canonical()))
 		if errors.Is(err, versionpb.ErrClientTooOld) {
-			response.VersionWarnings = append(response.VersionWarnings, msgClientTooOld)
+			response.Warnings = append(response.Warnings, msgClientTooOld)
 		}
 		if errors.Is(err, versionpb.ErrServerTooOld) {
-			response.VersionWarnings = append(response.VersionWarnings, msgServerTooOld)
+			response.Warnings = append(response.Warnings, msgServerTooOld)
 		}
 		if errors.Is(err, versionpb.ErrIncompatiblePreview) {
 			if serverVersion.Additional != "" {
-				response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtServerIsPreview, serverVersion.Canonical()))
+				response.Warnings = append(response.Warnings, fmt.Sprintf(fmtServerIsPreview, serverVersion.Canonical()))
 			} else if clientVersion.Additional != "" {
-				response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtClientIsPreview, serverVersion.Canonical()))
+				response.Warnings = append(response.Warnings, fmt.Sprintf(fmtClientIsPreview, serverVersion.Canonical()))
 			}
 		}
 	}
 
 	if n := request.GetCurrentProject().GetName(); n != "" {
 		if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
-			return nil, errors.Wrapf(err, "could not inspect project %q", n)
+			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
 		}
 	}
 	return response, nil
