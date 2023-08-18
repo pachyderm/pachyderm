@@ -19,7 +19,7 @@ const (
 )
 
 // set this to false if you want to keep the database around
-var cleanup = true
+var cleanup = false
 
 const postgresMaxConnections = 100
 

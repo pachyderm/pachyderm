@@ -149,8 +149,8 @@ func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN IF NOT EXISTS start_time timestamptz,
 		ADD COLUMN IF NOT EXISTS finishing_time timestamptz,
 		ADD COLUMN IF NOT EXISTS finished_time timestamptz,
-		ADD COLUMN IF NOT EXISTS compacting_time timestamptz,
-		ADD COLUMN IF NOT EXISTS validating_time timestamptz,
+		ADD COLUMN IF NOT EXISTS compacting_duration bigint,
+		ADD COLUMN IF NOT EXISTS validating_duration bigint,
 		ADD COLUMN IF NOT EXISTS error text,
 		ADD COLUMN IF NOT EXISTS size bigint,
 		ADD COLUMN IF NOT EXISTS updated_at timestamptz;
@@ -161,10 +161,6 @@ func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 	`
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return errors.Wrap(err, "altering commits table")
-	}
-	if _, err := tx.ExecContext(ctx, `
-	`); err != nil {
-		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
 	return nil
 }
@@ -187,12 +183,45 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE OR REPLACE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
+	DECLARE
+		row record;
+		payload text;
+	BEGIN
+		IF TG_OP = 'DELETE' THEN
+			row := OLD;
+		ELSE
+			row := NEW;
+		END IF;
+		payload := TG_OP || ' ' || row.int_id::text;
+		PERFORM pg_notify('pfs_commits', payload);
+		PERFORM pg_notify('pfs_commits_repo_' || row.repo_id::text, payload);
+		return row;
+	END;
+	$$ LANGUAGE plpgsql;
+
+	CREATE TRIGGER notify
+		AFTER INSERT OR UPDATE OR DELETE ON pfs.commits
+		FOR EACH ROW EXECUTE PROCEDURE pfs.notify_commits();
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "creating notify trigger on pfs.commits")
+	}
+	return nil
+
+}
+
 // Migrate commits from collections.commits to pfs.commits
 func migrateCommits(ctx context.Context, tx *pachsql.Tx) error {
 	if err := alterCommitsTable1(ctx, tx); err != nil {
 		return err
 	}
 	if err := createCommitAncestryTable(ctx, tx); err != nil {
+		return err
+	}
+	if err := createNotifyCommitsTrigger(ctx, tx); err != nil {
 		return err
 	}
 	return nil
