@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -218,14 +219,10 @@ func jsonMergePatch(target, patch string, f canonicalizer) (string, error) {
 	// The default json decoder will decode numbers to floats, which can
 	// lose precision; by explicitly creating a decoder and using
 	// json.Number we avoid that.
-	d := json.NewDecoder(strings.NewReader(target))
-	d.UseNumber()
-	if err := d.Decode(&targetObject); err != nil {
+	if err := unmarshalJSON(target, &targetObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal target JSON")
 	}
-	d = json.NewDecoder(strings.NewReader(patch))
-	d.UseNumber()
-	if err := d.Decode(&patchObject); err != nil {
+	if err := unmarshalJSON(patch, &patchObject); err != nil {
 		return "", errors.Wrap(err, "could not unmarshal patch JSON")
 	}
 	if f != nil {
@@ -281,4 +278,47 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("could not make ClusterDefaults canonicalizer: %v", err))
 	}
+}
+
+// makeEffectiveSpec creates an effective spec from the cluster defaults (a
+// JSON-encoded ClusterDefaults) and user spec (a JSON-encoded
+// CreatePipelineRequest) by merging the user spec into the cluster defaults.
+// It returns the effective spec as both JSON and a CreatePipelineRequest.
+func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.CreatePipelineRequest, error) {
+	type wrapper struct {
+		CreatePipelineRequest json.RawMessage `json:"createPipelineRequest"`
+	}
+	userWrapper, err := json.Marshal(wrapper{CreatePipelineRequest: []byte(userSpecJSON)})
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not marshal user spec %s", userSpecJSON)
+	}
+	wrappedSpecJSON, err := jsonMergePatch(clusterDefaultsJSON, string(userWrapper), clusterDefaultsCanonicalizer)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not merge user wrapper %s into cluster defaults %s", string(userWrapper), clusterDefaultsJSON)
+	}
+	d := json.NewDecoder(strings.NewReader(wrappedSpecJSON))
+	var w map[string]any
+	if err := d.Decode(&w); err != nil {
+		return "", nil, errors.Wrapf(err, "could not unmarshal wrapped spec %s", wrappedSpecJSON)
+	}
+	createPipelineRequest, ok := w["createPipelineRequest"]
+	if !ok {
+		return "", nil, errors.Wrapf(err, "missing createPipelineRequest in wrapped spec %s", wrappedSpecJSON)
+	}
+	effectiveSpecJSON, err := json.Marshal(createPipelineRequest)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not marshal effective spec %v", createPipelineRequest)
+	}
+
+	var effectiveWrapper pps.ClusterDefaults
+	if err := protojson.Unmarshal([]byte(wrappedSpecJSON), &effectiveWrapper); err != nil {
+		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %s", wrappedSpecJSON)
+	}
+	return string(effectiveSpecJSON), effectiveWrapper.CreatePipelineRequest, nil
+}
+
+func unmarshalJSON(s string, v any) error {
+	d := json.NewDecoder(strings.NewReader(s))
+	d.UseNumber()
+	return errors.Wrapf(d.Decode(v), "could not unmarshal %q as JSON", s)
 }
