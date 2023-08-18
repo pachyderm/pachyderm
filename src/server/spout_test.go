@@ -288,7 +288,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		c.WaitCommitSetAll(jobInfos[0].OutputCommit.Id)
+		_, err = c.WaitCommitSetAll(jobInfos[0].OutputCommit.Id)
+		require.NoError(t, err)
 		require.NoError(t, c.DeleteAll())
 	})
 
