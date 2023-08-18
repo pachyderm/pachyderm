@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"strings"
 	"time"
 
@@ -108,14 +109,14 @@ type RepoIterator struct {
 }
 
 type repoRow struct {
-	ID          RepoID    `db:"id"`
-	Name        string    `db:"name"`
-	ProjectID   string    `db:"project_id"`
-	ProjectName string    `db:"proj_name"`
-	Description string    `db:"description"`
-	RepoType    string    `db:"type"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID          RepoID           `db:"id"`
+	Name        string           `db:"name"`
+	ProjectID   coredb.ProjectID `db:"project_id"`
+	ProjectName string           `db:"proj_name"`
+	Description string           `db:"description"`
+	RepoType    string           `db:"type"`
+	CreatedAt   time.Time        `db:"created_at"`
+	UpdatedAt   time.Time        `db:"updated_at"`
 	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
 	// Each entry is prefixed with '//x' and entries are delimited by a ','
 	Branches string `db:"branches"`
