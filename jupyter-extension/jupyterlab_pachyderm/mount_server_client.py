@@ -36,6 +36,7 @@ class MountServerClient(MountInterface):
             self.address = 'http+unix://%2Ftmp%2Fpfs.sock'
         else:
             self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
+            self.sock_path = ""
 
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # TODO: Would be preferable to auto-detect this, but unclear how
@@ -87,6 +88,8 @@ class MountServerClient(MountInterface):
                 self._unmount()
 
                 mount_server_cmd = f"mount-server --mount-dir {self.mount_dir} --sock-path {self.sock_path}"
+                if self.sock_path == "":
+                    mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")
