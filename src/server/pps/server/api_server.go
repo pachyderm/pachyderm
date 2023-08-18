@@ -3757,9 +3757,9 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		// equality is checked with proto.Equal.
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
 		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
-			spec := ppsutil.PipelineReqFromInfo(pi)
 			// if the old details are missing, synthesize them
 			if pi.UserSpecJson == "" {
+				spec := ppsutil.PipelineReqFromInfo(pi)
 				b, err := protojson.Marshal(spec)
 				if err != nil {
 					return errors.Wrap(err, "could not marshal spec to JSON")
