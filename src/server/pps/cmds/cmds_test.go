@@ -1582,11 +1582,12 @@ func TestUpdateClusterDefaults(t *testing.T) {
 		}, nil
 	})
 	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
-		pachctl inspect defaults --cluster | match '{}'
 		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
 		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"autoscaling": false}}'
 		echo '{"create_pipeline_request": {"datum_tries": "4"}}' | pachctl update defaults --cluster -f - || exit 1
 		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"datum_tries": "4"}}'
+		pachctl delete defaults --cluster
+		pachctl inspect defaults --cluster | match '{}'
 	`,
 	).Run())
 }
