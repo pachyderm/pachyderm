@@ -132,7 +132,7 @@ func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 
 func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) (bool, error) {
 	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
-	isRepoDeleted, err := t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
+	isRepoDeleted, err := t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.ctx, t.txnCtx, req)
 	if err != nil {
 		return false, errors.EnsureStack(err)
 	}

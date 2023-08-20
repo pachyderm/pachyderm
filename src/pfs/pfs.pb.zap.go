@@ -303,6 +303,14 @@ func (x *DeleteReposRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *DeleteRepoResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("deleted", x.Deleted)
+	return nil
+}
+
 func (x *DeleteReposResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
