@@ -11,6 +11,7 @@ from .errors import ConfigError
 
 class ConfigFile:
     """A parsed Pachyderm config file."""
+
     def __init__(self, config_file: Union[Path, str]):
         """
         Parameters
