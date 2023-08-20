@@ -12,15 +12,10 @@ from tornado import locks
 
 from .pachyderm import MountInterface
 from .log import get_logger
-from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR, NONPRIV_CONTAINER
+from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR, NONPRIV_CONTAINER, HTTP_UNIX_SOCKET_SCHEMA, HTTP_SCHEMA, DEFAULT_SCHEMA
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
-HTTP_UNIX_SOCKET_SCHEMA="http_unix"
-HTTP_SCHEMA="http"
-
-DEFAULT_SCHEMA=HTTP_UNIX_SOCKET_SCHEMA
-#DEFAULT_SCHEMA=HTTP_SCHEMA
 
 class MountServerClient(MountInterface):
     """Client interface for the mount-server backend."""
@@ -89,9 +84,9 @@ class MountServerClient(MountInterface):
         async with lock:
             if not await self._is_mount_server_running():
                 self._unmount()
-                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir} --sock-path {self.sock_path}"
-                if self.sock_path == "":
-                    mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
+                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
+                if self.sock_path:
+                    mount_server_cmd += f" --sock-path {self.sock_path}"
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")

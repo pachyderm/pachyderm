@@ -32,8 +32,6 @@ COPY dist dist
 WORKDIR /home/jovyan
 RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller
 RUN pip install determined==0.23.3
-RUN pip install jupyterlab_pachyderm
-RUN pip install --upgrade pip && \
-   export PYCURL_SSL_LIBRARY=openssl && \
-   pip install --compile pycurl
+RUN export PYCURL_SSL_LIBRARY=openssl && \
+    pip install --compile pycurl
 
