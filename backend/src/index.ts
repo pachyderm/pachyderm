@@ -39,6 +39,10 @@ const attachWebServer = (app: Express) => {
   app.set('view options', {delimiter: '?'});
   app.engine('html', renderFile);
 
+  app.get('/health', (_, res) => {
+    res.status(200).json({status: 'Healthy'});
+  });
+
   app.get('/', (_, res) => {
     res.render('index.html', {
       PACH_DASH_CONFIG: env,
