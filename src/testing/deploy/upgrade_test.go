@@ -127,8 +127,12 @@ func TestUpgradeTrigger(t *testing.T) {
 			require.NoError(t, err)
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* postUpgrade */
-			for i := 0; i < 10; i++ {
+			for i := 0; i < 11; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+				latestDataCI, _ := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+				t.Logf("Created commit %v", latestDataCI.Commit.Id)
+				_, err := c.WaitCommit(pfs.DefaultProjectName, dataRepo, "master", latestDataCI.Commit.Id)
+				require.NoError(t, err)
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
@@ -138,7 +142,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
 				require.NoError(t, err)
 				if aliasCI.Commit.Id != latestDataCI.Commit.Id {
-					return errors.New("not ready")
+					return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
 				}
 				return nil
 			})
