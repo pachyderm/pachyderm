@@ -162,9 +162,9 @@ func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) 
 	if msg := s.Message(); msg != "" {
 		f = append(f, zap.String("grpc.message", msg))
 	}
-	if details := s.Details(); len(details) > 0 {
-		for i, d := range details {
-			f = append(f, zap.Any(fmt.Sprintf("detail %d", i), d))
+	if dd := s.Details(); len(dd) > 0 {
+		for i, d := range dd {
+			f = append(f, zap.String(fmt.Sprintf("grpc.details[%d]", i), fmt.Sprint(d)))
 		}
 	}
 	return pctx.Child(ctx, "", pctx.WithFields(f...))

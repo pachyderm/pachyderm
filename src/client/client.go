@@ -867,8 +867,12 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	if len(streamInterceptors) > 0 {
 		dialOptions = append(dialOptions, grpc.WithChainStreamInterceptor(streamInterceptors...))
 	}
-	ctx, cancel := context.WithTimeout(rctx, timeout)
-	defer cancel()
+	ctx := rctx
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(rctx, timeout)
+		defer cancel()
+	}
 
 	// By default GRPC will attempt to get service config from a TXT record when
 	// the `dns:///` scheme is used. Some DNS servers return the wrong type of error

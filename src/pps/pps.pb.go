@@ -2712,8 +2712,8 @@ type PipelineInfo struct {
 	Type              PipelineInfo_PipelineType `protobuf:"varint,10,opt,name=type,proto3,enum=pps_v2.PipelineInfo_PipelineType" json:"type,omitempty"`
 	AuthToken         string                    `protobuf:"bytes,11,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
 	Details           *PipelineInfo_Details     `protobuf:"bytes,12,opt,name=details,proto3" json:"details,omitempty"`
-	UserSpecJson      string                    `protobuf:"bytes,13,opt,name=user_spec_json,json=userSpecJson,proto3" json:"user_spec_json,omitempty"`
-	EffectiveSpecJson string                    `protobuf:"bytes,14,opt,name=effective_spec_json,json=effectiveSpecJson,proto3" json:"effective_spec_json,omitempty"`
+	UserSpecJson      string                    `protobuf:"bytes,13,opt,name=user_spec_json,json=userSpecJson,proto3" json:"user_spec_json,omitempty"`                // The user-submitted pipeline spec in JSON format.
+	EffectiveSpecJson string                    `protobuf:"bytes,14,opt,name=effective_spec_json,json=effectiveSpecJson,proto3" json:"effective_spec_json,omitempty"` // The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults.
 }
 
 func (x *PipelineInfo) Reset() {
