@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/google/go-github/v54 v54.0.0
+	github.com/spf13/pflag v1.0.5
 	golang.org/x/oauth2 v0.11.0
 )
 
