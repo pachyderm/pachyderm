@@ -89,6 +89,7 @@ func scanPRs(client *github.Client, authors map[string]bool, start time.Time, en
 	}
 
 	// Read data, page by page
+forEachPage:
 	for {
 		fmt.Printf("Getting PRs, page %d...", page)
 		nextPrs, resp, err := client.PullRequests.List(context.Background(),
@@ -112,7 +113,7 @@ func scanPRs(client *github.Client, authors map[string]bool, start time.Time, en
 			afterRange := (direction == "asc" && pr.CreatedAt.GetTime().After(end)) ||
 				(direction == "desc" && pr.CreatedAt.GetTime().Before(start))
 			if afterRange {
-				break
+				break forEachPage
 			}
 			if len(authors) > 0 && !authors[*pr.User.Login] {
 				continue
