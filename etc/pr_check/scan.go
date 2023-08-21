@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"sort"
 	"time"
 
@@ -101,9 +103,10 @@ forEachPage:
 				},
 			})
 		if err != nil {
+			io.Copy(os.Stdout, resp.Body) // only way to see detailed err text
 			panic("could not request open Pachyderm PRs from GitHub: " + err.Error())
 		}
-		fmt.Printf("got %d PRs %s\n", len(nextPrs), prsSummaryStr(nextPrs))
+		fmt.Printf("of %d. (Got %d PRs %s)\n", resp.LastPage, len(nextPrs), prsSummaryStr(nextPrs))
 		for _, pr := range nextPrs {
 			beforeRange := (direction == "asc" && pr.CreatedAt.GetTime().Before(start)) ||
 				(direction == "desc" && pr.CreatedAt.GetTime().After(end))
@@ -137,8 +140,9 @@ forEachPage:
 func getPRs(client *github.Client, prs []int) []*github.PullRequest {
 	var result []*github.PullRequest
 	for _, n := range prs {
-		pr, _, err := client.PullRequests.Get(context.Background(), "pachyderm", "pachyderm", n)
+		pr, resp, err := client.PullRequests.Get(context.Background(), "pachyderm", "pachyderm", n)
 		if err != nil {
+			io.Copy(os.Stdout, resp.Body) // only way to see detailed err text
 			panic("could not request Pachyderm PR from GitHub: " + err.Error())
 		}
 		if pr.GetState() == "closed" {
