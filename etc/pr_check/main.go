@@ -99,8 +99,12 @@ func main() {
 		start = earliestStart
 	}
 	latestEnd := time.Now().Add(240 * time.Hour)
-	if end.After(latestEnd) {
+	if end.IsZero() || end.After(latestEnd) {
 		end = latestEnd
+	}
+	if start.After(end) {
+		fmt.Fprintf(os.Stderr, "PR start day (%s) must be before or on PR end day (%s)", startDay, endDay)
+		os.Exit(1)
 	}
 	authorsMap := make(map[string]bool)
 	for _, a := range authors {
