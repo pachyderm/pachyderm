@@ -27,4 +27,30 @@ It's designed to be run standalone, or as a cron job/recurring GitHub action
 - `match.go`
     - detects which PRs have any of the requested issues, and either comments on them or adds a status check, as requested
 
+## Testing
+The tests are run against a fake GitHub API, which is implemented in `fake_github.go`. I mostly tried to record responses I got from GitHub for various requests and replay them. Some details:
+- The PRs returned are stored in `fake_github_prs.json`. I generated the initial version of that data with:
+  ```
+  curl -L -v \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    https://api.github.com/repos/pachyderm/pachyderm/pulls \
+    >fake_github_prs.json \
+    2> curl_metadata.log
+  ```
+  - I added PRs to the above to make sure I'd be able to check all cases of the matches in `match.go` that I'm interested in (last-minute PR, non-last-minute PR, PR that was last-minute but now is not, PRs with Jira tickets in each interesting place, etc).
+- `curl_metadata.log` includes the headers that the server needs to return. The fake can't be perfectly faithful to github (I don't know how GitHub calculates etags for example; it looks like sha256 + some salt), but the headers that I use are:
+  ```
+  content-type: application/json; charset=utf-8   # const
+  x-github-media-type: github.v3; format=json     # const
+  date: Sun, 20 Aug 2023 18:46:10 GMT             # time.Now()
+  content-length: 99309                           # len(resp)
+  ###
+  # The most important header, for pagination:
+  # I don't know where 23653453 is coming from, but I just copied it.
+  ###
+  link: <https://api.github.com/repositories/23653453/pulls?page=2&per_page=5>; rel="next", <https://api.github.com/repositories/23653453/pulls?page=37&per_page=5>; rel="last"
+  ```
 
+- time.Now() is used for the time windows (`endGap`, defined in scan.go) and `checkLastMinute` in `match.go`. I'll have to mock time.Now() for the requests to make sense.
