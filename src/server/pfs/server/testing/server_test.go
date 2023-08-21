@@ -7633,5 +7633,5 @@ func TestDeleteRepo(t *testing.T) {
 			Repo: client.NewRepo(pfs.DefaultProjectName, dataRepo),
 		})
 	require.NoError(t, err, "repo should be deleted")
-	require.Equal(t, dataRepo, res.DeletedRepos[0].Name)
+	require.Equal(t, true, res.Deleted)
 }

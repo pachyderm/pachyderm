@@ -332,7 +332,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				if res.Deleted == false {
+				if !res.Deleted {
 					return errors.New("No repo deleted.")
 				} else {
 					fmt.Fprintln(os.Stderr, "Repo deleted.")
