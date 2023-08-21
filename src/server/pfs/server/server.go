@@ -18,7 +18,7 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 		pfsload.Worker(env.GetPachClient(pctx.Child(env.BackgroundContext, "pfsload")), env.TaskService) //nolint:errcheck
 	}()
 	taskSource := env.TaskService.NewSource(StorageTaskNamespace)
-	go compactionWorker(pctx.Child(env.BackgroundContext, "compactionWorker"), taskSource, a.driver.storage) //nolint:errcheck
+	go compactionWorker(pctx.Child(env.BackgroundContext, "compactionWorker"), taskSource, a.driver.storage.Filesets) //nolint:errcheck
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 
@@ -29,7 +29,7 @@ func NewSidecarAPIServer(env Env) (pfsserver.APIServer, error) {
 	}
 	if env.PachwInSidecar {
 		taskSource := env.TaskService.NewSource(StorageTaskNamespace)
-		go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
+		go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage.Filesets) //nolint:errcheck
 	}
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
@@ -44,6 +44,6 @@ func NewPachwAPIServer(env Env) (pfsserver.APIServer, error) {
 	go a.driver.URLWorker(env.BackgroundContext)
 	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
 	taskSource := env.TaskService.NewSource(StorageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
+	go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage.Filesets) //nolint:errcheck
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }

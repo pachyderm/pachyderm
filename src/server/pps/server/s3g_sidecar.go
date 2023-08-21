@@ -12,7 +12,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
@@ -171,7 +171,7 @@ type s3InstanceCreatingJobHandler struct {
 
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
 	// serve new S3 gateway & add to s.server routers
-	if ok := s.s.server.ContainsRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID)); ok {
+	if ok := s.s.server.ContainsRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id)); ok {
 		return // s3g handler already created
 	}
 
@@ -180,7 +180,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	err := pps.VisitInput(jobInfo.Details.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
-				Commit: client.NewSystemProjectRepo(in.Pfs.Project, in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
+				Commit: client.NewSystemRepo(in.Pfs.Project, in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
 				Name:   in.Pfs.Name,
 			})
 		}
@@ -196,11 +196,11 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
 	router := s3.Router(ctx, driver, s.s.apiServer.env.GetPachClient)
-	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID), router)
+	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id), router)
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job) {
-	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline, job.ID))
+	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline, job.Id))
 }
 
 type k8sServiceCreatingJobHandler struct {
@@ -232,14 +232,14 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		selectorlabels[pipelineProjectLabel] = projectName
 	}
 	svcLabels := copyMap(selectorlabels)
-	svcLabels["job"] = jobInfo.Job.ID // for reference, we also want to leave info about the job in the service definition
+	svcLabels["job"] = jobInfo.Job.Id // for reference, we also want to leave info about the job in the service definition
 	service := &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID),
+			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id),
 			Labels: svcLabels,
 		},
 		Spec: v1.ServiceSpec{
@@ -280,7 +280,7 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps
 	if err := backoff.RetryNotify(func() error {
 		err := s.s.apiServer.env.KubeClient.CoreV1().Services(s.s.apiServer.namespace).Delete(
 			ctx,
-			ppsutil.SidecarS3GatewayService(job.Pipeline, job.ID),
+			ppsutil.SidecarS3GatewayService(job.Pipeline, job.Id),
 			metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
 		if err != nil && errutil.IsNotFoundError(err) {
 			return nil // service already deleted
@@ -347,7 +347,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		jobInfo, err = pachClient.InspectProjectJob(h.s.pipelineInfo.Pipeline.Project.GetName(), h.s.pipelineInfo.Pipeline.Name, job.ID, true)
+		jobInfo, err = pachClient.InspectJob(h.s.pipelineInfo.Pipeline.Project.GetName(), h.s.pipelineInfo.Pipeline.Name, job.Id, true)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				// TODO(msteffen): I'm not sure what this means--maybe that the service

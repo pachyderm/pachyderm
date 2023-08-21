@@ -6,13 +6,15 @@ package testing
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -20,8 +22,8 @@ import (
 
 const enterpriseRootToken = "iamenterprise"
 
-func resetClusterState(t *testing.T, c *client.APIClient) {
-	ec, err := client.NewEnterpriseClientForTest()
+func resetClusterState(ctx context.Context, t *testing.T, c *client.APIClient) {
+	ec, err := client.NewEnterpriseClientForTest(ctx)
 	require.NoError(t, err)
 	// Set the root token, in case a previous test failed
 	ec.SetAuthToken(enterpriseRootToken)
@@ -44,9 +46,10 @@ func resetClusterState(t *testing.T, c *client.APIClient) {
 
 // TestRegisterPachd tests registering a pachd with the enterprise server when auth is disabled
 func TestRegisterPachd(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
@@ -64,9 +67,10 @@ func TestRegisterPachd(t *testing.T) {
 
 // TestRegisterAuthenticated tests registering a pachd with the enterprise server when auth is enabled
 func TestRegisterAuthenticated(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 	cluster := tu.UniqueString("cluster")
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
@@ -90,9 +94,10 @@ func TestRegisterAuthenticated(t *testing.T) {
 
 // TestEnterpriseRoleBindings tests configuring role bindings for the enterprise server
 func TestEnterpriseRoleBindings(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
@@ -113,9 +118,10 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 
 // TestGetAndUseRobotToken tests getting a robot token for the enterprise server
 func TestGetAndUseRobotToken(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
@@ -139,9 +145,10 @@ func TestGetAndUseRobotToken(t *testing.T) {
 
 // TestConfig tests getting and setting OIDC configuration for the identity server
 func TestConfig(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
@@ -179,10 +186,11 @@ EOF
 
 // TestLoginEnterprise tests logging in to the enterprise server
 func TestLoginEnterprise(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
-	ec, err := client.NewEnterpriseClientForTest()
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
+	ec, err := client.NewEnterpriseClientForTest(ctx)
 	require.NoError(t, err)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
@@ -222,11 +230,12 @@ func TestLoginEnterprise(t *testing.T) {
 
 // TestLoginPachd tests logging in to pachd
 func TestLoginPachd(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 
-	ec, err := client.NewEnterpriseClientForTest()
+	ec, err := client.NewEnterpriseClientForTest(ctx)
 	require.NoError(t, err)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
@@ -266,9 +275,10 @@ func TestLoginPachd(t *testing.T) {
 
 // Tests synching contexts from the enterprise server
 func TestSyncContexts(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 	id := tu.UniqueString("cluster")
 	clusterId := tu.UniqueString("clusterDeploymentId")
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -297,9 +307,9 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl enterprise sync-contexts
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\""
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
-		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"grpc://pachd.default:1655\""
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\":[[:space:]]+\"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\":[[:space:]]+\"IMPORTED\","
 		`,
 		"id", id,
 		"clusterId", clusterId,
@@ -310,7 +320,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license update-cluster --id {{.id}} --user-address {{.userAddress}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"{{.userAddress}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -325,8 +335,8 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"{{.userAddress}}\""
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\":[[:space:]]+\"{{.clusterId}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -342,9 +352,10 @@ func TestSyncContexts(t *testing.T) {
 
 // Tests RegisterCluster command's derived argument values if not provided
 func TestRegisterDefaultArgs(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 
 	id := tu.UniqueString("cluster")
 
@@ -353,7 +364,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		ClientVersion: version.Version,
 	})
 	require.NoError(t, inspectErr)
-	clusterId := clusterInfo.DeploymentID
+	clusterId := clusterInfo.DeploymentId
 
 	host := c.GetAddress().Host
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -366,9 +377,9 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		pachctl enterprise sync-contexts
 
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.list_pach_address}}"
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
-		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
+		pachctl config get context {{.id}} | match "\"pachd_address\":[[:space:]]+\"{{.list_pach_address}}"
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\":[[:space:]]+\"{{.clusterId}}\""
+		pachctl config get context {{.id}} | match "\"source\":[[:space:]]+\"IMPORTED\","
 		`,
 		"id", id,
 		"enterprise_token", enterpriseRootToken,
@@ -381,9 +392,10 @@ func TestRegisterDefaultArgs(t *testing.T) {
 
 // tests that Cluster Registration is undone when enterprise service fails to activate in the `enterprise register` subcommand
 func TestRegisterRollback(t *testing.T) {
+	ctx := context.Background()
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
-	resetClusterState(t, c)
-	defer resetClusterState(t, c)
+	resetClusterState(ctx, t, c)
+	defer resetClusterState(ctx, t, c)
 	id := tu.UniqueString("cluster")
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `

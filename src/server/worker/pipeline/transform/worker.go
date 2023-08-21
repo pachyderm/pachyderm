@@ -8,22 +8,24 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 type hasher struct {
@@ -37,33 +39,33 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
 	return errors.EnsureStack(driver.NewTaskSource().Iterate(
 		ctx,
-		func(ctx context.Context, input *types.Any) (*types.Any, error) {
+		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
 			case datum.IsTask(input):
 				pachClient := driver.PachClient().WithCtx(ctx)
 				return datum.ProcessTask(pachClient, input)
-			case types.Is(input, &CreateParallelDatumsTask{}):
+			case input.MessageIs(&CreateParallelDatumsTask{}):
 				createParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
 				pachClient := driver.PachClient().WithCtx(ctx)
 				return processCreateParallelDatumsTask(pachClient, createParallelDatumsTask)
-			case types.Is(input, &CreateSerialDatumsTask{}):
+			case input.MessageIs(&CreateSerialDatumsTask{}):
 				createSerialDatumsTask, err := deserializeCreateSerialDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
 				pachClient := driver.PachClient().WithCtx(ctx)
 				return processCreateSerialDatumsTask(pachClient, createSerialDatumsTask)
-			case types.Is(input, &CreateDatumSetsTask{}):
+			case input.MessageIs(&CreateDatumSetsTask{}):
 				createDatumSetsTask, err := deserializeCreateDatumSetsTask(input)
 				if err != nil {
 					return nil, err
 				}
 				driver := driver.WithContext(ctx)
 				return processCreateDatumSetsTask(driver, createDatumSetsTask)
-			case types.Is(input, &DatumSetTask{}):
+			case input.MessageIs(&DatumSetTask{}):
 				datumSetTask, err := deserializeDatumSetTask(input)
 				if err != nil {
 					return nil, err
@@ -77,7 +79,7 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 	))
 }
 
-func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateParallelDatumsTask) (*types.Any, error) {
+func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateParallelDatumsTask) (*anypb.Any, error) {
 	var dits []datum.Iterator
 	if task.BaseFileSetId != "" {
 		dits = append(dits, datum.NewFileSetIterator(pachClient, task.BaseFileSetId, task.PathRange))
@@ -113,7 +115,7 @@ func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateP
 	})
 }
 
-func processCreateSerialDatumsTask(pachClient *client.APIClient, task *CreateSerialDatumsTask) (*types.Any, error) {
+func processCreateSerialDatumsTask(pachClient *client.APIClient, task *CreateSerialDatumsTask) (*anypb.Any, error) {
 	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
 	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits := []datum.Iterator{
@@ -202,7 +204,7 @@ func withDeleter(pachClient *client.APIClient, baseMetaCommit *pfs.Commit, cb fu
 	return outputFileSetID, metaFileSetID, nil
 }
 
-func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask) (*types.Any, error) {
+func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask) (*anypb.Any, error) {
 	datumSets, err := datum.CreateSets(driver.PachClient(), task.SetSpec, task.FileSetId, task.PathRange)
 	if err != nil {
 		return nil, err
@@ -217,10 +219,10 @@ func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask)
 // datum queuing (probably should be handled by datum package).
 // capture datum logs.
 // git inputs.
-func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*types.Any, error) {
-	var output *types.Any
-	if err := status.withJob(task.Job.ID, func() error {
-		logger = logger.WithJob(task.Job.ID)
+func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*anypb.Any, error) {
+	var output *anypb.Any
+	if err := status.withJob(task.Job.Id, func() error {
+		logger = logger.WithJob(task.Job.Id)
 		return errors.EnsureStack(logger.LogStep("process datum set task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {
@@ -259,7 +261,7 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	// return nil
 }
 
-func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*types.Any, error) {
+func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*anypb.Any, error) {
 	pachClient := driver.PachClient()
 	var outputFileSetID, metaFileSetID string
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
@@ -318,7 +320,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 		defer stop()
 		start := func() error {
 			var cancelCtx context.Context
-			cancelCtx, cancel = context.WithCancel(ctx)
+			cancelCtx, cancel = pctx.WithCancel(ctx)
 			errChan = make(chan error, 1)
 			go func() {
 				err := driver.RunUserCode(cancelCtx, logger, nil)
@@ -334,7 +336,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 			case err := <-errChan:
 				return errors.Wrap(err, "error running user code")
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 		}
 		// Start the user code, then iterate through the datums.
@@ -346,9 +348,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 				// Restart the user code if an error occurred.
 				if retErr != nil {
 					stop()
-					if err := start(); err != nil {
-						retErr = multierror.Append(retErr, errors.Wrap(err, "error restarting user code"))
-					}
+					errors.Invoke(&retErr, start, "error restarting user code")
 				}
 			}()
 			select {
@@ -356,7 +356,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 			case err := <-errChan:
 				return errors.Wrap(err, "error running user code")
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 			select {
 			case err := <-nextChan:
@@ -364,7 +364,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 			case err := <-errChan:
 				return errors.Wrap(err, "error running user code")
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 		})
 	})
@@ -374,6 +374,10 @@ type datumCallback = func(ctx context.Context, logger logs.TaggedLogger, env []s
 
 // TODO: There are way too many parameters here. Consider grouping them into a reasonable struct or storing some of these in the driver.
 func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, cb datumCallback) error {
+	jobInfo, err := driver.GetJobInfo(task.Job)
+	if err != nil {
+		return errors.Wrapf(err, "load datum set's job info for job %q", task.Job.String())
+	}
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -389,13 +393,11 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 			meta.ImageId = userImageID
 			inputs := meta.Inputs
 			logger := baseLogger.WithData(inputs)
-			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs)
-			var opts []datum.Option
+
+			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, jobInfo.GetAuthToken())
+			opts := []datum.Option{datum.WithEnv(env)}
 			if driver.PipelineInfo().Details.DatumTimeout != nil {
-				timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
+				timeout := driver.PipelineInfo().Details.DatumTimeout.AsDuration()
 				opts = append(opts, datum.WithTimeout(timeout))
 			}
 			if driver.PipelineInfo().Details.DatumTries > 0 {
@@ -407,7 +409,7 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 				}))
 			}
 			return s.WithDatum(meta, func(d *datum.Datum) error {
-				cancelCtx, cancel := context.WithCancel(ctx)
+				cancelCtx, cancel := pctx.WithCancel(ctx)
 				defer cancel()
 				err := status.withDatum(inputs, cancel, func() error {
 					err := driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
@@ -425,78 +427,54 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 	}, setOpts...)
 }
 
-func deserializeCreateParallelDatumsTask(taskAny *types.Any) (*CreateParallelDatumsTask, error) {
+func deserializeCreateParallelDatumsTask(taskAny *anypb.Any) (*CreateParallelDatumsTask, error) {
 	task := &CreateParallelDatumsTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCreateParallelDatumsTaskResult(task *CreateParallelDatumsTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateParallelDatumsTaskResult(task *CreateParallelDatumsTaskResult) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCreateSerialDatumsTask(taskAny *types.Any) (*CreateSerialDatumsTask, error) {
+func deserializeCreateSerialDatumsTask(taskAny *anypb.Any) (*CreateSerialDatumsTask, error) {
 	task := &CreateSerialDatumsTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCreateSerialDatumsTaskResult(task *CreateSerialDatumsTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateSerialDatumsTaskResult(task *CreateSerialDatumsTaskResult) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCreateDatumSetsTask(taskAny *types.Any) (*CreateDatumSetsTask, error) {
+func deserializeCreateDatumSetsTask(taskAny *anypb.Any) (*CreateDatumSetsTask, error) {
 	task := &CreateDatumSetsTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCreateDatumSetsTaskResult(task *CreateDatumSetsTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateDatumSetsTaskResult(task *CreateDatumSetsTaskResult) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeDatumSetTask(taskAny *types.Any) (*DatumSetTask, error) {
+func deserializeDatumSetTask(taskAny *anypb.Any) (*DatumSetTask, error) {
 	task := &DatumSetTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeDatumSetTaskResult(task *DatumSetTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeDatumSetTaskResult(task *DatumSetTaskResult) (*anypb.Any, error) {
+	return anypb.New(task)
 }

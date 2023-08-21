@@ -4,14 +4,16 @@
 package driver
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
 // Note: these are stubs only meant for tests - the worker does not run on windows
@@ -50,6 +52,13 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 	// Make sure that the previous outputs are removed.
 	if err := d.unlinkData(inputs); err != nil {
 		return err
+	}
+
+	// rename env file
+	src := filepath.Join(dir, common.EnvFileName)
+	dst := filepath.Join(d.InputDir(), common.EnvFileName)
+	if err := os.Rename(src, dst); err != nil {
+		return errors.EnsureStack(err)
 	}
 
 	// sometimes for group inputs, this part may get run multiple times for the same file

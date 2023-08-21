@@ -6,7 +6,6 @@ import {Contents} from '@jupyterlab/services';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
-import {splitAtFirstSlash} from '../hooks/usePipeline';
 
 jest.mock('../../../../../handler');
 import {MountSettings} from '../../../types';
@@ -14,6 +13,7 @@ import {MountSettings} from '../../../types';
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
+  const saveNotebookToDisk = jest.fn();
 
   const testNotebookName = 'NotARealNotebook.ipynb';
   const notebookModel = {name: testNotebookName} as Contents.IModel;
@@ -34,6 +34,7 @@ describe('PPS screen', () => {
           settings={settings}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
+          saveNotebookToDisk={saveNotebookToDisk}
         />,
       );
 
@@ -45,7 +46,12 @@ describe('PPS screen', () => {
       const inputPipelineName = await findByTestId(
         'Pipeline__inputPipelineName',
       );
-      userEvent.type(inputPipelineName, 'test_project/ThisPipelineIsNamedFred');
+      userEvent.type(inputPipelineName, 'ThisPipelineIsNamedFred');
+
+      const inputPipelineProject = await findByTestId(
+        'Pipeline__inputPipelineProjectName',
+      );
+      userEvent.type(inputPipelineProject, 'test_project');
 
       const inputImageName = await findByTestId('Pipeline__inputImageName');
       expect(inputImageName).toHaveValue(settings.defaultPipelineImage);
@@ -94,6 +100,7 @@ input:
           settings={settings}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
+          saveNotebookToDisk={saveNotebookToDisk}
         />,
       );
 
@@ -102,19 +109,5 @@ input:
       );
       expect(valueCurrentNotebook).toHaveTextContent('None');
     });
-  });
-});
-
-describe('unit tests for helper functions', () => {
-  it('splitAtFirstSlash', () => {
-    expect(splitAtFirstSlash('name')).toStrictEqual(['name']);
-    expect(splitAtFirstSlash('first/second')).toStrictEqual([
-      'first',
-      'second',
-    ]);
-    expect(splitAtFirstSlash('first/second/third')).toStrictEqual([
-      'first',
-      'second/third',
-    ]);
   });
 });

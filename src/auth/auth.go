@@ -204,7 +204,7 @@ const errNoRoleBindingMsg = "no role binding exists for"
 
 // ErrNoRoleBinding is returned if no role binding exists for a resource.
 type ErrNoRoleBinding struct {
-	Resource Resource
+	Resource *Resource
 }
 
 func (e *ErrNoRoleBinding) Error() string {
@@ -224,7 +224,7 @@ func IsErrNoRoleBinding(err error) bool {
 type ErrNotAuthorized struct {
 	Subject string // subject trying to perform blocked operation -- always set
 
-	Resource Resource     // Resource that the user is attempting to access
+	Resource *Resource    // Resource that the user is attempting to access
 	Required []Permission // Caller needs 'Required'-level access to 'Resource'
 }
 
@@ -234,6 +234,12 @@ const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
 	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v. Run `pachctl auth roles-for-permission` to find roles that grant a given permission.", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
+}
+
+// Implement the interface expected by status.FromError.  An ErrNotAuthorized is
+// a permission-denied status.
+func (e *ErrNotAuthorized) GRPCStatus() *status.Status {
+	return status.New(codes.PermissionDenied, e.Error())
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized
@@ -305,7 +311,7 @@ func GetAuthToken(ctx context.Context) (string, error) {
 	if len(md[ContextTokenKey]) > 1 {
 		return "", errors.Errorf("multiple authentication token keys found in context")
 	} else if len(md[ContextTokenKey]) == 0 {
-		return "", errors.EnsureStack(ErrNotSignedIn)
+		return "", ErrNotSignedIn
 	}
 	return md[ContextTokenKey][0], nil
 }

@@ -1,14 +1,16 @@
 import json
 import os
 import sys
+import time
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, mock_open
 
 import pytest
 import tornado
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.pachyderm import MountInterface
+from jupyterlab_pachyderm.mount_server_client import write_token_to_config
 
 from . import TEST_NOTEBOOK
 
@@ -549,3 +551,117 @@ async def test_pps_get(jp_fetch):
     for expected_key in ("pipeline", "description", "transform", "input"):
         assert expected_key in body
 
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.ProjectsHandler.mount_client",
+    spec=MountInterface,
+)
+async def test_get_projects(mock_client, jp_fetch):
+    test_projects = [
+        {
+            "project": {"name": "default"},
+            "auth_info":{"permissions": [1, 2, 3], "roles": ["clusterAdmin", "projectOwner"]}
+        },
+        {
+            "project": {"name": "p1"},
+            "auth_info":{"permissions": [4, 5, 6], "roles": ["test"]}
+        }
+    ]
+
+    mock_client.list_projects.return_value = json.dumps(test_projects)
+    resp = await jp_fetch(f"/{NAMESPACE}/{VERSION}/projects")
+    assert json.loads(resp.body) == test_projects
+
+
+async def test_write_token_to_config_no_context():
+    timestamp = time.time_ns()
+    test_config_path = f"/tmp/pach_test_config_{timestamp}.json"
+
+    # test non-existent context
+    # we expect the entire context to be copied
+    test_mount_server_config_str = """{
+  "user_id": "test_user",
+  "v2": {
+    "active_context": "mount-server",
+    "contexts": {
+      "mount-server": {
+        "session_token": "foo",
+        "cluster_deployment_id": "bar",
+        "project": "default"
+      }
+    },
+    "metrics": true
+  }
+}
+"""
+    test_config_str = """{
+  "user_id": "test_user",
+  "v2": {
+    "active_context": "default",
+    "contexts": {
+      "default": {
+      }
+    },
+    "metrics": true
+  }
+}
+"""
+    with open(test_config_path, 'w') as f:
+        f.write(test_config_str)
+    write_token_to_config(test_config_path, test_mount_server_config_str)
+    test_json = json.loads(test_mount_server_config_str)
+    with open(test_config_path) as f:
+        test_file_json = json.load(f)
+    assert(test_json['v2']['contexts']['mount-server'] ==
+           test_file_json['v2']['contexts']['mount-server'])
+    assert(test_json['v2']['active_context'] ==
+           test_file_json['v2']['active_context'])
+
+async def test_write_token_to_config_existing_context():
+    timestamp = time.time_ns()
+    test_config_path = f"/tmp/pach_test_config_{timestamp}.json"
+
+    # test pre-existing context
+    # we expect the token to get copied and nothing else
+    # additionally, we expect the active context to change
+    test_mount_server_config_str = """{
+  "user_id": "test_user",
+  "v2": {
+    "active_context": "mount-server",
+    "contexts": {
+      "mount-server": {
+        "session_token": "foo",
+        "cluster_deployment_id": "bar",
+        "project": "default"
+      }
+    },
+    "metrics": true
+  }
+}
+"""
+    test_config_str = """{
+  "user_id": "test_user",
+  "v2": {
+    "active_context": "default",
+    "contexts": {
+      "mount-server": {
+        "cluster_deployment_id": "foo"
+      }
+    },
+    "metrics": true
+  }
+}
+"""
+    with open(test_config_path, 'w') as f:
+        f.write(test_config_str)
+    write_token_to_config(test_config_path, test_mount_server_config_str)
+    test_json = json.loads(test_mount_server_config_str)
+    with open(test_config_path) as f:
+        test_file_json = json.load(f)
+    assert(test_json['v2']['contexts']['mount-server']['session_token'] ==
+           test_file_json['v2']['contexts']['mount-server']['session_token'])
+    assert(test_json['v2']['contexts']['mount-server']['cluster_deployment_id'] !=
+           test_file_json['v2']['contexts']['mount-server']['cluster_deployment_id'])
+    assert(test_json['v2']['active_context'] ==
+           test_file_json['v2']['active_context'])

@@ -3,13 +3,17 @@ package v2_6_0
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
@@ -18,11 +22,11 @@ func repoKey(repo *pfs.Repo) string {
 }
 
 func oldCommitKey(commit *pfs.Commit) string {
-	return branchKey(commit.Branch) + "=" + commit.ID
+	return branchKey(commit.Branch) + "=" + commit.Id
 }
 
 func commitBranchlessKey(commit *pfs.Commit) string {
-	return repoKey(commit.Branch.Repo) + "@" + commit.ID
+	return repoKey(commit.Branch.Repo) + "@" + commit.Id
 }
 
 func branchKey(branch *pfs.Branch) string {
@@ -33,10 +37,10 @@ func branchKey(branch *pfs.Branch) string {
 // key.  It will include the project if the project name is not the empty
 // string.
 func jobKey(j *pps.Job) string {
-	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)
+	return fmt.Sprintf("%s@%s", j.Pipeline, j.Id)
 }
 func pipelineCommitKey(commit *pfs.Commit) string {
-	return fmt.Sprintf("%s/%s@%s", commit.Repo.Project.Name, commit.Repo.Name, commit.ID)
+	return fmt.Sprintf("%s/%s@%s", commit.Repo.Project.Name, commit.Repo.Name, commit.Id)
 }
 
 func forEachCollectionProtos[T proto.Message](ctx context.Context, tx *pachsql.Tx, table string, val T, f func(T)) error {
@@ -62,10 +66,11 @@ func forEachCollectionProtos[T proto.Message](ctx context.Context, tx *pachsql.T
 }
 
 func listCollectionProtos[T proto.Message](ctx context.Context, tx *pachsql.Tx, table string, val T) ([]T, error) {
+	log.Info(ctx, "listing collection protos", zap.String("table", table))
 	protos := make([]T, 0)
 	if err := forEachCollectionProtos(ctx, tx, table, val, func(T) {
 		protos = append(protos, proto.Clone(val).(T))
-		val.Reset()
+		proto.Reset(val)
 	}); err != nil {
 		return nil, err
 	}
@@ -89,11 +94,55 @@ func updateCollectionProto[T proto.Message](ctx context.Context, tx *pachsql.Tx,
 	if err != nil {
 		return errors.Wrapf(err, "unmarshal info proto from %q table for key %q", table, oldKey)
 	}
-	pb.Reset()
+	proto.Reset(pb)
 	if err := proto.Unmarshal(data, pb); err != nil {
 		return errors.Wrap(err, "FAILED REMARSHALL")
 	}
 	stmt := fmt.Sprintf("UPDATE collections.%s SET key=$1, proto=$2 WHERE key=$3;", table)
 	_, err = tx.ExecContext(ctx, stmt, newKey, data, oldKey)
 	return errors.Wrapf(err, "update collections.%s with key %q", table, oldKey)
+}
+
+type postgresBatcher struct {
+	ctx   context.Context
+	tx    *pachsql.Tx
+	stmts []string
+	max   int
+	num   int
+}
+
+func newPostgresBatcher(ctx context.Context, tx *pachsql.Tx) *postgresBatcher {
+	return &postgresBatcher{
+		ctx: ctx,
+		tx:  tx,
+		max: 100,
+	}
+}
+
+func (pb *postgresBatcher) Add(stmt string) error {
+	pb.stmts = append(pb.stmts, stmt)
+	if len(pb.stmts) < pb.max {
+		return nil
+	}
+	return pb.execute()
+}
+
+func (pb *postgresBatcher) execute() error {
+	if len(pb.stmts) == 0 {
+		return nil
+	}
+	log.Info(pb.ctx, "executing postgres statement batch",
+		zap.String("number", strconv.Itoa(pb.num)),
+		zap.String("size", strconv.Itoa(len(pb.stmts))),
+	)
+	pb.num++
+	if _, err := pb.tx.ExecContext(pb.ctx, strings.Join(pb.stmts, ";")); err != nil {
+		return errors.EnsureStack(err)
+	}
+	pb.stmts = nil
+	return nil
+}
+
+func (pb *postgresBatcher) Close() error {
+	return pb.execute()
 }

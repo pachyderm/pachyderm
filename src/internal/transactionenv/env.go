@@ -3,10 +3,10 @@ package transactionenv
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -41,7 +41,7 @@ type PfsWrites interface {
 type PpsWrites interface {
 	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest) error
+	CreatePipeline(*pps.CreatePipelineTransaction) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -110,14 +110,16 @@ type Transaction interface {
 type directTransaction struct {
 	txnEnv *TransactionEnv
 	txnCtx *txncontext.TransactionContext
+	ctx    context.Context
 }
 
 // NewDirectTransaction is a helper function to instantiate a directTransaction
 // object.  It is exposed so that the transaction API server can run a direct
 // transaction even though there is an active transaction in the context (which
 // is why it cannot use `WithTransaction`).
-func NewDirectTransaction(txnEnv *TransactionEnv, txnCtx *txncontext.TransactionContext) Transaction {
+func NewDirectTransaction(ctx context.Context, txnEnv *TransactionEnv, txnCtx *txncontext.TransactionContext) Transaction {
 	return &directTransaction{
+		ctx:    ctx,
 		txnEnv: txnEnv,
 		txnCtx: txnCtx,
 	}
@@ -125,17 +127,17 @@ func NewDirectTransaction(txnEnv *TransactionEnv, txnCtx *txncontext.Transaction
 
 func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 	req := proto.Clone(original).(*pfs.CreateRepoRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	res, err := t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req)
+	res, err := t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.ctx, t.txnCtx, req)
 	return res, errors.EnsureStack(err)
 }
 
@@ -146,17 +148,17 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 
 func (t *directTransaction) SquashCommitSet(original *pfs.SquashCommitSetRequest) error {
 	req := proto.Clone(original).(*pfs.SquashCommitSetRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
 	req := proto.Clone(original).(*pfs.CreateBranchRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateBranchInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteBranchRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteBranchInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteBranchInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
@@ -175,9 +177,9 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return res, errors.EnsureStack(err)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
-	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req))
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineTransaction) error {
+	req := proto.Clone(original).(*pps.CreatePipelineTransaction)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -247,8 +249,8 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return errors.EnsureStack(err)
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineTransaction) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipelineV2: req})
 	return errors.EnsureStack(err)
 }
 
@@ -276,7 +278,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		directTxn := NewDirectTransaction(env, txnCtx)
+		directTxn := NewDirectTransaction(ctx, env, txnCtx)
 		return cb(directTxn)
 	})
 
@@ -308,7 +310,7 @@ func (env *TransactionEnv) waitReady(ctx context.Context) error {
 	case <-env.initDone:
 		return nil
 	case <-ctx.Done():
-		return errors.EnsureStack(ctx.Err())
+		return errors.EnsureStack(context.Cause(ctx))
 	}
 }
 
@@ -318,7 +320,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
-	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }
@@ -333,4 +335,26 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
+}
+
+// PreTxOps defines what operations to run related to the transaction, but before the physical database
+// transaction is opened. If doing any I/O as a part of a transaction is necessary, this is the place for it.
+//
+// NOTES:
+// - PreTxOps may be called multiple times for a Pachyderm Transaction and should therefore be idempotent
+// - in most cases some background job will also be necessary to cleanup resources created here
+func (env *TransactionEnv) PreTxOps(ctx context.Context, reqs []*transaction.TransactionRequest) error {
+	for _, r := range reqs {
+		if r.CreatePipelineV2 != nil {
+			if r.CreatePipelineV2.CreatePipelineRequest == nil {
+				return errors.New("nil CreatePipelineRequest in CreatePipelineTransaction")
+			}
+			if r.CreatePipelineV2.CreatePipelineRequest.Determined != nil {
+				if err := env.serviceEnv.PpsServer().CreateDetPipelineSideEffects(ctx, r.CreatePipelineV2.CreatePipelineRequest.Pipeline, r.CreatePipelineV2.CreatePipelineRequest.Determined.Workspaces); err != nil {
+					return errors.Wrap(err, "apply determined pipeline side effects")
+				}
+			}
+		}
+	}
+	return nil
 }

@@ -38,7 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -506,7 +506,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		pachctl create pipeline -f - <<EOF
 		pipeline:
 		  name: first
-		  project: 
+		  project:
 		    name: P
 		input:
 		  pfs:
@@ -674,7 +674,7 @@ func TestInspectWaitJob(t *testing.T) {
 		"pipeline1", pipeline1,
 		"project", project,
 	).Run())
-	jobs, err := c.ListProjectJob(project, pipeline1, nil, -1, false)
+	jobs, err := c.ListJob(project, pipeline1, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
@@ -685,7 +685,7 @@ func TestInspectWaitJob(t *testing.T) {
 	`,
 		"pipeline1", pipeline1,
 		"project", project,
-		"job", jobs[0].Job.GetID(),
+		"job", jobs[0].Job.GetId(),
 	).Run())
 }
 
@@ -719,7 +719,7 @@ func TestYAMLError(t *testing.T) {
 		  stdin:
 		    - "cp /pfs/input/* /pfs/out"
 		EOF
-		) | match "cannot unmarshal string into Go value of type \[\]json.RawMessage"
+		) | match "syntax error"
 		`,
 	).Run())
 }
@@ -1201,7 +1201,7 @@ func TestListJobWithProject(t *testing.T) {
 	projectName := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data 
+		pachctl create repo data
 
 		pachctl create pipeline <<EOF
 		{
@@ -1450,9 +1450,9 @@ func TestListDatumFromFile(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{
-			ID:                "dev",
-			DeploymentID:      "dev",
-			VersionWarningsOk: true,
+			Id:           "dev",
+			DeploymentId: "dev",
+			WarningsOk:   true,
 		}, nil
 	})
 
@@ -1514,4 +1514,79 @@ func synonymsMap() map[string]string {
 		pipeline: pipelines,
 		secret:   secrets,
 	}
+}
+
+func TestInspectClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{
+			Id:           "dev",
+			DeploymentId: "dev",
+			WarningsOk:   true,
+		}, nil
+	})
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl inspect defaults --cluster | match '{}'
+	`,
+	).Run())
+}
+
+func TestCreateClusterDefaults(t *testing.T) {
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{
+			Id:           "dev",
+			DeploymentId: "dev",
+			WarningsOk:   true,
+		}, nil
+	})
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl inspect defaults --cluster | match '{}'
+		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
+		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"autoscaling": false}}'
+	`,
+	).Run())
+}
+
+func TestDeleteClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{
+			Id:           "dev",
+			DeploymentId: "dev",
+			WarningsOk:   true,
+		}, nil
+	})
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl inspect defaults --cluster | match '{}'
+		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
+		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"autoscaling": false}}'
+		pachctl delete defaults --cluster || exit 1
+		pachctl inspect defaults --cluster | match '{}'
+	`,
+	).Run())
+}
+
+func TestUpdateClusterDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{
+			Id:           "dev",
+			DeploymentId: "dev",
+			WarningsOk:   true,
+		}, nil
+	})
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl inspect defaults --cluster | match '{}'
+		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
+		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"autoscaling": false}}'
+		echo '{"create_pipeline_request": {"datum_tries": "4"}}' | pachctl update defaults --cluster -f - || exit 1
+		pachctl inspect defaults --cluster | match '{"create_pipeline_request": {"datum_tries": "4"}}'
+	`,
+	).Run())
 }

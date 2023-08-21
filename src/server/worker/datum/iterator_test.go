@@ -8,12 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
-
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -32,27 +31,27 @@ func TestIterators(t *testing.T) {
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	// Put files in structured in a way so that there are many ways to glob it.
-	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < 50; i++ {
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 	// Zero datums.
-	in0 := client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "!(**)")
-	in0.Pfs.Commit = commit.ID
+	in0 := client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "!(**)")
+	in0.Pfs.Commit = commit.Id
 	t.Run("ZeroDatums", func(t *testing.T) {
 		pfs0, err := datum.NewIterator(c, taskDoer, in0)
 		require.NoError(t, err)
 		validateDI(t, pfs0)
 	})
 	// Basic PFS inputs
-	in1 := client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/foo?1")
-	in1.Pfs.Commit = commit.ID
-	in2 := client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/foo*2")
-	in2.Pfs.Commit = commit.ID
+	in1 := client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/foo?1")
+	in1.Pfs.Commit = commit.Id
+	in2 := client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/foo*2")
+	in2.Pfs.Commit = commit.Id
 	t.Run("Basic", func(t *testing.T) {
 		pfs1, err := datum.NewIterator(c, taskDoer, in1)
 		require.NoError(t, err)
@@ -95,10 +94,10 @@ func TestIterators(t *testing.T) {
 		validateDI(t, cross4)
 	})
 	// in[8-9] are elements of in10, which is a join input
-	in8 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$1$2", "", false, false, nil)
-	in8.Pfs.Commit = commit.ID
-	in9 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$2$1", "", false, false, nil)
-	in9.Pfs.Commit = commit.ID
+	in8 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$1$2", "", false, false, nil)
+	in8.Pfs.Commit = commit.Id
+	in9 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$2$1", "", false, false, nil)
+	in9.Pfs.Commit = commit.Id
 	in10 := client.NewJoinInput(in8, in9)
 	t.Run("Join", func(t *testing.T) {
 		join1, err := datum.NewIterator(c, taskDoer, in10)
@@ -122,10 +121,10 @@ func TestIterators(t *testing.T) {
 			"/foo44/foo44")
 	})
 
-	in11 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo1(?)", "$1", "", true, false, nil)
-	in11.Pfs.Commit = commit.ID
-	in12 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)1", "$1", "", true, false, nil)
-	in12.Pfs.Commit = commit.ID
+	in11 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo1(?)", "$1", "", true, false, nil)
+	in11.Pfs.Commit = commit.Id
+	in12 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)1", "$1", "", true, false, nil)
+	in12.Pfs.Commit = commit.Id
 	in13 := client.NewJoinInput(in11, in12)
 	t.Run("OuterJoin", func(t *testing.T) {
 		join1, err := datum.NewIterator(c, taskDoer, in13)
@@ -143,8 +142,8 @@ func TestIterators(t *testing.T) {
 			"/foo19")
 	})
 
-	in14 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
-	in14.Pfs.Commit = commit.ID
+	in14 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
+	in14.Pfs.Commit = commit.Id
 	in15 := client.NewGroupInput(in14)
 	t.Run("GroupSingle", func(t *testing.T) {
 		group1, err := datum.NewIterator(c, taskDoer, in15)
@@ -156,10 +155,10 @@ func TestIterators(t *testing.T) {
 			"/foo40/foo41/foo42/foo43/foo44/foo45/foo46/foo47/foo48/foo49")
 	})
 
-	in16 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
-	in16.Pfs.Commit = commit.ID
-	in17 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
-	in17.Pfs.Commit = commit.ID
+	in16 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
+	in16.Pfs.Commit = commit.Id
+	in17 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
+	in17.Pfs.Commit = commit.Id
 	in18 := client.NewGroupInput(in16, in17)
 	t.Run("GroupDoubles", func(t *testing.T) {
 		group2, err := datum.NewIterator(c, taskDoer, in18)
@@ -177,10 +176,10 @@ func TestIterators(t *testing.T) {
 			"/foo19/foo29/foo39/foo49")
 	})
 
-	in19 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$1$2", "$1", false, false, nil)
-	in19.Pfs.Commit = commit.ID
-	in20 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$2$1", "$2", false, false, nil)
-	in20.Pfs.Commit = commit.ID
+	in19 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$1$2", "$1", false, false, nil)
+	in19.Pfs.Commit = commit.Id
+	in20 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$2$1", "$2", false, false, nil)
+	in20.Pfs.Commit = commit.Id
 
 	in21 := client.NewJoinInput(in19, in20)
 	in22 := client.NewGroupInput(in21)
@@ -194,10 +193,10 @@ func TestIterators(t *testing.T) {
 			"/foo41/foo14/foo42/foo24/foo43/foo34/foo44/foo44")
 	})
 
-	in23 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "", false, false, nil)
-	in23.Pfs.Commit = commit.ID
-	in24 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
-	in24.Pfs.Commit = commit.ID
+	in23 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "", false, false, nil)
+	in23.Pfs.Commit = commit.Id
+	in24 := client.NewPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
+	in24.Pfs.Commit = commit.Id
 
 	in25 := client.NewGroupInput(in24)
 	in26 := client.NewUnionInput(in23, in25)
@@ -259,8 +258,8 @@ func TestIterators(t *testing.T) {
 	})
 
 	// in27 is an S3 input
-	in27 := client.NewProjectS3PFSInput("", pfs.DefaultProjectName, dataRepo, "")
-	in27.Pfs.Commit = commit.ID
+	in27 := client.NewS3PFSInput("", pfs.DefaultProjectName, dataRepo, "")
+	in27.Pfs.Commit = commit.Id
 	t.Run("PlainS3", func(t *testing.T) {
 		di, err := datum.NewIterator(c, taskDoer, in27)
 		require.NoError(t, err)
@@ -301,7 +300,7 @@ func createTaskDoer(t *testing.T, env *realenv.RealEnv) task.Doer {
 	namespace := "iterators"
 	taskSource := taskService.NewSource(namespace)
 	go func() {
-		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
+		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
 			case datum.IsTask(input):
 				pachClient := env.PachClient.WithCtx(ctx)
@@ -333,23 +332,23 @@ func TestJoinTrailingSlash(t *testing.T) {
 		tu.UniqueString(t.Name() + "_1"),
 	}
 	input := []*pps.Input{ // singular name b/c only use individual elements
-		client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, repo[0],
+		client.NewPFSInputOpts("", pfs.DefaultProjectName, repo[0],
 			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
-		client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, repo[1],
+		client.NewPFSInputOpts("", pfs.DefaultProjectName, repo[1],
 			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
 	}
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo[0]))
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo[1]))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo[0]))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo[1]))
 
 	// put files in structured in a way so that there are many ways to glob it
 	for i := 0; i < 2; i++ {
-		commit, err := c.StartProjectCommit(pfs.DefaultProjectName, repo[i], "master")
+		commit, err := c.StartCommit(pfs.DefaultProjectName, repo[i], "master")
 		require.NoError(t, err)
 		for j := 0; j < 10; j++ {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("foo-%v", j), strings.NewReader("bar")))
 		}
-		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, repo[i], "master", commit.ID))
-		input[i].Pfs.Commit = commit.ID
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo[i], "master", commit.Id))
+		input[i].Pfs.Commit = commit.Id
 	}
 
 	// Test without trailing slashes

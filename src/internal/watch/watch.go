@@ -8,9 +8,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	etcd "go.etcd.io/etcd/client/v3"
+	"google.golang.org/protobuf/proto"
 )
 
 // EventType is the type of event
@@ -130,7 +130,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 			case <-done:
 				return nil
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 		}
 		for {

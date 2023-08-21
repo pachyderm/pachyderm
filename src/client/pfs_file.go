@@ -8,12 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -77,7 +79,7 @@ type ModifyFile interface {
 // WithModifyFileClient creates a new ModifyFileClient that is scoped to the passed in callback.
 // TODO: Context should be a parameter, not stored in the pach client.
 func (c APIClient) WithModifyFileClient(commit *pfs.Commit, cb func(ModifyFile) error) (retErr error) {
-	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	cancelCtx, cancel := pctx.WithCancel(c.Ctx())
 	defer cancel()
 	mfc, err := c.WithCtx(cancelCtx).NewModifyFileClient(commit)
 	if err != nil {
@@ -133,7 +135,7 @@ var _ pfs.API_ModifyFileClient = new(noOpModifyFileClient)
 
 func (*noOpModifyFileClient) Send(*pfs.ModifyFileRequest) error { return nil }
 
-func (*noOpModifyFileClient) CloseAndRecv() (*types.Empty, error) { return &types.Empty{}, nil }
+func (*noOpModifyFileClient) CloseAndRecv() (*emptypb.Empty, error) { return &emptypb.Empty{}, nil }
 
 // NewNoOpModifyFileClient returns a ModifyFileClient that does nothing; it accepts any operation and does
 // not error.
@@ -168,7 +170,7 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 				Path:  path,
 				Datum: config.datum,
 				Source: &pfs.AddFile_Raw{
-					Raw: &types.BytesValue{Value: data},
+					Raw: wrapperspb.Bytes(data),
 				},
 			})
 		}); err != nil {
@@ -241,7 +243,7 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 						Path:  p,
 						Datum: config.datum,
 						Source: &pfs.AddFile_Raw{
-							Raw: &types.BytesValue{Value: data},
+							Raw: wrapperspb.Bytes(data),
 						},
 					})
 				}); err != nil {
@@ -355,7 +357,7 @@ func (c APIClient) WithRenewer(cb func(context.Context, *renew.StringSet) error)
 
 // WithCreateFileSetClient provides a scoped fileset client.
 func (c APIClient) WithCreateFileSetClient(cb func(ModifyFile) error) (resp *pfs.CreateFileSetResponse, retErr error) {
-	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	cancelCtx, cancel := pctx.WithCancel(c.Ctx())
 	defer cancel()
 	ctfsc, err := c.WithCtx(cancelCtx).NewCreateFileSetClient()
 	if err != nil {
@@ -512,7 +514,7 @@ func (c APIClient) GetFile(commit *pfs.Commit, path string, w io.Writer, opts ..
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	gf := &pfs.GetFileRequest{
 		File: &pfs.File{
@@ -551,7 +553,7 @@ func (c APIClient) getFileTar(commit *pfs.Commit, path string) (_ io.ReadCloser,
 	req := &pfs.GetFileRequest{
 		File: commit.NewFile(path),
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	client, err := c.PfsAPIClient.GetFileTAR(ctx, req)
 	if err != nil {
 		cf()
@@ -772,7 +774,7 @@ func (c APIClient) DiffFile(newCommit *pfs.Commit, newPath string, oldCommit *pf
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	ctx, cancel := context.WithCancel(c.Ctx())
+	ctx, cancel := pctx.WithCancel(c.Ctx())
 	defer cancel()
 	var oldFile *pfs.File
 	if oldCommit != nil {

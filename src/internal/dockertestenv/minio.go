@@ -9,12 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	docker "github.com/docker/docker/client"
 	minio "github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	minioCreds "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"gocloud.dev/blob"
+	"gocloud.dev/blob/s3blob"
 )
 
 const (
@@ -33,7 +38,7 @@ func NewTestObjClient(ctx context.Context, t testing.TB) obj.Client {
 	id := "minioadmin"
 	secret := "minioadmin"
 	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(id, secret, ""),
+		Creds:  minioCreds.NewStaticV4(id, secret, ""),
 		Secure: false,
 	})
 	require.NoError(t, err)
@@ -88,4 +93,37 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 			minioPort + 1: minioPort + 1,
 		},
 	})
+}
+
+func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
+	t.Helper()
+	dclient := newDockerClient()
+	defer dclient.Close()
+	err := backoff.Retry(func() error {
+		return ensureMinio(ctx, dclient)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err)
+	endpoint := getMinioEndpoint()
+	id := "minioadmin"
+	secret := "minioadmin"
+	client, err := minio.New(endpoint, &minio.Options{
+		Creds:  minioCreds.NewStaticV4(id, secret, ""),
+		Secure: false,
+	})
+	require.NoError(t, err)
+	bucketName := newTestMinioBucket(ctx, t, client)
+	sess, err := session.NewSession(&aws.Config{
+		Region:           aws.String("dummy-region"),
+		Credentials:      credentials.NewStaticCredentials(id, secret, ""),
+		Endpoint:         aws.String(endpoint),
+		DisableSSL:       aws.Bool(true),
+		S3ForcePathStyle: aws.Bool(true),
+	})
+	require.NoError(t, err)
+	bucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
+	require.NoError(t, err)
+	return bucket, obj.ObjectStoreURL{
+		Scheme: "minio",
+		Bucket: fmt.Sprintf("%s/%s", endpoint, bucketName),
+	}.String()
 }

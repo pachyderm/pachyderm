@@ -3,17 +3,18 @@ package logging
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"reflect"
 	"time"
 
 	"go.uber.org/zap"
 
-	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	mauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -125,6 +126,9 @@ func getRequestLogger(ctx context.Context, req any) context.Context {
 	default:
 		f = append(f, zap.Any("request", x))
 	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		f = append(f, log.Metadata("metadata", md))
+	}
 	if deadline, ok := ctx.Deadline(); ok {
 		f = append(f, zap.Duration("deadline", time.Until(deadline)))
 	}
@@ -157,6 +161,11 @@ func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) 
 	f = append(f, zap.Uint32("grpc.code", uint32(s.Code()))) // always want code, even if it's 0 (= "OK")
 	if msg := s.Message(); msg != "" {
 		f = append(f, zap.String("grpc.message", msg))
+	}
+	if dd := s.Details(); len(dd) > 0 {
+		for i, d := range dd {
+			f = append(f, zap.String(fmt.Sprintf("grpc.details[%d]", i), fmt.Sprint(d)))
+		}
 	}
 	return pctx.Child(ctx, "", pctx.WithFields(f...))
 }

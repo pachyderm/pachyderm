@@ -80,7 +80,7 @@ func TestEmptyWrite(t *testing.T, client Client) {
 //	Local client - interruptible file operations are not a thing in the stdlib
 func TestInterruption(t *testing.T, client Client) {
 	// Make a canceled context
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := pctx.WithCancel(context.Background())
 	cancel()
 
 	object := randutil.UniqueString("test-interruption-")

@@ -21,14 +21,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -170,7 +171,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 	logSetPipelineState(ctx, pipeline, from, to, reason)
 	var resultMessage string
 	var warn bool
-	err := dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
+	err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, sqlTx *pachsql.Tx) error {
 		resultMessage = ""
 		warn = false
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
@@ -178,7 +179,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
-		tracing.TagAnySpan(ctx, "old-state", pipelineInfo.State)
+		tracing.TagAnySpan(cbCtx, "old-state", pipelineInfo.State)
 		// Only UpdatePipeline can bring a pipeline out of failure
 		// TODO(msteffen): apply the same logic for CRASHING?
 		if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {
@@ -235,7 +236,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 
 // JobInput fills in the commits for an Input
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
-	commitsetID := outputCommit.ID
+	commitsetID := outputCommit.Id
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
@@ -251,6 +252,11 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Inp
 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
 func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
+	var det *pps.Determined
+	if pipelineInfo.Details.Determined != nil {
+		// avoid copying Determined.Password
+		det = &pps.Determined{Workspaces: pipelineInfo.Details.Determined.Workspaces}
+	}
 	return &pps.CreatePipelineRequest{
 		Pipeline:                pipelineInfo.Pipeline,
 		Transform:               pipelineInfo.Details.Transform,
@@ -278,6 +284,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		ReprocessSpec:           pipelineInfo.Details.ReprocessSpec,
 		Autoscaling:             pipelineInfo.Details.Autoscaling,
 		Tolerations:             pipelineInfo.Details.Tolerations,
+		Determined:              det,
 	}
 }
 
@@ -291,23 +298,14 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	}
 
 	// Update job info
-	var err error
 	if jobInfo.State == pps.JobState_JOB_STARTING && state == pps.JobState_JOB_RUNNING {
-		jobInfo.Started, err = types.TimestampProto(time.Now())
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
+		jobInfo.Started = timestamppb.Now()
 	} else if pps.IsTerminal(state) {
 		if jobInfo.Started == nil {
-			jobInfo.Started, err = types.TimestampProto(time.Now())
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
+			jobInfo.Started = timestamppb.Now()
 		}
-		jobInfo.Finished, err = types.TimestampProto(time.Now())
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
+		jobInfo.AuthToken = ""
+		jobInfo.Finished = timestamppb.Now()
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
@@ -315,7 +313,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) (retErr error) {
-	ctx, end := log.SpanContext(pachClient.Ctx(), "finishJob", zap.String("jobID", jobInfo.GetJob().GetID()), zap.Stringer("state", state), zap.String("reason", reason))
+	ctx, end := log.SpanContext(pachClient.Ctx(), "finishJob", zap.String("jobID", jobInfo.GetJob().GetId()), zap.Stringer("state", state), zap.String("reason", reason))
 	defer end(log.Errorp(&retErr))
 	pachClient = pachClient.WithCtx(ctx)
 	jobInfo.State = state
@@ -346,6 +344,13 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
+		if jobInfo.AuthToken != "" {
+			if _, err := pachClient.AuthAPIClient.RevokeAuthToken(pachClient.Ctx(), &auth.RevokeAuthTokenRequest{
+				Token: jobInfo.AuthToken,
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
 		log.Debug(ctx, "writing job info", log.Proto("jobInfo", jobInfo))
 		return WriteJobInfo(&builder.APIClient, jobInfo)
 	})
@@ -369,7 +374,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemProjectRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+	return client.NewSystemRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.Id)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
@@ -421,7 +426,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.P
 	// because the value in postgres might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	specCommit := client.NewSystemProjectRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
+	specCommit := client.NewSystemRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
 		NewCommit("master", specCommitID)
 	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -509,8 +514,9 @@ func ListPipelineInfo(ctx context.Context,
 }
 
 func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {
-	m := &jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
+	m := &protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
 	}
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -519,17 +525,17 @@ func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, se
 			msg.Message = scanner.Text()
 		} else {
 			logBytes := scanner.Bytes()
-			if err := m.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+			if err := m.Unmarshal(logBytes, msg); err != nil {
 				continue
 			}
 			// Filter out log lines that don't match on pipeline or job
 			if request.Pipeline != nil && (request.Pipeline.Project.GetName() != msg.ProjectName || request.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
-			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Project.GetName() != msg.ProjectName || request.Job.Pipeline.Name != msg.PipelineName) {
+			if request.Job != nil && (request.Job.Id != msg.JobId || request.Job.Pipeline.Project.GetName() != msg.ProjectName || request.Job.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
-			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+			if request.Datum != nil && request.Datum.Id != msg.DatumId {
 				continue
 			}
 			if request.Master != msg.Master {

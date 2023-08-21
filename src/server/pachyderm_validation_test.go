@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -30,13 +30,13 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
-	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 
 	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
 	// Create pipeline with input named "out"
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -44,7 +44,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("out", projectName, dataRepo, "", "/*", "", "", false, false, nil),
+		client.NewPFSInputOpts("out", projectName, dataRepo, "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -52,7 +52,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "out", err.Error())
 
 	// Create pipeline with no glob
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -60,7 +60,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("input", projectName, dataRepo, "", "", "", "", false, false, nil),
+		client.NewPFSInputOpts("input", projectName, dataRepo, "", "", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -68,7 +68,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "glob", err.Error())
 
 	// Create pipeline with input commit
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -99,7 +99,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 	pipelineName := tu.UniqueString("pipeline")
-	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.YesError(t, c.CreatePipeline(pfs.DefaultProjectName,
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -107,7 +107,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("whatever", pfs.DefaultProjectName, "nonexistent", "", "/*", "", "", false, false, nil),
+		client.NewPFSInputOpts("whatever", pfs.DefaultProjectName, "nonexistent", "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	))
@@ -125,9 +125,9 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	require.NoError(t, err)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
-	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 
-	require.NoError(t, c.CreateProjectPipeline(projectName,
+	require.NoError(t, c.CreatePipeline(projectName,
 		tu.UniqueString("pipeline-hyphen"),
 		"",
 		[]string{"bash"},
@@ -135,12 +135,12 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
+		client.NewPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	require.NoError(t, c.CreateProjectPipeline(projectName,
+	require.NoError(t, c.CreatePipeline(projectName,
 		tu.UniqueString("pipeline_underscore"),
 		"",
 		[]string{"bash"},
@@ -148,7 +148,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
+		client.NewPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))

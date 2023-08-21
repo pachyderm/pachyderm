@@ -102,6 +102,9 @@ docker-build-amd:
 docker-build-netcat:
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 
+docker-build-coverage:
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-cover.yml
+
 # You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
 # it's very slow and this is only going to run on your local machine anyway.
 docker-build-proto:
@@ -189,6 +192,14 @@ launch-dev: check-kubectl check-kubectl-connection
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
+launch-dev-determined: check-kubectl check-kubectl-connection
+	$(eval STARTTIME := $(shell date +%s))
+	kubectl apply -f etc/testing/minio.yaml --namespace=default
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values-with-det.yaml --set pachd.image.tag=local --set determined.detVersion=latest --set pachd.enterpriseLicenseKey=$(ENT_ACT_CODE)
+	# wait for the pachyderm to come up
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+
 launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
@@ -226,6 +237,7 @@ test-proto-static:
 
 proto: docker-build-proto
 	./etc/proto/build.sh
+	$(MAKE) -C python-sdk proto
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps
@@ -420,6 +432,7 @@ validate-circle:
 	release-docker-images \
 	release-pachctl \
 	docker-build \
+	docker-build-coverage \
 	docker-build-proto \
 	docker-build-gpu \
 	docker-build-kafka \

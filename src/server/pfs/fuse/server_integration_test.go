@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -80,11 +80,15 @@ func TestConfig(t *testing.T) {
 
 func TestMountDatum(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 	withServerMount(t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
@@ -135,18 +139,26 @@ func TestMountDatum(t *testing.T) {
 func TestCrossDatum(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo1", "master", "")
 	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
 
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
-	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo2", "dev", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo2"))
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo2", "dev", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo2", "dev", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
@@ -177,18 +189,26 @@ func TestCrossDatum(t *testing.T) {
 func TestUnionDatum(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo1", "master", "")
 	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
 
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
-	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo2", "dev", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo2"))
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo2", "dev", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo2", "dev", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
@@ -211,16 +231,24 @@ func TestUnionDatum(t *testing.T) {
 
 func TestRepeatedBranchesDatum(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo1", "master", "")
 	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
-	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "dev", "")
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo1", "dev", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo1", "dev", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
@@ -279,11 +307,15 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 
 func TestShowDatum(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "dev", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "dev", "")
 	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "dev", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
@@ -328,11 +360,15 @@ func TestShowDatum(t *testing.T) {
 
 func TestGetDatums(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "dev", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "dev", "")
 	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "dev", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
@@ -405,30 +441,46 @@ func TestGetDatums(t *testing.T) {
 
 func TestMountShowDatumsCrossProject(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo1", "master", "")
 	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
-	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "dev", "")
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo1", "dev", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo1", "dev", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
 	projectName := tu.UniqueString("p1")
 	require.NoError(t, c.CreateProject(projectName))
-	require.NoError(t, c.CreateProjectRepo(projectName, "repo1"))
-	commit = client.NewProjectCommit(projectName, "repo1", "master", "")
+	require.NoError(t, c.CreateRepo(projectName, "repo1"))
+	commit = client.NewCommit(projectName, "repo1", "master", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
 	require.NoError(t, err)
-	commit = client.NewProjectCommit(projectName, "repo1", "dev", "")
+	commitInfo, err = c.InspectCommit(projectName, "repo1", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+	commit = client.NewCommit(projectName, "repo1", "dev", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(projectName, "repo1", "dev", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {

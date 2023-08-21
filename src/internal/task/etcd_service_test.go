@@ -11,9 +11,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
@@ -24,20 +24,20 @@ var (
 	errTaskFailure = errors.Errorf("task failure")
 )
 
-func serializeTestTask(testTask *TestTask) (*types.Any, error) {
+func serializeTestTask(testTask *TestTask) (*anypb.Any, error) {
 	serializedTestTask, err := proto.Marshal(testTask)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &types.Any{
+	return &anypb.Any{
 		TypeUrl: "/" + string(proto.MessageName(testTask)),
 		Value:   serializedTestTask,
 	}, nil
 }
 
-func deserializeTestTask(any *types.Any) (*TestTask, error) {
+func deserializeTestTask(any *anypb.Any) (*TestTask, error) {
 	testTask := &TestTask{}
-	if err := types.UnmarshalAny(any, testTask); err != nil {
+	if err := any.UnmarshalTo(testTask); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return testTask, nil
@@ -60,7 +60,7 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 	numTasks := 10
 	numWorkers := 5
 	// Set up workers.
-	workerCtx, workerCancel := context.WithCancel(ctx)
+	workerCtx, workerCancel := pctx.WithCancel(ctx)
 	defer workerCancel()
 	workerEg, errCtx := errgroup.WithContext(workerCtx)
 	for i := 0; i < numWorkers; i++ {
@@ -68,9 +68,9 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 			src := s.NewSource("")
 			for {
 				if err := func() error {
-					ctx, cancel := context.WithCancel(errCtx)
+					ctx, cancel := pctx.WithCancel(errCtx)
 					defer cancel()
-					err := src.Iterate(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
+					err := src.Iterate(ctx, func(_ context.Context, input *anypb.Any) (*anypb.Any, error) {
 						if rand.Float64() < workerFailProb {
 							cancel()
 							return nil, nil
@@ -84,14 +84,14 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 						}
 						return serializeTestTask(testTask)
 					})
-					if errors.Is(ctx.Err(), context.Canceled) {
+					if errors.Is(context.Cause(ctx), context.Canceled) {
 						return nil
 					}
 					return errors.EnsureStack(err)
 				}(); err != nil {
 					return err
 				}
-				if errors.Is(workerCtx.Err(), context.Canceled) {
+				if errors.Is(context.Cause(workerCtx), context.Canceled) {
 					return nil
 				}
 			}
@@ -108,19 +108,19 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 	for i := 0; i < numGroups; i++ {
 		i := i
 		groupEg.Go(func() error {
-			var inputs []*types.Any
+			var inputs []*anypb.Any
 			for j := 0; j < numTasks; j++ {
-				input, err := serializeTestTask(&TestTask{ID: strconv.Itoa(j)})
+				input, err := serializeTestTask(&TestTask{Id: strconv.Itoa(j)})
 				if err != nil {
 					return err
 				}
 				inputs = append(inputs, input)
 				created[i][j] = true
 			}
-			ctx, cancel := context.WithCancel(errCtx)
+			ctx, cancel := pctx.WithCancel(errCtx)
 			defer cancel()
 			d := s.NewDoer("", strconv.Itoa(i), nil)
-			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
+			if err := DoBatch(ctx, d, inputs, func(j int64, output *anypb.Any, err error) error {
 				if rand.Float64() < groupCancelProb {
 					created[i] = nil
 					collected[i] = nil
@@ -139,7 +139,7 @@ func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, ta
 				}
 				collected[i][j] = true
 				return nil
-			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+			}); err != nil && !errors.Is(context.Cause(ctx), context.Canceled) {
 				return err
 			}
 			return nil
@@ -187,7 +187,7 @@ func TestRunZeroTasks(t *testing.T) {
 	env := testetcd.NewEnv(ctx, t)
 	s := NewEtcdService(env.EtcdClient, "")
 	d := s.NewDoer("", "", nil)
-	require.NoError(t, DoBatch(ctx, d, nil, func(_ int64, _ *types.Any, _ error) error {
+	require.NoError(t, DoBatch(ctx, d, nil, func(_ int64, _ *anypb.Any, _ error) error {
 		return errors.New("no tasks should exist")
 	}))
 }
@@ -278,24 +278,24 @@ func TestListTask(t *testing.T) {
 	}
 
 	var groupEg errgroup.Group
-	workerCtx, workerCancel := context.WithCancel(rctx)
+	workerCtx, workerCancel := pctx.WithCancel(rctx)
 	defer workerCancel()
 	workerEg, errCtx := errgroup.WithContext(pctx.Child(workerCtx, "worker"))
 	for g := 0; g < numGroups; g++ {
 		g := g
 		groupEg.Go(func() error {
-			var inputs []*types.Any
+			var inputs []*anypb.Any
 			for j := 0; j < numTasks; j++ {
-				input, err := serializeTestTask(&TestTask{ID: strconv.Itoa(g*numTasks + j)})
+				input, err := serializeTestTask(&TestTask{Id: strconv.Itoa(g*numTasks + j)})
 				if err != nil {
 					return err
 				}
 				inputs = append(inputs, input)
 			}
-			ctx, cancel := context.WithCancel(errCtx)
+			ctx, cancel := pctx.WithCancel(errCtx)
 			defer cancel()
 			d := s.NewDoer(testNamespace, strconv.Itoa(g), nil)
-			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
+			if err := DoBatch(ctx, d, inputs, func(j int64, output *anypb.Any, err error) error {
 				if err != nil {
 					if err.Error() != errTaskFailure.Error() {
 						return errors.Errorf("task error message (%v) does not equal expected error message (%v)", err.Error(), errTaskFailure.Error())
@@ -307,7 +307,7 @@ func TestListTask(t *testing.T) {
 					}
 				}
 				return nil
-			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+			}); err != nil && !errors.Is(context.Cause(ctx), context.Canceled) {
 				return err
 			}
 			return nil
@@ -322,9 +322,9 @@ func TestListTask(t *testing.T) {
 			src := s.NewSource("")
 			for {
 				if err := func() error {
-					ctx, cancel := context.WithCancel(errCtx)
+					ctx, cancel := pctx.WithCancel(errCtx)
 					defer cancel()
-					err := src.Iterate(ctx, func(_ context.Context, input *types.Any) (*types.Any, error) {
+					err := src.Iterate(ctx, func(_ context.Context, input *anypb.Any) (*anypb.Any, error) {
 						testTask, err := deserializeTestTask(input)
 						if err != nil {
 							return nil, err
@@ -332,19 +332,19 @@ func TestListTask(t *testing.T) {
 						// use channels to control task progress
 						claimedChan <- struct{}{}
 						<-finishChan
-						if shouldFail(testTask.ID) {
+						if shouldFail(testTask.Id) {
 							return nil, errTaskFailure
 						}
 						return serializeTestTask(testTask)
 					})
-					if errors.Is(ctx.Err(), context.Canceled) {
+					if errors.Is(context.Cause(ctx), context.Canceled) {
 						return nil
 					}
 					return errors.EnsureStack(err)
 				}(); err != nil {
 					return err
 				}
-				if errors.Is(workerCtx.Err(), context.Canceled) {
+				if errors.Is(context.Cause(workerCtx), context.Canceled) {
 					return nil
 				}
 			}

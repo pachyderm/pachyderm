@@ -8,11 +8,10 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-import "gogoproto/gogo.proto";
-
 import "pfs/pfs.proto";
 
 import "task/task.proto";
+import "protoextensions/log.proto";
 
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
@@ -45,7 +44,7 @@ message TFJob {
   // tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly
   // to a kubernetes cluster on which kubeflow has been installed, instead of
   // creating a pipeline ReplicationController as it normally would.
-  string tf_job = 1 [(gogoproto.customname) = "TFJob"];
+  string tf_job = 1;
 }
 
 message Egress {
@@ -56,10 +55,13 @@ message Egress {
   }
 }
 
+message Determined {
+  repeated string workspaces = 1;
+}
+
 message Job {
-  option (gogoproto.goproto_stringer) = false;
   Pipeline pipeline = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
 }
 
 enum JobState {
@@ -83,7 +85,7 @@ message Metadata {
 message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
-  string ip = 3 [(gogoproto.customname) = "IP"];
+  string ip = 3;
   string type = 4;
 }
 
@@ -166,7 +168,7 @@ message InputFile {
 message Datum {
   // ID is the hash computed from all the files
   Job job = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
 }
 
 enum DatumState {
@@ -212,8 +214,8 @@ message AggregateProcessStats {
 }
 
 message WorkerStatus {
-  string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  string worker_id = 1;
+  string job_id = 2;
   DatumStatus datum_status = 3;
 }
 
@@ -303,6 +305,7 @@ message JobInfo {
     ResourceSpec sidecar_resource_requests = 19;
   }
   Details details = 16;
+  string auth_token = 17;
 }
 
 enum WorkerState {
@@ -318,7 +321,6 @@ message Worker {
 }
 
 message Pipeline {
-  option (gogoproto.goproto_stringer) = false;
   pfs_v2.Project project = 2;
   string name = 1;
 }
@@ -423,7 +425,7 @@ message PipelineInfo {
     // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
     // when running in a kubernetes cluster on which kubeflow has been installed.
     // Exactly one of 'tf_job' and 'transform' should be set
-    TFJob tf_job = 2 [(gogoproto.customname) = "TFJob"];
+    TFJob tf_job = 2;
     ParallelismSpec parallelism_spec = 3;
     Egress egress = 4;
     google.protobuf.Timestamp created_at = 5;
@@ -459,8 +461,12 @@ message PipelineInfo {
     bool autoscaling = 33;
     repeated Toleration tolerations = 34;
     ResourceSpec sidecar_resource_requests = 35;
+    Determined determined = 36;
   }
   Details details = 12;
+  reserved "details_json";
+  string user_spec_json = 13; // The user-submitted pipeline spec in JSON format.
+  string effective_spec_json = 14; // The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults.
 }
 
 message PipelineInfos {
@@ -468,7 +474,7 @@ message PipelineInfos {
 }
 
 message JobSet {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }
 
 message InspectJobSetRequest {
@@ -487,6 +493,8 @@ message ListJobSetRequest {
   int64 number = 4;
   // if true, return results in reverse order
   bool reverse = 5;
+  // A jq program string for additional result filtering
+  string jqFilter = 6;
 }
 
 message InspectJobRequest {
@@ -603,9 +611,9 @@ message LogMessage {
   // is an orphan job, pipeline name and ID will be unset)
   string project_name = 10;
   string pipeline_name = 1;
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
-  string worker_id = 3 [(gogoproto.customname) = "WorkerID"];
-  string datum_id = 4 [(gogoproto.customname) = "DatumID"];
+  string job_id = 2;
+  string worker_id = 3;
+  string datum_id = 4;
   bool master = 5;
 
   // The PFS files being processed (one per pipeline/job input)
@@ -677,7 +685,7 @@ message CreatePipelineRequest {
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
   // Exactly one of 'tf_job' and 'transform' should be set
-  TFJob tf_job = 2 [(gogoproto.customname) = "TFJob"];
+  TFJob tf_job = 2;
   Transform transform = 3;
   ParallelismSpec parallelism_spec = 4;
   Egress egress = 5;
@@ -713,6 +721,21 @@ message CreatePipelineRequest {
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
   ResourceSpec sidecar_resource_requests = 35;
+  reserved 36;
+  reserved "details_json";
+  bool dry_run = 37;
+  Determined determined = 38;
+}
+
+message CreatePipelineV2Request {
+  string create_pipeline_request_json = 1;  // a JSON-encoded CreatePipelineRequest
+  bool dry_run = 2;
+  bool update = 3;
+  bool reprocess = 4;
+}
+
+message CreatePipelineV2Response {
+  string effective_create_pipeline_request_json = 1;
 }
 
 message InspectPipelineRequest {
@@ -752,7 +775,7 @@ message ListPipelineRequest {
 // pipelines in the default project.
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
-  bool all = 2 [deprecated = true];
+  bool all = 2 [deprecated = true]; // Deprecated.
   bool force = 3;
   bool keep_repo = 4;
 }
@@ -784,7 +807,7 @@ message StopPipelineRequest {
 message RunPipelineRequest {
   Pipeline pipeline = 1;
   repeated pfs_v2.Commit provenance = 2;
-  string job_id = 3 [(gogoproto.customname) = "JobID"];
+  string job_id = 3;
 }
 
 message RunCronRequest {
@@ -853,6 +876,47 @@ message LokiLogMessage {
   string message = 1;
 }
 
+message ClusterDefaults {
+  reserved 1, 2;
+  reserved "details_json", "effective_details_json";
+  // CreatePipelineRequest contains the default JSON CreatePipelineRequest into
+  // which pipeline specs are merged to form the effective spec used to create a
+  // pipeline.
+  CreatePipelineRequest create_pipeline_request = 3;
+}
+
+message GetClusterDefaultsRequest {}
+
+message GetClusterDefaultsResponse {
+  reserved 1;
+  reserved "cluster_defaults";
+  // A JSON-encoded ClusterDefaults message, this is the verbatim input passed
+  // to SetClusterDefaults.
+  string cluster_defaults_json = 2;
+}
+
+message SetClusterDefaultsRequest {
+  reserved 1;
+  reserved "effective_details_json";
+  bool regenerate = 2;
+  bool reprocess = 3; // must be false if regenerate is false
+  bool dry_run = 4;
+  // A JSON-encoded ClusterDefaults message, this will be stored verbatim.
+  string cluster_defaults_json = 5;
+}
+
+message SetClusterDefaultsResponse {
+  reserved 1;
+  reserved "effective_defaults_json";
+  repeated Pipeline affected_pipelines = 2;
+}
+
+message CreatePipelineTransaction {
+  CreatePipelineRequest create_pipeline_request = 1;
+  string user_json = 2; // the JSON the user originally submitted
+  string effective_json = 3; // the effective spec: the result of merging the user JSON into the cluster defaults
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -868,6 +932,7 @@ service API {
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc CreatePipelineV2(CreatePipelineV2Request) returns (CreatePipelineV2Response) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (stream PipelineInfo) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
@@ -909,4 +974,10 @@ service API {
 
   // QueryLoki returns a stream of loki log messages given a query string
   rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // GetClusterDefaults returns the current cluster defaults.
+  rpc GetClusterDefaults(GetClusterDefaultsRequest) returns (GetClusterDefaultsResponse) {}
+
+  // SetClusterDefaults returns the current cluster defaults.
+  rpc SetClusterDefaults(SetClusterDefaultsRequest) returns (SetClusterDefaultsResponse) {}
 }

@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -187,7 +187,7 @@ var localLock sync.Mutex
 func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	t.Helper()
 	if *forceLocal {
-		c, err := client.NewOnUserMachineContext(pctx.TODO(), "")
+		c, err := client.NewOnUserMachine(pctx.TODO(), "")
 		if err != nil {
 			t.Fatalf("create local client: %v", err)
 		}
@@ -209,8 +209,9 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	var assigned string
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
-		if *cleanupDataAfter {
-			if mc := clusterFactory.managedClusters[assigned]; mc != nil {
+		if mc := clusterFactory.managedClusters[assigned]; mc != nil {
+			collectMinikubeCodeCoverage(t, mc.client, mc.settings.ValueOverrides)
+			if *cleanupDataAfter {
 				deleteAll(t, mc.client)
 			}
 		}

@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"google.golang.org/api/googleapi"
@@ -59,7 +60,7 @@ func (c *googleClient) Exists(ctx context.Context, name string) (bool, error) {
 
 func (c *googleClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
-	ctx, cf := context.WithCancel(ctx)
+	ctx, cf := pctx.WithCancel(ctx)
 	defer cf() // this aborts the write if the writer is not already closed
 	wc := c.bucket.Object(name).NewWriter(ctx)
 	if _, err := io.Copy(wc, r); err != nil {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 )
 
 // SetOption configures a set.
@@ -60,5 +60,12 @@ func WithTimeout(timeout time.Duration) Option {
 func WithPrefixIndex() Option {
 	return func(d *Datum) {
 		d.IDPrefix = fmt.Sprintf("%032d", d.meta.Index) + "-"
+	}
+}
+
+// WithEnv sets the environment variables.
+func WithEnv(env []string) Option {
+	return func(d *Datum) {
+		d.env = env
 	}
 }

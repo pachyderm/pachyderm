@@ -1,0 +1,244 @@
+{{- if .Values.determined.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   name: determined-master-config-{{ .Release.Name }}
+   namespace: {{ .Release.Namespace }}
+   labels:
+     app: determined-master-{{ .Release.Name }}
+     release: {{ .Release.Name }}
+data:
+  master.yaml: |
+    log:
+      level: debug
+    checkpoint_storage:
+      type: {{ required "A valid Values.checkpointStorage.type entry is required!" .Values.determined.checkpointStorage.type | quote}}
+      {{- if eq .Values.determined.checkpointStorage.type "shared_fs" }}
+      host_path: {{ required "A valid Values.checkpointStorage.hostPath entry is required!" .Values.determined.checkpointStorage.hostPath | quote }}
+      {{- else if eq .Values.determined.checkpointStorage.type "gcs" }}
+      bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.determined.checkpointStorage.bucket }}
+      prefix: {{ .Values.determined.checkpointStorage.prefix | quote }}
+      {{- else if eq .Values.determined.checkpointStorage.type "s3" }}
+      bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.determined.checkpointStorage.bucket }}
+      access_key: {{ .Values.determined.checkpointStorage.accessKey | quote }}
+      secret_key: {{ .Values.determined.checkpointStorage.secretKey | quote }}
+      endpoint_url: {{ .Values.determined.checkpointStorage.endpointUrl | quote }}
+      prefix: {{ .Values.determined.checkpointStorage.prefix | quote }}
+      {{- else if eq .Values.determined.checkpointStorage.type "azure" }}
+      {{- if and .Values.determined.checkpointStorage.connection_string .Values.determined.checkpointStorage.account_url }}
+      {{ required "Exactly one of .Values.determined.checkpointStorage.connection_string or .Values.determined.checkpointStorage.account_url must be specified!" "" }}
+      {{- else if and .Values.determined.checkpointStorage.connection_string .Values.determined.checkpointStorage.credential }}
+      {{ required ".Values.determined.checkpointStorage.connection_string and .Values.determined.checkpointStorage.credential must not both be specified!" "" }}
+      {{- else }}
+      container: {{ required "A valid Values.checkpointStorage.container entry is required!" .Values.determined.checkpointStorage.container }}
+      connection_string: {{ .Values.determined.checkpointStorage.connection_string }}
+      account_url: {{ .Values.determined.checkpointStorage.account_url }}
+      credential: {{ .Values.determined.checkpointStorage.credential }}
+      {{- end }}
+      {{- end }}
+      save_experiment_best: {{ .Values.determined.checkpointStorage.saveExperimentBest | default 0 }}
+      save_trial_best: {{ .Values.determined.checkpointStorage.saveTrialBest | default 1 }}
+      save_trial_latest: {{ .Values.determined.checkpointStorage.saveTrialLatest | default 1 }}
+
+    db:
+      user: {{ required "A valid Values.db.user entry required!" .Values.determined.db.user | quote }}
+      password: {{ required "A valid Values.db.password entry required!" .Values.determined.db.password | quote }}
+      {{- if .Values.determined.db.hostAddress }}
+      host: {{ .Values.determined.db.hostAddress }}
+      {{- else }}
+      host: determined-db-service-{{ .Release.Name }}
+      {{- end  }}
+      port: {{ .Values.determined.db.port }}
+      name: {{ .Values.determined.db.name | quote }}
+      {{- if .Values.determined.db.sslMode }}
+      ssl_mode: {{ .Values.determined.db.sslMode }}
+      {{- $rootCert := (required "A valid .Values.determined.db.sslRootCert entry required!" .Values.determined.db.sslRootCert )}}
+      ssl_root_cert: {{ include "determined.secretPath" . }}{{ $rootCert }}
+      {{- end }}
+
+    security:
+      {{- if .Values.determined.tlsSecret }}
+      tls:
+        cert: {{ include "determined.secretPath" . }}tls.crt
+        key: {{ include "determined.secretPath" . }}tls.key
+      {{- end }}
+      {{- if .Values.determined.security }}
+      {{- if .Values.determined.security.defaultTask }}
+      default_task:
+        user: {{ .Values.determined.security.defaultTask.user }}
+        uid: {{ .Values.determined.security.defaultTask.uid }}
+        group: {{ .Values.determined.security.defaultTask.group }}
+        gid: {{ .Values.determined.security.defaultTask.gid }}
+      {{- end }}
+      {{- if .Values.determined.security.authz }}
+      authz:
+        {{- toYaml .Values.determined.security.authz | nindent 8}}
+      {{- end }}
+      {{- end }}
+    port: {{ include "determined.masterPort" . }}
+
+    {{- if .Values.determined.enterpriseEdition }}
+    {{- if .Values.determined.oidc }}
+    oidc:
+      enabled: {{ .Values.determined.oidc.enabled | default true }}
+      provider: {{ default .Values.determined.oidc.provider "dex"}}
+      idp_recipient_url: {{ required "A valid recipient url is required!" .Values.determined.oidc.idpRecipientUrl }}
+      idp_sso_url: {{ default .Values.determined.oidc.idpSsoUrl (include "pachyderm.issuerURI" . | quote) }}
+      client_id: {{ default "determined" .Values.determined.oidc.clientId }}
+      {{- if .Values.determined.oidc.authenticationClaim }}
+      authentication_claim: {{ .Values.determined.oidc.authenticationClaim }}
+      {{- end }}
+      {{- if .Values.determined.oidc.scimAuthenticationAttribute }}
+      scim_authentication_attribute: {{ .Values.determined.oidc.scimAuthenticationAttribute }}
+      {{- end }}
+    {{- end }}
+
+    {{- if .Values.determined.scim }}
+    scim:
+      enabled: {{ .Values.determined.scim.enabled | default true }}
+      auth:
+        type: {{ required "A valid authentication type is required!" .Values.determined.scim.auth.type }}
+        {{- if eq .Values.determined.scim.auth.type "basic" }}
+        username: {{ required "A valid username is required!" .Values.determined.scim.auth.username }}
+        password: {{ required "A valid password type is required!" .Values.determined.scim.auth.password }}
+        {{- end }}
+    {{- end }}
+    {{- end }}
+
+    resource_manager:
+      type: "kubernetes"
+      namespace: {{ .Release.Namespace }}
+      {{- if .Values.determined.enabled }}
+      max_slots_per_pod: {{ required "A valid Values.maxSlotsPerPod entry is required!" .Values.determined.maxSlotsPerPod }}
+      {{- end }}
+      master_service_name: determined-master-service-{{ .Release.Name }}
+      {{- if .Values.determined.defaultScheduler}}
+      {{- $schedulerType := .Values.determined.defaultScheduler | trim}}
+      {{- if or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption")}}
+      default_scheduler: {{ $schedulerType }}
+      {{- end }}
+      {{- end }}
+      {{- if (ne (default "gpu" .Values.determined.slotType) "gpu") }}
+      slot_type: {{ .Values.determined.slotType }}
+      slot_resource_requests:
+        cpu: {{ .Values.determined.slotResourceRequests.cpu }}
+      {{- end }}
+      {{- if .Values.determined.fluent }}
+      fluent:
+        {{- toYaml .Values.determined.fluent | nindent 8}}
+      {{- end }}
+
+      default_aux_resource_pool: {{.Values.determined.defaultAuxResourcePool}}
+      default_compute_resource_pool: {{.Values.determined.defaultComputeResourcePool}}
+
+    {{- if .Values.determined.resourcePools}}
+    resource_pools:
+      {{- toYaml .Values.determined.resourcePools | nindent 6}}
+    {{- end }}
+
+    {{$cpuImage := (split "/" "determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-6eceaca")._1}}
+    {{- $gpuImage := (split "/" "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-6eceaca")._1 -}}
+    {{ if .Values.determined.taskContainerDefaults -}}
+    task_container_defaults:
+      {{- if .Values.determined.taskContainerDefaults.networkMode }}
+      network_mode: {{ .Values.determined.taskContainerDefaults.networkMode }}
+      {{- end }}
+      {{- if .Values.determined.taskContainerDefaults.dtrainNetworkInterface }}
+      dtrain_network_interface: {{ .Values.determined.taskContainerDefaults.dtrainNetworkInterface }}
+      {{- end }}
+      {{- if .Values.determined.taskContainerDefaults.cpuPodSpec }}
+      cpu_pod_spec: {{ .Values.determined.taskContainerDefaults.cpuPodSpec | toJson }}
+      {{- end }}
+      {{- if .Values.determined.taskContainerDefaults.gpuPodSpec }}
+      gpu_pod_spec: {{ .Values.determined.taskContainerDefaults.gpuPodSpec | toJson }}
+      {{- end }}
+      {{- if and .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
+      image:
+         cpu: {{ .Values.determined.taskContainerDefaults.cpuImage | quote }}
+         gpu: {{ .Values.determined.taskContainerDefaults.gpuImage | quote }}
+      {{- else if .Values.determined.imageRegistry }}
+      image:
+         cpu: {{ .Values.determined.imageRegistry }}/{{ $cpuImage }}
+         gpu: {{ .Values.determined.imageRegistry }}/{{ $gpuImage }}
+      {{- if or .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
+        {{ required "A valid .Values.determined.taskContainerDefaults.cpuImage entry is required if setting .Values.determined.taskContainerDefaults.gpuImage!" .Values.determined.taskContainerDefaults.cpuImage }}
+        {{ required "A valid .Values.determined.taskContainerDefaults.gpuImage entry is required if setting .Values.determined.taskContainerDefaults.cpuImage!" .Values.determined.taskContainerDefaults.gpuImage }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.determined.taskContainerDefaults.forcePullImage }}
+      force_pull_image: {{ .Values.determined.taskContainerDefaults.forcePullImage }}
+      {{- end }}
+    {{ else if .Values.determined.imageRegistry }}
+    task_container_defaults:
+      image:
+         cpu: {{ .Values.determined.imageRegistry }}/{{ $cpuImage }}
+         gpu: {{ .Values.determined.imageRegistry }}/{{ $gpuImage }}
+    {{ end }}
+
+    {{- if .Values.determined.telemetry }}
+    telemetry:
+      enabled: {{ .Values.determined.telemetry.enabled }}
+    {{- end }}
+
+    {{- if .Values.determined.observability }}
+    observability:
+      enable_prometheus: {{ required "A valid .Values.determined.observability.enable_prometheus must be provided if setting .Values.determined.observability!" .Values.determined.observability.enable_prometheus }}
+    {{- end }}
+
+    {{- if .Values.determined.clusterName }}
+    cluster_name: {{ .Values.determined.clusterName }}
+    {{- end }}
+
+    {{- if .Values.determined.tensorboardTimeout }}
+    tensorboard_timeout: {{ .Values.determined.tensorboardTimeout }}
+    {{- end }}
+
+    {{- if .Values.determined.notebookTimeout }}
+    notebook_timeout: {{ .Values.determined.notebookTimeout }}
+    {{- end }}
+
+    {{- if .Values.determined.logging }}
+    logging:
+      {{- if .Values.determined.logging.type }}
+      type: {{ .Values.determined.logging.type }}
+      {{- end }}
+
+      {{- if (eq (default "" .Values.determined.logging.type) "elastic") }}
+      host: {{ required "A valid host must be provided if logging to Elasticsearch!" .Values.determined.logging.host }}
+      port: {{ required "A valid port must be provided if logging to Elasticsearch!" .Values.determined.logging.port }}
+      {{- if .Values.determined.logging.security }}
+      security:
+        {{- if .Values.determined.logging.security.username }}
+        username: {{ .Values.determined.logging.security.username }}
+        {{- end }}
+        {{- if .Values.determined.logging.security.password }}
+        password: {{ .Values.determined.logging.security.password }}
+        {{- end }}
+        {{- if .Values.determined.logging.security.tls }}
+        tls:
+          {{- if .Values.determined.logging.security.tls.enabled }}
+          enabled: {{ .Values.determined.logging.security.tls.enabled }}
+          {{- end }}
+          {{- if .Values.determined.logging.security.tls.skipVerify }}
+          skip_verify: {{ .Values.determined.logging.security.tls.skipVerify }}
+          {{- end }}
+          {{- if .Values.determined.logging.security.tls.certificate }}
+          certificate: /etc/determined/elastic.crt
+          {{- end }}
+          {{- if .Values.determined.logging.security.tls.certificateName }}
+          certificate_name: {{ .Values.determined.logging.security.tls.certificateName }}
+          {{- end }}
+        {{- end}}
+      {{- end }}
+      {{- end }}
+    {{- end}}
+  {{- if .Values.determined.logging }}
+  {{- if .Values.determined.logging.security }}
+  {{- if .Values.determined.logging.security.tls }}
+  {{- if .Values.determined.logging.security.tls.certificate }}
+  elastic.crt: |{{ nindent 4 .Values.determined.logging.security.tls.certificate }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

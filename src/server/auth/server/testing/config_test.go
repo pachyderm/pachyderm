@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -38,9 +38,9 @@ func TestSetGetConfigBasic(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
@@ -80,9 +80,9 @@ func TestIssuerNotLocalhost(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
@@ -123,9 +123,9 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(),
@@ -185,9 +185,9 @@ func TestConfigRestartAuth(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
@@ -273,9 +273,9 @@ func TestSetGetNilConfig(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),

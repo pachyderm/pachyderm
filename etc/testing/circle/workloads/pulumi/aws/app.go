@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/iam"
@@ -44,9 +45,33 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if wpCloudFlareLoadTestSecretAccessKey == "" {
 		return errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest aws access key."))
 	}
+	issuerURI := os.Getenv("ISSUER_URI")
+	if issuerURI == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var ISSUER_URI"))
+	}
+	clientID := os.Getenv("CLIENT_ID")
+	if clientID == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var CLIENT_ID"))
+	}
+	clientSecret := os.Getenv("CLIENT_SECRET")
+	if clientSecret == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var CLIENT_SECRET"))
+	}
+	tlsCrt := os.Getenv("TLS_CRT")
+	if tlsCrt == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var TLS_CRT"))
+	}
+	tlsKey := os.Getenv("TLS_KEY")
+	if tlsKey == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var TLS_KEY"))
+	}
 	pachdImageTag, err := cfg.Try("pachdVersion")
 	if err != nil {
 		pachdImageTag = "2.5.3"
+	}
+	enableConsole, err := cfg.TryBool("enableConsole")
+	if err != nil {
+		enableConsole = true
 	}
 	helmChartVersion, err := cfg.Try("helmChartVersion")
 	if err != nil {
@@ -106,18 +131,59 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("error creating metric secret: %w", err))
 	}
+	_, err = secret.NewSecret(ctx, "workspace-wildcard", &secret.SecretArgs{
+		Metadata: &metav1.ObjectMetaArgs{
+			Name:      pulumi.String("workspace-wildcard"),
+			Namespace: namespace.Metadata.Elem().Name(),
+		},
+		Data: pulumi.StringMap{
+			"tls.crt": pulumi.String(tlsCrt),
+			"tls.key": pulumi.String(tlsKey),
+		},
+		Type: pulumi.String("kubernetes.io/tls"),
+	}, pulumi.Provider(k8sProvider))
+	if err != nil {
+		return errors.WithStack(fmt.Errorf("error creating tls secret: %w", err))
+	}
+	redirectURI := fmt.Sprintf("https://%s.workspace.pachyderm.com/dex/callback", strings.ToLower(ctx.Stack()))
+	host := fmt.Sprintf("%s.workspace.pachyderm.com", strings.ToLower(ctx.Stack()))
 	values := pulumi.Map{
 		"proxy": pulumi.Map{
+			"host":    pulumi.String(host),
 			"enabled": pulumi.Bool(true),
 			"service": pulumi.Map{
 				"type": pulumi.String("LoadBalancer"),
 			},
+			"tls": pulumi.Map{
+				"enabled":    pulumi.Bool(true),
+				"secretName": pulumi.String("workspace-wildcard"),
+			},
+		},
+		"oidc": pulumi.Map{
+			"mockIDP": pulumi.Bool(false),
+			"upstreamIDPs": pulumi.MapArray{
+				pulumi.Map{
+					"id":   pulumi.String("auth0"),
+					"name": pulumi.String("Auth0"),
+					"type": pulumi.String("oidc"),
+					"config": pulumi.Map{
+						"issuer":                                pulumi.String(issuerURI),
+						"clientID":                              pulumi.String(clientID),
+						"clientSecret":                          pulumi.String(clientSecret),
+						"redirectURI":                           pulumi.String(redirectURI),
+						"insecureEnableGroups":                  pulumi.Bool(true),
+						"insecureSkipEmailVerified":             pulumi.Bool(true),
+						"insecureSkipIssuerCallbackDomainCheck": pulumi.Bool(false),
+					},
+				},
+			},
 		},
 		"console": pulumi.Map{
-			"enabled": pulumi.Bool(false),
+			"enabled": pulumi.Bool(enableConsole),
 		},
 		"pachd": pulumi.Map{
-			"logLevel": pulumi.String("debug"),
+			"localhostIssuer": pulumi.String("true"),
+			"logLevel":        pulumi.String("debug"),
 			"image": pulumi.Map{
 				"tag": pulumi.String(pachdImageTag),
 			},
@@ -133,9 +199,8 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 				"enabled": pulumi.Bool(true),
 			},
 			"enterpriseLicenseKey": pulumi.String(enterpriseKey),
-			"oauthClientSecret":    pulumi.String("test"),
 			"rootToken":            pulumi.String("test"),
-			"enterpriseSecret":     pulumi.String("test"),
+			"activateEnterprise":   pulumi.Bool(true),
 		},
 		"deployTarget": pulumi.String("AMAZON"),
 		"global": pulumi.Map{

@@ -25,7 +25,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -34,6 +34,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -43,6 +45,8 @@ type ServerOptions struct {
 	// Unmount is a channel that will be closed when the filesystem has been
 	// unmounted. It can be nil in which case it's ignored.
 	Unmount chan struct{}
+	// True if allow-other option is to be specified
+	AllowOther bool
 }
 
 type ConfigRequest struct {
@@ -148,7 +152,7 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bis, err := mm.Client.ListProjectBranch(projectName, repoName)
+			bis, err := mm.Client.ListBranch(projectName, repoName)
 			if err != nil {
 				// Repo was deleted between ListRepo and ListBranch RPCs
 				if auth.IsErrNoRoleBinding(err) {
@@ -320,7 +324,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	}, nil
 }
 
-func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
+func CreateMount(c *client.APIClient, mountDir string, allowOther bool) (*MountManager, error) {
 	mountOpts := &Options{
 		Write: true,
 		Fuse: &fs.Options{
@@ -328,7 +332,7 @@ func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
 				Debug:      false,
 				FsName:     "pfs",
 				Name:       "pfs",
-				AllowOther: true,
+				AllowOther: allowOther,
 			},
 		},
 		RepoOptions: make(map[string]*RepoOptions),
@@ -390,7 +394,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	var mm *MountManager = &MountManager{}
 	if existingClient != nil {
 		var err error
-		mm, err = CreateMount(existingClient, sopts.MountDir)
+		mm, err = CreateMount(existingClient, sopts.MountDir, sopts.AllowOther)
 		if err != nil {
 			return err
 		}
@@ -410,6 +414,26 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		marshalled, err := json.Marshal(reposList)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Write(marshalled) //nolint:errcheck
+	})
+	router.Methods("GET").Path("/projects").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+
+		projectsList, err := mm.Client.ListProject()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		marshalled, err := json.Marshal(projectsList)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -587,16 +611,15 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		defer req.Body.Close()
-		pipelineBytes, err := io.ReadAll(req.Body)
+		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+		// TODO(INT-1006): This is a bit of a hack: the body is a tagged
+		// pipeline input spec, not a full pipeline.  In order for
+		// parsing to succeed, the next line disables spec validation.
+		pipelineReader.DisableValidation()
 		pipelineReq, err := pipelineReader.NextCreatePipelineRequest()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -621,7 +644,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.ID))
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
 		mis := mm.datumToMounts(datums[0], datumAlias)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
@@ -642,7 +665,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}()
 
 		resp := MountDatumResponse{
-			Id:        datums[0].Datum.ID,
+			Id:        datums[0].Datum.Id,
 			Idx:       0,
 			NumDatums: len(datums),
 		}
@@ -685,7 +708,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if id != "" {
 			foundDatum := false
 			for idx, di = range mm.Datums {
-				if di.Datum.ID == id {
+				if di.Datum.Id == id {
 					foundDatum = true
 					break
 				}
@@ -718,7 +741,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}()
 
 		resp := MountDatumResponse{
-			Id:        di.Datum.ID,
+			Id:        di.Datum.Id,
 			Idx:       idx,
 			NumDatums: len(mm.Datums),
 		}
@@ -804,7 +827,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				mm.Client.Close()
 			}
 			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
-			if mm, err = CreateMount(newClient, sopts.MountDir); err != nil {
+			if mm, err = CreateMount(newClient, sopts.MountDir, sopts.AllowOther); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -822,6 +845,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled) //nolint:errcheck
 	})
+	// We have split login into two endpoints, both of which must be called to complete the login flow.
+	// /auth/_login gets the OIDC login, which the user should be redirected to for login. Following this,
+	// /auth/_login_token should be called to retrieve the session token so that the caller may use it as well.
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
 		if errMsg != "" {
@@ -840,26 +866,47 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, "no authentication providers configured", http.StatusInternalServerError)
 			return
 		}
-		authUrl := loginInfo.LoginURL
+		authUrl := loginInfo.LoginUrl
 		state := loginInfo.State
 
-		r := map[string]string{"auth_url": authUrl}
+		r := map[string]string{"auth_url": authUrl, "oidc_state": state}
 		marshalled, err := jsonMarshal(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
+	})
+	// takes oidc state as arg
+	// returns pachyderm config for the mount-server
+	router.Methods("PUT").Path("/auth/_login_token").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+		oidcState, err := io.ReadAll(req.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-		go func() {
-			resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			config.WritePachTokenToConfig(resp.PachToken, false) //nolint:errcheck
-			mm.Client.SetAuthToken(resp.PachToken)
-		}()
+		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OidcState: string(oidcState)})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		config.WritePachTokenToConfig(resp.PachToken, false) //nolint:errcheck
+		mm.Client.SetAuthToken(resp.PachToken)
+
+		cfg, err := config.Read(false, false)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		json, err := serde.EncodeJSON(cfg, serde.WithIndent(2))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(json) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/auth/_logout").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -905,7 +952,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
+		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
 		case <-sopts.Unmount:
@@ -982,7 +1029,7 @@ func getNewClient(cfgReq ConfigRequest) (*client.APIClient, error) {
 		options = append(options, client.WithAdditionalRootCAs(pemBytes))
 	}
 	options = append(options, client.WithDialTimeout(5*time.Second))
-	newClient, err := client.NewFromPachdAddressContext(pctx.TODO(), pachdAddress, options...)
+	newClient, err := client.NewFromPachdAddress(pctx.TODO(), pachdAddress, options...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
 	}
@@ -1001,7 +1048,7 @@ func updateConfig(cfgReq ConfigRequest) error {
 	}
 	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	cfg.V2.ActiveContext = "mount-server"
-	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
+	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCas: cfgReq.ServerCas}
 	if err = cfg.Write(); err != nil {
 		return err
 	}
@@ -1039,7 +1086,7 @@ func (mm *MountManager) verifyProjectRepoExist(project, repo string) (bool, erro
 	if _, err := mm.verifyProjectExists(project); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectProjectRepo(project, repo); err != nil {
+	if _, err := mm.Client.InspectRepo(project, repo); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1049,7 +1096,7 @@ func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch strin
 	if _, err := mm.verifyProjectRepoExist(project, repo); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectProjectBranch(project, repo, branch); err != nil {
+	if _, err := mm.Client.InspectBranch(project, repo, branch); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1195,7 +1242,7 @@ func createLocalOutDir(mm *MountManager) {
 	// info is necessary.
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
-		File:  client.NewProjectFile("", "out", "", "", ""),
+		File:  client.NewFile("", "out", "", "", ""),
 		Write: true,
 	}
 }
@@ -1241,7 +1288,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
-	branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
+	branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 	if err != nil {
 		return err
 	}
@@ -1249,7 +1296,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	if err != nil {
 		return err
 	}
-	m.LatestCommit = commitInfos[0].Commit.ID
+	m.LatestCommit = commitInfos[0].Commit.Id
 
 	// reverse slice
 	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
@@ -1260,8 +1307,8 @@ func (m *MountStateMachine) RefreshMountState() error {
 	log.Info(pctx.TODO(), "mounting", zap.String("name", m.Name))
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
-		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.ID), zap.String("actualMountedCommitID", m.ActualMountedCommit))
-		if commitInfo.Commit.ID == m.ActualMountedCommit {
+		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.Id), zap.String("actualMountedCommitID", m.ActualMountedCommit))
+		if commitInfo.Commit.Id == m.ActualMountedCommit {
 			indexOfCurrentCommit = i
 			break
 		}
@@ -1367,7 +1414,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 		switch req.Action {
 		case "mount":
 			// check user permissions on repo
-			repoInfo, err := m.manager.Client.InspectProjectRepo(req.Project, req.Repo)
+			repoInfo, err := m.manager.Client.InspectRepo(req.Project, req.Repo)
 			if err != nil {
 				m.responses <- Response{
 					Project:    req.Project,
@@ -1452,14 +1499,14 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:     m.Name,
-			File:     client.NewProjectFile(m.Project, m.Repo, m.Branch, "", ""),
+			File:     client.NewFile(m.Project, m.Repo, m.Branch, "", ""),
 			Subpaths: m.Files,
 			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
 
 		// Get the latest non-alias commit on branch
-		branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
+		branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 		if errutil.IsNotFoundError(err) {
 			m.manager.root.commits[m.Name] = ""
 			return nil
@@ -1471,7 +1518,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		if err != nil {
 			return err
 		}
-		m.manager.root.commits[m.Name] = commitInfos[0].Commit.ID
+		m.manager.root.commits[m.Name] = commitInfos[0].Commit.Id
 		return nil
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
@@ -1688,7 +1735,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	}
 	projectName := opts.File.Commit.Branch.Repo.Project.GetName()
 	repoName := opts.File.Commit.Branch.Repo.Name
-	mfc, err := mm.Client.NewModifyFileClient(client.NewProjectCommit(projectName, repoName, mm.root.branch(name), ""))
+	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
 	}

@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -122,7 +122,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 				// watcher (or the read collection that created it) has been canceled -
 				// unregister the watcher and stop forwarding notifications.
 				select {
-				case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
+				case pw.c <- &watch.Event{Type: watch.EventError, Err: context.Cause(ctx)}:
 					pw.listener.Unregister(pw) //nolint:errcheck
 				case <-pw.done:
 				}
@@ -135,7 +135,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 			// watcher (or the read collection that created it) has been canceled -
 			// unregister the watcher and stop forwarding notifications.
 			select {
-			case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
+			case pw.c <- &watch.Event{Type: watch.EventError, Err: context.Cause(ctx)}:
 				pw.listener.Unregister(pw) //nolint:errcheck
 			case <-pw.done:
 			}
@@ -149,7 +149,7 @@ func (pw *postgresWatcher) sendInitial(ctx context.Context, event *watch.Event) 
 	case pw.c <- event:
 		return nil
 	case <-ctx.Done():
-		return errors.EnsureStack(ctx.Err())
+		return errors.EnsureStack(context.Cause(ctx))
 	case <-pw.done:
 		return errors.New("failed to send initial event, watcher has been closed")
 	}

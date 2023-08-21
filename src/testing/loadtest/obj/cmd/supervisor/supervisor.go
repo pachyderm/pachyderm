@@ -9,14 +9,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client/limit"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 const (

@@ -313,7 +313,7 @@ func main() {
 			log.Fatalf("make minio client: %v", err)
 		}
 		benchErr = bench(func(name string, r io.Reader, length uint64) error {
-			res, err := mc.PutObject(ctx, "master.benchmark-upload", name, r, int64(length), minio.PutObjectOptions{
+			res, err := mc.PutObject(ctx, "master.benchmark-upload.default", name, r, int64(length), minio.PutObjectOptions{
 				DisableMultipart: true,
 			})
 			log.Printf("minio reply: %#v", res)
@@ -328,7 +328,7 @@ func main() {
 			log.Fatalf("minio: %v", err)
 		}
 		benchErr = bench(func(name string, r io.Reader, length uint64) error {
-			res, err := mc.PutObject(ctx, "master.benchmark-upload", name, r, int64(length), minio.PutObjectOptions{
+			res, err := mc.PutObject(ctx, "master.benchmark-upload.default", name, r, int64(length), minio.PutObjectOptions{
 				DisableMultipart: false,
 			})
 			log.Printf("minio response: %#v", res)

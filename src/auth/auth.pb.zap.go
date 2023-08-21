@@ -61,9 +61,9 @@ func (x *OIDCConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("issuer", x.Issuer)
-	enc.AddString("client_id", x.ClientID)
+	enc.AddString("client_id", x.ClientId)
 	enc.AddString("client_secret", "[MASKED]")
-	enc.AddString("redirect_uri", x.RedirectURI)
+	enc.AddString("redirect_uri", x.RedirectUri)
 	scopesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Scopes {
 			enc.AppendString(v)
@@ -112,9 +112,7 @@ func (x *TokenInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("subject", x.Subject)
-	if t := x.Expiration; t != nil {
-		enc.AddTime("expiration", *t)
-	}
+	protoextensions.AddTimestamp(enc, "expiration", x.Expiration)
 	enc.AddString("hashed_token", x.HashedToken)
 	return nil
 }
@@ -123,7 +121,7 @@ func (x *AuthenticateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-	protoextensions.AddHalfString(enc, "oidc_state", x.OIDCState)
+	protoextensions.AddHalfString(enc, "oidc_state", x.OidcState)
 	protoextensions.AddHalfString(enc, "id_token", x.IdToken)
 	return nil
 }
@@ -148,9 +146,7 @@ func (x *WhoAmIResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("username", x.Username)
-	if t := x.Expiration; t != nil {
-		enc.AddTime("expiration", *t)
-	}
+	protoextensions.AddTimestamp(enc, "expiration", x.Expiration)
 	return nil
 }
 
@@ -249,13 +245,20 @@ func (x *Role) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("permissions", zapcore.ArrayMarshalerFunc(permissionsArrMarshaller))
-	resource_typesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.ResourceTypes {
+	can_be_bound_toArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.CanBeBoundTo {
 			enc.AppendString(v.String())
 		}
 		return nil
 	}
-	enc.AddArray("resource_types", zapcore.ArrayMarshalerFunc(resource_typesArrMarshaller))
+	enc.AddArray("can_be_bound_to", zapcore.ArrayMarshalerFunc(can_be_bound_toArrMarshaller))
+	returned_forArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.ReturnedFor {
+			enc.AppendString(v.String())
+		}
+		return nil
+	}
+	enc.AddArray("returned_for", zapcore.ArrayMarshalerFunc(returned_forArrMarshaller))
 	return nil
 }
 
@@ -395,7 +398,7 @@ func (x *GetOIDCLoginResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-	protoextensions.AddHalfString(enc, "login_url", x.LoginURL)
+	protoextensions.AddHalfString(enc, "login_url", x.LoginUrl)
 	protoextensions.AddHalfString(enc, "state", x.State)
 	return nil
 }
@@ -405,7 +408,7 @@ func (x *GetRobotTokenRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddString("robot", x.Robot)
-	enc.AddInt64("ttl", x.TTL)
+	enc.AddInt64("ttl", x.Ttl)
 	return nil
 }
 

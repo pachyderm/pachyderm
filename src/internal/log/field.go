@@ -5,8 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/protoextensions"
@@ -14,6 +12,12 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Proto is a Field containing a protocol buffer message.
@@ -21,30 +25,22 @@ func Proto(name string, msg proto.Message) Field {
 	switch x := msg.(type) {
 	case zapcore.ObjectMarshaler:
 		return zap.Object(name, x)
-	case *types.Empty:
+	case *emptypb.Empty:
 		return zap.Skip()
-	case *types.Timestamp:
-		t, err := types.TimestampFromProto(x)
-		if err != nil {
-			return zap.Any(name, x)
-		}
-		return zap.Time(name, t)
-	case *types.Duration:
-		d, err := types.DurationFromProto(x)
-		if err != nil {
-			return zap.Any(name, x)
-		}
-		return zap.Duration(name, d)
-	case *types.BytesValue:
+	case *timestamppb.Timestamp:
+		return zap.Time(name, x.AsTime())
+	case *durationpb.Duration:
+		return zap.Duration(name, x.AsDuration())
+	case *wrapperspb.BytesValue:
 		return zap.Object(name, protoextensions.ConciseBytes(x.GetValue()))
-	case *types.Int64Value:
+	case *wrapperspb.Int64Value:
 		return zap.Int64(name, x.GetValue())
-	case *types.Any:
-		var any types.DynamicAny
-		if err := types.UnmarshalAny(x, &any); err != nil {
+	case *anypb.Any:
+		msg, err := x.UnmarshalNew()
+		if err != nil {
 			return zap.Any(name, x)
 		}
-		return Proto(name, any.Message)
+		return Proto(name, msg)
 	}
 	return zap.Any(name, msg)
 }
@@ -65,14 +61,19 @@ func RetryAttempt(i int, max int) Field {
 	return zap.Inline(&attempt{i: i, max: max})
 }
 
-// Metadata is a Field that logs the provided metadata (canonicalizing keys, and collapsing
-// single-element values to strings).
+// Metadata is a Field that logs the provided metadata (canonicalizing keys, collapsing
+// single-element values to strings, and removing the Pachyderm auth token).
 func Metadata(name string, md metadata.MD) Field {
 	return zap.Object(name, zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		keys := maps.Keys(md)
 		sort.Strings(keys)
 		for _, k := range keys {
 			v := md[k]
+			if k == constants.ContextTokenKey {
+				for i := range v {
+					v[i] = "[MASKED]"
+				}
+			}
 			switch len(v) {
 			case 0:
 				continue
@@ -100,9 +101,6 @@ func OutgoingMetadata(ctx context.Context) Field {
 	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		return zap.Skip()
-	}
-	if _, ok := md[constants.ContextTokenKey]; ok {
-		md[constants.ContextTokenKey] = []string{"..."}
 	}
 	return Metadata("metadata", md)
 }

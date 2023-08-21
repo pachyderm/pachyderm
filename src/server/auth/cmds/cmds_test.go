@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -117,7 +117,7 @@ func TestLogin(t *testing.T) {
 	// Configure OIDC login
 	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser), false))
 
-	cmd := tu.PachctlBashCmd(t, c, "pachctl auth login --no-browser")
+	cmd := tu.PachctlBashCmd(t, c, "echo '' | pachctl auth use-auth-token && pachctl auth login --no-browser")
 	out, err := cmd.StdoutPipe()
 	require.NoError(t, err)
 

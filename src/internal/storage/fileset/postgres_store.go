@@ -6,32 +6,35 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/jmoiron/sqlx"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
+	"google.golang.org/protobuf/proto"
 )
 
 var _ MetadataStore = &postgresStore{}
 
 type postgresStore struct {
 	db      *pachsql.DB
-	cache   kv.GetPut
+	cache   *lru.Cache[ID, *Metadata]
 	deduper *miscutil.WorkDeduper[ID]
 }
 
 // NewPostgresStore returns a Store backed by db
 // TODO: Expose configuration for cache size?
 func NewPostgresStore(db *pachsql.DB) MetadataStore {
+	mc, err := lru.New[ID, *Metadata](100)
+	if err != nil {
+		panic(err)
+	}
 	return &postgresStore{
 		db:      db,
-		cache:   kv.NewMemCache(100),
+		cache:   mc,
 		deduper: &miscutil.WorkDeduper[ID]{},
 	}
 }
@@ -82,7 +85,7 @@ func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (
 }
 
 func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
-	md, err := s.getFromCache(ctx, id)
+	md, err := s.getFromCache(id)
 	if err == nil {
 		return md, err
 	}
@@ -90,7 +93,7 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	b.InitialInterval = 1 * time.Millisecond
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		var err error
-		md, err = s.getFromCache(ctx, id)
+		md, err = s.getFromCache(id)
 		return err
 	}, b, func(err error, _ time.Duration) error {
 		if !pacherr.IsNotExist(err) {
@@ -101,7 +104,8 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 			if err != nil {
 				return err
 			}
-			return s.putInCache(ctx, id, md)
+			s.putInCache(id, md)
+			return nil
 		})
 	}); err != nil {
 		return nil, err
@@ -109,22 +113,17 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	return md, nil
 }
 
-func (s *postgresStore) getFromCache(ctx context.Context, id ID) (*Metadata, error) {
-	md := &Metadata{}
-	if err := s.cache.Get(ctx, id[:], func(data []byte) error {
-		return errors.EnsureStack(proto.Unmarshal(data, md))
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
+func (s *postgresStore) getFromCache(id ID) (*Metadata, error) {
+	md, ok := s.cache.Get(id)
+	if !ok {
+		return nil, pacherr.NewNotExist("memory-filesets", id.HexString())
 	}
-	return md, nil
+	return proto.Clone(md).(*Metadata), nil
 }
 
-func (s *postgresStore) putInCache(ctx context.Context, id ID, md *Metadata) error {
-	mdData, err := proto.Marshal(md)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	return errors.EnsureStack(s.cache.Put(ctx, id[:], mdData))
+func (s *postgresStore) putInCache(id ID, md *Metadata) {
+	md = proto.Clone(md).(*Metadata)
+	s.cache.Add(id, md)
 }
 
 func (s *postgresStore) GetTx(tx *pachsql.Tx, id ID) (*Metadata, error) {

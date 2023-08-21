@@ -8,7 +8,8 @@ export VM_IP
 ENTERPRISE_PORT="31650"
 export ENTEPRRISE_PORT
 
-TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
+mkdir -p "${TEST_RESULTS}"
+TESTFLAGS="-v=test2json -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./... | stdbuf -i0 tee -a /tmp/go-test-results.txt"
 export TESTFLAGS
 
 # make launch-kube connects with kubernetes, so it should just be available
@@ -34,7 +35,6 @@ case "${BUCKET}" in
     make test-s3gateway-unit
     make test-worker
     make test-testutils
-    bash -ceo pipefail "go test -p 1 -count 1 ./src/server/debug/... ${TESTFLAGS}"
     # these tests require secure env vars to run, which aren't available
     # when the PR is coming from an outside contributor - so we just
     # disable them
@@ -47,7 +47,7 @@ case "${BUCKET}" in
     ;;
   S3_AUTH)
     export PACH_TEST_WITH_AUTH=1
-    go test -count=1 -tags=k8s ./src/server/pps/server/s3g_sidecar_test.go -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
+    bash -ceo pipefail "go test -count=1 -tags=k8s ./src/server/pps/server/s3g_sidecar_test.go -timeout 420s ${TESTFLAGS}"
     ;;
   AUTH)
     make test-auth

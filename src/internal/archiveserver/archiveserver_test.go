@@ -14,14 +14,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type fakePFS struct {
@@ -34,7 +34,7 @@ type getFileTARClient struct {
 	files map[string]string
 }
 
-func (c *getFileTARClient) Recv() (*types.BytesValue, error) {
+func (c *getFileTARClient) Recv() (*wrapperspb.BytesValue, error) {
 	if !c.recvd {
 		c.recvd = true
 		buf := new(bytes.Buffer)
@@ -56,9 +56,7 @@ func (c *getFileTARClient) Recv() (*types.BytesValue, error) {
 		if err := w.Close(); err != nil {
 			return nil, errors.Wrap(err, "Close")
 		}
-		return &types.BytesValue{
-			Value: buf.Bytes(),
-		}, nil
+		return wrapperspb.Bytes(buf.Bytes()), nil
 	}
 	return nil, io.EOF
 }
@@ -68,7 +66,7 @@ const fakeCommit = "44444444444444444444444444444444"
 func (fakePFS) GetFileTAR(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error) {
 	log.Debug(ctx, "GetFileTAR", log.Proto("request", req))
 	files := map[string]string{}
-	if req.File.Commit.ID == fakeCommit {
+	if req.File.Commit.Id == fakeCommit {
 		if req.File.Commit.Repo.Name == "images" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/" {
 			files["/hello.txt"] = "hello"
 			files["/a/"] = ""
@@ -94,7 +92,7 @@ func (fakePFS) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest,
 		return &pfs.BranchInfo{
 			Head: &pfs.Commit{
 				Repo: req.Branch.Repo,
-				ID:   fakeCommit,
+				Id:   fakeCommit,
 			},
 		}, nil
 	}
@@ -141,33 +139,33 @@ var testData = []struct {
 	{
 		name:      "empty download",
 		method:    "GET",
-		url:       "http://pachyderm.example.com/download/AQ.zip",
+		url:       "http://pachyderm.example.com/archive/AQ.zip",
 		wantCode:  http.StatusOK,
 		wantFiles: map[string]string{},
 	},
 	{
 		name:      "empty download with auth token",
 		method:    "GET",
-		url:       "http://pachyderm.example.com/download/AQ.zip?authn-token=foobar",
+		url:       "http://pachyderm.example.com/archive/AQ.zip?authn-token=foobar",
 		wantCode:  http.StatusOK,
 		wantFiles: map[string]string{},
 	},
 	{
 		name:     "invalid output format",
 		method:   "GET",
-		url:      "http://pachyderm.example.com/download/AQ.tar.bz2",
+		url:      "http://pachyderm.example.com/archive/AQ.tar.bz2",
 		wantCode: http.StatusBadRequest,
 	},
 	{
 		name:     "unknown method",
 		method:   "HEAD",
-		url:      "http://pachyderm.example.com/download/AQ.zip",
+		url:      "http://pachyderm.example.com/archive/AQ.zip",
 		wantCode: http.StatusMethodNotAllowed,
 	},
 	{
 		name:     "download with some content",
 		method:   "GET",
-		url:      "https://pachyderm.example.com/download/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip",
+		url:      "https://pachyderm.example.com/archive/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip",
 		wantCode: http.StatusOK,
 		wantFiles: map[string]string{
 			"default/images/44444444444444444444444444444444/hello.txt":         "hello",
@@ -178,7 +176,7 @@ var testData = []struct {
 	{
 		name:     "download with some content, commit references in URL",
 		method:   "GET",
-		url:      "https://pachyderm.example.com/download/ASi1L_0EaL0BAIQCZGVmYXVsdC9pbWFnZXNANDovaGVsbG8udHh0AG1vbnRhZ2UucG5nAAQATRHgK2e8IpIGLAGgJI8S.zip",
+		url:      "https://pachyderm.example.com/archive/ASi1L_0EaL0BAIQCZGVmYXVsdC9pbWFnZXNANDovaGVsbG8udHh0AG1vbnRhZ2UucG5nAAQATRHgK2e8IpIGLAGgJI8S.zip",
 		wantCode: http.StatusOK,
 		wantFiles: map[string]string{
 			"default/images/44444444444444444444444444444444/hello.txt":    "hello",
@@ -188,7 +186,7 @@ var testData = []struct {
 	{
 		name:     "download with an error reading files",
 		method:   "GET",
-		url:      "https://pachyderm.example.com/download/ASi1L_0EaPkAAGRlZmF1bHQvdGVzdEBtYXN0ZXI6L2Vycm9yLnR4dABwDhIY.zip",
+		url:      "https://pachyderm.example.com/archive/ASi1L_0EaPkAAGRlZmF1bHQvdGVzdEBtYXN0ZXI6L2Vycm9yLnR4dABwDhIY.zip",
 		wantCode: http.StatusOK,
 		wantFiles: map[string]string{
 			"@error.txt": "path default/test@=44444444444444444444444444444444:/error.txt: read TAR header: error reading from the server\n",
@@ -242,12 +240,12 @@ func FuzzHTTP(f *testing.F) {
 		}
 
 		up, err := url.Parse(u)
-		isDownload := err == nil && strings.HasPrefix(up.Path, "/download/")
+		isArchive := err == nil && strings.HasPrefix(up.Path, "/archive/")
 
 		// Then use the normal testing machinery.
 		code, body := doTest(t, "GET", u)
-		if code == http.StatusOK && isDownload && body.Len() > 0 {
-			// If the code is OK and the URL starts with /download/, then there should
+		if code == http.StatusOK && isArchive && body.Len() > 0 {
+			// If the code is OK and the URL starts with /archive/, then there should
 			// be either nothing, or a zip.  Assert that the ZIP is readable.
 			bs := body.Bytes()
 			t.Logf("potential zip bytes: %x %s", bs, bs)

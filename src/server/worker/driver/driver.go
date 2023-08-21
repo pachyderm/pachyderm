@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-
 	"os"
 	"os/exec"
 	"os/user"
@@ -17,7 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -31,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TODO(2.0 optional):
@@ -85,7 +85,7 @@ type Driver interface {
 
 	// UserCodeEnv returns the set of environment variables to construct when
 	// launching the configured user process.
-	UserCodeEnv(string, *pfs.Commit, []*common.Input) []string
+	UserCodeEnv(string, *pfs.Commit, []*common.Input, string) []string
 
 	RunUserCode(context.Context, logs.TaggedLogger, []string) error
 
@@ -96,9 +96,11 @@ type Driver interface {
 	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
 
+	GetJobInfo(job *pps.Job) (*pps.JobInfo, error)
+
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSQLTx(func(*pachsql.Tx) error) error
+	NewSQLTx(func(context.Context, *pachsql.Tx) error) error
 
 	// Returns the image ID associated with a container running in the worker pod
 	GetContainerImageID(context.Context, string) (string, error)
@@ -322,7 +324,7 @@ func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient.WithCtx(d.ctx)
 }
 
-func (d *driver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+func (d *driver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return dbutil.WithTx(d.ctx, d.env.GetDBClient(), cb)
 }
 
@@ -488,13 +490,21 @@ func (d *driver) RunUserErrorHandlingCode(
 }
 
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
-	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+	return d.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
+}
+
+func (d *driver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
+	jobInfo := &pps.JobInfo{}
+	if err := d.Jobs().ReadOnly(d.ctx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return jobInfo, nil
 }
 
 // DeleteJob is identical to updateJobState, except that jobInfo points to a job
@@ -524,12 +534,13 @@ func (d *driver) UserCodeEnv(
 	jobID string,
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
+	pachToken string,
 ) []string {
 	result := os.Environ()
 
 	for _, input := range inputs {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
-		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.Id))
 		if input.JoinOn != "" {
 			result = append(result, fmt.Sprintf("PACH_DATUM_%s_JOIN_ON=%s", input.Name, input.JoinOn))
 		}
@@ -562,13 +573,29 @@ func (d *driver) UserCodeEnv(
 					os.Getenv("S3GATEWAY_PORT"),
 				),
 			)
+
+			// Set AWS_... creds vars in addition to PACH_PIPELINE_TOKEN so that any
+			// S3 clients running in the user code use these and successfully connect
+			// by default
+			if pachToken != "" {
+				result = append(result, "AWS_ACCESS_KEY_ID="+pachToken)
+				result = append(result, "AWS_SECRET_ACCESS_KEY="+pachToken)
+			} else {
+				// If auth is off, clients can use any creds with Pachyderm's S3
+				// gateway, as long as the ID and secret match. However, many clients
+				// (e.g. the AWS cli) require _some_ nonempty creds; this default value
+				// allows those clients to work in pipelines if Pachyderm auth is off.
+				result = append(result, "AWS_ACCESS_KEY_ID=default")
+				result = append(result, "AWS_SECRET_ACCESS_KEY=default")
+			}
 		}
 	}
-
-	if outputCommit != nil {
-		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+	if pachToken != "" {
+		result = append(result, "PACH_TOKEN="+pachToken)
 	}
-
+	if outputCommit != nil {
+		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.Id))
+	}
 	return result
 }
 

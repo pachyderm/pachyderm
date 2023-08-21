@@ -17,15 +17,24 @@ data:
       name: {{ .Values.pachd.oauthClientID }}
       redirect_uris:
       - {{ include "pachyderm.pachdRedirectURI" . }}
-      {{- if .Values.console.enabled}}
       trusted_peers:
+      {{- if .Values.console.enabled}}
       - {{ .Values.console.config.oauthClientID | quote }}
+      {{- end }}
+      {{- if .Values.determined.enabled}}
+      - {{ default "determined" .Values.determined.oidc.clientId }}
       {{- end }}
     {{- if .Values.console.enabled }}
     - id: {{ .Values.console.config.oauthClientID }}
       name: {{ .Values.console.config.oauthClientID  }}
       redirect_uris:
       - {{ include "pachyderm.consoleRedirectURI" . | quote }}
+    {{- end }}
+    {{- if .Values.determined.enabled }}
+    - id: {{ default "determined" .Values.determined.oidc.clientId }}
+      name: {{ default "determined" .Values.determined.oidc.clientId }}
+      redirect_uris:
+      - {{ required "A valid recipient url is required!" (printf "%s/oidc/callback" .Values.determined.oidc.idpRecipientUrl) }}
     {{- end }}
   trusted-peers: |
 {{ toYaml .Values.pachd.additionalTrustedPeers | indent 4 }}

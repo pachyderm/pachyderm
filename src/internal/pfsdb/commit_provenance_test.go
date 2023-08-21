@@ -6,7 +6,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	v2_6_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.6.0"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -30,7 +31,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 			col.NewPostgresCollection("commits", db, nil, &pfs.CommitInfo{}, nil)))
 		_, err = tx.ExecContext(ctx, `CREATE SCHEMA pfs`)
 		require.NoError(suite, err)
-		require.NoError(suite, SetupCommitProvenanceV0(ctx, tx))
+		require.NoError(suite, v2_6_0.SetupCommitProvenanceV0(ctx, tx))
 	})
 	suite.Cleanup(func() {
 		db.Close()
@@ -99,7 +100,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 		withTx(t, db, func(tx *pachsql.Tx) {
 			xSubv, err := CommitSetSubvenance(tx, "x")
 			require.NoError(t, err)
-			dAtW := client.NewProjectCommit(proj, "D", "", "w")
+			dAtW := client.NewCommit(proj, "D", "", "w")
 			checkCommitsEqual(t, []*pfs.Commit{c, dAtW, d}, xSubv)
 		})
 	})
@@ -163,7 +164,7 @@ func (td *testDAG) addRepo(tx *pachsql.Tx, repo string, provRepos ...string) err
 		return errors.Errorf("repo %q already exists", repo)
 	}
 	commitID := uuid.New()
-	c := client.NewProjectCommit(td.project, repo, "", commitID)
+	c := client.NewCommit(td.project, repo, "", commitID)
 	if err := addCommitWrapper(tx, c); err != nil {
 		return err
 	}
@@ -197,7 +198,7 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 	for len(bfsQueue) > 0 {
 		var r string
 		r, bfsQueue = bfsQueue[0], bfsQueue[1:]
-		c := client.NewProjectCommit(td.project, r, "", commitID)
+		c := client.NewCommit(td.project, r, "", commitID)
 		if _, ok := seen[CommitKey(c)]; !ok {
 			if err := addCommitWrapper(tx, c); err != nil {
 				return nil, err
@@ -212,7 +213,7 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 		}
 		bfsQueue = append(bfsQueue, td.subvDag[r]...)
 	}
-	return client.NewProjectCommit(td.project, repo, "", commitID), nil
+	return client.NewCommit(td.project, repo, "", commitID), nil
 }
 
 func addCommitWrapper(tx *pachsql.Tx, c *pfs.Commit) error {

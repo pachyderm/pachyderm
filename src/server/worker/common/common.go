@@ -7,7 +7,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -23,6 +23,8 @@ const (
 	OutputPrefix = "out"
 	// TmpFileName is the name of the tmp file.
 	TmpFileName = "tmp"
+	// EnvFileName is the name of the env file.
+	EnvFileName = ".env"
 	TTL         = 15 * time.Minute
 )
 

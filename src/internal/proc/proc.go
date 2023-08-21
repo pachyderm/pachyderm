@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/prometheus/procfs"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -36,13 +35,13 @@ func getOneProcessStats(p procfs.Proc, stat procfs.ProcStat) (*ProcessStats, err
 	var pstat ProcessStats
 
 	if fds, err := p.FileDescriptors(); err != nil {
-		multierr.AppendInto(&errs, errors.Wrap(err, "FileDescriptors"))
+		errors.JoinInto(&errs, errors.Wrap(err, "FileDescriptors"))
 	} else {
 		pstat.FDCount = len(fds)
 	}
 
 	if io, err := p.IO(); err != nil {
-		multierr.AppendInto(&errs, errors.Wrap(err, "IO"))
+		errors.JoinInto(&errs, errors.Wrap(err, "IO"))
 	} else {
 		pstat.RChars = io.RChar
 		pstat.WChars = io.WChar
@@ -56,12 +55,12 @@ func getOneProcessStats(p procfs.Proc, stat procfs.ProcStat) (*ProcessStats, err
 	pstat.ResidentMemory = stat.ResidentMemory()
 
 	if oomScoreRaw, err := os.ReadFile(fmt.Sprintf("/proc/%d/oom_score", stat.PID)); err != nil {
-		multierr.AppendInto(&errs, err)
+		errors.JoinInto(&errs, err)
 	} else {
 		var err error
 		pstat.OOMScore, err = strconv.Atoi(strings.TrimSpace(string(oomScoreRaw)))
 		if err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "parse oom_score"))
+			errors.JoinInto(&errs, errors.Wrap(err, "parse oom_score"))
 		}
 	}
 	return &pstat, errs
@@ -101,7 +100,7 @@ func getProcessStats(fs procfs.FS, pid int) (*ProcessStats, error) {
 		for _, p := range all {
 			stat, err := p.Stat()
 			if err != nil {
-				multierr.AppendInto(&errs, errors.Wrapf(err, "Stat(%v)", p.PID))
+				errors.JoinInto(&errs, errors.Wrapf(err, "Stat(%v)", p.PID))
 				continue
 			}
 			if stat.PGRP != pgid {
@@ -109,7 +108,7 @@ func getProcessStats(fs procfs.FS, pid int) (*ProcessStats, error) {
 			}
 			pstat, err := getOneProcessStats(p, stat)
 			if err != nil {
-				multierr.AppendInto(&errs, errors.Wrapf(err, "getProcessStats(%v)", p.PID))
+				errors.JoinInto(&errs, errors.Wrapf(err, "getProcessStats(%v)", p.PID))
 				continue
 			}
 			stats = append(stats, pstat)

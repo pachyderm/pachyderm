@@ -14,11 +14,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"go.uber.org/zap"
-
-	"github.com/gogo/protobuf/proto"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // defaultLimit was experimentally determined to be the highest value that could work
@@ -151,7 +150,7 @@ func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Contex
 		return errors.EnsureStack(err)
 	}
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(pctx.Child(ctx, "WithRenewer"))
+	ctx, cancel = pctx.WithCancel(pctx.Child(ctx, "WithRenewer"))
 	defer cancel()
 	keepAliveChan, err := c.etcdClient.KeepAlive(ctx, resp.ID)
 	if err != nil {
@@ -593,7 +592,7 @@ func watchF(ctx context.Context, watcher watch.Watcher, f func(e *watch.Event) e
 				return err
 			}
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 	}
 }

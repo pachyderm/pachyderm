@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -118,7 +119,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 		Template: writeTemplate,
 	})
 	require.NoError(t, err)
-	pipelineReader, err := ppsutil.NewPipelineManifestReader([]byte(fmt.Sprintf("[%s,%s]", readPipelineTempl.GetJson(), writePipelineTempl.GetJson())))
+	pipelineReader, err := ppsutil.NewPipelineManifestReader(strings.NewReader(fmt.Sprintf("[%s,%s]", readPipelineTempl.GetJson(), writePipelineTempl.GetJson())))
 	require.NoError(t, err)
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
@@ -131,10 +132,10 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	}
 
 	// run cron job and wait for both pipelines to succeed
-	require.NoError(t, c.RunProjectCron(pfs.DefaultProjectName, readPipeline))
-	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, readPipeline, "master", "")
+	require.NoError(t, c.RunCron(pfs.DefaultProjectName, readPipeline))
+	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, readPipeline, "master", "")
 	require.NoError(t, err)
-	jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, readPipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.InspectJob(pfs.DefaultProjectName, readPipeline, commitInfo.Commit.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
 
@@ -142,9 +143,9 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, files, nRows)
 
-	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, writePipeline, "master", "")
+	commitInfo, err = c.WaitCommit(pfs.DefaultProjectName, writePipeline, "master", "")
 	require.NoError(t, err)
-	jobInfo, err = c.InspectProjectJob(pfs.DefaultProjectName, writePipeline, commitInfo.Commit.ID, false)
+	jobInfo, err = c.InspectJob(pfs.DefaultProjectName, writePipeline, commitInfo.Commit.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
 

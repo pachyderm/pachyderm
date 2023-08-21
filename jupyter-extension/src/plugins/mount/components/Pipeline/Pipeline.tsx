@@ -1,15 +1,25 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {PpsContext, PpsMetadata, MountSettings} from '../../types';
+import {PpsContext, PpsMetadata, MountSettings, GpuMode} from '../../types';
 
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
   settings: MountSettings;
   setShowPipeline: (shouldShow: boolean) => void;
   saveNotebookMetadata: (metadata: PpsMetadata) => void;
+  saveNotebookToDisk: () => Promise<string | null>;
 };
 
+const placeholderAdvancedResourceSpec = `# example:
+gpu:
+  type: nvidia.com/gpu
+  number: 1
+`;
+const placeholderSimpleResourceSpec = `gpu:
+  type: nvidia.com/gpu
+  number: 1
+`;
 const placeholderInputSpec = `# example:
 pfs:
   repo: images
@@ -17,28 +27,43 @@ pfs:
   glob: /*
 `;
 const placeholderRequirements = './requirements.txt';
+const placeholderProject = 'default';
 
 const Pipeline: React.FC<PipelineProps> = ({
   ppsContext,
   settings,
   setShowPipeline,
   saveNotebookMetadata,
+  saveNotebookToDisk,
 }) => {
   const {
     loading,
-    pipeline,
-    setPipeline,
+    pipelineName,
+    setPipelineName,
+    pipelineProject,
+    setPipelineProject,
     imageName,
     setImageName,
     inputSpec,
     setInputSpec,
+    pipelinePort,
+    setPipelinePort,
+    gpuMode,
+    setGpuMode,
+    resourceSpec,
+    setResourceSpec,
     requirements,
     setRequirements,
     callCreatePipeline,
     currentNotebook,
     errorMessage,
     responseMessage,
-  } = usePipeline(ppsContext, settings, saveNotebookMetadata);
+  } = usePipeline(
+    ppsContext,
+    settings,
+    saveNotebookMetadata,
+    saveNotebookToDisk,
+  );
 
   return (
     <div className="pachyderm-mount-pipeline-base">
@@ -87,15 +112,30 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input"
           data-testid="Pipeline__inputPipelineName"
           name="pipelineName"
-          value={
-            pipeline.project?.name
-              ? `${pipeline.project.name}/${pipeline.name}`
-              : pipeline.name
-          }
+          value={pipelineName}
           onChange={(e: any) => {
-            setPipeline(e.target.value);
+            setPipelineName(e.target.value);
           }}
           disabled={loading}
+        ></input>
+      </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label
+          className="pachyderm-pipeline-input-label"
+          htmlFor="pipelineProjectName"
+        >
+          Pipeline Project Name:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPipelineProjectName"
+          name="pipelineName"
+          value={pipelineProject}
+          onChange={(e: any) => {
+            setPipelineProject(e.target.value);
+          }}
+          disabled={loading}
+          placeholder={placeholderProject}
         ></input>
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
@@ -132,6 +172,21 @@ const Pipeline: React.FC<PipelineProps> = ({
           placeholder={placeholderRequirements}
         ></input>
       </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label className="pachyderm-pipeline-input-label" htmlFor="port">
+          Port:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPort"
+          name="port"
+          value={pipelinePort}
+          onChange={(e: any) => {
+            setPipelinePort(e.target.value);
+          }}
+          disabled={loading}
+        ></input>
+      </div>
       <div className="pachyderm-pipeline-textarea-wrapper">
         <label
           className="pachyderm-pipeline-textarea-label"
@@ -151,7 +206,45 @@ const Pipeline: React.FC<PipelineProps> = ({
           placeholder={placeholderInputSpec}
         ></textarea>
       </div>
-
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label className="pachyderm-pipeline-input-label" htmlFor="gpuMode">
+          *Gpu Mode:{'  '}
+        </label>
+        <select
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__gpuMode"
+          name="gpuMode"
+          value={gpuMode}
+          onChange={(e: any) => {
+            setGpuMode(e.target.value);
+          }}
+        >
+          {(Object.keys(GpuMode) as Array<GpuMode>).map((mode) => (
+            <option value={mode}>{mode}</option>
+          ))}
+        </select>
+      </div>
+      {gpuMode === GpuMode.Advanced && (
+        <div className="pachyderm-pipeline-textarea-wrapper">
+          <label
+            className="pachyderm-pipeline-textarea-label"
+            htmlFor="resourceSpec"
+          >
+            Pipeline Resource Spec:
+          </label>
+          <textarea
+            className="pachyderm-pipeline-textarea pachyderm-input"
+            data-testid="Pipeline__resourceSpecInput"
+            name="resourceSpec"
+            value={resourceSpec}
+            onChange={(e: any) => {
+              setResourceSpec(e.target.value);
+            }}
+            disabled={loading}
+            placeholder={placeholderAdvancedResourceSpec}
+          ></textarea>
+        </div>
+      )}
       <div className="pachyderm-pipeline-spec-preview pachyderm-pipeline-textarea-wrapper">
         <label className="pachyderm-pipeline-preview-label">
           Pipeline Spec Preview: {'  '}
@@ -162,8 +255,8 @@ const Pipeline: React.FC<PipelineProps> = ({
           data-testid="Pipeline__specPreview"
           name="specPreview"
           value={`pipeline:
-  name: ${pipeline.name}
-  project: ${pipeline.project?.name ?? 'default'}
+  name: ${pipelineName}
+  project: ${pipelineProject || placeholderProject}
 transform:
   image: ${imageName}
 input:
@@ -171,7 +264,20 @@ ${inputSpec
   .split('\n')
   .map((line, _, __) => '  ' + line)
   .join('\n')}
-`}
+${
+  gpuMode === GpuMode.None
+    ? ''
+    : 'resource_limits:\n' +
+      (gpuMode === GpuMode.Simple
+        ? placeholderSimpleResourceSpec
+        : gpuMode === GpuMode.Advanced
+        ? resourceSpec
+        : ''
+      )
+        .split('\n')
+        .map((line, _, __) => '  ' + line)
+        .join('\n')
+}`}
           readOnly={true}
         ></textarea>
       </div>

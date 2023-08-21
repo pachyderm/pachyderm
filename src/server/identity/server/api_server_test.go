@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -90,55 +91,55 @@ func TestUserNotAdmin(t *testing.T) {
 	aliceClient := tu.AuthenticatedPachClient(t, c, alice, peerPort)
 	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.GetIdentityServerConfig(aliceClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.CreateIDPConnector(aliceClient.Ctx(), &identity.CreateIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.GetIDPConnector(aliceClient.Ctx(), &identity.GetIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.UpdateIDPConnector(aliceClient.Ctx(), &identity.UpdateIDPConnectorRequest{})
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 	require.YesError(t, err)
 
 	_, err = aliceClient.ListIDPConnectors(aliceClient.Ctx(), &identity.ListIDPConnectorsRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.DeleteIDPConnector(aliceClient.Ctx(), &identity.DeleteIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.CreateOIDCClient(aliceClient.Ctx(), &identity.CreateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.GetOIDCClient(aliceClient.Ctx(), &identity.GetOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.UpdateOIDCClient(aliceClient.Ctx(), &identity.UpdateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.ListOIDCClients(aliceClient.Ctx(), &identity.ListOIDCClientsRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.DeleteOIDCClient(aliceClient.Ctx(), &identity.DeleteOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
 	_, err = aliceClient.IdentityAPIClient.DeleteAll(aliceClient.Ctx(), &identity.DeleteAllRequest{})
 	require.YesError(t, err)
-	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
+	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 }
 
 // TestSetConfiguration tests that the web server configuration reloads when the etcd config value is updated
@@ -236,19 +237,21 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	c := env.PachClient
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
-	conn := &identity.IDPConnector{
-		Id:   "id",
-		Name: "name",
-		Type: "mockPassword",
-		Config: &types.Struct{
-			Fields: map[string]*types.Value{
-				"password": {Kind: &types.Value_StringValue{StringValue: "test"}},
-				"username": {Kind: &types.Value_StringValue{StringValue: "test"}},
-			},
+	config, err := structpb.NewStruct(
+		map[string]any{
+			"password": "test",
+			"username": "test",
 		},
+	)
+	require.NoError(t, err)
+	conn := &identity.IDPConnector{
+		Id:     "id",
+		Name:   "name",
+		Type:   "mockPassword",
+		Config: config,
 	}
 
-	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
+	_, err = adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
 		Connector: conn,
 	})
 	require.NoError(t, err)
@@ -310,5 +313,5 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.True(t, time.Until(*whoAmIResp.Expiration) < time.Hour)
+	require.True(t, time.Until(protoutil.MustTime(whoAmIResp.Expiration)) < time.Hour)
 }

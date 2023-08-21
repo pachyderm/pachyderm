@@ -9,20 +9,26 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/spf13/cobra"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
-func Cmds(ctx context.Context) []*cobra.Command {
+func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var d net.Dialer
@@ -58,25 +64,22 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			var errs error
 			if result, err := r.LookupHost(ctx, args[0]); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "lookup host"))
+				errors.JoinInto(&errs, errors.Wrap(err, "lookup host"))
 			} else {
 				fmt.Printf("A: %v\n", result)
 			}
 			if result, err := r.LookupCNAME(ctx, args[0]); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "lookup cname"))
+				errors.JoinInto(&errs, errors.Wrap(err, "lookup cname"))
 			} else {
 				fmt.Printf("CNAME: %v\n", result)
 			}
 			if result, err := r.LookupAddr(ctx, args[0]); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "lookup reverse address"))
+				errors.JoinInto(&errs, errors.Wrap(err, "lookup reverse address"))
 			} else {
 				fmt.Printf("IP: %v\n", result)
 			}
 			if errs != nil {
-				fmt.Fprintf(os.Stderr, "some lookups not successful, this is normally fine:\n")
-				for _, err := range multierr.Errors(errs) {
-					fmt.Fprintf(os.Stderr, "    %v\n", err)
-				}
+				fmt.Fprintf(os.Stderr, "some lookups not successful, this is normally fine:\n%v", errs)
 			}
 			return nil
 		}),
@@ -132,14 +135,45 @@ func Cmds(ctx context.Context) []*cobra.Command {
 	// you click it).
 	generateURL := &cobra.Command{
 		Use:   "{{alias}} project/repo@branch_or_commit:/file_or_directory ...",
-		Short: "Generates the encoded part of a download URL.",
-		Long:  "Generates the encoded part of a download URL.",
+		Short: "Generates the encoded part of an archive download URL.",
+		Long:  "Generates the encoded part of an archive download URL.",
 		Run: cmdutil.Run(func(args []string) error {
-			u, err := archiveserver.EncodeV1(args)
+			path, err := archiveserver.EncodeV1(args)
 			if err != nil {
 				return errors.Wrap(err, "encode")
 			}
-			fmt.Println(u)
+
+			u := &url.URL{}
+			getPrefix := func() error {
+				tctx, cancel := context.WithTimeout(ctx, time.Second)
+				defer cancel()
+				c, err := pachctlCfg.NewOnUserMachine(tctx, false)
+				if err != nil {
+					return err
+				}
+				defer c.Close()
+				info, err := c.InspectCluster()
+				if err != nil {
+					return errors.Wrap(err, "lookup cluster address")
+				}
+				host := info.GetProxyHost()
+				if host == "" {
+					return errors.New("server does not know its public hostname")
+				}
+				if info.GetProxyTls() {
+					u.Scheme = "https"
+				} else {
+					u.Scheme = "http"
+				}
+				u.Host = host
+				u.Path = "/archive/" + path + ".zip"
+				return nil
+			}
+			if err := getPrefix(); err != nil {
+				fmt.Println(path)
+				return err
+			}
+			fmt.Println(u.String())
 			return nil
 		}),
 	}
@@ -147,15 +181,15 @@ func Cmds(ctx context.Context) []*cobra.Command {
 
 	decodeURL := &cobra.Command{
 		Use:   "{{alias}} <url>",
-		Short: "Decodes the encoded part of a download URL.",
-		Long:  "Decodes the encoded part of a download URL.",
+		Short: "Decodes the encoded part of an archive download URL.",
+		Long:  "Decodes the encoded part of an archive download URL.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			u, err := url.Parse(args[0])
 			if err != nil {
 				return errors.Wrap(err, "url.Parse")
 			}
-			if !strings.HasPrefix(u.Path, "/download/") {
-				u.Path = "/download/" + u.Path
+			if !strings.HasPrefix(u.Path, "/archive/") {
+				u.Path = "/archive/" + u.Path
 			}
 			if !strings.HasSuffix(u.Path, ".zip") {
 				u.Path = u.Path + ".zip"
@@ -174,6 +208,30 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(decodeURL, "misc decode-download-url"))
+
+	testMigrations := &cobra.Command{
+		Use:   "{{alias}} <postgres dsn>",
+		Short: "Runs the database migrations against the supplied database, then rolls them back.",
+		Long:  "Runs the database migrations against the supplied database, then rolls them back.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			ctx, c := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
+			defer c()
+
+			dsn := args[0]
+			db, err := sqlx.Open("pgx", dsn)
+			if err != nil {
+				return errors.Wrap(err, "open database")
+			}
+			if err := dbutil.WaitUntilReady(ctx, db); err != nil {
+				return errors.Wrap(err, "wait for database ready")
+			}
+			if err := preflight.TestMigrations(ctx, db); err != nil {
+				return errors.Wrap(err, "apply migrations")
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(testMigrations, "misc test-migrations"))
 
 	misc := &cobra.Command{
 		Short:  "Miscellaneous utilities unrelated to Pachyderm itself.",

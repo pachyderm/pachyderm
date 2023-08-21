@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
@@ -57,7 +58,7 @@ func RunLocal() (retErr error) {
 	log.InitPachctlLogger()
 	ctx := pctx.Background("local")
 
-	config := &serviceenv.PachdFullConfiguration{}
+	config := &pachconfig.PachdFullConfiguration{}
 	if err := cmdutil.Populate(config); err != nil {
 		return err
 	}
@@ -77,7 +78,7 @@ func RunLocal() (retErr error) {
 	} else {
 		log.Debug(ctx, "no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	env := serviceenv.InitWithKube(ctx, serviceenv.NewConfiguration(config))
+	env := serviceenv.InitWithKube(ctx, pachconfig.NewConfiguration(config))
 	debug.SetGCPercent(env.Config().GCPercent)
 	env.InitDexDB()
 	if env.Config().EtcdPrefix == "" {

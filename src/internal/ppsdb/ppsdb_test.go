@@ -78,7 +78,7 @@ func TestCommitKey(t *testing.T) {
 				Name: c.repoName,
 				Type: pfs.SpecRepoType,
 			},
-			ID: c.id,
+			Id: c.id,
 		}); err != nil {
 			t.Errorf("unexpected error with test case %d: %v", i, c)
 		} else if got != c.key {
@@ -183,7 +183,7 @@ func TestJobKey(t *testing.T) {
 				Project: &pfs.Project{Name: c.projectName},
 				Name:    c.pipelineName,
 			},
-			ID: c.id,
+			Id: c.id,
 		}
 		if got := JobKey(j); expected != got {
 			t.Errorf("expected %q but got %q (%v)", expected, got, c)

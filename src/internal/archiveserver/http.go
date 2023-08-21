@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
@@ -24,7 +24,7 @@ func NewHTTP(port uint16, pachClientFactory func(ctx context.Context) *client.AP
 	handler := &Server{
 		pachClientFactory: pachClientFactory,
 	}
-	mux.Handle("/download/", CSRFWrapper(handler))
+	mux.Handle("/archive/", CSRFWrapper(handler))
 	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("healthy\n")) //nolint:errcheck
@@ -90,7 +90,7 @@ func (h *HTTP) ListenAndServe(ctx context.Context) error {
 	}()
 	select {
 	case <-ctx.Done():
-		log.Info(ctx, "terminating download server", zap.Error(ctx.Err()))
+		log.Info(ctx, "terminating download server", zap.Error(context.Cause(ctx)))
 		return errors.EnsureStack(h.server.Shutdown(ctx))
 	case err := <-errCh:
 		return err
