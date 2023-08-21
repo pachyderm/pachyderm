@@ -39,9 +39,6 @@ class MountServerClient(MountInterface):
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # TODO: Would be preferable to auto-detect this, but unclear how
         self.nopriv = NONPRIV_CONTAINER
-        # session = requests_unixsocket.Session()
-        # res = session.get(self.address)
-        # r = requests.get(self.address)
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
