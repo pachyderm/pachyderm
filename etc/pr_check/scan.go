@@ -115,7 +115,7 @@ forEachPage:
 			if afterRange {
 				break forEachPage
 			}
-			if len(authors) > 0 && !authors[*pr.User.Login] {
+			if len(authors) > 0 && !authors[pr.GetUser().GetLogin()] {
 				continue
 			}
 			result = append(result, pr)

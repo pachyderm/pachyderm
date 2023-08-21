@@ -12,9 +12,6 @@ import (
 
 var jiraRE = regexp.MustCompile(`[A-Z]{2,4}-[0-9]{1,5}`)
 
-// defined in init(), due to syscall
-var pacificTime *time.Location
-
 // firstReleaseSync captures the time of the first release sync since we started
 // our Tuesday-based sprint schedule: 2023-07-24 at 11:30am pacific. We
 // calculate other release syncs from this.
@@ -28,10 +25,14 @@ const sprintLength = 14 * 24 * time.Hour
 // checkMissingJira checks if the PR's title or body contain an apparent Jira
 // ticket (anything matching jiraRE)
 func checkMissingJira(pr *github.PullRequest) error {
-	if jiraRE.MatchString(*pr.Title) {
+	if jiraRE.MatchString(pr.GetTitle()) {
 		return nil
 	}
-	if jiraRE.MatchString(*pr.Body) {
+	if jiraRE.MatchString(pr.GetBody()) {
+		return nil
+	}
+	// Check the PR branch name (also a valid way to link a PR to an issue)
+	if jiraRE.MatchString(pr.GetHead().GetRef()) {
 		return nil
 	}
 	return fmt.Errorf("This PR doesn't seem to contain a Jira ticket (neither title nor body match %q)", jiraRE.String())
