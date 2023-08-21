@@ -608,7 +608,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -856,7 +856,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -1023,7 +1023,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -1223,7 +1223,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -1389,7 +1389,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -1555,7 +1555,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -1721,7 +1721,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -1887,7 +1887,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [
@@ -2053,7 +2053,7 @@
                                     "name": "any",
                                     "retry_policy": {
                                        "host_selection_retry_max_attempts": 4,
-                                       "num_retries": 14,
+                                       "num_retries": 4,
                                        "retry_on": "connect-failure"
                                     },
                                     "routes": [

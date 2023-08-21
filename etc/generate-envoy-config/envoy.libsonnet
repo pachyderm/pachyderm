@@ -239,7 +239,7 @@
             routes: routes,
             retry_policy: {
               retry_on: 'connect-failure',
-              num_retries: 14,
+              num_retries: 4,
               host_selection_retry_max_attempts: 4,
             },
           },
