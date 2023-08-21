@@ -12,7 +12,7 @@ import {
   mockRepoImagesWithLinkedPipeline,
 } from '@dash-frontend/mocks';
 import {MOCK_IMAGES_FILES, mockFileDownload} from '@dash-frontend/mocks/files';
-import {click, withContextProviders} from '@dash-frontend/testHelpers';
+import {click, hover, withContextProviders} from '@dash-frontend/testHelpers';
 
 import {default as ListViewTableComponent} from '../ListViewTable';
 
@@ -86,6 +86,31 @@ describe('List View Table', () => {
   });
 
   describe('Delete', () => {
+    it('should disable the delete button until selections are made', async () => {
+      render(<ListViewTable files={MOCK_IMAGES_FILES} />);
+
+      const deleteButton = screen.getByRole('button', {
+        name: /delete selected items/i,
+      });
+      expect(deleteButton).toBeDisabled();
+      await hover(deleteButton);
+      expect(
+        screen.getByText('Select one or more files to multi-delete files'),
+      ).toBeInTheDocument();
+
+      await click(
+        screen.getByRole('cell', {
+          name: /at-at\.png/i,
+        }),
+      );
+
+      expect(deleteButton).toBeEnabled();
+      await hover(deleteButton);
+      expect(
+        screen.queryByText('Select one or more files to multi-delete files'),
+      ).not.toBeInTheDocument();
+    });
+
     it('should delete file on action click', async () => {
       server.use(
         mockDeleteFilesMutation((req, res, ctx) => {
@@ -231,6 +256,10 @@ describe('List View Table', () => {
       );
 
       expect(deleteButton).toBeDisabled();
+      await hover(deleteButton);
+      expect(
+        screen.getByText('You cannot delete files in an output repo'),
+      ).toBeInTheDocument();
 
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
       expect(screen.queryByText('Delete')).not.toBeInTheDocument();
@@ -241,6 +270,32 @@ describe('List View Table', () => {
     beforeAll(() => {
       process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = 'localhost';
       process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = 'false';
+    });
+
+    it('should disable the download button until selections are made', async () => {
+      render(<ListViewTable files={MOCK_IMAGES_FILES} />);
+
+      const downloadButton = screen.getByRole('button', {
+        name: /download selected items/i,
+      });
+
+      expect(downloadButton).toBeDisabled();
+      await hover(downloadButton);
+      expect(
+        screen.getByText('Select one or more files to multi-download files'),
+      ).toBeInTheDocument();
+
+      await click(
+        screen.getByRole('cell', {
+          name: /at-at\.png/i,
+        }),
+      );
+
+      expect(downloadButton).toBeEnabled();
+      await hover(downloadButton);
+      expect(
+        screen.queryByText('Select one or more files to multi-download files'),
+      ).not.toBeInTheDocument();
     });
 
     it('should download a small file directly from pachd', async () => {
@@ -290,6 +345,13 @@ describe('List View Table', () => {
           }),
         );
         expect(downloadButton).toBeDisabled();
+
+        await hover(downloadButton);
+        expect(
+          screen.getByText(
+            'Enable proxy to download multiple files at once. This feature is not available with your current configuration.',
+          ),
+        ).toBeInTheDocument();
       });
 
       it('should disable single file download for large files', async () => {

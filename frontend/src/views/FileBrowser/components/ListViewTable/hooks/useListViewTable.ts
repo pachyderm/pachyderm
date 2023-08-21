@@ -15,8 +15,9 @@ const useListViewTable = () => {
   const browserHistory = useHistory();
 
   const {loading: repoLoading, repo} = useCurrentRepoWithLinkedPipeline();
-  const deleteDisabled =
-    Boolean(repo?.linkedPipeline) || repoLoading || selectedFiles.length === 0;
+
+  const noFilesSelected = selectedFiles.length === 0;
+  const isOutputRepo = Boolean(repo?.linkedPipeline);
 
   const addSelection = useCallback(
     (filePath: string) => {
@@ -79,23 +80,23 @@ const useListViewTable = () => {
   }, [archiveDownload, selectedFiles]);
 
   const proxyEnabled = getProxyEnabled();
-  const downloadDisabled = selectedFiles.length === 0;
 
   return {
     repoId,
+    repoLoading,
     branchId,
     selectedFiles,
     addSelection,
     deleteModalOpen,
     openDeleteModal,
     closeModal,
-    deleteDisabled,
     deleteFiles,
     deleteLoading,
     deleteError,
     downloadSelected,
-    downloadDisabled,
     proxyEnabled,
+    isOutputRepo,
+    noFilesSelected,
   };
 };
 

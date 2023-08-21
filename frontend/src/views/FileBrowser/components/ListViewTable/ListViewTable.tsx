@@ -19,52 +19,70 @@ type ListViewTableProps = {
   files: File[];
 };
 
+const SELECT_FILES_DELETE = 'Select one or more files to multi-delete files';
+const SELECT_FILES_DOWNLOAD =
+  'Select one or more files to multi-download files';
+const OUTPUT_REPO = 'You cannot delete files in an output repo';
+const PROXY_NEEDED =
+  'Enable proxy to download multiple files at once. This feature is not available with your current configuration.';
+
 const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
   const {
     repoId,
+    repoLoading,
     branchId,
     selectedFiles,
     addSelection,
     deleteModalOpen,
     openDeleteModal,
     closeModal,
-    deleteDisabled,
     deleteFiles,
     deleteLoading,
     deleteError,
     downloadSelected,
-    downloadDisabled,
     proxyEnabled,
+    noFilesSelected,
+    isOutputRepo,
   } = useListViewTable();
+
+  const downloadDisabled = !proxyEnabled || noFilesSelected;
+  const deleteDisabled = isOutputRepo || repoLoading || noFilesSelected;
 
   return (
     <>
       <Group spacing={8} className={styles.headerButtons}>
-        <Button
-          IconSVG={TrashSVG}
-          onClick={openDeleteModal}
-          disabled={deleteDisabled}
-          buttonType="ghost"
-          color="black"
-          aria-label="Delete selected items"
-        />
-
         <Tooltip
           tooltipKey="delete"
-          tooltipText={
-            'Enable proxy to download multiple files at once. This feature is not available with your current configuration.'
-          }
-          disabled={proxyEnabled}
+          tooltipText={isOutputRepo ? OUTPUT_REPO : SELECT_FILES_DELETE}
+          disabled={!deleteDisabled}
+        >
+          <span>
+            <Button
+              IconSVG={TrashSVG}
+              onClick={openDeleteModal}
+              disabled={deleteDisabled}
+              buttonType="ghost"
+              color="black"
+              aria-label="Delete selected items"
+              className={deleteDisabled && styles.disabledButton}
+            />
+          </span>
+        </Tooltip>
+
+        <Tooltip
+          tooltipKey="download"
+          tooltipText={!proxyEnabled ? PROXY_NEEDED : SELECT_FILES_DOWNLOAD}
+          disabled={!downloadDisabled}
         >
           <span>
             <Button
               IconSVG={DownloadSVG}
               onClick={downloadSelected}
-              disabled={!proxyEnabled || downloadDisabled}
+              disabled={downloadDisabled}
               buttonType="ghost"
               color="black"
               aria-label="Download selected items"
-              className={!proxyEnabled && styles.disabledButton}
+              className={downloadDisabled && styles.disabledButton}
             />
           </span>
         </Tooltip>
