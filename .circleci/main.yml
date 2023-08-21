@@ -1771,9 +1771,9 @@ workflows:
           num_executors: 6
       - deploy-tests:
           name: arm64 deploy tests
-          resource_class: arm.xlarge # arm64
+          resource_class: arm.2xlarge # arm64
           arch: arm64
-          num_executors: 2
+          num_executors: 4
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
