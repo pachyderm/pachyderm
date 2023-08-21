@@ -31,16 +31,20 @@ It's designed to be run standalone, or as a cron job/recurring GitHub action
 The tests are run against a fake GitHub API, which is implemented in `fake_github.go`. I mostly tried to record responses I got from GitHub for various requests and replay them. Some details:
 - The PRs returned are stored in `fake_github_prs.json`. I generated the initial version of that data with:
   ```
-  curl -L -v \
+  $ curl -L -v \
     -H "Accept: application/vnd.github+json" \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     https://api.github.com/repos/pachyderm/pachyderm/pulls \
     >fake_github_prs.json \
-    2> curl_metadata.log
+    2> request_metadata.log
+
+  # Reverse the order of PRs in fake_github_prs, which is "desc" by default
+  # (but still use recent PRs)
+  $ jq reverse <fake_github_prs.json | sponge fake_github_prs.json
   ```
   - I added PRs to the above to make sure I'd be able to check all cases of the matches in `match.go` that I'm interested in (last-minute PR, non-last-minute PR, PR that was last-minute but now is not, PRs with Jira tickets in each interesting place, etc).
-- `curl_metadata.log` includes the headers that the server needs to return. The fake can't be perfectly faithful to github (I don't know how GitHub calculates etags for example; it looks like sha256 + some salt), but the headers that I use are:
+- `curl_metadata.log` includes the headers that the server needs to return. The fake can't easily be perfectly faithful to github (I don't know how GitHub calculates etags for example; it looks like sha256 + some salt), but the headers that I emulate are:
   ```
   content-type: application/json; charset=utf-8   # const
   x-github-media-type: github.v3; format=json     # const
