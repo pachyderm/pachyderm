@@ -44,6 +44,12 @@ func TestSpecReader(t *testing.T) {
 			input:    `resourceRequests: null`,
 			expected: []string{`{"resourceRequests": null}`},
 		},
+		"sequences work": {
+			input: `
+                                 transform:
+                                   cmd: ["foo", "bar"]`,
+			expected: []string{`{"transform": {"cmd": ["foo", "bar"]}}`},
+		},
 	}
 cases:
 	for n, c := range cases {
@@ -81,7 +87,6 @@ cases:
 			continue
 		}
 		for i := 0; i < len(got); i++ {
-			t.Log(n, i, "got", got[i], c.expected[i])
 			var g, e any
 			d := json.NewDecoder(strings.NewReader(got[i]))
 			d.UseNumber()

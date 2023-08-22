@@ -12,10 +12,11 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"gopkg.in/yaml.v3"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 )
 
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON.
@@ -158,7 +159,7 @@ func (r *SpecReader) Next() (string, error) {
 	var holder yaml.Node
 	if err := r.decoder.Decode(&holder); err != nil {
 		if errors.Is(err, io.EOF) {
-			return "", err
+			return "", io.EOF
 		}
 		return "", errors.Wrapf(err, "malformed spec")
 	}
@@ -241,6 +242,15 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 		default:
 			return nil, errors.Errorf("tag %q unsupported", n.Tag)
 		}
+	case yaml.SequenceNode:
+		var o = make([]any, len(n.Content))
+		for i, n := range n.Content {
+			var err error
+			if o[i], err = yamlToJSON(n); err != nil {
+				return nil, errors.Wrapf(err, "bad item %d in sequence", i)
+			}
+		}
+		return o, nil
 	case yaml.MappingNode:
 		if len(n.Content)%2 == 1 {
 			return nil, errors.Errorf("odd number of values %d in mapping content node", len(n.Content))
