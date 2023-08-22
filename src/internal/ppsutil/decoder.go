@@ -149,7 +149,7 @@ func (r *SpecReader) Next() (string, error) {
 		case errors.Is(err, io.EOF):
 			return "", err
 		case err != nil:
-			return "", errors.Wrapf(err, "malformed spec")
+			return "", errors.Wrapf(err, "malformed pipeline spec")
 		default:
 			return result, nil
 		}
@@ -161,7 +161,7 @@ func (r *SpecReader) Next() (string, error) {
 		if errors.Is(err, io.EOF) {
 			return "", io.EOF
 		}
-		return "", errors.Wrapf(err, "malformed spec")
+		return "", errors.Wrapf(err, "malformed pipeline spec")
 	}
 	if holder.Kind != yaml.DocumentNode {
 		return "", errors.Errorf("unexpected YAML kind %v", holder.Kind)
