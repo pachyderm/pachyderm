@@ -23,32 +23,43 @@ func TestSpecReader(t *testing.T) {
 			expectErr: true,
 		},
 		"valid JSON is valid": {
-			input:    `{}`,
-			expected: []string{"{}"},
+			input:    `{"pipeline": {"name": "test"}}`,
+			expected: []string{`{"pipeline": {"name": "test"}}`},
 		},
 		"valid spec is valid": {
-			input:    `{"datumTries": 1, "resourceRequests":{"disk":"256Mi", "cpu": .5}, "autoscaling":true}`,
-			expected: []string{`{"resourceRequests":{"disk":"256Mi", "cpu": 0.5},"datumTries": 1, "autoscaling":true}`},
+			input:    `{"pipeline": {"name": "test"}, "datumTries": 1, "resourceRequests":{"disk":"256Mi", "cpu": .5}, "autoscaling":true}`,
+			expected: []string{`{"pipeline": {"name": "test"},"resourceRequests":{"disk":"256Mi", "cpu": 0.5},"datumTries": 1, "autoscaling":true}`},
 		},
 		"invalid spec is invalid": {
 			input:     `{"not_aField": 2}`,
 			expectErr: true,
 		},
 		"multiple specs work": {
-			input: `{}
+			input: `{"pipeline": {"name": "test"}}
 ---
-{}`,
-			expected: []string{`{}`, `{}`},
+{"pipeline": {"name": "test2"}}`,
+			expected: []string{`{"pipeline": {"name": "test"}}`, `{"pipeline": {"name": "test2"}}`},
+		},
+		"lists work": {
+			input: `
+- {"pipeline": {"name": "test"}}
+- {"pipeline": {"name": "test2"}}`,
+			expected: []string{`{"pipeline": {"name": "test"}}`, `{"pipeline": {"name": "test2"}}`},
 		},
 		"null works": {
-			input:    `resourceRequests: null`,
-			expected: []string{`{"resourceRequests": null}`},
+			input: `
+                                  pipeline:
+                                    name: test
+                                  resourceRequests: null`,
+			expected: []string{`{"pipeline": {"name": "test"},"resourceRequests": null}`},
 		},
 		"sequences work": {
 			input: `
+                                 pipeline:
+                                   name: test
                                  transform:
                                    cmd: ["foo", "bar"]`,
-			expected: []string{`{"transform": {"cmd": ["foo", "bar"]}}`},
+			expected: []string{`{"pipeline": {"name": "test"}, "transform": {"cmd": ["foo", "bar"]}}`},
 		},
 	}
 cases:
