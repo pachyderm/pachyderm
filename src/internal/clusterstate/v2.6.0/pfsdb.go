@@ -405,16 +405,16 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) (retErr error
 			Name: split[1],
 		}
 	}
-	listRepoKeys := func(tx *pachsql.Tx) (map[string]struct{}, error) {
+	listSourceCommits := func(tx *pachsql.Tx) (map[string]struct{}, error) {
 		var keys []string
-		if err := tx.Select(&keys, `SELECT key FROM collections.repos`); err != nil {
-			return nil, errors.Wrap(err, "select keys from collections.repos")
+		if err := tx.Select(&keys, `SELECT key FROM collections.commits`); err != nil {
+			return nil, errors.Wrap(err, "select keys from collections.commits")
 		}
-		rs := make(map[string]struct{})
+		cis := make(map[string]struct{})
 		for _, k := range keys {
-			rs[k] = struct{}{}
+			cis[k] = struct{}{}
 		}
-		return rs, nil
+		return cis, nil
 	}
 	parseCommit_2_5 := func(key string) (*pfs.Commit, error) {
 		split := strings.Split(key, "=")
@@ -457,13 +457,13 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) (retErr error
 	if err != nil {
 		return errors.Wrap(err, "list referenced commits")
 	}
-	rs, err := listRepoKeys(tx)
+	cis, err := listSourceCommits(tx)
 	if err != nil {
 		return errors.Wrap(err, "list repos")
 	}
 	var dangCommitKeys []string
 	for _, c := range cs {
-		if _, ok := rs[repoKey(c.Repo)]; !ok {
+		if _, ok := cis[oldCommitKey(c)]; !ok {
 			dangCommitKeys = append(dangCommitKeys, oldCommitKey(c))
 		}
 	}
