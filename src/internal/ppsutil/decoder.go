@@ -193,12 +193,38 @@ func (r *SpecReader) convertRequest(n *yaml.Node) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "could not convert YAML to JSON object")
 	}
-	b, err := json.Marshal(object)
+	return r.validateRequest(object)
+}
+
+func (r *SpecReader) validateRequest(jsObj any) (string, error) {
+	b, err := json.Marshal(jsObj)
 	if err != nil {
-		return "", errors.Wrapf(err, "could not marshal %v as JSON", object)
+		return "", errors.Wrapf(err, "could not marshal %v as JSON", jsObj)
 	}
-	if err := protojson.Unmarshal(b, &pps.CreatePipelineRequest{}); err != nil {
+	var req pps.CreatePipelineRequest
+	if err := protojson.Unmarshal(b, &req); err != nil {
 		return "", errors.Wrapf(err, "could not unmarshal %s as CreatePipelineRequest", string(b))
+	}
+
+	if req.Pipeline == nil {
+		return "", errors.New("no `pipeline` specified")
+	}
+	if req.Pipeline.Name == "" {
+		return "", errors.New("no pipeline `name` specified")
+	}
+
+	if req.Transform != nil && req.Transform.Image != "" {
+		if !strings.Contains(req.Transform.Image, ":") {
+			fmt.Fprintf(os.Stderr,
+				"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
+					"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
+					"reproducibility of your pipelines.\n\n")
+		} else if strings.HasSuffix(req.Transform.Image, ":latest") {
+			fmt.Fprintf(os.Stderr,
+				"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
+					"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
+					"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
+		}
 	}
 	return string(b), nil
 }
