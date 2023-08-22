@@ -32,6 +32,4 @@ COPY dist dist
 WORKDIR /home/jovyan
 RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller
 RUN pip install determined==0.23.3
-RUN export PYCURL_SSL_LIBRARY=openssl && \
-    pip install --compile pycurl
 
