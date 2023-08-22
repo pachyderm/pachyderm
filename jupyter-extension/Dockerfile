@@ -32,4 +32,3 @@ COPY dist dist
 WORKDIR /home/jovyan
 RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller
 RUN pip install determined==0.23.3
-
