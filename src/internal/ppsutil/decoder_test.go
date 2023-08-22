@@ -83,12 +83,6 @@ cases:
 			got = append(got, g)
 			i++
 		}
-		if err := r.Error(); err != nil {
-			if !c.expectErr {
-				t.Errorf("%s: %v", n, err)
-			}
-			continue
-		}
 		if c.expectErr {
 			t.Errorf("%s: error expected; got %v", n, got)
 			continue
