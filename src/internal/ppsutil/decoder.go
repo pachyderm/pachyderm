@@ -132,16 +132,22 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 	}
 }
 
+// A SpecReader reads JSON or YAML specs.  There may be a single spec, a series
+// of YAML documents and/or an array of specs.  This behavior is copied from
+// PipelineManifestReader.
 type SpecReader struct {
 	decoder *yaml.Decoder
 	next    func() (string, error)
-	err     error
 }
 
+// NewSpecReader returns a SpecReader which reads from r.
 func NewSpecReader(r io.Reader) *SpecReader {
 	return &SpecReader{decoder: yaml.NewDecoder(r)}
 }
 
+// Next returns the next pipeline spec as a JSON string.  If there are multiple
+// YAML documents, it will return them one at a time.  If there is an array of
+// specs, it will return them one at a time.
 func (r *SpecReader) Next() (string, error) {
 	if r.next != nil {
 		result, err := r.next()
@@ -229,13 +235,13 @@ func (r *SpecReader) validateRequest(jsObj any) (string, error) {
 	return string(b), nil
 }
 
-func (r *SpecReader) Error() error {
-	return r.err
-}
-
+// yamlToJSON converts a YAML node into an any value which represents a JSON
+// value.  Strings are strings; numbers are json.Number; booleans are bools;
+// nulls are nil; arrays are []any; and maps are map[string]any.
 func yamlToJSON(n *yaml.Node) (any, error) {
 	switch n.Kind {
 	case yaml.DocumentNode:
+		// documents are handled at a higher level
 		return nil, errors.New("document may not be converted to JSON")
 	case yaml.AliasNode:
 		return nil, errors.Errorf("alias nodes not supported")
@@ -278,6 +284,8 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 		}
 		return o, nil
 	case yaml.MappingNode:
+		// mappings are represented as a list of interleaved keys and
+		// values; if the length of the list is odd, something is broken
 		if len(n.Content)%2 == 1 {
 			return nil, errors.Errorf("odd number of values %d in mapping content node", len(n.Content))
 		}
