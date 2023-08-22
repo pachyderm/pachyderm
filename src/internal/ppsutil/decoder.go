@@ -1,17 +1,20 @@
 package ppsutil
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"gopkg.in/yaml.v3"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -125,5 +128,141 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 	default:
 		// doc is a single request
 		return r.convertRequest(document)
+	}
+}
+
+type SpecReader struct {
+	decoder *yaml.Decoder
+	next    func() (string, error)
+	err     error
+}
+
+func NewSpecReader(r io.Reader) *SpecReader {
+	return &SpecReader{decoder: yaml.NewDecoder(r)}
+}
+
+func (r *SpecReader) Next() (string, error) {
+	if r.next != nil {
+		result, err := r.next()
+		switch {
+		case errors.Is(err, io.EOF):
+			return "", err
+		case err != nil:
+			return "", errors.Wrapf(err, "malformed spec")
+		default:
+			return result, nil
+		}
+	}
+	// no list is in progress: parse the next document as either a spec or a
+	// list of specs.
+	var holder yaml.Node
+	if err := r.decoder.Decode(&holder); err != nil {
+		if errors.Is(err, io.EOF) {
+			return "", err
+		}
+		return "", errors.Wrapf(err, "malformed spec")
+	}
+	if holder.Kind != yaml.DocumentNode {
+		return "", errors.Errorf("unexpected YAML kind %v", holder.Kind)
+	}
+	content := holder.Content
+	if len(content) != 1 {
+		return "", errors.Errorf("expected a single YAML document; got %d", len(content))
+	}
+	switch content[0].Kind {
+	case yaml.SequenceNode:
+		index := 0
+		r.next = func() (string, error) {
+			index++
+			if index >= len(content[0].Content) {
+				r.next = nil
+			}
+			return r.convertRequest(content[0].Content[index-1])
+		}
+		return r.Next()
+	case yaml.MappingNode:
+		return r.convertRequest(holder.Content[0])
+	default:
+		return "", errors.Errorf("expected a mapping or a sequence; got %v", content[0].Kind)
+	}
+}
+
+func (r *SpecReader) convertRequest(n *yaml.Node) (string, error) {
+	object, err := yamlToJSON(n)
+	if err != nil {
+		return "", errors.Wrap(err, "could not convert YAML to JSON object")
+	}
+	b, err := json.Marshal(object)
+	if err != nil {
+		return "", errors.Wrapf(err, "could not marshal %v as JSON", object)
+	}
+	if err := protojson.Unmarshal(b, &pps.CreatePipelineRequest{}); err != nil {
+		return "", errors.Wrapf(err, "could not unmarshal %s as CreatePipelineRequest", string(b))
+	}
+	return string(b), nil
+}
+
+func (r *SpecReader) Error() error {
+	return r.err
+}
+
+func yamlToJSON(n *yaml.Node) (any, error) {
+	switch n.Kind {
+	case yaml.DocumentNode:
+		return nil, errors.New("document may not be converted to JSON")
+	case yaml.AliasNode:
+		return nil, errors.Errorf("alias nodes not supported")
+	case yaml.ScalarNode:
+		switch n.Tag {
+		case "!!str":
+			return n.Value, nil
+		case "!!int":
+			if strings.HasPrefix(n.Value, "0") {
+				return nil, errors.Errorf("number %s has a leading zero", n.Value)
+			}
+			return json.Number(n.Value), nil
+		case "!!float":
+			n := json.Number(n.Value)
+			if n[0] == '.' {
+				n = "0" + n
+			}
+			return n, nil
+		case "!!bool":
+			switch strings.ToLower(n.Value) {
+			case "true":
+				return true, nil
+			case "false":
+				return false, nil
+			default:
+				return nil, errors.Errorf("invalid boolean %q", n.Value)
+			}
+		case "!!null":
+			return nil, nil
+		default:
+			return nil, errors.Errorf("tag %q unsupported", n.Tag)
+		}
+	case yaml.MappingNode:
+		if len(n.Content)%2 == 1 {
+			return nil, errors.Errorf("odd number of values %d in mapping content node", len(n.Content))
+		}
+		var o = make(map[string]any, len(n.Content)/2)
+		for i := 0; i < len(n.Content); i += 2 {
+			key, err := yamlToJSON(n.Content[i])
+			if err != nil {
+				return nil, errors.Wrapf(err, "bad key %v in mapping", n.Content[0])
+			}
+			value, err := yamlToJSON(n.Content[i+1])
+			if err != nil {
+				return nil, errors.Wrapf(err, "bad key %v in mapping", n.Content[0])
+			}
+			keyString, ok := key.(string)
+			if !ok {
+				return nil, errors.Errorf("mapping keys must be strings, not %T", key)
+			}
+			o[keyString] = value
+		}
+		return o, nil
+	default:
+		return nil, errors.Errorf("unknown kind %d", int(n.Kind))
 	}
 }
