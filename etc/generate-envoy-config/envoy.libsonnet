@@ -368,15 +368,20 @@
   defaultCluster:: {
     connect_timeout: '10s',
     dns_lookup_family: 'V4_ONLY',
-    dns_refresh_rate: '5s',
+    dns_refresh_rate: '1s',
     dns_failure_refresh_rate: {
-      base_interval: '0.05s',
-      max_interval: '0.1s',
+      base_interval: '0.1s',
+      max_interval: '1s',
     },
     lb_policy: 'random',
     type: 'strict_dns',
     upstream_connection_options: {
       tcp_keepalive: {},
+    },
+    common_lb_config: {
+      healthy_panic_threshold: {
+        value: 0.0,
+      },
     },
   },
 
