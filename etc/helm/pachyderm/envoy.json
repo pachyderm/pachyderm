@@ -604,6 +604,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -860,6 +865,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1027,6 +1037,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1219,6 +1234,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1393,6 +1413,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1559,6 +1584,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1725,6 +1755,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1891,6 +1926,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -2057,6 +2097,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",

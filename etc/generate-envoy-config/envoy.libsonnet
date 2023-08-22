@@ -187,6 +187,11 @@
           },
         },
       ],
+      access_log_options: {
+        access_log_flush_interval: '10s',  // This prints information about ongoing connections every 10s.
+        flush_access_log_on_new_request: true,
+        flush_log_on_tunnel_successfully_established: true,
+      },
       codec_type: 'auto',
       common_http_protocol_options: {
         headers_with_underscores_action: 'REJECT_REQUEST',
