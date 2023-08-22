@@ -280,7 +280,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// 	})
 		// require.NoError(t, err)
 		// require.Equal(t, 3, len(commitInfo.Subvenance))
-
+		_, err = c.WaitCommitSetAll(jobInfos[0].OutputCommit.Id)
+		require.NoError(t, err)
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -288,8 +289,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		_, err = c.WaitCommitSetAll(jobInfos[0].OutputCommit.Id)
-		require.NoError(t, err)
+
 		require.NoError(t, c.DeleteAll())
 	})
 
