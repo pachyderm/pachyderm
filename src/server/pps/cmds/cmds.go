@@ -1616,9 +1616,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Set cluster defaults.",
 		Long:  "Set cluster defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if reprocess {
-				regenerate = true
-			}
 			if cluster {
 				rc, err := fileIndicatorToReadCloser(pathname)
 				if err != nil {
@@ -1642,13 +1639,15 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "Delete defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if cluster {
-				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), false, false)
+				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess)
 			}
 			return errors.New("--cluster must be specified")
 		}),
 		Hidden: true,
 	}
 	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
+	deleteDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs deleted (i.e., empty) defaults.")
+	deleteDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
 
 	updateDefaults := &cobra.Command{
@@ -1661,7 +1660,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				if err != nil {
 					return errors.Wrapf(err, "could not open path %q for reading", pathname)
 				}
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, false, false)
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess)
 			}
 			return errors.New("--cluster must be specified")
 		}),
@@ -1669,12 +1668,18 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	}
 	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
 	updateDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
+	updateDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
+	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
 
 	return commands
 }
 
+// setClusterDefaults sets the cluster defaults to the result of reading from r.  Reprocess implies regenerate.
 func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate, reprocess bool) error {
+	if reprocess {
+		regenerate = true
+	}
 	b, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Wrap(err, "could not read cluster defaults")
