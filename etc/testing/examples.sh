@@ -159,3 +159,7 @@ pushd examples/word_count/
         exit 1
     fi
 popd
+
+if [[ -n $CIRCLE_SHA1 ]]; then
+    helm uninstall pachyderm
+fi
