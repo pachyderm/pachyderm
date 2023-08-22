@@ -19,7 +19,7 @@ function(version, pghost, pguser)
         "env": {
             "LOG_LEVEL": "DEBUG",
             "POSTGRESQL_HOST": pghost, // remote GCP: "cloudsql-auth-proxy.pachyderm.svc.cluster.local." local testing: "postgres"
-            "POSTGRESQL_USER": pguser  // remote GCP:"postgres" local testing: "pachyderm"
+            "POSTGRESQL_USER": pguser  // remote GCP: "postgres" local testing: "pachyderm"
         },
         "secrets": [{
             "name": "postgres",
@@ -27,8 +27,13 @@ function(version, pghost, pguser)
             "key": "postgresql-password"
         }]
     },
+    "resource_requests": {
+        "memory": "2G"
+    },        
     "parallelism_spec": {
         "constant": 2
     },
+    "datum_timeout":  "900s",
+    "datum_tries":  "2"
 }
 
