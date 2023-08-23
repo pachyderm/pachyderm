@@ -2135,6 +2135,30 @@ func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePip
 	}, nil
 }
 
+func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *emptypb.Empty, err error) {
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+
+	var oldPipelineInfo, err2 = a.inspectPipeline(ctx, request.Pipeline, true)
+
+	if err2 != nil {
+		//TODO: Add nice error :-)
+		return &emptypb.Empty{}, err2
+	}
+
+	v2Req := &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: oldPipelineInfo.UserSpecJson,
+		Update:                    true,
+		Reprocess:                 request.Reprocess,
+		DryRun:                    false,
+	}
+	if _, err := a.createPipeline(ctx, v2Req); err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
 //
 // Implementation note:

@@ -797,6 +797,15 @@ func (x *SchedulingSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *RerunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddBool("reprocess", x.Reprocess)
+	return nil
+}
+
 func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
