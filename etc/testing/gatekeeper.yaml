@@ -2117,7 +2117,7 @@ metadata:
   name: gatekeeper-admin
   namespace: gatekeeper-system
 ---
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodSecurityPolicy
 metadata:
   annotations:
