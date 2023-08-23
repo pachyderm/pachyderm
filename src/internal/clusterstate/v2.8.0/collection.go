@@ -24,16 +24,12 @@ type index struct {
 }
 
 type postgresCollection struct {
-	table              string
-	db                 *pachsql.DB
-	template           proto.Message
-	indexes            []*index
-	keyGen             func(interface{}) (string, error)
-	keyCheck           func(string) error
-	notFound           func(interface{}) string
-	exists             func(interface{}) string
-	listBufferCapacity int
-	putHook            func(*pachsql.Tx, interface{}) error
+	table    string
+	indexes  []*index
+	keyGen   func(interface{}) (string, error)
+	keyCheck func(string) error
+	notFound func(interface{}) string
+	exists   func(interface{}) string
 }
 
 type postgresReadWriteCollection struct {
