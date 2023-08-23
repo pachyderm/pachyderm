@@ -126,7 +126,7 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			return errors.Wrapf(err, "read file %v", hdr.Name)
 		}
 		if err := protojson.Unmarshal(content, meta); err != nil {
-			return errors.Wrap(err, "unmarshal protojson")
+			return errors.Wrapf(err, "could not unmarshal protojson %s %v: %s", req.File, req.PathRange, string(content))
 		}
 		migrateMetaInputsV2_6_0(meta)
 		if err := cb(hdr.Name, meta); err != nil {
