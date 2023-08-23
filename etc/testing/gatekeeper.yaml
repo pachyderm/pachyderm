@@ -2596,7 +2596,7 @@ spec:
           defaultMode: 420
           secretName: gatekeeper-webhook-server-cert
 ---
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   labels:
