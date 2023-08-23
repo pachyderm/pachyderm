@@ -22,8 +22,10 @@ message TransactionRequest {
   pfs_v2.CreateBranchRequest create_branch = 6;
   pfs_v2.DeleteBranchRequest delete_branch = 7;
   pps_v2.UpdateJobStateRequest update_job_state = 8;
-  pps_v2.CreatePipelineRequest create_pipeline = 9;
+  reserved 9;
+  reserved "create_pipeline";
   pps_v2.StopJobRequest stop_job = 10;
+  pps_v2.CreatePipelineTransaction create_pipeline_v2 = 11;
 }
 
 message TransactionResponse {

@@ -659,10 +659,10 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	}
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
-		if !clusterInfo.GetVersionWarningsOk() {
+		if !clusterInfo.GetWarningsOk() {
 			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
 		} else {
-			for _, w := range clusterInfo.GetVersionWarnings() {
+			for _, w := range clusterInfo.GetWarnings() {
 				log.Error(pctx.TODO(), w)
 			}
 		}
@@ -867,8 +867,12 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	if len(streamInterceptors) > 0 {
 		dialOptions = append(dialOptions, grpc.WithChainStreamInterceptor(streamInterceptors...))
 	}
-	ctx, cancel := context.WithTimeout(rctx, timeout)
-	defer cancel()
+	ctx := rctx
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(rctx, timeout)
+		defer cancel()
+	}
 
 	// By default GRPC will attempt to get service config from a TXT record when
 	// the `dns:///` scheme is used. Some DNS servers return the wrong type of error

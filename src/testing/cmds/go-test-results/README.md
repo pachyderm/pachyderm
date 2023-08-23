@@ -1,11 +1,11 @@
 ## Testing the collector locally with minikube
 
 * Setup minikube like you would for normal setup
-* adjust variables in `etc/testing/circle/workloads/ci-results/collector/test-collect.sh` as needed
-* create the repos and pipeline images: `eval $(minikube -p minikube docker-env) && echo $(cd etc/testing/circle/workloads/ci-results && ./build-docker.sh)`
+* adjust variables in `src/testing/cmds/go-test-results/test-collect.sh` as needed
+* create the repos and pipeline images: `eval $(minikube -p minikube docker-env) && echo $(cd src/testing/cmds/go-test-results && ./build-docker.sh)`
 * ensure the results you want to test with are in the `/tmp/test-results` folder 
-* Apply the schema `etc/testing/circle/workloads/go-test-results/schema.sql` to the DB if the tables do not exist.
-* run the collector with `etc/testing/circle/workloads/ci-results/collector/test-collect.sh
+* In postgres, log in with pachyderm adimn and create the `ci_metrics` DB. The migrates with run with the job and initialize all of the tables.
+* run the collector with `src/testing/cmds/go-test-results/test-collect.sh`
 
 If you want to test with local grafana check this page out: https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/
 
