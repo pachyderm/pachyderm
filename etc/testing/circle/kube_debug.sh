@@ -17,6 +17,7 @@ cmds=(
      pachctl list commit "${r}";
      echo;
    done'
+  'kubectl describe configmap coredns -n kube-system'
   'pachctl list pipeline'
   'pachctl list job --no-pager'
   'kubectl version'
@@ -62,6 +63,8 @@ cmds=(
   'kubectl logs postgres-0 --namespace=test-cluster-4 --tail=1500 --prefix=true'
   'kubectl logs postgres-0 --namespace=test-cluster-5 --tail=1500 --prefix=true'
   'kubectl logs postgres-0 --namespace=test-cluster-6 --tail=1500 --prefix=true'
+  'kubectl logs -l k8s-app=kube-dns -n kube-system'
+  'kubectl logs -l k8s-app=kube-dns -n kube-system --previous'
   'kubectl logs storage-provisioner -n kube-system'
   'kubectl logs storage-provisioner -n kube-system --previous'
   'sudo dmesg | tail -n 40'
