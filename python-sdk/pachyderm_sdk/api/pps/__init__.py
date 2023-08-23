@@ -882,6 +882,16 @@ class SchedulingSpec(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class RerunPipelineRequest(betterproto.Message):
+    pipeline: "Pipeline" = betterproto.message_field(1)
+    reprocess: bool = betterproto.bool_field(15)
+    """
+    Reprocess forces the pipeline to reprocess all datums. It only has meaning
+    if Update is true
+    """
+
+
+@dataclass(eq=False, repr=False)
 class CreatePipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     tf_job: "TfJob" = betterproto.message_field(2)
@@ -1242,6 +1252,11 @@ class ApiStub:
             request_serializer=RestartDatumRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
         )
+        self.__rpc_rerun_pipeline = channel.unary_unary(
+            "/pps_v2.API/RerunPipeline",
+            request_serializer=RerunPipelineRequest.SerializeToString,
+            response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
         self.__rpc_create_pipeline = channel.unary_unary(
             "/pps_v2.API/CreatePipeline",
             request_serializer=CreatePipelineRequest.SerializeToString,
@@ -1527,6 +1542,16 @@ class ApiStub:
         request.data_filters = data_filters
 
         return self.__rpc_restart_datum(request)
+
+    def rerun_pipeline(
+        self, *, pipeline: "Pipeline" = None, reprocess: bool = False
+    ) -> "betterproto_lib_google_protobuf.Empty":
+        request = RerunPipelineRequest()
+        if pipeline is not None:
+            request.pipeline = pipeline
+        request.reprocess = reprocess
+
+        return self.__rpc_rerun_pipeline(request)
 
     def create_pipeline(
         self,
@@ -2048,6 +2073,13 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def rerun_pipeline(
+        self, pipeline: "Pipeline", reprocess: bool, context: "grpc.ServicerContext"
+    ) -> "betterproto_lib_google_protobuf.Empty":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def create_pipeline(
         self,
         pipeline: "Pipeline",
@@ -2373,6 +2405,11 @@ class ApiBase:
                 self.restart_datum,
                 request_deserializer=RestartDatumRequest.FromString,
                 response_serializer=RestartDatumRequest.SerializeToString,
+            ),
+            "RerunPipeline": grpc.unary_unary_rpc_method_handler(
+                self.rerun_pipeline,
+                request_deserializer=RerunPipelineRequest.FromString,
+                response_serializer=RerunPipelineRequest.SerializeToString,
             ),
             "CreatePipeline": grpc.unary_unary_rpc_method_handler(
                 self.create_pipeline,
