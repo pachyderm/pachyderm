@@ -2381,8 +2381,6 @@ spec:
       gatekeeper.sh/system: "yes"
   template:
     metadata:
-      annotations:
-        container.seccomp.security.alpha.kubernetes.io/manager: runtime/default
       labels:
         control-plane: audit-controller
         gatekeeper.sh/operation: audit
@@ -2434,6 +2432,7 @@ spec:
             cpu: 100m
             memory: 256Mi
         securityContext:
+          seccompProfile: RuntimeDefault
           allowPrivilegeEscalation: false
           capabilities:
             drop:
@@ -2472,8 +2471,6 @@ spec:
       gatekeeper.sh/system: "yes"
   template:
     metadata:
-      annotations:
-        container.seccomp.security.alpha.kubernetes.io/manager: runtime/default
       labels:
         control-plane: controller-manager
         gatekeeper.sh/operation: webhook
@@ -2541,6 +2538,7 @@ spec:
             cpu: 100m
             memory: 256Mi
         securityContext:
+          seccompProfile: RuntimeDefault
           allowPrivilegeEscalation: false
           capabilities:
             drop:
