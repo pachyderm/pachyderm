@@ -177,7 +177,7 @@
       healthy_threshold: 1,
       http_health_check: {
         host: 'localhost',  // This is just the value of the Host: header, not something to connect to.
-        path: '/',
+        path: '/health',
       },
       interval: '30s',
       timeout: '10s',
