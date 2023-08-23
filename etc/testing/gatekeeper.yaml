@@ -2437,7 +2437,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - all
+            - ALL
           readOnlyRootFilesystem: true
           runAsGroup: 999
           runAsNonRoot: true
@@ -2544,7 +2544,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - all
+            - ALL
           readOnlyRootFilesystem: true
           runAsGroup: 999
           runAsNonRoot: true
