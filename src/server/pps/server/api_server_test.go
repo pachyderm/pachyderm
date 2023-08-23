@@ -426,9 +426,10 @@ func TestSetClusterDefaults(t *testing.T) {
 		tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
 		require.NoError(t, err, "template must parse")
 		var buf bytes.Buffer
-		require.NoError(t, tmpl.Execute(&buf, struct {
+		err = tmpl.Execute(&buf, struct {
 			ProjectName, PipelineName, RepoName string
-		}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+		}{pfs.DefaultProjectName, pipeline, repo})
+		require.NoError(t, err, "template must execute")
 		cpr, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
 			CreatePipelineRequestJson: buf.String(),
 		})
