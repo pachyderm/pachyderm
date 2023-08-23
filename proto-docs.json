@@ -17701,6 +17701,42 @@
           ]
         },
         {
+          "name": "RerunPipelineRequest",
+          "longName": "RerunPipelineRequest",
+          "fullName": "pps_v2.RerunPipelineRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pipeline",
+              "description": "",
+              "label": "",
+              "type": "Pipeline",
+              "longType": "Pipeline",
+              "fullType": "pps_v2.Pipeline",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "reprocess",
+              "description": "Reprocess forces the pipeline to reprocess all datums.\nIt only has meaning if Update is true",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ResourceSpec",
           "longName": "ResourceSpec",
           "fullName": "pps_v2.ResourceSpec",
@@ -19194,6 +19230,18 @@
               "requestType": "RestartDatumRequest",
               "requestLongType": "RestartDatumRequest",
               "requestFullType": "pps_v2.RestartDatumRequest",
+              "requestStreaming": false,
+              "responseType": "Empty",
+              "responseLongType": ".google.protobuf.Empty",
+              "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            },
+            {
+              "name": "RerunPipeline",
+              "description": "",
+              "requestType": "RerunPipelineRequest",
+              "requestLongType": "RerunPipelineRequest",
+              "requestFullType": "pps_v2.RerunPipelineRequest",
               "requestStreaming": false,
               "responseType": "Empty",
               "responseLongType": ".google.protobuf.Empty",

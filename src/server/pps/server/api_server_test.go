@@ -522,6 +522,57 @@ func TestSetClusterDefaults(t *testing.T) {
 	})
 }
 
+func TestRerunPipeline(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	repo := "input"
+	pipeline := "pipeline"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"autoscaling": false
+	}`
+	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+	require.NoError(t, err, "template must parse")
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, struct {
+		ProjectName, PipelineName, RepoName string
+	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: buf.String(),
+	})
+	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+
+	_, err = env.PachClient.PpsAPIClient.RerunPipeline(ctx, &pps.RerunPipelineRequest{
+		Pipeline: &pps.Pipeline{
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    pipeline,
+		},
+		Reprocess: false,
+	})
+	require.NoError(t, err, "no error on rerun")
+}
+
 // TestCreatePipelineMultipleNames tests that camelCase and snake_case names map
 // to the same thing.
 func TestCreatePipelineMultipleNames(t *testing.T) {

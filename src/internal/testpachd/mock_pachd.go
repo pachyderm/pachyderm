@@ -1460,6 +1460,7 @@ type listDatumFunc func(*pps.ListDatumRequest, pps.API_ListDatumServer) error
 type restartDatumFunc func(context.Context, *pps.RestartDatumRequest) (*emptypb.Empty, error)
 type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*emptypb.Empty, error)
 type createPipelineV2Func func(context.Context, *pps.CreatePipelineV2Request) (*pps.CreatePipelineV2Response, error)
+type rerunPipelineFunc func(context.Context, *pps.RerunPipelineRequest) (*emptypb.Empty, error)
 type inspectPipelineFunc func(context.Context, *pps.InspectPipelineRequest) (*pps.PipelineInfo, error)
 type listPipelineFunc func(*pps.ListPipelineRequest, pps.API_ListPipelineServer) error
 type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*emptypb.Empty, error)
@@ -1498,6 +1499,7 @@ type mockListDatum struct{ handler listDatumFunc }
 type mockRestartDatum struct{ handler restartDatumFunc }
 type mockCreatePipeline struct{ handler createPipelineFunc }
 type mockCreatePipelineV2 struct{ handler createPipelineV2Func }
+type mockRerunPipeline struct{ handler rerunPipelineFunc }
 type mockInspectPipeline struct{ handler inspectPipelineFunc }
 type mockListPipeline struct{ handler listPipelineFunc }
 type mockDeletePipeline struct{ handler deletePipelineFunc }
@@ -1538,6 +1540,7 @@ func (mock *mockListDatum) Use(cb listDatumFunc)                         { mock.
 func (mock *mockRestartDatum) Use(cb restartDatumFunc)                   { mock.handler = cb }
 func (mock *mockCreatePipeline) Use(cb createPipelineFunc)               { mock.handler = cb }
 func (mock *mockCreatePipelineV2) Use(cb createPipelineV2Func)           { mock.handler = cb }
+func (mock *mockRerunPipeline) Use(cb rerunPipelineFunc)                 { mock.handler = cb }
 func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc)             { mock.handler = cb }
 func (mock *mockListPipeline) Use(cb listPipelineFunc)                   { mock.handler = cb }
 func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)               { mock.handler = cb }
@@ -1585,6 +1588,7 @@ type mockPPSServer struct {
 	RestartDatum                 mockRestartDatum
 	CreatePipeline               mockCreatePipeline
 	CreatePipelineV2             mockCreatePipelineV2
+	RerunPipeline                mockRerunPipeline
 	InspectPipeline              mockInspectPipeline
 	ListPipeline                 mockListPipeline
 	DeletePipeline               mockDeletePipeline
@@ -1689,6 +1693,14 @@ func (api *ppsServerAPI) CreatePipelineV2(ctx context.Context, req *pps.CreatePi
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.CreatePipelineV2")
 }
+
+func (api *ppsServerAPI) RerunPipeline(ctx context.Context, req *pps.RerunPipelineRequest) (*emptypb.Empty, error) {
+	if api.mock.RerunPipeline.handler != nil {
+		return api.mock.RerunPipeline.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.RerunPipeline")
+}
+
 func (api *ppsServerAPI) InspectPipeline(ctx context.Context, req *pps.InspectPipelineRequest) (*pps.PipelineInfo, error) {
 	if api.mock.InspectPipeline.handler != nil {
 		return api.mock.InspectPipeline.handler(ctx, req)
