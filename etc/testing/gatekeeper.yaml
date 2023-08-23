@@ -2432,7 +2432,8 @@ spec:
             cpu: 100m
             memory: 256Mi
         securityContext:
-          seccompProfile: RuntimeDefault
+          seccompProfile:
+            type: RuntimeDefault
           allowPrivilegeEscalation: false
           capabilities:
             drop:
@@ -2538,7 +2539,8 @@ spec:
             cpu: 100m
             memory: 256Mi
         securityContext:
-          seccompProfile: RuntimeDefault
+          seccompProfile:
+            type: RuntimeDefault
           allowPrivilegeEscalation: false
           capabilities:
             drop:
