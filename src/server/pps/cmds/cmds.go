@@ -978,19 +978,21 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if _, err := io.WriteString(f, pipelineInfo.UserSpecJson); err != nil {
-				return errors.Wrapf(err, "could not write user spec to temporary file %s", f.Name())
-			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
 					retErr = err
 				}
 			}()
+
 			var oldSpec map[string]any
 			decoder := json.NewDecoder(strings.NewReader(pipelineInfo.UserSpecJson))
 			if err := decoder.Decode(&oldSpec); err != nil {
 				return errors.Wrapf(err, "could not decode old user spec %s", pipelineInfo.UserSpecJson)
 			}
+			if err := cmdutil.Encoder(output, f).Encode(oldSpec); err != nil {
+				return errors.Wrapf(err, "could not encode old user spec %v", oldSpec)
+			}
+
 			if editor == "" {
 				editor = os.Getenv("EDITOR")
 			}
