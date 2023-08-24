@@ -619,6 +619,11 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 			}
 		}
 	}
+	if os.Getenv("PACHYDERM_IGNORE_PAUSED_MODE") == "" {
+		if clusterInfo.GetPaused() {
+			log.Info(pctx.TODO(), "NOTE: This pachd instance is currently paused, which prevents many commands from working.")
+		}
+	}
 	if context.ClusterDeploymentId != clusterInfo.DeploymentId {
 		if context.ClusterDeploymentId == "" {
 			context.ClusterDeploymentId = clusterInfo.DeploymentId
