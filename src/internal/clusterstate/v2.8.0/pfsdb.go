@@ -10,6 +10,7 @@ import (
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -62,6 +63,60 @@ func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo
 		})
 	}
 	return repos, nil
+}
+
+func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Branch, []Edge, error) {
+	type branchColRow struct {
+		v2_7_0.CollectionRecord
+		RepoID uint64 `db:"repo_id"`
+	}
+	var branchColRows []branchColRow
+	if err := sqlx.SelectContext(ctx, q, &branchColRows, `
+		SELECT col.key, col.proto, col.createdat, col.updatedat, repo.id as repo_id
+		FROM pfs.repos repo
+			JOIN core.projects project ON repo.project_id = project.id
+			JOIN collections.branches col ON col.idx_repo = project.name || '/' || repo.name || '.' || repo.type
+		ORDER BY createdat, key ASC;
+	`); err != nil {
+		return nil, nil, errors.Wrap(err, "listing branches from collections.branches")
+	}
+
+	// Build a map from branch key to branch
+	keyToBranch := make(map[string]Branch)
+	// Build a map from branch key to its direct provenance
+	keyToDirectProv := make(map[string][]string)
+	var branches []Branch
+	var branchInfo pfs.BranchInfo
+	var commitID uint64
+	for i, row := range branchColRows {
+		if err := proto.Unmarshal(row.Proto, &branchInfo); err != nil {
+			return nil, nil, errors.Wrap(err, "unmarshaling branch")
+		}
+		if err := sqlx.GetContext(ctx, q, &commitID, `select int_id from pfs.commits where commit_id = $1`, pfsdb.CommitKey(branchInfo.Head)); err != nil {
+			return nil, nil, errors.Wrap(err, "getting commit id")
+		}
+		for _, branch := range branchInfo.DirectProvenance {
+			keyToDirectProv[row.Key] = append(keyToDirectProv[row.Key], pfsdb.BranchKey(branch))
+		}
+		branch := Branch{
+			ID:        uint64(i + 1),
+			Name:      branchInfo.Branch.Name,
+			Head:      commitID,
+			RepoID:    row.RepoID,
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+		}
+		keyToBranch[row.Key] = branch
+		branches = append(branches, branch)
+	}
+
+	var edges []Edge
+	for fromKey, toKeys := range keyToDirectProv {
+		for _, toKey := range toKeys {
+			edges = append(edges, Edge{FromID: keyToBranch[fromKey].ID, ToID: keyToBranch[toKey].ID})
+		}
+	}
+	return branches, edges, nil
 }
 
 func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
@@ -128,5 +183,64 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrap(err, "inserting repo")
 		}
 	}
+	return nil
+}
+
+func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
+	branchesTableQuery := `
+	CREATE TABLE IF NOT EXISTS pfs.branches (
+		id bigserial PRIMARY KEY,
+		name text NOT NULL,
+		head bigint REFERENCES pfs.commits(int_id) NOT NULL,
+		repo_id bigint REFERENCES pfs.repos(id) NOT NULL,
+		created_at timestamptz,
+		updated_at timestamptz
+	);
+	`
+	if _, err := tx.ExecContext(ctx, branchesTableQuery); err != nil {
+		return errors.Wrap(err, "creating branches table")
+	}
+	branchProvenanceQuery := `
+	CREATE TABLE IF NOT EXISTS pfs.branch_provenance (
+		from_id bigint REFERENCES pfs.branches(id) NOT NULL,
+		to_id bigint REFERENCES pfs.branches(id) NOT NULL
+	);
+	`
+	if _, err := tx.ExecContext(ctx, branchProvenanceQuery); err != nil {
+		return errors.Wrap(err, "creating branch_provenance table")
+	}
+
+	insertBranchStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branches(name, head, repo_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`)
+	if err != nil {
+		return errors.Wrap(err, "preparing insert statement")
+	}
+	branches, edges, err := ListBranchesFromCollection(ctx, tx)
+	if err != nil {
+		return errors.Wrap(err, "listing branches from collections.branches")
+	}
+	// build branch provenance
+	insertBranchProvStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branch_provenance(from_id, to_id) VALUES ($1, $2)`)
+	if err != nil {
+		return errors.Wrap(err, "preparing insert branch provenance statement")
+	}
+	var id uint64
+	for _, branch := range branches {
+		if err := insertBranchStmt.QueryRowContext(ctx, branch.Name, branch.Head, branch.RepoID, branch.CreatedAt, branch.UpdatedAt).Scan(&id); err != nil {
+			return errors.Wrap(err, "inserting branch")
+		}
+		if id != branch.ID {
+			return errors.Errorf("expected branch id %d, got %d", branch.ID, id)
+		}
+	}
+	for _, edge := range edges {
+		if _, err := insertBranchProvStmt.ExecContext(ctx, edge.FromID, edge.ToID); err != nil {
+			return errors.Wrap(err, "inserting branch provenance")
+		}
+	}
+	// Create indices at the end to speed up the inserts
+	if _, err := tx.ExecContext(ctx, `CREATE INDEX repo_name_idx ON pfs.branches (repo_id, name);`); err != nil {
+		return errors.Wrap(err, "creating index on pfs.branches")
+	}
+
 	return nil
 }
