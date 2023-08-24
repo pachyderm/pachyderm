@@ -1543,12 +1543,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer r.Close()
-			pr, err := ppsutil.NewPipelineManifestReader(r)
-			if err != nil {
-				return err
-			}
+			specReader := ppsutil.NewSpecReader(r)
 			for {
-				_, err := pr.NextCreatePipelineRequest()
+				_, err := specReader.Next()
 				if errors.Is(err, io.EOF) {
 					return nil
 				} else if err != nil {
