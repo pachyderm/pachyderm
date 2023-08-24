@@ -35,9 +35,13 @@ func TestSpecReader(t *testing.T) {
 			expectErr: true,
 		},
 		"multiple specs work": {
-			input: `{"pipeline": {"name": "test"}}
+			input: `---
+pipeline:
+  name: test
+...
 ---
-{"pipeline": {"name": "test2"}}`,
+{"pipeline": {"name": "test2"}}
+`,
 			expected: []string{`{"pipeline": {"name": "test"}}`, `{"pipeline": {"name": "test2"}}`},
 		},
 		"lists work": {
