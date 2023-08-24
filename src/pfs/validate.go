@@ -137,7 +137,7 @@ func (x *CreateProjectRequest) ValidatePFS(v LiveValidator) error {
 }
 
 func (x *InspectProjectRequest) ValidatePFS(v LiveValidator) error {
-	return validationError("project", v.ValidateProjectExists(x.GetProject()))
+	return nil
 }
 
 func (x *ListProjectRequest) ValidatePFS(v LiveValidator) error {
