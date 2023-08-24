@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -392,13 +393,118 @@ func TestSetClusterDefaults(t *testing.T) {
 		require.Equal(t, codes.InvalidArgument, s.Code(), "semantically-invalid JSON is an invalid argument")
 	})
 
-	t.Run("ValidDetails", func(t *testing.T) {
+	t.Run("DryRun", func(t *testing.T) {
+		getResp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+		require.NoError(t, err, "GetClusterDefaults failed")
+
+		var originalDefaults pps.ClusterDefaults
+		err = json.Unmarshal([]byte(getResp.GetClusterDefaultsJson()), &originalDefaults)
+		require.NoError(t, err, "unmarshal retrieved cluster defaults")
+
+		repo := "input"
+		pipeline := "pipeline"
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+		var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		}
+	}`
+		tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+		require.NoError(t, err, "template must parse")
+		var buf bytes.Buffer
+		err = tmpl.Execute(&buf, struct {
+			ProjectName, PipelineName, RepoName string
+		}{pfs.DefaultProjectName, pipeline, repo})
+		require.NoError(t, err, "template must execute")
+		cpr, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: buf.String(),
+		})
+		require.NoError(t, err, "CreatePipelineV2 must succeed")
+		require.False(t, cpr.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+		var req pps.CreatePipelineRequest
+		require.NoError(t, protojson.Unmarshal([]byte(cpr.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+		require.False(t, req.Autoscaling, "autoscaling defaults to false")
+
 		resp, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-			ClusterDefaultsJson: `{"create_pipeline_request": {"autoscaling": true}}`,
+			ClusterDefaultsJson: `{"create_pipeline_request": {"autoscaling": true, "datumTries": 1234}}`,
+			Regenerate:          true,
+			DryRun:              true,
 		})
 		require.NoError(t, err, "SetClusterDefaults failed")
-		// FIXME: this will change once CORE-1708 is implemented
-		require.Len(t, resp.AffectedPipelines, 0, "pipelines should not yet be affected by setting defaults")
+		require.Len(t, resp.AffectedPipelines, 1, "pipelines should be affected by setting defaults")
+		getResp, err = env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+		require.NoError(t, err, "GetClusterDefaults failed")
+
+		var defaults pps.ClusterDefaults
+		err = json.Unmarshal([]byte(getResp.GetClusterDefaultsJson()), &defaults)
+		require.NoError(t, err, "unmarshal retrieved cluster defaults")
+		require.True(t, proto.Equal(&originalDefaults, &defaults), "defaults should not have actually changed")
+
+		pr, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline}})
+		require.NoError(t, err, "InspectPipeline should succeed")
+		require.False(t, pr.EffectiveSpecJson == "", "effective spec should not be empty")
+		require.NoError(t, protojson.Unmarshal([]byte(pr.EffectiveSpecJson), &req), "effective spec should unmarshal")
+		require.False(t, req.Autoscaling, "defaults did not actually change")
+	})
+
+	t.Run("ValidDetails", func(t *testing.T) {
+		repo := "input"
+		pipeline := "pipeline"
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+		var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		}
+	}`
+		tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+		require.NoError(t, err, "template must parse")
+		var buf bytes.Buffer
+		require.NoError(t, tmpl.Execute(&buf, struct {
+			ProjectName, PipelineName, RepoName string
+		}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+		cpr, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: buf.String(),
+		})
+		require.NoError(t, err, "CreatePipelineV2 must succeed")
+		require.False(t, cpr.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+		var req pps.CreatePipelineRequest
+		require.NoError(t, protojson.Unmarshal([]byte(cpr.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+		require.False(t, req.Autoscaling, "autoscaling defaults to false")
+
+		resp, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+			ClusterDefaultsJson: `{"create_pipeline_request": {"autoscaling": true}}`,
+			Regenerate:          true,
+		})
+		require.NoError(t, err, "SetClusterDefaults failed")
+		require.Len(t, resp.AffectedPipelines, 1, "pipelines should be affected by setting defaults")
 		getResp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 		require.NoError(t, err, "GetClusterDefaults failed")
 
@@ -407,6 +513,12 @@ func TestSetClusterDefaults(t *testing.T) {
 		require.NoError(t, err, "unmarshal retrieved cluster defaults")
 		require.NotNil(t, defaults.CreatePipelineRequest, "Create Pipeline Request should not be nil after SetClusterDefaults")
 		require.True(t, defaults.CreatePipelineRequest.Autoscaling, "default autoscaling should be true after SetClusterDefaults")
+
+		pr, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline}})
+		require.NoError(t, err, "InspectPipeline should succeed")
+		require.False(t, pr.EffectiveSpecJson == "", "effective spec should not be empty")
+		require.NoError(t, protojson.Unmarshal([]byte(pr.EffectiveSpecJson), &req), "effective spec should unmarshal")
+		require.True(t, req.Autoscaling, "defaults propagated")
 	})
 }
 

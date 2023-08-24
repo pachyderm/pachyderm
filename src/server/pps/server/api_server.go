@@ -3791,6 +3791,13 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			return nil, unknownError(ctx, "could not list pipelines", err)
 		}
 	}
+	var resp pps.SetClusterDefaultsResponse
+	for p := range pp {
+		resp.AffectedPipelines = append(resp.AffectedPipelines, p)
+	}
+	if req.DryRun {
+		return &resp, nil
+	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
@@ -3804,10 +3811,6 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		return nil
 	}); err != nil {
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
-	}
-	var resp pps.SetClusterDefaultsResponse
-	for p := range pp {
-		resp.AffectedPipelines = append(resp.AffectedPipelines, p)
 	}
 	return &resp, nil
 }
