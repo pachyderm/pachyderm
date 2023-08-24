@@ -89,25 +89,25 @@ pipeline:
 				i++
 			}
 			if c.expectErr {
-				t.Fatalf("error expected; got %v", got)
+				t.Fatalf("got success; expected error")
 			}
 			if len(got) != len(c.expected) {
-				t.Fatalf("expected %d results; got %d", len(c.expected), len(got))
+				t.Fatalf("got len(%v) = %d; expected %d", got, len(got), len(c.expected))
 			}
 			for i := 0; i < len(got); i++ {
 				var g, e any
 				d := json.NewDecoder(strings.NewReader(got[i]))
 				d.UseNumber()
 				if err := d.Decode(&g); err != nil {
-					t.Fatalf("item %d: could not unmarshal %s", i, got[i])
+					t.Fatalf("item %d: could not unmarshal %s: %v", i, got[i], err)
 				}
 				d = json.NewDecoder(strings.NewReader(c.expected[i]))
 				d.UseNumber()
 				if err := d.Decode(&e); err != nil {
-					t.Fatalf("item %d: could not unmarshal %s", i, c.expected[i])
+					t.Fatalf("item %d: could not unmarshal %s: %v", i, c.expected[i], err)
 				}
 				if !reflect.DeepEqual(g, e) {
-					t.Fatalf("item %d: expected %v; got %v", i, c.expected[i], got[i])
+					t.Fatalf("item %d: got %v; expected %v", i, got[i], c.expected[i])
 				}
 			}
 		})
