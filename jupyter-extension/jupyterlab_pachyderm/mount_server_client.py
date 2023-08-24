@@ -116,7 +116,8 @@ class MountServerClient(MountInterface):
                             get_logger().debug(f"Removing dir {self.mount_dir}")
                             try: 
                                 os.rmdir(self.mount_dir)
-                            except OSError:
+                            except PermissionError as ex:
+                                get_logger().debug(f"Removing dir {self.mount_dir} failed with {str(ex)}", exc_info=1)
                                 # Make / writable so we can remove /pfs and replace with a link
                                 subprocess.run(["sudo", "/usr/bin/chmod", "777","/"])
                                 # Retry the removal
