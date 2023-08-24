@@ -50,8 +50,9 @@ def _check_errors(grpc_future: grpc.Future, request: Message):
     """
     error: Optional[grpc.Call] = grpc_future.exception()
     if error is not None:
-        unable_to_connect = "failed to connect to all addresses" in error.details()
-        if error.code() == grpc.StatusCode.UNAVAILABLE and unable_to_connect:
+        code, details = error.code(), error.details()
+        unable_to_connect = "failed to connect to all addresses" in details
+        if code == grpc.StatusCode.UNAVAILABLE and unable_to_connect:
             error_message = "Could not connect to pachyderm instance\n"
             if "PACHD_PEER_SERVICE_HOST" in environ:
                 error_message += (
@@ -60,8 +61,9 @@ def _check_errors(grpc_future: grpc.Future, request: Message):
                     " python_pachyderm within the pipeline. "
                 )
             raise ConnectionError(error_message) from error
-        unable_to_serialize = "Exception serializing request" in error.details()
-        if error.code() == grpc.StatusCode.INTERNAL and unable_to_serialize:
+
+        unable_to_serialize = "Exception serializing request" in details
+        if code == grpc.StatusCode.INTERNAL and unable_to_serialize:
             error_message = (
                 "An error occurred while trying to serialize the following"
                 f" {request.__class__.__qualname__} message.\n "
@@ -70,4 +72,10 @@ def _check_errors(grpc_future: grpc.Future, request: Message):
                 f"\tMessage: {request}"
             )
             raise TypeError(error_message) from error
-        raise AuthServiceNotActivated.try_from(error)
+
+        auth_codes = (grpc.StatusCode.UNIMPLEMENTED, grpc.StatusCode.UNAUTHENTICATED)
+        auth_not_activated = "the auth service is not activated" in details
+        if code in auth_codes and auth_not_activated:
+            return AuthServiceNotActivated(details)
+
+        raise error
