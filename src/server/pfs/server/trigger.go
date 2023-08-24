@@ -51,7 +51,7 @@ func (d *driver) triggerCommit(txnCtx *txncontext.TransactionContext, commitInfo
 		if err != nil {
 			return nil, err
 		}
-		if newHead == nil {
+		if newHead == nil || proto.Equal(bi.Head, newHead.Commit) {
 			return nil, nil
 		}
 		// Check if the trigger should fire based on the new head commit.
@@ -131,16 +131,15 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		ci := newHead
 		var commits int64
 		for commits < t.Commits {
-			commits++
-			if ci.ParentCommit != nil && oldHead.Commit.Id != ci.ParentCommit.Id {
-				var err error
-				ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
-				if err != nil {
-					return false, err
-				}
-			} else {
+			if oldHead.Commit.Id == ci.Commit.Id || ci.ParentCommit == nil {
 				break
 			}
+			var err error
+			ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
+			if err != nil {
+				return false, err
+			}
+			commits++
 		}
 		merge(commits == t.Commits)
 	}
