@@ -66,7 +66,7 @@ func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *cli
 	var token *auth.GetRobotTokenResponse
 	var err error
 	require.NoErrorWithinTRetryConstant(tb, 2*time.Minute, func() error {
-		token, err = rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject, Ttl: 86400})
+		token, err = rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
 		if err != nil {
 			return errors.Wrap(err, "get robot token request")
 		}
