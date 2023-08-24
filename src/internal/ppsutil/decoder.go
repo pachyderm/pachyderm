@@ -13,7 +13,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -25,7 +24,7 @@ type PipelineManifestReader struct {
 	// Do first round of parsing (yaml -> holder) here (not serde), in case of
 	// multi-pipeline document
 	decoder    *yaml.Decoder
-	next       func() (*ppsclient.CreatePipelineRequest, error)
+	next       func() (*pps.CreatePipelineRequest, error)
 	noValidate bool
 }
 
@@ -46,27 +45,27 @@ func (r *PipelineManifestReader) DisableValidation() *PipelineManifestReader {
 	return r
 }
 
-type unvalidatedCreatePipelineRequest ppsclient.CreatePipelineRequest
+type unvalidatedCreatePipelineRequest pps.CreatePipelineRequest
 
 var _ proto.Message = new(unvalidatedCreatePipelineRequest)
 
 // ProtoReflect implements proto.Message.
 func (ucpr *unvalidatedCreatePipelineRequest) ProtoReflect() protoreflect.Message {
-	return (*ppsclient.CreatePipelineRequest)(ucpr).ProtoReflect()
+	return (*pps.CreatePipelineRequest)(ucpr).ProtoReflect()
 }
 
-func (r *PipelineManifestReader) convertRequest(request interface{}) (*ppsclient.CreatePipelineRequest, error) {
+func (r *PipelineManifestReader) convertRequest(request interface{}) (*pps.CreatePipelineRequest, error) {
 	var result unvalidatedCreatePipelineRequest
 	if err := serde.RoundTrip(request, &result); err != nil {
 		return nil, errors.Wrapf(err, "malformed pipeline spec")
 	}
 	if r.noValidate {
-		return (*ppsclient.CreatePipelineRequest)(&result), nil
+		return (*pps.CreatePipelineRequest)(&result), nil
 	}
 	return r.validateRequest(&result)
 }
 
-func (r *PipelineManifestReader) validateRequest(req *unvalidatedCreatePipelineRequest) (*ppsclient.CreatePipelineRequest, error) {
+func (r *PipelineManifestReader) validateRequest(req *unvalidatedCreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
 	if req.Pipeline == nil {
 		return nil, errors.New("no `pipeline` specified")
 	}
@@ -87,11 +86,11 @@ func (r *PipelineManifestReader) validateRequest(req *unvalidatedCreatePipelineR
 					"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
 		}
 	}
-	return (*ppsclient.CreatePipelineRequest)(req), nil
+	return (*pps.CreatePipelineRequest)(req), nil
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.
-func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
+func (r *PipelineManifestReader) NextCreatePipelineRequest() (*pps.CreatePipelineRequest, error) {
 	// return 2nd or later pipeline spec in a list (from a template)
 	if r.next != nil {
 		result, err := r.next()
@@ -118,7 +117,7 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 	case []interface{}:
 		// doc is a list of requests--return elements one by one
 		index := 0 // captured in r.next(), below
-		r.next = func() (*ppsclient.CreatePipelineRequest, error) {
+		r.next = func() (*pps.CreatePipelineRequest, error) {
 			index++
 			if index >= len(document) {
 				r.next = nil // last request in the list--reset r.next
