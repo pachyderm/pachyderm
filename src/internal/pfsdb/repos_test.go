@@ -3,8 +3,9 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -22,13 +23,14 @@ import (
 )
 
 const (
-	testRepoName = "testRepoName"
-	testRepoType = "user"
-	testRepoDesc = "this is a test repo"
+	testProjectName = "default"
+	testRepoName    = "testRepoName"
+	testRepoType    = "user"
+	testRepoDesc    = "this is a test repo"
 )
 
 func testRepo(name, repoType string) *pfs.RepoInfo {
-	repo := &pfs.Repo{Name: name, Type: repoType, Project: &pfs.Project{Name: "default"}}
+	repo := &pfs.Repo{Name: name, Type: repoType, Project: &pfs.Project{Name: testProjectName}}
 	return &pfs.RepoInfo{
 		Repo:        repo,
 		Description: testRepoDesc,
@@ -50,6 +52,7 @@ func TestCreateRepo(t *testing.T) {
 		require.Equal(t, createInfo.Repo.Type, getInfo.Repo.Type)
 		require.Equal(t, createInfo.Repo.Project.Name, getInfo.Repo.Project.Name)
 		require.Equal(t, createInfo.Description, getInfo.Description)
+		require.NoError(t, pfsdb.RepoExistsByName(cbCtx, tx, "default", testRepoName, testRepoType), "repo existence check should succeed")
 		return nil
 	}))
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
@@ -252,4 +255,70 @@ func TestUpdateRepoByID(t *testing.T) {
 		require.NoError(t, pfsdb.UpdateRepo(cbCtx, tx, 1, repoInfo), "should be able to update repo")
 		return nil
 	}))
+}
+
+func TestRepoExistsByName(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewTestDB(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	testData := []struct {
+		name                            string
+		projectName, repoName, repoType string
+		wantErr                         bool
+	}{
+		{
+			name:        "exists",
+			projectName: testProjectName,
+			repoName:    testRepoName,
+			repoType:    testRepoType,
+		},
+		{
+			name:        "wrong project",
+			projectName: "does-not-exist",
+			repoName:    testRepoName,
+			repoType:    testRepoType,
+			wantErr:     true,
+		},
+		{
+			name:        "wrong type",
+			projectName: testProjectName,
+			repoName:    testRepoName,
+			repoType:    pfs.SpecRepoType,
+			wantErr:     true,
+		},
+		{
+			name:        "wrong name",
+			projectName: testProjectName,
+			repoName:    "does-not-exist",
+			repoType:    testRepoType,
+			wantErr:     true,
+		},
+		{
+			name:     "empty",
+			repoType: testRepoType,
+			wantErr:  true,
+		},
+	}
+	repoInfo := testRepo(testRepoName, testRepoType)
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		return pfsdb.CreateRepo(cbCtx, tx, repoInfo)
+	}), "should be able to create a repo")
+	for _, test := range testData {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+				err := pfsdb.RepoExistsByName(ctx, tx, test.projectName, test.repoName, test.repoType)
+				if test.wantErr && err == nil {
+					return errors.New("expected error, but got success")
+				} else if test.wantErr {
+					t.Logf("expected error and got %v", err)
+					return nil
+				}
+				return err
+			}))
+		})
+	}
 }

@@ -4,14 +4,13 @@ import (
 	"context"
 	"database/sql"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -94,13 +93,10 @@ func (v *validator) ValidateRepoExists(repo *pfs.Repo) error {
 		return errors.EnsureStack(err)
 	}
 
-	var repoInfo pfs.RepoInfo
-	if err := v.d.repos.ReadWrite(v.tx).Get(repo, &repoInfo); err != nil {
-		if col.IsErrNotFound(err) {
-			return pfsserver.ErrRepoNotFound{Repo: repo}
-		}
+	if err := pfsdb.RepoExistsByName(v.ctx, v.tx, repo.GetProject().GetName(), repo.GetName(), repo.GetType()); err != nil {
 		return err
 	}
+
 	return nil
 }
 
