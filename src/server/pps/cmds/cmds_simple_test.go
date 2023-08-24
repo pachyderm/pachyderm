@@ -110,7 +110,7 @@ func testReader(indicator string) error {
 		}
 		var p pps.CreatePipelineRequest
 		if err := protojson.Unmarshal([]byte(spec), &p); err != nil {
-			return err
+			return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 		}
 		if expected, got := uint64(1), p.ParallelismSpec.Constant; expected != got {
 			return errors.Errorf("parallelism spec constant: expected %d; got %d", expected, got)

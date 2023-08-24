@@ -536,7 +536,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				}
 				var request pps.CreatePipelineRequest
 				if err := protojson.Unmarshal([]byte(spec), &request); err != nil {
-					return err
+					return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 				}
 				if err := pps.VisitInput(request.Input, func(i *pps.Input) error {
 					if i.Pfs != nil && i.Pfs.Project == "" {
@@ -1015,7 +1015,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			var request = new(pps.CreatePipelineRequest)
 			if err := protojson.Unmarshal([]byte(spec), request); err != nil {
-				return err
+				return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 			}
 			if proto.Equal(createPipelineRequest, request) {
 				fmt.Println("Pipeline unchanged, no update will be performed.")
