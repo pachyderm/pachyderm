@@ -17,7 +17,6 @@ cmds=(
      pachctl list commit "${r}";
      echo;
    done'
-  'kubectl describe configmap coredns -n kube-system'
   'pachctl list pipeline'
   'pachctl list job --no-pager'
   'kubectl version'
