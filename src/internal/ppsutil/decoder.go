@@ -94,14 +94,13 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*pps.CreatePipelin
 	// return 2nd or later pipeline spec in a list (from a template)
 	if r.next != nil {
 		result, err := r.next()
-		switch {
-		case errors.Is(err, io.EOF):
-			return nil, err
-		case err != nil:
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil, err
+			}
 			return nil, errors.Wrapf(err, "malformed pipeline spec")
-		default:
-			return result, nil
 		}
+		return result, nil
 	}
 
 	// No list is in progress--parse next doc (either a single spec or a
@@ -150,14 +149,13 @@ func NewSpecReader(r io.Reader) *SpecReader {
 func (r *SpecReader) Next() (string, error) {
 	if r.next != nil {
 		result, err := r.next()
-		switch {
-		case errors.Is(err, io.EOF):
-			return "", err
-		case err != nil:
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return "", err
+			}
 			return "", errors.Wrapf(err, "malformed pipeline spec")
-		default:
-			return result, nil
 		}
+		return result, nil
 	}
 	// no list is in progress: parse the next document as either a spec or a
 	// list of specs.
