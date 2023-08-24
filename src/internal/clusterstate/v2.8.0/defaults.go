@@ -205,8 +205,12 @@ func synthesizeSpec(pi *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not marshal CreatePipelineRequest as JSON")
 	}
-	pi.EffectiveSpecJson = string(js)
-	pi.UserSpecJson = string(js)
+	if pi.EffectiveSpecJson == "" {
+		pi.EffectiveSpecJson = string(js)
+	}
+	if pi.UserSpecJson == "" {
+		pi.UserSpecJson = string(js)
+	}
 	return pi, nil
 }
 
