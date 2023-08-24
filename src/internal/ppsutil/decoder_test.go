@@ -13,9 +13,10 @@ import (
 
 func TestSpecReader(t *testing.T) {
 	var cases = map[string]struct {
-		input     string   // YAML
-		expected  []string // list of JSON specs
-		expectErr bool
+		input             string // YAML
+		disableValidation bool
+		expected          []string // list of JSON specs
+		expectErr         bool
 	}{
 		"empty input is okay": {},
 		"invalid JSON is bad": {
@@ -65,6 +66,12 @@ pipeline:
                                    cmd: ["foo", "bar"]`,
 			expected: []string{`{"pipeline": {"name": "test"}, "transform": {"cmd": ["foo", "bar"]}}`},
 		},
+		// TODO(INT-1006): This test should be removed when INT-1006 is implemented.
+		"disabling validation works": {
+			input:             `{"input": {"pfs": {"project": "foo", "repo": "repo", "glob": "/"}}}`,
+			disableValidation: true,
+			expected:          []string{`{"input": {"pfs": {"project": "foo", "repo": "repo", "glob": "/"}}}`},
+		},
 	}
 
 	for name, c := range cases {
@@ -74,6 +81,9 @@ pipeline:
 				got []string
 				i   int
 			)
+			if c.disableValidation {
+				r = r.DisableValidation()
+			}
 			for {
 				g, err := r.Next()
 				if errors.Is(err, io.EOF) {
@@ -81,7 +91,7 @@ pipeline:
 				}
 				if err != nil {
 					if !c.expectErr {
-						t.Errorf("item %d]: %v", i, err)
+						t.Errorf("item %d: %v", i, err)
 					}
 					return
 				}
