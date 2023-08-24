@@ -160,7 +160,7 @@
                   "healthy_threshold": 1,
                   "http_health_check": {
                      "host": "localhost",
-                     "path": "/"
+                     "path": "/health"
                   },
                   "interval": "30s",
                   "no_traffic_healthy_interval": "10s",
