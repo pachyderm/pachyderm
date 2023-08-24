@@ -529,12 +529,13 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 					return err
 				}
 				defer r.Close()
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
+				specReader := ppsutil.NewSpecReader(r)
+				spec, err := specReader.Next()
 				if err != nil {
 					return err
 				}
-				request, err := pipelineReader.NextCreatePipelineRequest()
-				if err != nil {
+				var request pps.CreatePipelineRequest
+				if err := protojson.Unmarshal([]byte(spec), &request); err != nil {
 					return err
 				}
 				if err := pps.VisitInput(request.Input, func(i *pps.Input) error {
