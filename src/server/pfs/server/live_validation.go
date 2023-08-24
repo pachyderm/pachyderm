@@ -39,7 +39,14 @@ func (a *apiServer) ValidateRequest(ctx context.Context, txnCtx *txncontext.Tran
 		}
 		defer tx.Rollback()
 	}
-	err := req.ValidatePFS(a.newValidator(ctx, tx))
+	if s := validateRequest(ctx, tx, req, a.newValidator(ctx, tx)); s != nil {
+		return s.Err()
+	}
+	return nil
+}
+
+func validateRequest(ctx context.Context, tx *pachsql.Tx, req validatable, v pfs.LiveValidator) *status.Status {
+	err := req.ValidatePFS(v)
 	if err == nil {
 		return nil
 	}
@@ -48,22 +55,25 @@ func (a *apiServer) ValidateRequest(ctx context.Context, txnCtx *txncontext.Tran
 	var fieldViolations []*errdetails.BadRequest_FieldViolation
 	var visit func(err error)
 	visit = func(err error) {
-		var lvErr *pfs.LiveValidationError
-		if errors.As(err, &lvErr) {
+		if x, ok := err.(*pfs.LiveValidationError); ok {
+			// Note: errors.As is too aggressive for us, as it will return true for a
+			// joined set of LiveValidationError, and then only return the first one.
+			// So we manually unwrap until we hit the exact type.
 			fieldViolations = append(fieldViolations, &errdetails.BadRequest_FieldViolation{
-				Field:       lvErr.Path,
-				Description: lvErr.Err.Error(),
+				Field:       x.Path,
+				Description: x.Err.Error(),
 			})
-			return
-		}
-		if x, ok := err.(interface{ Unwrap() error }); ok {
-			visit(x.Unwrap())
 			return
 		}
 		if x, ok := err.(interface{ Unwrap() []error }); ok {
 			for _, err := range x.Unwrap() {
 				visit(err)
 			}
+			return
+		}
+		if x, ok := err.(interface{ Unwrap() error }); ok {
+			visit(x.Unwrap())
+			return
 		}
 	}
 	visit(err)
@@ -73,7 +83,7 @@ func (a *apiServer) ValidateRequest(ctx context.Context, txnCtx *txncontext.Tran
 	s, _ = s.WithDetails(&errdetails.BadRequest{
 		FieldViolations: fieldViolations,
 	})
-	return s.Err()
+	return s
 }
 
 // validator remembers the context and transaction context so the PFS package doesn't have to depend
