@@ -67,8 +67,8 @@ pipeline:
 		},
 	}
 
-	for n, c := range cases {
-		t.Run(n, func(t *testing.T) {
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
 			var (
 				r   = ppsutil.NewSpecReader(strings.NewReader(c.input))
 				got []string
@@ -81,7 +81,7 @@ pipeline:
 				}
 				if err != nil {
 					if !c.expectErr {
-						t.Errorf("%s[%d]: %v", n, i, err)
+						t.Errorf("item %d]: %v", i, err)
 					}
 					return
 				}
@@ -89,25 +89,25 @@ pipeline:
 				i++
 			}
 			if c.expectErr {
-				t.Fatalf("%s: error expected; got %v", n, got)
+				t.Fatalf("error expected; got %v", got)
 			}
 			if len(got) != len(c.expected) {
-				t.Fatalf("%s: expected %d results; got %d", n, len(c.expected), len(got))
+				t.Fatalf("expected %d results; got %d", len(c.expected), len(got))
 			}
 			for i := 0; i < len(got); i++ {
 				var g, e any
 				d := json.NewDecoder(strings.NewReader(got[i]))
 				d.UseNumber()
 				if err := d.Decode(&g); err != nil {
-					t.Fatalf("%s[%d]: could not unmarshal %s", n, i, got[i])
+					t.Fatalf("item %d: could not unmarshal %s", i, got[i])
 				}
 				d = json.NewDecoder(strings.NewReader(c.expected[i]))
 				d.UseNumber()
 				if err := d.Decode(&e); err != nil {
-					t.Fatalf("%s[%d]: could not unmarshal %s", n, i, c.expected[i])
+					t.Fatalf("item %d: could not unmarshal %s", i, c.expected[i])
 				}
 				if !reflect.DeepEqual(g, e) {
-					t.Fatalf("%s[%d]: expected %v; got %v", n, i, c.expected[i], got[i])
+					t.Fatalf("item %d: expected %v; got %v", i, c.expected[i], got[i])
 				}
 			}
 		})
