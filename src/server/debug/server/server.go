@@ -35,6 +35,7 @@ import (
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	describe "k8s.io/kubectl/pkg/describe"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -44,8 +45,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -60,10 +61,21 @@ const (
 	databasePrefix  = "database"
 )
 
+type Env struct {
+	DB            *pachsql.DB
+	SidecarClient *client.APIClient
+	Name          string
+	GetLokiClient func() (*loki.Client, error)
+	KubeClient    kubernetes.Interface
+	Config        pachconfig.Configuration
+
+	GetPachClient func(context.Context) *client.APIClient
+}
+
 type debugServer struct {
 	debug.UnimplementedDebugServer
 
-	env                 serviceenv.ServiceEnv
+	env                 Env
 	name                string
 	sidecarClient       *client.APIClient
 	marshaller          *protojson.MarshalOptions
@@ -72,13 +84,13 @@ type debugServer struct {
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient, db *pachsql.DB) debug.DebugServer {
+func NewDebugServer(env Env) debug.DebugServer {
 	return &debugServer{
 		env:           env,
-		name:          name,
-		sidecarClient: sidecarClient,
+		name:          env.Name,
+		sidecarClient: env.SidecarClient,
 		marshaller:    &protojson.MarshalOptions{Indent: "  "},
-		database:      db,
+		database:      env.DB,
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
 	}
@@ -130,7 +142,7 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	defer end(log.Errorp(&retErr))
 	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
 	defer c()
-	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
+	pods, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
@@ -948,7 +960,7 @@ func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachC
 }
 
 func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server) error {
-	secrets, err := s.env.GetKubeClient().CoreV1().Secrets(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
+	secrets, err := s.env.KubeClient.CoreV1().Secrets(s.env.Config.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "owner=helm",
 	})
 	if err != nil {
@@ -981,9 +993,9 @@ func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debu
 			// memory if this runs forever but we return, but that's better than a debug
 			// dump that doesn't return.
 			pd := describe.PodDescriber{
-				Interface: s.env.GetKubeClient(),
+				Interface: s.env.KubeClient,
 			}
-			output, err := pd.Describe(s.env.Config().Namespace, pod.Name, describe.DescriberSettings{ShowEvents: true})
+			output, err := pd.Describe(s.env.Config.Namespace, pod.Name, describe.DescriberSettings{ShowEvents: true})
 			if err != nil {
 				w.CloseWithError(errors.EnsureStack(err))
 				return
@@ -1008,7 +1020,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.Ap
 	dir := filepath.Join(appDir(app), "pods", pod.Name, container)
 	if err := dfs.Write(filepath.Join(dir, "logs.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container}).Stream(ctx)
+		stream, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -1024,7 +1036,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.Ap
 	}
 	if err := dfs.Write(filepath.Join(dir, "logs-previous.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
+		stream, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -1199,7 +1211,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) (retResult
 
 	c, err := s.env.GetLokiClient()
 	if err != nil {
-		return nil, errors.EnsureStack(errors.Errorf("get loki client: %v", err))
+		return nil, errors.EnsureStack(errors.Errorf("get loki client: %w", err))
 	}
 	// We used to just stream the output, but that results in logs from different streams
 	// (stdout/stderr) being randomly interspersed with each other, which is hard to follow when
