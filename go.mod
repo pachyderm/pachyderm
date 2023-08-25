@@ -13,6 +13,7 @@ require (
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
+	github.com/chrusty/protoc-gen-jsonschema v0.0.0-20230806074516-0ca6ba213e83
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/determined-ai/determined/proto v0.0.0-20230615001349-d3aff5bab560
 	github.com/dexidp/dex v0.0.0-20210629090108-0780edbcbe43
@@ -111,7 +112,6 @@ require (
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cheggaaa/pb v1.0.27 // indirect
-	github.com/chrusty/protoc-gen-jsonschema v0.0.0-20230806074516-0ca6ba213e83 // indirect
 	github.com/djherbis/times v1.2.0 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
