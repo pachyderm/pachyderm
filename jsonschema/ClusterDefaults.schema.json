@@ -195,9 +195,6 @@
                     "$ref": "#/definitions/pps_v2.Egress",
                     "additionalProperties": false
                 },
-                "update": {
-                    "type": "boolean"
-                },
                 "output_branch": {
                     "type": "string"
                 },
@@ -223,10 +220,6 @@
                 },
                 "description": {
                     "type": "string"
-                },
-                "reprocess": {
-                    "type": "boolean",
-                    "description": "Reprocess forces the pipeline to reprocess all datums. It only has meaning if Update is true"
                 },
                 "service": {
                     "$ref": "#/definitions/pps_v2.Service",
