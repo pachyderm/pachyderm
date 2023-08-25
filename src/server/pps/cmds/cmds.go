@@ -529,13 +529,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 					return err
 				}
 				defer r.Close()
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
+				specReader := ppsutil.NewSpecReader(r)
+				spec, err := specReader.Next()
 				if err != nil {
 					return err
 				}
-				request, err := pipelineReader.NextCreatePipelineRequest()
-				if err != nil {
-					return err
+				var request pps.CreatePipelineRequest
+				if err := protojson.Unmarshal([]byte(spec), &request); err != nil {
+					return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 				}
 				if err := pps.VisitInput(request.Input, func(i *pps.Input) error {
 					if i.Pfs != nil && i.Pfs.Project == "" {
@@ -1007,13 +1008,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer r.Close()
-			pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
+			specReader := ppsutil.NewSpecReader(r)
+			spec, err := specReader.Next()
 			if err != nil {
 				return err
 			}
-			request, err := pipelineReader.NextCreatePipelineRequest()
-			if err != nil {
-				return err
+			var request = new(pps.CreatePipelineRequest)
+			if err := protojson.Unmarshal([]byte(spec), request); err != nil {
+				return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 			}
 			if proto.Equal(createPipelineRequest, request) {
 				fmt.Println("Pipeline unchanged, no update will be performed.")
@@ -1541,12 +1543,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer r.Close()
-			pr, err := ppsutil.NewPipelineManifestReader(r)
-			if err != nil {
-				return err
-			}
+			specReader := ppsutil.NewSpecReader(r)
 			for {
-				_, err := pr.NextCreatePipelineRequest()
+				_, err := specReader.Next()
 				if errors.Is(err, io.EOF) {
 					return nil
 				} else if err != nil {
@@ -1746,7 +1745,7 @@ func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, 
 	return []byte(res.Json), nil
 }
 
-func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, project, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool, output string, raw bool) error {
+func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, projectName, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool, output string, raw bool) error {
 	// validate arguments
 	if pipelinePath != "" && jsonnetPath != "" {
 		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
@@ -1760,30 +1759,24 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	}
 	defer pc.Close()
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
-	var pipelineReader *ppsutil.PipelineManifestReader
+	var specReader *ppsutil.SpecReader
 	if pipelinePath != "" {
 		r, err := fileIndicatorToReadCloser(pipelinePath)
 		if err != nil {
 			return err
 		}
 		defer r.Close()
-		pipelineReader, err = ppsutil.NewPipelineManifestReader(r)
-		if err != nil {
-			return err
-		}
+		specReader = ppsutil.NewSpecReader(r)
 
 	} else if jsonnetPath != "" {
 		pipelineBytes, err := evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
 		if err != nil {
 			return err
 		}
-		pipelineReader, err = ppsutil.NewPipelineManifestReader(bytes.NewReader(pipelineBytes))
-		if err != nil {
-			return err
-		}
+		specReader = ppsutil.NewSpecReader(bytes.NewReader(pipelineBytes))
 	}
 	for {
-		request, err := pipelineReader.NextCreatePipelineRequest()
+		specJSON, err := specReader.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -1797,34 +1790,74 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			log.Error(ctx, "problem adding trace data", zap.Error(err))
 		}
 
+		var spec map[string]any
+		if err := json.Unmarshal([]byte(specJSON), &spec); err != nil {
+			return errors.Errorf("could not decode %s as JSON", specJSON)
+		}
+
 		if pushImages {
-			if request.Transform == nil {
+			if spec["transform"] == nil {
 				return errors.New("must specify a pipeline `transform`")
 			}
-			if err := dockerPushHelper(request, registry, username); err != nil {
+			if err := dockerPushHelper(spec, registry, username); err != nil {
 				return err
 			}
 		}
 
-		if request.Pipeline.Project.GetName() == "" {
-			request.Pipeline.Project = &pfs.Project{Name: project}
+		pipeline, ok := spec["pipeline"].(map[string]any)
+		if !ok {
+			return errors.New("must specify pipeline, an object")
+		}
+		project, ok := pipeline["project"]
+		if !ok {
+			pipeline["project"] = map[string]any{"name": projectName}
+			spec["pipeline"] = pipeline
+		} else if project, ok := project.(map[string]any); !ok {
+			return errors.New("project must be an object")
+		} else if project["name"] == "" {
+			project["name"] = projectName
+			pipeline["project"] = project
+			spec["pipeline"] = pipeline
+		}
+		if specUpdate, ok := spec["update"]; ok {
+			if specUpdate, ok := specUpdate.(bool); !ok {
+				return errors.New("update must be a boolean")
+			} else {
+				update = specUpdate
+			}
+		}
+		if specReprocess, ok := spec["reprocess"]; ok {
+			if specReprocess, ok := specReprocess.(bool); !ok {
+				return errors.New("reprocess must be a boolean")
+			} else {
+				reprocess = specReprocess
+			}
+		}
+		if specDryRun, ok := spec["dry_run"]; ok {
+			if specDryRun, ok := specDryRun.(bool); !ok {
+				return errors.New("dry run must be a boolean")
+			} else {
+				reprocess = specDryRun
+			}
+		}
+		if specDryRun, ok := spec["dryRun"]; ok {
+			if specDryRun, ok := specDryRun.(bool); !ok {
+				return errors.New("dry run must be a boolean")
+			} else {
+				reprocess = specDryRun
+			}
 		}
 
-		js, err := protojson.Marshal(request)
+		js, err := json.Marshal(spec)
 		if err != nil {
 			return errors.Wrap(err, "could not convert request to JSON")
 		}
 		v2Req := &pps.CreatePipelineV2Request{
 			CreatePipelineRequestJson: string(js),
-			Update:                    request.Update,
-			Reprocess:                 request.Reprocess,
-			DryRun:                    request.DryRun,
+			Update:                    update,
+			Reprocess:                 reprocess,
+			DryRun:                    dryRun,
 		}
-		if update {
-			v2Req.Update = true
-			v2Req.Reprocess = reprocess
-		}
-		v2Req.DryRun = dryRun
 		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
 			resp, err := txClient.PpsAPIClient.CreatePipelineV2(
 				txClient.Ctx(),
@@ -1863,7 +1896,7 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	return nil
 }
 
-func dockerPushHelper(request *pps.CreatePipelineRequest, registry, username string) error {
+func dockerPushHelper(request map[string]any, registry, username string) error {
 	// create docker client
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
@@ -1910,7 +1943,17 @@ func dockerPushHelper(request *pps.CreatePipelineRequest, registry, username str
 		}
 	}
 
-	repo, sourceTag := docker.ParseRepositoryTag(request.Transform.Image)
+	transform, ok := request["transform"].(map[string]any)
+	if !ok {
+		return errors.New("pipeline transform must be an object")
+	}
+	var image string
+	if imageField, ok := transform["image"]; ok {
+		if image, ok = imageField.(string); !ok {
+			return errors.Errorf("pipeline transform must be a string if present; got %v", imageField)
+		}
+	}
+	repo, sourceTag := docker.ParseRepositoryTag(image)
 	if sourceTag == "" {
 		sourceTag = "latest"
 	}
@@ -1939,7 +1982,8 @@ func dockerPushHelper(request *pps.CreatePipelineRequest, registry, username str
 		return errors.Wrapf(err, "could not push docker image")
 	}
 
-	request.Transform.Image = destImage
+	transform["image"] = destImage
+	request["transform"] = transform
 	return nil
 }
 

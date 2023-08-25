@@ -62,10 +62,10 @@ func defaultsFromEnv(envMap map[string]string) (*pps.ClusterDefaults, error) {
 		return nil, errors.Wrap(err, "could not synthesize sidecar default memory request")
 	}
 	if cd.CreatePipelineRequest.SidecarResourceRequests.Cpu, err = getFloat32FromEnv(envMap, "SIDECAR_DEFAULT_CPU_REQUEST", 1); err != nil {
-		return nil, errors.Wrap(err, "could not synthesize pipeline default CPU request")
+		return nil, errors.Wrap(err, "could not synthesize sidecar default CPU request")
 	}
 	if cd.CreatePipelineRequest.SidecarResourceRequests.Disk, err = getQuantityStringFromEnv(envMap, "SIDECAR_DEFAULT_STORAGE_REQUEST", "1Gi"); err != nil {
-		return nil, errors.Wrap(err, "could not synthesize pipeline default disk request")
+		return nil, errors.Wrap(err, "could not synthesize sidecar default disk request")
 	}
 	return cd, nil
 }
