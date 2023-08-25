@@ -39,7 +39,11 @@ func prsSummaryStr(prs []*github.PullRequest) string {
 }
 
 // scanPRs uses 'client' to request all PRs in the
-// 'github.com/pachyderm/pachyderm' repo created between 'start' and 'end'
+// 'github.com/pachyderm/pachyderm' repo created between 'start' and 'end'.
+// 'now' is used to determine which order to request the PRs in (if 'start' and
+// 'end' are close to 'now', the PRs are scanned most-recent-to-oldest.
+// Otherwise they're scanned oldest-to-most-recent). We accept this value via
+// argument--rather than using time.Now()--for testing.
 //
 // TODO
 // - [ ] scanPRs is only manually tested right now.
@@ -58,7 +62,7 @@ func prsSummaryStr(prs []*github.PullRequest) string {
 //         Don't know if this is an API guarantee or what) OR until it's found
 //         all PRs in [start, end] (before start with "desc" sort, or after end
 //         with "asc" sort).
-func scanPRs(client *github.Client, authors map[string]bool, start time.Time, end time.Time) []*github.PullRequest {
+func scanPRs(client *github.Client, authors map[string]bool, now, start, end time.Time) []*github.PullRequest {
 	var (
 		// direction is the order in which GitHub should return PRs. If the interval
 		// [start, end] is close to now, this will be "desc" (most recent PRs
@@ -82,7 +86,7 @@ func scanPRs(client *github.Client, authors map[string]bool, start time.Time, en
 	// 'end' to be in the future, so 'endGap' is actually usually negative), but
 	// the logic should still be correct.
 	startGap = start.Sub(earliestPR)
-	endGap = time.Now().Sub(end)
+	endGap = now.Sub(end)
 
 	// Initialize 'direction' and 'stopFn'
 	direction = "desc"

@@ -10,7 +10,37 @@ import (
 	"github.com/google/go-github/v54/github"
 )
 
-var jiraRE = regexp.MustCompile(`[A-Z]{2,4}-[0-9]{1,5}`)
+// prCheck indicates which of the implemented checks 'actOnMatchingPRs' will
+// apply to scanned PRs.
+type prCheck byte
+
+const (
+	missingJiraTicket prCheck = iota
+	createdLastMinute
+)
+
+func (c prCheck) String() string {
+	switch c {
+	case missingJiraTicket:
+		return "PR contains Jira ticket"
+	case createdLastMinute:
+		return "PR reviewed before release"
+	}
+	return "Error: unrecognized pr check"
+}
+
+// prAction indicates which of the implemented actions 'actOnMatchingPRs' will
+// apply to scanned PRs.
+type prAction byte
+
+const (
+	commentOnPr prAction = iota
+	addStatus
+)
+
+// jiraRE is the regex that a PR's title+body+HEAD branch must match to pass the
+// 'missingJiraTicket' check.
+var jiraRE = regexp.MustCompile(`\[[A-Z]{2,4}-[0-9]{1,5}\]`)
 
 // firstReleaseSync captures the time of the first release sync since we started
 // our Tuesday-based sprint schedule: 2023-07-24 at 11:30am pacific. We
@@ -68,30 +98,32 @@ func makeStatus(client *github.Client, pr *github.PullRequest, state, descriptio
 	return err
 }
 
-func actOnMatchingPRs(client *github.Client, scannedPRs []*github.PullRequest) (matchingPRs map[int]bool) {
+func actOnMatchingPRs(client *github.Client, scannedPRs []*github.PullRequest, check prCheck, action prAction) (matchingPRs map[int]bool) {
 	matchingPRs = make(map[int]bool)
 
 	for _, pr := range scannedPRs {
 		var err error
-		var check string
-		if missingJira {
-			check = "PR contains Jira ticket"
+		switch check {
+		case missingJiraTicket:
 			err = checkMissingJira(pr)
-		} else if lastMinute {
-			check = "PR reviewed before release"
+		case createdLastMinute:
 			err = checkLastMinute(pr)
 		}
 		if err == nil {
-			if status {
-				makeStatus(client, pr, "success", check)
+			if action == addStatus {
+				// TODO(msteffen): instead of always leaving a status, it may make sense
+				// to check whether a failing status has been left previously, and only
+				// leave a status in that case.
+				makeStatus(client, pr, "success", check.String())
 			}
 			continue
 		}
 		matchingPRs[pr.GetNumber()] = true
-		if comment {
+		switch action {
+		case commentOnPr:
 			makeComment(client, pr, err.Error())
-		} else if status {
-			makeStatus(client, pr, "failure", check)
+		case addStatus:
+			makeStatus(client, pr, "failure", check.String())
 		}
 	}
 	return matchingPRs

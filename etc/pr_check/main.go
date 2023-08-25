@@ -59,13 +59,29 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
+
+	var check prCheck
 	if missingJira && lastMinute {
 		fmt.Fprintf(os.Stderr, "Error: only one of --no-jira-ticket and --last-minute can be set")
 		os.Exit(1)
+	} else if missingJira {
+		check = missingJiraTicket
+	} else if lastMinute {
+		check = createdLastMinute
 	}
+
 	if (comment || status) && !(missingJira || lastMinute) {
 		fmt.Fprintf(os.Stderr, "Error: if --comment or --status is set, then one of --no-jira-ticket or --last-minute must be set")
 		os.Exit(1)
+	}
+	var action prAction
+	if comment && status {
+		fmt.Fprintf(os.Stderr, "Error: at most one of --comment or --status may be set")
+		os.Exit(1)
+	} else if comment {
+		action = commentOnPr
+	} else if status {
+		action = addStatus
 	}
 	if len(prsToScan) > 0 && (len(authors) > 0 || startDay != "" || endDay != "") {
 		fmt.Fprintf(os.Stderr, "Error: if --pr-numbers is set, then --authors, --start, and --end must not be set")
@@ -124,9 +140,9 @@ func main() {
 	if len(prsToScan) > 0 {
 		scannedPRs = getPRs(client, prsToScan)
 	} else {
-		scannedPRs = scanPRs(client, authorsMap, start, end)
+		scannedPRs = scanPRs(client, authorsMap, time.Now(), start, end)
 	}
-	matchingPRs := actOnMatchingPRs(client, scannedPRs)
+	matchingPRs := actOnMatchingPRs(client, scannedPRs, check, action)
 	if printPRs {
 		printScanned(scannedPRs, matchingPRs)
 	}
