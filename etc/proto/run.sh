@@ -34,6 +34,17 @@ for i in $(find src -name "*.proto"); do \
     "${i}" >/dev/stderr
 done
 
+mkdir -p ../jsonschema
+
+protoc \
+    -Isrc \
+    --plugin="${GOPATH}/bin/protoc-gen-jsonschema" \
+    --jsonschema_opt="enforce_oneof" \
+    --jsonschema_opt="file_extension=schema.json" \
+    --jsonschema_opt="disallow_additional_properties" \
+    --jsonschema_out="../jsonschema" \
+    "src/pps/pps.proto" > /dev/stderr
+
 pushd src > /dev/stderr
 read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
 protoc \
