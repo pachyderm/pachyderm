@@ -19,7 +19,7 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 )
 
-type PPS interface {
+type PipelineInspector interface {
 	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }
 
@@ -33,8 +33,8 @@ type Env struct {
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
 
-	AuthServer authserver.APIServer
-	GetPPS     func() PPS
+	AuthServer           authserver.APIServer
+	GetPipelineInspector func() PipelineInspector
 	// TODO: remove this, the load tests need a pachClient
 	GetPachClient func(ctx context.Context) *client.APIClient
 
@@ -63,9 +63,9 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		EtcdClient:   env.GetEtcdClient(),
 		TaskService:  env.GetTaskService(etcdPrefix),
 
-		AuthServer:    env.AuthServer(),
-		GetPPS:        func() PPS { return env.PpsServer() },
-		GetPachClient: env.GetPachClient,
+		AuthServer:           env.AuthServer(),
+		GetPipelineInspector: func() PipelineInspector { return env.PpsServer() },
+		GetPachClient:        env.GetPachClient,
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
 		StorageConfig:     env.Config().StorageConfiguration,
