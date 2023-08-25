@@ -586,43 +586,90 @@
             "properties": {
                 "pfs": {
                     "$ref": "#/definitions/pps_v2.PFSInput",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "join": {
                     "items": {
                         "$ref": "#/definitions/pps_v2.Input"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "group": {
                     "items": {
                         "$ref": "#/definitions/pps_v2.Input"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "cross": {
                     "items": {
                         "$ref": "#/definitions/pps_v2.Input"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "union": {
                     "items": {
                         "$ref": "#/definitions/pps_v2.Input"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "cron": {
                     "$ref": "#/definitions/pps_v2.CronInput",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Input"
         },
         "pps_v2.Metadata": {

@@ -134,6 +134,7 @@ message CronInput {
 
 
 message Input {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   PFSInput pfs = 1;
   repeated Input join = 2;
   repeated Input group = 3;
