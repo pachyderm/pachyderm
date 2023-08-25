@@ -79,7 +79,7 @@ func (err ErrNotFound) Error() string {
 	if err.customMessage != "" {
 		return err.customMessage
 	}
-	return fmt.Sprintf("%s %s not found", strings.TrimPrefix(err.Type, DefaultPrefix), err.Key)
+	return fmt.Sprintf("%s %s not found", strings.TrimPrefix(err.Type, defaultPrefix), err.Key)
 }
 
 func (e ErrNotFound) GRPCStatus() *status.Status {
@@ -104,13 +104,13 @@ func (err ErrExists) Is(other error) bool {
 	return ok
 }
 
-const DefaultPrefix string = "pachyderm/1.7.0"
+const defaultPrefix string = "pachyderm/1.7.0"
 
 func (err ErrExists) Error() string {
 	if err.customMessage != "" {
 		return err.customMessage
 	}
-	return fmt.Sprintf("%s %s already exists", strings.TrimPrefix(err.Type, DefaultPrefix), err.Key)
+	return fmt.Sprintf("%s %s already exists", strings.TrimPrefix(err.Type, defaultPrefix), err.Key)
 }
 
 func (e ErrExists) GRPCStatus() *status.Status {
