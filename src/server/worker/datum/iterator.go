@@ -121,6 +121,10 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			return errors.Wrap(err, "next")
 		}
 		meta := &Meta{}
+		// This intentionally reads only the first Meta message stored in the meta file.
+		//
+		// TODO: should this return the first, or the last?  No-one on
+		// the team is currently certain.
 		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
 		if err := decoder.UnmarshalNext(meta); err != nil {
 			return errors.Wrapf(err, "could not unmarshal protojson meta in %s %v", req.File, req.PathRange)
