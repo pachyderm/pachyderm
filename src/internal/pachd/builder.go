@@ -323,12 +323,7 @@ func (b *builder) registerVersionServer(ctx context.Context) error {
 }
 
 func (b *builder) registerDebugServer(ctx context.Context) error {
-	apiServer := debugserver.NewDebugServer(
-		b.env,
-		b.env.Config().PachdPodName,
-		nil,
-		b.env.GetDBClient(),
-	)
+	apiServer := b.newDebugServer()
 	b.forGRPCServer(func(s *grpc.Server) { debugclient.RegisterDebugServer(s, apiServer) })
 	return nil
 }
@@ -443,4 +438,16 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 
 	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(target))), zap.String("setFrom", source))
 	debug.SetMemoryLimit(target)
+}
+
+func (b *builder) newDebugServer() debugclient.DebugServer {
+	return debugserver.NewDebugServer(debugserver.Env{
+		Config:        *b.env.Config(),
+		Name:          b.env.Config().PachdPodName,
+		DB:            b.env.GetDBClient(),
+		SidecarClient: nil,
+		KubeClient:    b.env.GetKubeClient(),
+		GetLokiClient: b.env.GetLokiClient,
+		GetPachClient: b.env.GetPachClient,
+	})
 }
