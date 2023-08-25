@@ -25,8 +25,8 @@ export interface useFetchParams<Type> extends fetchParams {
     init?: RequestInit | undefined,
   ) => Promise<Response>;
   formatResponse: (data: Response) => Promise<Type> | Type;
-  mode?: string;
-  credentials?: string;
+  mode?: RequestMode;
+  credentials?: RequestCredentials;
   onComplete?: (data: Type) => void;
   onError?: (err: unknown) => void;
   skip?: boolean;

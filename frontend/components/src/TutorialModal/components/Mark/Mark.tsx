@@ -3,6 +3,7 @@ import React from 'react';
 import styles from './Mark.module.css';
 
 type MarkProps = {
+  children?: React.ReactNode;
   type?: 'pipeline' | 'repo';
 };
 

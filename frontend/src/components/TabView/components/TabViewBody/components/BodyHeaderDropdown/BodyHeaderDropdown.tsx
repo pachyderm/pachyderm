@@ -7,6 +7,7 @@ import {DropdownButtonProps} from '@pachyderm/components/Dropdown/components/Dro
 import styles from './BodyHeaderDropdown.module.css';
 
 export type BodyHeaderDropdownProps = {
+  children?: React.ReactNode;
   formCtx: UseFormReturn;
   buttonText: string;
   color?: DropdownButtonProps['color'];

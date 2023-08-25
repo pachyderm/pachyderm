@@ -9,6 +9,7 @@ import {ErrorText} from '../../../Text';
 import styles from './TaskCard.module.css';
 
 type TaskCardProps = {
+  children?: React.ReactNode;
   task: React.ReactNode;
   action?: () => void;
   error?: string;

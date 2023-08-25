@@ -47,7 +47,8 @@ describe('List View Table', () => {
   it('should display file info per table row', async () => {
     render(<ListViewTable files={MOCK_IMAGES_FILES} />);
 
-    const files = screen.getAllByTestId('FileTableRow__row');
+    const files = await screen.findAllByTestId('FileTableRow__row');
+
     expect(files[0]).toHaveTextContent('AT-AT.png');
     expect(files[0]).toHaveTextContent('-');
     expect(files[0]).toHaveTextContent('80.59 kB');

@@ -7,7 +7,7 @@ export const useDeleteRepo = (onCompleted?: () => void) => {
   const [deleteRepo, {loading, error}] = useDeleteRepoMutation({
     onCompleted: () => {
       onCompleted && onCompleted();
-      client.resetStore();
+      client.cache.reset();
     },
   });
 

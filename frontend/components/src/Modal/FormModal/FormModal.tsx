@@ -14,7 +14,7 @@ import {Form} from './../../Form';
 import styles from './FormModal.module.css';
 
 export interface FormModalProps<T extends FieldValues> {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   isOpen?: boolean;
   onHide?: () => void;
   error?: string;

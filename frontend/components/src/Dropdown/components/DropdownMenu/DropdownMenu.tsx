@@ -7,6 +7,7 @@ import usePreviousValue from '@pachyderm/components/hooks/usePreviousValue';
 import styles from './DropdownMenu.module.css';
 
 export interface DropdownMenuProps {
+  children?: React.ReactNode;
   className?: string;
   pin?: 'left' | 'right';
 }

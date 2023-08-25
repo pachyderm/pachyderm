@@ -58,6 +58,10 @@ export const hover: typeof userEvent.hover = async (...args) => {
   await act(() => userEvent.hover(...args));
 };
 
+export const unhover: typeof userEvent.unhover = async (...args) => {
+  await act(() => userEvent.unhover(...args));
+};
+
 export const paste: typeof userEvent.paste = async (...args) => {
   await act(() => userEvent.paste(...args));
 };

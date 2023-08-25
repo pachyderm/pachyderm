@@ -7,6 +7,7 @@ import {Icon, Tooltip} from '@pachyderm/components';
 import styles from './IconBadge.module.css';
 
 type IconBadgeProps = {
+  children?: React.ReactNode;
   color: 'red' | 'green' | 'black';
   'aria-label'?: string;
   IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
@@ -22,7 +23,7 @@ const IconBadge: React.FC<IconBadgeProps> = ({
   'aria-label': ariaLabel,
   to,
 }) => {
-  const IconBadgeWrapper: React.FC = ({children}) => {
+  const IconBadgeWrapper = ({children}: {children?: React.ReactNode}) => {
     if (to) {
       return (
         <Link to={to} onClick={(e) => e.currentTarget.blur()}>

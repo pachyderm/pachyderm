@@ -4,6 +4,7 @@ import {
   screen,
   within,
   waitForElementToBeRemoved,
+  act,
 } from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
@@ -145,7 +146,7 @@ describe('Pipelines Runtimes Chart', () => {
     expect(
       within(jobItem).getByText('1 Failed Datum; 2 s Runtime'),
     ).toBeInTheDocument();
-    within(jobItem).getByRole('button').click();
+    act(() => within(jobItem).getByRole('button').click());
     expect(window.location.pathname).toBe(
       '/project/default/pipelines/edges/jobs/a4423427351e42aabc40c1031928628e/logs/datum',
     );

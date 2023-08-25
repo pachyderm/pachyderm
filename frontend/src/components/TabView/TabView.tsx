@@ -8,6 +8,7 @@ import {TabViewBody} from './components/TabViewBody';
 import {TabViewHeader} from './components/TabViewHeader';
 
 export interface TabViewProps {
+  children?: React.ReactNode;
   error?: boolean;
   errorMessage: string;
   retry?: () => void;

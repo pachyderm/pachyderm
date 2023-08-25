@@ -6,6 +6,7 @@ import {ButtonLink} from '@pachyderm/components';
 import styles from './SearchResultItem.module.css';
 
 type SearchResultItemProps = {
+  children?: React.ReactNode;
   title: string;
   searchValue: string;
   onClick: () => void;

@@ -1,5 +1,5 @@
 import {NodeState} from '@graphqlTypes';
-import {render, screen} from '@testing-library/react';
+import {render, screen, act} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -70,14 +70,14 @@ describe('useUrlQueryState', () => {
 
     expect(onRender).toHaveBeenCalledTimes(1);
 
-    screen.getByText('getNewSearchParamsAndGo').click();
+    act(() => screen.getByText('getNewSearchParamsAndGo').click());
     expect(screen.getByText('sortBy: Created: Newest')).toBeInTheDocument();
 
-    screen.getByText('updateSearchParamsAndGo').click();
+    act(() => screen.getByText('updateSearchParamsAndGo').click());
     expect(screen.getByText('sortBy: Created: Newest')).toBeInTheDocument();
     expect(screen.getByText('jobStatus: PAUSED')).toBeInTheDocument();
 
-    screen.getByText('clearSearchParamsAndGo').click();
+    act(() => screen.getByText('clearSearchParamsAndGo').click());
     expect(screen.getByText('Empty State')).toBeInTheDocument();
 
     expect(onRender).toHaveBeenCalledTimes(4);
@@ -89,13 +89,13 @@ describe('useUrlQueryState', () => {
 
     expect(onRender).toHaveBeenCalledTimes(1);
 
-    screen.getByText('toggleSelectionEdges').click();
+    act(() => screen.getByText('toggleSelectionEdges').click());
     expect(screen.getByText('selectedPipelines: edges')).toBeInTheDocument();
-    screen.getByText('toggleSelectionMontage').click();
+    act(() => screen.getByText('toggleSelectionMontage').click());
     expect(
       screen.getByText('selectedPipelines: edges,montage'),
     ).toBeInTheDocument();
-    screen.getByText('toggleSelectionEdges').click();
+    act(() => screen.getByText('toggleSelectionEdges').click());
     expect(screen.getByText('selectedPipelines: montage')).toBeInTheDocument();
 
     expect(onRender).toHaveBeenCalledTimes(4);

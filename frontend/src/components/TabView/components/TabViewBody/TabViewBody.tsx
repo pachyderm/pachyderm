@@ -9,6 +9,7 @@ import BodyHeaderTabs from './components/BodyHeaderTabs';
 import styles from './TabViewBody.module.css';
 
 export type TabViewBodyProps = {
+  children?: React.ReactNode;
   initialActiveTabId: string;
   showSkeleton: boolean;
   onSwitch?: (activeTab: string) => void;

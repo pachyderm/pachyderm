@@ -18,6 +18,7 @@ import styles from './TextStory.module.css';
 export default {title: 'Text'};
 
 type TextWrapperProps = {
+  children?: React.ReactNode;
   name: string;
   family: string;
   size: string;

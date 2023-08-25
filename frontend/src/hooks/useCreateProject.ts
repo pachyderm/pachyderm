@@ -1,4 +1,4 @@
-import {CreateProjectArgs, Project} from '@graphqlTypes';
+import {CreateProjectArgs} from '@graphqlTypes';
 
 import {useCreateProjectMutation} from '@dash-frontend/generated/hooks';
 
@@ -9,7 +9,7 @@ const useCreateProject = (onCompleted?: () => void) => {
       if (!data) return;
       cache.modify({
         fields: {
-          projects(existingProjects: Project[]) {
+          projects(existingProjects) {
             return [...existingProjects, data.createProject];
           },
         },

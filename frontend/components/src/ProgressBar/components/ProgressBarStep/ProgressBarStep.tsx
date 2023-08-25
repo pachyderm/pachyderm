@@ -11,6 +11,7 @@ import useProgressBar from '../../hooks/useProgressBar';
 import styles from './ProgressBarStep.module.css';
 
 type Props = {
+  children?: React.ReactNode;
   id: string;
   nextStepID?: string;
   onClick?: () => void;

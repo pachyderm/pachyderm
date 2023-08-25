@@ -44,7 +44,6 @@ describe('UpdateProjectModal', () => {
 
     const descriptionInput = await screen.findByRole('textbox', {
       name: /description/i,
-      exact: false,
     });
     await clear(descriptionInput);
 

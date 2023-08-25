@@ -7,6 +7,7 @@ import {Search, Group} from '@pachyderm/components';
 import styles from './BodyHeaderTabs.module.css';
 
 export type BodyHeaderTabsProps = {
+  children?: React.ReactNode;
   searchValue?: string;
   onSearch?: Dispatch<SetStateAction<string>>;
   placeholder?: string;

@@ -7,7 +7,7 @@ import useLoggedIn from '@dash-frontend/hooks/useLoggedIn';
 import ErrorView from '@dash-frontend/views/ErrorView/GraphQLErrorView';
 import createApolloClient from 'apollo';
 
-const DashApolloProvider: React.FC = ({children}) => {
+const DashApolloProvider = ({children}: {children?: React.ReactNode}) => {
   const {loggedIn} = useLoggedIn();
   const prevLoggedInRef = useRef(loggedIn);
   const [apolloError, setApolloError] = useState<GraphQLError>();

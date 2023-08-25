@@ -4,6 +4,7 @@ import React from 'react';
 import styles from './TableViewWrapper.module.css';
 
 type TableViewWrapperProps = {
+  children?: React.ReactNode;
   hasPager?: boolean;
 };
 

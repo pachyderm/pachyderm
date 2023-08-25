@@ -3,6 +3,7 @@ import React from 'react';
 import Description from '../Description';
 
 export type VerifyProps = {
+  children?: React.ReactNode;
   command?: string;
 };
 

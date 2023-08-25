@@ -1,5 +1,11 @@
 import classnames from 'classnames';
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  SetStateAction,
+} from 'react';
 import {useForm} from 'react-hook-form';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
@@ -27,7 +33,7 @@ const Search: React.FC = () => {
   const debouncedValue = useDebounce(searchValue, 200);
 
   const setSearchValue = useCallback(
-    (value) => {
+    (value: SetStateAction<string>) => {
       setValue('project_search', value);
     },
     [setValue],

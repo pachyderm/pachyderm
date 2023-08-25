@@ -34,7 +34,8 @@ const Tooltip: React.FC<TooltipProps> = ({
   ...rest
 }) => {
   const renderTooltip = useCallback(
-    (props) => {
+    // TODO: Refactor this so the types make sense
+    (props: any) => {
       if (disabled) {
         return <div aria-hidden={true} />;
       }

@@ -10,7 +10,7 @@ import {useAnalytics} from '@pachyderm/components';
 
 const enableTelemetry = !getDisableTelemetry();
 
-const AnalyticsProvider: React.FC = ({children}) => {
+const AnalyticsProvider = ({children}: {children?: React.ReactNode}) => {
   return enableTelemetry ? (
     <AnalyticsProviderEnabled>{children}</AnalyticsProviderEnabled>
   ) : (
@@ -18,7 +18,7 @@ const AnalyticsProvider: React.FC = ({children}) => {
   );
 };
 
-const AnalyticsProviderEnabled: React.FC = ({children}) => {
+const AnalyticsProviderEnabled = ({children}: {children?: React.ReactNode}) => {
   const {loggedIn} = useAuth();
   const {account} = useAccount({skip: !loggedIn});
   const {clusterId} = useAdminInfo({skip: !loggedIn});

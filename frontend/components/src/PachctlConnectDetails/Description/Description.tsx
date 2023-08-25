@@ -12,6 +12,7 @@ import {CodeTextBlock} from '../../Text';
 import styles from './Description.module.css';
 
 interface DescriptionProps {
+  children?: React.ReactNode;
   action?: React.ReactNode;
   disabled?: boolean;
   hideCopy?: boolean;
@@ -24,6 +25,7 @@ interface DescriptionProps {
 }
 
 interface DescriptionWrapperProps {
+  children?: React.ReactNode;
   className?: string;
   asListItem: boolean;
 }

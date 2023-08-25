@@ -31,7 +31,7 @@ const useFormField = (name: string) => {
           role="alert"
           style={{marginLeft: '1rem', lineHeight: '2.5rem'}}
         >
-          {fieldError?.message}
+          {fieldError?.message?.toString()}
         </ErrorText>
       );
     },

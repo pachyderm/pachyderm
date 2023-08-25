@@ -5,7 +5,7 @@ import usePanelModal from '../../hooks/usePanelModal';
 
 import styles from './ModalBody.module.css';
 
-const ModalBody: React.FC = ({children}) => {
+const ModalBody = ({children}: {children?: React.ReactNode}) => {
   const {leftOpen, hideLeftPanel} = usePanelModal();
   return (
     <div

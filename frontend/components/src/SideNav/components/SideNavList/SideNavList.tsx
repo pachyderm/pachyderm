@@ -7,6 +7,7 @@ import useSideNav from '../../hooks/useSideNav';
 import styles from './SideNavList.module.css';
 
 type SideNavListProps = {
+  children?: React.ReactNode;
   noPadding?: boolean;
   border?: boolean;
   label?: string;

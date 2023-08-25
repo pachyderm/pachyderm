@@ -12,6 +12,7 @@ import {
 import styles from './ModalStatus.module.css';
 
 export type ModalStatusProps = {
+  children?: React.ReactNode;
   status: 'success' | 'error' | 'updating';
 };
 

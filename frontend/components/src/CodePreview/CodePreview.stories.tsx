@@ -70,8 +70,8 @@ export default {
   },
 };
 
-export const Default: React.FC = (args) => {
-  return <CodePreview>{args.children}</CodePreview>;
+export const Default = ({children}: {children?: React.ReactNode}) => {
+  return <CodePreview>{children}</CodePreview>;
 };
 
 export const Yaml = () => {

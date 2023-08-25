@@ -73,7 +73,10 @@ describe('useLoginWindow', () => {
     render(<Login />);
 
     const loginWithGoogle = screen.getByText('Login with google');
-    loginWithGoogle.click();
+
+    act(() => {
+      loginWithGoogle.click();
+    });
 
     expect(window.open).toHaveBeenCalledWith(
       [
@@ -101,7 +104,7 @@ describe('useLoginWindow', () => {
       jest.advanceTimersByTime(500);
     });
 
-    expect(onSuccess).toHaveBeenCalledWith(oauthCode);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(oauthCode));
   });
 
   it('should correctly handle oidc based connection flows', async () => {

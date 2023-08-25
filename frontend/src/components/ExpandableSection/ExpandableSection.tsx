@@ -4,6 +4,7 @@ import React from 'react';
 import styles from './ExpandableSection.module.css';
 
 interface ExpandableSectionProps {
+  children?: React.ReactNode;
   maxHeightRem: number;
   expanded: boolean;
 }

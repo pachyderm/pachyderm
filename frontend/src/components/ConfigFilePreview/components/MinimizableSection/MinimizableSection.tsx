@@ -6,6 +6,7 @@ import {Icon, ChevronDownSVG, ChevronRightSVG} from '@pachyderm/components';
 import styles from './MinimizableSection.module.css';
 
 interface MinimizableSectionProps {
+  children?: React.ReactNode;
   header: React.ReactElement;
 }
 

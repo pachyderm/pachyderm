@@ -13,6 +13,7 @@ export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 type ChipGroupProps = {
+  children?: React.ReactNode;
   className?: string;
 };
 
@@ -24,10 +25,10 @@ export const Chip = ({
   children,
   isButton = true,
   ...rest
-}: React.PropsWithChildren<ChipProps>) => {
+}: ChipProps) => {
   const classes = classNames(styles.base, className);
 
-  const ChipWrapper: React.FC = ({children}) => {
+  const ChipWrapper = ({children}: {children?: React.ReactNode}) => {
     if (isButton) {
       return (
         <button className={classes} {...rest}>

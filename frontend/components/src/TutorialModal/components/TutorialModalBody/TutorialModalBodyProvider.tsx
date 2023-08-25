@@ -2,7 +2,11 @@ import React, {useState, useMemo} from 'react';
 
 import TutorialModalBodyContext from './TutorialModalBodyContext';
 
-const TutorialModalBodyProvider: React.FC = ({children}) => {
+const TutorialModalBodyProvider = ({
+  children,
+}: {
+  children?: React.ReactNode;
+}) => {
   const [minimized, setMinimized] = useState(false);
 
   const providerValue = useMemo(

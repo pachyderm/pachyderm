@@ -1,5 +1,5 @@
 /* eslint-disable testing-library/prefer-screen-queries */
-import {render} from '@testing-library/react';
+import {render, act} from '@testing-library/react';
 import React, {useEffect} from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -74,13 +74,13 @@ describe('useLocalProjectSettings', () => {
     expect(onRender).toHaveBeenCalledTimes(2);
     expect(onRenderView).toHaveBeenCalledTimes(1);
 
-    getByText('change view').click();
+    act(() => getByText('change view').click());
 
     expect(getByTextView('view-iconView')).toBeInTheDocument();
     expect(getByText('iconView')).toBeInTheDocument();
     expect(getByText('recording')).toBeInTheDocument();
 
-    getByText('change action').click();
+    act(() => getByText('change action').click());
 
     expect(getByTextView('view-iconView')).toBeInTheDocument();
     expect(getByText('iconView')).toBeInTheDocument();

@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 import React from 'react';
-import {render} from 'react-dom';
+import {createRoot} from 'react-dom/client';
 import {load as loadRudderstack} from 'rudder-sdk-js';
 
 import '@pachyderm/components/bootstrap.min.css';
@@ -33,4 +33,8 @@ if (enableTelemetry && process.env.REACT_APP_RUDDERSTACK_ID) {
   );
 }
 
-render(<DashUI />, document.getElementById('root'));
+const container = document.getElementById('root');
+
+if (container) {
+  createRoot(container).render(<DashUI />);
+}

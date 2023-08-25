@@ -2,9 +2,12 @@ import React, {useState, useCallback} from 'react';
 
 import ProgressBarContext from './contexts/ProgressBarContext';
 
-const ProgressBar: React.FC<{vertical?: boolean}> = ({
+const ProgressBar = ({
   children,
   vertical = false,
+}: {
+  children?: React.ReactNode;
+  vertical?: boolean;
 }) => {
   const [visited, setVisited] = useState<string[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);

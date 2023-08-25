@@ -6,6 +6,7 @@ import {Button, ButtonGroup} from './../../../Button';
 import styles from './ModalFooter.module.css';
 
 export interface ModalProps {
+  children?: React.ReactNode;
   cancelTestId?: string;
   confirmText: string;
   confirmTestId?: string;

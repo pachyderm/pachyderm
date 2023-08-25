@@ -8,6 +8,7 @@ import {StatusCheckmarkSVG, StatusWarningSVG} from '../Svg';
 import styles from './NotificationBanner.module.css';
 
 export type NotificationBannerProps = {
+  children?: React.ReactNode;
   duration: number;
   remove: () => void;
   type: 'success' | 'error';

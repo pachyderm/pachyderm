@@ -8,6 +8,7 @@ import {Button, ButtonProps} from '@pachyderm/components/Button';
 import styles from './TabViewHeader.module.css';
 
 type TabViewHeaderProps = {
+  children?: React.ReactNode;
   heading?: string;
   headerButtonText?: string;
   headerButtonAction?: () => void;

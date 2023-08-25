@@ -16,7 +16,8 @@ const useRuntimesChartTooltip = (
   });
 
   const setTooltipState = useCallback(
-    (context) => {
+    // TODO: fix this type
+    (context: any) => {
       const tooltipModel = context.tooltip;
 
       if (tooltipModel.opacity === 0 || !tooltipModel.dataPoints[0]) {

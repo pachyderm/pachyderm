@@ -92,6 +92,6 @@ export const ChipInput: React.FC<ChipInputProps> = ({
   );
 };
 
-export const ChipGroup: React.FC = ({children}) => {
+export const ChipGroup = ({children}: {children?: React.ReactNode}) => {
   return <div className={styles.group}>{children}</div>;
 };

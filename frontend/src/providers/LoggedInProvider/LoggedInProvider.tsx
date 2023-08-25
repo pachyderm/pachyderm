@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 
 import LoggedInContext from './contexts/LoggedInContext';
 
-const LoggedInProvider: React.FC = ({children}) => {
+const LoggedInProvider = ({children}: {children?: React.ReactNode}) => {
   const [loggedIn, setLoggedIn] = useState(
     Boolean(
       window.localStorage.getItem('auth-token') !== null &&

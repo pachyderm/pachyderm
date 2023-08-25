@@ -1,11 +1,5 @@
 import {ApolloLink, FetchResult, Observable} from '@apollo/client';
-import {
-  addBreadcrumb,
-  Breadcrumb,
-  configureScope,
-  Scope,
-  Severity,
-} from '@sentry/react';
+import {addBreadcrumb, Breadcrumb, configureScope, Scope} from '@sentry/react';
 
 const sentryLink = () =>
   new ApolloLink((operation, forward) => {
@@ -14,7 +8,7 @@ const sentryLink = () =>
       data: {
         query: operation.query.loc?.source.body || '',
       },
-      level: Severity.Log,
+      level: 'log',
       message: operation.operationName,
     };
 
@@ -34,7 +28,7 @@ const sentryLink = () =>
         },
         error: (error: unknown) => {
           if (breadcrumb.data) breadcrumb.data.error = JSON.stringify(error);
-          breadcrumb.level = Severity.Error;
+          breadcrumb.level = 'error';
           breadcrumb.type = 'error';
           addBreadcrumb(breadcrumb);
           return observer.error(error);

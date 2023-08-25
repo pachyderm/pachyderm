@@ -9,6 +9,7 @@ import styles from './SvgStory.module.css';
 export default {title: 'SVGs'};
 
 type SVGWrapperProps = {
+  children?: React.ReactNode;
   title: string;
 };
 

@@ -432,7 +432,6 @@ describe('Landing', () => {
 
       const descriptionInput = await within(modal).findByRole('textbox', {
         name: /description/i,
-        exact: false,
       });
       expect(descriptionInput).toHaveValue('A description for project a'); // Element should be prepopulated with the existing description.
 
@@ -445,7 +444,6 @@ describe('Landing', () => {
       );
       const row = screen.getByRole('row', {
         name: /projecta/i,
-        exact: false,
       });
       expect(await within(row).findByText('N/A')).toBeInTheDocument();
 
@@ -471,7 +469,6 @@ describe('Landing', () => {
 
       const descriptionInput2 = await within(modal2).findByRole('textbox', {
         name: /description/i,
-        exact: false,
       });
       expect(descriptionInput2).toHaveValue('');
 
@@ -486,7 +483,6 @@ describe('Landing', () => {
 
       const row2 = await screen.findByRole('row', {
         name: /projecta/i,
-        exact: false,
       });
 
       expect(await within(row2).findByText('new desc')).toBeInTheDocument();

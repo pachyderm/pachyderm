@@ -12,11 +12,19 @@ type Notification = {
   type: 'success' | 'error';
 };
 
-const NotificationBannerProvider: React.FC = ({children}) => {
+const NotificationBannerProvider = ({
+  children,
+}: {
+  children?: React.ReactNode;
+}) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const add = useCallback(
-    (content: React.ReactNode, type = 'success', duration = 3000) => {
+    (
+      content: React.ReactNode,
+      type: Notification['type'] = 'success',
+      duration = 3000,
+    ) => {
       const id = uniqueId();
       setNotifications([...notifications, {id, content, duration, type}]);
     },

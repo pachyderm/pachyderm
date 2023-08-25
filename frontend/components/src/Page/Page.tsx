@@ -4,6 +4,7 @@ import React from 'react';
 import styles from './Page.module.css';
 
 export interface PageProps {
+  children?: React.ReactNode;
   fullHeight?: boolean;
   hasDrawerPadding?: boolean;
 }

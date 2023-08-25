@@ -5,6 +5,7 @@ import {DocumentSVG} from '@pachyderm/components';
 import styles from './Module.module.css';
 
 type ModuleProps = {
+  children?: React.ReactNode;
   title: string;
 };
 

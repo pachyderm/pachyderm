@@ -4,7 +4,7 @@ import {useProgressBar} from '@pachyderm/components/ProgressBar';
 
 import {Group} from '../../Group';
 
-const ProgressBarContainer: React.FC = ({children}) => {
+const ProgressBarContainer = ({children}: {children?: React.ReactNode}) => {
   const {isVertical} = useProgressBar();
 
   return (

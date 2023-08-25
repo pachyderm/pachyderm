@@ -5,6 +5,7 @@ import {Tabs} from '@pachyderm/components';
 import styles from './TableViewSection.module.css';
 
 type TableViewSectionProps = {
+  children?: React.ReactNode;
   id: string;
 };
 

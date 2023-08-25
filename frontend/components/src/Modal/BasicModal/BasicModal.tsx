@@ -7,6 +7,7 @@ import {Modal} from './../../Modal';
 import styles from './BasicModal.module.css';
 
 type BasicModalProps = {
+  children?: React.ReactNode;
   cancelTestId?: string;
   confirmTestId?: string;
   show: boolean;

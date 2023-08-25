@@ -6,6 +6,7 @@ import {Group, CaptionTextSmall} from '@pachyderm/components';
 import styles from './Info.module.css';
 
 type InfoProps = {
+  children?: React.ReactNode;
   header: string;
   headerId: string;
   className?: string;

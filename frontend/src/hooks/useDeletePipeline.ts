@@ -7,7 +7,7 @@ export const useDeletePipeline = (onCompleted?: () => void) => {
   const [deletePipeline, {loading, error}] = useDeletePipelineMutation({
     onCompleted: () => {
       onCompleted && onCompleted();
-      client.resetStore();
+      client.cache.reset();
     },
   });
 

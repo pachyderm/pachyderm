@@ -1,8 +1,7 @@
 import {render, screen} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {click} from '@dash-frontend/testHelpers';
+import {click, unhover} from '@dash-frontend/testHelpers';
 
 import CommitIdCopy from '../CommitIdCopy';
 
@@ -29,7 +28,7 @@ describe('CommitIdCopy', () => {
     ).toBeInTheDocument();
 
     // Moving the mouse away hides the icon
-    await userEvent.unhover(copyAction);
+    await unhover(copyAction);
     expect(
       screen.queryByLabelText('You have successfully copied the id'),
     ).not.toBeInTheDocument();

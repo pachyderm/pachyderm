@@ -25,6 +25,7 @@ export interface ItemObject {
   value?: string;
 }
 export interface DropdownProps {
+  children?: React.ReactNode;
   className?: string;
   onSelect?: (id: string) => void;
   initialSelectId?: string;

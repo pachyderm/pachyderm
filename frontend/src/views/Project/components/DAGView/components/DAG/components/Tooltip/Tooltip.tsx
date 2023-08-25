@@ -4,6 +4,7 @@ import React from 'react';
 import styles from './Tooltip.module.css';
 
 interface TooltipProps {
+  children?: React.ReactNode;
   show: boolean;
   x?: number;
   y?: number;

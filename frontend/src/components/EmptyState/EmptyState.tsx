@@ -9,6 +9,7 @@ import {BrandedEmptyIcon, BrandedErrorIcon} from '../BrandedIcon';
 import styles from './EmptyState.module.css';
 
 type EmptyStateProps = {
+  children?: React.ReactNode;
   title: string | ReactNode;
   message?: string | ReactNode;
   connect?: boolean;

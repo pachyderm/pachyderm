@@ -13,6 +13,7 @@ import {
 import styles from './ShortId.module.css';
 
 interface ShortIdProps {
+  children?: React.ReactNode;
   inputString: string;
   successCheckmarkAriaLabel?: string;
   error?: boolean;

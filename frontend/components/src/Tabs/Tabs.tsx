@@ -10,6 +10,7 @@ import TabsHeader from './components/TabsHeader';
 import TabsContext from './TabsContext';
 
 export interface StatefulTabsProps {
+  children?: React.ReactNode;
   initialActiveTabId: string;
   onSwitch?: (activeTab: string) => void;
 }

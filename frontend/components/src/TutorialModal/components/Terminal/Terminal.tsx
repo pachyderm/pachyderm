@@ -5,7 +5,7 @@ import {TerminalSVG} from '@pachyderm/components';
 import {CodeText} from './../../../Text';
 import styles from './Terminal.module.css';
 
-const Terminal: React.FC = ({children}) => {
+const Terminal = ({children}: {children?: React.ReactNode}) => {
   return (
     <div className={styles.terminal}>
       <CodeText className={styles.terminalCommand}>

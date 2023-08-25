@@ -42,7 +42,7 @@ describe('NotificationBanner', () => {
 
     const bannerButton = screen.getByText('Create Banner');
 
-    bannerButton.click();
+    act(() => bannerButton.click());
 
     act(() => {
       jest.advanceTimersByTime(500);
@@ -68,7 +68,7 @@ describe('NotificationBanner', () => {
 
     const bannerButton = screen.getByText('Create Banner');
 
-    bannerButton.click();
+    act(() => bannerButton.click());
 
     act(() => {
       jest.advanceTimersByTime(500);

@@ -13,6 +13,7 @@ import usePanelModal from '@pachyderm/components/Modal/FullPagePanelModal/hooks/
 import styles from './SidePanel.module.css';
 
 export interface SidePanelProps {
+  children?: React.ReactNode;
   type: 'left' | 'right';
   open?: boolean;
   isExpanded?: boolean;
@@ -110,6 +111,7 @@ const SidePanel: React.FC<SidePanelProps> = ({
 };
 
 export const LeftPanel: React.FC<{
+  children?: React.ReactNode;
   open?: boolean;
   isExpanded?: boolean;
   setIsExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -126,7 +128,10 @@ export const LeftPanel: React.FC<{
   );
 };
 
-export const RightPanel: React.FC<{open?: boolean}> = ({open, children}) => {
+export const RightPanel: React.FC<{
+  children?: React.ReactNode;
+  open?: boolean;
+}> = ({open, children}) => {
   return (
     <SidePanel type="right" open={open}>
       {children}

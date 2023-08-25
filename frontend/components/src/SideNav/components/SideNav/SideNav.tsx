@@ -9,6 +9,7 @@ import SideNavContext from '../../SideNavContext';
 import styles from './SideNav.module.css';
 
 type Props = {
+  children?: React.ReactNode;
   breakpoint: number;
 };
 

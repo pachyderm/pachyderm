@@ -72,7 +72,7 @@ const SearchResultsDropdown: React.FC = () => {
   );
 
   const jobSetOnClick = useCallback(
-    (jobId) => {
+    (jobId: string) => {
       onResultSelect(jobId);
       const newSearchParams = getUpdatedSearchParams({
         selectedJobs: [jobId],

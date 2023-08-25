@@ -7,6 +7,7 @@ import {ButtonLink} from '@pachyderm/components';
 import styles from './ErrorRetry.module.css';
 
 interface ErrorRetryProps {
+  children?: React.ReactNode;
   retry?: () => void;
 }
 

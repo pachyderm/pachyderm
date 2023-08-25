@@ -1,10 +1,11 @@
-import {render, waitFor, screen} from '@testing-library/react';
+import {render, waitFor, screen, act, fireEvent} from '@testing-library/react';
 import React from 'react';
 import {useForm} from 'react-hook-form';
 
-import {click, paste, type, tab} from '@dash-frontend/testHelpers';
+import {click, paste, type} from '@dash-frontend/testHelpers';
 import {Form} from '@pachyderm/components';
 
+import {Keys} from '../../lib/types';
 import {TagsInput as TagsInputComponent} from '../TagsInput';
 
 const TagsInput = ({...props}) => {
@@ -54,7 +55,9 @@ describe('components/TagsInput', () => {
 
     await type(input, 'hello');
     expect(input).toHaveValue('hello');
-    await tab();
+
+    // userEvent tab doesn't work here anymore
+    act(() => fireEvent.keyDown(input, {key: Keys.Tab}));
     expect(input).toHaveValue('');
 
     const helloTag = screen.getByText('hello');
@@ -129,9 +132,9 @@ describe('components/TagsInput', () => {
     const input = screen.getByTestId('TagsInput__input');
 
     expect(container).not.toHaveClass('focused');
-    input.focus();
+    act(() => input.focus());
     expect(container).toHaveClass('focused');
-    input.blur();
+    act(() => input.blur());
     expect(container).not.toHaveClass('focused');
   });
 
@@ -190,7 +193,8 @@ describe('components/TagsInput', () => {
   it('should show tags for a pasted list of tags separated by commas and spaces', async () => {
     render(<TagsInput />);
     const input = screen.getByTestId('TagsInput__input');
-    input.focus();
+
+    act(() => input.focus());
 
     await paste(
       'test1@test.com,test2@test.com test3@test.com, test4@test.com,,test5@test.com',
@@ -221,7 +225,7 @@ describe('components/TagsInput', () => {
   it('should show a clear button after 2 entries', async () => {
     render(<TagsInput />);
     const input = screen.getByTestId('TagsInput__input');
-    input.focus();
+    act(() => input.focus());
 
     await paste('hello');
     await type(input, '{enter}');
@@ -229,7 +233,7 @@ describe('components/TagsInput', () => {
     let clearButton = screen.queryByText('Clear Tagsinput');
     expect(clearButton).not.toBeInTheDocument();
 
-    input.focus();
+    act(() => input.focus());
     await paste('world');
     await type(input, '{enter}');
 
@@ -240,7 +244,7 @@ describe('components/TagsInput', () => {
   it('should clear form input on clear button press', async () => {
     render(<TagsInput />);
     const input = screen.getByTestId('TagsInput__input');
-    input.focus();
+    act(() => input.focus());
 
     await paste('hello,world');
     await type(input, '{enter}');

@@ -13,6 +13,7 @@ import {
 import styles from './TableView.module.css';
 
 type TableViewProps = {
+  children?: React.ReactNode;
   title: string;
   noun: string;
   tabsBasePath: string;

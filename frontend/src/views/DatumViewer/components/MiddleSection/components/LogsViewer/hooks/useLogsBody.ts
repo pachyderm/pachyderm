@@ -19,7 +19,7 @@ const useLogsBody = () => {
     }
   }, []);
 
-  const getSize = useCallback((index) => {
+  const getSize = useCallback((index: number) => {
     return sizeMap.current[index] || DEFAULT_ROW_HEIGHT;
   }, []);
 

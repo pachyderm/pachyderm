@@ -13,6 +13,7 @@ type FileMeta = {
 };
 
 export type ConfigurationUploadConfig = {
+  children?: React.ReactNode;
   fileMeta: FileMeta;
   fileContents?: string;
 };

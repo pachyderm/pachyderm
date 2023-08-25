@@ -9,7 +9,7 @@ export const useDeleteProjectAndResources = (onCompleted?: () => void) => {
     useDeleteProjectAndResourcesMutation({
       onCompleted: () => {
         onCompleted && onCompleted();
-        client.resetStore();
+        client.cache.reset();
       },
     });
 

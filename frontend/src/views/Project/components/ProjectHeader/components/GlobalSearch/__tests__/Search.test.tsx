@@ -1,5 +1,5 @@
 import {mockSearchResultsQuery} from '@graphqlTypes';
-import {render, screen} from '@testing-library/react';
+import {render, screen, act} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
@@ -55,7 +55,7 @@ describe('Search', () => {
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    searchBar.focus();
+    act(() => searchBar.focus());
     assertDropdown().toBeShown();
     expect(
       screen.getByText('There are no recent searches.'),
@@ -131,7 +131,7 @@ describe('Search', () => {
     await click(searchResult);
     assertDropdown().toBeHidden();
 
-    searchBar.focus();
+    act(() => searchBar.focus());
     assertDropdown().toBeShown();
     const savedSearch = await screen.findByRole('button', {name: 'images'});
     await click(savedSearch);
@@ -172,7 +172,7 @@ describe('Search', () => {
     await click(await screen.findByRole('button', {name: 'See Commits'}));
     assertDropdown().toBeHidden();
 
-    searchBar.focus();
+    act(() => searchBar.focus());
     assertDropdown().toBeShown();
     expect(
       screen.queryByText('There are no recent searches.'),
