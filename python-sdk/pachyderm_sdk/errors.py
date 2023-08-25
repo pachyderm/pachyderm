@@ -24,21 +24,6 @@ class ConfigError(Exception):
         super().__init__(message)
 
 
-class BadClusterDeploymentID(ConfigError):
-    """Error triggered when connected to a cluster that reports back a different
-    cluster deployment ID than what is stored in the config file.
-    """
-
-    def __init__(self, expected_deployment_id, actual_deployment_id):
-        super().__init__(
-            "connected to the wrong cluster ('{}' vs '{}')".format(
-                expected_deployment_id, actual_deployment_id
-            )
-        )
-        self.expected_deployment_id = expected_deployment_id
-        self.actual_deployment_id = actual_deployment_id
-
-
 class InvalidTransactionOperation(RuntimeError):
     """Error triggered when an invalid operation (i.e. file write)
     is called when inside a transaction.
