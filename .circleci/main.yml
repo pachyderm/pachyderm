@@ -2156,7 +2156,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=12g --wait=all
           background: true
   wait-for-minikube:
     steps:
