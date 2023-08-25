@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   labels:
     admission.gatekeeper.sh/ignore: no-self-managing
+    pod-security.kubernetes.io/enforce: restricted
     control-plane: controller-manager
     gatekeeper.sh/system: "yes"
   name: gatekeeper-system
@@ -2117,39 +2118,6 @@ metadata:
   name: gatekeeper-admin
   namespace: gatekeeper-system
 ---
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  annotations:
-    seccomp.security.alpha.kubernetes.io/allowedProfileNames: '*'
-  labels:
-    gatekeeper.sh/system: "yes"
-  name: gatekeeper-admin
-spec:
-  allowPrivilegeEscalation: false
-  fsGroup:
-    ranges:
-    - max: 65535
-      min: 1
-    rule: MustRunAs
-  requiredDropCapabilities:
-  - ALL
-  runAsUser:
-    rule: MustRunAsNonRoot
-  seLinux:
-    rule: RunAsAny
-  supplementalGroups:
-    ranges:
-    - max: 65535
-      min: 1
-    rule: MustRunAs
-  volumes:
-  - configMap
-  - projected
-  - secret
-  - downwardAPI
-  - emptyDir
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -2413,8 +2381,6 @@ spec:
       gatekeeper.sh/system: "yes"
   template:
     metadata:
-      annotations:
-        container.seccomp.security.alpha.kubernetes.io/manager: runtime/default
       labels:
         control-plane: audit-controller
         gatekeeper.sh/operation: audit
@@ -2466,10 +2432,12 @@ spec:
             cpu: 100m
             memory: 256Mi
         securityContext:
+          seccompProfile:
+            type: RuntimeDefault
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - all
+            - ALL
           readOnlyRootFilesystem: true
           runAsGroup: 999
           runAsNonRoot: true
@@ -2504,8 +2472,6 @@ spec:
       gatekeeper.sh/system: "yes"
   template:
     metadata:
-      annotations:
-        container.seccomp.security.alpha.kubernetes.io/manager: runtime/default
       labels:
         control-plane: controller-manager
         gatekeeper.sh/operation: webhook
@@ -2573,10 +2539,12 @@ spec:
             cpu: 100m
             memory: 256Mi
         securityContext:
+          seccompProfile:
+            type: RuntimeDefault
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - all
+            - ALL
           readOnlyRootFilesystem: true
           runAsGroup: 999
           runAsNonRoot: true
@@ -2596,7 +2564,7 @@ spec:
           defaultMode: 420
           secretName: gatekeeper-webhook-server-cert
 ---
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   labels:
