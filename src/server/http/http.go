@@ -1,4 +1,10 @@
-package archiveserver
+// Package http is a browser-targeted HTTP server for Pachyderm.  It includes what used to be called
+// the "archive server" (for /archive/ downloads) and the "file server" (for /pfs/ downloads).  Any
+// future user-facing HTTP services should be added here.
+//
+// The general design here is for the servers to be relatively untrusted.  They build a PachClient
+// based on the HTTP request, and then make ordinary API calls.
+package http
 
 import (
 	"context"
@@ -6,30 +12,36 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
 )
 
-// HTTP is an http.Server that serves the archiveserver endpoints.
-type HTTP struct {
+// Server is an http.Server that serves public requests.
+type Server struct {
 	mux    http.Handler // For testing.
 	server *http.Server // For ListenAndServe.
 }
 
-// NewHTTP creates a new Archive Server and an HTTP server to serve it on.
-func NewHTTP(port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *HTTP {
+// New creates a new API server, with an http.Server to actually serve traffic.
+func New(port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *Server {
 	mux := http.NewServeMux()
-	handler := &Server{
-		pachClientFactory: pachClientFactory,
+
+	// Archive server.
+	handler := &archiveserver.Server{
+		ClientFactory: pachClientFactory,
 	}
 	mux.Handle("/archive/", CSRFWrapper(handler))
+
+	// Health check.
 	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("healthy\n")) //nolint:errcheck
 	}))
-	return &HTTP{
+
+	return &Server{
 		mux: mux,
 		server: &http.Server{
 			Addr:    fmt.Sprintf(":%d", port),
@@ -82,15 +94,15 @@ func CSRFWrapper(h http.Handler) http.HandlerFunc {
 
 // ListenAndServe begins serving the server, and returns when the context is canceled or the server
 // dies on its own.
-func (h *HTTP) ListenAndServe(ctx context.Context) error {
-	log.AddLoggerToHTTPServer(ctx, "download", h.server)
+func (h *Server) ListenAndServe(ctx context.Context) error {
+	log.AddLoggerToHTTPServer(ctx, "pachhttp", h.server)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- h.server.ListenAndServe()
 	}()
 	select {
 	case <-ctx.Done():
-		log.Info(ctx, "terminating download server", zap.Error(context.Cause(ctx)))
+		log.Info(ctx, "terminating pachhttp server", zap.Error(context.Cause(ctx)))
 		return errors.EnsureStack(h.server.Shutdown(ctx))
 	case err := <-errCh:
 		return err

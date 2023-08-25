@@ -205,54 +205,6 @@
             "dns_refresh_rate": "5s",
             "health_checks": [
                {
-                  "healthy_threshold": 1,
-                  "http_health_check": {
-                     "host": "localhost",
-                     "path": "/healthz"
-                  },
-                  "interval": "30s",
-                  "no_traffic_healthy_interval": "10s",
-                  "no_traffic_interval": "10s",
-                  "timeout": "10s",
-                  "unhealthy_threshold": 2
-               }
-            ],
-            "lb_policy": "random",
-            "load_assignment": {
-               "cluster_name": "pachd-archive",
-               "endpoints": [
-                  {
-                     "lb_endpoints": [
-                        {
-                           "endpoint": {
-                              "address": {
-                                 "socket_address": {
-                                    "address": "pachd-proxy-backend",
-                                    "port_value": 1659
-                                 }
-                              }
-                           }
-                        }
-                     ]
-                  }
-               ]
-            },
-            "name": "pachd-archive",
-            "type": "strict_dns",
-            "upstream_connection_options": {
-               "tcp_keepalive": { }
-            }
-         },
-         {
-            "connect_timeout": "10s",
-            "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
-            },
-            "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
-            "health_checks": [
-               {
                   "grpc_health_check": { },
                   "healthy_threshold": 1,
                   "interval": "10s",
@@ -292,6 +244,54 @@
                   }
                }
             },
+            "upstream_connection_options": {
+               "tcp_keepalive": { }
+            }
+         },
+         {
+            "connect_timeout": "10s",
+            "dns_failure_refresh_rate": {
+               "base_interval": "0.05s",
+               "max_interval": "0.1s"
+            },
+            "dns_lookup_family": "V4_ONLY",
+            "dns_refresh_rate": "5s",
+            "health_checks": [
+               {
+                  "healthy_threshold": 1,
+                  "http_health_check": {
+                     "host": "localhost",
+                     "path": "/healthz"
+                  },
+                  "interval": "30s",
+                  "no_traffic_healthy_interval": "10s",
+                  "no_traffic_interval": "10s",
+                  "timeout": "10s",
+                  "unhealthy_threshold": 2
+               }
+            ],
+            "lb_policy": "random",
+            "load_assignment": {
+               "cluster_name": "pachd-http",
+               "endpoints": [
+                  {
+                     "lb_endpoints": [
+                        {
+                           "endpoint": {
+                              "address": {
+                                 "socket_address": {
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1659
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               ]
+            },
+            "name": "pachd-http",
+            "type": "strict_dns",
             "upstream_connection_options": {
                "tcp_keepalive": { }
             }
@@ -683,7 +683,7 @@
                                              "prefix": "/archive"
                                           },
                                           "route": {
-                                             "cluster": "pachd-archive",
+                                             "cluster": "pachd-http",
                                              "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
@@ -1766,7 +1766,7 @@
                            "duration_ms": "%DURATION%",
                            "grpc_message": "%RESP(GRPC-MESSAGE):64%",
                            "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
-                           "listener": "direct-pachd-archive",
+                           "listener": "direct-pachd-http",
                            "message": "listener log",
                            "method": "%REQ(:method)%",
                            "pachctl_command": "%REQ(COMMAND):64%",
@@ -1896,7 +1896,7 @@
                                              "prefix": "/archive"
                                           },
                                           "route": {
-                                             "cluster": "pachd-archive",
+                                             "cluster": "pachd-http",
                                              "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
@@ -1905,7 +1905,7 @@
                                  }
                               ]
                            },
-                           "stat_prefix": "direct-pachd-archive",
+                           "stat_prefix": "direct-pachd-http",
                            "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
@@ -1913,7 +1913,7 @@
                   ]
                }
             ],
-            "name": "direct-pachd-archive",
+            "name": "direct-pachd-http",
             "per_connection_buffer_limit_bytes": 32768,
             "traffic_direction": "INBOUND"
          },
