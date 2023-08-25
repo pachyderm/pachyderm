@@ -1,9 +1,9 @@
 # This tool downloads .proto files and generates the corresponding js/ts files
 # Is is important to mirror Pachyderm's file structure here because Pachyderm's proto files use relative imports
 
-PROTOC="$(npm bin)/grpc_tools_node_protoc"
-PROTOC_GEN_TS_PATH="$(npm bin)/protoc-gen-ts"
-PROTOC_GEN_GRPC_PATH="$(npm bin)/grpc_tools_node_protoc_plugin"
+PROTOC="npx grpc_tools_node_protoc"
+PROTOC_GEN_TS_PATH="$(pwd)/node_modules/.bin/protoc-gen-ts"
+PROTOC_GEN_GRPC_PATH="$(pwd)/node_modules/.bin/grpc_tools_node_protoc_plugin"
 PACHYDERM_VERSION="$(jq -r .proto ../../../version.json)"
 GOGO_VERSION="v1.3.2"
 OUT_DIR="proto"
