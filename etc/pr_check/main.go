@@ -34,7 +34,6 @@ var (
 	printPRs    bool
 	status      bool
 	comment     bool
-	slack       bool
 	help        bool
 )
 
