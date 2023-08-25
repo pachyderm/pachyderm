@@ -11,7 +11,7 @@ import "google/protobuf/wrappers.proto";
 import "pfs/pfs.proto";
 
 import "task/task.proto";
-import "protoextensions/log.proto";
+import "protoextensions/json-schema-options.proto";
 
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
@@ -689,7 +689,7 @@ message CreatePipelineRequest {
   Transform transform = 3;
   ParallelismSpec parallelism_spec = 4;
   Egress egress = 5;
-  bool update = 6;
+  bool update = 6 [(protoc.gen.jsonschema.field_options).ignore = true];
   string output_branch = 7;
   // s3_out, if set, requires a pipeline's user to write to its output repo
   // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
@@ -704,7 +704,7 @@ message CreatePipelineRequest {
   string description = 13;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
-  bool reprocess = 15;
+  bool reprocess = 15 [(protoc.gen.jsonschema.field_options).ignore = true];
   Service service = 17;
   Spout spout = 18;
   DatumSetSpec datum_set_spec = 19;
