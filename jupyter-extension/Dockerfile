@@ -11,6 +11,8 @@ ENV MOUNT_SERVER_LOG_DIR=/tmp/mount-server.log
 USER root
 RUN mkdir -p /pfs /mnt/pfs && chown jovyan:users /pfs /mnt/pfs
 RUN apt-get update && apt-get -y install curl fuse
+# Cannot enable / to be modifable via Dockerfile -- configure sudo to allow it
+RUN echo "ALL ALL= (root) NOPASSWD: /usr/bin/chmod 777 /" > /etc/sudoers.d/writable-root
 RUN echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
 COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
 COPY ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server/ /usr/local/bin/mount-server

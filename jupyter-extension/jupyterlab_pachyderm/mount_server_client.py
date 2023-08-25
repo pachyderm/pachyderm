@@ -114,7 +114,14 @@ class MountServerClient(MountInterface):
                     if os.path.exists(self.mount_dir) or os.path.islink(self.mount_dir):
                         if os.path.isdir(self.mount_dir): 
                             get_logger().debug(f"Removing dir {self.mount_dir}")
-                            os.rmdir(self.mount_dir)
+                            try: 
+                                os.rmdir(self.mount_dir)
+                            except PermissionError as ex:
+                                get_logger().debug(f"Removing dir {self.mount_dir} failed with {str(ex)}", exc_info=1)
+                                # Make / writable so we can remove /pfs and replace with a link
+                                subprocess.run(["sudo", "/usr/bin/chmod", "777","/"])
+                                # Retry the removal
+                                os.rmdir(self.mount_dir)
                         else:
                             get_logger().debug(f"Removing file {self.mount_dir}")
                             os.remove(self.mount_dir) 
