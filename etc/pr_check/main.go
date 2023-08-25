@@ -39,8 +39,8 @@ var (
 
 func init() {
 	flag.CommandLine.SortFlags = false
-	flag.StringVar(&startDay, "start-day", "", "Only scan PRs created after the start of the given day (must be YYYY-MM-DD).")
-	flag.StringVar(&endDay, "end-day", "", "Only scan PRs created before the start of the given day (must be YYYY-MM-DD).")
+	flag.StringVar(&startDay, "since", "", "Only scan PRs created after the start of the given day (must be YYYY-MM-DD).")
+	flag.StringVar(&endDay, "before", "", "Only scan PRs created before the start of the given day (must be YYYY-MM-DD).")
 	flag.StringSliceVar(&authors, "authors", nil, "Only scan PRs by these authors (comma-separated list of case-sensitive GitHub usernames).")
 	flag.IntSliceVar(&prsToScan, "pr-numbers", nil, "Only scan the indicated PRs (comma-separated list of PR numbers).")
 
@@ -105,20 +105,8 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// Clamp 'start' and 'end'. This simplifies date math by ensuring 'start' and
-	// 'end' are defined, and 'start' is before the earliest conceivable creation
-	// time of a PR, and end is after the the latest conceivable creation time of
-	// a PR for Pachyderm.
-	earliestStart := earliestPR.Add(-24 * time.Hour)
-	if start.Before(earliestStart) {
-		start = earliestStart
-	}
-	latestEnd := time.Now().Add(240 * time.Hour)
-	if end.IsZero() || end.After(latestEnd) {
-		end = latestEnd
-	}
 	if start.After(end) {
-		fmt.Fprintf(os.Stderr, "PR start day (%s) must be before or on PR end day (%s)", startDay, endDay)
+		fmt.Fprintf(os.Stderr, "--since (%s) must be before or on --before (%s)", startDay, endDay)
 		os.Exit(1)
 	}
 	authorsMap := make(map[string]bool)

@@ -81,14 +81,29 @@ func scanPRs(client *github.Client, authors map[string]bool, now, start, end tim
 		result []*github.PullRequest
 	)
 
+	// Clamp 'start' and 'end'. This simplifies date math by ensuring 'start' and
+	// 'end' are defined, and 'start' is before the earliest conceivable creation
+	// time of a PR, and end is after the the latest conceivable creation time of
+	// a PR for Pachyderm.
+	earliestStart := earliestPR.Add(-24 * time.Hour)
+	if start.Before(earliestStart) {
+		start = earliestStart
+	}
+	latestEnd := now.Add(240 * time.Hour)
+	if end.IsZero() || end.After(latestEnd) {
+		end = latestEnd
+	}
+	if start.After(end) {
+		panic(fmt.Sprintf("PR scan start (%s) must be before or on PR scan end (%s)", startDay, endDay))
+	}
 	// Initialize gaps to figure out if [start, end] is "old". Both gaps may be
-	// negative (start before 'earliestPR', end in future. main() initializes
-	// 'end' to be in the future, so 'endGap' is actually usually negative), but
-	// the logic should still be correct.
+	// negative (start before 'earliestPR', end in future. The above puts 'end' in
+	// the future if it's unset, so 'endGap' is typically negative), but the logic
+	// should still be correct.
 	startGap = start.Sub(earliestPR)
 	endGap = now.Sub(end)
 
-	// Initialize 'direction' and 'stopFn'
+	// Initialize 'direction'
 	direction = "desc"
 	if startGap < endGap {
 		direction = "asc"
