@@ -187,27 +187,33 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
-	branchesTableQuery := `
-	CREATE TABLE IF NOT EXISTS pfs.branches (
-		id bigserial PRIMARY KEY,
-		name text NOT NULL,
-		head bigint REFERENCES pfs.commits(int_id) NOT NULL,
-		repo_id bigint REFERENCES pfs.repos(id) NOT NULL,
-		created_at timestamptz,
-		updated_at timestamptz
-	);
-	`
-	if _, err := tx.ExecContext(ctx, branchesTableQuery); err != nil {
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS pfs.branches (
+			id bigserial PRIMARY KEY,
+			name text NOT NULL,
+			head bigint REFERENCES pfs.commits(int_id) NOT NULL,
+			repo_id bigint REFERENCES pfs.repos(id) NOT NULL,
+			created_at timestamptz,
+			updated_at timestamptz,
+			UNIQUE (repo_id, name)
+		);
+	`); err != nil {
 		return errors.Wrap(err, "creating branches table")
 	}
-	branchProvenanceQuery := `
-	CREATE TABLE IF NOT EXISTS pfs.branch_provenance (
-		from_id bigint REFERENCES pfs.branches(id) NOT NULL,
-		to_id bigint REFERENCES pfs.branches(id) NOT NULL
-	);
-	`
-	if _, err := tx.ExecContext(ctx, branchProvenanceQuery); err != nil {
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS pfs.branch_provenance (
+			from_id bigint REFERENCES pfs.branches(id) NOT NULL,
+			to_id bigint REFERENCES pfs.branches(id) NOT NULL
+		);
+	`); err != nil {
 		return errors.Wrap(err, "creating branch_provenance table")
+	}
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TRIGGER set_updated_at
+			BEFORE UPDATE ON pfs.branches
+			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
+	`); err != nil {
+		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
 
 	insertBranchStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branches(name, head, repo_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`)
@@ -237,6 +243,7 @@ func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrap(err, "inserting branch provenance")
 		}
 	}
+
 	// Create indices at the end to speed up the inserts
 	if _, err := tx.ExecContext(ctx, `CREATE INDEX repo_name_idx ON pfs.branches (repo_id, name);`); err != nil {
 		return errors.Wrap(err, "creating index on pfs.branches")
