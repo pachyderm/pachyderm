@@ -36,7 +36,7 @@ for i in $(find src -name "*.proto"); do \
         --jsonschema_opt="file_extension=schema.json" \
         --jsonschema_opt="disallow_additional_properties" \
         --jsonschema_opt="enums_as_strings_only" \
-        --jsonschema_opt="allow_null_values" \
+        --jsonschema_opt="disallow_bigints_as_strings" \
         --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/jsonschema" \
     "${i}" >/dev/stderr
 done
