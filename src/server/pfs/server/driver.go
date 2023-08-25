@@ -516,7 +516,7 @@ func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.
 		}
 		return false, errors.Wrapf(err, "check repo %q is authorized for deletion", userRepo.String())
 	}
-	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
+	if _, err := d.env.GetPipelineInspector().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
 		return false, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 	} else if err != nil && !errutil.IsNotFoundError(err) {
 		return false, errors.Wrapf(err, "inspect pipeline %q", pps.RepoPipeline(repo).String())
@@ -908,7 +908,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		}
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
+		if info, err := d.env.GetPipelineInspector().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
