@@ -198,12 +198,12 @@ func parsePipelineKey(key string) (projectName, pipelineName, id string, err err
 	return
 }
 
-func synthesizeSpec(pi *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+func synthesizeSpec(pi *pps.PipelineInfo) error {
 	// create an initial user and effective spec equal to what would have been previously used
 	spec := ppsutil.PipelineReqFromInfo(pi)
 	js, err := protojson.Marshal(spec)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not marshal CreatePipelineRequest as JSON")
+		return errors.Wrapf(err, "could not marshal CreatePipelineRequest as JSON")
 	}
 	if pi.EffectiveSpecJson == "" {
 		pi.EffectiveSpecJson = string(js)
@@ -211,19 +211,19 @@ func synthesizeSpec(pi *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 	if pi.UserSpecJson == "" {
 		pi.UserSpecJson = string(js)
 	}
-	return pi, nil
+	return nil
 }
 
 func synthesizeSpecs(ctx context.Context, env migrations.Env) error {
-	var oldPipeline = new(pps.PipelineInfo)
-	if err := migratePostgreSQLCollection(ctx, env.Tx, "pipelines", pipelinesIndexes, oldPipeline, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if oldPipeline, err = synthesizeSpec(oldPipeline); err != nil {
+	var pipelineInfo = new(pps.PipelineInfo)
+	if err := migratePostgreSQLCollection(ctx, env.Tx, "pipelines", pipelinesIndexes, pipelineInfo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+		if err = synthesizeSpec(pipelineInfo); err != nil {
 			return "", nil, err
 		}
-		if newKey, err = pipelineCommitKey(oldPipeline.SpecCommit); err != nil {
+		if newKey, err = pipelineCommitKey(pipelineInfo.SpecCommit); err != nil {
 			return
 		}
-		return newKey, oldPipeline, nil
+		return newKey, pipelineInfo, nil
 
 	},
 		withKeyGen(func(key interface{}) (string, error) {
