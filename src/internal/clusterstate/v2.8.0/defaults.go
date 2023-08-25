@@ -199,6 +199,9 @@ func parsePipelineKey(key string) (projectName, pipelineName, id string, err err
 }
 
 func synthesizeSpec(pi *pps.PipelineInfo) error {
+	if pi == nil {
+		return errors.New("nil PipelineInfo")
+	}
 	// create an initial user and effective spec equal to what would have been previously used
 	spec := ppsutil.PipelineReqFromInfo(pi)
 	js, err := protojson.Marshal(spec)

@@ -163,3 +163,90 @@ func TestEnvMap(t *testing.T) {
 		}
 	}
 }
+
+func TestSyntheticSpecs(t *testing.T) {
+	var testCases = map[string]struct {
+		in      *pps.PipelineInfo
+		want    *pps.PipelineInfo
+		wantErr bool
+	}{
+		"nil doesn’t crash": {wantErr: true},
+		"pipeline with user and effective specs is unaffected": {
+			in: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+				UserSpecJson:      "{}",
+				EffectiveSpecJson: "{\"datum_tries\": \"4\"}",
+			},
+			want: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+				UserSpecJson:      "{}",
+				EffectiveSpecJson: "{\"datum_tries\": \"4\"}",
+			},
+		},
+		"pipeline without user spec gets one, but effective spec is unaffected": {
+			in: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+				EffectiveSpecJson: "{\"datum_tries\": \"4\"}",
+			},
+			want: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+				UserSpecJson:      "{\"datumTries\":\"4\"}",
+				EffectiveSpecJson: "{\"datum_tries\": \"4\"}",
+			},
+		},
+		"pipeline without effective spec gets one, but user spec is unaffected": {
+			in: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+				UserSpecJson: "{\"datum_tries\": \"4\"}",
+			},
+			want: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+				UserSpecJson:      "{\"datum_tries\": \"4\"}",
+				EffectiveSpecJson: "{\"datumTries\":\"4\"}",
+			},
+		},
+		"pipeline without user or effective specs gets them": {
+			in: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+			},
+			want: &pps.PipelineInfo{
+				Details: &pps.PipelineInfo_Details{
+					DatumTries: 4,
+				},
+				UserSpecJson:      "{\"datumTries\":\"4\"}",
+				EffectiveSpecJson: "{\"datumTries\":\"4\"}",
+			},
+		},
+	}
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			if err := synthesizeSpec(testCase.in); err != nil {
+				if !testCase.wantErr {
+					t.Fatal(err)
+				}
+				return
+			}
+			if testCase.wantErr {
+				t.Fatal("got success; wanted an error")
+			}
+			if !proto.Equal(testCase.in, testCase.want) {
+				t.Fatalf("got %v; wanted %v", testCase.in, testCase.want)
+			}
+		})
+	}
+}
