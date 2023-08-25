@@ -5,20 +5,44 @@
         "Egress": {
             "properties": {
                 "URL": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "object_storage": {
                     "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "sql_database": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 }
             },
             "additionalProperties": false,
-            "type": "object",
             "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                },
                 {
                     "required": [
                         "object_storage"

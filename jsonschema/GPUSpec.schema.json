@@ -5,16 +5,37 @@
         "GPUSpec": {
             "properties": {
                 "type": {
-                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
                     "description": "The type of GPU (nvidia.com/gpu or amd.com/gpu for example)."
                 },
                 "number": {
-                    "type": "integer",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
                     "description": "The number of GPUs to request."
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "GPU Spec"
         }
     }

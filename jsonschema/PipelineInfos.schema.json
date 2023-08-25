@@ -207,20 +207,48 @@
         "pps_v2.DatumSetSpec": {
             "properties": {
                 "number": {
-                    "type": "integer",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
                     "description": "number, if nonzero, specifies that each datum set should contain `number` datums. Datum sets may contain fewer if the total number of datums don't divide evenly."
                 },
                 "size_bytes": {
-                    "type": "integer",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
                     "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
                 },
                 "per_worker": {
-                    "type": "integer",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
                     "description": "per_worker, if nonzero, specifies how many datum sets should be created for each worker. It can't be set with number or size_bytes."
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Datum Set Spec",
             "description": "DatumSetSpec specifies how a pipeline should split its datums into datum sets."
         },
@@ -240,20 +268,44 @@
         "pps_v2.Egress": {
             "properties": {
                 "URL": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "object_storage": {
                     "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "sql_database": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 }
             },
             "additionalProperties": false,
-            "type": "object",
             "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                },
                 {
                     "required": [
                         "object_storage"
@@ -270,16 +322,37 @@
         "pps_v2.GPUSpec": {
             "properties": {
                 "type": {
-                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
                     "description": "The type of GPU (nvidia.com/gpu or amd.com/gpu for example)."
                 },
                 "number": {
-                    "type": "integer",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
                     "description": "The number of GPUs to request."
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "GPU Spec"
         },
         "pps_v2.Input": {
@@ -378,81 +451,220 @@
                     "additionalProperties": {
                         "type": "string"
                     },
-                    "type": "object"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
                 },
                 "labels": {
                     "additionalProperties": {
                         "type": "string"
                     },
-                    "type": "object"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Metadata"
         },
         "pps_v2.PFSInput": {
             "properties": {
                 "project": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "name": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "repo": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "repo_type": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "branch": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "commit": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "glob": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "join_on": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "outer_join": {
-                    "type": "boolean"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
                 },
                 "group_by": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "lazy": {
-                    "type": "boolean"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
                 },
                 "empty_files": {
-                    "type": "boolean",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
                     "description": "EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks."
                 },
                 "s3": {
-                    "type": "boolean",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
                     "description": "S3, if true, will cause the worker to NOT download or link files from this input into the /pfs_v2 directory. Instead, an instance of our S3 gateway service will run on each of the sidecars, and data can be retrieved from this input by querying http://\u003cpipeline\u003e-s3.\u003cnamespace\u003e/\u003cjob id\u003e.\u003cinput\u003e/my/file"
                 },
                 "trigger": {
                     "$ref": "#/definitions/pfs_v2.Trigger",
                     "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ],
                     "description": "Trigger defines when this input is processed by the pipeline, if it's nil the input is processed anytime something is committed to the input branch."
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "PFS Input"
         },
         "pps_v2.ParallelismSpec": {
             "properties": {
                 "constant": {
-                    "type": "integer",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
                     "description": "Starts the pipeline/job with a 'constant' workers, unless 'constant' is zero. If 'constant' is zero (which is the zero value of ParallelismSpec), then Pachyderm will choose the number of workers that is started, (currently it chooses the number of workers in the cluster)"
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Parallelism Spec"
         },
         "pps_v2.Pipeline": {
@@ -693,25 +905,59 @@
         "pps_v2.ResourceSpec": {
             "properties": {
                 "cpu": {
-                    "type": "number",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ],
                     "description": "The number of CPUs each worker needs (partial values are allowed, and encouraged)"
                 },
                 "memory": {
-                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
                     "description": "The amount of memory each worker needs (in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)."
                 },
                 "gpu": {
                     "$ref": "#/definitions/pps_v2.GPUSpec",
                     "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ],
                     "description": "The spec for GPU resources."
                 },
                 "disk": {
-                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
                     "description": "The amount of ephemeral storage each worker needs (in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)."
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Resource Spec",
             "description": "ResourceSpec describes the amount of resources that pipeline pods should request from kubernetes, for scheduling."
         },
@@ -721,14 +967,35 @@
                     "additionalProperties": {
                         "type": "string"
                     },
-                    "type": "object"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
                 },
                 "priority_class_name": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Scheduling Spec"
         },
         "pps_v2.SecretMount": {
@@ -838,78 +1105,232 @@
         "pps_v2.Transform": {
             "properties": {
                 "image": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "cmd": {
                     "items": {
-                        "type": "string"
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "err_cmd": {
                     "items": {
-                        "type": "string"
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "env": {
                     "additionalProperties": {
                         "type": "string"
                     },
-                    "type": "object"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
                 },
                 "secrets": {
                     "items": {
                         "$ref": "#/definitions/pps_v2.SecretMount"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "image_pull_secrets": {
                     "items": {
-                        "type": "string"
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "stdin": {
                     "items": {
-                        "type": "string"
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "err_stdin": {
                     "items": {
-                        "type": "string"
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "accept_return_code": {
                     "items": {
-                        "type": "integer"
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "debug": {
-                    "type": "boolean"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
                 },
                 "user": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "working_dir": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "dockerfile": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "memory_volume": {
-                    "type": "boolean"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
                 },
                 "datum_batching": {
-                    "type": "boolean"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Transform"
         }
     }

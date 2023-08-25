@@ -23,6 +23,7 @@ message SecretMount {
 }
 
 message Transform {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string image = 1;
   repeated string cmd = 2;
   repeated string err_cmd = 3;
@@ -48,6 +49,7 @@ message TFJob {
 }
 
 message Egress {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string URL = 1;
   oneof target {
     pfs_v2.ObjectStorageEgress object_storage = 2;
@@ -78,6 +80,7 @@ enum JobState {
 }
 
 message Metadata {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   map<string, string> annotations = 1;
   map<string, string> labels = 2;
 }
@@ -94,6 +97,7 @@ message Spout {
 }
 
 message PFSInput {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string project = 14;
   string name = 1;
   string repo = 2;
@@ -151,6 +155,7 @@ message JobInput {
 }
 
 message ParallelismSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
   // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
   // then Pachyderm will choose the number of workers that is started,
@@ -229,6 +234,7 @@ message DatumStatus {
 // ResourceSpec describes the amount of resources that pipeline pods should
 // request from kubernetes, for scheduling.
 message ResourceSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // The number of CPUs each worker needs (partial values are allowed, and
   // encouraged)
   float cpu = 1;
@@ -246,6 +252,7 @@ message ResourceSpec {
 }
 
 message GPUSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // The type of GPU (nvidia.com/gpu or amd.com/gpu for example).
   string type = 1;
   // The number of GPUs to request.
@@ -662,6 +669,8 @@ message ListDatumRequest {
 
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.
 message DatumSetSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
+
   // number, if nonzero, specifies that each datum set should contain `number`
   // datums. Datum sets may contain fewer if the total number of datums don't
   // divide evenly.
@@ -677,6 +686,7 @@ message DatumSetSpec {
 }
 
 message SchedulingSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   map<string, string> node_selector = 1;
   string priority_class_name = 2;
 }
@@ -717,7 +727,7 @@ message CreatePipelineRequest {
   SchedulingSpec scheduling_spec = 24;
   string pod_spec = 25; // deprecated, use pod_patch below
   string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before it's created;
-  pfs_v2.Commit spec_commit = 27;
+  pfs_v2.Commit spec_commit = 27 [(protoc.gen.jsonschema.field_options).ignore = true];
   Metadata metadata = 28;
   string reprocess_spec = 29;
   bool autoscaling = 30;
