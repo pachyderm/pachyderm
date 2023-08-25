@@ -121,12 +121,9 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			return errors.Wrap(err, "next")
 		}
 		meta := &Meta{}
-		content, err := io.ReadAll(tr)
-		if err != nil {
-			return errors.Wrapf(err, "read file %v", hdr.Name)
-		}
-		if err := protojson.Unmarshal(content, meta); err != nil {
-			return errors.Wrap(err, "unmarshal protojson")
+		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
+		if err := decoder.UnmarshalNext(meta); err != nil {
+			return errors.Wrapf(err, "could not unmarshal protojson meta in %s %v", req.File, req.PathRange)
 		}
 		migrateMetaInputsV2_6_0(meta)
 		if err := cb(hdr.Name, meta); err != nil {
