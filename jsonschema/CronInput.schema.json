@@ -1,0 +1,36 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CronInput",
+    "definitions": {
+        "CronInput": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "project": {
+                    "type": "string"
+                },
+                "repo": {
+                    "type": "string"
+                },
+                "commit": {
+                    "type": "string"
+                },
+                "spec": {
+                    "type": "string"
+                },
+                "overwrite": {
+                    "type": "boolean",
+                    "description": "Overwrite, if true, will expose a single datum that gets overwritten each tick. If false, it will create a new datum for each tick."
+                },
+                "start": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cron Input"
+        }
+    }
+}

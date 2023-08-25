@@ -1,0 +1,40 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Version",
+    "definitions": {
+        "Version": {
+            "properties": {
+                "major": {
+                    "type": "integer"
+                },
+                "minor": {
+                    "type": "integer"
+                },
+                "micro": {
+                    "type": "integer"
+                },
+                "additional": {
+                    "type": "string"
+                },
+                "git_commit": {
+                    "type": "string"
+                },
+                "git_tree_modified": {
+                    "type": "string"
+                },
+                "build_date": {
+                    "type": "string"
+                },
+                "go_version": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Version"
+        }
+    }
+}

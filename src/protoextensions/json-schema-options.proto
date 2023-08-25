@@ -1,0 +1,93 @@
+// Custom options for protoc-gen-jsonschema
+// Allocated range is 1125-1129
+// See https://github.com/protocolbuffers/protobuf/blob/master/docs/options.md
+
+syntax = "proto3";
+package protoc.gen.jsonschema;
+import "google/protobuf/descriptor.proto";
+option go_package = "github.com/chrusty/protoc-gen-jsonschema";
+
+
+// Custom FieldOptions
+message FieldOptions {
+
+  // Fields tagged with this will be omitted from generated schemas
+  bool ignore = 1;
+
+  // Fields tagged with this will be marked as "required" in generated schemas
+  bool required = 2;
+
+  // Fields tagged with this will constrain strings using the "minLength" keyword in generated schemas
+  int32 min_length = 3;
+
+  // Fields tagged with this will constrain strings using the "maxLength" keyword in generated schemas
+  int32 max_length = 4;
+
+  // Fields tagged with this will constrain strings using the "pattern" keyword in generated schemas
+  string pattern = 5;
+}
+
+
+// Custom FileOptions
+message FileOptions {
+
+  // Files tagged with this will not be processed
+  bool ignore = 1;
+
+  // Override the default file extension for schemas generated from this file
+  string extension = 2;
+}
+
+
+// Custom MessageOptions
+message MessageOptions {
+
+  // Messages tagged with this will not be processed
+  bool ignore = 1;
+
+  // Messages tagged with this will have all fields marked as "required":
+  bool all_fields_required = 2;
+
+  // Messages tagged with this will additionally accept null values for all properties:
+  bool allow_null_values = 3;
+
+  // Messages tagged with this will have all fields marked as not allowing additional properties:
+  bool disallow_additional_properties = 4;
+
+  // Messages tagged with this will have all nested enums encoded to use constants instead of simple types (supports value annotations):
+  bool enums_as_constants = 5;
+}
+
+
+// Custom EnumOptions
+message EnumOptions {
+
+  // Enums tagged with this will have be encoded to use constants instead of simple types (supports value annotations):
+  bool enums_as_constants = 1;
+
+  // Enums tagged with this will only provide string values as options (not their numerical equivalents):
+  bool enums_as_strings_only = 2;
+  
+  // Enums tagged with this will have enum name prefix removed from values:
+  bool enums_trim_prefix = 3;
+
+  // Enums tagged with this will not be processed
+  bool ignore = 4;
+}
+
+
+extend google.protobuf.FieldOptions {
+  FieldOptions field_options = 1125;
+}
+
+extend google.protobuf.FileOptions {
+  FileOptions file_options = 1126;
+}
+
+extend google.protobuf.MessageOptions {
+  MessageOptions message_options = 1127;
+}
+
+extend google.protobuf.EnumOptions {
+  EnumOptions enum_options = 1128;
+}

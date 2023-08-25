@@ -1,0 +1,97 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/BinaryRequest",
+    "definitions": {
+        "BinaryRequest": {
+            "properties": {
+                "filter": {
+                    "$ref": "#/definitions/debug_v2.Filter",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Binary Request"
+        },
+        "debug_v2.Filter": {
+            "properties": {
+                "pachd": {
+                    "type": "boolean"
+                },
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.Pipeline",
+                    "additionalProperties": false
+                },
+                "worker": {
+                    "$ref": "#/definitions/debug_v2.Worker",
+                    "additionalProperties": false
+                },
+                "database": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "pachd"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline"
+                    ]
+                },
+                {
+                    "required": [
+                        "worker"
+                    ]
+                },
+                {
+                    "required": [
+                        "database"
+                    ]
+                }
+            ],
+            "title": "Filter"
+        },
+        "debug_v2.Worker": {
+            "properties": {
+                "pod": {
+                    "type": "string"
+                },
+                "redirected": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Worker"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pps_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        }
+    }
+}

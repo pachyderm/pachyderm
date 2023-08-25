@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RenderTemplateRequest",
+    "definitions": {
+        "RenderTemplateRequest": {
+            "properties": {
+                "template": {
+                    "type": "string"
+                },
+                "args": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Render Template Request"
+        }
+    }
+}

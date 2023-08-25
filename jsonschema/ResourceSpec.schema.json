@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ResourceSpec",
+    "definitions": {
+        "ResourceSpec": {
+            "properties": {
+                "cpu": {
+                    "type": "number",
+                    "description": "The number of CPUs each worker needs (partial values are allowed, and encouraged)"
+                },
+                "memory": {
+                    "type": "string",
+                    "description": "The amount of memory each worker needs (in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)."
+                },
+                "gpu": {
+                    "$ref": "#/definitions/pps_v2.GPUSpec",
+                    "additionalProperties": false,
+                    "description": "The spec for GPU resources."
+                },
+                "disk": {
+                    "type": "string",
+                    "description": "The amount of ephemeral storage each worker needs (in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Resource Spec",
+            "description": "ResourceSpec describes the amount of resources that pipeline pods should request from kubernetes, for scheduling."
+        },
+        "pps_v2.GPUSpec": {
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "The type of GPU (nvidia.com/gpu or amd.com/gpu for example)."
+                },
+                "number": {
+                    "type": "integer",
+                    "description": "The number of GPUs to request."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "GPU Spec"
+        }
+    }
+}

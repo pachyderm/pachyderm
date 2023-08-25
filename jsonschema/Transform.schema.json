@@ -1,0 +1,104 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Transform",
+    "definitions": {
+        "Transform": {
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "cmd": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "err_cmd": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "env": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
+                },
+                "secrets": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.SecretMount"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "image_pull_secrets": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "stdin": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "err_stdin": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "accept_return_code": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array"
+                },
+                "debug": {
+                    "type": "boolean"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "working_dir": {
+                    "type": "string"
+                },
+                "dockerfile": {
+                    "type": "string"
+                },
+                "memory_volume": {
+                    "type": "boolean"
+                },
+                "datum_batching": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Transform"
+        },
+        "pps_v2.SecretMount": {
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name must be the name of the secret in kubernetes."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Key of the secret to load into env_var, this field only has meaning if EnvVar != \"\"."
+                },
+                "mount_path": {
+                    "type": "string"
+                },
+                "env_var": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Secret Mount"
+        }
+    }
+}

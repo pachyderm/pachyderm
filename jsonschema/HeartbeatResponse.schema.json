@@ -1,0 +1,32 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/HeartbeatResponse",
+    "definitions": {
+        "HeartbeatResponse": {
+            "properties": {
+                "license": {
+                    "$ref": "#/definitions/enterprise_v2.LicenseRecord",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Heartbeat Response"
+        },
+        "enterprise_v2.LicenseRecord": {
+            "properties": {
+                "activation_code": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Enterprise data structures",
+            "description": "Enterprise data structures  LicenseRecord is the record we store in etcd for a Pachyderm enterprise token that has been provided to a Pachyderm license server"
+        }
+    }
+}

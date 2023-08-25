@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SchedulingSpec",
+    "definitions": {
+        "SchedulingSpec": {
+            "properties": {
+                "node_selector": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
+                },
+                "priority_class_name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Scheduling Spec"
+        }
+    }
+}
