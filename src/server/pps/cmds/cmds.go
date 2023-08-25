@@ -529,13 +529,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 					return err
 				}
 				defer r.Close()
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
+				specReader := ppsutil.NewSpecReader(r)
+				spec, err := specReader.Next()
 				if err != nil {
 					return err
 				}
-				request, err := pipelineReader.NextCreatePipelineRequest()
-				if err != nil {
-					return err
+				var request pps.CreatePipelineRequest
+				if err := protojson.Unmarshal([]byte(spec), &request); err != nil {
+					return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 				}
 				if err := pps.VisitInput(request.Input, func(i *pps.Input) error {
 					if i.Pfs != nil && i.Pfs.Project == "" {
@@ -1567,12 +1568,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer r.Close()
-			pr, err := ppsutil.NewPipelineManifestReader(r)
-			if err != nil {
-				return err
-			}
+			specReader := ppsutil.NewSpecReader(r)
 			for {
-				_, err := pr.NextCreatePipelineRequest()
+				_, err := specReader.Next()
 				if errors.Is(err, io.EOF) {
 					return nil
 				} else if err != nil {
