@@ -33,5 +33,5 @@ func Migrate(state migrations.State) migrations.State {
 			}
 			return nil
 		}).
-		Apply("Synthesize user and effective specs from their pipeline details", synthesizeSpecs)
+		Apply("Synthesize user and effective specs from their pipeline details", synthesizeSpecs, migration.Squash)
 }
