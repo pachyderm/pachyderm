@@ -70,9 +70,21 @@ func checkMissingJira(pr *github.PullRequest) error {
 
 // checkLastMinute checks if the PR's creation time AND the current time are
 // both in the window between a sprint's release sync and its release.
-func checkLastMinute(pr *github.PullRequest) error {
+// Two implementation notes:
+//   - The expression below might look redundant. Why do
+//     (now-created)+((created-sync) % sprintLength)
+//     instead of
+//     (now-sync) % sprintLength
+//     ? The answer is because of '% sprintLength'. If the PR is created right
+//     after a release sync, and then exactly one sprint goes by, that PR is now
+//     OK to merge. Because (now-created) is not taken mod sprintLength, this
+//     function handles that case. In other words, this uses the release sprint
+//     from just before 'created' as the start point, not the release sprint
+//     from just before 'now'
+//   - 'now' is passed in--rather than using time.Now()--for testing.
+func checkLastMinute(pr *github.PullRequest, now time.Time) error {
 	releaseSyncToPR := pr.GetCreatedAt().Sub(firstReleaseSync) % sprintLength
-	prToNow := time.Now().Sub(pr.GetCreatedAt().Time)
+	prToNow := now.Sub(pr.GetCreatedAt().Time)
 	if releaseSyncToPR+prToNow < freezeDuration {
 		return errors.New("This PR may have opened between the most recent release sync and the next upcoming release; please consult with Build & Release before merging")
 	}
@@ -98,7 +110,7 @@ func makeStatus(client *github.Client, pr *github.PullRequest, state, descriptio
 	return err
 }
 
-func actOnMatchingPRs(client *github.Client, scannedPRs []*github.PullRequest, check prCheck, action prAction) (matchingPRs map[int]bool) {
+func checkPRs(client *github.Client, scannedPRs []*github.PullRequest, now time.Time, check prCheck, action prAction) (matchingPRs map[int]bool) {
 	matchingPRs = make(map[int]bool)
 
 	for _, pr := range scannedPRs {
@@ -107,7 +119,7 @@ func actOnMatchingPRs(client *github.Client, scannedPRs []*github.PullRequest, c
 		case missingJiraTicket:
 			err = checkMissingJira(pr)
 		case createdLastMinute:
-			err = checkLastMinute(pr)
+			err = checkLastMinute(pr, now)
 		}
 		if err == nil {
 			if action == addStatus {

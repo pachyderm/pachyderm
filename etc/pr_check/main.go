@@ -137,12 +137,13 @@ func main() {
 
 	// Scan and process PRs, and print the results if requested
 	var scannedPRs []*github.PullRequest
+	now := time.Now()
 	if len(prsToScan) > 0 {
 		scannedPRs = getPRs(client, prsToScan)
 	} else {
-		scannedPRs = scanPRs(client, authorsMap, time.Now(), start, end)
+		scannedPRs = scanPRs(client, authorsMap, now, start, end)
 	}
-	matchingPRs := actOnMatchingPRs(client, scannedPRs, check, action)
+	matchingPRs := checkPRs(client, scannedPRs, now, check, action)
 	if printPRs {
 		printScanned(scannedPRs, matchingPRs)
 	}
