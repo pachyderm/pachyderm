@@ -681,6 +681,7 @@ message SchedulingSpec {
 }
 
 message CreatePipelineRequest {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   Pipeline pipeline = 1;
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
@@ -723,7 +724,7 @@ message CreatePipelineRequest {
   ResourceSpec sidecar_resource_requests = 35;
   reserved 36;
   reserved "details_json";
-  bool dry_run = 37;
+  bool dry_run = 37 [(protoc.gen.jsonschema.field_options).ignore = true];
   Determined determined = 38;
 }
 

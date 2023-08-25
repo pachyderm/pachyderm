@@ -6,62 +6,155 @@
             "properties": {
                 "pipeline": {
                     "$ref": "#/definitions/pps_v2.Pipeline",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "tf_job": {
                     "$ref": "#/definitions/pps_v2.TFJob",
                     "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ],
                     "description": "tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs when running in a kubernetes cluster on which kubeflow has been installed. Exactly one of 'tf_job' and 'transform' should be set"
                 },
                 "transform": {
                     "$ref": "#/definitions/pps_v2.Transform",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "parallelism_spec": {
                     "$ref": "#/definitions/pps_v2.ParallelismSpec",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "egress": {
                     "$ref": "#/definitions/pps_v2.Egress",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "output_branch": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "s3_out": {
-                    "type": "boolean",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
                     "description": "s3_out, if set, requires a pipeline's user to write to its output repo via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3 gateway API at http://\u003cpipeline\u003e-s3.\u003cnamespace\u003e/\u003cjob id\u003e.out/my/file). In this mode /pfs_v2/out won't be walked or uploaded, and the s3 gateway service in the workers will allow writes to the job's output commit"
                 },
                 "resource_requests": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "resource_limits": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "sidecar_resource_limits": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "input": {
                     "$ref": "#/definitions/pps_v2.Input",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "description": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "service": {
                     "$ref": "#/definitions/pps_v2.Service",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "spout": {
                     "$ref": "#/definitions/pps_v2.Spout",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "datum_set_spec": {
                     "$ref": "#/definitions/pps_v2.DatumSetSpec",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "datum_timeout": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
@@ -74,58 +167,141 @@
                     "format": "regex"
                 },
                 "salt": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "datum_tries": {
-                    "type": "integer"
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "scheduling_spec": {
                     "$ref": "#/definitions/pps_v2.SchedulingSpec",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "pod_spec": {
-                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
                     "description": "deprecated, use pod_patch below"
                 },
                 "pod_patch": {
-                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
                     "description": "a json patch will be applied to the pipeline's pod_spec before it's created;"
                 },
                 "spec_commit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "metadata": {
                     "$ref": "#/definitions/pps_v2.Metadata",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "reprocess_spec": {
-                    "type": "string"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
                 },
                 "autoscaling": {
-                    "type": "boolean"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
                 },
                 "tolerations": {
                     "items": {
                         "$ref": "#/definitions/pps_v2.Toleration"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
                 },
                 "sidecar_resource_requests": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
-                },
-                "dry_run": {
-                    "type": "boolean"
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "determined": {
                     "$ref": "#/definitions/pps_v2.Determined",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 }
             },
             "additionalProperties": false,
-            "type": "object",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
             "title": "Create Pipeline Request"
         },
         "pfs_v2.Branch": {
