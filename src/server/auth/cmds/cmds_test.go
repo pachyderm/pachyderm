@@ -121,11 +121,6 @@ func TestLogin(t *testing.T) {
 	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser), false))
 
 	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
-		defer func() {
-			if err := recover(); err != nil {
-				t.Logf("retrying because of panic: %v", err)
-			}
-		}()
 		ctx, done := context.WithTimeout(pctx.Background("auth.login"), 30*time.Second)
 		defer done()
 		cmd := tu.PachctlBashCmdCtx(ctx, t, c, "echo '' | pachctl auth use-auth-token && pachctl auth login --no-browser")
@@ -143,7 +138,9 @@ func TestLogin(t *testing.T) {
 			if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
 				url := sc.Text()
 				t.Logf("doing OAuth exchange against %v", url)
-				tu.DoOAuthExchange(t, c, c, url)
+				if err := tu.DoOAuthExchangeOnce(t, c, c, url); err != nil {
+					return errors.Wrap(err, "DoOAuthExchangeOnce")
+				}
 				break
 			}
 		}
