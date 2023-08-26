@@ -3,5 +3,5 @@ package jsonschema
 
 import "embed"
 
-//go:embed *
+//go:embed *.json
 var FS embed.FS
