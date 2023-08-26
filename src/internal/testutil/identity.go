@@ -126,7 +126,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
 		// Get the initial URL from the grpc, which should point to the dex login page
 		resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
 		if err != nil {
@@ -168,7 +168,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 			return errors.Wrapf(err, "after login redirect status code got %v want %v", got, want)
 		}
 		return nil
-	}, "failed DoOAuthExchange")
+	}, time.Second, "failed DoOAuthExchange")
 }
 
 func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitTest bool) string {
