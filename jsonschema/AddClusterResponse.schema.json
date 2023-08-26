@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/AddClusterResponse",
+    "definitions": {
+        "AddClusterResponse": {
+            "properties": {
+                "secret": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Add Cluster Response"
+        }
+    }
+}

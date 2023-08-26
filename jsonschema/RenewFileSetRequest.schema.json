@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RenewFileSetRequest",
+    "definitions": {
+        "RenewFileSetRequest": {
+            "properties": {
+                "file_set_id": {
+                    "type": "string"
+                },
+                "ttl_seconds": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Renew File Set Request"
+        }
+    }
+}
