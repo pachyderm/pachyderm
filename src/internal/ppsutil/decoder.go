@@ -235,7 +235,9 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 			if !ok {
 				return nil, errors.Errorf("mapping keys must be strings, not %T", key)
 			}
-			o[keyString] = value
+			if keyString != "$schema" { // Remove JSON schema tags if the editor added them.
+				o[keyString] = value
+			}
 		}
 		return o, nil
 	default:

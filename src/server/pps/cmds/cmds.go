@@ -975,7 +975,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 
-			f, err := os.CreateTemp("", args[0])
+			format := output
+			if format == "" {
+				format = "json"
+			}
+
+			f, err := os.CreateTemp("", fmt.Sprintf("%v-*.%v", pipelineInfo.GetPipeline().GetName(), format))
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -990,9 +995,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err := decoder.Decode(&oldSpec); err != nil {
 				return errors.Wrapf(err, "could not decode old user spec %s", pipelineInfo.UserSpecJson)
 			}
+			oldSpec["$schema"] = "https://raw.githubusercontent.com/pachyderm/pachyderm/master/jsonschema/CreatePipelineRequest.schema.json"
 			if err := cmdutil.Encoder(output, f).Encode(oldSpec); err != nil {
 				return errors.Wrapf(err, "could not encode old user spec %v", oldSpec)
 			}
+			delete(oldSpec, "$schema")
 
 			if editor == "" {
 				editor = os.Getenv("EDITOR")
