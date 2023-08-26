@@ -20,6 +20,15 @@ import (
 const (
 	// CommitsChannelName is used to watch events for the commits table.
 	CommitsChannelName = "pfs_commits"
+
+	getCommit = `
+		SELECT 
+    		commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str, commit.origin, commit.description, commit.start_time, 
+    		commit.finishing_time, commit.finished_time, commit.compacting_time, commit.validating_time, commit.created_at, 
+    		commit.error, commit.size, repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
+		FROM pfs.commits commit
+		JOIN pfs.repos repo ON commit.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id`
 )
 
 // CommitID is the row id for a commit entry in postgres.
@@ -28,9 +37,9 @@ type CommitID uint64
 
 // ErrCommitNotFound is returned by GetCommit() when a commit is not found in postgres.
 type ErrCommitNotFound struct {
-	Repo        string
-	ID          CommitID
-	CommitSetID string
+	Repo     string
+	ID       CommitID
+	CommitID string
 }
 
 // Error satisfies the error interface.
@@ -38,7 +47,7 @@ func (err ErrCommitNotFound) Error() string {
 	if id := err.ID; id != 0 {
 		return fmt.Sprintf("commit id=%d not found", id)
 	}
-	return fmt.Sprintf("commit %s/%s not found", err.Repo, err.CommitSetID)
+	return fmt.Sprintf("commit %s/%s not found", err.Repo, err.CommitID)
 }
 
 func (err ErrCommitNotFound) GRPCStatus() *status.Status {
@@ -51,13 +60,13 @@ func IsErrCommitNotFound(err error) bool {
 
 // ErrCommitAlreadyExists is returned by CreateCommit() when a commit with the same name already exists in postgres.
 type ErrCommitAlreadyExists struct {
-	Repo        string
-	CommitSetID string
+	Repo     string
+	CommitID string
 }
 
 // Error satisfies the error interface.
 func (err ErrCommitAlreadyExists) Error() string {
-	if n, t := err.CommitSetID, err.Repo; n != "" && t != "" {
+	if n, t := err.CommitID, err.Repo; n != "" && t != "" {
 		return fmt.Sprintf("commit %s.%s already exists", n, t)
 	}
 	return "commit already exists"
@@ -89,7 +98,9 @@ type CommitIterator struct {
 type commitRow struct {
 	ID             CommitID  `db:"int_id"`
 	CommitSetID    string    `db:"commit_set_id"`
+	CommitID       string    `db:"commit_id"`
 	RepoID         RepoID    `db:"repo_id"`
+	BranchID       string    `db:"branch_id_str"`
 	Origin         string    `db:"origin"`
 	Description    string    `db:"description"`
 	StartTime      time.Time `db:"start_time"`
@@ -98,7 +109,7 @@ type commitRow struct {
 	CompactingTime int64     `db:"compacting_time"`
 	ValidatingTime int64     `db:"validating_time"`
 	Error          string    `db:"error"`
-	Size           uint64    `db:"size"`
+	Size           int64     `db:"size"`
 	CreatedAt      time.Time `db:"created_at"`
 	RepoName       string    `db:"repo_name"`
 	RepoType       string    `db:"repo_type"`
@@ -141,9 +152,10 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 type CommitFields string
 
 var (
-	CommitSetIDs  = CommitFields("commit_set_id")
-	CommitOrigins = CommitFields("origin")
-	CommitRepos   = CommitFields("repo_id")
+	CommitSetIDs   = CommitFields("commit_set_id")
+	CommitOrigins  = CommitFields("origin")
+	CommitRepos    = CommitFields("repo_id")
+	CommitBranches = CommitFields("branch_id_str")
 )
 
 // CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
@@ -167,7 +179,31 @@ func ListCommit(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter) (*
 }
 
 func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter CommitListFilter) ([]commitRow, error) {
-	return nil, nil
+	var page []commitRow
+	where := ""
+	conditions := make([]string, 0)
+	for key, vals := range filter {
+		if len(vals) == 0 {
+			continue
+		}
+		quotedVals := make([]string, 0)
+		for _, val := range vals {
+			quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
+		}
+		if key == CommitRepos {
+			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.repos WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+		} else {
+			conditions = append(conditions, fmt.Sprintf("commit.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
+		}
+	}
+	if len(conditions) > 0 {
+		where = "WHERE " + strings.Join(conditions, " AND ")
+	}
+	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2;",
+		getCommit, where), limit, offset); err != nil {
+		return nil, errors.Wrap(err, "could not get repo page")
+	}
+	return page, nil
 }
 
 func sanitizeTimestamppb(timestamp *timestamppb.Timestamp) time.Time {
@@ -184,45 +220,78 @@ func durationpbToBigInt(duration *durationpb.Duration) int64 {
 	return 0
 }
 
-// CreateCommit creates an entry in the pfs.commits table.
-func CreateCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.CommitInfo) error {
-	if commit.Commit.Repo == nil {
-		return errors.New(fmt.Sprintf("commit.Repo is nil: %+v", commit.Commit))
+func timeToTimestamppb(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
 	}
-	if commit.Details == nil { // stub in an empty details struct to avoid panics.
-		commit.Details = &pfs.CommitInfo_Details{}
+	return timestamppb.New(t)
+}
+
+func bigIntToDurationpb(s int64) *durationpb.Duration {
+	if s == 0 {
+		return nil
+	}
+	return durationpb.New(time.Duration(s))
+}
+
+// CreateCommit creates an entry in the pfs.commits table.
+func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) error {
+	if commitInfo.Commit.Repo == nil {
+		return errors.New(fmt.Sprintf("commitInfo.Repo is nil: %+v", commitInfo.Commit))
+	}
+	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
+		commitInfo.Details = &pfs.CommitInfo_Details{}
+	}
+	switch commitInfo.Origin.Kind {
+	case pfs.OriginKind_ORIGIN_KIND_UNKNOWN, pfs.OriginKind_USER, pfs.OriginKind_AUTO, pfs.OriginKind_FSCK:
+		break
+	default:
+		return errors.New(fmt.Sprintf("invalid origin: %v", commitInfo.Origin.Kind))
+	}
+	insert := commitRow{
+		CommitID:       CommitKey(commitInfo.Commit),
+		CommitSetID:    commitInfo.Commit.Id,
+		RepoName:       commitInfo.Commit.Repo.Name,
+		RepoType:       commitInfo.Commit.Repo.Type,
+		ProjectName:    commitInfo.Commit.Repo.Project.Name,
+		BranchID:       commitInfo.Commit.Branch.Name,
+		Origin:         commitInfo.Origin.Kind.String(),
+		StartTime:      sanitizeTimestamppb(commitInfo.Started),
+		FinishingTime:  sanitizeTimestamppb(commitInfo.Finishing),
+		FinishedTime:   sanitizeTimestamppb(commitInfo.Finished),
+		Description:    commitInfo.Description,
+		CompactingTime: durationpbToBigInt(commitInfo.Details.CompactingTime),
+		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
+		Size:           commitInfo.Details.SizeBytes,
+		Error:          commitInfo.Error,
 	}
 	query := `
 		INSERT INTO pfs.commits 
-    	(commit_set_id, repo_id, origin, start_time, description, finishing_time, finished_time, compacting_time, 
-    	 validating_time, error, size) 
-		VALUES ($1, (SELECT id from pfs.repos WHERE name=$2 AND type=$3 AND project_id=(SELECT id from core.projects WHERE name=$4)), 
-		        $5::pfs.commit_origin, $6, $7, $8, $9, $10, $11, $12, $13);`
-	_, err := tx.ExecContext(ctx, query, commit.Commit.Id, commit.Commit.Repo.Name, commit.Commit.Repo.Type,
-		commit.Commit.Repo.Project.Name, strings.ToLower(commit.Origin.Kind.String()), sanitizeTimestamppb(commit.Started),
-		commit.Description, sanitizeTimestamppb(commit.Finishing), sanitizeTimestamppb(commit.Finished),
-		durationpbToBigInt(commit.Details.CompactingTime), durationpbToBigInt(commit.Details.ValidatingTime),
-		commit.Error, commit.Details.SizeBytes)
+    	(commit_id, commit_set_id, repo_id, branch_id_str, description, origin, start_time, finishing_time, finished_time, compacting_time, 
+    	 validating_time, size, error) 
+		VALUES (:commit_id, :commit_set_id, (SELECT id from pfs.repos WHERE name=:repo_name AND type=:repo_type AND project_id=(SELECT id from core.projects WHERE name=:proj_name)), 
+		       :branch_id_str, :description, :origin, :start_time, :finishing_time, :finished_time, :compacting_time, :validating_time, :size, :error);`
+	_, err := tx.NamedExecContext(ctx, query, insert)
 	if err != nil && IsDuplicateKeyErr(err) { // a duplicate key implies that an entry for the repo already exists.
-		return ErrCommitAlreadyExists{CommitSetID: commit.Commit.Id, Repo: RepoKey(commit.Commit.Repo)}
+		return ErrCommitAlreadyExists{CommitID: commitInfo.Commit.Id, Repo: RepoKey(commitInfo.Commit.Repo)}
 	}
-	return errors.Wrap(err, "create commit")
+	return errors.Wrap(err, "create commitInfo")
 }
 
 // DeleteCommit deletes an entry in the pfs.commits table.
-func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitSetID string) error {
+func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitID string) error {
 	return nil
 }
 
-func GetCommitID(ctx context.Context, tx *pachsql.Tx, commitSetID string) (CommitID, error) {
-	row, err := getCommitRowByName(ctx, tx, commitSetID)
+func GetCommitID(ctx context.Context, tx *pachsql.Tx, commitID string) (CommitID, error) {
+	row, err := getCommitRowByName(ctx, tx, commitID)
 	if err != nil {
 		return CommitID(0), err
 	}
 	return row.ID, nil
 }
 
-func getCommitRowByName(ctx context.Context, tx *pachsql.Tx, commitSetID string) (*commitRow, error) {
+func getCommitRowByName(ctx context.Context, tx *pachsql.Tx, commitID string) (*commitRow, error) {
 	row := &commitRow{}
 	return row, nil
 }
@@ -232,14 +301,7 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 		return nil, errors.New("invalid id: 0")
 	}
 	row := &commitRow{}
-	getCommit := `
-	SELECT 
-    	commit.int_id, commit.commit_set_id, commit.repo_id, commit.origin, commit.description, commit.start_time, 
-    	commit.finishing_time, commit.finished_time, commit.compacting_time, commit.validating_time, commit.created_at, 
-    	commit.error, commit.size, repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
-		FROM pfs.commits commit
-		JOIN pfs.repos repo ON commit.repo_id = repo.id
-		JOIN core.projects project ON repo.project_id = project.id`
+
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE int_id=$1", getCommit), id).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -247,7 +309,6 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 		}
 		return nil, errors.Wrap(err, "scanning commit row")
 	}
-	fmt.Printf("%+v", row)
 	return getCommitFromCommitRow(row)
 }
 
@@ -262,11 +323,21 @@ func getCommitFromCommitRow(row *commitRow) (*pfs.CommitInfo, error) {
 	commitInfo := &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Repo: repo,
-			Id:   row.CommitSetID,
+			Id:   row.CommitID,
 			Branch: &pfs.Branch{
 				Repo: repo,
-				Name: "", //todo(fahad): figure out how to get this.
+				Name: row.BranchID,
 			},
+		},
+		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(row.Origin)])},
+		Started:     timeToTimestamppb(row.StartTime),
+		Finishing:   timeToTimestamppb(row.FinishingTime),
+		Finished:    timeToTimestamppb(row.FinishedTime),
+		Description: row.Description,
+		Details: &pfs.CommitInfo_Details{
+			CompactingTime: bigIntToDurationpb(row.CompactingTime),
+			ValidatingTime: bigIntToDurationpb(row.ValidatingTime),
+			SizeBytes:      row.Size,
 		},
 	}
 	return commitInfo, nil

@@ -134,15 +134,18 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 // alterCommitsTable1 adds useful new columns to pfs.commits table.
 // Note that this is not the end all be all. We will need to make more changes after data has been migrated.
 // TODO
-// - rename int_id to id? This will requires changing all references as well.
-// - make repo_id not null
-// - make origin not null
-// - make updated_at not null and default to current timestamp
+//   - rename int_id to id? This will requires changing all references as well.
+//   - make repo_id not null
+//   - make origin not null
+//   - make updated_at not null and default to current timestamp
+//   - branch_id_str is a metadata reference to the branches table. Today this points to collections, but tomorrow it should
+//     point to pfs.branches. Once the PFS master watches branches, we will no longer need this column.
 func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
-	CREATE TYPE pfs.commit_origin AS ENUM ('unknown', 'user', 'auto', 'fsck');
+	CREATE TYPE pfs.commit_origin AS ENUM ('UNKNOWN', 'USER', 'AUTO', 'FSCK');
 
 	ALTER TABLE IF EXISTS pfs.commits
+	    DROP CONSTRAINT fk_col_commit,
 		ADD COLUMN IF NOT EXISTS repo_id bigint REFERENCES pfs.repos(id),
 		ADD COLUMN IF NOT EXISTS origin pfs.commit_origin,
 		ADD COLUMN IF NOT EXISTS description text DEFAULT '',
@@ -153,7 +156,8 @@ func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN IF NOT EXISTS validating_time bigint,
 		ADD COLUMN IF NOT EXISTS error text,
 		ADD COLUMN IF NOT EXISTS size bigint,
-		ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+		ADD COLUMN IF NOT EXISTS updated_at timestamptz,
+		ADD COLUMN IF NOT EXISTS branch_id_str text;
 
 	CREATE TRIGGER set_updated_at
 		BEFORE UPDATE ON pfs.commits
