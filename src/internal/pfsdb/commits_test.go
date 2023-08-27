@@ -68,6 +68,12 @@ func TestCreateCommit(t *testing.T) {
 		require.True(t, errors.Is(pfsdb.ErrCommitAlreadyExists{CommitID: id, Repo: pfsdb.RepoKey(repoInfo.Repo)}, err))
 		return nil
 	}), "double create should fail and result in rollback")
+	commitInfo.Commit.Repo = nil
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		err := pfsdb.CreateCommit(cbCtx, tx, commitInfo)
+		require.YesError(t, err, "should not be able to create commit when repo is nil")
+		return nil
+	}), "transaction should succeed because test is failing before calling db")
 }
 
 func TestGetCommit(t *testing.T) {
