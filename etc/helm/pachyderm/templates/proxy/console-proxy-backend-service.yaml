@@ -13,6 +13,7 @@ metadata:
   name: console-proxy-backend
   namespace: {{ .Release.Namespace }}
 spec:
+  publishNotReadyAddresses: true
   ports:
   - name: console-http
     port: 4000

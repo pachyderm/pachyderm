@@ -148,13 +148,18 @@
    "static_resources": {
       "clusters": [
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "healthy_threshold": 1,
@@ -196,20 +201,25 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "grpc_health_check": { },
                   "healthy_threshold": 1,
                   "interval": "10s",
                   "no_traffic_healthy_interval": "10s",
-                  "no_traffic_interval": "10s",
+                  "no_traffic_interval": "1s",
                   "timeout": "10s",
                   "unhealthy_threshold": 2
                }
@@ -249,13 +259,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "healthy_threshold": 1,
@@ -297,13 +312,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "healthy_threshold": 1,
@@ -345,13 +365,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [ ],
             "lb_policy": "random",
             "load_assignment": {
@@ -380,13 +405,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "healthy_threshold": 1,
@@ -428,13 +458,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [ ],
             "lb_policy": "random",
             "load_assignment": {
@@ -569,6 +604,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -825,6 +865,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -992,6 +1037,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1184,6 +1234,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1358,6 +1413,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1524,6 +1584,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1690,6 +1755,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1856,6 +1926,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -2022,6 +2097,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
