@@ -26,7 +26,6 @@ func (ft *fakeTar) Recv() (*wrapperspb.BytesValue, error) {
 	if ft.recvd {
 		return nil, io.EOF
 	}
-	// FIXME: wrong, it does not return a tarball
 	var buf = new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 	if err := tw.WriteHeader(tarutil.NewHeader("/meta", int64(len(ft.file)))); err != nil {
