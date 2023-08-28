@@ -97,7 +97,7 @@ func clusterIdx(t testing.TB, name string) int {
 
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
-		PortOffset:         uint16(clusterIdx),
+		PortOffset:         2 * uint16(clusterIdx),
 		UseLeftoverCluster: *useLeftoverClusters,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
@@ -176,7 +176,7 @@ func ClaimCluster(t testing.TB) (string, uint16) {
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
 	})
-	portOffset := uint16(clusterIdx * 10)
+	portOffset := 2 * uint16(clusterIdx)
 	return assigned, portOffset
 }
 

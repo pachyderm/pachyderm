@@ -619,7 +619,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 
 	if !opts.DisableLoki {
-		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
+		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+1)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
 	waitForPostgres(t, ctx, kubeClient, namespace)
