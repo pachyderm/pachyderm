@@ -18,11 +18,6 @@ Envoy.bootstrap(
       name='proxy-https',
       routes=std.flatMap(function(name) Services[name].routes, ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'pachd-http', 'console'])
     ),
-
-    // Unlike the cleartext configuration, we don't serve direct routes to individual pachd/console
-    // ports.  This is so that people don't go down the rabbit hole of trying to provision a TLS
-    // certificate for a port number.  We say we don't support it, and they won't waste their time
-    // trying.
   ],
   clusters=[
     Envoy.serviceAsCluster(name, Services[name])
