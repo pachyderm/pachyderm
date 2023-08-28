@@ -219,19 +219,10 @@ func withPachd(image string) *helm.Options {
 			// For tests, traffic from outside the cluster is routed through the proxy,
 			// but we bind the internal k8s service ports to the same numbers for
 			// in-cluster traffic, like enterprise registration.
-			"proxy.enabled":                       "true",
-			"proxy.service.type":                  exposedServiceType(),
-			"proxy.service.httpPort":              "30650",
-			"proxy.service.httpNodePort":          "30650",
-			"pachd.service.apiGRPCPort":           "30650",
-			"proxy.service.legacyPorts.oidc":      "30657",
-			"pachd.service.oidcPort":              "30657",
-			"proxy.service.legacyPorts.identity":  "30658",
-			"pachd.service.identityPort":          "30658",
-			"proxy.service.legacyPorts.s3Gateway": "30600",
-			"pachd.service.s3GatewayPort":         "30600",
-			"proxy.service.legacyPorts.metrics":   "30656",
-			"pachd.service.prometheusPort":        "30656",
+			"proxy.enabled":              "true",
+			"proxy.service.type":         exposedServiceType(),
+			"proxy.service.httpPort":     "30650",
+			"proxy.service.httpNodePort": "30650",
 		},
 	}
 }
@@ -253,15 +244,14 @@ func withMinio() *helm.Options {
 	}
 }
 
-func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Options {
+func withEnterprise(host, rootToken string, port int) *helm.Options {
 	return &helm.Options{
 		SetValues: map[string]string{
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
 			"pachd.rootToken":                      rootToken,
-			// TODO: make these ports configurable to support IDP Login in parallel deployments
-			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
-			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
-			"proxy.host":                         fmt.Sprintf("%s:%v", host, clientPort),
+			"oidc.userAccessibleOauthIssuerHost":   fmt.Sprintf("%s:%v", host, port),
+			"oidc.issuerURI":                       "http://pachd:30658/dex",
+			"proxy.host":                           fmt.Sprintf("%s:%v", host, port),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
@@ -274,36 +264,29 @@ func withEnterpriseServer(image, host string) *helm.Options {
 		"enterpriseServer.enabled":           "true",
 		"enterpriseServer.image.tag":         image,
 		"oidc.mockIDP":                       "true",
-		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
-		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
+		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31650/dex",
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31650", host),
 		"pachd.oauthClientID":                "enterprise-pach",
-		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
+		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31650/authorization-code/callback", host),
 		"enterpriseServer.service.type":      "ClusterIP",
 		// For tests, traffic from outside the cluster is routed through the proxy,
 		// but we bind the internal k8s service ports to the same numbers for
 		// in-cluster traffic, like enterprise registration.
-		"proxy.enabled":                      "true",
-		"proxy.service.type":                 exposedServiceType(),
-		"proxy.service.httpPort":             "31650",
-		"proxy.service.httpNodePort":         "31650",
-		"pachd.service.apiGRPCPort":          "31650",
-		"proxy.service.legacyPorts.oidc":     "31657",
-		"pachd.service.oidcPort":             "31657",
-		"proxy.service.legacyPorts.identity": "31658",
-		"pachd.service.identityPort":         "31658",
-		"proxy.service.legacyPorts.metrics":  "31656",
-		"pachd.service.prometheusPort":       "31656",
+		"proxy.enabled":              "true",
+		"proxy.service.type":         exposedServiceType(),
+		"proxy.service.httpPort":     "31650",
+		"proxy.service.httpNodePort": "31650",
 	}}
 }
 
-func withEnterpriseMember(host string, grpcPort int) *helm.Options {
+func withEnterpriseMember(host string) *helm.Options {
 	return &helm.Options{SetValues: map[string]string{
 		"pachd.activateEnterpriseMember":     "true",
 		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
-		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
+		"pachd.enterpriseCallbackAddress":    "grpc://pachd.default.svc.cluster.local:31650",
 		"pachd.enterpriseRootToken":          testutil.RootToken,
 		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
-		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31650", host),
 	}}
 }
 
@@ -313,13 +296,6 @@ func withPort(namespace string, port uint16, tls bool) *helm.Options {
 		SetValues:      map[string]string{},
 	}
 
-	// Allow the internal use to have the same port numbers as the proxy.
-	opts.SetValues["pachd.service.apiGRPCPort"] = fmt.Sprintf("%v", port)
-	opts.SetValues["pachd.service.oidcPort"] = fmt.Sprintf("%v", port+7)
-	opts.SetValues["pachd.service.identityPort"] = fmt.Sprintf("%v", port+8)
-	opts.SetValues["pachd.service.s3GatewayPort"] = fmt.Sprintf("%v", port+3)
-	opts.SetValues["pachd.service.prometheusPort"] = fmt.Sprintf("%v", port+4)
-
 	if tls {
 		// Use the default port for HTTPS.
 		opts.SetValues["proxy.service.httpsPort"] = fmt.Sprintf("%v", port)
@@ -328,38 +304,12 @@ func withPort(namespace string, port uint16, tls bool) *helm.Options {
 		// Disable HTTP.
 		opts.SetValues["proxy.service.httpPort"] = "0"
 		opts.SetValues["proxy.service.httpNodePort"] = "0"
-
-		// Disable the legacy services, since anything depending on the TLS argument to this
-		// function expects to do everything through the proxy
-		opts.SetValues["proxy.service.legacyPorts.console"] = "0"
-		opts.SetValues["proxy.service.legacyPorts.oidc"] = "0"
-		opts.SetValues["proxy.service.legacyPorts.identity"] = "0"
-		opts.SetValues["proxy.service.legacyPorts.s3Gateway"] = "0"
-		opts.SetValues["proxy.service.legacyPorts.metrics"] = "0"
 	} else {
 		// Run gRPC traffic through the full router.
 		opts.SetValues["proxy.service.httpPort"] = fmt.Sprintf("%v", port)
 		opts.SetValues["proxy.service.httpNodePort"] = fmt.Sprintf("%v", port)
-
-		// Let the legacy ports go through the proxy.
-		opts.SetValues["proxy.service.legacyPorts.oidc"] = fmt.Sprintf("%v", port+7)
-		opts.SetValues["proxy.service.legacyPorts.identity"] = fmt.Sprintf("%v", port+8)
-		opts.SetValues["proxy.service.legacyPorts.s3Gateway"] = fmt.Sprintf("%v", port+3)
-		opts.SetValues["proxy.service.legacyPorts.metrics"] = fmt.Sprintf("%v", port+4)
 	}
 	return opts
-}
-
-// withoutProxy disables the Pachyderm proxy.  It's used to test upgrades from versions of Pachyderm
-// that didn't have the proxy.
-func withoutProxy(namespace string) *helm.Options {
-	return &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
-		SetValues: map[string]string{
-			"proxy.enabled":      "false",
-			"pachd.service.type": exposedServiceType(),
-		},
-	}
 }
 
 func union(a, b *helm.Options) *helm.Options {
@@ -611,11 +561,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	pachAddress := GetPachAddress(t)
 	if opts.Enterprise || opts.EnterpriseServer {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
-		if opts.EnterpriseMember {
-			issuerPort = 31658
-		}
-		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
+		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, int(pachAddress.Port+opts.PortOffset)))
 	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
@@ -643,7 +589,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))
 	}
 	if opts.EnterpriseMember {
-		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
+		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host))
 	}
 	if opts.Console {
 		helmOpts.SetValues["console.enabled"] = "true"
@@ -652,9 +598,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts = union(helmOpts, withoutLokiOptions(namespace, int(pachAddress.Port)))
 	} else {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
-	}
-	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
-		helmOpts = union(helmOpts, withoutProxy(namespace))
 	}
 	if opts.ValueOverrides != nil {
 		helmOpts = union(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})

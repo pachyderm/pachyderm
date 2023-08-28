@@ -97,7 +97,7 @@ func clusterIdx(t testing.TB, name string) int {
 
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
-		PortOffset:         uint16(clusterIdx * 10),
+		PortOffset:         uint16(clusterIdx),
 		UseLeftoverCluster: *useLeftoverClusters,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
