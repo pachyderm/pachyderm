@@ -179,7 +179,7 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 			"loki-stack.loki.service.nodePort":                                fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.config.server.http_listen_port":                  fmt.Sprintf("%v", port+9),
 			"loki-stack.promtail.config.serverPort":                           fmt.Sprintf("%v", port+9),
-			"loki-stack.promtail.config.clients[0].url":                       fmt.Sprintf("http://%s-loki:%d/loki/api/v1/push", namespace, port+9),
+			"loki-stack.promtail.config.clients[0].url":                       fmt.Sprintf("http://%s-loki:%d/loki/api/v1/push", namespace, port+1),
 			"loki-stack.promtail.initContainer[0].name":                       "init",
 			"loki-stack.promtail.initContainer[0].image":                      "docker.io/busybox:1.33",
 			"loki-stack.promtail.initContainer[0].imagePullPolicy":            "IfNotPresent",
