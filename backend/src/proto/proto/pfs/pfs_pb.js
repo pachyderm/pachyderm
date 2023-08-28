@@ -31,8 +31,6 @@ var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/durat
 goog.object.extend(proto, google_protobuf_duration_pb);
 var google_protobuf_any_pb = require('google-protobuf/google/protobuf/any_pb.js');
 goog.object.extend(proto, google_protobuf_any_pb);
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
-goog.object.extend(proto, gogoproto_gogo_pb);
 var auth_auth_pb = require('../auth/auth_pb.js');
 goog.object.extend(proto, auth_auth_pb);
 var task_task_pb = require('../task/task_pb.js');
@@ -3691,9 +3689,10 @@ proto.pfs_v2.Trigger.toObject = function(includeInstance, msg) {
   var f, obj = {
     branch: jspb.Message.getFieldWithDefault(msg, 1, ""),
     all: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
-    cronSpec: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    rateLimitSpec: jspb.Message.getFieldWithDefault(msg, 3, ""),
     size: jspb.Message.getFieldWithDefault(msg, 4, ""),
-    commits: jspb.Message.getFieldWithDefault(msg, 5, 0)
+    commits: jspb.Message.getFieldWithDefault(msg, 5, 0),
+    cronSpec: jspb.Message.getFieldWithDefault(msg, 6, "")
   };
 
   if (includeInstance) {
@@ -3740,7 +3739,7 @@ proto.pfs_v2.Trigger.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 3:
       var value = /** @type {string} */ (reader.readString());
-      msg.setCronSpec(value);
+      msg.setRateLimitSpec(value);
       break;
     case 4:
       var value = /** @type {string} */ (reader.readString());
@@ -3749,6 +3748,10 @@ proto.pfs_v2.Trigger.deserializeBinaryFromReader = function(msg, reader) {
     case 5:
       var value = /** @type {number} */ (reader.readInt64());
       msg.setCommits(value);
+      break;
+    case 6:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCronSpec(value);
       break;
     default:
       reader.skipField();
@@ -3793,7 +3796,7 @@ proto.pfs_v2.Trigger.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getCronSpec();
+  f = message.getRateLimitSpec();
   if (f.length > 0) {
     writer.writeString(
       3,
@@ -3811,6 +3814,13 @@ proto.pfs_v2.Trigger.serializeBinaryToWriter = function(message, writer) {
   if (f !== 0) {
     writer.writeInt64(
       5,
+      f
+    );
+  }
+  f = message.getCronSpec();
+  if (f.length > 0) {
+    writer.writeString(
+      6,
       f
     );
   }
@@ -3854,10 +3864,10 @@ proto.pfs_v2.Trigger.prototype.setAll = function(value) {
 
 
 /**
- * optional string cron_spec = 3;
+ * optional string rate_limit_spec = 3;
  * @return {string}
  */
-proto.pfs_v2.Trigger.prototype.getCronSpec = function() {
+proto.pfs_v2.Trigger.prototype.getRateLimitSpec = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
@@ -3866,7 +3876,7 @@ proto.pfs_v2.Trigger.prototype.getCronSpec = function() {
  * @param {string} value
  * @return {!proto.pfs_v2.Trigger} returns this
  */
-proto.pfs_v2.Trigger.prototype.setCronSpec = function(value) {
+proto.pfs_v2.Trigger.prototype.setRateLimitSpec = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -3904,6 +3914,24 @@ proto.pfs_v2.Trigger.prototype.getCommits = function() {
  */
 proto.pfs_v2.Trigger.prototype.setCommits = function(value) {
   return jspb.Message.setProto3IntField(this, 5, value);
+};
+
+
+/**
+ * optional string cron_spec = 6;
+ * @return {string}
+ */
+proto.pfs_v2.Trigger.prototype.getCronSpec = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 6, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pfs_v2.Trigger} returns this
+ */
+proto.pfs_v2.Trigger.prototype.setCronSpec = function(value) {
+  return jspb.Message.setProto3StringField(this, 6, value);
 };
 
 
@@ -19321,8 +19349,7 @@ proto.pfs_v2.OriginKind = {
   ORIGIN_KIND_UNKNOWN: 0,
   USER: 1,
   AUTO: 2,
-  FSCK: 3,
-  ALIAS: 4
+  FSCK: 3
 };
 
 /**

@@ -21,10 +21,10 @@ var global = (function() {
   return Function('return this')();
 }.call(null));
 
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
-goog.object.extend(proto, gogoproto_gogo_pb);
 var version_versionpb_version_pb = require('../version/versionpb/version_pb.js');
 goog.object.extend(proto, version_versionpb_version_pb);
+var pfs_pfs_pb = require('../pfs/pfs_pb.js');
+goog.object.extend(proto, pfs_pfs_pb);
 goog.exportSymbol('proto.admin_v2.ClusterInfo', null, global);
 goog.exportSymbol('proto.admin_v2.InspectClusterRequest', null, global);
 /**
@@ -110,8 +110,10 @@ proto.admin_v2.ClusterInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
     id: jspb.Message.getFieldWithDefault(msg, 1, ""),
     deploymentId: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    versionWarningsOk: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
-    versionWarningsList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f
+    warningsOk: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
+    warningsList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
+    proxyHost: jspb.Message.getFieldWithDefault(msg, 5, ""),
+    proxyTls: jspb.Message.getBooleanFieldWithDefault(msg, 6, false)
   };
 
   if (includeInstance) {
@@ -158,11 +160,19 @@ proto.admin_v2.ClusterInfo.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 3:
       var value = /** @type {boolean} */ (reader.readBool());
-      msg.setVersionWarningsOk(value);
+      msg.setWarningsOk(value);
       break;
     case 4:
       var value = /** @type {string} */ (reader.readString());
-      msg.addVersionWarnings(value);
+      msg.addWarnings(value);
+      break;
+    case 5:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setProxyHost(value);
+      break;
+    case 6:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setProxyTls(value);
       break;
     default:
       reader.skipField();
@@ -207,17 +217,31 @@ proto.admin_v2.ClusterInfo.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getVersionWarningsOk();
+  f = message.getWarningsOk();
   if (f) {
     writer.writeBool(
       3,
       f
     );
   }
-  f = message.getVersionWarningsList();
+  f = message.getWarningsList();
   if (f.length > 0) {
     writer.writeRepeatedString(
       4,
+      f
+    );
+  }
+  f = message.getProxyHost();
+  if (f.length > 0) {
+    writer.writeString(
+      5,
+      f
+    );
+  }
+  f = message.getProxyTls();
+  if (f) {
+    writer.writeBool(
+      6,
       f
     );
   }
@@ -261,10 +285,10 @@ proto.admin_v2.ClusterInfo.prototype.setDeploymentId = function(value) {
 
 
 /**
- * optional bool version_warnings_ok = 3;
+ * optional bool warnings_ok = 3;
  * @return {boolean}
  */
-proto.admin_v2.ClusterInfo.prototype.getVersionWarningsOk = function() {
+proto.admin_v2.ClusterInfo.prototype.getWarningsOk = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
 };
 
@@ -273,16 +297,16 @@ proto.admin_v2.ClusterInfo.prototype.getVersionWarningsOk = function() {
  * @param {boolean} value
  * @return {!proto.admin_v2.ClusterInfo} returns this
  */
-proto.admin_v2.ClusterInfo.prototype.setVersionWarningsOk = function(value) {
+proto.admin_v2.ClusterInfo.prototype.setWarningsOk = function(value) {
   return jspb.Message.setProto3BooleanField(this, 3, value);
 };
 
 
 /**
- * repeated string version_warnings = 4;
+ * repeated string warnings = 4;
  * @return {!Array<string>}
  */
-proto.admin_v2.ClusterInfo.prototype.getVersionWarningsList = function() {
+proto.admin_v2.ClusterInfo.prototype.getWarningsList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 4));
 };
 
@@ -291,7 +315,7 @@ proto.admin_v2.ClusterInfo.prototype.getVersionWarningsList = function() {
  * @param {!Array<string>} value
  * @return {!proto.admin_v2.ClusterInfo} returns this
  */
-proto.admin_v2.ClusterInfo.prototype.setVersionWarningsList = function(value) {
+proto.admin_v2.ClusterInfo.prototype.setWarningsList = function(value) {
   return jspb.Message.setField(this, 4, value || []);
 };
 
@@ -301,7 +325,7 @@ proto.admin_v2.ClusterInfo.prototype.setVersionWarningsList = function(value) {
  * @param {number=} opt_index
  * @return {!proto.admin_v2.ClusterInfo} returns this
  */
-proto.admin_v2.ClusterInfo.prototype.addVersionWarnings = function(value, opt_index) {
+proto.admin_v2.ClusterInfo.prototype.addWarnings = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 4, value, opt_index);
 };
 
@@ -310,8 +334,44 @@ proto.admin_v2.ClusterInfo.prototype.addVersionWarnings = function(value, opt_in
  * Clears the list making it empty but non-null.
  * @return {!proto.admin_v2.ClusterInfo} returns this
  */
-proto.admin_v2.ClusterInfo.prototype.clearVersionWarningsList = function() {
-  return this.setVersionWarningsList([]);
+proto.admin_v2.ClusterInfo.prototype.clearWarningsList = function() {
+  return this.setWarningsList([]);
+};
+
+
+/**
+ * optional string proxy_host = 5;
+ * @return {string}
+ */
+proto.admin_v2.ClusterInfo.prototype.getProxyHost = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 5, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.admin_v2.ClusterInfo} returns this
+ */
+proto.admin_v2.ClusterInfo.prototype.setProxyHost = function(value) {
+  return jspb.Message.setProto3StringField(this, 5, value);
+};
+
+
+/**
+ * optional bool proxy_tls = 6;
+ * @return {boolean}
+ */
+proto.admin_v2.ClusterInfo.prototype.getProxyTls = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 6, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.admin_v2.ClusterInfo} returns this
+ */
+proto.admin_v2.ClusterInfo.prototype.setProxyTls = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 6, value);
 };
 
 
@@ -347,7 +407,8 @@ proto.admin_v2.InspectClusterRequest.prototype.toObject = function(opt_includeIn
  */
 proto.admin_v2.InspectClusterRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientVersion: (f = msg.getClientVersion()) && version_versionpb_version_pb.Version.toObject(includeInstance, f)
+    clientVersion: (f = msg.getClientVersion()) && version_versionpb_version_pb.Version.toObject(includeInstance, f),
+    currentProject: (f = msg.getCurrentProject()) && pfs_pfs_pb.Project.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -389,6 +450,11 @@ proto.admin_v2.InspectClusterRequest.deserializeBinaryFromReader = function(msg,
       reader.readMessage(value,version_versionpb_version_pb.Version.deserializeBinaryFromReader);
       msg.setClientVersion(value);
       break;
+    case 2:
+      var value = new pfs_pfs_pb.Project;
+      reader.readMessage(value,pfs_pfs_pb.Project.deserializeBinaryFromReader);
+      msg.setCurrentProject(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -424,6 +490,14 @@ proto.admin_v2.InspectClusterRequest.serializeBinaryToWriter = function(message,
       1,
       f,
       version_versionpb_version_pb.Version.serializeBinaryToWriter
+    );
+  }
+  f = message.getCurrentProject();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      pfs_pfs_pb.Project.serializeBinaryToWriter
     );
   }
 };
@@ -463,6 +537,43 @@ proto.admin_v2.InspectClusterRequest.prototype.clearClientVersion = function() {
  */
 proto.admin_v2.InspectClusterRequest.prototype.hasClientVersion = function() {
   return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional pfs_v2.Project current_project = 2;
+ * @return {?proto.pfs_v2.Project}
+ */
+proto.admin_v2.InspectClusterRequest.prototype.getCurrentProject = function() {
+  return /** @type{?proto.pfs_v2.Project} */ (
+    jspb.Message.getWrapperField(this, pfs_pfs_pb.Project, 2));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.Project|undefined} value
+ * @return {!proto.admin_v2.InspectClusterRequest} returns this
+*/
+proto.admin_v2.InspectClusterRequest.prototype.setCurrentProject = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.admin_v2.InspectClusterRequest} returns this
+ */
+proto.admin_v2.InspectClusterRequest.prototype.clearCurrentProject = function() {
+  return this.setCurrentProject(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.admin_v2.InspectClusterRequest.prototype.hasCurrentProject = function() {
+  return jspb.Message.getField(this, 2) != null;
 };
 
 

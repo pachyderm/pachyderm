@@ -23,8 +23,6 @@ var global = (function() {
 
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 goog.object.extend(proto, google_protobuf_timestamp_pb);
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
-goog.object.extend(proto, gogoproto_gogo_pb);
 var enterprise_enterprise_pb = require('../enterprise/enterprise_pb.js');
 goog.object.extend(proto, enterprise_enterprise_pb);
 var protoextensions_log_pb = require('../protoextensions/log_pb.js');

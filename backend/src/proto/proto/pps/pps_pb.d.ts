@@ -9,9 +9,9 @@ import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as pfs_pfs_pb from "../pfs/pfs_pb";
 import * as task_task_pb from "../task/task_pb";
+import * as protoextensions_log_pb from "../protoextensions/log_pb";
 
 export class SecretMount extends jspb.Message { 
     getName(): string;
@@ -179,6 +179,28 @@ export namespace Egress {
         SQL_DATABASE = 3,
     }
 
+}
+
+export class Determined extends jspb.Message { 
+    clearWorkspacesList(): void;
+    getWorkspacesList(): Array<string>;
+    setWorkspacesList(value: Array<string>): Determined;
+    addWorkspaces(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Determined.AsObject;
+    static toObject(includeInstance: boolean, msg: Determined): Determined.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Determined, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Determined;
+    static deserializeBinaryFromReader(message: Determined, reader: jspb.BinaryReader): Determined;
+}
+
+export namespace Determined {
+    export type AsObject = {
+        workspacesList: Array<string>,
+    }
 }
 
 export class Job extends jspb.Message { 
@@ -901,6 +923,8 @@ export class JobInfo extends jspb.Message {
     clearDetails(): void;
     getDetails(): JobInfo.Details | undefined;
     setDetails(value?: JobInfo.Details): JobInfo;
+    getAuthToken(): string;
+    setAuthToken(value: string): JobInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): JobInfo.AsObject;
@@ -930,6 +954,7 @@ export namespace JobInfo {
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         details?: JobInfo.Details.AsObject,
+        authToken: string,
     }
 
 
@@ -1169,6 +1194,10 @@ export class PipelineInfo extends jspb.Message {
     clearDetails(): void;
     getDetails(): PipelineInfo.Details | undefined;
     setDetails(value?: PipelineInfo.Details): PipelineInfo;
+    getUserSpecJson(): string;
+    setUserSpecJson(value: string): PipelineInfo;
+    getEffectiveSpecJson(): string;
+    setEffectiveSpecJson(value: string): PipelineInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PipelineInfo.AsObject;
@@ -1193,6 +1222,8 @@ export namespace PipelineInfo {
         type: PipelineInfo.PipelineType,
         authToken: string,
         details?: PipelineInfo.Details.AsObject,
+        userSpecJson: string,
+        effectiveSpecJson: string,
     }
 
 
@@ -1317,6 +1348,11 @@ export namespace PipelineInfo {
         getSidecarResourceRequests(): ResourceSpec | undefined;
         setSidecarResourceRequests(value?: ResourceSpec): Details;
 
+        hasDetermined(): boolean;
+        clearDetermined(): void;
+        getDetermined(): Determined | undefined;
+        setDetermined(value?: Determined): Details;
+
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Details.AsObject;
         static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
@@ -1362,6 +1398,7 @@ export namespace PipelineInfo {
             autoscaling: boolean,
             tolerationsList: Array<Toleration.AsObject>,
             sidecarResourceRequests?: ResourceSpec.AsObject,
+            determined?: Determined.AsObject,
         }
     }
 
@@ -1462,6 +1499,8 @@ export class ListJobSetRequest extends jspb.Message {
     setNumber(value: number): ListJobSetRequest;
     getReverse(): boolean;
     setReverse(value: boolean): ListJobSetRequest;
+    getJqfilter(): string;
+    setJqfilter(value: string): ListJobSetRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListJobSetRequest.AsObject;
@@ -1480,6 +1519,7 @@ export namespace ListJobSetRequest {
         paginationmarker?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         number: number,
         reverse: boolean,
+        jqfilter: string,
     }
 }
 
@@ -2091,6 +2131,13 @@ export class CreatePipelineRequest extends jspb.Message {
     clearSidecarResourceRequests(): void;
     getSidecarResourceRequests(): ResourceSpec | undefined;
     setSidecarResourceRequests(value?: ResourceSpec): CreatePipelineRequest;
+    getDryRun(): boolean;
+    setDryRun(value: boolean): CreatePipelineRequest;
+
+    hasDetermined(): boolean;
+    clearDetermined(): void;
+    getDetermined(): Determined | undefined;
+    setDetermined(value?: Determined): CreatePipelineRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreatePipelineRequest.AsObject;
@@ -2134,6 +2181,57 @@ export namespace CreatePipelineRequest {
         autoscaling: boolean,
         tolerationsList: Array<Toleration.AsObject>,
         sidecarResourceRequests?: ResourceSpec.AsObject,
+        dryRun: boolean,
+        determined?: Determined.AsObject,
+    }
+}
+
+export class CreatePipelineV2Request extends jspb.Message { 
+    getCreatePipelineRequestJson(): string;
+    setCreatePipelineRequestJson(value: string): CreatePipelineV2Request;
+    getDryRun(): boolean;
+    setDryRun(value: boolean): CreatePipelineV2Request;
+    getUpdate(): boolean;
+    setUpdate(value: boolean): CreatePipelineV2Request;
+    getReprocess(): boolean;
+    setReprocess(value: boolean): CreatePipelineV2Request;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CreatePipelineV2Request.AsObject;
+    static toObject(includeInstance: boolean, msg: CreatePipelineV2Request): CreatePipelineV2Request.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CreatePipelineV2Request, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CreatePipelineV2Request;
+    static deserializeBinaryFromReader(message: CreatePipelineV2Request, reader: jspb.BinaryReader): CreatePipelineV2Request;
+}
+
+export namespace CreatePipelineV2Request {
+    export type AsObject = {
+        createPipelineRequestJson: string,
+        dryRun: boolean,
+        update: boolean,
+        reprocess: boolean,
+    }
+}
+
+export class CreatePipelineV2Response extends jspb.Message { 
+    getEffectiveCreatePipelineRequestJson(): string;
+    setEffectiveCreatePipelineRequestJson(value: string): CreatePipelineV2Response;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CreatePipelineV2Response.AsObject;
+    static toObject(includeInstance: boolean, msg: CreatePipelineV2Response): CreatePipelineV2Response.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CreatePipelineV2Response, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CreatePipelineV2Response;
+    static deserializeBinaryFromReader(message: CreatePipelineV2Response, reader: jspb.BinaryReader): CreatePipelineV2Response;
+}
+
+export namespace CreatePipelineV2Response {
+    export type AsObject = {
+        effectiveCreatePipelineRequestJson: string,
     }
 }
 
@@ -2718,6 +2816,146 @@ export class LokiLogMessage extends jspb.Message {
 export namespace LokiLogMessage {
     export type AsObject = {
         message: string,
+    }
+}
+
+export class ClusterDefaults extends jspb.Message { 
+
+    hasCreatePipelineRequest(): boolean;
+    clearCreatePipelineRequest(): void;
+    getCreatePipelineRequest(): CreatePipelineRequest | undefined;
+    setCreatePipelineRequest(value?: CreatePipelineRequest): ClusterDefaults;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ClusterDefaults.AsObject;
+    static toObject(includeInstance: boolean, msg: ClusterDefaults): ClusterDefaults.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ClusterDefaults, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ClusterDefaults;
+    static deserializeBinaryFromReader(message: ClusterDefaults, reader: jspb.BinaryReader): ClusterDefaults;
+}
+
+export namespace ClusterDefaults {
+    export type AsObject = {
+        createPipelineRequest?: CreatePipelineRequest.AsObject,
+    }
+}
+
+export class GetClusterDefaultsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetClusterDefaultsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetClusterDefaultsRequest): GetClusterDefaultsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetClusterDefaultsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetClusterDefaultsRequest;
+    static deserializeBinaryFromReader(message: GetClusterDefaultsRequest, reader: jspb.BinaryReader): GetClusterDefaultsRequest;
+}
+
+export namespace GetClusterDefaultsRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetClusterDefaultsResponse extends jspb.Message { 
+    getClusterDefaultsJson(): string;
+    setClusterDefaultsJson(value: string): GetClusterDefaultsResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetClusterDefaultsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetClusterDefaultsResponse): GetClusterDefaultsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetClusterDefaultsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetClusterDefaultsResponse;
+    static deserializeBinaryFromReader(message: GetClusterDefaultsResponse, reader: jspb.BinaryReader): GetClusterDefaultsResponse;
+}
+
+export namespace GetClusterDefaultsResponse {
+    export type AsObject = {
+        clusterDefaultsJson: string,
+    }
+}
+
+export class SetClusterDefaultsRequest extends jspb.Message { 
+    getRegenerate(): boolean;
+    setRegenerate(value: boolean): SetClusterDefaultsRequest;
+    getReprocess(): boolean;
+    setReprocess(value: boolean): SetClusterDefaultsRequest;
+    getDryRun(): boolean;
+    setDryRun(value: boolean): SetClusterDefaultsRequest;
+    getClusterDefaultsJson(): string;
+    setClusterDefaultsJson(value: string): SetClusterDefaultsRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetClusterDefaultsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SetClusterDefaultsRequest): SetClusterDefaultsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetClusterDefaultsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetClusterDefaultsRequest;
+    static deserializeBinaryFromReader(message: SetClusterDefaultsRequest, reader: jspb.BinaryReader): SetClusterDefaultsRequest;
+}
+
+export namespace SetClusterDefaultsRequest {
+    export type AsObject = {
+        regenerate: boolean,
+        reprocess: boolean,
+        dryRun: boolean,
+        clusterDefaultsJson: string,
+    }
+}
+
+export class SetClusterDefaultsResponse extends jspb.Message { 
+    clearAffectedPipelinesList(): void;
+    getAffectedPipelinesList(): Array<Pipeline>;
+    setAffectedPipelinesList(value: Array<Pipeline>): SetClusterDefaultsResponse;
+    addAffectedPipelines(value?: Pipeline, index?: number): Pipeline;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetClusterDefaultsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SetClusterDefaultsResponse): SetClusterDefaultsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetClusterDefaultsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetClusterDefaultsResponse;
+    static deserializeBinaryFromReader(message: SetClusterDefaultsResponse, reader: jspb.BinaryReader): SetClusterDefaultsResponse;
+}
+
+export namespace SetClusterDefaultsResponse {
+    export type AsObject = {
+        affectedPipelinesList: Array<Pipeline.AsObject>,
+    }
+}
+
+export class CreatePipelineTransaction extends jspb.Message { 
+
+    hasCreatePipelineRequest(): boolean;
+    clearCreatePipelineRequest(): void;
+    getCreatePipelineRequest(): CreatePipelineRequest | undefined;
+    setCreatePipelineRequest(value?: CreatePipelineRequest): CreatePipelineTransaction;
+    getUserJson(): string;
+    setUserJson(value: string): CreatePipelineTransaction;
+    getEffectiveJson(): string;
+    setEffectiveJson(value: string): CreatePipelineTransaction;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CreatePipelineTransaction.AsObject;
+    static toObject(includeInstance: boolean, msg: CreatePipelineTransaction): CreatePipelineTransaction.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CreatePipelineTransaction, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CreatePipelineTransaction;
+    static deserializeBinaryFromReader(message: CreatePipelineTransaction, reader: jspb.BinaryReader): CreatePipelineTransaction;
+}
+
+export namespace CreatePipelineTransaction {
+    export type AsObject = {
+        createPipelineRequest?: CreatePipelineRequest.AsObject,
+        userJson: string,
+        effectiveJson: string,
     }
 }
 

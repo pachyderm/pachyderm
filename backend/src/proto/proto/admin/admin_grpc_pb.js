@@ -3,8 +3,8 @@
 'use strict';
 var grpc = require('@grpc/grpc-js');
 var admin_admin_pb = require('../admin/admin_pb.js');
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var version_versionpb_version_pb = require('../version/versionpb/version_pb.js');
+var pfs_pfs_pb = require('../pfs/pfs_pb.js');
 
 function serialize_admin_v2_ClusterInfo(arg) {
   if (!(arg instanceof admin_admin_pb.ClusterInfo)) {

@@ -7,9 +7,9 @@ var google_protobuf_empty_pb = require('google-protobuf/google/protobuf/empty_pb
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js');
 var google_protobuf_wrappers_pb = require('google-protobuf/google/protobuf/wrappers_pb.js');
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var pfs_pfs_pb = require('../pfs/pfs_pb.js');
 var task_task_pb = require('../task/task_pb.js');
+var protoextensions_log_pb = require('../protoextensions/log_pb.js');
 
 function serialize_google_protobuf_Empty(arg) {
   if (!(arg instanceof google_protobuf_empty_pb.Empty)) {
@@ -53,6 +53,28 @@ function serialize_pps_v2_CreatePipelineRequest(arg) {
 
 function deserialize_pps_v2_CreatePipelineRequest(buffer_arg) {
   return pps_pps_pb.CreatePipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_CreatePipelineV2Request(arg) {
+  if (!(arg instanceof pps_pps_pb.CreatePipelineV2Request)) {
+    throw new Error('Expected argument of type pps_v2.CreatePipelineV2Request');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_CreatePipelineV2Request(buffer_arg) {
+  return pps_pps_pb.CreatePipelineV2Request.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_CreatePipelineV2Response(arg) {
+  if (!(arg instanceof pps_pps_pb.CreatePipelineV2Response)) {
+    throw new Error('Expected argument of type pps_v2.CreatePipelineV2Response');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_CreatePipelineV2Response(buffer_arg) {
+  return pps_pps_pb.CreatePipelineV2Response.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_CreateSecretRequest(arg) {
@@ -130,6 +152,28 @@ function serialize_pps_v2_DeleteSecretRequest(arg) {
 
 function deserialize_pps_v2_DeleteSecretRequest(buffer_arg) {
   return pps_pps_pb.DeleteSecretRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_GetClusterDefaultsRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.GetClusterDefaultsRequest)) {
+    throw new Error('Expected argument of type pps_v2.GetClusterDefaultsRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_GetClusterDefaultsRequest(buffer_arg) {
+  return pps_pps_pb.GetClusterDefaultsRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_GetClusterDefaultsResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.GetClusterDefaultsResponse)) {
+    throw new Error('Expected argument of type pps_v2.GetClusterDefaultsResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_GetClusterDefaultsResponse(buffer_arg) {
+  return pps_pps_pb.GetClusterDefaultsResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_GetLogsRequest(arg) {
@@ -407,6 +451,28 @@ function deserialize_pps_v2_SecretInfos(buffer_arg) {
   return pps_pps_pb.SecretInfos.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pps_v2_SetClusterDefaultsRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.SetClusterDefaultsRequest)) {
+    throw new Error('Expected argument of type pps_v2.SetClusterDefaultsRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_SetClusterDefaultsRequest(buffer_arg) {
+  return pps_pps_pb.SetClusterDefaultsRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_SetClusterDefaultsResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.SetClusterDefaultsResponse)) {
+    throw new Error('Expected argument of type pps_v2.SetClusterDefaultsResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_SetClusterDefaultsResponse(buffer_arg) {
+  return pps_pps_pb.SetClusterDefaultsResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_StartPipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.StartPipelineRequest)) {
     throw new Error('Expected argument of type pps_v2.StartPipelineRequest');
@@ -608,6 +674,17 @@ listDatum: {
     requestDeserialize: deserialize_pps_v2_CreatePipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  createPipelineV2: {
+    path: '/pps_v2.API/CreatePipelineV2',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.CreatePipelineV2Request,
+    responseType: pps_pps_pb.CreatePipelineV2Response,
+    requestSerialize: serialize_pps_v2_CreatePipelineV2Request,
+    requestDeserialize: deserialize_pps_v2_CreatePipelineV2Request,
+    responseSerialize: serialize_pps_v2_CreatePipelineV2Response,
+    responseDeserialize: deserialize_pps_v2_CreatePipelineV2Response,
   },
   inspectPipeline: {
     path: '/pps_v2.API/InspectPipeline',
@@ -860,6 +937,30 @@ queryLoki: {
     requestDeserialize: deserialize_pps_v2_LokiRequest,
     responseSerialize: serialize_pps_v2_LokiLogMessage,
     responseDeserialize: deserialize_pps_v2_LokiLogMessage,
+  },
+  // GetClusterDefaults returns the current cluster defaults.
+getClusterDefaults: {
+    path: '/pps_v2.API/GetClusterDefaults',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.GetClusterDefaultsRequest,
+    responseType: pps_pps_pb.GetClusterDefaultsResponse,
+    requestSerialize: serialize_pps_v2_GetClusterDefaultsRequest,
+    requestDeserialize: deserialize_pps_v2_GetClusterDefaultsRequest,
+    responseSerialize: serialize_pps_v2_GetClusterDefaultsResponse,
+    responseDeserialize: deserialize_pps_v2_GetClusterDefaultsResponse,
+  },
+  // SetClusterDefaults returns the current cluster defaults.
+setClusterDefaults: {
+    path: '/pps_v2.API/SetClusterDefaults',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.SetClusterDefaultsRequest,
+    responseType: pps_pps_pb.SetClusterDefaultsResponse,
+    requestSerialize: serialize_pps_v2_SetClusterDefaultsRequest,
+    requestDeserialize: deserialize_pps_v2_SetClusterDefaultsRequest,
+    responseSerialize: serialize_pps_v2_SetClusterDefaultsResponse,
+    responseDeserialize: deserialize_pps_v2_SetClusterDefaultsResponse,
   },
 };
 

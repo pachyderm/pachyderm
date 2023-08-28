@@ -10,7 +10,6 @@ import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/t
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as google_protobuf_any_pb from "google-protobuf/google/protobuf/any_pb";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as auth_auth_pb from "../auth/auth_pb";
 import * as task_task_pb from "../task/task_pb";
 
@@ -254,12 +253,14 @@ export class Trigger extends jspb.Message {
     setBranch(value: string): Trigger;
     getAll(): boolean;
     setAll(value: boolean): Trigger;
-    getCronSpec(): string;
-    setCronSpec(value: string): Trigger;
+    getRateLimitSpec(): string;
+    setRateLimitSpec(value: string): Trigger;
     getSize(): string;
     setSize(value: string): Trigger;
     getCommits(): number;
     setCommits(value: number): Trigger;
+    getCronSpec(): string;
+    setCronSpec(value: string): Trigger;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Trigger.AsObject;
@@ -275,9 +276,10 @@ export namespace Trigger {
     export type AsObject = {
         branch: string,
         all: boolean,
-        cronSpec: string,
+        rateLimitSpec: string,
         size: string,
         commits: number,
+        cronSpec: string,
     }
 }
 
@@ -2473,7 +2475,6 @@ export enum OriginKind {
     USER = 1,
     AUTO = 2,
     FSCK = 3,
-    ALIAS = 4,
 }
 
 export enum FileType {

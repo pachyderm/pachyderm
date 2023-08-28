@@ -21,8 +21,6 @@ var global = (function() {
   return Function('return this')();
 }.call(null));
 
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
-goog.object.extend(proto, gogoproto_gogo_pb);
 goog.exportSymbol('proto.taskapi.Group', null, global);
 goog.exportSymbol('proto.taskapi.ListTaskRequest', null, global);
 goog.exportSymbol('proto.taskapi.State', null, global);

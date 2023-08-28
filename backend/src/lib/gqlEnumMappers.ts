@@ -95,8 +95,6 @@ export const toGQLFileType = (fileType: FileType) => {
 
 export const toGQLCommitOrigin = (originKind?: OriginKind) => {
   switch (originKind) {
-    case OriginKind.ALIAS:
-      return GQLOriginKind.ALIAS;
     case OriginKind.AUTO:
       return GQLOriginKind.AUTO;
     case OriginKind.FSCK:
@@ -112,8 +110,6 @@ export const toGQLCommitOrigin = (originKind?: OriginKind) => {
 
 export const toProtoCommitOrigin = (originKind?: GQLOriginKind): OriginKind => {
   switch (originKind) {
-    case GQLOriginKind.ALIAS:
-      return OriginKind.ALIAS;
     case GQLOriginKind.AUTO:
       return OriginKind.AUTO;
     case GQLOriginKind.FSCK:
@@ -331,6 +327,10 @@ export const toProtoPermissionType = (permission: GQLPermission) => {
       return Permission.PROJECT_CREATE_REPO;
     case GQLPermission.PROJECT_MODIFY_BINDINGS:
       return Permission.PROJECT_MODIFY_BINDINGS;
+    case GQLPermission.CLUSTER_GET_LOKI_LOGS:
+      return Permission.CLUSTER_GET_LOKI_LOGS;
+    case GQLPermission.CLUSTER_SET_DEFAULTS:
+      return Permission.CLUSTER_SET_DEFAULTS;
     default:
       throw new ApolloError(`Unknown GQL Permission ${permission}`);
   }
@@ -474,6 +474,10 @@ export const toGQLPermissionType = (permission: Permission) => {
       return GQLPermission.PROJECT_CREATE_REPO;
     case Permission.PROJECT_MODIFY_BINDINGS:
       return GQLPermission.PROJECT_MODIFY_BINDINGS;
+    case Permission.CLUSTER_GET_LOKI_LOGS:
+      return GQLPermission.CLUSTER_GET_LOKI_LOGS;
+    case Permission.CLUSTER_SET_DEFAULTS:
+      return GQLPermission.CLUSTER_SET_DEFAULTS;
     default:
       throw new ApolloError(`Unknown Proto Permission ${permission}`);
   }

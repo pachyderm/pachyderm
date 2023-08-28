@@ -5,7 +5,6 @@
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as protoextensions_log_pb from "../protoextensions/log_pb";
 
@@ -521,10 +520,14 @@ export class Role extends jspb.Message {
     getPermissionsList(): Array<Permission>;
     setPermissionsList(value: Array<Permission>): Role;
     addPermissions(value: Permission, index?: number): Permission;
-    clearResourceTypesList(): void;
-    getResourceTypesList(): Array<ResourceType>;
-    setResourceTypesList(value: Array<ResourceType>): Role;
-    addResourceTypes(value: ResourceType, index?: number): ResourceType;
+    clearCanBeBoundToList(): void;
+    getCanBeBoundToList(): Array<ResourceType>;
+    setCanBeBoundToList(value: Array<ResourceType>): Role;
+    addCanBeBoundTo(value: ResourceType, index?: number): ResourceType;
+    clearReturnedForList(): void;
+    getReturnedForList(): Array<ResourceType>;
+    setReturnedForList(value: Array<ResourceType>): Role;
+    addReturnedFor(value: ResourceType, index?: number): ResourceType;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Role.AsObject;
@@ -540,7 +543,8 @@ export namespace Role {
     export type AsObject = {
         name: string,
         permissionsList: Array<Permission>,
-        resourceTypesList: Array<ResourceType>,
+        canBeBoundToList: Array<ResourceType>,
+        returnedForList: Array<ResourceType>,
     }
 }
 
@@ -1272,6 +1276,7 @@ export enum Permission {
     CLUSTER_MODIFY_BINDINGS = 100,
     CLUSTER_GET_BINDINGS = 101,
     CLUSTER_GET_PACHD_LOGS = 148,
+    CLUSTER_GET_LOKI_LOGS = 150,
     CLUSTER_AUTH_ACTIVATE = 102,
     CLUSTER_AUTH_DEACTIVATE = 103,
     CLUSTER_AUTH_GET_CONFIG = 104,
@@ -1331,6 +1336,7 @@ export enum Permission {
     REPO_REMOVE_PIPELINE_READER = 213,
     REPO_ADD_PIPELINE_WRITER = 214,
     PIPELINE_LIST_JOB = 301,
+    CLUSTER_SET_DEFAULTS = 302,
     PROJECT_CREATE = 400,
     PROJECT_DELETE = 401,
     PROJECT_LIST_REPO = 402,

@@ -95,6 +95,7 @@ const pipelineResolver: PipelineResolver = {
           pfs: pfsInput,
         },
         update: update || undefined,
+        dryRun: false,
       });
 
       const pipeline = await pachClient.pps.inspectPipeline({

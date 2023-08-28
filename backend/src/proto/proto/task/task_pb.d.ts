@@ -5,7 +5,6 @@
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 
 export class Group extends jspb.Message { 
     getNamespace(): string;

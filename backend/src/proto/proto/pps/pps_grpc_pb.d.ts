@@ -10,9 +10,9 @@ import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as pfs_pfs_pb from "../pfs/pfs_pb";
 import * as task_task_pb from "../task/task_pb";
+import * as protoextensions_log_pb from "../protoextensions/log_pb";
 
 interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     inspectJob: IAPIService_IInspectJob;
@@ -26,6 +26,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     listDatum: IAPIService_IListDatum;
     restartDatum: IAPIService_IRestartDatum;
     createPipeline: IAPIService_ICreatePipeline;
+    createPipelineV2: IAPIService_ICreatePipelineV2;
     inspectPipeline: IAPIService_IInspectPipeline;
     listPipeline: IAPIService_IListPipeline;
     deletePipeline: IAPIService_IDeletePipeline;
@@ -48,6 +49,8 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     listTask: IAPIService_IListTask;
     getKubeEvents: IAPIService_IGetKubeEvents;
     queryLoki: IAPIService_IQueryLoki;
+    getClusterDefaults: IAPIService_IGetClusterDefaults;
+    setClusterDefaults: IAPIService_ISetClusterDefaults;
 }
 
 interface IAPIService_IInspectJob extends grpc.MethodDefinition<pps_pps_pb.InspectJobRequest, pps_pps_pb.JobInfo> {
@@ -148,6 +151,15 @@ interface IAPIService_ICreatePipeline extends grpc.MethodDefinition<pps_pps_pb.C
     requestDeserialize: grpc.deserialize<pps_pps_pb.CreatePipelineRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_ICreatePipelineV2 extends grpc.MethodDefinition<pps_pps_pb.CreatePipelineV2Request, pps_pps_pb.CreatePipelineV2Response> {
+    path: "/pps_v2.API/CreatePipelineV2";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.CreatePipelineV2Request>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.CreatePipelineV2Request>;
+    responseSerialize: grpc.serialize<pps_pps_pb.CreatePipelineV2Response>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.CreatePipelineV2Response>;
 }
 interface IAPIService_IInspectPipeline extends grpc.MethodDefinition<pps_pps_pb.InspectPipelineRequest, pps_pps_pb.PipelineInfo> {
     path: "/pps_v2.API/InspectPipeline";
@@ -347,6 +359,24 @@ interface IAPIService_IQueryLoki extends grpc.MethodDefinition<pps_pps_pb.LokiRe
     responseSerialize: grpc.serialize<pps_pps_pb.LokiLogMessage>;
     responseDeserialize: grpc.deserialize<pps_pps_pb.LokiLogMessage>;
 }
+interface IAPIService_IGetClusterDefaults extends grpc.MethodDefinition<pps_pps_pb.GetClusterDefaultsRequest, pps_pps_pb.GetClusterDefaultsResponse> {
+    path: "/pps_v2.API/GetClusterDefaults";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.GetClusterDefaultsRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.GetClusterDefaultsRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.GetClusterDefaultsResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.GetClusterDefaultsResponse>;
+}
+interface IAPIService_ISetClusterDefaults extends grpc.MethodDefinition<pps_pps_pb.SetClusterDefaultsRequest, pps_pps_pb.SetClusterDefaultsResponse> {
+    path: "/pps_v2.API/SetClusterDefaults";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.SetClusterDefaultsRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.SetClusterDefaultsRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.SetClusterDefaultsResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.SetClusterDefaultsResponse>;
+}
 
 export const APIService: IAPIService;
 
@@ -362,6 +392,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     listDatum: grpc.handleServerStreamingCall<pps_pps_pb.ListDatumRequest, pps_pps_pb.DatumInfo>;
     restartDatum: grpc.handleUnaryCall<pps_pps_pb.RestartDatumRequest, google_protobuf_empty_pb.Empty>;
     createPipeline: grpc.handleUnaryCall<pps_pps_pb.CreatePipelineRequest, google_protobuf_empty_pb.Empty>;
+    createPipelineV2: grpc.handleUnaryCall<pps_pps_pb.CreatePipelineV2Request, pps_pps_pb.CreatePipelineV2Response>;
     inspectPipeline: grpc.handleUnaryCall<pps_pps_pb.InspectPipelineRequest, pps_pps_pb.PipelineInfo>;
     listPipeline: grpc.handleServerStreamingCall<pps_pps_pb.ListPipelineRequest, pps_pps_pb.PipelineInfo>;
     deletePipeline: grpc.handleUnaryCall<pps_pps_pb.DeletePipelineRequest, google_protobuf_empty_pb.Empty>;
@@ -384,6 +415,8 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     listTask: grpc.handleServerStreamingCall<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo>;
     getKubeEvents: grpc.handleServerStreamingCall<pps_pps_pb.LokiRequest, pps_pps_pb.LokiLogMessage>;
     queryLoki: grpc.handleServerStreamingCall<pps_pps_pb.LokiRequest, pps_pps_pb.LokiLogMessage>;
+    getClusterDefaults: grpc.handleUnaryCall<pps_pps_pb.GetClusterDefaultsRequest, pps_pps_pb.GetClusterDefaultsResponse>;
+    setClusterDefaults: grpc.handleUnaryCall<pps_pps_pb.SetClusterDefaultsRequest, pps_pps_pb.SetClusterDefaultsResponse>;
 }
 
 export interface IAPIClient {
@@ -415,6 +448,9 @@ export interface IAPIClient {
     createPipeline(request: pps_pps_pb.CreatePipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    createPipelineV2(request: pps_pps_pb.CreatePipelineV2Request, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.CreatePipelineV2Response) => void): grpc.ClientUnaryCall;
+    createPipelineV2(request: pps_pps_pb.CreatePipelineV2Request, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.CreatePipelineV2Response) => void): grpc.ClientUnaryCall;
+    createPipelineV2(request: pps_pps_pb.CreatePipelineV2Request, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.CreatePipelineV2Response) => void): grpc.ClientUnaryCall;
     inspectPipeline(request: pps_pps_pb.InspectPipelineRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelineInfo) => void): grpc.ClientUnaryCall;
     inspectPipeline(request: pps_pps_pb.InspectPipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelineInfo) => void): grpc.ClientUnaryCall;
     inspectPipeline(request: pps_pps_pb.InspectPipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelineInfo) => void): grpc.ClientUnaryCall;
@@ -476,6 +512,12 @@ export interface IAPIClient {
     getKubeEvents(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
     queryLoki(request: pps_pps_pb.LokiRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
     queryLoki(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
+    getClusterDefaults(request: pps_pps_pb.GetClusterDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    getClusterDefaults(request: pps_pps_pb.GetClusterDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    getClusterDefaults(request: pps_pps_pb.GetClusterDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -508,6 +550,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public createPipeline(request: pps_pps_pb.CreatePipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public createPipelineV2(request: pps_pps_pb.CreatePipelineV2Request, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.CreatePipelineV2Response) => void): grpc.ClientUnaryCall;
+    public createPipelineV2(request: pps_pps_pb.CreatePipelineV2Request, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.CreatePipelineV2Response) => void): grpc.ClientUnaryCall;
+    public createPipelineV2(request: pps_pps_pb.CreatePipelineV2Request, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.CreatePipelineV2Response) => void): grpc.ClientUnaryCall;
     public inspectPipeline(request: pps_pps_pb.InspectPipelineRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelineInfo) => void): grpc.ClientUnaryCall;
     public inspectPipeline(request: pps_pps_pb.InspectPipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelineInfo) => void): grpc.ClientUnaryCall;
     public inspectPipeline(request: pps_pps_pb.InspectPipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelineInfo) => void): grpc.ClientUnaryCall;
@@ -569,4 +614,10 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public getKubeEvents(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
     public queryLoki(request: pps_pps_pb.LokiRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
     public queryLoki(request: pps_pps_pb.LokiRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.LokiLogMessage>;
+    public getClusterDefaults(request: pps_pps_pb.GetClusterDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public getClusterDefaults(request: pps_pps_pb.GetClusterDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public getClusterDefaults(request: pps_pps_pb.GetClusterDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
 }

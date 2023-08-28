@@ -4,7 +4,6 @@
 var grpc = require('@grpc/grpc-js');
 var license_license_pb = require('../license/license_pb.js');
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var enterprise_enterprise_pb = require('../enterprise/enterprise_pb.js');
 var protoextensions_log_pb = require('../protoextensions/log_pb.js');
 

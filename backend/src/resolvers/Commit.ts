@@ -9,13 +9,7 @@ import formatDiff, {formatDiffOnlyTotals} from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {NotFoundError} from '@dash-backend/lib/types';
 import {CommitState} from '@dash-backend/proto';
-import {
-  MutationResolvers,
-  OriginKind,
-  QueryResolvers,
-  Diff,
-  Commit,
-} from '@graphqlTypes';
+import {MutationResolvers, QueryResolvers, Diff, Commit} from '@graphqlTypes';
 
 import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
 interface CommitResolver {
@@ -255,10 +249,7 @@ const commitResolver: CommitResolver = {
           );
 
           let diffTotals;
-          if (
-            commitInfo.originKind !== OriginKind.ALIAS &&
-            commitInfo.finished !== -1
-          ) {
+          if (commitInfo.finished !== -1) {
             const diffResponse = await pachClient.pfs.diffFile({
               projectId,
               newFileObject: {

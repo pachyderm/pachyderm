@@ -7,7 +7,6 @@ import {
   MutationResolvers,
   QueryResolvers,
   FileCommitState,
-  OriginKind,
 } from '@dash-backend/generated/types';
 import {appendBuffer} from '@dash-backend/lib/appendBuffer';
 import {
@@ -96,7 +95,7 @@ const fileResolver: FileResolver = {
         }),
       );
 
-      if (commit.originKind !== OriginKind.ALIAS && commit.finished !== -1) {
+      if (commit.finished !== -1) {
         const diffResponse = await pachClient.pfs.diffFile({
           projectId,
           newFileObject: {

@@ -7,7 +7,6 @@
 import * as grpc from "@grpc/grpc-js";
 import * as license_license_pb from "../license/license_pb";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as enterprise_enterprise_pb from "../enterprise/enterprise_pb";
 import * as protoextensions_log_pb from "../protoextensions/log_pb";
 

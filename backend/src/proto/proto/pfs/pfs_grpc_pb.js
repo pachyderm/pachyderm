@@ -8,7 +8,6 @@ var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/time
 var google_protobuf_wrappers_pb = require('google-protobuf/google/protobuf/wrappers_pb.js');
 var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js');
 var google_protobuf_any_pb = require('google-protobuf/google/protobuf/any_pb.js');
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var auth_auth_pb = require('../auth/auth_pb.js');
 var task_task_pb = require('../task/task_pb.js');
 

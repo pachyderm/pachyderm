@@ -21,8 +21,6 @@ var global = (function() {
   return Function('return this')();
 }.call(null));
 
-var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
-goog.object.extend(proto, gogoproto_gogo_pb);
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 goog.object.extend(proto, google_protobuf_timestamp_pb);
 var protoextensions_log_pb = require('../protoextensions/log_pb.js');
@@ -4646,7 +4644,7 @@ proto.auth_v2.Groups.prototype.clearGroupsMap = function() {
  * @private {!Array<number>}
  * @const
  */
-proto.auth_v2.Role.repeatedFields_ = [2,3];
+proto.auth_v2.Role.repeatedFields_ = [2,3,4];
 
 
 
@@ -4681,7 +4679,8 @@ proto.auth_v2.Role.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     permissionsList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
-    resourceTypesList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f
+    canBeBoundToList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
+    returnedForList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -4731,7 +4730,13 @@ proto.auth_v2.Role.deserializeBinaryFromReader = function(msg, reader) {
     case 3:
       var values = /** @type {!Array<!proto.auth_v2.ResourceType>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
       for (var i = 0; i < values.length; i++) {
-        msg.addResourceTypes(values[i]);
+        msg.addCanBeBoundTo(values[i]);
+      }
+      break;
+    case 4:
+      var values = /** @type {!Array<!proto.auth_v2.ResourceType>} */ (reader.isDelimited() ? reader.readPackedEnum() : [reader.readEnum()]);
+      for (var i = 0; i < values.length; i++) {
+        msg.addReturnedFor(values[i]);
       }
       break;
     default:
@@ -4777,10 +4782,17 @@ proto.auth_v2.Role.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getResourceTypesList();
+  f = message.getCanBeBoundToList();
   if (f.length > 0) {
     writer.writePackedEnum(
       3,
+      f
+    );
+  }
+  f = message.getReturnedForList();
+  if (f.length > 0) {
+    writer.writePackedEnum(
+      4,
       f
     );
   }
@@ -4843,10 +4855,10 @@ proto.auth_v2.Role.prototype.clearPermissionsList = function() {
 
 
 /**
- * repeated ResourceType resource_types = 3;
+ * repeated ResourceType can_be_bound_to = 3;
  * @return {!Array<!proto.auth_v2.ResourceType>}
  */
-proto.auth_v2.Role.prototype.getResourceTypesList = function() {
+proto.auth_v2.Role.prototype.getCanBeBoundToList = function() {
   return /** @type {!Array<!proto.auth_v2.ResourceType>} */ (jspb.Message.getRepeatedField(this, 3));
 };
 
@@ -4855,7 +4867,7 @@ proto.auth_v2.Role.prototype.getResourceTypesList = function() {
  * @param {!Array<!proto.auth_v2.ResourceType>} value
  * @return {!proto.auth_v2.Role} returns this
  */
-proto.auth_v2.Role.prototype.setResourceTypesList = function(value) {
+proto.auth_v2.Role.prototype.setCanBeBoundToList = function(value) {
   return jspb.Message.setField(this, 3, value || []);
 };
 
@@ -4865,7 +4877,7 @@ proto.auth_v2.Role.prototype.setResourceTypesList = function(value) {
  * @param {number=} opt_index
  * @return {!proto.auth_v2.Role} returns this
  */
-proto.auth_v2.Role.prototype.addResourceTypes = function(value, opt_index) {
+proto.auth_v2.Role.prototype.addCanBeBoundTo = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
 };
 
@@ -4874,8 +4886,45 @@ proto.auth_v2.Role.prototype.addResourceTypes = function(value, opt_index) {
  * Clears the list making it empty but non-null.
  * @return {!proto.auth_v2.Role} returns this
  */
-proto.auth_v2.Role.prototype.clearResourceTypesList = function() {
-  return this.setResourceTypesList([]);
+proto.auth_v2.Role.prototype.clearCanBeBoundToList = function() {
+  return this.setCanBeBoundToList([]);
+};
+
+
+/**
+ * repeated ResourceType returned_for = 4;
+ * @return {!Array<!proto.auth_v2.ResourceType>}
+ */
+proto.auth_v2.Role.prototype.getReturnedForList = function() {
+  return /** @type {!Array<!proto.auth_v2.ResourceType>} */ (jspb.Message.getRepeatedField(this, 4));
+};
+
+
+/**
+ * @param {!Array<!proto.auth_v2.ResourceType>} value
+ * @return {!proto.auth_v2.Role} returns this
+ */
+proto.auth_v2.Role.prototype.setReturnedForList = function(value) {
+  return jspb.Message.setField(this, 4, value || []);
+};
+
+
+/**
+ * @param {!proto.auth_v2.ResourceType} value
+ * @param {number=} opt_index
+ * @return {!proto.auth_v2.Role} returns this
+ */
+proto.auth_v2.Role.prototype.addReturnedFor = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 4, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.auth_v2.Role} returns this
+ */
+proto.auth_v2.Role.prototype.clearReturnedForList = function() {
+  return this.setReturnedForList([]);
 };
 
 
@@ -9816,6 +9865,7 @@ proto.auth_v2.Permission = {
   CLUSTER_MODIFY_BINDINGS: 100,
   CLUSTER_GET_BINDINGS: 101,
   CLUSTER_GET_PACHD_LOGS: 148,
+  CLUSTER_GET_LOKI_LOGS: 150,
   CLUSTER_AUTH_ACTIVATE: 102,
   CLUSTER_AUTH_DEACTIVATE: 103,
   CLUSTER_AUTH_GET_CONFIG: 104,
@@ -9875,6 +9925,7 @@ proto.auth_v2.Permission = {
   REPO_REMOVE_PIPELINE_READER: 213,
   REPO_ADD_PIPELINE_WRITER: 214,
   PIPELINE_LIST_JOB: 301,
+  CLUSTER_SET_DEFAULTS: 302,
   PROJECT_CREATE: 400,
   PROJECT_DELETE: 401,
   PROJECT_LIST_REPO: 402,

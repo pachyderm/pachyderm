@@ -1,11 +1,5 @@
 syntax = "proto3";
 
-// Note: etc/proto/protoc-gen-zap/protoextensions needs a version of this file compiled with the
-// non-gogo protobuf compiler: `protoc --proto_path=. --go_out=. src/protoextensions/log.proto`
-// and then copy the generated file out of the github.com/... directory `mv
-// github.com/pachyderm/pachyderm/v2/src/protoextensions/log.pb.go
-// etc/proto/protoc-gen-zap/protoextensions/`.
-
 package log;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/protoextensions";
 

@@ -3,8 +3,6 @@ syntax = "proto3";
 package taskapi;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/task";
 
-import "gogoproto/gogo.proto";
-
 enum State {
   UNKNOWN = 0;
   RUNNING = 1;
@@ -19,7 +17,7 @@ message Group {
 }
 
 message TaskInfo {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
   Group group = 2;
   State state = 3;
   string reason = 4;
@@ -30,4 +28,3 @@ message TaskInfo {
 message ListTaskRequest {
   Group group = 1;
 }
-

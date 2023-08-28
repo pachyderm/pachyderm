@@ -5,20 +5,24 @@
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as version_versionpb_version_pb from "../version/versionpb/version_pb";
+import * as pfs_pfs_pb from "../pfs/pfs_pb";
 
 export class ClusterInfo extends jspb.Message { 
     getId(): string;
     setId(value: string): ClusterInfo;
     getDeploymentId(): string;
     setDeploymentId(value: string): ClusterInfo;
-    getVersionWarningsOk(): boolean;
-    setVersionWarningsOk(value: boolean): ClusterInfo;
-    clearVersionWarningsList(): void;
-    getVersionWarningsList(): Array<string>;
-    setVersionWarningsList(value: Array<string>): ClusterInfo;
-    addVersionWarnings(value: string, index?: number): string;
+    getWarningsOk(): boolean;
+    setWarningsOk(value: boolean): ClusterInfo;
+    clearWarningsList(): void;
+    getWarningsList(): Array<string>;
+    setWarningsList(value: Array<string>): ClusterInfo;
+    addWarnings(value: string, index?: number): string;
+    getProxyHost(): string;
+    setProxyHost(value: string): ClusterInfo;
+    getProxyTls(): boolean;
+    setProxyTls(value: boolean): ClusterInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClusterInfo.AsObject;
@@ -34,8 +38,10 @@ export namespace ClusterInfo {
     export type AsObject = {
         id: string,
         deploymentId: string,
-        versionWarningsOk: boolean,
-        versionWarningsList: Array<string>,
+        warningsOk: boolean,
+        warningsList: Array<string>,
+        proxyHost: string,
+        proxyTls: boolean,
     }
 }
 
@@ -45,6 +51,11 @@ export class InspectClusterRequest extends jspb.Message {
     clearClientVersion(): void;
     getClientVersion(): version_versionpb_version_pb.Version | undefined;
     setClientVersion(value?: version_versionpb_version_pb.Version): InspectClusterRequest;
+
+    hasCurrentProject(): boolean;
+    clearCurrentProject(): void;
+    getCurrentProject(): pfs_pfs_pb.Project | undefined;
+    setCurrentProject(value?: pfs_pfs_pb.Project): InspectClusterRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InspectClusterRequest.AsObject;
@@ -59,5 +70,6 @@ export class InspectClusterRequest extends jspb.Message {
 export namespace InspectClusterRequest {
     export type AsObject = {
         clientVersion?: version_versionpb_version_pb.Version.AsObject,
+        currentProject?: pfs_pfs_pb.Project.AsObject,
     }
 }

@@ -1,4 +1,4 @@
-import {Permission, ResourceType, OriginKind} from '@graphqlTypes';
+import {Permission, ResourceType} from '@graphqlTypes';
 
 import {useCommitDiffQuery} from '@dash-frontend/generated/hooks';
 import useCommit from '@dash-frontend/hooks/useCommit';
@@ -36,10 +36,7 @@ const useRepoDetails = () => {
         repoName: commit?.repoName,
       },
     },
-    skip:
-      !commit ||
-      commit.finished === -1 ||
-      commit.originKind === OriginKind.ALIAS,
+    skip: !commit || commit.finished === -1,
   });
 
   const {isAuthorizedAction: editRolesPermission} = useVerifiedAuthorization({

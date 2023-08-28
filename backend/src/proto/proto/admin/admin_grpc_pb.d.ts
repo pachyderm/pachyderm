@@ -6,8 +6,8 @@
 
 import * as grpc from "@grpc/grpc-js";
 import * as admin_admin_pb from "../admin/admin_pb";
-import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as version_versionpb_version_pb from "../version/versionpb/version_pb";
+import * as pfs_pfs_pb from "../pfs/pfs_pb";
 
 interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     inspectCluster: IAPIService_IInspectCluster;
