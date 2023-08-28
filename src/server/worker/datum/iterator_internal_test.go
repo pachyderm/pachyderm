@@ -44,7 +44,6 @@ func (ft *fakeTar) Recv() (*wrapperspb.BytesValue, error) {
 
 type tarGetter struct {
 	metafile []byte
-	meta     *Meta
 }
 
 func (tg tarGetter) GetFileTAR(ctx context.Context, in *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error) {
@@ -56,13 +55,13 @@ func (tg tarGetter) GetFileTAR(ctx context.Context, in *pfs.GetFileRequest, opts
 func TestIterateMeta(t *testing.T) {
 	var testCases = map[string]struct {
 		file    string
-		meta    Meta
+		meta    *Meta
 		wantErr bool
 	}{
 		"missing data should err": {wantErr: true},
 		"single meta message should succeed": {
 			file: `{"job":{"pipeline":{"project":{"name":"default"}, "name":"first"}, "id":"ae78f69830044393ab2ce6bf8af4f26d"}}`,
-			meta: Meta{
+			meta: &Meta{
 				Job: &pps.Job{
 					Pipeline: &pps.Pipeline{
 						Project: &pfs.Project{
@@ -76,7 +75,7 @@ func TestIterateMeta(t *testing.T) {
 		},
 		"double meta message should succeed": {
 			file: `{"job":{"pipeline":{"project":{"name":"default"}, "name":"first"}, "id":"ae78f69830044393ab2ce6bf8af4f26d"}}{"job":{"pipeline":{"project":{"name":"default"}, "name":"first"}, "id":"1238f69830044393ab2ce6bf8af4f26d"}}`,
-			meta: Meta{
+			meta: &Meta{
 				Job: &pps.Job{
 					Pipeline: &pps.Pipeline{
 						Project: &pfs.Project{
@@ -91,9 +90,9 @@ func TestIterateMeta(t *testing.T) {
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
-			var m Meta
+			var m *Meta
 			if err := iterateMeta(context.Background(), tarGetter{metafile: []byte(testCase.file)}, nil, nil, func(_ string, mm *Meta) error {
-				m = *mm
+				m = mm
 				return nil
 			}); err != nil {
 				if testCase.wantErr {
@@ -104,8 +103,8 @@ func TestIterateMeta(t *testing.T) {
 			if testCase.wantErr {
 				t.Fatal("expected error")
 			}
-			if !proto.Equal(&testCase.meta, &m) {
-				t.Fatalf("expected %v; got %v", &testCase.meta, &m)
+			if !proto.Equal(testCase.meta, m) {
+				t.Fatalf("expected %v; got %v", testCase.meta, m)
 			}
 		})
 	}
