@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetOIDCLoginResponse",
+    "definitions": {
+        "GetOIDCLoginResponse": {
+            "properties": {
+                "login_url": {
+                    "type": "string",
+                    "description": "The login URL generated for the OIDC object"
+                },
+                "state": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get OIDC Login Response"
+        }
+    }
+}

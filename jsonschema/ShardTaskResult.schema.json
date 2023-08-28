@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ShardTaskResult",
+    "definitions": {
+        "ShardTaskResult": {
+            "properties": {
+                "compact_tasks": {
+                    "items": {
+                        "$ref": "#/definitions/pfsserver.CompactTask"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Shard Task Result"
+        },
+        "pfsserver.CompactTask": {
+            "properties": {
+                "inputs": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "path_range": {
+                    "$ref": "#/definitions/pfsserver.PathRange",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Compact Task"
+        },
+        "pfsserver.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range"
+        }
+    }
+}

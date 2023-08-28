@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/StartTransactionRequest",
+    "definitions": {
+        "StartTransactionRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Start Transaction Request"
+        }
+    }
+}

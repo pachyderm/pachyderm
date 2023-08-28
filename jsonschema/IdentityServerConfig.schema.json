@@ -1,0 +1,23 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/IdentityServerConfig",
+    "definitions": {
+        "IdentityServerConfig": {
+            "properties": {
+                "issuer": {
+                    "type": "string"
+                },
+                "id_token_expiry": {
+                    "type": "string"
+                },
+                "rotation_token_expiry": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Identity Server Config",
+            "description": "IdentityServerConfig is the configuration for the identity web server. When the configuration is changed the web server is reloaded automatically."
+        }
+    }
+}
