@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/jsonschema"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
 )
@@ -40,6 +41,9 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("healthy\n")) //nolint:errcheck
 	}))
+
+	// JSON schemas.
+	mux.Handle("/jsonschema/", http.StripPrefix("/jsonschema/", http.FileServer(http.FS(jsonschema.FS))))
 
 	return &Server{
 		mux: mux,
