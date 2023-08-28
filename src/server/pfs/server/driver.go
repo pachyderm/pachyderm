@@ -409,7 +409,7 @@ func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		return false, err
 	}
 	for _, ri := range related {
-		if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
+		if err := d.deleteRepoInfo(ctx, txnCtx, ri); err != nil {
 			return false, err
 		}
 	}
