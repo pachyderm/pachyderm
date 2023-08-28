@@ -317,17 +317,12 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 	return nil
 }
 
-func GetCommitID(ctx context.Context, tx *pachsql.Tx, commitID string) (CommitID, error) {
-	row, err := getCommitRowByName(ctx, tx, commitID)
+func GetCommitID(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (CommitID, error) {
+	row, err := getCommitRowByCommitKey(ctx, tx, commit)
 	if err != nil {
-		return CommitID(0), err
+		return 0, errors.Wrap(err, "get commit by commit key")
 	}
 	return row.ID, nil
-}
-
-func getCommitRowByName(ctx context.Context, tx *pachsql.Tx, commitID string) (*commitRow, error) {
-	row := &commitRow{}
-	return row, nil
 }
 
 func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInfo, error) {
@@ -347,6 +342,14 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 }
 
 func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	row, err := getCommitRowByCommitKey(ctx, tx, commit)
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit by commit key")
+	}
+	return getCommitFromCommitRow(row)
+}
+
+func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*commitRow, error) {
 	row := &commitRow{}
 	if commit == nil {
 		return nil, ErrCommitMissingInfo{Field: "Commit"}
@@ -359,7 +362,7 @@ func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commi
 		}
 		return nil, errors.Wrap(err, "scanning commit row")
 	}
-	return getCommitFromCommitRow(row)
+	return row, nil
 }
 
 func getCommitFromCommitRow(row *commitRow) (*pfs.CommitInfo, error) {
