@@ -969,6 +969,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer client.Close()
+			info, _ := client.ClusterInfo()
 
 			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
@@ -995,7 +996,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err := decoder.Decode(&oldSpec); err != nil {
 				return errors.Wrapf(err, "could not decode old user spec %s", pipelineInfo.UserSpecJson)
 			}
-			oldSpec["$schema"] = "https://raw.githubusercontent.com/pachyderm/pachyderm/master/jsonschema/CreatePipelineRequest.schema.json"
+			oldSpec["$schema"] = info.GetWebResources().GetCreatePipelineRequestJsonSchemaUrl()
 			if err := cmdutil.Encoder(output, f).Encode(oldSpec); err != nil {
 				return errors.Wrapf(err, "could not encode old user spec %v", oldSpec)
 			}
