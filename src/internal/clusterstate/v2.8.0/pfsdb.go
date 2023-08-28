@@ -142,7 +142,7 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 //     point to pfs.branches. Once the PFS master watches branches, we will no longer need this column.
 func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
-	CREATE TYPE pfs.commit_origin AS ENUM ('UNKNOWN', 'USER', 'AUTO', 'FSCK');
+	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
 
 	ALTER TABLE IF EXISTS pfs.commits
 	    DROP CONSTRAINT fk_col_commit,

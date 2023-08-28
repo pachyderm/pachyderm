@@ -212,9 +212,9 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
-	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2;",
+	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, project.name ORDER BY commit.int_id ASC LIMIT $1 OFFSET $2;",
 		getCommit, where), limit, offset); err != nil {
-		return nil, errors.Wrap(err, "could not get repo page")
+		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil
 }
