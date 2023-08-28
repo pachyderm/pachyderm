@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -33,7 +32,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	projectInfo := pfs.ProjectInfo{Project: &pfs.Project{Name: "opencv"}, Description: "OpenCV project", CreatedAt: timestamppb.Now()}
 	b, err := proto.Marshal(&projectInfo)
 	require.NoError(t, err)
-	_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, pfsdb.ProjectKey(projectInfo.Project), b)
+	_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, v2_7_0.ProjectKey(projectInfo.Project), b)
 	require.NoError(t, err)
 	// Create repos
 	repos := map[string]*pfs.RepoInfo{
@@ -48,7 +47,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	for _, repoInfo := range repos {
 		b, err := proto.Marshal(repoInfo)
 		require.NoError(t, err)
-		_, err = tx.ExecContext(ctx, `INSERT INTO collections.repos(key, proto) VALUES($1, $2)`, pfsdb.RepoKey(repoInfo.Repo), b)
+		_, err = tx.ExecContext(ctx, `INSERT INTO collections.repos(key, proto) VALUES($1, $2)`, v2_7_0.RepoKey(repoInfo.Repo), b)
 		require.NoError(t, err)
 	}
 	// Create commits and commit provenance relationships
@@ -143,9 +142,9 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	for _, commitInfo := range commits {
 		b, err := proto.Marshal(commitInfo)
 		require.NoError(t, err)
-		_, err = tx.ExecContext(ctx, `INSERT INTO collections.commits(key, proto) VALUES($1, $2)`, pfsdb.CommitKey(commitInfo.Commit), b)
+		_, err = tx.ExecContext(ctx, `INSERT INTO collections.commits(key, proto) VALUES($1, $2)`, v2_7_0.CommitKey(commitInfo.Commit), b)
 		require.NoError(t, err)
-		_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES($1, $2)`, pfsdb.CommitKey(commitInfo.Commit), commitInfo.Commit.Id)
+		_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES($1, $2)`, v2_7_0.CommitKey(commitInfo.Commit), commitInfo.Commit.Id)
 		require.NoError(t, err)
 
 	}
@@ -181,7 +180,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	for _, branchInfo := range branches {
 		b, err := proto.Marshal(branchInfo)
 		require.NoError(t, err)
-		_, err = tx.ExecContext(ctx, `INSERT INTO collections.branches(key, proto, idx_repo) VALUES($1, $2, $3)`, pfsdb.BranchKey(branchInfo.Branch), b, pfsdb.RepoKey(branchInfo.Branch.Repo))
+		_, err = tx.ExecContext(ctx, `INSERT INTO collections.branches(key, proto, idx_repo) VALUES($1, $2, $3)`, v2_7_0.BranchKey(branchInfo.Branch), b, v2_7_0.RepoKey(branchInfo.Branch.Repo))
 		require.NoError(t, err)
 	}
 

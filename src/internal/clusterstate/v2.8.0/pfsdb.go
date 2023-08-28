@@ -10,7 +10,6 @@ import (
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -92,11 +91,11 @@ func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]B
 		if err := proto.Unmarshal(row.Proto, &branchInfo); err != nil {
 			return nil, nil, errors.Wrap(err, "unmarshaling branch")
 		}
-		if err := sqlx.GetContext(ctx, q, &commitID, `select int_id from pfs.commits where commit_id = $1`, pfsdb.CommitKey(branchInfo.Head)); err != nil {
+		if err := sqlx.GetContext(ctx, q, &commitID, `select int_id from pfs.commits where commit_id = $1`, v2_7_0.CommitKey(branchInfo.Head)); err != nil {
 			return nil, nil, errors.Wrap(err, "getting commit id")
 		}
 		for _, branch := range branchInfo.DirectProvenance {
-			keyToDirectProv[row.Key] = append(keyToDirectProv[row.Key], pfsdb.BranchKey(branch))
+			keyToDirectProv[row.Key] = append(keyToDirectProv[row.Key], v2_7_0.BranchKey(branch))
 		}
 		branch := Branch{
 			ID:        uint64(i + 1),
