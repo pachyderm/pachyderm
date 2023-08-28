@@ -58,6 +58,19 @@ func IsErrCommitNotFound(err error) bool {
 	return errors.As(err, &ErrCommitNotFound{})
 }
 
+// ErrCommitMissingInfo is returned by CreateCommit() when a commitInfo is missing a field.
+type ErrCommitMissingInfo struct {
+	Field string
+}
+
+func (err ErrCommitMissingInfo) Error() string {
+	return fmt.Sprintf("commitInfo.%s is missing/nil", err.Field)
+}
+
+func (err ErrCommitMissingInfo) GRPCStatus() *status.Status {
+	return status.New(codes.FailedPrecondition, err.Error())
+}
+
 // ErrCommitAlreadyExists is returned by CreateCommit() when a commit with the same name already exists in postgres.
 type ErrCommitAlreadyExists struct {
 	Repo     string
@@ -236,8 +249,14 @@ func bigIntToDurationpb(s int64) *durationpb.Duration {
 
 // CreateCommit creates an entry in the pfs.commits table.
 func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) error {
+	if commitInfo.Commit == nil {
+		return ErrCommitMissingInfo{Field: "Commit"}
+	}
 	if commitInfo.Commit.Repo == nil {
-		return errors.New(fmt.Sprintf("commitInfo.Repo is nil: %+v", commitInfo.Commit))
+		return ErrCommitMissingInfo{Field: "Repo"}
+	}
+	if commitInfo.Origin == nil {
+		return ErrCommitMissingInfo{Field: "Origin"}
 	}
 	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
 		commitInfo.Details = &pfs.CommitInfo_Details{}
@@ -249,7 +268,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		return errors.New(fmt.Sprintf("invalid origin: %v", commitInfo.Origin.Kind))
 	}
 	insert := commitRow{
-		CommitID:       CommitKey(commitInfo.Commit),
+		CommitID:       CommitKey(commitInfo.Commit), //this might have to be pfsdb.CommitKey(commit)
 		CommitSetID:    commitInfo.Commit.Id,
 		RepoName:       commitInfo.Commit.Repo.Name,
 		RepoType:       commitInfo.Commit.Repo.Type,
@@ -279,7 +298,22 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 }
 
 // DeleteCommit deletes an entry in the pfs.commits table.
-func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitID string) error {
+func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
+	if commit == nil {
+		return ErrCommitMissingInfo{Field: "Commit"}
+	}
+	id := CommitKey(commit)
+	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.commits WHERE commit_id=$1;", id)
+	if err != nil {
+		return errors.Wrap(err, "delete commit")
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "could not get affected rows")
+	}
+	if rowsAffected == 0 {
+		return ErrCommitNotFound{CommitID: id}
+	}
 	return nil
 }
 
@@ -312,6 +346,22 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 	return getCommitFromCommitRow(row)
 }
 
+func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	row := &commitRow{}
+	if commit == nil {
+		return nil, ErrCommitMissingInfo{Field: "Commit"}
+	}
+	id := CommitKey(commit)
+	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE commit_id=$1", getCommit), id).StructScan(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrCommitNotFound{CommitID: id}
+		}
+		return nil, errors.Wrap(err, "scanning commit row")
+	}
+	return getCommitFromCommitRow(row)
+}
+
 func getCommitFromCommitRow(row *commitRow) (*pfs.CommitInfo, error) {
 	repo := &pfs.Repo{
 		Name: row.RepoName,
@@ -320,10 +370,14 @@ func getCommitFromCommitRow(row *commitRow) (*pfs.CommitInfo, error) {
 			Name: row.ProjectName,
 		},
 	}
+	parsedId := strings.Split(row.CommitID, "@")
+	if len(parsedId) != 2 {
+		return nil, fmt.Errorf("got invalid commit id from postgres: %s", row.CommitID)
+	}
 	commitInfo := &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Repo: repo,
-			Id:   row.CommitID,
+			Id:   parsedId[1],
 			Branch: &pfs.Branch{
 				Repo: repo,
 				Name: row.BranchID,
