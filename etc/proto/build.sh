@@ -4,5 +4,5 @@
 read -ra proto_files < <(find src -name "*.proto" -print0 | xargs -0)
 tar cf - "${proto_files[@]}" \
  | docker run -i --rm pachyderm_proto \
- | (rm -rf jsonschema/; cat) \
+ | (rm -rf src/internal/jsonschema/*.json; cat) \
  | tar xf -
