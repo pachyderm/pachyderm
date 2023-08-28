@@ -69,6 +69,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 		"images@a91f6f92b145435396af700be4bb5533":       {Commit: &pfs.Commit{Repo: repos["images"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}},
 		"edges@a91f6f92b145435396af700be4bb5533":        {Commit: &pfs.Commit{Repo: repos["edges"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
 		"edges.meta@a91f6f92b145435396af700be4bb5533":   {Commit: &pfs.Commit{Repo: repos["edges.meta"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"images@98606143463b4105924d9f9d0bed873d":       {Commit: &pfs.Commit{Repo: repos["images"].Repo, Id: "98606143463b4105924d9f9d0bed873d"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
 	}
 	// images
 	commits["images@a91f6f92b145435396af700be4bb5533"].ParentCommit = commits["images@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit
@@ -151,7 +152,8 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	// Create branches and branch provenance relationships
 	// TODO branch triggers
 	branches := map[string]*pfs.BranchInfo{
-		"images@master":       {Branch: &pfs.Branch{Repo: repos["images"].Repo, Name: "master"}, Head: commits["images@a91f6f92b145435396af700be4bb5533"].Commit},
+		"images@master":       {Branch: &pfs.Branch{Repo: repos["images"].Repo, Name: "master"}, Head: commits["images@a91f6f92b145435396af700be4bb5533"].Commit, Trigger: &pfs.Trigger{Branch: "staging", All: true}},
+		"images@staging":      {Branch: &pfs.Branch{Repo: repos["images"].Repo, Name: "staging"}, Head: commits["images@98606143463b4105924d9f9d0bed873d"].Commit},
 		"edges@master":        {Branch: &pfs.Branch{Repo: repos["edges"].Repo, Name: "master"}, Head: commits["edges@a91f6f92b145435396af700be4bb5533"].Commit},
 		"edges.spec@master":   {Branch: &pfs.Branch{Repo: repos["edges.spec"].Repo, Name: "master"}, Head: commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit},
 		"edges.meta@master":   {Branch: &pfs.Branch{Repo: repos["edges.meta"].Repo, Name: "master"}, Head: commits["edges.meta@a91f6f92b145435396af700be4bb5533"].Commit},

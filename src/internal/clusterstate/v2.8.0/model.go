@@ -1,6 +1,8 @@
 package v2_8_0
 
-import "time"
+import (
+	"time"
+)
 
 type Repo struct {
 	ID          uint64    `db:"id"`
@@ -18,6 +20,7 @@ type Branch struct {
 	Name      string    `db:"name"`
 	Head      uint64    `db:"head"`
 	RepoID    uint64    `db:"repo_id"`
+	Trigger   *uint64   `db:"trigger_id"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
@@ -28,8 +31,7 @@ type Edge struct {
 }
 
 type BranchTrigger struct {
-	ID            uint64 `db:"id"`
-	ToBranch      uint64 `db:"to_branch"`
+	BranchID      uint64 `db:"branch_id"`
 	CronSpec      string `db:"cron_spec"`
 	RateLimitSpec string `db:"rate_limit_spec"`
 	Size          string `db:"size"`

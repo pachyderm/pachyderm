@@ -9,6 +9,7 @@ import (
 
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -64,7 +65,7 @@ func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo
 	return repos, nil
 }
 
-func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Branch, []Edge, error) {
+func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]*Branch, []*Edge, []*BranchTrigger, error) {
 	type branchColRow struct {
 		v2_7_0.CollectionRecord
 		RepoID uint64 `db:"repo_id"`
@@ -77,45 +78,76 @@ func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]B
 			JOIN collections.branches col ON col.idx_repo = project.name || '/' || repo.name || '.' || repo.type
 		ORDER BY createdat, key ASC;
 	`); err != nil {
-		return nil, nil, errors.Wrap(err, "listing branches from collections.branches")
+		return nil, nil, nil, errors.Wrap(err, "listing branches from collections.branches")
 	}
 
 	// Build a map from branch key to branch
-	keyToBranch := make(map[string]Branch)
+	keyToBranch := make(map[string]*Branch)
 	// Build a map from branch key to its direct provenance
 	keyToDirectProv := make(map[string][]string)
-	var branches []Branch
-	var branchInfo pfs.BranchInfo
-	var commitID uint64
+	keyToTrigger := make(map[string]*pfs.Trigger)
+	var branches []*Branch
 	for i, row := range branchColRows {
+		var branchInfo pfs.BranchInfo
 		if err := proto.Unmarshal(row.Proto, &branchInfo); err != nil {
-			return nil, nil, errors.Wrap(err, "unmarshaling branch")
-		}
-		if err := sqlx.GetContext(ctx, q, &commitID, `select int_id from pfs.commits where commit_id = $1`, v2_7_0.CommitKey(branchInfo.Head)); err != nil {
-			return nil, nil, errors.Wrap(err, "getting commit id")
-		}
-		for _, branch := range branchInfo.DirectProvenance {
-			keyToDirectProv[row.Key] = append(keyToDirectProv[row.Key], v2_7_0.BranchKey(branch))
+			return nil, nil, nil, errors.Wrap(err, "unmarshaling branch")
 		}
 		branch := Branch{
 			ID:        uint64(i + 1),
 			Name:      branchInfo.Branch.Name,
-			Head:      commitID,
 			RepoID:    row.RepoID,
 			CreatedAt: row.CreatedAt,
 			UpdatedAt: row.UpdatedAt,
 		}
-		keyToBranch[row.Key] = branch
-		branches = append(branches, branch)
+		keyToBranch[row.Key] = &branch
+		if err := sqlx.GetContext(ctx, q, &branch.Head, `select int_id from pfs.commits where commit_id = $1`, v2_7_0.CommitKey(branchInfo.Head)); err != nil {
+			return nil, nil, nil, errors.Wrap(err, "getting commit id")
+		}
+		for _, prov := range branchInfo.DirectProvenance {
+			keyToDirectProv[row.Key] = append(keyToDirectProv[row.Key], v2_7_0.BranchKey(prov))
+		}
+		if branchInfo.Trigger != nil {
+			// Note that we use branchInfo.Trigger instead of BranchTrigger here because we don't have the branch id yet.
+			// also branchInfo.Trigger only has the branch name, and not the repo name.
+			repo := v2_7_0.RepoKey(branchInfo.Branch.Repo)
+			branchInfo.Trigger.Branch = repo + "@" + branchInfo.Trigger.Branch
+			keyToTrigger[row.Key] = branchInfo.Trigger
+		}
+		branches = append(branches, &branch)
 	}
 
-	var edges []Edge
+	var edges []*Edge
 	for fromKey, toKeys := range keyToDirectProv {
 		for _, toKey := range toKeys {
-			edges = append(edges, Edge{FromID: keyToBranch[fromKey].ID, ToID: keyToBranch[toKey].ID})
+			edges = append(edges, &Edge{FromID: keyToBranch[fromKey].ID, ToID: keyToBranch[toKey].ID})
 		}
 	}
-	return branches, edges, nil
+
+	// Branch triggers
+	var triggers []*BranchTrigger
+	triggerIDs := make(map[BranchTrigger]uint64)
+	for key, trigger := range keyToTrigger {
+		if _, ok := keyToBranch[trigger.Branch]; !ok {
+			return nil, nil, nil, errors.Errorf("branch not found: %s", trigger.Branch)
+		}
+		bt := BranchTrigger{
+			BranchID:      keyToBranch[trigger.Branch].ID,
+			CronSpec:      trigger.CronSpec,
+			RateLimitSpec: trigger.RateLimitSpec,
+			Size:          trigger.Size,
+			NumCommits:    uint64(trigger.Commits),
+			All:           trigger.All,
+		}
+		if _, ok := triggerIDs[bt]; !ok {
+			triggers = append(triggers, &bt)
+			triggerIDs[bt] = uint64(len(triggers))
+		}
+		triggerID := triggerIDs[bt]
+		// update trigger id in branch
+		keyToBranch[key].Trigger = &triggerID
+	}
+
+	return branches, edges, triggers, nil
 }
 
 func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
@@ -185,7 +217,8 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
-func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
+func migrateBranches(ctx context.Context, env migrations.Env) error {
+	tx := env.Tx
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS pfs.branches (
 			id bigserial PRIMARY KEY,
@@ -208,16 +241,9 @@ func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "creating branch_provenance table")
 	}
 	if _, err := tx.ExecContext(ctx, `
-		CREATE TRIGGER set_updated_at
-			BEFORE UPDATE ON pfs.branches
-			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
-	`); err != nil {
-		return errors.Wrap(err, "creating set_updated_at trigger")
-	}
-	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS pfs.branch_triggers (
 			id bigserial PRIMARY KEY,
-			to_branch_id bigint REFERENCES pfs.branches(id) NOT NULL,
+			branch_id bigint REFERENCES pfs.branches(id) NOT NULL,
 			cron_spec text,
 			rate_limit_spec text,
 			size text,
@@ -233,19 +259,24 @@ func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
 	if err != nil {
 		return errors.Wrap(err, "preparing insert statement")
 	}
-	branches, edges, err := ListBranchesFromCollection(ctx, tx)
-	if err != nil {
-		return errors.Wrap(err, "listing branches from collections.branches")
-	}
-	// build branch provenance
 	insertBranchProvStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branch_provenance(from_id, to_id) VALUES ($1, $2)`)
 	if err != nil {
 		return errors.Wrap(err, "preparing insert branch provenance statement")
 	}
+	insertTriggerStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branch_triggers(branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`)
+	if err != nil {
+		return errors.Wrap(err, "preparing insert trigger statement")
+	}
+
+	branches, edges, triggers, err := ListBranchesFromCollection(ctx, tx)
+	if err != nil {
+		return errors.Wrap(err, "listing branches from collections.branches")
+	}
+
 	var id uint64
 	for _, branch := range branches {
 		if err := insertBranchStmt.QueryRowContext(ctx, branch.Name, branch.Head, branch.RepoID, branch.CreatedAt, branch.UpdatedAt).Scan(&id); err != nil {
-			return errors.Wrap(err, "inserting branch")
+			return errors.Wrapf(err, "inserting branch: %s, in repo: %d, head: %d", branch.Name, branch.RepoID, branch.Head)
 		}
 		if id != branch.ID {
 			return errors.Errorf("expected branch id %d, got %d", branch.ID, id)
@@ -256,10 +287,51 @@ func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrap(err, "inserting branch provenance")
 		}
 	}
+	for _, trigger := range triggers {
+		if _, err := insertTriggerStmt.ExecContext(ctx, trigger.BranchID, trigger.CronSpec, trigger.RateLimitSpec, trigger.Size, trigger.NumCommits, trigger.All); err != nil {
+			return errors.Wrap(err, "inserting trigger")
+		}
+	}
+	for _, branch := range branches {
+		if branch.Trigger != nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE pfs.branches SET trigger_id = $1 WHERE id = $2`, branch.Trigger, branch.ID); err != nil {
+				return errors.Wrap(err, "updating branch trigger")
+			}
+		}
+	}
 
 	// Create indices at the end to speed up the inserts
 	if _, err := tx.ExecContext(ctx, `CREATE INDEX repo_name_idx ON pfs.branches (repo_id, name);`); err != nil {
 		return errors.Wrap(err, "creating index on pfs.branches")
+	}
+
+	// Create notify triggers for watchers
+	if _, err := tx.ExecContext(ctx, `
+		CREATE OR REPLACE FUNCTION pfs.notify_branches() RETURNS TRIGGER AS $$
+		DECLARE
+			row record;
+			payload text;
+		BEGIN
+			IF TG_OP = 'DELETE' THEN
+				row := OLD;
+			ELSE
+				row := NEW;
+			END IF;
+			payload := TG_OP || ' ' || row.int_id::text;
+			PERFORM pg_notify('pfs_branches', payload);
+			PERFORM pg_notify('pfs_branches_repo_' || row.repo_id::text, payload);
+			return row;
+		END;
+		$$ LANGUAGE plpgsql;
+	`); err != nil {
+		return errors.Wrap(err, "creating notify trigger on pfs.branches")
+	}
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TRIGGER set_updated_at
+			BEFORE UPDATE ON pfs.branches
+			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
+	`); err != nil {
+		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
 
 	return nil

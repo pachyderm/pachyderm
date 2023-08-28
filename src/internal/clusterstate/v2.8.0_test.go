@@ -34,7 +34,7 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	// but the value is from the collections tables not the new relational tables.
 	expectedRepos, err := v2_8_0.ListReposFromCollection(ctx, db)
 	require.NoError(t, err)
-	expectedBranches, expectedEdges, err := v2_8_0.ListBranchesFromCollection(ctx, db)
+	expectedBranches, expectedEdges, _, err := v2_8_0.ListBranchesFromCollection(ctx, db)
 	require.NoError(t, err)
 
 	// Verify Repos
@@ -51,9 +51,9 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 
 	// Verify Branches
 	// Check whether all the data is migrated to pfs.branches table
-	var gotBranches []v2_8_0.Branch
+	var gotBranches []*v2_8_0.Branch
 	require.NoError(t, db.SelectContext(ctx, &gotBranches, `
-		SELECT branch.id, branch.name, branch.head, repo.id as repo_id, branch.created_at, branch.updated_at
+		SELECT branch.id, branch.name, branch.head, repo.id as repo_id, branch.trigger_id, branch.created_at, branch.updated_at
 		FROM pfs.branches branch JOIN pfs.repos repo ON  repo.id = branch.repo_id
 			JOIN core.projects project ON project.id = repo.project_id
 		ORDER BY id`))
@@ -62,7 +62,7 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 		t.Errorf("branches differ: (-want +got)\n%s", diff)
 	}
 	// Check whether all provenance data is migrated to pfs.branch_provenance table
-	var gotEdges []v2_8_0.Edge
+	var gotEdges []*v2_8_0.Edge
 	require.NoError(t, db.SelectContext(ctx, &gotEdges, `SELECT from_id, to_id FROM pfs.branch_provenance ORDER BY from_id, to_id`))
 	require.Equal(t, len(expectedEdges), len(gotEdges))
 	sort.Slice(expectedEdges, func(i, j int) bool {
