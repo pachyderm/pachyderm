@@ -249,7 +249,7 @@ func withEnterprise(host, rootToken string, port int) *helm.Options {
 		SetValues: map[string]string{
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
 			"pachd.rootToken":                      rootToken,
-			"oidc.userAccessibleOauthIssuerHost":   fmt.Sprintf("%s:%v", host, port),
+			"oidc.userAccessibleOauthIssuerHost":   fmt.Sprintf("%s:%v/dex", host, port),
 			"oidc.issuerURI":                       "http://pachd:30658/dex",
 			"proxy.host":                           fmt.Sprintf("%s:%v", host, port),
 			// to test that the override works
@@ -265,7 +265,7 @@ func withEnterpriseServer(image, host string) *helm.Options {
 		"enterpriseServer.image.tag":         image,
 		"oidc.mockIDP":                       "true",
 		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31650/dex",
-		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31650", host),
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31650/dex", host),
 		"pachd.oauthClientID":                "enterprise-pach",
 		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31650/authorization-code/callback", host),
 		"enterpriseServer.service.type":      "ClusterIP",
