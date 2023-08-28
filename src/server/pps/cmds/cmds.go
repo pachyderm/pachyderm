@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/pachyderm/pachyderm/v2/src/constants"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -996,11 +997,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err := decoder.Decode(&oldSpec); err != nil {
 				return errors.Wrapf(err, "could not decode old user spec %s", pipelineInfo.UserSpecJson)
 			}
-			oldSpec["$schema"] = info.GetWebResources().GetCreatePipelineRequestJsonSchemaUrl()
+			oldSpec[constants.JSONSchemaKey] = info.GetWebResources().GetCreatePipelineRequestJsonSchemaUrl()
 			if err := cmdutil.Encoder(output, f).Encode(oldSpec); err != nil {
 				return errors.Wrapf(err, "could not encode old user spec %v", oldSpec)
 			}
-			delete(oldSpec, "$schema")
+			delete(oldSpec, constants.JSONSchemaKey)
 
 			if editor == "" {
 				editor = os.Getenv("EDITOR")

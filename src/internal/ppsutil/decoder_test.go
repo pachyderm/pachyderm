@@ -1,14 +1,18 @@
 package ppsutil_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestSpecReader(t *testing.T) {
@@ -119,6 +123,70 @@ pipeline:
 				if !reflect.DeepEqual(g, e) {
 					t.Fatalf("item %d: got %v; expected %v", i, got[i], c.expected[i])
 				}
+			}
+		})
+	}
+}
+
+func TestSpecReaderIgnoresSchema(t *testing.T) {
+	testData := []struct {
+		name  string
+		input map[string]any
+	}{
+		{
+			name: "schemaless",
+			input: map[string]any{
+				"pipeline": map[string]any{
+					"name": "edges",
+				},
+				"description": "A pipeline that performs image edge detection by using the OpenCV library.",
+				"input": map[string]any{
+					"pfs": map[string]any{
+						"glob": "/*",
+						"repo": "images",
+					},
+				},
+				"transform": map[string]any{
+					"cmd":   []string{"python3", "/edges.py"},
+					"image": "pachyderm/opencv:1.0",
+				},
+			},
+		},
+		{
+			name: "with schema",
+			input: map[string]any{
+				constants.JSONSchemaKey: "https://example.com/Example.schema.json",
+				"pipeline": map[string]any{
+					"name": "edges",
+				},
+				"description": "A pipeline that performs image edge detection by using the OpenCV library.",
+				"input": map[string]any{
+					"pfs": map[string]any{
+						"glob": "/*",
+						"repo": "images",
+					},
+				},
+				"transform": map[string]any{
+					"cmd":   []string{"python3", "/edges.py"},
+					"image": "pachyderm/opencv:1.0",
+				},
+			},
+		},
+	}
+	for _, test := range testData {
+		t.Run(test.name, func(t *testing.T) {
+			input, err := json.Marshal(test.input)
+			if err != nil {
+				t.Fatalf("json.Marshal: %v", err)
+			}
+			r := ppsutil.NewSpecReader(bytes.NewReader(input))
+			parsed, err := r.Next()
+			if err != nil {
+				t.Errorf("SpecReader.Next: %v", err)
+			}
+			var req pps.CreatePipelineRequest
+			if err := protojson.Unmarshal([]byte(parsed), &req); err != nil {
+				t.Errorf("protojson.Unmarshal(%s, &pps.CreatePipelineRequest{}): %v", parsed, err)
 			}
 		})
 	}
