@@ -805,7 +805,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.25.5
+      - image: envoyproxy/envoy:v1.27.0
         entrypoint: /bin/sh
     steps:
       - run: apt update
@@ -1585,7 +1585,7 @@ jobs:
 
             # Wait for Label Studio server to start
             timeout=300
-            while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/api/projects -H "Authorization: Token $LABEL_STUDIO_USER_TOKEN")" != "200" ]]; do 
+            while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/api/projects -H "Authorization: Token $LABEL_STUDIO_USER_TOKEN")" != "200" ]]; do
               timeout=$((timeout - 5))
               if [ $timeout -eq 0 ]; then
                 echo "Timed out waiting for Label Studio"

@@ -1,0 +1,44 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetPermissionsForPrincipalRequest",
+    "definitions": {
+        "GetPermissionsForPrincipalRequest": {
+            "properties": {
+                "resource": {
+                    "$ref": "#/definitions/auth_v2.Resource",
+                    "additionalProperties": false
+                },
+                "principal": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Permissions For Principal Request",
+            "description": "GetPermissionsForPrincipal evaluates an arbitrary principal's permissions on a resource"
+        },
+        "auth_v2.Resource": {
+            "properties": {
+                "type": {
+                    "enum": [
+                        "RESOURCE_TYPE_UNKNOWN",
+                        "CLUSTER",
+                        "REPO",
+                        "SPEC_REPO",
+                        "PROJECT"
+                    ],
+                    "type": "string",
+                    "title": "Resource Type",
+                    "description": "ResourceType represents the type of a Resource"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Resource",
+            "description": "Resource represents any resource that has role-bindings in the system"
+        }
+    }
+}

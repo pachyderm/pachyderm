@@ -1,0 +1,60 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SQLDatabaseEgress",
+    "definitions": {
+        "SQLDatabaseEgress": {
+            "properties": {
+                "url": {
+                    "type": "string"
+                },
+                "file_format": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
+                    "additionalProperties": false
+                },
+                "secret": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.Secret",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "SQL Database Egress"
+        },
+        "pfs_v2.SQLDatabaseEgress.FileFormat": {
+            "properties": {
+                "type": {
+                    "enum": [
+                        "UNKNOWN",
+                        "CSV",
+                        "JSON",
+                        "PARQUET"
+                    ],
+                    "type": "string",
+                    "title": "Type"
+                },
+                "columns": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File Format"
+        },
+        "pfs_v2.SQLDatabaseEgress.Secret": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Secret"
+        }
+    }
+}

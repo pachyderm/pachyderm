@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Groups",
+    "definitions": {
+        "Groups": {
+            "properties": {
+                "groups": {
+                    "additionalProperties": {
+                        "type": "boolean"
+                    },
+                    "type": "object"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Groups"
+        }
+    }
+}

@@ -187,6 +187,10 @@ func deployFakeConsole(t *testing.T, ns string) {
 
 			access_log  /dev/stdout  main;
 
+			location /health {
+			    return 200 'ok';
+			    add_header Content-Type text/plain;
+			}
 			location / {
 			    root   /usr/share/nginx/html;
 			    index  index.html;

@@ -2,17 +2,22 @@ package v2_8_0
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 func synthesizeClusterDefaults(ctx context.Context, env migrations.Env) error {
@@ -122,4 +127,120 @@ func envMap(environ []string) (map[string]string, error) {
 		env[ee[0]] = ee[1]
 	}
 	return env, nil
+}
+
+func versionKey(p *pps.Pipeline, version uint64) string {
+	// zero pad in case we want to sort
+	return fmt.Sprintf("%s@%08d", p, version)
+}
+
+var pipelinesVersionIndex = &index{
+	Name: "version",
+	Extract: func(val proto.Message) string {
+		info := val.(*pps.PipelineInfo)
+		return versionKey(info.Pipeline, info.Version)
+	},
+}
+
+func pipelinesNameKey(p *pps.Pipeline) string {
+	return p.String()
+}
+
+var pipelinesNameIndex = &index{
+	Name: "name",
+	Extract: func(val proto.Message) string {
+		return pipelinesNameKey(val.(*pps.PipelineInfo).Pipeline)
+	},
+}
+
+var pipelinesIndexes = []*index{
+	pipelinesVersionIndex,
+	pipelinesNameIndex,
+}
+
+func pipelineCommitKey(commit *pfs.Commit) (string, error) {
+	if commit.Repo.Type != pfs.SpecRepoType {
+		return "", errors.Errorf("commit %s is not from a spec repo", commit)
+	}
+	if projectName := commit.Repo.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Repo.Name, commit.Id), nil
+	}
+	return fmt.Sprintf("%s@%s", commit.Repo.Name, commit.Id), nil
+}
+
+func withKeyGen(gen func(interface{}) (string, error)) colOption {
+	return func(c *postgresCollection) {
+		c.keyGen = gen
+	}
+}
+
+func withKeyCheck(check func(string) error) colOption {
+	return func(c *postgresCollection) {
+		c.keyCheck = check
+	}
+}
+
+func parsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
+	parts := strings.Split(key, "@")
+	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>", key)
+	}
+	id = parts[1]
+	parts = strings.Split(parts[0], "/")
+	if len(parts) == 0 {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
+	}
+	pipelineName = parts[len(parts)-1]
+	if len(parts) == 1 {
+		return
+	}
+	projectName = strings.Join(parts[0:len(parts)-1], "/")
+	return
+}
+
+func synthesizeSpec(pi *pps.PipelineInfo) error {
+	if pi == nil {
+		return errors.New("nil PipelineInfo")
+	}
+	// create an initial user and effective spec equal to what would have been previously used
+	spec := ppsutil.PipelineReqFromInfo(pi)
+	js, err := protojson.Marshal(spec)
+	if err != nil {
+		return errors.Wrapf(err, "could not marshal CreatePipelineRequest as JSON")
+	}
+	if pi.EffectiveSpecJson == "" {
+		pi.EffectiveSpecJson = string(js)
+	}
+	if pi.UserSpecJson == "" {
+		pi.UserSpecJson = string(js)
+	}
+	return nil
+}
+
+func synthesizeSpecs(ctx context.Context, env migrations.Env) error {
+	var pipelineInfo = new(pps.PipelineInfo)
+	if err := migratePostgreSQLCollection(ctx, env.Tx, "pipelines", pipelinesIndexes, pipelineInfo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+		if err = synthesizeSpec(pipelineInfo); err != nil {
+			return "", nil, err
+		}
+		if newKey, err = pipelineCommitKey(pipelineInfo.SpecCommit); err != nil {
+			return
+		}
+		return newKey, pipelineInfo, nil
+
+	},
+		withKeyGen(func(key interface{}) (string, error) {
+			if commit, ok := key.(*pfs.Commit); ok {
+				return pipelineCommitKey(commit)
+			}
+			return "", errors.New("must provide a spec commit")
+		}),
+		withKeyCheck(func(key string) error {
+			_, _, _, err := parsePipelineKey(key)
+			return err
+		}),
+	); err != nil {
+		return errors.Wrap(err, "could not migrate jobs")
+	}
+	return nil
 }

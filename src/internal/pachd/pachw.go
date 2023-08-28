@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
@@ -78,12 +77,7 @@ func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error 
 }
 
 func (pachwb *pachwBuilder) registerDebugServer(ctx context.Context) error {
-	apiServer := debugserver.NewDebugServer(
-		pachwb.env,
-		pachwb.env.Config().PachdPodName,
-		nil,
-		pachwb.env.GetDBClient(),
-	)
+	apiServer := pachwb.newDebugServer()
 	pachwb.forGRPCServer(func(s *grpc.Server) { debug.RegisterDebugServer(s, apiServer) })
 	return nil
 }

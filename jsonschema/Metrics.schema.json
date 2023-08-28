@@ -1,0 +1,217 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Metrics",
+    "definitions": {
+        "Metrics": {
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "pod_id": {
+                    "type": "string"
+                },
+                "nodes": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "integer",
+                    "description": "Number of repos"
+                },
+                "commits": {
+                    "type": "integer",
+                    "description": "Number of commits -- not used"
+                },
+                "files": {
+                    "type": "integer",
+                    "description": "Number of files -- not used"
+                },
+                "bytes": {
+                    "type": "integer",
+                    "description": "Number of bytes in all repos"
+                },
+                "jobs": {
+                    "type": "integer",
+                    "description": "Number of jobs"
+                },
+                "pipelines": {
+                    "type": "integer",
+                    "description": "Number of pipelines in the cluster -- not the same as DAG"
+                },
+                "archived_commits": {
+                    "type": "integer",
+                    "description": "Number of archived commit -- not used"
+                },
+                "cancelled_commits": {
+                    "type": "integer",
+                    "description": "Number of cancelled commits -- not used"
+                },
+                "activation_code": {
+                    "type": "string",
+                    "description": "Activation code"
+                },
+                "max_branches": {
+                    "type": "integer",
+                    "description": "Max branches in across all the repos"
+                },
+                "pps_spout": {
+                    "type": "integer",
+                    "description": "Number of spout pipelines"
+                },
+                "pps_spout_service": {
+                    "type": "integer",
+                    "description": "Number of spout services"
+                },
+                "cfg_egress": {
+                    "type": "integer",
+                    "description": "Number of pipelines with Egress configured"
+                },
+                "cfg_standby": {
+                    "type": "integer",
+                    "description": "Number of pipelines with Standby congigured"
+                },
+                "cfg_s3gateway": {
+                    "type": "integer",
+                    "description": "Number of pipelines with S3 Gateway configured"
+                },
+                "cfg_services": {
+                    "type": "integer",
+                    "description": "Number of pipelines with services configured"
+                },
+                "cfg_errcmd": {
+                    "type": "integer",
+                    "description": "Number of pipelines with error cmd set"
+                },
+                "cfg_tfjob": {
+                    "type": "integer",
+                    "description": "Number of pipelines with TFJobs configured"
+                },
+                "input_group": {
+                    "type": "integer",
+                    "description": "Number of pipelines with group inputs"
+                },
+                "input_join": {
+                    "type": "integer",
+                    "description": "Number of pipelines with join inputs"
+                },
+                "input_cross": {
+                    "type": "integer",
+                    "description": "Number of pipelines with cross inputs"
+                },
+                "input_union": {
+                    "type": "integer",
+                    "description": "Number of pipelines with union inputs"
+                },
+                "input_cron": {
+                    "type": "integer",
+                    "description": "Number of pipelines with cron inputs"
+                },
+                "input_git": {
+                    "type": "integer",
+                    "description": "Number of pipelines with git inputs"
+                },
+                "input_pfs": {
+                    "type": "integer",
+                    "description": "Number of pfs inputs"
+                },
+                "input_commit": {
+                    "type": "integer",
+                    "description": "Number of pfs inputs with commits"
+                },
+                "input_join_on": {
+                    "type": "integer",
+                    "description": "Number of pfs inputs with join_on"
+                },
+                "input_outer_join": {
+                    "type": "integer",
+                    "description": "Number of pipelines with outer joins"
+                },
+                "input_lazy": {
+                    "type": "integer",
+                    "description": "Number of pipelines with lazy set"
+                },
+                "input_empty_files": {
+                    "type": "integer",
+                    "description": "Number of pipelines with empty files set"
+                },
+                "input_s3": {
+                    "type": "integer",
+                    "description": "Number of pipelines with S3 input"
+                },
+                "input_trigger": {
+                    "type": "integer",
+                    "description": "Number of pipelines with triggers set"
+                },
+                "resource_cpu_req": {
+                    "type": "number",
+                    "description": "Total CPU request across all pipelines"
+                },
+                "resource_cpu_req_max": {
+                    "type": "number",
+                    "description": "Max CPU resource requests set"
+                },
+                "resource_mem_req": {
+                    "type": "string",
+                    "description": "Sting of memory requests set across all pipelines"
+                },
+                "resource_gpu_req": {
+                    "type": "integer",
+                    "description": "Total GPU requests across all pipelines"
+                },
+                "resource_gpu_req_max": {
+                    "type": "integer",
+                    "description": "Max GPU request across all pipelines"
+                },
+                "resource_disk_req": {
+                    "type": "string",
+                    "description": "String of disk requests set across all pipelines"
+                },
+                "resource_cpu_limit": {
+                    "type": "number",
+                    "description": "Total CPU limits set across all pipelines"
+                },
+                "resource_cpu_limit_max": {
+                    "type": "number",
+                    "description": "Max CPU limit set"
+                },
+                "resource_mem_limit": {
+                    "type": "string",
+                    "description": "String of memory limits set"
+                },
+                "resource_gpu_limit": {
+                    "type": "integer",
+                    "description": "Number of pipelines with"
+                },
+                "resource_gpu_limit_max": {
+                    "type": "integer",
+                    "description": "Max GPU limit set"
+                },
+                "resource_disk_limit": {
+                    "type": "string",
+                    "description": "String of disk limits set across all pipelines"
+                },
+                "max_parallelism": {
+                    "type": "integer",
+                    "description": "Max parallelism set"
+                },
+                "min_parallelism": {
+                    "type": "integer",
+                    "description": "Min parallelism set"
+                },
+                "num_parallelism": {
+                    "type": "integer",
+                    "description": "Number of pipelines with parallelism set"
+                },
+                "enterprise_failures": {
+                    "type": "integer",
+                    "description": "Number of times a command has failed due to an enterprise check"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Metrics"
+        }
+    }
+}
