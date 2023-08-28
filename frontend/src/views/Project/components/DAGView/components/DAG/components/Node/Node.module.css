@@ -14,8 +14,20 @@ rect.node,
   filter: url('#node-dropshadow');
 }
 
+rect.node.noShadow {
+  filter: none;
+}
+
 rect.node.detailedError {
   stroke: var(--error-red);
+}
+
+.connectedBorder {
+  fill: transparent;
+  stroke-width: 1px;
+  stroke: var(--border-grey);
+  stroke-dasharray: 0.25rem;
+  paint-order: stroke;
 }
 
 /* REPO & PIPELINE BUTTONS */
@@ -113,9 +125,16 @@ rect.node.detailedError {
   opacity: 0.3;
 }
 
-.buttonGroup rect.node.repoSimplifiedBox.node, .buttonGroup rect.node.repoSimplifiedBox.node:hover {
+.buttonGroup rect.node.repoSimplifiedBox.node,
+.buttonGroup rect.node.repoSimplifiedBox.node:hover {
   fill: var(--pachyderm-green);
   stroke-width: 0;
   opacity: 0.3;
   cursor: grab;
+}
+
+.egressSimplifiedBox {
+  fill: var(--green);
+  stroke-width: 0;
+  opacity: 0.3;
 }

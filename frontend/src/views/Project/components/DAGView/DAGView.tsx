@@ -10,7 +10,6 @@ import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
-import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import GlobalFilter from '@dash-frontend/views/Project/components/DAGView/components/GlobalFilter';
 import {
   Tooltip,
@@ -279,55 +278,48 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           }}
         />
       )}
-      <HoveredNodeProvider>
-        <svg
-          id="Svg"
-          className={styles.base}
-          preserveAspectRatio="xMinYMid meet"
-          viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
-        >
-          <defs>
-            {MARKERS.map((marker) => (
-              <marker
-                key={marker.id}
-                viewBox="0 -5 10 10"
-                refX={0}
-                refY={0}
-                markerWidth={5}
-                markerHeight={5}
-                orient="auto"
-                id={marker.id}
-              >
-                <path d="M0,-5L10,0L0,5" fill={marker.color} />
-              </marker>
-            ))}
-            <filter id="node-dropshadow">
-              <feDropShadow
-                dx="2"
-                dy="2"
-                stdDeviation="4"
-                floodColor="#d6d6d7"
+      <svg
+        id="Svg"
+        className={styles.base}
+        preserveAspectRatio="xMinYMid meet"
+        viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
+      >
+        <defs>
+          {MARKERS.map((marker) => (
+            <marker
+              key={marker.id}
+              viewBox="0 -5 10 10"
+              refX={0}
+              refY={0}
+              markerWidth={5}
+              markerHeight={5}
+              orient="auto"
+              id={marker.id}
+            >
+              <path d="M0,-5L10,0L0,5" fill={marker.color} />
+            </marker>
+          ))}
+          <filter id="node-dropshadow">
+            <feDropShadow dx="2" dy="2" stdDeviation="4" floodColor="#d6d6d7" />
+          </filter>
+        </defs>
+        <g id="Dags">
+          {dags?.map((dag) => {
+            return (
+              <DAG
+                data={dag}
+                key={dag.id}
+                id={dag.id}
+                dagsToShow={dags.length}
+                dagDirection={dagDirection}
+                rotateDag={rotateDag}
+                largeDagMode={totalNodes > LARGE_DAG_MIN}
+                forceFullRender={renderAndDownloadCanvas}
               />
-            </filter>
-          </defs>
-          <g id="Dags">
-            {dags?.map((dag) => {
-              return (
-                <DAG
-                  data={dag}
-                  key={dag.id}
-                  id={dag.id}
-                  dagsToShow={dags.length}
-                  dagDirection={dagDirection}
-                  rotateDag={rotateDag}
-                  largeDagMode={totalNodes > LARGE_DAG_MIN}
-                  forceFullRender={renderAndDownloadCanvas}
-                />
-              );
-            })}
-          </g>
-        </svg>
-      </HoveredNodeProvider>
+            );
+          })}
+        </g>
+      </svg>
       {isOpen && <CreateRepoModal show={isOpen} onHide={closeModal} />}
     </View>
   );

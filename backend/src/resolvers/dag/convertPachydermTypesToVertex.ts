@@ -77,7 +77,7 @@ const convertPachydermPipelineToVertex = ({
   if (!egress || !egressNodeName(egress)) return vertices;
 
   const egressNode = {
-    id: `${p.pipeline?.project?.name || ''}_${egressNodeName(egress)}`,
+    id: `${p.pipeline?.project?.name || ''}_${p.pipeline?.name || ''}_egress`,
     name: egressNodeName(egress) || '',
     type: NodeType.EGRESS,
     access: true,

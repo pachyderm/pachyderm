@@ -9,9 +9,9 @@ import {
   NODE_INPUT_REPO,
   NODE_HEIGHT,
   NODE_WIDTH,
+  CONNECTED_NODE_HEIGHT,
 } from '@dash-frontend/views/Project/constants/nodeSizes';
 import {
-  SuccessCheckmark,
   RepoSVG,
   PipelineSVG,
   LockSVG,
@@ -20,10 +20,9 @@ import {
   StatusWarningSVG,
   StatusCheckmarkSVG,
   SpinnerSVG,
+  EgressSVG,
 } from '@pachyderm/components';
 
-import NodeTooltip from './components/NodeTooltip';
-import {ReactComponent as EgressSVG} from './DagEgress.svg';
 import useNode from './hooks/useNode';
 import styles from './Node.module.css';
 
@@ -59,6 +58,7 @@ const BUTTON_HEIGHT = 32;
 const BUTTON_MARGIN = 4;
 const STATUS_BUTTON_HEIGHT = 48;
 const STATUS_BUTTON_WIDTH = (NODE_WIDTH - BUTTON_MARGIN * 3) / 2;
+const CONNECTED_BUTTON_WIDTH = NODE_WIDTH - BUTTON_MARGIN * 4;
 
 const BORDER_RADIUS = 3;
 const BUTTON_WIDTH = NODE_WIDTH - BUTTON_MARGIN * 2;
@@ -83,23 +83,24 @@ const textElementProps = {
   className: 'nodeLabel',
 };
 
+const labelTextStyle = {
+  fontSize: '12px',
+  fontWeight: '400',
+  fontFamily: 'Montserrat',
+  fill: '#666',
+};
+
 const Node: React.FC<NodeProps> = ({
   node,
   isInteractive,
   hideDetails = false,
   showSimple = false,
 }) => {
-  const {
-    isHovered,
-    onClick,
-    onMouseOut,
-    onMouseOver,
-    repoSelected,
-    pipelineSelected,
-    groupName,
-    isEgress,
-    showSuccess,
-  } = useNode(node, isInteractive, hideDetails);
+  const {onClick, repoSelected, pipelineSelected, groupName} = useNode(
+    node,
+    isInteractive,
+    hideDetails,
+  );
 
   const pipelineClasses = classNames(styles.buttonGroup, {
     [styles.interactive]: isInteractive,
@@ -117,6 +118,8 @@ const Node: React.FC<NodeProps> = ({
     [styles.interactive]: isInteractive,
     [styles.access]: node.access,
   });
+
+  const egressClasses = classNames(styles.node, styles.noShadow);
 
   const statusTextClasses = (state?: NodeState) =>
     classNames({
@@ -146,7 +149,7 @@ const Node: React.FC<NodeProps> = ({
         />
         {!hideDetails && (
           <>
-            <text {...textElementProps} />
+            <text {...textElementProps} x={34} y={24} />
             <g transform="scale(0.75)">
               {node.access ? (
                 <RepoSVG x={15} y={21} />
@@ -160,22 +163,42 @@ const Node: React.FC<NodeProps> = ({
     );
   }
 
-  if (isEgress) {
+  if (node.type === NodeType.EGRESS) {
     return (
       <g
-        role="button"
         aria-label={`${groupName} egress`}
         id={groupName}
-        transform={`translate (${node.x + 70}, ${node.y - 30})`}
-        onMouseOver={onMouseOver}
-        onMouseOut={onMouseOut}
-        onClick={() => onClick('pipeline')}
+        transform={`translate (${node.x}, ${node.y})`}
       >
-        <SuccessCheckmark show={showSuccess} x={155} y={10} />
-        {NodeType.EGRESS === node.type && (
-          <NodeTooltip node={node} show={isHovered} />
+        <rect
+          width={NODE_WIDTH}
+          height={CONNECTED_NODE_HEIGHT}
+          className={classNames(styles.connectedBorder, {
+            [styles.egressSimplifiedBox]: showSimple,
+          })}
+          rx={BORDER_RADIUS}
+          ry={BORDER_RADIUS}
+        />
+        <rect
+          width={CONNECTED_BUTTON_WIDTH}
+          height={STATUS_BUTTON_HEIGHT}
+          className={egressClasses}
+          x={BUTTON_MARGIN * 2}
+          y={30}
+          rx={BORDER_RADIUS}
+          ry={BORDER_RADIUS}
+        />
+        {!hideDetails && (
+          <>
+            <g transform="scale(0.75)">
+              <EgressSVG x={18} y={62} />
+            </g>
+            <text style={labelTextStyle} x={BUTTON_MARGIN * 2 + 2} y={20}>
+              Egress
+            </text>
+            <text {...textElementProps} x={35} y={55} />
+          </>
         )}
-        <EgressSVG />
       </g>
     );
   }
@@ -247,7 +270,7 @@ const Node: React.FC<NodeProps> = ({
                 <LockSVG color="var(--disabled-tertiary)" x={11} y={12} />
               )}
             </g>
-            <text {...textElementProps} />
+            <text {...textElementProps} x={30} y={17} />
           </g>
 
           {/* repo button */}
@@ -298,18 +321,7 @@ const Node: React.FC<NodeProps> = ({
               ry={3}
               className={styles.statusRect}
             />
-            <text
-              style={{
-                fontSize: '12px',
-                fontWeight: '400',
-                textAnchor: 'start',
-                dominantBaseline: 'middle',
-                fontFamily: 'Montserrat',
-                fill: '#666',
-              }}
-              x={BUTTON_MARGIN * 2 + 2}
-              y={16}
-            >
+            <text style={labelTextStyle} x={BUTTON_MARGIN * 2 + 2} y={18}>
               Pipeline
             </text>
 
@@ -350,17 +362,10 @@ const Node: React.FC<NodeProps> = ({
                 className={styles.statusRect}
               />
               <text
-                style={{
-                  fontSize: '12px',
-                  fontWeight: '400',
-                  textAnchor: 'start',
-                  dominantBaseline: 'middle',
-                  fontFamily: 'Montserrat',
-                  fill: '#666',
-                }}
+                style={labelTextStyle}
                 className={styles.subLabel}
                 x={BUTTON_MARGIN * 2 + 2}
-                y={16}
+                y={18}
               >
                 Subjob
               </text>

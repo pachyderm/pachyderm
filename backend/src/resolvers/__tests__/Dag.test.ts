@@ -87,7 +87,7 @@ describe('Dag resolver', () => {
     expect(vertices?.[4]).toEqual(
       expect.objectContaining({
         __typename: 'Vertex',
-        id: 'Solar-Panel-Data-Sorting_https://egress.com',
+        id: 'Solar-Panel-Data-Sorting_montage_egress',
         name: 'https://egress.com',
         state: null,
         access: true,

@@ -10,6 +10,7 @@ const RELEVANT_STYLES: Record<string, string[]> = {
     'fill',
     'stroke',
     'stroke-width',
+    'stroke-dasharray',
     'border-radius',
     'paint-order',
     'filter',

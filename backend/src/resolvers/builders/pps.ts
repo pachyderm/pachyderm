@@ -79,6 +79,7 @@ const deriveJSONPipelineSpec = (pipelineInfo: PipelineInfo.AsObject) => {
     schedulingSpec: pipelineInfo.details?.schedulingSpec,
     podSpec: pipelineInfo.details?.podSpec,
     podPatch: pipelineInfo.details?.podPatch,
+    egress: pipelineInfo.details?.egress,
   };
 
   const simplifiedSpec = omitByDeep(

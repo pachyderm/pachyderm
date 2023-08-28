@@ -26,9 +26,7 @@ describe('Dag', () => {
       timeout: 10000,
     }).should('exist');
 
-    cy.findByRole('button', {
-      name: 'GROUP_ egress',
-    }).should('exist');
+    cy.findByText('s3://test').should('exist');
   });
 
   it('should render a sub-dag with a globalId filter', () => {
@@ -117,14 +115,6 @@ describe('Dag', () => {
       'contain',
       '/lineage/default/pipelines/edges/logs?prevPath=%2Flineage%2Fdefault',
     );
-  });
-
-  it('should not update the url when selecting an egress node', () => {
-    cy.findByRole('button', {
-      name: 'GROUP_ egress',
-    }).click({force: true});
-
-    cy.url().should('equal', 'http://localhost:4000/lineage/default');
   });
 
   it('should correctly reset the DAG when DAG nodes are deleted', () => {
