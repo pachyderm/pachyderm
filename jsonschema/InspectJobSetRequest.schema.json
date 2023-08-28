@@ -1,0 +1,34 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/InspectJobSetRequest",
+    "definitions": {
+        "InspectJobSetRequest": {
+            "properties": {
+                "job_set": {
+                    "$ref": "#/definitions/pps_v2.JobSet",
+                    "additionalProperties": false
+                },
+                "wait": {
+                    "type": "boolean",
+                    "description": "When true, wait until all jobs in the set are finished"
+                },
+                "details": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Inspect Job Set Request"
+        },
+        "pps_v2.JobSet": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job Set"
+        }
+    }
+}

@@ -1,0 +1,150 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CommitSpec",
+    "definitions": {
+        "CommitSpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "modifications": {
+                    "items": {
+                        "$ref": "#/definitions/pfsload.ModificationSpec"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "file_sources": {
+                    "items": {
+                        "$ref": "#/definitions/pfsload.FileSourceSpec"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "validator": {
+                    "$ref": "#/definitions/pfsload.ValidatorSpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit Spec"
+        },
+        "pfsload.FileSourceSpec": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "random": {
+                    "$ref": "#/definitions/pfsload.RandomFileSourceSpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File Source Spec"
+        },
+        "pfsload.FrequencySpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "prob": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Frequency Spec"
+        },
+        "pfsload.ModificationSpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "put_file": {
+                    "$ref": "#/definitions/pfsload.PutFileSpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Modification Spec"
+        },
+        "pfsload.PutFileSpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Put File Spec"
+        },
+        "pfsload.RandomDirectorySpec": {
+            "properties": {
+                "depth": {
+                    "$ref": "#/definitions/pfsload.SizeSpec",
+                    "additionalProperties": false
+                },
+                "run": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Random Directory Spec"
+        },
+        "pfsload.RandomFileSourceSpec": {
+            "properties": {
+                "directory": {
+                    "$ref": "#/definitions/pfsload.RandomDirectorySpec",
+                    "additionalProperties": false
+                },
+                "sizes": {
+                    "items": {
+                        "$ref": "#/definitions/pfsload.SizeSpec"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "increment_path": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Random File Source Spec"
+        },
+        "pfsload.SizeSpec": {
+            "properties": {
+                "min_size": {
+                    "type": "integer"
+                },
+                "max_size": {
+                    "type": "integer"
+                },
+                "prob": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Size Spec"
+        },
+        "pfsload.ValidatorSpec": {
+            "properties": {
+                "frequency": {
+                    "$ref": "#/definitions/pfsload.FrequencySpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Validator Spec"
+        }
+    }
+}
