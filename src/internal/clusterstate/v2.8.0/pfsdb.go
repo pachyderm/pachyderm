@@ -215,6 +215,20 @@ func migrateBranches(ctx context.Context, tx *pachsql.Tx) error {
 	`); err != nil {
 		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS pfs.branch_triggers (
+			id bigserial PRIMARY KEY,
+			to_branch_id bigint REFERENCES pfs.branches(id) NOT NULL,
+			cron_spec text,
+			rate_limit_spec text,
+			size text,
+			num_commits bigint,
+			all_conditions bool
+		);
+		ALTER TABLE pfs.branches ADD COLUMN trigger_id bigint REFERENCES pfs.branch_triggers(id);
+	`); err != nil {
+		return errors.Wrap(err, "creating branch triggers table")
+	}
 
 	insertBranchStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branches(name, head, repo_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`)
 	if err != nil {

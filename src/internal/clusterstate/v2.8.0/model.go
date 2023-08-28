@@ -26,3 +26,13 @@ type Edge struct {
 	FromID uint64 `db:"from_id"`
 	ToID   uint64 `db:"to_id"`
 }
+
+type BranchTrigger struct {
+	ID            uint64 `db:"id"`
+	ToBranch      uint64 `db:"to_branch"`
+	CronSpec      string `db:"cron_spec"`
+	RateLimitSpec string `db:"rate_limit_spec"`
+	Size          string `db:"size"`
+	NumCommits    uint64 `db:"num_commits"`
+	All           bool   `db:"all_conditions"`
+}
