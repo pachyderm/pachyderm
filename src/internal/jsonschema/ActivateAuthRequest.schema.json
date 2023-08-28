@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ActivateAuthRequest",
+    "definitions": {
+        "ActivateAuthRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Activate Auth Request"
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ActivateResponse",
+    "definitions": {
+        "ActivateResponse": {
+            "properties": {
+                "pach_token": {
+                    "type": "string",
+                    "description": "pach_token authenticates the caller with Pachyderm (if you want to perform Pachyderm operations after auth has been activated as themselves, you must present this token along with your regular request)"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Activate Response"
+        }
+    }
+}

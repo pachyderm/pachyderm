@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -326,7 +327,7 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	hasMeta := jobInfo.GetDetails().GetSpout() == nil && jobInfo.GetDetails().GetService() == nil
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if hasMeta {
-			c := MetaCommit(jobInfo.OutputCommit)
+			c := pfsutil.MetaCommit(jobInfo.OutputCommit)
 			log.Debug(ctx, "finishing meta commit", zap.Stringer("commit", c))
 			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 				Commit: c,
@@ -374,7 +375,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.Id)
+	return pfsutil.MetaCommit(commit)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with

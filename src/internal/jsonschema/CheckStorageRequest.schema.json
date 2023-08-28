@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CheckStorageRequest",
+    "definitions": {
+        "CheckStorageRequest": {
+            "properties": {
+                "read_chunk_data": {
+                    "type": "boolean"
+                },
+                "chunk_begin": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "chunk_end": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Check Storage Request"
+        }
+    }
+}

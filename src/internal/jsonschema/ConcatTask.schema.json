@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ConcatTask",
+    "definitions": {
+        "ConcatTask": {
+            "properties": {
+                "inputs": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Concat Task"
+        }
+    }
+}

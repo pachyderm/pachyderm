@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteProjectRequest",
+    "definitions": {
+        "DeleteProjectRequest": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "force": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Project Request"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

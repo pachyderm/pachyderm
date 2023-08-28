@@ -611,10 +611,10 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	}
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
-		if !clusterInfo.GetVersionWarningsOk() {
+		if !clusterInfo.GetWarningsOk() {
 			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
 		} else {
-			for _, w := range clusterInfo.GetVersionWarnings() {
+			for _, w := range clusterInfo.GetWarnings() {
 				log.Error(pctx.TODO(), w)
 			}
 		}

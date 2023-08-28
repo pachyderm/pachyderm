@@ -1,0 +1,36 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ClusterInfo",
+    "definitions": {
+        "ClusterInfo": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "deployment_id": {
+                    "type": "string"
+                },
+                "warnings_ok": {
+                    "type": "boolean",
+                    "description": "Let the client detect a server that can't generate warnings."
+                },
+                "warnings": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "Warnings about version skew."
+                },
+                "proxy_host": {
+                    "type": "string"
+                },
+                "proxy_tls": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cluster Info"
+        }
+    }
+}

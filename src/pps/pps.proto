@@ -11,7 +11,7 @@ import "google/protobuf/wrappers.proto";
 import "pfs/pfs.proto";
 
 import "task/task.proto";
-import "protoextensions/log.proto";
+import "protoextensions/json-schema-options.proto";
 
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
@@ -23,6 +23,7 @@ message SecretMount {
 }
 
 message Transform {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string image = 1;
   repeated string cmd = 2;
   repeated string err_cmd = 3;
@@ -48,6 +49,7 @@ message TFJob {
 }
 
 message Egress {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string URL = 1;
   oneof target {
     pfs_v2.ObjectStorageEgress object_storage = 2;
@@ -78,6 +80,7 @@ enum JobState {
 }
 
 message Metadata {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   map<string, string> annotations = 1;
   map<string, string> labels = 2;
 }
@@ -94,6 +97,7 @@ message Spout {
 }
 
 message PFSInput {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string project = 14;
   string name = 1;
   string repo = 2;
@@ -134,6 +138,7 @@ message CronInput {
 
 
 message Input {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   PFSInput pfs = 1;
   repeated Input join = 2;
   repeated Input group = 3;
@@ -150,6 +155,7 @@ message JobInput {
 }
 
 message ParallelismSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
   // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
   // then Pachyderm will choose the number of workers that is started,
@@ -228,6 +234,7 @@ message DatumStatus {
 // ResourceSpec describes the amount of resources that pipeline pods should
 // request from kubernetes, for scheduling.
 message ResourceSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // The number of CPUs each worker needs (partial values are allowed, and
   // encouraged)
   float cpu = 1;
@@ -245,6 +252,7 @@ message ResourceSpec {
 }
 
 message GPUSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // The type of GPU (nvidia.com/gpu or amd.com/gpu for example).
   string type = 1;
   // The number of GPUs to request.
@@ -465,8 +473,8 @@ message PipelineInfo {
   }
   Details details = 12;
   reserved "details_json";
-  string user_spec_json = 13;
-  string effective_spec_json = 14;
+  string user_spec_json = 13; // The user-submitted pipeline spec in JSON format.
+  string effective_spec_json = 14; // The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults.
 }
 
 message PipelineInfos {
@@ -661,6 +669,8 @@ message ListDatumRequest {
 
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.
 message DatumSetSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
+
   // number, if nonzero, specifies that each datum set should contain `number`
   // datums. Datum sets may contain fewer if the total number of datums don't
   // divide evenly.
@@ -676,11 +686,13 @@ message DatumSetSpec {
 }
 
 message SchedulingSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   map<string, string> node_selector = 1;
   string priority_class_name = 2;
 }
 
 message CreatePipelineRequest {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   Pipeline pipeline = 1;
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
@@ -689,7 +701,7 @@ message CreatePipelineRequest {
   Transform transform = 3;
   ParallelismSpec parallelism_spec = 4;
   Egress egress = 5;
-  bool update = 6;
+  bool update = 6 [(protoc.gen.jsonschema.field_options).ignore = true];
   string output_branch = 7;
   // s3_out, if set, requires a pipeline's user to write to its output repo
   // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
@@ -704,7 +716,7 @@ message CreatePipelineRequest {
   string description = 13;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
-  bool reprocess = 15;
+  bool reprocess = 15 [(protoc.gen.jsonschema.field_options).ignore = true];
   Service service = 17;
   Spout spout = 18;
   DatumSetSpec datum_set_spec = 19;
@@ -715,7 +727,7 @@ message CreatePipelineRequest {
   SchedulingSpec scheduling_spec = 24;
   string pod_spec = 25; // deprecated, use pod_patch below
   string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before it's created;
-  pfs_v2.Commit spec_commit = 27;
+  pfs_v2.Commit spec_commit = 27 [(protoc.gen.jsonschema.field_options).ignore = true];
   Metadata metadata = 28;
   string reprocess_spec = 29;
   bool autoscaling = 30;
@@ -723,7 +735,7 @@ message CreatePipelineRequest {
   ResourceSpec sidecar_resource_requests = 35;
   reserved 36;
   reserved "details_json";
-  bool dry_run = 37;
+  bool dry_run = 37 [(protoc.gen.jsonschema.field_options).ignore = true];
   Determined determined = 38;
 }
 

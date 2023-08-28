@@ -63,6 +63,7 @@ bin/**
 # python stuff
 *.pyc
 __pycache__
+.python-version
 
 # local env vars
 /.envrc

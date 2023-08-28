@@ -1,0 +1,55 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SetLogLevelRequest",
+    "definitions": {
+        "SetLogLevelRequest": {
+            "properties": {
+                "pachyderm": {
+                    "enum": [
+                        "UNKNOWN",
+                        "DEBUG",
+                        "INFO",
+                        "ERROR",
+                        "OFF"
+                    ],
+                    "type": "string",
+                    "title": "Log Level"
+                },
+                "grpc": {
+                    "enum": [
+                        "UNKNOWN",
+                        "DEBUG",
+                        "INFO",
+                        "ERROR",
+                        "OFF"
+                    ],
+                    "type": "string",
+                    "title": "Log Level"
+                },
+                "duration": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "recurse": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "pachyderm"
+                    ]
+                },
+                {
+                    "required": [
+                        "grpc"
+                    ]
+                }
+            ],
+            "title": "Set Log Level Request"
+        }
+    }
+}

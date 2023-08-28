@@ -1,0 +1,39 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListUserClustersResponse",
+    "definitions": {
+        "ListUserClustersResponse": {
+            "properties": {
+                "clusters": {
+                    "items": {
+                        "$ref": "#/definitions/license_v2.UserClusterInfo"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List User Clusters Response"
+        },
+        "license_v2.UserClusterInfo": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "cluster_deployment_id": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "enterprise_server": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "User Cluster Info"
+        }
+    }
+}

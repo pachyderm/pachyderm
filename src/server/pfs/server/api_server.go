@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"github.com/ghodss/yaml"
@@ -98,15 +101,18 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "list projects")
 	}
 	// Create role bindings for repos created before auth activation
-	var repoInfo pfs.RepoInfo
-	if err := a.driver.repos.ReadWrite(txnCtx.SqlTx).List(&repoInfo, col.DefaultOptions(), func(string) error {
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfo.Repo.AuthResource())
+	repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "list projects")
+	}
+	if err := stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repoPair.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "list repos")
 	}
 	return &pfs.ActivateAuthResponse{}, nil
 }
@@ -149,7 +155,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 		if err != nil {
 			return err
 		}
-		size, err = a.driver.repoSize(txnCtx, repoInfo.Repo)
+		size, err = a.driver.repoSize(txnCtx, repoInfo)
 		return err
 	}); err != nil {
 		return nil, err
@@ -163,7 +169,25 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, request.Projects, srv.Send)
+	var repos []*pfs.RepoInfo
+	var err error
+	if err := errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		return a.driver.txnEnv.WithReadContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
+			repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}, dbutil.WithReadOnly()), "list repo"); err != nil {
+		return err
+	}
+	for _, repo := range repos {
+		if err := errors.Wrap(srv.Send(repo), "sending repo"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -665,7 +689,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *emptypb.Empty) (resp
 	return &emptypb.Empty{}, nil
 }
 
-// Fsckimplements the protobuf pfs.Fsck RPC
+// Fsck implements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
 	ctx := fsckServer.Context()
 	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
@@ -673,14 +697,23 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}); err != nil {
 		return err
 	}
-
 	if target := request.GetZombieTarget(); target != nil {
 		target.GetBranch().GetRepo().EnsureProject()
 		return a.driver.detectZombie(ctx, target, fsckServer.Send)
 	}
+	var repos []*pfs.RepoInfo
+	var err error
 	if request.GetZombieAll() {
-		// list meta repos as a proxy for finding pipelines
-		return a.driver.listRepo(ctx, false /* includeAuth */, pfs.MetaRepoType, nil /* projectsFilter */, func(info *pfs.RepoInfo) error {
+		if err := dbutil.WithTx(fsckServer.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+			return a.driver.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
+				// list meta repos as a proxy for finding pipelines
+				repos, err = a.driver.listRepoInTransaction(ctx, txnCxt, false, pfs.MetaRepoType, nil)
+				return errors.Wrap(err, "list repos in tx by meta repo type")
+			})
+		}, dbutil.WithReadOnly()); err != nil {
+			return err
+		}
+		for _, info := range repos {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
@@ -697,8 +730,10 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			if output == nil {
 				return nil
 			}
-			return a.driver.detectZombie(ctx, output, fsckServer.Send)
-		})
+			if err := a.driver.detectZombie(ctx, output, fsckServer.Send); err != nil {
+				return errors.Wrap(err, "fsck")
+			}
+		}
 	}
 	return nil
 }

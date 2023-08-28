@@ -1,0 +1,29 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/UpdateClusterRequest",
+    "definitions": {
+        "UpdateClusterRequest": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "user_address": {
+                    "type": "string"
+                },
+                "cluster_deployment_id": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Update Cluster Request",
+            "description": "Note: Updates of the enterprise-server field are not allowed. In the worst case, a user can recreate their cluster if they need the field updated."
+        }
+    }
+}

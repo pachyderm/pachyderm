@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // TODO: Block tmp repo writes.
