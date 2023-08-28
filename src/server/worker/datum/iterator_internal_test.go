@@ -7,13 +7,17 @@ import (
 	io "io"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 )
 
 type fakeTar struct {
@@ -90,7 +94,7 @@ func TestIterateMeta(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			var m *Meta
-			if err := iterateMeta(context.Background(), tarGetter{metafile: []byte(testCase.file)}, nil, nil, func(_ string, mm *Meta) error {
+			if err := iterateMeta(pctx.TestContext(t), tarGetter{metafile: []byte(testCase.file)}, nil, nil, func(_ string, mm *Meta) error {
 				m = mm
 				return nil
 			}); err != nil {
@@ -102,8 +106,8 @@ func TestIterateMeta(t *testing.T) {
 			if testCase.wantErr {
 				t.Fatal("expected error")
 			}
-			if !proto.Equal(testCase.meta, m) {
-				t.Fatalf("expected %v; got %v", testCase.meta, m)
+			if diff := cmp.Diff(m, testCase.meta, protocmp.Transform()); diff != "" {
+				t.Fatalf("meta:\n %s", diff)
 			}
 		})
 	}
