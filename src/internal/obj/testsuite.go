@@ -55,7 +55,7 @@ func TestSuite(t *testing.T, newClient func(t testing.TB) Client) {
 	t.Run("TestIntegrity", func(t *testing.T) {
 		t.Parallel()
 		client := newClient(t)
-		name := "prefix/test-object"
+		name := randutil.UniqueString("prefix/test-object")
 		expectedData, err := io.ReadAll(io.LimitReader(rand.Reader, 1<<20))
 		require.NoError(t, err)
 		expectedHash := pachhash.Sum(expectedData)
