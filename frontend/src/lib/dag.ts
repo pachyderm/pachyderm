@@ -159,8 +159,14 @@ const buildDags = async (
 ) => {
   const verticesMap = keyBy(vertices, (v) => v.id);
   try {
+    // TODO: Remove, temporary until UI is done.
+    const filteredNodes = vertices.filter(
+      (n) =>
+        (showOutputRepos || n.type !== NodeType.OUTPUT_REPO) &&
+        n.type !== NodeType.CROSS_PROJECT_REPO,
+    );
     const {nodes, links} = await normalizeDAGData(
-      vertices.filter((n) => showOutputRepos || n.type !== 'OUTPUT_REPO'),
+      filteredNodes,
       nodeWidth,
       nodeHeight,
       direction,

@@ -217,4 +217,75 @@ describe('Dag resolver', () => {
     });
     subscription?.unsubscribe();
   });
+
+  it('should add cross project nodes', async () => {
+    const {data} = await executeQuery<{dag: Vertex[]}>(GET_DAG_QUERY, {
+      args: {
+        projectId: 'Multi-Project-Pipeline-A',
+      },
+    });
+
+    const vertices = data?.dag;
+    expect(vertices).toHaveLength(4);
+    expect(vertices?.[0]).toEqual(
+      expect.objectContaining({
+        __typename: 'Vertex',
+        id: 'Multi-Project-Pipeline-A_Node_1_repo',
+        name: 'Node_1',
+        state: null,
+        nodeState: null,
+        access: true,
+        parents: [],
+        type: 'INPUT_REPO',
+        jobState: null,
+        jobNodeState: null,
+        createdAt: 1614126189,
+      }),
+    );
+    expect(vertices?.[1]).toEqual(
+      expect.objectContaining({
+        __typename: 'Vertex',
+        id: 'Multi-Project-Pipeline-A_Node_2_repo',
+        name: 'Node_2',
+        state: null,
+        nodeState: null,
+        access: true,
+        parents: ['Multi-Project-Pipeline-A_Node_2'],
+        type: 'OUTPUT_REPO',
+        jobState: null,
+        jobNodeState: null,
+        createdAt: 1614126189,
+      }),
+    );
+    expect(vertices?.[2]).toEqual(
+      expect.objectContaining({
+        __typename: 'Vertex',
+        id: 'Multi-Project-Pipeline-A_Node_2',
+        name: 'Node_2',
+        state: 'PIPELINE_STANDBY',
+        nodeState: 'IDLE',
+        access: true,
+        parents: ['Multi-Project-Pipeline-B_Node_1'],
+        type: 'PIPELINE',
+        jobState: 'JOB_SUCCESS',
+        jobNodeState: 'SUCCESS',
+        createdAt: null,
+      }),
+    );
+    expect(vertices?.[3]).toEqual(
+      expect.objectContaining({
+        __typename: 'Vertex',
+        id: 'Multi-Project-Pipeline-B_Node_1',
+        name: 'Node',
+        state: null,
+        nodeState: null,
+        access: true,
+        parents: [],
+        type: 'CROSS_PROJECT_REPO',
+        jobState: null,
+        jobNodeState: null,
+        createdAt: null,
+      }),
+    );
+  });
 });

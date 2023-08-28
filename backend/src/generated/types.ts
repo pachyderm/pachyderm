@@ -618,6 +618,7 @@ export enum NodeState {
 }
 
 export enum NodeType {
+  CROSS_PROJECT_REPO = 'CROSS_PROJECT_REPO',
   EGRESS = 'EGRESS',
   INPUT_REPO = 'INPUT_REPO',
   OUTPUT_REPO = 'OUTPUT_REPO',

@@ -25,7 +25,7 @@ export const getProjectDAG = async ({
     pachClient.pps.listPipeline({projectIds: [projectId]}),
   ]);
 
-  return convertPachydermTypesToVertex(repos, pipelines);
+  return convertPachydermTypesToVertex(projectId, repos, pipelines);
 };
 
 // Creates a vertex list of pachyderm repos and pipelines composed only of Global ID items

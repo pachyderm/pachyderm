@@ -93,7 +93,38 @@ const convertPachydermPipelineToVertex = ({
   return vertices;
 };
 
+const findCrossProjectProvenanceRepos = (
+  projectId: string,
+  pipelines: Vertex[],
+): Vertex[] => {
+  const crossProjectProvenanceRepos: Vertex[] = [];
+
+  pipelines.forEach((pipeline) => {
+    pipeline.parents.forEach((parent) => {
+      const [project, repo] = parent.split('_');
+      if (project !== projectId) {
+        const vertex: Vertex = {
+          id: parent,
+          name: repo,
+          state: null,
+          nodeState: null,
+          access: true,
+          parents: [],
+          type: NodeType.CROSS_PROJECT_REPO,
+          jobState: null,
+          jobNodeState: null,
+          createdAt: null,
+        };
+        crossProjectProvenanceRepos.push(vertex);
+      }
+    });
+  });
+
+  return crossProjectProvenanceRepos;
+};
+
 export const convertPachydermTypesToVertex = (
+  projectId: string,
   repos: RepoInfo.AsObject[],
   pipelines: PipelineInfo.AsObject[],
 ) => {
@@ -113,5 +144,10 @@ export const convertPachydermTypesToVertex = (
     convertPachydermPipelineToVertex({pipeline, repoMap}),
   );
 
-  return [...repoVertices, ...pipelineVertices];
+  const crossProjectProvenanceRepos = findCrossProjectProvenanceRepos(
+    projectId,
+    pipelineVertices,
+  );
+
+  return [...repoVertices, ...pipelineVertices, ...crossProjectProvenanceRepos];
 };
