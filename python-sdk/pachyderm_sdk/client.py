@@ -1,5 +1,4 @@
 """The Client used to interact with a Pachyderm instance."""
-import contextlib
 import os
 from pathlib import Path
 from typing import Optional, Union
@@ -31,7 +30,6 @@ from .constants import (
     PACHD_SERVICE_PORT_ENV,
     WORKER_PORT_ENV,
 )
-from .errors import AuthServiceNotActivated, BadClusterDeploymentID
 from .interceptor import MetadataClientInterceptor, MetadataType
 
 __all__ = ("Client",)
@@ -246,15 +244,6 @@ class Client:
             root_certs=active_context.server_cas_decoded,
             transaction_id=active_context.active_transaction,
         )
-
-        # Verify the deployment ID of the active context with the cluster.
-        expected_deployment_id = active_context.cluster_deployment_id
-        if expected_deployment_id:
-            cluster_info = client.admin.inspect_cluster()
-            if cluster_info.deployment_id != expected_deployment_id:
-                raise BadClusterDeploymentID(
-                    expected_deployment_id, cluster_info.deployment_id
-                )
 
         return client
 
