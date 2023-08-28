@@ -152,11 +152,12 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 					return err
 				}
 				defer c.Close()
-				info, err := c.InspectCluster()
-				if err != nil {
-					return errors.Wrap(err, "lookup cluster address")
+
+				var host string
+				info, ok := c.ClusterInfo()
+				if ok {
+					host = info.GetProxyHost()
 				}
-				host := info.GetProxyHost()
 				if host == "" {
 					return errors.New("server does not know its public hostname")
 				}
