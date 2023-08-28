@@ -1,0 +1,229 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DatumInfo",
+    "definitions": {
+        "DatumInfo": {
+            "properties": {
+                "datum": {
+                    "$ref": "#/definitions/pps_v2.Datum",
+                    "additionalProperties": false
+                },
+                "state": {
+                    "enum": [
+                        "UNKNOWN",
+                        "FAILED",
+                        "SUCCESS",
+                        "SKIPPED",
+                        "STARTING",
+                        "RECOVERED"
+                    ],
+                    "type": "string",
+                    "title": "Datum State"
+                },
+                "stats": {
+                    "$ref": "#/definitions/pps_v2.ProcessStats",
+                    "additionalProperties": false
+                },
+                "pfs_state": {
+                    "$ref": "#/definitions/pfs_v2.File",
+                    "additionalProperties": false
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.FileInfo"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "image_id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Datum Info"
+        },
+        "pfs_v2.Branch": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.Repo",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Branch"
+        },
+        "pfs_v2.Commit": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.Repo",
+                    "additionalProperties": false
+                },
+                "id": {
+                    "type": "string"
+                },
+                "branch": {
+                    "$ref": "#/definitions/pfs_v2.Branch",
+                    "additionalProperties": false,
+                    "description": "only used by the client"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit",
+            "description": "Commit is a reference to a commit (e.g. the collection of branches and the collection of currently-open commits in etcd are collections of Commit protos)"
+        },
+        "pfs_v2.File": {
+            "properties": {
+                "commit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
+                "path": {
+                    "type": "string"
+                },
+                "datum": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File"
+        },
+        "pfs_v2.FileInfo": {
+            "properties": {
+                "file": {
+                    "$ref": "#/definitions/pfs_v2.File",
+                    "additionalProperties": false
+                },
+                "file_type": {
+                    "enum": [
+                        "RESERVED",
+                        "FILE",
+                        "DIR"
+                    ],
+                    "type": "string",
+                    "title": "File Type"
+                },
+                "committed": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "hash": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File Info"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pfs_v2.Repo": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "//  PFS Data structures (stored in etcd)",
+            "description": "//  PFS Data structures (stored in etcd)"
+        },
+        "pps_v2.Datum": {
+            "properties": {
+                "job": {
+                    "$ref": "#/definitions/pps_v2.Job",
+                    "additionalProperties": false,
+                    "description": "ID is the hash computed from all the files"
+                },
+                "id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Datum"
+        },
+        "pps_v2.Job": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.Pipeline",
+                    "additionalProperties": false
+                },
+                "id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job"
+        },
+        "pps_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        },
+        "pps_v2.ProcessStats": {
+            "properties": {
+                "download_time": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "process_time": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "upload_time": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "download_bytes": {
+                    "type": "integer"
+                },
+                "upload_bytes": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Process Stats"
+        }
+    }
+}

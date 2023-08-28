@@ -121,54 +121,59 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
 	// outside the cluster.
+	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
+		return DoOAuthExchangeOnce(t, pachClient, enterpriseClient, loginURL)
+	}, time.Second, "failed DoOAuthExchange")
+}
+
+func DoOAuthExchangeOnce(t testing.TB, pachClient, enterpriseClient *client.APIClient, loginURL string) error {
 	c := NewLoggingHTTPClient(t)
 	c.Timeout = 15 * time.Second
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		// Get the initial URL from the grpc, which should point to the dex login page
-		resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
-		if err != nil {
-			return errors.Wrap(err, "getting dex login page")
-		}
-		if got, want := resp.StatusCode, http.StatusFound; got != want {
-			return errors.Wrapf(err, "getting dex login page status code got %v want %v", got, want)
-		}
-		// Dex login redirects to the provider page, which will generate it's own state
-		resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
-		if err != nil {
-			return errors.Wrap(err, "getting dex login redirect")
-		}
-		if got, want := resp.StatusCode, http.StatusFound; got != want {
-			return errors.Wrapf(err, "getting dex login redirect status code got %v want %v", got, want)
-		}
 
-		// Because we've only configured username/password login, there's a redirect
-		// to the login page. The params have the session state. POST our hard-coded
-		// credentials to the login page.
-		vals := make(url.Values)
-		vals.Add("login", "admin")
-		vals.Add("password", "password")
+	// Get the initial URL from the grpc, which should point to the dex login page
+	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
+	if err != nil {
+		return errors.Wrap(err, "getting dex login page")
+	}
+	if got, want := resp.StatusCode, http.StatusFound; got != want {
+		return errors.Wrapf(err, "getting dex login page status code got %v want %v", got, want)
+	}
+	// Dex login redirects to the provider page, which will generate it's own state
+	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
+	if err != nil {
+		return errors.Wrap(err, "getting dex login redirect")
+	}
+	if got, want := resp.StatusCode, http.StatusFound; got != want {
+		return errors.Wrapf(err, "getting dex login redirect status code got %v want %v", got, want)
+	}
 
-		resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(enterpriseClient)), vals)
-		if err != nil {
-			return errors.Wrap(err, "posting dex login creds")
-		}
-		if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
-			return errors.Wrapf(err, "login status code got %v want %v", got, want)
-		}
+	// Because we've only configured username/password login, there's a redirect
+	// to the login page. The params have the session state. POST our hard-coded
+	// credentials to the login page.
+	vals := make(url.Values)
+	vals.Add("login", "admin")
+	vals.Add("password", "password")
 
-		// Follow the resulting redirect back to pachd to complete the flow
-		resp, err = c.Get(RewriteRedirect(t, resp, pachHost(pachClient)))
-		if err != nil {
-			return errors.Wrap(err, "getting redirect back to pachyderm")
-		}
-		if got, want := resp.StatusCode, http.StatusOK; got != want {
-			return errors.Wrapf(err, "after login redirect status code got %v want %v", got, want)
-		}
-		return nil
-	}, "failed DoOAuthExchange")
+	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(enterpriseClient)), vals)
+	if err != nil {
+		return errors.Wrap(err, "posting dex login creds")
+	}
+	if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
+		return errors.Wrapf(err, "login status code got %v want %v", got, want)
+	}
+
+	// Follow the resulting redirect back to pachd to complete the flow
+	resp, err = c.Get(RewriteRedirect(t, resp, pachHost(pachClient)))
+	if err != nil {
+		return errors.Wrap(err, "getting redirect back to pachyderm")
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		return errors.Wrapf(err, "after login redirect status code got %v want %v", got, want)
+	}
+	return nil
 }
 
 func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitTest bool) string {

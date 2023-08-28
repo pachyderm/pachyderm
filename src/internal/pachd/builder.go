@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -43,6 +42,7 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
@@ -377,8 +377,8 @@ func (b *builder) initS3Server(ctx context.Context) error {
 	return nil
 }
 
-func (b *builder) initDownloadServer(ctx context.Context) error {
-	b.daemon.download = archiveserver.NewHTTP(b.env.Config().DownloadPort, b.env.GetPachClient)
+func (b *builder) initPachHTTPServer(ctx context.Context) error {
+	b.daemon.pachhttp = http.New(b.env.Config().DownloadPort, b.env.GetPachClient)
 	return nil
 }
 
