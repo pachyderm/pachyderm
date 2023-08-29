@@ -128,6 +128,12 @@ class System(betterproto.Message):
     loki_logs: List["App"] = betterproto.message_field(6)
     binaries: List["App"] = betterproto.message_field(7)
     profiles: List["App"] = betterproto.message_field(8)
+    defaults: "SystemDefaults" = betterproto.message_field(9)
+
+
+@dataclass(eq=False, repr=False)
+class SystemDefaults(betterproto.Message):
+    cluster_defaults: bool = betterproto.bool_field(1)
 
 
 @dataclass(eq=False, repr=False)

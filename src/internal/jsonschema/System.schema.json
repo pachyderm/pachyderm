@@ -47,6 +47,10 @@
                     },
                     "additionalProperties": false,
                     "type": "array"
+                },
+                "defaults": {
+                    "$ref": "#/definitions/debug_v2.System.Defaults",
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false,
@@ -110,6 +114,16 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Pod"
+        },
+        "debug_v2.System.Defaults": {
+            "properties": {
+                "cluster_defaults": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Defaults"
         }
     }
 }

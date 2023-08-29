@@ -59,6 +59,7 @@ const (
 	pipelinePrefix  = "pipelines"
 	podPrefix       = "pods"
 	databasePrefix  = "database"
+	defaultsPrefix  = "defaults"
 )
 
 type Env struct {
@@ -130,6 +131,9 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Logs:      apps,
 				LokiLogs:  apps,
 				Profiles:  pachApps,
+				Defaults: &debug.System_Defaults{
+					ClusterDefaults: true,
+				},
 			},
 			InputRepos: true,
 			Pipelines:  ps,
@@ -307,6 +311,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 		}
 		if len(sys.Binaries) > 0 {
 			ts = append(ts, s.makeBinariesTask(server, sys.Binaries))
+		}
+		if sys.Defaults.GetClusterDefaults() {
+			rp := recordProgress(server, "defaults", 1)
+			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
+				return s.collectDefaults(ctx, dfs.WithPrefix(defaultsPrefix), server, rp)
+			})
 		}
 	}
 	return ts
@@ -1468,4 +1478,28 @@ func handleHelmSecret(ctx context.Context, dfs DumpFS, secret v1.Secret) error {
 		}
 	}
 	return errs
+}
+
+func (s *debugServer) collectDefaults(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server, rp incProgressFunc) error {
+	defer rp(ctx)
+	resp, err := s.env.GetPachClient(ctx).PpsAPIClient.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	if err != nil {
+		return errors.Wrap(err, "get defaults")
+	}
+	if resp.ClusterDefaultsJson == "" {
+		return nil
+	}
+	if err := dfs.Write("cluster-defaults.json", func(w io.Writer) error {
+		var buf bytes.Buffer
+		if err := json.Indent(&buf, []byte(resp.ClusterDefaultsJson), "", "  "); err != nil {
+			return errors.Wrapf(err, "indent JSON %s", resp.ClusterDefaultsJson)
+		}
+		if _, err := io.Copy(w, &buf); err != nil {
+			return errors.Wrap(err, "write indented JSON")
+		}
+		return err
+	}); err != nil {
+		return errors.Wrap(err, "write cluster-defaults.json")
+	}
+	return nil
 }
