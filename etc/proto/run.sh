@@ -25,21 +25,23 @@ for i in $(find src -name "*.proto"); do \
     if ! grep -q 'go_package' "${i}"; then
         echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
     fi
-    protoc \
-        -Isrc \
-        --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
-        --plugin="${GOPATH}/bin/protoc-gen-jsonschema" \
-        --zap_out=":${GOPATH}/src" \
-        --go_out=":${GOPATH}/src" \
-        --go-grpc_out=":${GOPATH}/src" \
-        --jsonschema_opt="enforce_oneof" \
-        --jsonschema_opt="file_extension=schema.json" \
-        --jsonschema_opt="disallow_additional_properties" \
-        --jsonschema_opt="enums_as_strings_only" \
-        --jsonschema_opt="disallow_bigints_as_strings" \
-        --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/src/internal/jsonschema" \
-    "${i}" >/dev/stderr
 done
+
+protoc \
+    -Isrc \
+    --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
+    --plugin="${GOPATH}/bin/protoc-gen-jsonschema" \
+    --zap_out=":${GOPATH}/src" \
+    --go_out=":${GOPATH}/src" \
+    --go-grpc_out=":${GOPATH}/src" \
+    --jsonschema_opt="enforce_oneof" \
+    --jsonschema_opt="file_extension=schema.json" \
+    --jsonschema_opt="disallow_additional_properties" \
+    --jsonschema_opt="enums_as_strings_only" \
+    --jsonschema_opt="disallow_bigints_as_strings" \
+    --jsonschema_opt="prefix_schema_files_with_package" \
+    --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/src/internal/jsonschema" \
+    $(find src -name "*.proto" | sort) >/dev/stderr
 
 pushd src > /dev/stderr
 read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
