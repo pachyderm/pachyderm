@@ -261,9 +261,9 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 	if err != nil {
 		return errors.Wrap(err, "preparing insert branch provenance statement")
 	}
-	insertTriggerStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branch_triggers(branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`)
+	insertTriggerStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branch_triggers(branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions) VALUES ($1, $2, $3, $4, $5, $6)`)
 	if err != nil {
-		return errors.Wrap(err, "preparing insert trigger statement")
+		return errors.Wrap(err, "preparing insert branch trigger statement")
 	}
 
 	branches, edges, triggers, err := ListBranchesEdgesTriggersFromCollections(ctx, tx)
