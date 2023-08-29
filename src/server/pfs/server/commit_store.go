@@ -6,11 +6,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"go.uber.org/zap"
 )
 
 var errNoTotalFileSet = errors.Errorf("no total fileset")
@@ -160,7 +162,9 @@ func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Com
 }
 
 func (cs *postgresCommitStore) DropFileSetsTx(tx *pachsql.Tx, commit *pfs.Commit) error {
+	log.Info(context.Background(), "DNJ TODO in drop file set tx", zap.Any("Commit", commit))
 	if err := dropTotal(tx, cs.tr, commit); err != nil {
+		log.Info(context.Background(), "DNJ TODO error with drop total", zap.Error(err))
 		return errors.EnsureStack(err)
 	}
 	return cs.dropDiff(tx, commit)
@@ -207,17 +211,19 @@ func getTotal(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error) {
 }
 
 func dropTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit) error {
+	log.Info(context.Background(), "DNJ TODO try to delete commit total - get total next", zap.Any("Commit", commit))
 	id, err := getTotal(tx, commit)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
+		log.Info(context.Background(), "DNJ TODO err with get total", zap.Any("Commit", commit), zap.Error(err))
+
 		return err
 	}
 	trackID := commitTotalTrackerID(commit, *id)
 	if err := tr.DeleteTx(tx, trackID); err != nil {
+		log.Info(context.Background(), "DNJ TODO err with deleteTx on drop total", zap.Any("Commit", commit), zap.Any("trackId", trackID))
 		return errors.EnsureStack(err)
 	}
+	log.Info(context.Background(), "DNJ TODO try to delete commit total", zap.Any("Commit", commit), zap.Any("trackId", trackID))
 	_, err = tx.Exec(`DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(commit))
 	return errors.EnsureStack(err)
 }
@@ -228,6 +234,7 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
+	log.Info(context.Background(), "DNJ TODO try to set commit total", zap.Any("Pipeline", pfsdb.CommitKey(commit)), zap.Stack("Stack"))
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
 	VALUES ($1, $2)
 	ON CONFLICT (commit_id) DO UPDATE
