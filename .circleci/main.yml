@@ -78,7 +78,7 @@ jobs:
       - run:
           name: get test cred
           command: |
-            aws secretsmanager get-secret-value --secret-id test --region us-west-2 --debug
+            aws secretsmanager get-secret-value --secret-id test
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
