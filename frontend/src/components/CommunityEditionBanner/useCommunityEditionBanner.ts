@@ -1,14 +1,10 @@
 import usePipelines from '@dash-frontend/hooks/usePipelines';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 export const PIPELINE_LIMIT = 16;
 export const WORKER_LIMIT = 8;
 
 const useCommunityEditionBanner = (expiration?: number) => {
-  const {projectId} = useUrlState();
-  const {pipelines} = usePipelines({
-    projectIds: projectId === '' ? [] : [projectId],
-  });
+  const {pipelines} = usePipelines({projectIds: []});
 
   const pipelineLimitReached =
     !expiration && pipelines && pipelines.length >= PIPELINE_LIMIT;
