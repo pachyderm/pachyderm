@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -20,7 +22,6 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -528,13 +529,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 					return err
 				}
 				defer r.Close()
-				pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
+				specReader := ppsutil.NewSpecReader(r)
+				spec, err := specReader.Next()
 				if err != nil {
 					return err
 				}
-				request, err := pipelineReader.NextCreatePipelineRequest()
-				if err != nil {
-					return err
+				var request pps.CreatePipelineRequest
+				if err := protojson.Unmarshal([]byte(spec), &request); err != nil {
+					return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 				}
 				if err := pps.VisitInput(request.Input, func(i *pps.Input) error {
 					if i.Pfs != nil && i.Pfs.Project == "" {
@@ -835,6 +837,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	var pipelinePath string
 	var jsonnetPath string
 	var jsonnetArgs []string
+	var dryRun bool
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
 		Long: "This command creates a new pipeline from a pipeline specification. \n \n" +
@@ -849,7 +852,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(mainCtx, pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false)
+			return pipelineHelper(mainCtx, pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false, dryRun, output, raw)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -859,6 +862,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "Specify an alternative registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "Specify the username to push images as.")
 	createPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) in which to create the pipeline.")
+	createPipeline.Flags().BoolVar(&dryRun, "dry-run", false, "If true, pipeline will not actually be created.")
+	createPipeline.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAliases(createPipeline, "create pipeline", pipelines))
 
 	var reprocess bool
@@ -875,7 +880,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(mainCtx, pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true)
+			return pipelineHelper(mainCtx, pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true, dryRun, output, raw)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -886,6 +891,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "Specify the username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess all datums that were already processed by previous version of the pipeline.")
 	updatePipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) in which to create the pipeline.")
+	updatePipeline.Flags().BoolVar(&dryRun, "dry-run", false, "If true, pipeline will not actually be updated.")
+	updatePipeline.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAliases(updatePipeline, "update pipeline", pipelines))
 
 	runCron := &cobra.Command{
@@ -968,12 +975,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 
-			createPipelineRequest := ppsutil.PipelineReqFromInfo(pipelineInfo)
 			f, err := os.CreateTemp("", args[0])
 			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			if err := cmdutil.Encoder(output, f).EncodeProto(createPipelineRequest); err != nil {
 				return errors.EnsureStack(err)
 			}
 			defer func() {
@@ -981,6 +984,16 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 					retErr = err
 				}
 			}()
+
+			var oldSpec map[string]any
+			decoder := json.NewDecoder(strings.NewReader(pipelineInfo.UserSpecJson))
+			if err := decoder.Decode(&oldSpec); err != nil {
+				return errors.Wrapf(err, "could not decode old user spec %s", pipelineInfo.UserSpecJson)
+			}
+			if err := cmdutil.Encoder(output, f).Encode(oldSpec); err != nil {
+				return errors.Wrapf(err, "could not encode old user spec %v", oldSpec)
+			}
+
 			if editor == "" {
 				editor = os.Getenv("EDITOR")
 			}
@@ -1001,39 +1014,59 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer r.Close()
-			pipelineReader, err := ppsutil.NewPipelineManifestReader(r)
+			specReader := ppsutil.NewSpecReader(r)
+			specJSON, err := specReader.Next()
 			if err != nil {
 				return err
 			}
-			request, err := pipelineReader.NextCreatePipelineRequest()
-			if err != nil {
-				return err
+			var spec map[string]any
+			decoder = json.NewDecoder(strings.NewReader(specJSON))
+			if err := decoder.Decode(&spec); err != nil {
+				return errors.Wrapf(err, "could not decode new users spec %s", specJSON)
 			}
-			if proto.Equal(createPipelineRequest, request) {
+			if reflect.DeepEqual(oldSpec, spec) {
 				fmt.Println("Pipeline unchanged, no update will be performed.")
 				return nil
 			}
-			// May not change the project name, but if it is omitted
-			// then it is considered unchanged.
-			project := request.Pipeline.GetProject()
-			projectName := project.GetName()
-			if projectName != "" && projectName != pipelineInfo.Pipeline.GetProject().GetName() {
-				return errors.New("may not change project name")
+			// May not change the project or pipeline names, but if
+			// they are omitted then they are considered unchanged.
+			// Do not need to worry, here, about other types (e.g. a
+			// pipeline “name” that is really a JSON object) because
+			// the spec is validated by SpecReader.
+			if pipeline, ok := spec["pipeline"].(map[string]any); ok {
+				var project map[string]any
+				if project, ok = pipeline["project"].(map[string]any); ok {
+					if projectName, ok := project["name"]; ok {
+						if projectName != pipelineInfo.Pipeline.GetProject().GetName() {
+							return errors.New("may not change project name")
+						}
+					}
+					// set project name in case it is empty
+					project["name"] = pipelineInfo.Pipeline.GetProject().GetName()
+				}
+				// set project in case it is empty
+				pipeline["project"] = project
+				// set pipeline name in case it is empty
+				if name, ok := pipeline["name"].(string); ok {
+					if name != pipelineInfo.Pipeline.GetName() {
+						return errors.New("may not change pipeline name")
+					}
+				}
+				spec["pipeline"] = pipeline
 			}
-			request.Pipeline.Project = pipelineInfo.Pipeline.GetProject() // in case of empty project
-			// Likewise, may not change the pipeline name, but if it
-			// is omitted then it is considered unchanged.
-			pipelineName := request.Pipeline.GetName()
-			if pipelineName != "" && pipelineName != pipelineInfo.Pipeline.GetName() {
-				return errors.New("may not change pipeline name")
+			js, err := json.Marshal(spec)
+			if err != nil {
+				return errors.Wrapf(err, "could not marshal %v to JSON", spec)
 			}
-			request.Pipeline.Name = pipelineInfo.Pipeline.GetName() // in case of empty pipeline name
-			request.Update = true
-			request.Reprocess = reprocess
+
 			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
-				_, err := txClient.PpsAPIClient.CreatePipeline(
+				_, err := txClient.PpsAPIClient.CreatePipelineV2(
 					txClient.Ctx(),
-					request,
+					&pps.CreatePipelineV2Request{
+						CreatePipelineRequestJson: string(js),
+						Update:                    true,
+						Reprocess:                 reprocess,
+					},
 				)
 				return grpcutil.ScrubGRPC(err)
 			})
@@ -1535,12 +1568,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer r.Close()
-			pr, err := ppsutil.NewPipelineManifestReader(r)
-			if err != nil {
-				return err
-			}
+			specReader := ppsutil.NewSpecReader(r)
 			for {
-				_, err := pr.NextCreatePipelineRequest()
+				_, err := specReader.Next()
 				if errors.Is(err, io.EOF) {
 					return nil
 				} else if err != nil {
@@ -1580,48 +1610,28 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults"))
 
 	var pathname string
+	var regenerate bool
 	createDefaults := &cobra.Command{
 		Use:   "{{alias}} [--cluster]",
 		Short: "Set cluster defaults.",
 		Long:  "Set cluster defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if cluster {
-				r, err := fileIndicatorToReadCloser(pathname)
+				rc, err := fileIndicatorToReadCloser(pathname)
 				if err != nil {
 					return errors.Wrapf(err, "could not open path %q for reading", pathname)
 				}
-				b, err := io.ReadAll(r)
-				if err != nil {
-					return errors.Wrapf(err, "could not read from %q", pathname)
-				}
-				b = bytes.TrimSpace(b) // remove leading & trailing whitespace
-				// validate that the provided defaults parse
-				var cd pps.ClusterDefaults
-				if err := protojson.Unmarshal(b, &cd); err != nil {
-					return errors.Wrapf(err, "invalid cluster defaults")
-				}
-				var req pps.SetClusterDefaultsRequest
-				req.ClusterDefaultsJson = string(b)
-
-				client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
-				if err != nil {
-					return err
-				}
-				defer client.Close()
-
-				if _, err := client.PpsAPIClient.SetClusterDefaults(mainCtx, &pps.SetClusterDefaultsRequest{
-					ClusterDefaultsJson: string(b),
-				}); err != nil {
-					return errors.Wrap(err, "could not set cluster defaults")
-				}
-				return nil
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
 			}
 			return errors.New("--cluster must be specified")
 		}),
 		Hidden: true,
 	}
 	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
+	createDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
+	createDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
+	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
 	deleteDefaults := &cobra.Command{
@@ -1630,24 +1640,16 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "Delete defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if cluster {
-				client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
-				if err != nil {
-					return err
-				}
-				defer client.Close()
-
-				if _, err := client.PpsAPIClient.SetClusterDefaults(mainCtx, &pps.SetClusterDefaultsRequest{
-					ClusterDefaultsJson: "{}",
-				}); err != nil {
-					return errors.Wrap(err, "could not set cluster defaults")
-				}
-				return nil
+				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
 			}
 			return errors.New("--cluster must be specified")
 		}),
 		Hidden: true,
 	}
 	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
+	deleteDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs deleted (i.e., empty) defaults.")
+	deleteDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
+	deleteDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
 	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
 
 	updateDefaults := &cobra.Command{
@@ -1656,33 +1658,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "Update defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if cluster {
-				r, err := fileIndicatorToReadCloser(pathname)
+				rc, err := fileIndicatorToReadCloser(pathname)
 				if err != nil {
 					return errors.Wrapf(err, "could not open path %q for reading", pathname)
 				}
-				b, err := io.ReadAll(r)
-				if err != nil {
-					return errors.Wrapf(err, "could not read from %q", pathname)
-				}
-				b = bytes.TrimSpace(b) // remove leading & trailing whitespace
-				// validate that the provided defaults parse
-				var cd pps.ClusterDefaults
-				if err := protojson.Unmarshal(b, &cd); err != nil {
-					return errors.Wrapf(err, "invalid cluster defaults")
-				}
-				var req pps.SetClusterDefaultsRequest
-				req.ClusterDefaultsJson = string(b)
-				client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
-				if err != nil {
-					return err
-				}
-				defer client.Close()
-				if _, err := client.PpsAPIClient.SetClusterDefaults(mainCtx, &pps.SetClusterDefaultsRequest{
-					ClusterDefaultsJson: string(b),
-				}); err != nil {
-					return errors.Wrap(err, "could not set cluster defaults")
-				}
-				return nil
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
 			}
 			return errors.New("--cluster must be specified")
 		}),
@@ -1690,9 +1670,57 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	}
 	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
 	updateDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
+	updateDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
+	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate.")
+	updateDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually update defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
 
 	return commands
+}
+
+// setClusterDefaults sets the cluster defaults to the result of reading from r.  Reprocess implies regenerate.
+func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate, reprocess, dryRun bool) error {
+	if reprocess {
+		regenerate = true
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return errors.Wrap(err, "could not read cluster defaults")
+	}
+	b = bytes.TrimSpace(b) // remove leading & trailing whitespace
+	// validate that the provided defaults parse
+	var cd pps.ClusterDefaults
+	if err := protojson.Unmarshal(b, &cd); err != nil {
+		return errors.Wrapf(err, "invalid cluster defaults")
+	}
+	var req = &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: string(b),
+		Regenerate:          regenerate,
+		Reprocess:           reprocess,
+		DryRun:              dryRun,
+	}
+
+	client, err := pachctlCfg.NewOnUserMachine(ctx, false)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	var resp *pps.SetClusterDefaultsResponse
+	if resp, err = client.PpsAPIClient.SetClusterDefaults(ctx, req); err != nil {
+		return errors.Wrap(err, "could not set cluster defaults")
+	}
+	if req.Regenerate {
+		if len(resp.AffectedPipelines) == 0 {
+			fmt.Println("no affected pipelines")
+			return nil
+		}
+		fmt.Println("affected pipelines:")
+		for _, p := range resp.AffectedPipelines {
+			fmt.Println("\t", p)
+		}
+	}
+	return nil
 }
 
 // fileIndicatorToReadCloser returns an IO reader for a file based on an indicator
@@ -1746,7 +1774,7 @@ func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, 
 	return []byte(res.Json), nil
 }
 
-func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, project, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool) error {
+func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, projectName, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool, output string, raw bool) error {
 	// validate arguments
 	if pipelinePath != "" && jsonnetPath != "" {
 		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
@@ -1760,30 +1788,24 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	}
 	defer pc.Close()
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
-	var pipelineReader *ppsutil.PipelineManifestReader
+	var specReader *ppsutil.SpecReader
 	if pipelinePath != "" {
 		r, err := fileIndicatorToReadCloser(pipelinePath)
 		if err != nil {
 			return err
 		}
 		defer r.Close()
-		pipelineReader, err = ppsutil.NewPipelineManifestReader(r)
-		if err != nil {
-			return err
-		}
+		specReader = ppsutil.NewSpecReader(r)
 
 	} else if jsonnetPath != "" {
 		pipelineBytes, err := evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
 		if err != nil {
 			return err
 		}
-		pipelineReader, err = ppsutil.NewPipelineManifestReader(bytes.NewReader(pipelineBytes))
-		if err != nil {
-			return err
-		}
+		specReader = ppsutil.NewSpecReader(bytes.NewReader(pipelineBytes))
 	}
 	for {
-		request, err := pipelineReader.NextCreatePipelineRequest()
+		specJSON, err := specReader.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -1797,30 +1819,104 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 			log.Error(ctx, "problem adding trace data", zap.Error(err))
 		}
 
-		if update {
-			request.Update = true
-			request.Reprocess = reprocess
+		var spec map[string]any
+		if err := json.Unmarshal([]byte(specJSON), &spec); err != nil {
+			return errors.Errorf("could not decode %s as JSON", specJSON)
 		}
 
 		if pushImages {
-			if request.Transform == nil {
+			if spec["transform"] == nil {
 				return errors.New("must specify a pipeline `transform`")
 			}
-			if err := dockerPushHelper(request, registry, username); err != nil {
+			if err := dockerPushHelper(spec, registry, username); err != nil {
 				return err
 			}
 		}
 
-		if request.Pipeline.Project.GetName() == "" {
-			request.Pipeline.Project = &pfs.Project{Name: project}
+		pipeline, ok := spec["pipeline"].(map[string]any)
+		if !ok {
+			return errors.New("must specify pipeline, an object")
+		}
+		project, ok := pipeline["project"]
+		if !ok {
+			pipeline["project"] = map[string]any{"name": projectName}
+			spec["pipeline"] = pipeline
+		} else if project, ok := project.(map[string]any); !ok {
+			return errors.New("project must be an object")
+		} else if project["name"] == "" {
+			project["name"] = projectName
+			pipeline["project"] = project
+			spec["pipeline"] = pipeline
+		}
+		if specUpdate, ok := spec["update"]; ok {
+			if specUpdate, ok := specUpdate.(bool); !ok {
+				return errors.New("update must be a boolean")
+			} else {
+				update = specUpdate
+			}
+		}
+		if specReprocess, ok := spec["reprocess"]; ok {
+			if specReprocess, ok := specReprocess.(bool); !ok {
+				return errors.New("reprocess must be a boolean")
+			} else {
+				reprocess = specReprocess
+			}
+		}
+		if specDryRun, ok := spec["dry_run"]; ok {
+			if specDryRun, ok := specDryRun.(bool); !ok {
+				return errors.New("dry run must be a boolean")
+			} else {
+				reprocess = specDryRun
+			}
+		}
+		if specDryRun, ok := spec["dryRun"]; ok {
+			if specDryRun, ok := specDryRun.(bool); !ok {
+				return errors.New("dry run must be a boolean")
+			} else {
+				reprocess = specDryRun
+			}
 		}
 
+		js, err := json.Marshal(spec)
+		if err != nil {
+			return errors.Wrap(err, "could not convert request to JSON")
+		}
+		v2Req := &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: string(js),
+			Update:                    update,
+			Reprocess:                 reprocess,
+			DryRun:                    dryRun,
+		}
 		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
-			_, err := txClient.PpsAPIClient.CreatePipeline(
+			resp, err := txClient.PpsAPIClient.CreatePipelineV2(
 				txClient.Ctx(),
-				request,
+				v2Req,
 			)
-			return grpcutil.ScrubGRPC(err)
+			if err != nil {
+				return errors.Wrap(err, "could not create pipeline")
+			}
+			if dryRun {
+				if raw {
+					d := json.NewDecoder(strings.NewReader(resp.EffectiveCreatePipelineRequestJson))
+					d.UseNumber()
+					var effectiveSpec any
+					if err := d.Decode(&effectiveSpec); err != nil {
+						return errors.Wrapf(err, "could not decode effective spec %q", resp.EffectiveCreatePipelineRequestJson)
+					}
+					if err := cmdutil.Encoder(output, os.Stdout).Encode(effectiveSpec); err != nil {
+						return errors.Wrap(err, "could not encode effective spec")
+					}
+					return nil
+				} else if output != "" {
+					return errors.New("cannot set --output (-o) without --raw")
+				}
+				var cpr pps.CreatePipelineRequest
+				if err := protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &cpr); err != nil {
+					return errors.Wrapf(err, "could not unmarshal effective create pipeline request %s", resp.EffectiveCreatePipelineRequestJson)
+				}
+				return pretty.PrintCreatePipelineRequest(os.Stdout, &cpr)
+			}
+			return nil
 		}); err != nil {
 			return err
 		}
@@ -1829,7 +1925,7 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	return nil
 }
 
-func dockerPushHelper(request *pps.CreatePipelineRequest, registry, username string) error {
+func dockerPushHelper(request map[string]any, registry, username string) error {
 	// create docker client
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
@@ -1876,7 +1972,17 @@ func dockerPushHelper(request *pps.CreatePipelineRequest, registry, username str
 		}
 	}
 
-	repo, sourceTag := docker.ParseRepositoryTag(request.Transform.Image)
+	transform, ok := request["transform"].(map[string]any)
+	if !ok {
+		return errors.New("pipeline transform must be an object")
+	}
+	var image string
+	if imageField, ok := transform["image"]; ok {
+		if image, ok = imageField.(string); !ok {
+			return errors.Errorf("pipeline transform must be a string if present; got %v", imageField)
+		}
+	}
+	repo, sourceTag := docker.ParseRepositoryTag(image)
 	if sourceTag == "" {
 		sourceTag = "latest"
 	}
@@ -1905,7 +2011,8 @@ func dockerPushHelper(request *pps.CreatePipelineRequest, registry, username str
 		return errors.Wrapf(err, "could not push docker image")
 	}
 
-	request.Transform.Image = destImage
+	transform["image"] = destImage
+	request["transform"] = transform
 	return nil
 }
 

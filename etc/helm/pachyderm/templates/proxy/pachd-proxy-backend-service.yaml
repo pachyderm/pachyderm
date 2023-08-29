@@ -12,6 +12,7 @@ metadata:
   name: pachd-proxy-backend
   namespace: {{ .Release.Namespace }}
 spec:
+  publishNotReadyAddresses: true
   ports:
   - name: api-grpc-port
     port: 1650

@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ObjectStorageEgress",
+    "definitions": {
+        "ObjectStorageEgress": {
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Object Storage Egress"
+        }
+    }
+}

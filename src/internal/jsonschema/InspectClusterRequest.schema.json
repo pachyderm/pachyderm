@@ -1,0 +1,66 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/InspectClusterRequest",
+    "definitions": {
+        "InspectClusterRequest": {
+            "properties": {
+                "client_version": {
+                    "$ref": "#/definitions/versionpb_v2.Version",
+                    "additionalProperties": false
+                },
+                "current_project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false,
+                    "description": "If CurrentProject is set, then InspectCluster will return an error if the project does not exist."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Inspect Cluster Request"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "versionpb_v2.Version": {
+            "properties": {
+                "major": {
+                    "type": "integer"
+                },
+                "minor": {
+                    "type": "integer"
+                },
+                "micro": {
+                    "type": "integer"
+                },
+                "additional": {
+                    "type": "string"
+                },
+                "git_commit": {
+                    "type": "string"
+                },
+                "git_tree_modified": {
+                    "type": "string"
+                },
+                "build_date": {
+                    "type": "string"
+                },
+                "go_version": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Version"
+        }
+    }
+}

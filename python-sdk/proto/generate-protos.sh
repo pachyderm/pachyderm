@@ -10,7 +10,6 @@ cd ../..
 find src -regex ".*\.proto" \
   | grep -v 'internal' \
   | grep -v 'server' \
-  | grep -v 'protoextensions' \
   | grep -v 'proxy' \
   | xargs tar cf - \
   | docker run -i pachyderm_python_proto:python-sdk \

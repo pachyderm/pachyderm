@@ -13,6 +13,7 @@ require (
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
+	github.com/chrusty/protoc-gen-jsonschema v0.0.0-20230806074516-0ca6ba213e83
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/determined-ai/determined/proto v0.0.0-20230615001349-d3aff5bab560
 	github.com/dexidp/dex v0.0.0-20210629090108-0780edbcbe43
@@ -83,7 +84,7 @@ require (
 	gocloud.dev v0.27.0
 	golang.org/x/crypto v0.11.0
 	golang.org/x/exp v0.0.0-20221019170559-20944726eadf
-	golang.org/x/mod v0.8.0
+	golang.org/x/mod v0.9.0
 	golang.org/x/net v0.13.0
 	golang.org/x/oauth2 v0.10.0
 	golang.org/x/sync v0.3.0

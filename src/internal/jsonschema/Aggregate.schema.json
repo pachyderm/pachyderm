@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Aggregate",
+    "definitions": {
+        "Aggregate": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "mean": {
+                    "type": "number"
+                },
+                "stddev": {
+                    "type": "number"
+                },
+                "fifth_percentile": {
+                    "type": "number"
+                },
+                "ninety_fifth_percentile": {
+                    "type": "number"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Aggregate"
+        }
+    }
+}

@@ -119,15 +119,16 @@ func TestSnowflakeReadWrite(t *testing.T) {
 		Template: writeTemplate,
 	})
 	require.NoError(t, err)
-	pipelineReader, err := ppsutil.NewPipelineManifestReader(strings.NewReader(fmt.Sprintf("[%s,%s]", readPipelineTempl.GetJson(), writePipelineTempl.GetJson())))
-	require.NoError(t, err)
+	specReader := ppsutil.NewSpecReader(strings.NewReader(fmt.Sprintf("[%s,%s]", readPipelineTempl.GetJson(), writePipelineTempl.GetJson())))
 	for {
-		request, err := pipelineReader.NextCreatePipelineRequest()
+		spec, err := specReader.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.CreatePipeline(ctx, request)
+		_, err = c.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: spec,
+		})
 		require.NoError(t, err)
 	}
 

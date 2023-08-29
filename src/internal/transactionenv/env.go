@@ -24,7 +24,7 @@ import (
 // depending on if there is an active transaction in the client context.
 type PfsWrites interface {
 	CreateRepo(*pfs.CreateRepoRequest) error
-	DeleteRepo(*pfs.DeleteRepoRequest) error
+	DeleteRepo(*pfs.DeleteRepoRequest) (bool, error)
 
 	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
@@ -130,9 +130,13 @@ func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.ctx, t.txnCtx, req))
 }
 
-func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
+func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) (bool, error) {
 	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.ctx, t.txnCtx, req))
+	isRepoDeleted, err := t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.ctx, t.txnCtx, req)
+	if err != nil {
+		return false, errors.EnsureStack(err)
+	}
+	return isRepoDeleted, nil
 }
 
 func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.Commit, error) {
@@ -206,9 +210,9 @@ func (t *appendTransaction) CreateRepo(req *pfs.CreateRepoRequest) error {
 	return errors.EnsureStack(err)
 }
 
-func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
+func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) (bool, error) {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteRepo: req})
-	return errors.EnsureStack(err)
+	return true, errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {

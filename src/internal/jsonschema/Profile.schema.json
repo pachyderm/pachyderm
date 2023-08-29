@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Profile",
+    "definitions": {
+        "Profile": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "duration": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "only meaningful if name == \"cpu\"",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Profile"
+        }
+    }
+}

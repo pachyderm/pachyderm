@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RotateRootTokenRequest",
+    "definitions": {
+        "RotateRootTokenRequest": {
+            "properties": {
+                "root_token": {
+                    "type": "string",
+                    "description": "root_token is used as the new root token value. If it's unset, then a token will be auto-generated."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Rotate Root Token Request"
+        }
+    }
+}

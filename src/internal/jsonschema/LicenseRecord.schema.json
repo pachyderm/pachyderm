@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/LicenseRecord",
+    "definitions": {
+        "LicenseRecord": {
+            "properties": {
+                "activation_code": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Enterprise data structures",
+            "description": "Enterprise data structures  LicenseRecord is the record we store in etcd for a Pachyderm enterprise token that has been provided to a Pachyderm license server"
+        }
+    }
+}

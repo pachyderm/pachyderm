@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -111,7 +110,7 @@ func TestSetLogLevel(t *testing.T) {
 
 			s := &debugServer{
 				name: "the-tests",
-				env: &serviceenv.TestServiceEnv{
+				env: Env{
 					KubeClient: fake.NewSimpleClientset(
 						&v1.Pod{
 							ObjectMeta: metav1.ObjectMeta{
@@ -135,7 +134,7 @@ func TestSetLogLevel(t *testing.T) {
 							},
 						},
 					),
-					Configuration: &pachconfig.Configuration{
+					Config: pachconfig.Configuration{
 						GlobalConfiguration: &pachconfig.GlobalConfiguration{
 							Port:     1650,
 							PeerPort: 1653,

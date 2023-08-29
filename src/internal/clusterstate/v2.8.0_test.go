@@ -29,8 +29,8 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply migration of interest, which will apply all migrations > 2.6.0
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, State_2_8_0))
-	require.NoError(t, migrations.BlockUntil(ctx, db, State_2_8_0))
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_8_0))
+	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_8_0))
 
 	// Verify Repos
 	// Check whether all the data is migrated to pfs.repos table

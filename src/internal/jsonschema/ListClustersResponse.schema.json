@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListClustersResponse",
+    "definitions": {
+        "ListClustersResponse": {
+            "properties": {
+                "clusters": {
+                    "items": {
+                        "$ref": "#/definitions/license_v2.ClusterStatus"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List Clusters Response"
+        },
+        "license_v2.ClusterStatus": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "auth_enabled": {
+                    "type": "boolean"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "last_heartbeat": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cluster Status"
+        }
+    }
+}
