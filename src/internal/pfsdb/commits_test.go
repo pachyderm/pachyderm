@@ -228,7 +228,7 @@ func TestListCommitsFilter(t *testing.T) {
 		commitSetIds := make([]string, 0)
 		commits := make([]*pfs.CommitInfo, 0)
 		for i := 0; i < size; i++ {
-			commitInfo := testCommit(ctx, t, branchesCol, tx, repos[i%len(repos)])
+			commitInfo := testCommit(cbCtx, t, branchesCol, tx, repos[i%len(repos)])
 			if commitInfo.Commit.Repo.Name == "b" && i%10 == 0 {
 				expectedInfos = append(expectedInfos, commitInfo)
 				commitSetIds = append(commitSetIds, commitInfo.Commit.Id)
@@ -236,13 +236,13 @@ func TestListCommitsFilter(t *testing.T) {
 			commits = append(commits, commitInfo)
 		}
 		for _, commitInfo := range commits {
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo))
+			require.NoError(t, pfsdb.CreateCommit(cbCtx, tx, commitInfo))
 		}
 		filter := pfsdb.CommitListFilter{
-			pfsdb.CommitRepos: []string{"b"},
-			//pfsdb.CommitOrigins:  []string{pfs.OriginKind_ORIGIN_KIND_UNKNOWN.String(), pfs.OriginKind_USER.String()},
-			//pfsdb.CommitBranches: []string{"master"},
-			pfsdb.CommitSetIDs: commitSetIds,
+			pfsdb.CommitRepos:    []string{"b"},
+			pfsdb.CommitOrigins:  []string{pfs.OriginKind_ORIGIN_KIND_UNKNOWN.String(), pfs.OriginKind_USER.String()},
+			pfsdb.CommitBranches: []string{"master"},
+			pfsdb.CommitSetIDs:   commitSetIds,
 		}
 		iter, err := pfsdb.ListCommit(cbCtx, tx, filter)
 		require.NoError(t, err, "should be able to list repos")
