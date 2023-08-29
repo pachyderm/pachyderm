@@ -337,8 +337,21 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
+func formatSince(t *metav1.Time) string {
+	if t == nil {
+		return "∅"
+	}
+	return time.Since(t.Time).Round(time.Second).String()
+}
+
 func formatPodStatus(s v1.PodStatus) string {
-	return fmt.Sprintf("{phase:%v message:%v reason:%v nominatedNodeName:%v hostIP:%v podIP:%v startTime:%v conditions:%v containers:{init:%v epehmeral:%v normal:%v}}", s.Phase, s.Message, s.Reason, s.NominatedNodeName, s.HostIP, s.PodIP, time.Since(s.StartTime.Time).Round(time.Second).String(), s.Conditions, formatContainerStatuses(s.InitContainerStatuses), formatContainerStatuses(s.EphemeralContainerStatuses), formatContainerStatuses(s.ContainerStatuses))
+	return fmt.Sprintf("{phase:%v message:%v reason:%v nominatedNodeName:%v hostIP:%v podIP:%v startTime:%v conditions:%v containers:{init:%v epehmeral:%v normal:%v}}", s.Phase, s.Message, s.Reason, s.NominatedNodeName, s.HostIP, s.PodIP, formatSince(s.StartTime), formatPodConditions(s.Conditions), formatContainerStatuses(s.InitContainerStatuses), formatContainerStatuses(s.EphemeralContainerStatuses), formatContainerStatuses(s.ContainerStatuses))
+}
+
+func formatPodConditions(cs []v1.PodCondition) (result []string) {
+	for _, c := range cs {
+
+	}
 }
 
 func formatContainerStatuses(ss []v1.ContainerStatus) (result []string) {
@@ -354,10 +367,10 @@ func formatContainerStatuses(ss []v1.ContainerStatus) (result []string) {
 			state = fmt.Sprintf("waiting{reason:%v message:%v}", x.Reason, x.Message)
 		case s.State.Running != nil:
 			x := s.State.Running
-			state = fmt.Sprintf("running{started:%v}", time.Since(x.StartedAt.Time).Round(time.Second).String())
+			state = fmt.Sprintf("running{started:%v}", formatSince(&x.StartedAt))
 		case s.State.Terminated != nil:
 			x := s.State.Terminated
-			state = fmt.Sprintf("terminated{reason:%v message:%v started:%v finished:%v code:%v}", x.Reason, x.Message, time.Since(x.StartedAt.Time).Round(time.Second).String(), time.Since(x.FinishedAt.Time).Round(time.Second).String(), x.ExitCode)
+			state = fmt.Sprintf("terminated{reason:%v message:%v started:%v finished:%v code:%v}", x.Reason, x.Message, formatSince(&x.StartedAt), formatSince(&x.FinishedAt), x.ExitCode)
 		}
 		result = append(result, fmt.Sprintf("{name:%v started:%v ready:%v state:%v}", s.Name, started, s.Ready, state))
 	}
