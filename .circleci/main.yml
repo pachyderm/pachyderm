@@ -75,6 +75,7 @@ jobs:
           role_arn: "arn:aws:iam::011466359146:role/CircleCIBuildBot"
           profile_name: "PACH-BUILDBOT-OIDC-PROFILE"
           role_session_name: ${CIRCLE_JOB}
+          region: us-west-2
       - run:
           name: get test cred
           command: |
