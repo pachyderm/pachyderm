@@ -348,10 +348,12 @@ func formatPodStatus(s v1.PodStatus) string {
 	return fmt.Sprintf("{phase:%v message:%v reason:%v nominatedNodeName:%v hostIP:%v podIP:%v startTime:%v conditions:%v containers:{init:%v epehmeral:%v normal:%v}}", s.Phase, s.Message, s.Reason, s.NominatedNodeName, s.HostIP, s.PodIP, formatSince(s.StartTime), formatPodConditions(s.Conditions), formatContainerStatuses(s.InitContainerStatuses), formatContainerStatuses(s.EphemeralContainerStatuses), formatContainerStatuses(s.ContainerStatuses))
 }
 
-func formatPodConditions(cs []v1.PodCondition) (result []string) {
+func formatPodConditions(cs []v1.PodCondition) string {
+	var result []string
 	for _, c := range cs {
-
+		result = append(result, fmt.Sprintf("%v=%v@%v", c.Type, c.Status, formatSince(&c.LastTransitionTime)))
 	}
+	return "{" + strings.Join(result, "") + "}"
 }
 
 func formatContainerStatuses(ss []v1.ContainerStatus) (result []string) {
