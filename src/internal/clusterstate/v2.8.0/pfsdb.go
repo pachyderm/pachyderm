@@ -141,9 +141,7 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 			triggers = append(triggers, &bt)
 			triggerIDs[bt] = uint64(len(triggers))
 		}
-		triggerID := triggerIDs[bt]
-		// update trigger id in branch
-		keyToBranch[key].TriggerID = &triggerID
+		keyToBranch[key].TriggerID = NullUint64{Uint64: triggerIDs[bt], Valid: true}
 	}
 
 	return branches, edges, triggers, nil
@@ -292,8 +290,8 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		}
 	}
 	for _, branch := range branches {
-		if branch.TriggerID != nil {
-			if _, err := tx.ExecContext(ctx, `UPDATE pfs.branches SET trigger_id = $1 WHERE id = $2`, branch.TriggerID, branch.ID); err != nil {
+		if branch.TriggerID.Valid {
+			if _, err := tx.ExecContext(ctx, `UPDATE pfs.branches SET trigger_id = $1 WHERE id = $2`, branch.TriggerID.Uint64, branch.ID); err != nil {
 				return errors.Wrap(err, "updating branch trigger")
 			}
 		}
