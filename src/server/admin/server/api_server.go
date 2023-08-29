@@ -4,16 +4,18 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/version"
-	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 // Env is the set of dependencies required by an APIServer
@@ -63,11 +65,12 @@ type apiServer struct {
 }
 
 const (
-	msgNoVersionReq    = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
-	msgClientTooOld    = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
-	msgServerTooOld    = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
-	fmtServerIsPreview = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
-	fmtClientIsPreview = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
+	msgNoVersionReq        = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
+	msgClientTooOld        = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
+	msgServerTooOld        = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
+	fmtServerIsPreview     = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
+	fmtClientIsPreview     = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
+	fmtInspectProjectError = "WARNING: Could not inspect project %q: %v"
 )
 
 func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
@@ -106,8 +109,10 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	}
 
 	if n := request.GetCurrentProject().GetName(); n != "" {
-		if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
-			return nil, errors.Wrapf(err, "could not inspect project %q", n)
+		if a.pfsServer == nil {
+			response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf("PFS server not running; cannot check existence of project %s", request.GetCurrentProject()))
+		} else if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
+			response.VersionWarnings = append(response.VersionWarnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
 		}
 	}
 	return response, nil
