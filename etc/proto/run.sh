@@ -1,5 +1,6 @@
 #!/bin/bash
-set -ex
+set -exuo pipefail
+IFS=$'\n\t'
 
 tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 
@@ -20,10 +21,12 @@ cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 mkdir -p v2/src
 mkdir -p v2/src/internal/jsonschema
 
-# shellcheck disable=SC2044
-for i in $(find src -name "*.proto"); do \
+mapfile -t PROTOS < <(find src -name "*.proto" | sort)
+
+for i in "${PROTOS[@]}"; do \
     if ! grep -q 'go_package' "${i}"; then
         echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
+        exit 1
     fi
 done
 
@@ -43,7 +46,7 @@ protoc \
     --jsonschema_opt="enums_as_strings_only" \
     --jsonschema_opt="disallow_bigints_as_strings" \
     --jsonschema_opt="prefix_schema_files_with_package" \
-    $(find src -name "*.proto" | sort) >/dev/stderr
+    "${PROTOS[@]}" > /dev/stderr
 
 pushd v2 > /dev/stderr
 pushd src > /dev/stderr
