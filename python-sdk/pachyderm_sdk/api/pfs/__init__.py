@@ -331,6 +331,17 @@ class DeleteReposRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class DeleteRepoResponse(betterproto.Message):
+    """
+    DeleteRepoResponse returns the repos that were deleted by a DeleteRepo
+    call.
+    """
+
+    deleted: bool = betterproto.bool_field(1)
+    """The repos that were deleted, perhaps none."""
+
+
+@dataclass(eq=False, repr=False)
 class DeleteReposResponse(betterproto.Message):
     repos: List["Repo"] = betterproto.message_field(1)
 
@@ -801,7 +812,7 @@ class ApiStub:
         self.__rpc_delete_repo = channel.unary_unary(
             "/pfs_v2.API/DeleteRepo",
             request_serializer=DeleteRepoRequest.SerializeToString,
-            response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+            response_deserializer=DeleteRepoResponse.FromString,
         )
         self.__rpc_delete_repos = channel.unary_unary(
             "/pfs_v2.API/DeleteRepos",
@@ -1062,7 +1073,7 @@ class ApiStub:
 
     def delete_repo(
         self, *, repo: "Repo" = None, force: bool = False
-    ) -> "betterproto_lib_google_protobuf.Empty":
+    ) -> "DeleteRepoResponse":
         request = DeleteRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1651,7 +1662,7 @@ class ApiBase:
 
     def delete_repo(
         self, repo: "Repo", force: bool, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
+    ) -> "DeleteRepoResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
