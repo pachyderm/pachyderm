@@ -702,20 +702,6 @@ func (c *APIClient) Close() error {
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
-	if jobs, err := c.ListJob("", "", []*pfs.Commit{}, 0, false); err == nil {
-		for _, job := range jobs {
-			if _, err := c.WaitCommit(
-				job.OutputCommit.Repo.Project.Name,
-				job.OutputCommit.Repo.Name,
-				job.OutputCommit.Branch.Name,
-				job.OutputCommit.Id,
-			); err != nil {
-				log.Info(c.Ctx(), "Waiting for commits to finish before delete all", zap.Error(err))
-			}
-		}
-	} else {
-		return grpcutil.ScrubGRPC(err)
-	}
 	if _, err := c.IdentityAPIClient.DeleteAll(
 		c.Ctx(),
 		&identity.DeleteAllRequest{},
