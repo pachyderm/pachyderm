@@ -245,7 +245,8 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			rate_limit_spec text,
 			size text,
 			num_commits bigint,
-			all_conditions bool
+			all_conditions bool,
+			UNIQUE (branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions)
 		);
 		ALTER TABLE pfs.branches ADD COLUMN trigger_id bigint REFERENCES pfs.branch_triggers(id);
 	`); err != nil {
