@@ -29,7 +29,7 @@ func commitsMatch(t *testing.T, a, b *pfs.CommitInfo) {
 	require.Equal(t, a.Started.Seconds, b.Started.Seconds)
 }
 
-func testCommit(ctx context.Context, t *testing.T, branchesCol collection.PostgresCollection, db *pachsql.DB, repoName string) *pfs.CommitInfo {
+func testCommit(ctx context.Context, t *testing.T, branchesCol collection.PostgresCollection, tx *pachsql.Tx, repoName string) *pfs.CommitInfo {
 	repoInfo := testRepo(repoName, testRepoType)
 	repoInfo.Branches = []*pfs.Branch{
 		{Repo: repoInfo.Repo, Name: "master"},
@@ -46,11 +46,8 @@ func testCommit(ctx context.Context, t *testing.T, branchesCol collection.Postgr
 		},
 		Started: timestamppb.New(time.Now()),
 	}
-	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		require.NoError(t, branchesCol.ReadWrite(tx).Put(repoInfo.Branches[0], branchInfo), "should be able to create branches")
-		require.NoError(t, pfsdb.UpsertRepo(cbCtx, tx, repoInfo), "should be able to create repo")
-		return nil
-	}))
+	require.NoError(t, branchesCol.ReadWrite(tx).Put(repoInfo.Branches[0], branchInfo), "should be able to create branches")
+	require.NoError(t, pfsdb.UpsertRepo(ctx, tx, repoInfo), "should be able to create repo")
 	return commitInfo
 }
 
@@ -68,24 +65,15 @@ func TestCreateCommit(t *testing.T) {
 	})
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	commitInfo := testCommit(ctx, t, branchesCol, db, testRepoName)
-	repo := commitInfo.Commit.Repo
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+		repo := commitInfo.Commit.Repo
 		require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create commit")
 		getInfo, err := pfsdb.GetCommit(ctx, tx, 1)
 		require.NoError(t, err)
 		commitsMatch(t, commitInfo, getInfo)
-		return nil
-	}))
-	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		err := pfsdb.CreateCommit(cbCtx, tx, commitInfo)
-		require.YesError(t, err, "should not be able to create commit again with same commit set ID")
-		require.True(t, errors.Is(pfsdb.ErrCommitAlreadyExists{CommitID: commitInfo.Commit.Id, Repo: pfsdb.RepoKey(repo)}, err))
-		return nil
-	}), "double create should fail and result in rollback")
-	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		commitInfo.Commit.Repo = nil
-		err := pfsdb.CreateCommit(cbCtx, tx, commitInfo)
+		err = pfsdb.CreateCommit(cbCtx, tx, commitInfo)
 		require.YesError(t, err, "should not be able to create commit when repo is nil")
 		require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Repo"}, err))
 		commitInfo.Commit.Repo = repo
@@ -101,6 +89,15 @@ func TestCreateCommit(t *testing.T) {
 		require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Commit"}, err))
 		return nil
 	}), "transaction should succeed because test is failing before calling db")
+	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+		err := pfsdb.CreateCommit(cbCtx, tx, commitInfo)
+		require.NoError(t, err, "should be able to create a commit")
+		err = pfsdb.CreateCommit(cbCtx, tx, commitInfo)
+		require.YesError(t, err, "should not be able to create commit again with same commit set ID")
+		require.True(t, errors.Is(pfsdb.ErrCommitAlreadyExists{CommitID: commitInfo.Commit.Id, Repo: pfsdb.RepoKey(commitInfo.Commit.Repo)}, err))
+		return nil
+	}), "double create should fail and result in rollback")
 }
 
 func TestGetCommit(t *testing.T) {
@@ -117,8 +114,8 @@ func TestGetCommit(t *testing.T) {
 	})
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	commitInfo := testCommit(ctx, t, branchesCol, db, testRepoName)
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		commitInfo := testCommit(cbCtx, t, branchesCol, tx, testRepoName)
 		require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create commit")
 		getInfo, err := pfsdb.GetCommit(ctx, tx, 1)
 		require.NoError(t, err, "should be able to get commit with id=1")
@@ -134,7 +131,7 @@ func TestGetCommit(t *testing.T) {
 		commitInfo.Commit = nil
 		_, err = pfsdb.GetCommitByCommitKey(cbCtx, tx, commitInfo.Commit)
 		require.YesError(t, err, "should not be able to get commit when commit is nil.")
-		require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Commit"}, err))
+		require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Commit"}, errors.Cause(err)))
 		return nil
 	}))
 }
@@ -153,14 +150,14 @@ func TestDeleteCommit(t *testing.T) {
 	})
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	commitInfo := testCommit(ctx, t, branchesCol, db, testRepoName)
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create commit")
+		commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+		require.NoError(t, pfsdb.CreateCommit(cbCtx, tx, commitInfo), "should be able to create commit")
 		err = pfsdb.DeleteCommit(cbCtx, tx, commitInfo.Commit)
 		require.NoError(t, err, "should be able to delete commit with commit_id=commit.Id")
 		_, err := pfsdb.GetCommitByCommitKey(cbCtx, tx, commitInfo.Commit)
 		require.YesError(t, err, "should not be able to get a commit")
-		require.True(t, errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, err))
+		require.True(t, errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)))
 		err = pfsdb.DeleteCommit(cbCtx, tx, commitInfo.Commit)
 		require.YesError(t, err, "should not be able to double delete commit")
 		require.True(t, errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, err))
@@ -190,9 +187,9 @@ func TestListCommits(t *testing.T) {
 		size := 210
 		expectedInfos := make([]*pfs.CommitInfo, size)
 		for i := 0; i < size; i++ {
-			commitInfo := testCommit(ctx, t, branchesCol, db, testRepoName)
+			commitInfo := testCommit(cbCtx, t, branchesCol, tx, testRepoName)
 			expectedInfos[i] = commitInfo
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo))
+			require.NoError(t, pfsdb.CreateCommit(cbCtx, tx, commitInfo))
 		}
 		iter, err := pfsdb.ListCommit(cbCtx, tx, nil)
 		require.NoError(t, err, "should be able to list repos")
@@ -229,12 +226,16 @@ func TestListCommitsFilter(t *testing.T) {
 		size := 330
 		expectedInfos := make([]*pfs.CommitInfo, 0)
 		commitSetIds := make([]string, 0)
+		commits := make([]*pfs.CommitInfo, 0)
 		for i := 0; i < size; i++ {
-			commitInfo := testCommit(ctx, t, branchesCol, db, repos[i%len(repos)])
+			commitInfo := testCommit(ctx, t, branchesCol, tx, repos[i%len(repos)])
 			if commitInfo.Commit.Repo.Name == "b" && i%10 == 0 {
 				expectedInfos = append(expectedInfos, commitInfo)
 				commitSetIds = append(commitSetIds, commitInfo.Commit.Id)
 			}
+			commits = append(commits, commitInfo)
+		}
+		for _, commitInfo := range commits {
 			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo))
 		}
 		filter := pfsdb.CommitListFilter{

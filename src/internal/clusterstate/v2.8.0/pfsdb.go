@@ -156,7 +156,7 @@ func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN IF NOT EXISTS validating_time bigint,
 		ADD COLUMN IF NOT EXISTS error text,
 		ADD COLUMN IF NOT EXISTS size bigint,
-		ADD COLUMN IF NOT EXISTS updated_at timestamptz,
+		ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
 		ADD COLUMN IF NOT EXISTS branch_id_str text;
 
 	CREATE TRIGGER set_updated_at
@@ -165,10 +165,6 @@ func alterCommitsTable1(ctx context.Context, tx *pachsql.Tx) error {
 	`
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return errors.Wrap(err, "altering commits table")
-	}
-	if _, err := tx.ExecContext(ctx, `
-	`); err != nil {
-		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
 	return nil
 }

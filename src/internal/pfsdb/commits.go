@@ -24,7 +24,7 @@ const (
 	getCommit = `
 		SELECT 
     		commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str, commit.origin, commit.description, commit.start_time, 
-    		commit.finishing_time, commit.finished_time, commit.compacting_time, commit.validating_time, commit.created_at, 
+    		commit.finishing_time, commit.finished_time, commit.compacting_time, commit.validating_time,
     		commit.error, commit.size, repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
 		FROM pfs.commits commit
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
@@ -123,11 +123,9 @@ type commitRow struct {
 	ValidatingTime int64     `db:"validating_time"`
 	Error          string    `db:"error"`
 	Size           int64     `db:"size"`
-	CreatedAt      time.Time `db:"created_at"`
 	RepoName       string    `db:"repo_name"`
 	RepoType       string    `db:"repo_type"`
 	ProjectName    string    `db:"proj_name"`
-	//UpdatedAt      time.Time `db:"updated_at"`
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
@@ -290,6 +288,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
     	 validating_time, size, error) 
 		VALUES (:commit_id, :commit_set_id, (SELECT id from pfs.repos WHERE name=:repo_name AND type=:repo_type AND project_id=(SELECT id from core.projects WHERE name=:proj_name)), 
 		       :branch_id_str, :description, :origin, :start_time, :finishing_time, :finished_time, :compacting_time, :validating_time, :size, :error);`
+
 	_, err := tx.NamedExecContext(ctx, query, insert)
 	if err != nil && IsDuplicateKeyErr(err) { // a duplicate key implies that an entry for the repo already exists.
 		return ErrCommitAlreadyExists{CommitID: commitInfo.Commit.Id, Repo: RepoKey(commitInfo.Commit.Repo)}
