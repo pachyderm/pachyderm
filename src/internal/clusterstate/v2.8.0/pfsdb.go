@@ -100,17 +100,16 @@ func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]*
 			UpdatedAt: row.UpdatedAt,
 		}
 		keyToBranch[row.Key] = &branch
-		if err := sqlx.GetContext(ctx, q, &branch.Head, `select int_id from pfs.commits where commit_id = $1`, v2_7_0.CommitKey(branchInfo.Head)); err != nil {
+		if err := sqlx.GetContext(ctx, q, &branch.Head, `select int_id from pfs.commits where commit_id = $1`, branchInfo.Head.Key()); err != nil {
 			return nil, nil, nil, errors.Wrap(err, "getting commit id")
 		}
 		for _, prov := range branchInfo.DirectProvenance {
-			keyToDirectProv[row.Key] = append(keyToDirectProv[row.Key], v2_7_0.BranchKey(prov))
+			keyToDirectProv[row.Key] = append(keyToDirectProv[row.Key], prov.Key())
 		}
 		if branchInfo.Trigger != nil {
 			// Note that we use branchInfo.Trigger instead of BranchTrigger here because we don't have the branch id yet.
 			// also branchInfo.Trigger only has the branch name, and not the repo name.
-			repo := v2_7_0.RepoKey(branchInfo.Branch.Repo)
-			branchInfo.Trigger.Branch = repo + "@" + branchInfo.Trigger.Branch
+			branchInfo.Trigger.Branch = branchInfo.Branch.Repo.Key() + "@" + branchInfo.Trigger.Branch
 			keyToTrigger[row.Key] = branchInfo.Trigger
 		}
 		branches = append(branches, &branch)
