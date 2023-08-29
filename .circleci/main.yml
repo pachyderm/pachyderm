@@ -560,6 +560,9 @@ jobs:
           file: /tmp/test-results/coverage.txt
   deploy-tests:
     parameters:
+      num_executors:
+        type: integer
+        default: 4
       resource_class:
         type: string
         default: 2xlarge
@@ -567,7 +570,7 @@ jobs:
         type: string
         default: amd64
     resource_class: << parameters.resource_class >>
-    parallelism: 4
+    parallelism: << parameters.num_executors >>
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -1685,12 +1688,14 @@ workflows:
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
-          resource_class: xlarge # amd64
+          resource_class: 2xlarge # amd64
           arch: amd64
+          num_executors: 6
       - deploy-tests:
           name: arm64 deploy tests
-          resource_class: arm.xlarge # arm64
+          resource_class: arm.2xlarge # arm64
           arch: arm64
+          num_executors: 4
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
@@ -2151,7 +2156,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=12g --wait=all
           background: true
   wait-for-minikube:
     steps:
