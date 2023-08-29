@@ -328,7 +328,15 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				_, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				res, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				if !res.Deleted {
+					return errors.New("No repo deleted.")
+				} else {
+					fmt.Fprintln(os.Stderr, "Repo deleted.")
+				}
 				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)

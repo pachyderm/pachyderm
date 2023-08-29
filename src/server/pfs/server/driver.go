@@ -381,39 +381,39 @@ func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.Trans
 	return deleted, nil
 }
 
-func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
+func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) (bool, error) {
 	if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type); err != nil {
 		if !pfsdb.IsErrRepoNotFound(err) {
-			return errors.Wrapf(err, "error checking whether %q exists", repo)
+			return false, errors.Wrapf(err, "error checking whether %q exists", repo)
 		}
-		return nil
+		return false, nil
 	}
 	if ok, err := d.canDeleteRepo(txnCtx, repo); err != nil {
-		return errors.Wrapf(err, "error checking whether repo %q can be deleted", repo.String())
+		return false, errors.Wrapf(err, "error checking whether repo %q can be deleted", repo.String())
 	} else if !ok {
-		return nil
+		return false, nil
 	}
 	related, err := d.relatedRepos(ctx, txnCtx, repo)
 	if err != nil {
-		return err
+		return false, err
 	}
 	var bis []*pfs.BranchInfo
 	for _, ri := range related {
 		bs, err := d.listRepoBranches(txnCtx, ri)
 		if err != nil {
-			return err
+			return false, err
 		}
 		bis = append(bis, bs...)
 	}
 	if err := d.deleteBranches(ctx, txnCtx, bis, force); err != nil {
-		return err
+		return false, err
 	}
 	for _, ri := range related {
 		if err := d.deleteRepoInfo(ctx, txnCtx, ri); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return true, nil
 }
 
 // delete branches from most provenance to least, that way if one

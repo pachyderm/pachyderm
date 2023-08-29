@@ -84,7 +84,7 @@ type APIClient interface {
 	// ListRepo returns info about all repos.
 	ListRepo(ctx context.Context, in *ListRepoRequest, opts ...grpc.CallOption) (API_ListRepoClient, error)
 	// DeleteRepo deletes a repo.
-	DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*DeleteRepoResponse, error)
 	// DeleteRepos deletes more than one repo at once.  It attempts to
 	// delete every repo matching the DeleteReposRequest.  When deleting
 	// all repos matching a project, any repos not deletable by the
@@ -238,8 +238,8 @@ func (x *aPIListRepoClient) Recv() (*RepoInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *aPIClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*DeleteRepoResponse, error) {
+	out := new(DeleteRepoResponse)
 	err := c.cc.Invoke(ctx, API_DeleteRepo_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1058,7 +1058,7 @@ type APIServer interface {
 	// ListRepo returns info about all repos.
 	ListRepo(*ListRepoRequest, API_ListRepoServer) error
 	// DeleteRepo deletes a repo.
-	DeleteRepo(context.Context, *DeleteRepoRequest) (*emptypb.Empty, error)
+	DeleteRepo(context.Context, *DeleteRepoRequest) (*DeleteRepoResponse, error)
 	// DeleteRepos deletes more than one repo at once.  It attempts to
 	// delete every repo matching the DeleteReposRequest.  When deleting
 	// all repos matching a project, any repos not deletable by the
@@ -1168,7 +1168,7 @@ func (UnimplementedAPIServer) InspectRepo(context.Context, *InspectRepoRequest) 
 func (UnimplementedAPIServer) ListRepo(*ListRepoRequest, API_ListRepoServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListRepo not implemented")
 }
-func (UnimplementedAPIServer) DeleteRepo(context.Context, *DeleteRepoRequest) (*emptypb.Empty, error) {
+func (UnimplementedAPIServer) DeleteRepo(context.Context, *DeleteRepoRequest) (*DeleteRepoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRepo not implemented")
 }
 func (UnimplementedAPIServer) DeleteRepos(context.Context, *DeleteReposRequest) (*DeleteReposResponse, error) {
