@@ -297,7 +297,7 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb 
 		txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
 	}
 	if env.serviceEnv.PpsServer() != nil {
-		txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
+		txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(ctx, txnCtx)
 		txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
 		txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
 	}
