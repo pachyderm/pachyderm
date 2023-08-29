@@ -1,0 +1,124 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Egress",
+    "definitions": {
+        "Egress": {
+            "properties": {
+                "URL": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "object_storage": {
+                    "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "sql_database": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                },
+                {
+                    "required": [
+                        "object_storage"
+                    ]
+                },
+                {
+                    "required": [
+                        "sql_database"
+                    ]
+                }
+            ],
+            "title": "Egress"
+        },
+        "pfs_v2.ObjectStorageEgress": {
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Object Storage Egress"
+        },
+        "pfs_v2.SQLDatabaseEgress": {
+            "properties": {
+                "url": {
+                    "type": "string"
+                },
+                "file_format": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
+                    "additionalProperties": false
+                },
+                "secret": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.Secret",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "SQL Database Egress"
+        },
+        "pfs_v2.SQLDatabaseEgress.FileFormat": {
+            "properties": {
+                "type": {
+                    "enum": [
+                        "UNKNOWN",
+                        "CSV",
+                        "JSON",
+                        "PARQUET"
+                    ],
+                    "type": "string",
+                    "title": "Type"
+                },
+                "columns": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File Format"
+        },
+        "pfs_v2.SQLDatabaseEgress.Secret": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Secret"
+        }
+    }
+}

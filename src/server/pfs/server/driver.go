@@ -381,39 +381,39 @@ func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.Trans
 	return deleted, nil
 }
 
-func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
+func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) (bool, error) {
 	if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type); err != nil {
 		if !pfsdb.IsErrRepoNotFound(err) {
-			return errors.Wrapf(err, "error checking whether %q exists", repo)
+			return false, errors.Wrapf(err, "error checking whether %q exists", repo)
 		}
-		return nil
+		return false, nil
 	}
 	if ok, err := d.canDeleteRepo(txnCtx, repo); err != nil {
-		return errors.Wrapf(err, "error checking whether repo %q can be deleted", repo.String())
+		return false, errors.Wrapf(err, "error checking whether repo %q can be deleted", repo.String())
 	} else if !ok {
-		return nil
+		return false, nil
 	}
 	related, err := d.relatedRepos(ctx, txnCtx, repo)
 	if err != nil {
-		return err
+		return false, err
 	}
 	var bis []*pfs.BranchInfo
 	for _, ri := range related {
 		bs, err := d.listRepoBranches(txnCtx, ri)
 		if err != nil {
-			return err
+			return false, err
 		}
 		bis = append(bis, bs...)
 	}
 	if err := d.deleteBranches(ctx, txnCtx, bis, force); err != nil {
-		return err
+		return false, err
 	}
 	for _, ri := range related {
 		if err := d.deleteRepoInfo(ctx, txnCtx, ri); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return true, nil
 }
 
 // delete branches from most provenance to least, that way if one
@@ -516,7 +516,7 @@ func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.
 		}
 		return false, errors.Wrapf(err, "check repo %q is authorized for deletion", userRepo.String())
 	}
-	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
+	if _, err := d.env.GetPipelineInspector().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
 		return false, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 	} else if err != nil && !errutil.IsNotFoundError(err) {
 		return false, errors.Wrapf(err, "inspect pipeline %q", pps.RepoPipeline(repo).String())
@@ -908,7 +908,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		}
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
+		if info, err := d.env.GetPipelineInspector().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")

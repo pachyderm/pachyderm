@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetDumpV2TemplateRequest",
+    "definitions": {
+        "GetDumpV2TemplateRequest": {
+            "properties": {
+                "filters": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Dump V 2 Template Request"
+        }
+    }
+}

@@ -17,8 +17,8 @@ if [[ "${max_age}" -gt "$(cat /last_run_time)" ]]; then
 fi
 
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
-
 mkdir -p v2/src
+mkdir -p v2/src/internal/jsonschema
 
 # shellcheck disable=SC2044
 for i in $(find src -name "*.proto"); do \
@@ -28,9 +28,16 @@ for i in $(find src -name "*.proto"); do \
     protoc \
         -Isrc \
         --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
+        --plugin="${GOPATH}/bin/protoc-gen-jsonschema" \
         --zap_out=":${GOPATH}/src" \
         --go_out=":${GOPATH}/src" \
         --go-grpc_out=":${GOPATH}/src" \
+        --jsonschema_opt="enforce_oneof" \
+        --jsonschema_opt="file_extension=schema.json" \
+        --jsonschema_opt="disallow_additional_properties" \
+        --jsonschema_opt="enums_as_strings_only" \
+        --jsonschema_opt="disallow_bigints_as_strings" \
+        --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/src/internal/jsonschema" \
     "${i}" >/dev/stderr
 done
 
@@ -44,12 +51,10 @@ protoc \
 
 popd > /dev/stderr
 
-# TODO (brendon): figure out how to configure protoc
 pushd v2 > /dev/stderr
-
 pushd src > /dev/stderr
 gopatch ./... -p=/proto.patch
 popd > /dev/stderr
 
 gofmt -w . > /dev/stderr
-find src -regex ".*\.go" -print0 | xargs -0 tar cf -
+find . -regextype egrep -regex ".*[.](go|schema.json)$" -print0 | xargs -0 tar cf -

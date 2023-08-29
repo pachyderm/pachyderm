@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CreateDatumSetsTaskResult",
+    "definitions": {
+        "CreateDatumSetsTaskResult": {
+            "properties": {
+                "datum_sets": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.PathRange"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Create Datum Sets Task Result"
+        },
+        "pfs_v2.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range"
+        }
+    }
+}

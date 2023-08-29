@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/EnumOptions",
+    "definitions": {
+        "EnumOptions": {
+            "properties": {
+                "enums_as_constants": {
+                    "type": "boolean",
+                    "description": "Enums tagged with this will have be encoded to use constants instead of simple types (supports value annotations):"
+                },
+                "enums_as_strings_only": {
+                    "type": "boolean",
+                    "description": "Enums tagged with this will only provide string values as options (not their numerical equivalents):"
+                },
+                "enums_trim_prefix": {
+                    "type": "boolean",
+                    "description": "Enums tagged with this will have enum name prefix removed from values:"
+                },
+                "ignore": {
+                    "type": "boolean",
+                    "description": "Enums tagged with this will not be processed"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Enum Options",
+            "description": "Custom EnumOptions"
+        }
+    }
+}

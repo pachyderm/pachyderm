@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteIDPConnectorResponse",
+    "definitions": {
+        "DeleteIDPConnectorResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete IDP Connector Response"
+        }
+    }
+}

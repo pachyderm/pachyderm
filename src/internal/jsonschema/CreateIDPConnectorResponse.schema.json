@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CreateIDPConnectorResponse",
+    "definitions": {
+        "CreateIDPConnectorResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Create IDP Connector Response"
+        }
+    }
+}

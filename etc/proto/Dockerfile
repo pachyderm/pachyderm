@@ -24,6 +24,9 @@ RUN date +%s >/last_run_time
 # Install gopatch.
 RUN go install github.com/uber-go/gopatch@${GOPATCH_VERSION}
 
+# Install protoc-gen-jsonschema
+RUN go install github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema@1.4.1
+
 # Build the bespoke Pachyderm codegen plugin
 COPY pachgen ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen

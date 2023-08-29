@@ -1,0 +1,39 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteReposRequest",
+    "definitions": {
+        "DeleteReposRequest": {
+            "properties": {
+                "projects": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Project"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "All repos in each project will be deleted if the caller has permission."
+                },
+                "force": {
+                    "type": "boolean"
+                },
+                "all": {
+                    "type": "boolean",
+                    "description": "If all is set, then all repos in all projects will be deleted if the caller has permission."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Repos Request",
+            "description": "DeleteReposRequest is used to delete more than one repo at once."
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

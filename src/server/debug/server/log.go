@@ -109,15 +109,15 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 	// Recurse to other pachyderm processes.
 	pods := map[string]string{}
 	apps := map[string]string{
-		"pach-enterprise": strconv.Itoa(int(s.env.Config().Port)),
-		"pachw":           strconv.Itoa(int(s.env.Config().PeerPort)),
-		"pachd":           strconv.Itoa(int(s.env.Config().Port)),
+		"pach-enterprise": strconv.Itoa(int(s.env.Config.Port)),
+		"pachw":           strconv.Itoa(int(s.env.Config.PeerPort)),
+		"pachd":           strconv.Itoa(int(s.env.Config.Port)),
 		"pipeline":        os.Getenv(client.PPSWorkerPortEnv),
 	}
 	var enumerateErrs error
 	for app, port := range apps {
 		tctx, c := context.WithTimeout(ctx, 30*time.Second)
-		podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
+		podList, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).List(
 			tctx,
 			metav1.ListOptions{
 				TypeMeta: metav1.TypeMeta{

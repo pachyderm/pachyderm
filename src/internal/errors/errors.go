@@ -7,6 +7,8 @@ import (
 )
 
 var (
+	// Cause wraps errors.Cause
+	Cause = errors.Cause
 	// New returns an error with the supplied message.
 	// New also records the stack trace at the point it was called.
 	New = errors.New
