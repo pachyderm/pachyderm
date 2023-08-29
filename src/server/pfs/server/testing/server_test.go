@@ -7615,3 +7615,23 @@ func getRand() *rand.Rand {
 func randomReader(n int) io.Reader {
 	return io.LimitReader(getRand(), int64(n))
 }
+
+func TestDeleteRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	env := realenv.NewRealEnv(context.Background(), t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
+	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	res, err := c.PfsAPIClient.DeleteRepo(
+		c.Ctx(),
+		&pfs.DeleteRepoRequest{
+			Repo: client.NewRepo(pfs.DefaultProjectName, dataRepo),
+		})
+	require.NoError(t, err, "repo should be deleted")
+	require.Equal(t, true, res.Deleted)
+}

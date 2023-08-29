@@ -2,10 +2,12 @@ package datum
 
 import (
 	"archive/tar"
+	"context"
 	"io"
 	"path"
 	"strings"
 
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -83,12 +85,16 @@ func NewCommitIterator(pachClient *client.APIClient, commit *pfs.Commit, pathRan
 }
 
 func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
-	return iterateMeta(ci.pachClient, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
+	return iterateMeta(ci.pachClient.Ctx(), ci.pachClient.PfsAPIClient, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
 		return cb(meta)
 	})
 }
 
-func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
+type fileTarGetter interface {
+	GetFileTAR(ctx context.Context, in *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error)
+}
+
+func iterateMeta(ctx context.Context, tarGetter fileTarGetter, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
 	// TODO: This code ensures that we only read metadata for the meta files.
 	// There may be a better way to do this.
 	if pathRange == nil {
@@ -104,9 +110,9 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 		File:      commit.NewFile(path.Join("/", common.MetaFilePath("*"))),
 		PathRange: pathRange,
 	}
-	ctx, cancel := pctx.WithCancel(pachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	client, err := pachClient.PfsAPIClient.GetFileTAR(ctx, req)
+	client, err := tarGetter.GetFileTAR(ctx, req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -121,6 +127,10 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			return errors.Wrap(err, "next")
 		}
 		meta := &Meta{}
+		// This intentionally reads only the first Meta message stored in the meta file.
+		//
+		// TODO: should this return the first, or the last?  No-one on
+		// the team is currently certain.
 		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
 		if err := decoder.UnmarshalNext(meta); err != nil {
 			return errors.Wrapf(err, "could not unmarshal protojson meta in %s %v", req.File, req.PathRange)

@@ -129,7 +129,17 @@
     routes: [
       {
         match: {
-          prefix: '/archive',
+          prefix: '/archive/',
+        },
+        route: {
+          cluster: 'pachd-http',
+          idle_timeout: '600s',
+          timeout: '604800s',
+        },
+      },
+      {
+        match: {
+          prefix: '/jsonschema/',
         },
         route: {
           cluster: 'pachd-http',

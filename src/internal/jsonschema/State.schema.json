@@ -4,12 +4,12 @@
     "definitions": {
         "State": {
             "properties": {
-                "branch": {
-                    "$ref": "#/definitions/pfs_v2.Branch",
-                    "additionalProperties": false
-                },
-                "pfs_state_id": {
-                    "type": "string"
+                "commits": {
+                    "items": {
+                        "$ref": "#/definitions/pfsload.State.Commit"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
                 }
             },
             "additionalProperties": false,
@@ -29,6 +29,26 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Branch"
+        },
+        "pfs_v2.Commit": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.Repo",
+                    "additionalProperties": false
+                },
+                "id": {
+                    "type": "string"
+                },
+                "branch": {
+                    "$ref": "#/definitions/pfs_v2.Branch",
+                    "additionalProperties": false,
+                    "description": "only used by the client"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit",
+            "description": "Commit is a reference to a commit (e.g. the collection of branches and the collection of currently-open commits in etcd are collections of Commit protos)"
         },
         "pfs_v2.Project": {
             "properties": {
@@ -57,6 +77,22 @@
             "type": "object",
             "title": "//  PFS Data structures (stored in etcd)",
             "description": "//  PFS Data structures (stored in etcd)"
+        },
+        "pfsload.State.Commit": {
+            "properties": {
+                "commit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
+                "hash": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit"
         }
     }
 }

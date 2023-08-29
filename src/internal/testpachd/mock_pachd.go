@@ -959,7 +959,7 @@ type activateAuthPFSFunc func(context.Context, *pfs.ActivateAuthRequest) (*pfs.A
 type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*emptypb.Empty, error)
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 type listRepoFunc func(*pfs.ListRepoRequest, pfs.API_ListRepoServer) error
-type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*emptypb.Empty, error)
+type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*pfs.DeleteRepoResponse, error)
 type deleteReposFunc func(context.Context, *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*emptypb.Empty, error)
@@ -1187,11 +1187,13 @@ func (api *pfsServerAPI) ListRepo(req *pfs.ListRepoRequest, srv pfs.API_ListRepo
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListRepo")
 }
-func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest) (*emptypb.Empty, error) {
+func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest) (*pfs.DeleteRepoResponse, error) {
 	if api.mock.DeleteRepo.handler != nil {
 		return api.mock.DeleteRepo.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
+	response := &pfs.DeleteRepoResponse{}
+	response.Deleted = false
+	return response, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
 }
 func (api *pfsServerAPI) DeleteRepos(ctx context.Context, req *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error) {
 	if api.mock.DeleteRepos.handler != nil {
