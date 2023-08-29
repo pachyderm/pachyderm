@@ -20,7 +20,7 @@ type Branch struct {
 	Name      string    `db:"name"`
 	Head      uint64    `db:"head"`
 	RepoID    uint64    `db:"repo_id"`
-	Trigger   *uint64   `db:"trigger_id"`
+	TriggerID *uint64   `db:"trigger_id"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }

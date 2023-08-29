@@ -65,7 +65,7 @@ func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo
 	return repos, nil
 }
 
-func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]*Branch, []*Edge, []*BranchTrigger, error) {
+func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.QueryerContext) ([]*Branch, []*Edge, []*BranchTrigger, error) {
 	type branchColRow struct {
 		v2_7_0.CollectionRecord
 		RepoID uint64 `db:"repo_id"`
@@ -143,7 +143,7 @@ func ListBranchesFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]*
 		}
 		triggerID := triggerIDs[bt]
 		// update trigger id in branch
-		keyToBranch[key].Trigger = &triggerID
+		keyToBranch[key].TriggerID = &triggerID
 	}
 
 	return branches, edges, triggers, nil
@@ -267,7 +267,7 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		return errors.Wrap(err, "preparing insert trigger statement")
 	}
 
-	branches, edges, triggers, err := ListBranchesFromCollection(ctx, tx)
+	branches, edges, triggers, err := ListBranchesEdgesTriggersFromCollections(ctx, tx)
 	if err != nil {
 		return errors.Wrap(err, "listing branches from collections.branches")
 	}
@@ -292,8 +292,8 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		}
 	}
 	for _, branch := range branches {
-		if branch.Trigger != nil {
-			if _, err := tx.ExecContext(ctx, `UPDATE pfs.branches SET trigger_id = $1 WHERE id = $2`, branch.Trigger, branch.ID); err != nil {
+		if branch.TriggerID != nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE pfs.branches SET trigger_id = $1 WHERE id = $2`, branch.TriggerID, branch.ID); err != nil {
 				return errors.Wrap(err, "updating branch trigger")
 			}
 		}
@@ -325,6 +325,7 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 	`); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.branches")
 	}
+	// Add this at the end to avoid accidentally updating updated_at field.
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TRIGGER set_updated_at
 			BEFORE UPDATE ON pfs.branches

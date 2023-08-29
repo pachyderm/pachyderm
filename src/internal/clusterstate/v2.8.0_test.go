@@ -34,7 +34,7 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	// but the value is from the collections tables not the new relational tables.
 	expectedRepos, err := v2_8_0.ListReposFromCollection(ctx, db)
 	require.NoError(t, err)
-	expectedBranches, expectedEdges, _, err := v2_8_0.ListBranchesFromCollection(ctx, db)
+	expectedBranches, expectedEdges, expectedTriggers, err := v2_8_0.ListBranchesEdgesTriggersFromCollections(ctx, db)
 	require.NoError(t, err)
 
 	// Verify Repos
@@ -74,4 +74,9 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	if diff := cmp.Diff(expectedEdges, gotEdges); diff != "" {
 		t.Errorf("edges differ: (-want +got)\n%s", diff)
 	}
+
+	// Verify triggers
+	var gotTriggers []*v2_8_0.BranchTrigger
+	require.NoError(t, db.SelectContext(ctx, &gotTriggers, `SELECT branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions FROM pfs.branch_triggers ORDER BY branch_id`))
+	require.Equal(t, len(expectedTriggers), len(gotTriggers))
 }
