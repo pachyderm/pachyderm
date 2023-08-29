@@ -30,6 +30,9 @@ RUN go install github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-gen-jsonschem
 # Install protoc-gen-validate.
 RUN go install github.com/envoyproxy/protoc-gen-validate@v1.0.2
 
+# Install protoc-gen-doc.
+RUN go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
+
 # Build the bespoke Pachyderm codegen plugin.
 COPY pachgen ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
