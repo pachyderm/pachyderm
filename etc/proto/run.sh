@@ -30,28 +30,20 @@ done
 protoc \
     -Isrc \
     --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
+    --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
     --plugin="${GOPATH}/bin/protoc-gen-jsonschema" \
     --zap_out=":${GOPATH}/src" \
+    --pach_out="v2/src" \
     --go_out=":${GOPATH}/src" \
     --go-grpc_out=":${GOPATH}/src" \
+    --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/src/internal/jsonschema" \
     --jsonschema_opt="enforce_oneof" \
     --jsonschema_opt="file_extension=schema.json" \
     --jsonschema_opt="disallow_additional_properties" \
     --jsonschema_opt="enums_as_strings_only" \
     --jsonschema_opt="disallow_bigints_as_strings" \
     --jsonschema_opt="prefix_schema_files_with_package" \
-    --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/src/internal/jsonschema" \
     $(find src -name "*.proto" | sort) >/dev/stderr
-
-pushd src > /dev/stderr
-read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
-protoc \
-    --proto_path . \
-    --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
-    --pach_out="../v2/src" \
-    "${proto_files[@]}" > /dev/stderr
-
-popd > /dev/stderr
 
 pushd v2 > /dev/stderr
 pushd src > /dev/stderr
