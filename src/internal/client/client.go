@@ -600,11 +600,11 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 			// This is an older version check designed to detect 1.x vs. 2.x mismatch.
 			pachdVersion, versErr := client.Version()
 			if err != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
+				return nil, errors.Join(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version"))
 			}
 			pachdMajVersion, convErr := strconv.Atoi(strings.Split(pachdVersion, ".")[0])
 			if convErr != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version").Error())
+				return nil, errors.Join(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version"))
 			}
 			if pachdMajVersion != int(version.Version.Major) {
 				return nil, errors.Errorf("this client is for pachyderm %d.x, but the server has a version %d.x - please install the correct client for your server", version.Version.Major, pachdMajVersion)
@@ -934,9 +934,16 @@ func (c *APIClient) ClientContextName() string {
 	return c.clientContextName
 }
 
+// ClusterInfo returns information about the cluster that is retrieved at connection time, saving a
+// redundant call to InspectCluster.
 func (c *APIClient) ClusterInfo() (info *admin.ClusterInfo, ok bool) {
 	if c == nil || c.inspectClusterResult == nil {
 		return nil, false
 	}
 	return c.inspectClusterResult, true
+}
+
+// ClientConn returns the current grpc client connection.
+func (c *APIClient) ClientConn() *grpc.ClientConn {
+	return c.clientConn
 }

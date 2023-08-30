@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -41,6 +42,9 @@ func Proto(name string, msg proto.Message) Field {
 			return zap.Any(name, x)
 		}
 		return Proto(name, msg)
+	}
+	if js, err := protojson.Marshal(msg); err == nil {
+		return zap.ByteString(name, js)
 	}
 	return zap.Any(name, msg)
 }
