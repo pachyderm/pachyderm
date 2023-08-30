@@ -23,13 +23,15 @@ type Env struct {
 	ClusterID string
 	Config    *pachconfig.Configuration
 	PFSServer pfs.APIServer
+	Paused    bool
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, paused bool) Env {
 	return Env{
 		ClusterID: senv.ClusterID(),
 		Config:    senv.Config(),
 		PFSServer: senv.PfsServer(),
+		Paused:    paused,
 	}
 }
 
@@ -53,6 +55,7 @@ func NewAPIServer(env Env) APIServer {
 			WarningsOk:   true,
 			ProxyHost:    host,
 			ProxyTls:     tls,
+			Paused:       env.Paused,
 		},
 		pfsServer: env.PFSServer,
 	}

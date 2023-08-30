@@ -29,9 +29,19 @@ class ClusterInfo(betterproto.Message):
     id: str = betterproto.string_field(1)
     deployment_id: str = betterproto.string_field(2)
     warnings_ok: bool = betterproto.bool_field(3)
+    """True if the server is capable of generating warnings."""
+
     warnings: List[str] = betterproto.string_field(4)
+    """Warnings about the client configuration."""
+
     proxy_host: str = betterproto.string_field(5)
+    """The configured public URL of Pachyderm."""
+
     proxy_tls: bool = betterproto.bool_field(6)
+    """True if Pachyderm is served over TLS (HTTPS)."""
+
+    paused: bool = betterproto.bool_field(7)
+    """True if this pachd is in "paused" mode."""
 
 
 @dataclass(eq=False, repr=False)
