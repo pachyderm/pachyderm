@@ -21,6 +21,11 @@ import (
 // A separate type is defined for safety so row ids must be explicitly cast for use in another table.
 type ProjectID uint64
 
+type Project struct {
+	ID   ProjectID `db:"id"`
+	Name string    `db:"name"`
+}
+
 // ErrProjectNotFound is returned by GetProject() when a project is not found in postgres.
 type ErrProjectNotFound struct {
 	Name string

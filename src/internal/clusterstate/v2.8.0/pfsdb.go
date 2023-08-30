@@ -222,8 +222,8 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			name text NOT NULL,
 			head bigint REFERENCES pfs.commits(int_id) NOT NULL,
 			repo_id bigint REFERENCES pfs.repos(id) NOT NULL,
-			created_at timestamptz,
-			updated_at timestamptz,
+			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			UNIQUE (repo_id, name)
 		);
 	`); err != nil {
