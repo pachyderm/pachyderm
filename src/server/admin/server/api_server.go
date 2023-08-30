@@ -8,14 +8,14 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/version"
-	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/weblinker"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
 // Env is the set of dependencies required by an APIServer
@@ -23,13 +23,15 @@ type Env struct {
 	ClusterID string
 	Config    *pachconfig.Configuration
 	PFSServer pfs.APIServer
+	Paused    bool
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, paused bool) Env {
 	return Env{
 		ClusterID: senv.ClusterID(),
 		Config:    senv.Config(),
 		PFSServer: senv.PfsServer(),
+		Paused:    paused,
 	}
 }
 
@@ -46,6 +48,11 @@ func NewAPIServer(env Env) APIServer {
 		host = pachd.ProxyHost
 		tls = pachd.ProxyTLS
 	}
+	l := &weblinker.Linker{
+		HTTPS:    tls,
+		HostPort: host,
+		Version:  version.Version,
+	}
 	return &apiServer{
 		clusterInfo: &admin.ClusterInfo{
 			Id:           env.ClusterID,
@@ -53,6 +60,11 @@ func NewAPIServer(env Env) APIServer {
 			WarningsOk:   true,
 			ProxyHost:    host,
 			ProxyTls:     tls,
+			Paused:       env.Paused,
+			WebResources: &admin.WebResource{
+				ArchiveDownloadBaseUrl:             l.ArchiveDownloadBaseURL(),
+				CreatePipelineRequestJsonSchemaUrl: l.CreatePipelineRequestJSONSchemaURL(),
+			},
 		},
 		pfsServer: env.PFSServer,
 	}

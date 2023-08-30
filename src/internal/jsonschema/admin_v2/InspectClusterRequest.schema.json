@@ -6,7 +6,8 @@
             "properties": {
                 "client_version": {
                     "$ref": "#/definitions/versionpb_v2.Version",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "The version of the client that's connecting; used by the server to warn about too-old (or too-new!) clients."
                 },
                 "current_project": {
                     "$ref": "#/definitions/pfs_v2.Project",
