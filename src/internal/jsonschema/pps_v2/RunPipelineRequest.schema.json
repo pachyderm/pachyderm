@@ -17,6 +17,9 @@
                 },
                 "job_id": {
                     "type": "string"
+                },
+                "jobId": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

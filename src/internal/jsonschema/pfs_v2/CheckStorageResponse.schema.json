@@ -6,6 +6,9 @@
             "properties": {
                 "chunk_object_count": {
                     "type": "integer"
+                },
+                "chunkObjectCount": {
+                    "type": "integer"
                 }
             },
             "additionalProperties": false,

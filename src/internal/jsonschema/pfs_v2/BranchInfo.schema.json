@@ -33,6 +33,13 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
+                "directProvenance": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Branch"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
                 "trigger": {
                     "$ref": "#/definitions/pfs_v2.Trigger",
                     "additionalProperties": false
@@ -118,6 +125,10 @@
                     "type": "string",
                     "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
                 },
+                "rateLimitSpec": {
+                    "type": "string",
+                    "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
+                },
                 "size": {
                     "type": "string",
                     "description": "Triggers if there's been `size` new data added since the last trigger."
@@ -127,6 +138,10 @@
                     "description": "Triggers if there's been `commits` new commits added since the last trigger."
                 },
                 "cron_spec": {
+                    "type": "string",
+                    "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
+                },
+                "cronSpec": {
                     "type": "string",
                     "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
                 }

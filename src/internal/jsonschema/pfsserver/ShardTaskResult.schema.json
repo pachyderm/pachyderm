@@ -10,6 +10,13 @@
                     },
                     "additionalProperties": false,
                     "type": "array"
+                },
+                "compactTasks": {
+                    "items": {
+                        "$ref": "#/definitions/pfsserver.CompactTask"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
                 }
             },
             "additionalProperties": false,
@@ -25,6 +32,10 @@
                     "type": "array"
                 },
                 "path_range": {
+                    "$ref": "#/definitions/pfsserver.PathRange",
+                    "additionalProperties": false
+                },
+                "pathRange": {
                     "$ref": "#/definitions/pfsserver.PathRange",
                     "additionalProperties": false
                 }

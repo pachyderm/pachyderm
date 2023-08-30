@@ -46,6 +46,7 @@ protoc \
     --jsonschema_opt="enums_as_strings_only" \
     --jsonschema_opt="disallow_bigints_as_strings" \
     --jsonschema_opt="prefix_schema_files_with_package" \
+    --jsonschema_opt="proto_and_json_fieldnames" \
     "${PROTOS[@]}" > /dev/stderr
 
 pushd v2 > /dev/stderr

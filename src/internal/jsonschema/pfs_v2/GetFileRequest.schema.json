@@ -18,6 +18,11 @@
                     "$ref": "#/definitions/pfs_v2.PathRange",
                     "additionalProperties": false,
                     "description": "TODO:  int64 size_bytes = 3;"
+                },
+                "pathRange": {
+                    "$ref": "#/definitions/pfs_v2.PathRange",
+                    "additionalProperties": false,
+                    "description": "TODO:  int64 size_bytes = 3;"
                 }
             },
             "additionalProperties": false,

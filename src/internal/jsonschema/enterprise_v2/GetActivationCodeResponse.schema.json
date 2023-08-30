@@ -20,6 +20,9 @@
                 },
                 "activation_code": {
                     "type": "string"
+                },
+                "activationCode": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

@@ -7,7 +7,13 @@
                 "file_set_id": {
                     "type": "string"
                 },
+                "fileSetId": {
+                    "type": "string"
+                },
                 "ttl_seconds": {
+                    "type": "integer"
+                },
+                "ttlSeconds": {
                     "type": "integer"
                 }
             },

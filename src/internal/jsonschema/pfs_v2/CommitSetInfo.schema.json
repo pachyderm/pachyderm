@@ -8,6 +8,10 @@
                     "$ref": "#/definitions/pfs_v2.CommitSet",
                     "additionalProperties": false
                 },
+                "commitSet": {
+                    "$ref": "#/definitions/pfs_v2.CommitSet",
+                    "additionalProperties": false
+                },
                 "commits": {
                     "items": {
                         "$ref": "#/definitions/pfs_v2.CommitInfo"
@@ -72,7 +76,18 @@
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
+                "parentCommit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
                 "child_commits": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Commit"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "childCommits": {
                     "items": {
                         "$ref": "#/definitions/pfs_v2.Commit"
                     },
@@ -98,10 +113,20 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
+                "directProvenance": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Commit"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
                 "error": {
                     "type": "string"
                 },
                 "size_bytes_upper_bound": {
+                    "type": "integer"
+                },
+                "sizeBytesUpperBound": {
                     "type": "integer"
                 },
                 "details": {
@@ -119,12 +144,25 @@
                 "size_bytes": {
                     "type": "integer"
                 },
+                "sizeBytes": {
+                    "type": "integer"
+                },
                 "compacting_time": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
                 },
+                "compactingTime": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
                 "validating_time": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "validatingTime": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"

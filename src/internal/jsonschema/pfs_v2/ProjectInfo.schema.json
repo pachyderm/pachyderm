@@ -15,7 +15,15 @@
                     "$ref": "#/definitions/pfs_v2.AuthInfo",
                     "additionalProperties": false
                 },
+                "authInfo": {
+                    "$ref": "#/definitions/pfs_v2.AuthInfo",
+                    "additionalProperties": false
+                },
                 "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "createdAt": {
                     "type": "string",
                     "format": "date-time"
                 }

@@ -8,16 +8,32 @@
                     "type": "string",
                     "description": "The job and pipeline for which a PFS file is being processed (if the job is an orphan job, pipeline name and ID will be unset)"
                 },
+                "projectName": {
+                    "type": "string",
+                    "description": "The job and pipeline for which a PFS file is being processed (if the job is an orphan job, pipeline name and ID will be unset)"
+                },
                 "pipeline_name": {
+                    "type": "string"
+                },
+                "pipelineName": {
                     "type": "string"
                 },
                 "job_id": {
                     "type": "string"
                 },
+                "jobId": {
+                    "type": "string"
+                },
                 "worker_id": {
                     "type": "string"
                 },
+                "workerId": {
+                    "type": "string"
+                },
                 "datum_id": {
+                    "type": "string"
+                },
+                "datumId": {
                     "type": "string"
                 },
                 "master": {

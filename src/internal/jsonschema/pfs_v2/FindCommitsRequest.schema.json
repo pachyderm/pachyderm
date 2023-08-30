@@ -11,6 +11,9 @@
                 "file_path": {
                     "type": "string"
                 },
+                "filePath": {
+                    "type": "string"
+                },
                 "limit": {
                     "type": "integer",
                     "description": "a limit of 0 means there is no upper bound on the limit."

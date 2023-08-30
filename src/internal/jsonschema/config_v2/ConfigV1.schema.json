@@ -8,7 +8,15 @@
                     "type": "string",
                     "description": "A host:port pointing pachd at a pachyderm cluster."
                 },
+                "pachdAddress": {
+                    "type": "string",
+                    "description": "A host:port pointing pachd at a pachyderm cluster."
+                },
                 "server_cas": {
+                    "type": "string",
+                    "description": "Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM"
+                },
+                "serverCas": {
                     "type": "string",
                     "description": "Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM"
                 },
@@ -16,7 +24,15 @@
                     "type": "string",
                     "description": "A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized."
                 },
+                "sessionToken": {
+                    "type": "string",
+                    "description": "A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized."
+                },
                 "active_transaction": {
+                    "type": "string",
+                    "description": "The currently active transaction for batching together pachctl commands. This can be set or cleared via many of the `pachctl * transaction` commands. This is the ID of the transaction object stored in the pachyderm etcd."
+                },
+                "activeTransaction": {
                     "type": "string",
                     "description": "The currently active transaction for batching together pachctl commands. This can be set or cleared via many of the `pachctl * transaction` commands. This is the ID of the transaction object stored in the pachyderm etcd."
                 }

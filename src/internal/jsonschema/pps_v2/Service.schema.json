@@ -7,7 +7,13 @@
                 "internal_port": {
                     "type": "integer"
                 },
+                "internalPort": {
+                    "type": "integer"
+                },
                 "external_port": {
+                    "type": "integer"
+                },
+                "externalPort": {
                     "type": "integer"
                 },
                 "ip": {

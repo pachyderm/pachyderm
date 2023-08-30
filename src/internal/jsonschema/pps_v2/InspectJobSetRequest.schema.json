@@ -8,6 +8,10 @@
                     "$ref": "#/definitions/pps_v2.JobSet",
                     "additionalProperties": false
                 },
+                "jobSet": {
+                    "$ref": "#/definitions/pps_v2.JobSet",
+                    "additionalProperties": false
+                },
                 "wait": {
                     "type": "boolean",
                     "description": "When true, wait until all jobs in the set are finished"

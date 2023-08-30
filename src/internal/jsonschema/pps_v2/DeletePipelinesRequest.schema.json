@@ -18,6 +18,9 @@
                 "keep_repo": {
                     "type": "boolean"
                 },
+                "keepRepo": {
+                    "type": "boolean"
+                },
                 "all": {
                     "type": "boolean",
                     "description": "If set, all pipelines in all projects will be deleted if the caller has permission."

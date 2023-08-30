@@ -33,16 +33,31 @@
                 "data_processed": {
                     "type": "integer"
                 },
+                "dataProcessed": {
+                    "type": "integer"
+                },
                 "data_skipped": {
+                    "type": "integer"
+                },
+                "dataSkipped": {
                     "type": "integer"
                 },
                 "data_failed": {
                     "type": "integer"
                 },
+                "dataFailed": {
+                    "type": "integer"
+                },
                 "data_recovered": {
                     "type": "integer"
                 },
+                "dataRecovered": {
+                    "type": "integer"
+                },
                 "data_total": {
+                    "type": "integer"
+                },
+                "dataTotal": {
                     "type": "integer"
                 },
                 "stats": {
@@ -99,7 +114,17 @@
                     "type": "string",
                     "format": "regex"
                 },
+                "downloadTime": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
                 "process_time": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "processTime": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
@@ -109,10 +134,21 @@
                     "type": "string",
                     "format": "regex"
                 },
+                "uploadTime": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
                 "download_bytes": {
                     "type": "integer"
                 },
+                "downloadBytes": {
+                    "type": "integer"
+                },
                 "upload_bytes": {
+                    "type": "integer"
+                },
+                "uploadBytes": {
                     "type": "integer"
                 }
             },

@@ -45,6 +45,9 @@
                 },
                 "increment_path": {
                     "type": "boolean"
+                },
+                "incrementPath": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false,
@@ -56,7 +59,13 @@
                 "min_size": {
                     "type": "integer"
                 },
+                "min": {
+                    "type": "integer"
+                },
                 "max_size": {
+                    "type": "integer"
+                },
+                "max": {
                     "type": "integer"
                 },
                 "prob": {

@@ -26,6 +26,11 @@
                     "additionalProperties": false,
                     "description": "If non-nil, will return all the pipeline infos at this commit set"
                 },
+                "commitSet": {
+                    "$ref": "#/definitions/pfs_v2.CommitSet",
+                    "additionalProperties": false,
+                    "description": "If non-nil, will return all the pipeline infos at this commit set"
+                },
                 "projects": {
                     "items": {
                         "$ref": "#/definitions/pfs_v2.Project"

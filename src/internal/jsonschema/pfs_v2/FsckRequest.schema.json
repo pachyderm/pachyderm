@@ -11,7 +11,15 @@
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
+                "zombieTarget": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
                 "zombie_all": {
+                    "type": "boolean",
+                    "description": "run zombie data detection against all pipelines"
+                },
+                "zombieAll": {
                     "type": "boolean",
                     "description": "run zombie data detection against all pipelines"
                 }

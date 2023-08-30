@@ -10,7 +10,16 @@
                     },
                     "type": "array"
                 },
+                "fileSetIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
                 "auth_token": {
+                    "type": "string"
+                },
+                "authToken": {
                     "type": "string"
                 }
             },

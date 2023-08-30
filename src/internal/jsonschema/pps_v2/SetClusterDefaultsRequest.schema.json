@@ -14,7 +14,14 @@
                 "dry_run": {
                     "type": "boolean"
                 },
+                "dryRun": {
+                    "type": "boolean"
+                },
                 "cluster_defaults_json": {
+                    "type": "string",
+                    "description": "A JSON-encoded ClusterDefaults message, this will be stored verbatim."
+                },
+                "clusterDefaultsJson": {
                     "type": "string",
                     "description": "A JSON-encoded ClusterDefaults message, this will be stored verbatim."
                 }

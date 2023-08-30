@@ -19,13 +19,25 @@
                 "git_commit": {
                     "type": "string"
                 },
+                "gitCommit": {
+                    "type": "string"
+                },
                 "git_tree_modified": {
+                    "type": "string"
+                },
+                "gitTreeModified": {
                     "type": "string"
                 },
                 "build_date": {
                     "type": "string"
                 },
+                "buildDate": {
+                    "type": "string"
+                },
                 "go_version": {
+                    "type": "string"
+                },
+                "goVersion": {
                     "type": "string"
                 },
                 "platform": {

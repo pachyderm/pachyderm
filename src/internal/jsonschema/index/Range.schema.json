@@ -10,7 +10,14 @@
                 "last_path": {
                     "type": "string"
                 },
+                "lastPath": {
+                    "type": "string"
+                },
                 "chunk_ref": {
+                    "$ref": "#/definitions/chunk.DataRef",
+                    "additionalProperties": false
+                },
+                "chunkRef": {
                     "$ref": "#/definitions/chunk.DataRef",
                     "additionalProperties": false
                 }
@@ -36,7 +43,14 @@
                     "type": "integer",
                     "description": "The offset and size used for accessing the data within the chunk."
                 },
+                "offsetBytes": {
+                    "type": "integer",
+                    "description": "The offset and size used for accessing the data within the chunk."
+                },
                 "size_bytes": {
+                    "type": "integer"
+                },
+                "sizeBytes": {
                     "type": "integer"
                 }
             },
@@ -55,6 +69,9 @@
                 "size_bytes": {
                     "type": "integer"
                 },
+                "sizeBytes": {
+                    "type": "integer"
+                },
                 "edge": {
                     "type": "boolean"
                 },
@@ -71,7 +88,23 @@
                     "type": "string",
                     "title": "Encryption Algo"
                 },
+                "encryptionAlgo": {
+                    "enum": [
+                        "ENCRYPTION_ALGO_UNKNOWN",
+                        "CHACHA20"
+                    ],
+                    "type": "string",
+                    "title": "Encryption Algo"
+                },
                 "compression_algo": {
+                    "enum": [
+                        "NONE",
+                        "GZIP_BEST_SPEED"
+                    ],
+                    "type": "string",
+                    "title": "Compression Algo"
+                },
+                "compressionAlgo": {
                     "enum": [
                         "NONE",
                         "GZIP_BEST_SPEED"
