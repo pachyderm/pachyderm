@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
@@ -89,25 +90,6 @@ func (err ErrCommitAlreadyExists) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, err.Error())
 }
 
-// CommitPair is an (id, commitInfo) tuple returned by the commit iterator.
-type CommitPair struct {
-	ID         CommitID
-	CommitInfo *pfs.CommitInfo
-}
-
-// this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.
-var _ stream.Iterator[CommitPair] = &CommitIterator{}
-
-// CommitIterator batches a page of commitRow entries. Entries can be retrieved using iter.Next().
-type CommitIterator struct {
-	limit   int
-	offset  int
-	commits []commitRow
-	index   int
-	tx      *pachsql.Tx
-	filter  CommitListFilter
-}
-
 type commitRow struct {
 	ID             CommitID  `db:"int_id"`
 	CommitSetID    string    `db:"commit_set_id"`
@@ -126,123 +108,6 @@ type commitRow struct {
 	RepoName       string    `db:"repo_name"`
 	RepoType       string    `db:"repo_type"`
 	ProjectName    string    `db:"proj_name"`
-}
-
-// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
-func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
-	if dst == nil {
-		return errors.Wrap(fmt.Errorf("commit is nil"), "get next commit")
-	}
-	var err error
-	if iter.index >= len(iter.commits) {
-		iter.index = 0
-		iter.offset += iter.limit
-		iter.commits, err = listCommitPage(ctx, iter.tx, iter.limit, iter.offset, iter.filter)
-		if err != nil {
-			return errors.Wrap(err, "list commit page")
-		}
-		if len(iter.commits) == 0 {
-			return stream.EOS()
-		}
-	}
-	row := iter.commits[iter.index]
-	commit, err := getCommitFromCommitRow(&row)
-	if err != nil {
-		return errors.Wrap(err, "getting commitInfo from commit row")
-	}
-	*dst = CommitPair{
-		CommitInfo: commit,
-		ID:         row.ID,
-	}
-	iter.index++
-	return nil
-}
-
-// CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
-// This should hopefully prevent a library user from misconfiguring the filter.
-type CommitFields string
-
-var (
-	CommitSetIDs   = CommitFields("commit_set_id")
-	CommitOrigins  = CommitFields("origin")
-	CommitRepos    = CommitFields("repo_id")
-	CommitBranches = CommitFields("branch_id_str")
-)
-
-// CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
-// where commit.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND commit.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
-type CommitListFilter map[CommitFields][]string
-
-// ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
-func ListCommit(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter) (*CommitIterator, error) {
-	limit := 100
-	page, err := listCommitPage(ctx, tx, limit, 0, filter)
-	if err != nil {
-		return nil, errors.Wrap(err, "list commits")
-	}
-	iter := &CommitIterator{
-		commits: page,
-		limit:   limit,
-		tx:      tx,
-		filter:  filter,
-	}
-	return iter, nil
-}
-
-func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter CommitListFilter) ([]commitRow, error) {
-	var page []commitRow
-	where := ""
-	conditions := make([]string, 0)
-	for key, vals := range filter {
-		if len(vals) == 0 {
-			continue
-		}
-		quotedVals := make([]string, 0)
-		for _, val := range vals {
-			quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
-		}
-		if key == CommitRepos {
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.repos WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
-		}
-	}
-	if len(conditions) > 0 {
-		where = "WHERE " + strings.Join(conditions, " AND ")
-	}
-	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, project.name ORDER BY commit.int_id ASC LIMIT $1 OFFSET $2;",
-		getCommit, where), limit, offset); err != nil {
-		return nil, errors.Wrap(err, "could not get commit page")
-	}
-	return page, nil
-}
-
-func sanitizeTimestamppb(timestamp *timestamppb.Timestamp) time.Time {
-	if timestamp != nil {
-		return timestamp.AsTime()
-	}
-	return time.Time{}
-}
-
-func durationpbToBigInt(duration *durationpb.Duration) int64 {
-	if duration != nil {
-		return duration.Seconds
-	}
-	return 0
-}
-
-func timeToTimestamppb(t time.Time) *timestamppb.Timestamp {
-	if t.IsZero() {
-		return nil
-	}
-	return timestamppb.New(t)
-}
-
-func bigIntToDurationpb(s int64) *durationpb.Duration {
-	if s == 0 {
-		return nil
-	}
-	return durationpb.New(time.Duration(s))
 }
 
 // CreateCommit creates an entry in the pfs.commits table.
@@ -407,4 +272,185 @@ func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.CommitInfo) e
 // UpdateCommit overwrites an existing commit entry by CommitID.
 func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commit *pfs.CommitInfo) error {
 	return nil
+}
+
+// CommitPair is an (id, commitInfo) tuple returned by the commit iterator.
+type CommitPair struct {
+	ID         CommitID
+	CommitInfo *pfs.CommitInfo
+}
+
+// these dropped global variable instantiations forces the compiler to check whether CommitIterator and CommitIteratorTx implements stream.Iterator.
+var _ stream.Iterator[CommitPair] = &CommitIterator{}
+var _ stream.Iterator[CommitPair] = &CommitIteratorTx{}
+
+type commitIterator struct {
+	limit   int
+	offset  int
+	commits []commitRow
+	index   int
+	filter  CommitListFilter
+}
+
+// CommitIterator batches a page of commitRow entries. (id, entry) tuples can be retrieved using iter.Next().
+type CommitIterator struct {
+	*commitIterator
+	db *pachsql.DB
+}
+
+// CommitIteratorTx is like CommitIterator but retrieves all pages within a single transaction.
+type CommitIteratorTx struct {
+	*commitIterator
+	tx *pachsql.Tx
+}
+
+func (iter *commitIterator) next(ctx context.Context, tx *pachsql.Tx, dst *CommitPair) error {
+	if dst == nil {
+		return errors.Wrap(fmt.Errorf("commit is nil"), "get next commit")
+	}
+	var err error
+	if iter.index >= len(iter.commits) {
+		iter.index = 0
+		iter.offset += iter.limit
+		iter.commits, err = listCommitPage(ctx, tx, iter.limit, iter.offset, iter.filter)
+		if err != nil {
+			return errors.Wrap(err, "list commit page")
+		}
+		if len(iter.commits) == 0 {
+			return stream.EOS()
+		}
+	}
+	row := iter.commits[iter.index]
+	commit, err := getCommitFromCommitRow(&row)
+	if err != nil {
+		return errors.Wrap(err, "getting commitInfo from commit row")
+	}
+	*dst = CommitPair{
+		CommitInfo: commit,
+		ID:         row.ID,
+	}
+	iter.index++
+	return nil
+}
+
+// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
+func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
+	return errors.Wrap(dbutil.WithTx(ctx, iter.db, func(ctx context.Context, tx *pachsql.Tx) error {
+		return iter.next(ctx, tx, dst)
+	}, dbutil.WithReadOnly()), "next commit")
+}
+
+func (iter *CommitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
+	return errors.Wrap(iter.next(ctx, iter.tx, dst), "next commit in transaction")
+}
+
+// CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
+// This should hopefully prevent a library user from misconfiguring the filter.
+type CommitFields string
+
+var (
+	CommitSetIDs   = CommitFields("commit_set_id")
+	CommitOrigins  = CommitFields("origin")
+	CommitRepos    = CommitFields("repo_id")
+	CommitBranches = CommitFields("branch_id_str")
+	CommitProjects = CommitFields("project_id")
+)
+
+// CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
+// where commit.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND commit.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
+type CommitListFilter map[CommitFields][]string
+
+// ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
+func ListCommit(ctx context.Context, db *pachsql.DB, filter CommitListFilter) (*CommitIterator, error) {
+	var iter *commitIterator
+	var err error
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		iter, err = newIterator(ctx, tx, filter)
+		return err
+	}, dbutil.WithReadOnly()); err != nil {
+		return nil, errors.Wrap(err, "list commits")
+	}
+	return &CommitIterator{iter, db}, nil
+}
+
+// ListCommitTx returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
+func ListCommitTx(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter) (*CommitIteratorTx, error) {
+	iter, err := newIterator(ctx, tx, filter)
+	if err != nil {
+		return nil, errors.Wrap(err, "list commits in transaction")
+	}
+	return &CommitIteratorTx{iter, tx}, nil
+}
+
+func newIterator(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter) (*commitIterator, error) {
+	limit := 100
+	page, err := listCommitPage(ctx, tx, limit, 0, filter)
+	if err != nil {
+		return nil, errors.Wrap(err, "new commits iterator")
+	}
+	iter := &commitIterator{
+		commits: page,
+		limit:   limit,
+		filter:  filter,
+	}
+	return iter, nil
+}
+
+func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter CommitListFilter) ([]commitRow, error) {
+	var page []commitRow
+	where := ""
+	conditions := make([]string, 0)
+	for key, vals := range filter {
+		if len(vals) == 0 {
+			continue
+		}
+		quotedVals := make([]string, 0)
+		for _, val := range vals {
+			quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
+		}
+		switch key {
+		case CommitRepos:
+			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.repos WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+		case CommitProjects:
+			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+		default:
+			conditions = append(conditions, fmt.Sprintf("commit.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
+		}
+	}
+	if len(conditions) > 0 {
+		where = "WHERE " + strings.Join(conditions, " AND ")
+	}
+	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, project.name ORDER BY commit.int_id ASC LIMIT $1 OFFSET $2;",
+		getCommit, where), limit, offset); err != nil {
+		return nil, errors.Wrap(err, "could not get commit page")
+	}
+	return page, nil
+}
+
+func sanitizeTimestamppb(timestamp *timestamppb.Timestamp) time.Time {
+	if timestamp != nil {
+		return timestamp.AsTime()
+	}
+	return time.Time{}
+}
+
+func durationpbToBigInt(duration *durationpb.Duration) int64 {
+	if duration != nil {
+		return duration.Seconds
+	}
+	return 0
+}
+
+func timeToTimestamppb(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
+}
+
+func bigIntToDurationpb(s int64) *durationpb.Duration {
+	if s == 0 {
+		return nil
+	}
+	return durationpb.New(time.Duration(s))
 }

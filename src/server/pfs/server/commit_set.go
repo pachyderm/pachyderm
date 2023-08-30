@@ -26,12 +26,14 @@ func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncon
 		}
 		for _, c := range cs {
 			ci := &pfs.CommitInfo{}
+			// todo(fahad): replace with pfsdb.GetCommitByKey()
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
 				return nil, err
 			}
 			cis = append(cis, ci)
 		}
 	}
+	//todo(fahad): replace with pfsdb.ListCommits(filter = commitsSetIndex)
 	ci := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitSet.Id, ci, col.DefaultOptions(), func(string) error {
 		cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
@@ -132,6 +134,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	commitInfo := &pfs.CommitInfo{}
+	//todo(fahad): replace with a non-transactional list
 	err := d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
 		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil
