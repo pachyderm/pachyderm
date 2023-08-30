@@ -10,10 +10,16 @@
                 "cluster_deployment_id": {
                     "type": "string"
                 },
+                "clusterDeploymentId": {
+                    "type": "string"
+                },
                 "address": {
                     "type": "string"
                 },
                 "enterprise_server": {
+                    "type": "boolean"
+                },
+                "enterpriseServer": {
                     "type": "boolean"
                 }
             },

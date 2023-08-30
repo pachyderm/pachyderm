@@ -28,6 +28,9 @@
                 },
                 "hashed_token": {
                     "type": "string"
+                },
+                "hashedToken": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

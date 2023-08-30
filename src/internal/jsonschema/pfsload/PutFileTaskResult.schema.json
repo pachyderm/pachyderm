@@ -7,6 +7,9 @@
                 "file_set_id": {
                     "type": "string"
                 },
+                "fileSetId": {
+                    "type": "string"
+                },
                 "hash": {
                     "type": "string",
                     "format": "binary",

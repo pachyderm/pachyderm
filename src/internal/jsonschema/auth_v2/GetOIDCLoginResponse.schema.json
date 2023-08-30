@@ -8,6 +8,10 @@
                     "type": "string",
                     "description": "The login URL generated for the OIDC object"
                 },
+                "loginUrl": {
+                    "type": "string",
+                    "description": "The login URL generated for the OIDC object"
+                },
                 "state": {
                     "type": "string"
                 }

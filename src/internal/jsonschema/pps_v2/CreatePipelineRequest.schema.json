@@ -25,6 +25,17 @@
                     ],
                     "description": "tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs when running in a kubernetes cluster on which kubeflow has been installed. Exactly one of 'tf_job' and 'transform' should be set"
                 },
+                "tfJob": {
+                    "$ref": "#/definitions/pps_v2.TFJob",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ],
+                    "description": "tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs when running in a kubernetes cluster on which kubeflow has been installed. Exactly one of 'tf_job' and 'transform' should be set"
+                },
                 "transform": {
                     "$ref": "#/definitions/pps_v2.Transform",
                     "additionalProperties": false,
@@ -36,6 +47,16 @@
                     ]
                 },
                 "parallelism_spec": {
+                    "$ref": "#/definitions/pps_v2.ParallelismSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "parallelismSpec": {
                     "$ref": "#/definitions/pps_v2.ParallelismSpec",
                     "additionalProperties": false,
                     "oneOf": [
@@ -65,7 +86,28 @@
                         }
                     ]
                 },
+                "outputBranch": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
                 "s3_out": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "s3_out, if set, requires a pipeline's user to write to its output repo via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3 gateway API at http://\u003cpipeline\u003e-s3.\u003cnamespace\u003e/\u003cjob id\u003e.out/my/file). In this mode /pfs_v2/out won't be walked or uploaded, and the s3 gateway service in the workers will allow writes to the job's output commit"
+                },
+                "s3Out": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -86,6 +128,16 @@
                         {}
                     ]
                 },
+                "resourceRequests": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
                 "resource_limits": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
                     "additionalProperties": false,
@@ -96,7 +148,27 @@
                         {}
                     ]
                 },
+                "resourceLimits": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
                 "sidecar_resource_limits": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "sidecarResourceLimits": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
                     "additionalProperties": false,
                     "oneOf": [
@@ -156,12 +228,32 @@
                         {}
                     ]
                 },
+                "datumSetSpec": {
+                    "$ref": "#/definitions/pps_v2.DatumSetSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
                 "datum_timeout": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
                 },
+                "datumTimeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
                 "job_timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "jobTimeout": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
@@ -186,6 +278,16 @@
                         }
                     ]
                 },
+                "datumTries": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
                 "scheduling_spec": {
                     "$ref": "#/definitions/pps_v2.SchedulingSpec",
                     "additionalProperties": false,
@@ -196,7 +298,28 @@
                         {}
                     ]
                 },
+                "schedulingSpec": {
+                    "$ref": "#/definitions/pps_v2.SchedulingSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
                 "pod_spec": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "description": "deprecated, use pod_patch below"
+                },
+                "podSpec": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -218,6 +341,17 @@
                     ],
                     "description": "a json patch will be applied to the pipeline's pod_spec before it's created;"
                 },
+                "podPatch": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "description": "a json patch will be applied to the pipeline's pod_spec before it's created;"
+                },
                 "metadata": {
                     "$ref": "#/definitions/pps_v2.Metadata",
                     "additionalProperties": false,
@@ -229,6 +363,16 @@
                     ]
                 },
                 "reprocess_spec": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "reprocessSpec": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -263,6 +407,16 @@
                     ]
                 },
                 "sidecar_resource_requests": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "sidecarResourceRequests": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
                     "additionalProperties": false,
                     "oneOf": [
@@ -375,6 +529,10 @@
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
                     "additionalProperties": false
                 },
+                "fileFormat": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
+                    "additionalProperties": false
+                },
                 "secret": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.Secret",
                     "additionalProperties": false
@@ -434,6 +592,10 @@
                     "type": "string",
                     "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
                 },
+                "rateLimitSpec": {
+                    "type": "string",
+                    "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
+                },
                 "size": {
                     "type": "string",
                     "description": "Triggers if there's been `size` new data added since the last trigger."
@@ -443,6 +605,10 @@
                     "description": "Triggers if there's been `commits` new commits added since the last trigger."
                 },
                 "cron_spec": {
+                    "type": "string",
+                    "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
+                },
+                "cronSpec": {
                     "type": "string",
                     "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
                 }
@@ -506,7 +672,29 @@
                     ],
                     "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
                 },
+                "sizeBytes": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
+                },
                 "per_worker": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "per_worker, if nonzero, specifies how many datum sets should be created for each worker. It can't be set with number or size_bytes."
+                },
+                "perWorker": {
                     "oneOf": [
                         {
                             "type": "integer"
@@ -565,7 +753,27 @@
                         {}
                     ]
                 },
+                "objectStorage": {
+                    "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
                 "sql_database": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "sqlDatabase": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
                     "additionalProperties": false,
                     "oneOf": [
@@ -805,6 +1013,16 @@
                         }
                     ]
                 },
+                "repoType": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
                 "branch": {
                     "oneOf": [
                         {
@@ -845,6 +1063,16 @@
                         }
                     ]
                 },
+                "joinOn": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
                 "outer_join": {
                     "oneOf": [
                         {
@@ -855,7 +1083,27 @@
                         }
                     ]
                 },
+                "outerJoin": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
                 "group_by": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "groupBy": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -876,6 +1124,17 @@
                     ]
                 },
                 "empty_files": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks."
+                },
+                "emptyFiles": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -1033,7 +1292,30 @@
                         }
                     ]
                 },
+                "nodeSelector": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
+                },
                 "priority_class_name": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "priorityClassName": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -1068,7 +1350,13 @@
                 "mount_path": {
                     "type": "string"
                 },
+                "mountPath": {
+                    "type": "string"
+                },
                 "env_var": {
+                    "type": "string"
+                },
+                "envVar": {
                     "type": "string"
                 }
             },
@@ -1081,7 +1369,13 @@
                 "internal_port": {
                     "type": "integer"
                 },
+                "internalPort": {
+                    "type": "integer"
+                },
                 "external_port": {
+                    "type": "integer"
+                },
+                "externalPort": {
                     "type": "integer"
                 },
                 "ip": {
@@ -1109,6 +1403,10 @@
         "pps_v2.TFJob": {
             "properties": {
                 "tf_job": {
+                    "type": "string",
+                    "description": "tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly to a kubernetes cluster on which kubeflow has been installed, instead of creating a pipeline ReplicationController as it normally would."
+                },
+                "tfJob": {
                     "type": "string",
                     "description": "tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly to a kubernetes cluster on which kubeflow has been installed, instead of creating a pipeline ReplicationController as it normally would."
                 }
@@ -1152,6 +1450,11 @@
                     "additionalProperties": false,
                     "type": "integer",
                     "description": "toleration_seconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint.  If not set, tolerate the taint forever."
+                },
+                "tolerationSeconds": {
+                    "additionalProperties": false,
+                    "type": "integer",
+                    "description": "toleration_seconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint.  If not set, tolerate the taint forever."
                 }
             },
             "additionalProperties": false,
@@ -1192,6 +1495,26 @@
                     ]
                 },
                 "err_cmd": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "errCmd": {
                     "items": {
                         "oneOf": [
                             {
@@ -1258,6 +1581,26 @@
                         }
                     ]
                 },
+                "imagePullSecrets": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
                 "stdin": {
                     "items": {
                         "oneOf": [
@@ -1298,7 +1641,47 @@
                         }
                     ]
                 },
+                "errStdin": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
                 "accept_return_code": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "acceptReturnCode": {
                     "items": {
                         "oneOf": [
                             {
@@ -1348,6 +1731,16 @@
                         }
                     ]
                 },
+                "workingDir": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
                 "dockerfile": {
                     "oneOf": [
                         {
@@ -1368,7 +1761,27 @@
                         }
                     ]
                 },
+                "memoryVolume": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
                 "datum_batching": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "datumBatching": {
                     "oneOf": [
                         {
                             "type": "null"

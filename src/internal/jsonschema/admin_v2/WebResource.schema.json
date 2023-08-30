@@ -8,7 +8,15 @@
                     "type": "string",
                     "description": "The base URL of the archive server; append a filename to this.  Empty if the archive server is not exposed."
                 },
+                "archiveDownloadBaseUrl": {
+                    "type": "string",
+                    "description": "The base URL of the archive server; append a filename to this.  Empty if the archive server is not exposed."
+                },
                 "create_pipeline_request_json_schema_url": {
+                    "type": "string",
+                    "description": "Where to find the CreatePipelineRequest JSON schema; if this server is not accessible via a URL, then a link to Github is provided based on the baked-in version of the server."
+                },
+                "createPipelineRequestJsonSchemaUrl": {
                     "type": "string",
                     "description": "Where to find the CreatePipelineRequest JSON schema; if this server is not accessible via a URL, then a link to Github is provided based on the baked-in version of the server."
                 }

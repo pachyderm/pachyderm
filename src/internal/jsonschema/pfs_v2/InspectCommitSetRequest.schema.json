@@ -8,6 +8,10 @@
                     "$ref": "#/definitions/pfs_v2.CommitSet",
                     "additionalProperties": false
                 },
+                "commitSet": {
+                    "$ref": "#/definitions/pfs_v2.CommitSet",
+                    "additionalProperties": false
+                },
                 "wait": {
                     "type": "boolean",
                     "description": "When true, wait until all commits in the set are finished"

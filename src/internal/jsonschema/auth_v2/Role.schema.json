@@ -100,7 +100,35 @@
                     "title": "Resource Type",
                     "description": "ResourceType represents the type of a Resource"
                 },
+                "canBeBoundTo": {
+                    "items": {
+                        "enum": [
+                            "RESOURCE_TYPE_UNKNOWN",
+                            "CLUSTER",
+                            "REPO",
+                            "SPEC_REPO",
+                            "PROJECT"
+                        ]
+                    },
+                    "type": "array",
+                    "title": "Resource Type",
+                    "description": "ResourceType represents the type of a Resource"
+                },
                 "returned_for": {
+                    "items": {
+                        "enum": [
+                            "RESOURCE_TYPE_UNKNOWN",
+                            "CLUSTER",
+                            "REPO",
+                            "SPEC_REPO",
+                            "PROJECT"
+                        ]
+                    },
+                    "type": "array",
+                    "title": "Resource Type",
+                    "description": "ResourceType represents the type of a Resource"
+                },
+                "returnedFor": {
                     "items": {
                         "enum": [
                             "RESOURCE_TYPE_UNKNOWN",

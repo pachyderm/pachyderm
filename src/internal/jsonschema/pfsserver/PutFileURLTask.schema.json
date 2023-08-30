@@ -22,7 +22,13 @@
                 "start_offset": {
                     "type": "integer"
                 },
+                "startOffset": {
+                    "type": "integer"
+                },
                 "end_offset": {
+                    "type": "integer"
+                },
+                "endOffset": {
                     "type": "integer"
                 }
             },

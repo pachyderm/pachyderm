@@ -13,7 +13,19 @@
                     },
                     "type": "array"
                 },
+                "redirectUris": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
                 "trusted_peers": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "trustedPeers": {
                     "items": {
                         "type": "string"
                     },

@@ -9,7 +9,17 @@
                     "additionalProperties": false,
                     "description": "The version of the client that's connecting; used by the server to warn about too-old (or too-new!) clients."
                 },
+                "clientVersion": {
+                    "$ref": "#/definitions/versionpb_v2.Version",
+                    "additionalProperties": false,
+                    "description": "The version of the client that's connecting; used by the server to warn about too-old (or too-new!) clients."
+                },
                 "current_project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false,
+                    "description": "If CurrentProject is set, then InspectCluster will return an error if the project does not exist."
+                },
+                "currentProject": {
                     "$ref": "#/definitions/pfs_v2.Project",
                     "additionalProperties": false,
                     "description": "If CurrentProject is set, then InspectCluster will return an error if the project does not exist."
@@ -46,13 +56,25 @@
                 "git_commit": {
                     "type": "string"
                 },
+                "gitCommit": {
+                    "type": "string"
+                },
                 "git_tree_modified": {
+                    "type": "string"
+                },
+                "gitTreeModified": {
                     "type": "string"
                 },
                 "build_date": {
                     "type": "string"
                 },
+                "buildDate": {
+                    "type": "string"
+                },
                 "go_version": {
+                    "type": "string"
+                },
+                "goVersion": {
                     "type": "string"
                 },
                 "platform": {

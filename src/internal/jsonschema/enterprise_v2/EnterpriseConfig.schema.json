@@ -8,6 +8,10 @@
                     "type": "string",
                     "description": "license_server is the address of the grpc license service"
                 },
+                "licenseServer": {
+                    "type": "string",
+                    "description": "license_server is the address of the grpc license service"
+                },
                 "id": {
                     "type": "string",
                     "description": "id is the unique identifier for this pachd, which is registered with the license service"

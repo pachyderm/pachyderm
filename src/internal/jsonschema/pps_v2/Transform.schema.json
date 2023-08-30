@@ -54,6 +54,26 @@
                         }
                     ]
                 },
+                "errCmd": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
                 "env": {
                     "additionalProperties": {
                         "type": "string"
@@ -82,6 +102,26 @@
                     ]
                 },
                 "image_pull_secrets": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "imagePullSecrets": {
                     "items": {
                         "oneOf": [
                             {
@@ -141,7 +181,47 @@
                         }
                     ]
                 },
+                "errStdin": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
                 "accept_return_code": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "acceptReturnCode": {
                     "items": {
                         "oneOf": [
                             {
@@ -191,6 +271,16 @@
                         }
                     ]
                 },
+                "workingDir": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
                 "dockerfile": {
                     "oneOf": [
                         {
@@ -211,7 +301,27 @@
                         }
                     ]
                 },
+                "memoryVolume": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
                 "datum_batching": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "datumBatching": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -246,7 +356,13 @@
                 "mount_path": {
                     "type": "string"
                 },
+                "mountPath": {
+                    "type": "string"
+                },
                 "env_var": {
+                    "type": "string"
+                },
+                "envVar": {
                     "type": "string"
                 }
             },

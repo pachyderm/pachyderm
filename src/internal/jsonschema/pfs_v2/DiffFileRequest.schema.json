@@ -8,7 +8,16 @@
                     "$ref": "#/definitions/pfs_v2.File",
                     "additionalProperties": false
                 },
+                "newFile": {
+                    "$ref": "#/definitions/pfs_v2.File",
+                    "additionalProperties": false
+                },
                 "old_file": {
+                    "$ref": "#/definitions/pfs_v2.File",
+                    "additionalProperties": false,
+                    "description": "OldFile may be left nil in which case the same path in the parent of NewFile's commit will be used."
+                },
+                "oldFile": {
                     "$ref": "#/definitions/pfs_v2.File",
                     "additionalProperties": false,
                     "description": "OldFile may be left nil in which case the same path in the parent of NewFile's commit will be used."

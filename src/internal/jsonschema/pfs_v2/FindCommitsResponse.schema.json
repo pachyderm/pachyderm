@@ -8,11 +8,22 @@
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
+                "foundCommit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
                 "last_searched_commit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
+                "lastSearchedCommit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
                 "commits_searched": {
+                    "type": "integer"
+                },
+                "commitsSearched": {
                     "type": "integer"
                 }
             },

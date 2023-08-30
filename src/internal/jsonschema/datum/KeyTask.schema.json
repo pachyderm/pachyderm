@@ -7,7 +7,14 @@
                 "file_set_id": {
                     "type": "string"
                 },
+                "fileSetId": {
+                    "type": "string"
+                },
                 "path_range": {
+                    "$ref": "#/definitions/pfs_v2.PathRange",
+                    "additionalProperties": false
+                },
+                "pathRange": {
                     "$ref": "#/definitions/pfs_v2.PathRange",
                     "additionalProperties": false
                 },
@@ -20,6 +27,9 @@
                     "title": "Type"
                 },
                 "auth_token": {
+                    "type": "string"
+                },
+                "authToken": {
                     "type": "string"
                 }
             },

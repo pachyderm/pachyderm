@@ -26,7 +26,29 @@
                     ],
                     "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
                 },
+                "sizeBytes": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
+                },
                 "per_worker": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "per_worker, if nonzero, specifies how many datum sets should be created for each worker. It can't be set with number or size_bytes."
+                },
+                "perWorker": {
                     "oneOf": [
                         {
                             "type": "integer"

@@ -10,7 +10,19 @@
                     },
                     "type": "array"
                 },
+                "affectedPods": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
                 "errored_pods": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "erroredPods": {
                     "items": {
                         "type": "string"
                     },

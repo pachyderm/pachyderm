@@ -7,6 +7,9 @@
                 "activation_code": {
                     "type": "string"
                 },
+                "activationCode": {
+                    "type": "string"
+                },
                 "expires": {
                     "type": "string",
                     "format": "date-time"
