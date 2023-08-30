@@ -306,7 +306,7 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb 
 	if err != nil {
 		return err
 	}
-	return txnCtx.Finish(ctx)
+	return errors.Wrap(txnCtx.Finish(ctx), "finish transaction")
 }
 
 func (env *TransactionEnv) waitReady(ctx context.Context) error {

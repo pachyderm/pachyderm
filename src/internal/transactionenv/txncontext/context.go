@@ -115,27 +115,28 @@ func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
 // Finish applies the deferred logic in the pfsPropagator and ppsPropagator to
 // the transaction
 func (t *TransactionContext) Finish(ctx context.Context) error {
+	var errs error
 	if t.PfsPropagater != nil {
 		if err := t.PfsPropagater.Run(ctx); err != nil {
-			return errors.EnsureStack(err)
+			errors.JoinInto(&errs, errors.Wrap(err, "propagate pfs"))
 		}
 	}
 	if t.PpsPropagater != nil {
 		if err := t.PpsPropagater.Run(ctx); err != nil {
-			return errors.EnsureStack(err)
+			errors.JoinInto(&errs, errors.Wrap(err, "propagate pps"))
 		}
 	}
 	if t.PpsJobStopper != nil {
 		if err := t.PpsJobStopper.Run(ctx); err != nil {
-			return errors.EnsureStack(err)
+			errors.JoinInto(&errs, errors.Wrap(err, "stop pps jobs"))
 		}
 	}
 	if t.PpsJobFinisher != nil {
 		if err := t.PpsJobFinisher.Run(ctx); err != nil {
-			return errors.EnsureStack(err)
+			errors.JoinInto(&errs, errors.Wrap(err, "finish pps jobs"))
 		}
 	}
-	return nil
+	return errs
 }
 
 // PfsPropagater is the interface that PFS implements to propagate commits at

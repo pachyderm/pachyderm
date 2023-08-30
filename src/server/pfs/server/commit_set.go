@@ -160,14 +160,14 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 func (d *driver) dropCommitSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
 	css, err := d.subvenantCommitSets(txnCtx, commitset)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get subvenant commitsets")
 	}
 	if len(css) > 0 {
 		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
 	}
 	cis, err := d.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, false)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "insepect commitset")
 	}
 	for _, ci := range cis {
 		if ci.Commit.AccessRepo().Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
@@ -184,7 +184,7 @@ func (d *driver) dropCommitSet(ctx context.Context, txnCtx *txncontext.Transacti
 	// non-head commits (until generalized drop semantics are implemented).
 	for _, ci := range cis {
 		if err := d.deleteCommit(ctx, txnCtx, ci); err != nil {
-			return err
+			return errors.Wrapf(err, "delete commit %v", ci.GetCommit().String())
 		}
 	}
 	// notify PPS that this commitset has been dropped so it can clean up any

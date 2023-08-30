@@ -7,6 +7,9 @@ import (
 )
 
 func (j *Job) String() string {
+	if j == nil {
+		return "<nil job>"
+	}
 	return fmt.Sprintf("%s@%s", j.Pipeline, j.Id)
 }
 
