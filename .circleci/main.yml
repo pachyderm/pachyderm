@@ -78,7 +78,7 @@ jobs:
       - run:
           name: get test cred
           command: |
-            aws secretsmanager get-secret-value --secret-id test
+            aws secretsmanager get-secret-value --secret-id test --profile PACH-BUILDBOT-OIDC-PROFILE
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
