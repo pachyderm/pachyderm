@@ -403,7 +403,7 @@ func formatPodConditions(cs []v1.PodCondition) string {
 	for _, c := range cs {
 		result = append(result, fmt.Sprintf("%v=%v@%v", c.Type, c.Status, formatSince(&c.LastTransitionTime)))
 	}
-	return "{" + strings.Join(result, "") + "}"
+	return "{" + strings.Join(result, " ") + "}"
 }
 
 func formatContainerStatuses(ss []v1.ContainerStatus) (result []string) {
