@@ -110,7 +110,7 @@ describe('FileBrowser', () => {
       }).click();
 
       cy.findByRole('button', {
-        name: /delete/i,
+        name: 'Delete',
       }).click();
 
       cy.findAllByTestId('FileTableRow__row', {timeout: 60000}).should(

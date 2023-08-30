@@ -1,15 +1,15 @@
 .base {
   border-top: 1px solid var(--grey-20);
-}
-
-.base[class$='modal-footer'] {
-  height: 4rem;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  height: 4rem;
   align-items: center;
   padding: 0;
 }
 
-.base[class$='modal-footer'] > * {
+/* TODO: Avoid using the > * shortcut */
+.base > * {
   margin: 0;
 }
 

@@ -1,20 +1,20 @@
 import {render, waitFor, act, screen} from '@testing-library/react';
 import React from 'react';
 
-import {click} from '@dash-frontend/testHelpers';
+import {click, tab} from '@dash-frontend/testHelpers';
 
 import {Button} from './../../Button';
 import {Modal, useModal} from './../../Modal';
 
 const confirmMock = jest.fn();
 
-const TestComponent = () => {
+const TestComponent = ({onShow}: {onShow?: () => void}) => {
   const {isOpen, closeModal, openModal} = useModal();
 
   return (
     <>
-      <Modal show={isOpen} onHide={closeModal}>
-        <Modal.Header onHide={closeModal}>Header</Modal.Header>
+      <Modal show={isOpen} onHide={closeModal} onShow={onShow}>
+        <Modal.Header>Header</Modal.Header>
         <Modal.Body>Body</Modal.Body>
         <Modal.Footer
           confirmText="Confirm"
@@ -108,5 +108,77 @@ describe('Modal', () => {
     await click(confirmButton);
 
     expect(confirmMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('should keep focus within modal while tabbing', async () => {
+    render(<TestComponent />);
+
+    const openButton = screen.getByText('Open');
+    await click(openButton);
+    runTimers();
+
+    await screen.findByText('Header');
+
+    await tab();
+    expect(screen.getByTestId('Modal__close')).toHaveFocus();
+
+    await tab();
+    expect(screen.getByRole('button', {name: /skip/i})).toHaveFocus();
+
+    await tab();
+    expect(screen.getByRole('button', {name: /confirm/i})).toHaveFocus();
+
+    await tab();
+    expect(screen.getByTestId('Modal__close')).toHaveFocus();
+  });
+
+  it('should call onShow on modal open', async () => {
+    const onShow = jest.fn();
+    render(<TestComponent onShow={onShow} />);
+
+    const openButton = screen.getByText('Open');
+    await click(openButton);
+    runTimers();
+
+    expect(onShow).toHaveBeenCalledTimes(1);
+  });
+
+  it('should close the modal on an escape key', async () => {
+    render(<TestComponent />);
+
+    const openButton = screen.getByText('Open');
+    await click(openButton);
+    runTimers();
+
+    await screen.findByText('Header');
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
+    });
+
+    runTimers();
+
+    await waitFor(() =>
+      expect(screen.queryByText('Header')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('should close the modal on a  backdrop click', async () => {
+    render(<TestComponent />);
+
+    const openButton = screen.getByText('Open');
+    await click(openButton);
+    runTimers();
+
+    await screen.findByText('Header');
+
+    const backdrop = await screen.findByTestId('Modal__backdrop');
+    await click(backdrop);
+
+    runTimers();
+
+    await waitFor(() =>
+      expect(screen.queryByText('Header')).not.toBeInTheDocument(),
+    );
   });
 });

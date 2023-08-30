@@ -685,10 +685,12 @@ describe('Project roles modal', () => {
     }).click();
 
     // filter down to a specific user
-    cy.findAllByRole('row').should('have.length', 4);
-    cy.findByRole('button', {name: /open users search/i}).click();
-    cy.findByRole('searchbox').type('inherit');
-    cy.findAllByRole('row').should('have.length', 2);
+    cy.findByRole('dialog').within(() => {
+      cy.findAllByRole('row').should('have.length', 4);
+      cy.findByRole('button', {name: /open users search/i}).click();
+      cy.findByRole('searchbox').type('inherit');
+      cy.findAllByRole('row').should('have.length', 2);
+    });
 
     // add a role binding from available roles
     cy.findByRole('cell', {

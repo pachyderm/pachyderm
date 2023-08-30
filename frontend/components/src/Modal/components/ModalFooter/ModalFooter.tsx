@@ -1,6 +1,5 @@
 import classnames from 'classnames';
 import React, {ButtonHTMLAttributes} from 'react';
-import BootstrapModalFooter from 'react-bootstrap/ModalFooter';
 
 import {Button, ButtonGroup} from './../../../Button';
 import styles from './ModalFooter.module.css';
@@ -8,10 +7,10 @@ import styles from './ModalFooter.module.css';
 export interface ModalProps {
   children?: React.ReactNode;
   cancelTestId?: string;
-  confirmText: string;
+  confirmText?: string;
   confirmTestId?: string;
   onConfirm?: () => void;
-  onHide: () => void;
+  onHide?: () => void;
   buttonType?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
   disabled?: boolean;
   className?: string;
@@ -23,7 +22,7 @@ export interface ModalProps {
 const ModalFooter: React.FC<ModalProps> = ({
   cancelTestId = '',
   confirmTestId = '',
-  confirmText,
+  confirmText = 'Confirm',
   onHide,
   onConfirm,
   buttonType = 'button',
@@ -34,7 +33,7 @@ const ModalFooter: React.FC<ModalProps> = ({
   footerContent,
 }) => {
   return (
-    <BootstrapModalFooter className={classnames(styles.base, className)}>
+    <div className={classnames(styles.base, className)}>
       {footerContent && (
         <div className={styles.footerContent}>{footerContent}</div>
       )}
@@ -58,7 +57,7 @@ const ModalFooter: React.FC<ModalProps> = ({
           </Button>
         )}
       </ButtonGroup>
-    </BootstrapModalFooter>
+    </div>
   );
 };
 

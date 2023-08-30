@@ -18,15 +18,15 @@
 
 .footer {
   border-top: 1px solid var(--grey-20);
-}
-
-.base[class$='modal-footer'] {
-  height: 5.625rem;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
+  height: 5.625rem;
   padding: 1rem;
 }
 
-.base[class$='modal-footer'] > * {
+/* TODO: Avoid using the > * shortcut */
+.footer > * {
   margin: 0;
 }

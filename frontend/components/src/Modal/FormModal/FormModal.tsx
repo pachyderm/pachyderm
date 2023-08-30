@@ -65,9 +65,7 @@ const FormModal = <T extends FieldValues>({
           <ModalStatus status={modalStatus}>{modalStatusMessage}</ModalStatus>
         ) : null}
 
-        <ModalHeader onHide={onHide} actionable>
-          {headerText}
-        </ModalHeader>
+        <ModalHeader>{headerText}</ModalHeader>
 
         <ModalBody>{loading ? <LoadingDots /> : children}</ModalBody>
 

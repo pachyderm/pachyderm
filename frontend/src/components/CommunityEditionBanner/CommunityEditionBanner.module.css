@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   background-color: var(--white);
-  z-index: var(--z-index-modal);
+  z-index: var(--z-index-application-banner);
   white-space: nowrap;
   overflow-x: clip;
 }

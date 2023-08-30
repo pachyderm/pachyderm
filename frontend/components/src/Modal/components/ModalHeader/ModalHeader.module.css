@@ -1,18 +1,17 @@
 .base {
   border-bottom: none;
-  padding-left: 0;
-  max-width: 34.25rem;
-}
-
-.base[class$='modal-header'] {
   padding: 3rem 2rem 1rem;
+  max-width: 34.25rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
 }
 
-.base[class$='modal-header'].withStatus {
+.base.withStatus {
   padding-top: 0.5rem;
 }
 
-.base.error[class$='modal-header'] {
+.base.error {
   padding-top: 1.25rem;
 }
 

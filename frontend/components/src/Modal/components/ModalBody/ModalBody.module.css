@@ -1,4 +1,6 @@
 .base {
   padding: 0 2rem;
   overflow-y: auto;
+  position: relative;
+  flex: 1 1 auto;
 }

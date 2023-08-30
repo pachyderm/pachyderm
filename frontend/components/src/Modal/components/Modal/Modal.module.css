@@ -1,32 +1,56 @@
-.base [class$='modal-content'] {
+.modalBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--background-black);
+  opacity: 0.7;
+  z-index: var(--z-index-modal-overlay);
+}
+
+.modalWrapper {
+  z-index: var(--z-index-modal);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  outline: none;
+}
+
+.modalDialog {
+  top: 0;
+  max-width: 38.25rem;
+  margin: 1.75rem auto;
+  position: relative;
+  width: auto;
+  pointer-events: none;
+}
+
+.modalContent {
   border-radius: 3px;
-  box-shadow: 0 0.125rem 1rem 0 var(--placeholder-grey);
+  box-shadow: 0 0.125rem 1rem 0 rgba(0, 0, 0, 0.3);
   border: none;
   background-color: var(--white);
   width: 38.25rem;
   height: 40rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background-clip: padding-box;
+  outline: none;
 }
-
-.base [class$='modal-dialog'] {
-  top: 0;
-  max-width: 38.25rem;
-}
-
-.small [class$='modal-dialog'] {
+.small .modalDialog {
   max-width: 30rem;
 }
 
-.small [class$='modal-content'] {
+.small .modalContent {
   width: 30rem;
   height: 25rem;
-}
-
-.base [class$='modal-backdrop'] {
-  background-color: var(--background-black);
-}
-
-.content {
-  padding: 0 2rem;
 }
 
 .close {
@@ -35,19 +59,4 @@
   right: 1rem;
   margin: 0;
   z-index: 1;
-}
-
-.icon {
-  cursor: pointer;
-}
-
-:global(.modal-backdrop.show) {
-  /* stylelint-disable-line selector-class-pattern */
-  background-color: var(--background-black);
-  opacity: 0.7;
-  z-index: var(--z-index-modal-overlay);
-}
-
-:global(.modal-open .modal) {
-  z-index: var(--z-index-modal);
 }

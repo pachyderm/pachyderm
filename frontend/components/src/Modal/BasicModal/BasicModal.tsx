@@ -71,12 +71,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
         </Modal.Status>
       ) : null}
 
-      <Modal.Header
-        onHide={onHide}
-        actionable={actionable}
-        small={small}
-        withStatus={!!modalStatus}
-      >
+      <Modal.Header small={small} withStatus={!!modalStatus}>
         {headerContent}
       </Modal.Header>
 

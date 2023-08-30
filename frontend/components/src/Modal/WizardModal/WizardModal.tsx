@@ -1,7 +1,6 @@
 import classnames from 'classnames';
 import noop from 'lodash/noop';
 import React, {useState} from 'react';
-import BootstrapModalFooter from 'react-bootstrap/ModalFooter';
 
 import {LoadingDots} from '@pachyderm/components';
 
@@ -40,7 +39,7 @@ const WizardModal: React.FC<WizardModalProps> = ({
         <Modal.Status status="error">{errorMessage}</Modal.Status>
       )}
 
-      <Modal.Header onHide={onHide} withStatus={!!errorMessage}>
+      <Modal.Header withStatus={!!errorMessage}>
         {headerContent[modalIndex]}
       </Modal.Header>
 
@@ -48,7 +47,7 @@ const WizardModal: React.FC<WizardModalProps> = ({
         {loading ? <LoadingDots /> : modalContent[modalIndex]}
       </Modal.Body>
 
-      <BootstrapModalFooter className={styles.footer}>
+      <div className={styles.footer}>
         <Group spacing={32}>
           {modalIndex > 0 && (
             <ButtonLink
@@ -78,7 +77,7 @@ const WizardModal: React.FC<WizardModalProps> = ({
             </span>
           ))}
         </div>
-      </BootstrapModalFooter>
+      </div>
     </Modal>
   );
 };

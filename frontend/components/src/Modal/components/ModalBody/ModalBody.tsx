@@ -1,12 +1,16 @@
+import classNames from 'classnames';
 import React from 'react';
-import BootstrapModalBody from 'react-bootstrap/ModalBody';
 
 import styles from './ModalBody.module.css';
 
-const ModalBody = ({children}: {children?: React.ReactNode}) => {
-  return (
-    <BootstrapModalBody className={styles.base}>{children}</BootstrapModalBody>
-  );
+const ModalBody = ({
+  children,
+  className,
+}: {
+  children?: React.ReactNode;
+  className?: string;
+}) => {
+  return <div className={classNames(styles.base, className)}>{children}</div>;
 };
 
 export default ModalBody;

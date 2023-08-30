@@ -1,41 +1,37 @@
 import classNames from 'classnames';
 import React from 'react';
-import BootstrapModalHeader, {
-  ModalHeaderProps as BootstrapModalHeaderProps,
-} from 'react-bootstrap/ModalHeader';
 
 import {Group} from './../../../Group';
 import styles from './ModalHeader.module.css';
 
-export interface ModalHeaderProps
-  extends Omit<BootstrapModalHeaderProps, 'onHide'> {
-  actionable?: boolean;
-  onHide: () => void;
+type ModalHeaderProps = {
   small?: boolean;
   withStatus?: boolean;
-}
+  children?: React.ReactNode;
+  className?: string;
+};
 
 const ModalHeader: React.FC<ModalHeaderProps> = ({
   children,
-  onHide: _onHide,
-  actionable: _actionable = false,
   small = false,
   withStatus = false,
-  ref: _ref, // Note: The ModalHeader from Bootstrap errors out when forwarding a ref
-  ...props
+  className,
 }) => {
   return (
-    <BootstrapModalHeader
-      {...props}
-      className={classNames(styles.base, {
-        [styles.small]: small,
-        [styles.withStatus]: withStatus,
-      })}
+    <div
+      className={classNames(
+        styles.base,
+        {
+          [styles.small]: small,
+          [styles.withStatus]: withStatus,
+        },
+        className,
+      )}
     >
       <Group spacing={8} align="center">
         <h4>{children}</h4>
       </Group>
-    </BootstrapModalHeader>
+    </div>
   );
 };
 
