@@ -21,30 +21,45 @@ import (
 	"time"
 )
 
+/*
+
+SELECT commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str,
+       repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
+		FROM pfs.commits commit
+		JOIN pfs.commit_ancestry ancestry ON ancestry.to_id = commit.int_id
+		JOIN pfs.repos repo ON commit.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id
+*/
+
 func TestCreateCommit(t *testing.T) {
 	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
 		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
-			repo := commitInfo.Commit.Repo
 			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create commit")
 			getInfo, err := pfsdb.GetCommit(ctx, tx, 1)
 			require.NoError(t, err)
 			commitsMatch(t, commitInfo, getInfo)
+			commitInfo = testCommit(ctx, t, branchesCol, tx, testRepoName)
 			commitInfo.Commit.Repo = nil
 			err = pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.YesError(t, err, "should not be able to create commit when repo is nil")
 			require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Repo"}, err))
-			commitInfo.Commit.Repo = repo
-			tmpOrigin := commitInfo.Origin
+			commitInfo = testCommit(ctx, t, branchesCol, tx, testRepoName)
 			commitInfo.Origin = nil
 			err = pfsdb.CreateCommit(ctx, tx, commitInfo)
-			require.YesError(t, err, "should not be able to create commit origin is nil")
+			require.YesError(t, err, "should not be able to create commit when origin is nil")
 			require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Origin"}, err))
-			commitInfo.Origin = tmpOrigin
+			commitInfo = testCommit(ctx, t, branchesCol, tx, testRepoName)
 			commitInfo.Commit = nil
 			err = pfsdb.CreateCommit(ctx, tx, commitInfo)
-			require.YesError(t, err, "should not be able to create commit origin is nil")
+			require.YesError(t, err, "should not be able to create commit when commit is nil")
 			require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Commit"}, err))
+			commitInfo = testCommit(ctx, t, branchesCol, tx, testRepoName)
+			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			commitInfo.ParentCommit = parentInfo.Commit
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, parentInfo), "should be able to create parent commit")
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create parent commit")
+			//todo(fahad): check commitInfo via get to see if parent matches.
 			return nil
 		}), "transaction should succeed because test is failing before calling db")
 		require.YesError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
@@ -79,6 +94,7 @@ func TestGetCommit(t *testing.T) {
 			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "should not be able to get commit when commit is nil.")
 			require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Commit"}, errors.Cause(err)))
+			// todo(fahad): attempt to create a parent and child, then verify that the relationship is correct via get.
 			return nil
 		}))
 	})

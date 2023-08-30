@@ -1173,6 +1173,7 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 		commit.Id = branchInfo.Head.Id
 	}
 	commitInfo := &pfs.CommitInfo{}
+	// todo(fahad): replace with pfsdb.GetCommitByKey()
 	if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			// try to resolve to alias if not found
