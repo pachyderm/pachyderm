@@ -12,20 +12,26 @@
                 },
                 "warnings_ok": {
                     "type": "boolean",
-                    "description": "Let the client detect a server that can't generate warnings."
+                    "description": "True if the server is capable of generating warnings."
                 },
                 "warnings": {
                     "items": {
                         "type": "string"
                     },
                     "type": "array",
-                    "description": "Warnings about version skew."
+                    "description": "Warnings about the client configuration."
                 },
                 "proxy_host": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The configured public URL of Pachyderm."
                 },
                 "proxy_tls": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "True if Pachyderm is served over TLS (HTTPS)."
+                },
+                "paused": {
+                    "type": "boolean",
+                    "description": "True if this pachd is in \"paused\" mode."
                 }
             },
             "additionalProperties": false,

@@ -9,12 +9,16 @@ import "pfs/pfs.proto";
 message ClusterInfo {
   string id = 1;
   string deployment_id = 2;
-
-  bool warnings_ok = 3; // Let the client detect a server that can't generate warnings.
-  repeated string warnings = 4; // Warnings about version skew.
-
+  // True if the server is capable of generating warnings.
+  bool warnings_ok = 3;
+  // Warnings about the client configuration.
+  repeated string warnings = 4;
+  // The configured public URL of Pachyderm.
   string proxy_host = 5;
+  // True if Pachyderm is served over TLS (HTTPS).
   bool proxy_tls = 6;
+  // True if this pachd is in "paused" mode.
+  bool paused = 7;
 }
 
 message InspectClusterRequest {
