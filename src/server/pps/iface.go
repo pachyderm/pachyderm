@@ -14,7 +14,7 @@ import (
 type APIServer interface {
 	pps_client.APIServer
 
-	NewPropagater(*txncontext.TransactionContext) txncontext.PpsPropagater
+	NewPropagater(context.Context, *txncontext.TransactionContext) txncontext.PpsPropagater
 	NewJobStopper(*txncontext.TransactionContext) txncontext.PpsJobStopper
 	NewJobFinisher(*txncontext.TransactionContext) txncontext.PpsJobFinisher
 

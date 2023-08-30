@@ -3259,8 +3259,8 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
-	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID), false)
+func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(ctx, txnCtx, client.NewCommitSet(txnCtx.CommitSetID), false)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
