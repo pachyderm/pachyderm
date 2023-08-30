@@ -270,7 +270,11 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	}
 	log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name))
 	i := 0
-	batcher := newPostgresBatcher(ctx, tx)
+	var cols = []string{"key", "version", "proto"}
+	for _, index := range col.indexes {
+		cols = append(cols, indexFieldName(index))
+	}
+	batcher := newPostgresBatcher(tx, col.table, cols...)
 
 	for oldKey, pair := range vals {
 		if err := col.withKey(oldKey, func(oldKey string) error {
@@ -279,18 +283,23 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 				if err != nil {
 					return err
 				}
+				key := params["key"]
 
-				updateFields := []string{}
-				for k := range params {
-					if k == "proto" {
-						updateFields = append(updateFields, fmt.Sprintf("proto = decode('%v', 'hex') ", hex.EncodeToString([]byte(params["proto"].([]uint8)))))
+				var (
+					args []any
+					j    int
+				)
+				for _, col := range cols {
+					j++
+					if col == "proto" {
+						args = append(args, hex.EncodeToString([]byte(params[col].([]uint8))))
 					} else {
-						updateFields = append(updateFields, fmt.Sprintf("%s = '%s'", k, params[k]))
+						args = append(args, params[col])
 					}
 				}
 
-				query := fmt.Sprintf("update collections.%s set %s where key = '%s'", col.table, strings.Join(updateFields, ", "), oldKey)
-				err = batcher.Add(query)
+				args = append(args, oldKey)
+				err = batcher.Add(ctx, key.(string), args)
 				if err != nil {
 					return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
 				}
@@ -303,5 +312,8 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 			return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
 		}
 	}
-	return batcher.Close()
+	if err := batcher.Finish(ctx); err != nil {
+		return errors.Wrapf(err, "could not finish batch")
+	}
+	return nil
 }
