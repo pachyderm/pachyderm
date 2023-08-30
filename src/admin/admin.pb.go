@@ -33,7 +33,7 @@ type ClusterInfo struct {
 	Warnings     []string `protobuf:"bytes,4,rep,name=warnings,proto3" json:"warnings,omitempty"`                        // Warnings about version skew.
 	ProxyHost    string   `protobuf:"bytes,5,opt,name=proxy_host,json=proxyHost,proto3" json:"proxy_host,omitempty"`
 	ProxyTls     bool     `protobuf:"varint,6,opt,name=proxy_tls,json=proxyTls,proto3" json:"proxy_tls,omitempty"`
-	Paused       bool     `protobuf:"varint,7,opt,name=paused,proto3" json:"paused,omitempty"`
+	Paused       bool     `protobuf:"varint,7,opt,name=paused,proto3" json:"paused,omitempty"` // True if this pachd is in "paused" mode.
 }
 
 func (x *ClusterInfo) Reset() {

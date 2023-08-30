@@ -26,6 +26,10 @@
                 },
                 "proxy_tls": {
                     "type": "boolean"
+                },
+                "paused": {
+                    "type": "boolean",
+                    "description": "True if this pachd is in \"paused\" mode."
                 }
             },
             "additionalProperties": false,
