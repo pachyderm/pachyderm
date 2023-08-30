@@ -311,15 +311,13 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 			}
 
 			// Add headers
-			md := make(metadata.MD)
 			for _, h := range grpcHeaders {
 				parts := strings.SplitN(h, "=", 2)
 				if len(parts) != 2 {
 					return errors.Errorf("malformed --header %q; use Key=Value", h)
 				}
-				md.Append(parts[0], parts[1])
+				authCtx = metadata.AppendToOutgoingContext(authCtx, parts[0], parts[1])
 			}
-			authCtx = metadata.NewOutgoingContext(authCtx, md)
 
 			// Add a note during "long" RPCs.
 			go func() {

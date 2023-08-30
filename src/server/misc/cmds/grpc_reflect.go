@@ -92,7 +92,9 @@ func makeStreaming(name string, reqType, resType protoreflect.MessageDescriptor,
 					return
 				}
 			}
-			fmt.Fprintln(os.Stderr, "All messages sent")
+			if isClientStreaming {
+				fmt.Fprintln(os.Stderr, "All messages sent")
+			}
 		}()
 
 		for i := 0; ; i++ {
