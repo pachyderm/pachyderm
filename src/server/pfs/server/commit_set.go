@@ -17,7 +17,7 @@ import (
 // returns CommitInfos in a commit set, topologically sorted.
 // A commit set will include all the commits that were created across repos for a run, along
 // with all of the commits that the run's commit's rely on (present in previous commit sets).
-func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitSet *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncontext.TransactionContext, commitSet *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
 	var cis []*pfs.CommitInfo
 	if includeAliases {
 		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitSet.Id)
@@ -77,7 +77,7 @@ func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.C
 	var commitInfos []*pfs.CommitInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+		commitInfos, err = d.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, true)
 		return err
 	}); err != nil {
 		return err
@@ -165,7 +165,7 @@ func (d *driver) dropCommitSet(ctx context.Context, txnCtx *txncontext.Transacti
 	if len(css) > 0 {
 		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
 	}
-	cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, false)
+	cis, err := d.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, false)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 	if len(css) > 0 {
 		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
 	}
-	commitInfos, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, false)
+	commitInfos, err := d.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, false)
 	if err != nil {
 		return err
 	}

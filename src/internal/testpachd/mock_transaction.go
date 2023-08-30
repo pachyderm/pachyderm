@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-type newPropagaterFunc func(*txncontext.TransactionContext) txncontext.PpsPropagater
+type newPropagaterFunc func(context.Context, *txncontext.TransactionContext) txncontext.PpsPropagater
 
 type mockNewPropagater struct {
 	handler newPropagaterFunc
@@ -113,9 +113,9 @@ type MockPPSPropagater struct{}
 func (mpp *MockPPSPropagater) PropagateJobs() {}
 func (mpp *MockPPSPropagater) Run() error     { return nil }
 
-func (api *ppsTransactionAPI) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
+func (api *ppsTransactionAPI) NewPropagater(ctx context.Context, txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
 	if api.mock.NewPropagater.handler != nil {
-		return api.mock.NewPropagater.handler(txnCtx)
+		return api.mock.NewPropagater.handler(ctx, txnCtx)
 	}
 	return &MockPPSPropagater{}
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -16,13 +17,15 @@ import (
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
 	a        *apiServer
+	ctx      context.Context
 	txnCtx   *txncontext.TransactionContext
 	notified bool
 }
 
-func (a *apiServer) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
+func (a *apiServer) NewPropagater(ctx context.Context, txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
 	return &Propagater{
 		a:      a,
+		ctx:    ctx,
 		txnCtx: txnCtx,
 	}
 }
@@ -37,7 +40,7 @@ func (t *Propagater) PropagateJobs() {
 // Run creates any jobs for the modified CommitSets
 func (t *Propagater) Run() error {
 	if t.notified {
-		return t.a.propagateJobs(t.txnCtx)
+		return t.a.propagateJobs(t.ctx, t.txnCtx)
 	}
 	return nil
 }
