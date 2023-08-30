@@ -19,13 +19,27 @@ message ClusterInfo {
   bool proxy_tls = 6;
   // True if this pachd is in "paused" mode.
   bool paused = 7;
+  // Any HTTP links that the client might want to be aware of.
+  WebResource web_resources = 8;
 }
 
 message InspectClusterRequest {
+  // The version of the client that's connecting; used by the server to warn about too-old (or
+  // too-new!) clients.
   versionpb_v2.Version client_version = 1;
   // If CurrentProject is set, then InspectCluster will return an error if the
   // project does not exist.
   pfs_v2.Project current_project = 2;
+}
+
+// WebResource contains URL prefixes of common HTTP functions.
+message WebResource {
+  // The base URL of the archive server; append a filename to this.  Empty if the archive server is
+  // not exposed.
+  string archive_download_base_url = 1;
+  // Where to find the CreatePipelineRequest JSON schema; if this server is not accessible via a
+  // URL, then a link to Github is provided based on the baked-in version of the server.
+  string create_pipeline_request_json_schema_url = 2;
 }
 
 service API {

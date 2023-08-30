@@ -25,6 +25,7 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("proxy_host", x.ProxyHost)
 	enc.AddBool("proxy_tls", x.ProxyTls)
 	enc.AddBool("paused", x.Paused)
+	enc.AddObject("web_resources", x.WebResources)
 	return nil
 }
 
@@ -34,5 +35,14 @@ func (x *InspectClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	}
 	enc.AddObject("client_version", x.ClientVersion)
 	enc.AddObject("current_project", x.CurrentProject)
+	return nil
+}
+
+func (x *WebResource) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("archive_download_base_url", x.ArchiveDownloadBaseUrl)
+	enc.AddString("create_pipeline_request_json_schema_url", x.CreatePipelineRequestJsonSchemaUrl)
 	return nil
 }

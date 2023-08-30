@@ -71,7 +71,7 @@ const (
 	secret   = "secret"
 
 	create  = "create"
-	delete  = "delete"
+	del     = "delete"
 	edit    = "edit"
 	inspect = "inspect"
 	list    = "list"
@@ -1501,9 +1501,9 @@ func TestListDatumFromFile(t *testing.T) {
 func resourcesMap() map[string][]string {
 	return map[string][]string{
 		datum:    {inspect, list, restart},
-		job:      {delete, inspect, list, stop, wait},
-		pipeline: {create, delete, edit, inspect, list, start, stop, update},
-		secret:   {create, delete, inspect, list},
+		job:      {del, inspect, list, stop, wait},
+		pipeline: {create, del, edit, inspect, list, start, stop, update},
+		secret:   {create, del, inspect, list},
 	}
 }
 

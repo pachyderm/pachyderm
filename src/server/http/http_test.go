@@ -33,7 +33,7 @@ func TestRouting(t *testing.T) {
 		{
 			name:     "CreatePipelineRequest JSON schema",
 			method:   "GET",
-			url:      "http://pachyderm.exmaple.com/jsonschema/pps_v2/CreatePipelineRequest.schema.json",
+			url:      "http://pachyderm.example.com/jsonschema/pps_v2/CreatePipelineRequest.schema.json",
 			wantCode: http.StatusOK,
 		},
 	}
