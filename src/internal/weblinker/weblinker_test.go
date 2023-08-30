@@ -21,7 +21,7 @@ func TestLinks(t *testing.T) {
 			name:                                    "empty",
 			l:                                       new(Linker),
 			matchArchiveDownloadBaseURL:             r("^/archive/$"),
-			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.*/master/.*CreatePipelineRequest.schema.json$"),
+			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.*/master/.*/pps_v2/CreatePipelineRequest.schema.json$"),
 		},
 		{
 			name: "release, http",
@@ -37,7 +37,7 @@ func TestLinks(t *testing.T) {
 				},
 			},
 			matchArchiveDownloadBaseURL:             r("^http://pachyderm.example.com/archive/$"),
-			matchCreatePipelineRequestJSONSchemaURL: r("^http://pachyderm.example.com/jsonschema/CreatePipelineRequest.schema.json$"),
+			matchCreatePipelineRequestJSONSchemaURL: r("^http://pachyderm.example.com/jsonschema/pps_v2/CreatePipelineRequest.schema.json$"),
 		},
 		{
 			name: "release, https",
@@ -53,7 +53,7 @@ func TestLinks(t *testing.T) {
 				},
 			},
 			matchArchiveDownloadBaseURL:             r("^https://pachyderm.example.com/archive/$"),
-			matchCreatePipelineRequestJSONSchemaURL: r("^https://pachyderm.example.com/jsonschema/CreatePipelineRequest.schema.json$"),
+			matchCreatePipelineRequestJSONSchemaURL: r("^https://pachyderm.example.com/jsonschema/pps_v2/CreatePipelineRequest.schema.json$"),
 		},
 		{
 			name: "release, http with custom port",
@@ -69,7 +69,7 @@ func TestLinks(t *testing.T) {
 				},
 			},
 			matchArchiveDownloadBaseURL:             r("^http://pachyderm.example.com:1234/archive/$"),
-			matchCreatePipelineRequestJSONSchemaURL: r("^http://pachyderm.example.com:1234/jsonschema/CreatePipelineRequest.schema.json$"),
+			matchCreatePipelineRequestJSONSchemaURL: r("^http://pachyderm.example.com:1234/jsonschema/pps_v2/CreatePipelineRequest.schema.json$"),
 		},
 		{
 			name: "release, no proxy",
@@ -85,7 +85,7 @@ func TestLinks(t *testing.T) {
 				},
 			},
 			matchArchiveDownloadBaseURL:             r("^/archive/$"),
-			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.com/.*/v2.8.0/.*/CreatePipelineRequest.schema.json$"),
+			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.com/.*/v2.8.0/.*/pps_v2/CreatePipelineRequest.schema.json$"),
 		},
 		{
 			name: "git checkout, not modified, no proxy",
@@ -101,7 +101,7 @@ func TestLinks(t *testing.T) {
 				},
 			},
 			matchArchiveDownloadBaseURL:             r("^/archive/$"),
-			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.com/.*/abc123/.*/CreatePipelineRequest.schema.json$"),
+			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.com/.*/abc123/.*/pps_v2/CreatePipelineRequest.schema.json$"),
 		},
 		{
 			name: "git checkout, modified, no proxy",
@@ -117,7 +117,7 @@ func TestLinks(t *testing.T) {
 				},
 			},
 			matchArchiveDownloadBaseURL:             r("^/archive/$"),
-			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.com/.*/master/.*/CreatePipelineRequest.schema.json$"),
+			matchCreatePipelineRequestJSONSchemaURL: r("^https://raw.githubusercontent.com/.*/master/.*/pps_v2/CreatePipelineRequest.schema.json$"),
 		},
 	}
 

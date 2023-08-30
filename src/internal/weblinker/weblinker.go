@@ -60,7 +60,7 @@ func (l *Linker) CreatePipelineRequestJSONSchemaURL() string {
 			tag = v.GetGitCommit()
 		}
 
-		return "https://raw.githubusercontent.com/pachyderm/pachyderm/" + tag + "/src/internal/jsonschema/CreatePipelineRequest.schema.json"
+		return "https://raw.githubusercontent.com/pachyderm/pachyderm/" + tag + "/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json"
 	}
 	base := l.baseURL()
 	base.Path = "/jsonschema/pps_v2/CreatePipelineRequest.schema.json"
