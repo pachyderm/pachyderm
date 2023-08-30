@@ -164,7 +164,14 @@ func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) 
 	}
 	if dd := s.Details(); len(dd) > 0 {
 		for i, d := range dd {
-			f = append(f, zap.String(fmt.Sprintf("grpc.details[%d]", i), fmt.Sprint(d)))
+			switch d := d.(type) {
+			case error:
+				f = append(f, zap.NamedError(fmt.Sprintf("grpc.details[%d]", i), d))
+			case proto.Message:
+				f = append(f, log.Proto(fmt.Sprintf("grpc.details[%d]", i), d))
+			default:
+				f = append(f, zap.Any(fmt.Sprintf("grpc.details[%d]", i), d))
+			}
 		}
 	}
 	return pctx.Child(ctx, "", pctx.WithFields(f...))
