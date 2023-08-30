@@ -27,13 +27,18 @@ type ClusterInfo struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id           string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	DeploymentId string   `protobuf:"bytes,2,opt,name=deployment_id,json=deploymentId,proto3" json:"deployment_id,omitempty"`
-	WarningsOk   bool     `protobuf:"varint,3,opt,name=warnings_ok,json=warningsOk,proto3" json:"warnings_ok,omitempty"` // Let the client detect a server that can't generate warnings.
-	Warnings     []string `protobuf:"bytes,4,rep,name=warnings,proto3" json:"warnings,omitempty"`                        // Warnings about version skew.
-	ProxyHost    string   `protobuf:"bytes,5,opt,name=proxy_host,json=proxyHost,proto3" json:"proxy_host,omitempty"`
-	ProxyTls     bool     `protobuf:"varint,6,opt,name=proxy_tls,json=proxyTls,proto3" json:"proxy_tls,omitempty"`
-	Paused       bool     `protobuf:"varint,7,opt,name=paused,proto3" json:"paused,omitempty"` // True if this pachd is in "paused" mode.
+	Id           string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	DeploymentId string `protobuf:"bytes,2,opt,name=deployment_id,json=deploymentId,proto3" json:"deployment_id,omitempty"`
+	// True if the server is capable of generating warnings.
+	WarningsOk bool `protobuf:"varint,3,opt,name=warnings_ok,json=warningsOk,proto3" json:"warnings_ok,omitempty"`
+	// Warnings about the client configuration.
+	Warnings []string `protobuf:"bytes,4,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	// The configured public URL of Pachyderm.
+	ProxyHost string `protobuf:"bytes,5,opt,name=proxy_host,json=proxyHost,proto3" json:"proxy_host,omitempty"`
+	// True if Pachyderm is served over TLS (HTTPS).
+	ProxyTls bool `protobuf:"varint,6,opt,name=proxy_tls,json=proxyTls,proto3" json:"proxy_tls,omitempty"`
+	// True if this pachd is in "paused" mode.
+	Paused bool `protobuf:"varint,7,opt,name=paused,proto3" json:"paused,omitempty"`
 }
 
 func (x *ClusterInfo) Reset() {
