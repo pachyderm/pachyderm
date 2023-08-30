@@ -177,7 +177,6 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 		to_id bigint REFERENCES pfs.commits(int_id),
 		PRIMARY KEY (from_id, to_id)
 	);
-
 	CREATE INDEX ON pfs.commit_ancestry (from_id);
 	CREATE INDEX ON pfs.commit_ancestry (to_id);
 	`
@@ -187,12 +186,44 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE OR REPLACE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
+	DECLARE
+		row record;
+		payload text;
+	BEGIN
+		IF TG_OP = 'DELETE' THEN
+			row := OLD;
+		ELSE
+			row := NEW;
+		END IF;
+		payload := TG_OP || ' ' || row.int_id::text;
+		PERFORM pg_notify('pfs_commits', payload);
+		PERFORM pg_notify('pfs_commits_repo_' || row.repo_id::text, payload);
+		return row;
+	END;
+	$$ LANGUAGE plpgsql;
+	CREATE TRIGGER notify
+		AFTER INSERT OR UPDATE OR DELETE ON pfs.commits
+		FOR EACH ROW EXECUTE PROCEDURE pfs.notify_commits();
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "creating notify trigger on pfs.commits")
+	}
+	return nil
+
+}
+
 // Migrate commits from collections.commits to pfs.commits
 func migrateCommits(ctx context.Context, tx *pachsql.Tx) error {
 	if err := alterCommitsTable1(ctx, tx); err != nil {
 		return err
 	}
 	if err := createCommitAncestryTable(ctx, tx); err != nil {
+		return err
+	}
+	if err := createNotifyCommitsTrigger(ctx, tx); err != nil {
 		return err
 	}
 	return nil

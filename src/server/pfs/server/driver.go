@@ -790,6 +790,7 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 	}
 	child.ParentCommit = parentCommitInfo.Commit
 	parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, child.Commit)
+	// todo(fahad): here, we want to update the pfs.commit_ancestry table.
 	return errors.Wrapf(d.commits.ReadWrite(txnCtx.SqlTx).Put(parentCommitInfo.Commit, parentCommitInfo),
 		"could not resolve parent commit %s", parent)
 }
@@ -920,6 +921,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	}
 	commitInfo.Finishing = txnCtx.Timestamp
 	commitInfo.Error = commitError
+	//todo(fahad): replace with pfsdb.UpsertCommit
 	return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Put(commitInfo.Commit, commitInfo))
 }
 
