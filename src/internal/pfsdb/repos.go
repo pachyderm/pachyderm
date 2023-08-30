@@ -380,3 +380,25 @@ func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id RepoID, repo *pfs.RepoIn
 	}
 	return nil
 }
+
+// RepoExistsByName returns nil if the repo exists, or an error otherwise.
+func RepoExistsByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) error {
+	row := tx.QueryRowContext(ctx, `SELECT 1 FROM pfs.repos r LEFT JOIN core.projects p ON p.id = r.project_id `+
+		`WHERE p.name=$1 AND r.name=$2 AND r.type=$3::pfs.repo_type`,
+		repoProject, repoName, repoType)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			if _, err := coredb.GetProjectByName(ctx, tx, repoProject); err != nil {
+				// Return "project doesn't exist" instead of "repo doesn't exist".
+				return err
+			}
+			return ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
+		}
+		return errors.Wrap(err, "Scan")
+	}
+	if n != 1 {
+		return errors.Errorf("scanning dummy row returned unexpected value %v", n)
+	}
+	return nil
+}
