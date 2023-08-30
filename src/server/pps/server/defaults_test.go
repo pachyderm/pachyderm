@@ -19,6 +19,13 @@ func TestAPIServer_CreatePipelineV2_noDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
+	dr, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	require.NoError(t, err, "GetClusterDefaults must succeed")
+	require.NotEqual(t, "", dr.ClusterDefaultsJson, "baseline cluster defaults must not be missing")
+	var defaults pps.ClusterDefaults
+	err = protojson.Unmarshal([]byte(dr.ClusterDefaultsJson), &defaults)
+	require.NoError(t, err, "baseline cluster defaults must unmarshal")
+
 	repo := "input"
 	pipeline := "pipeline"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -40,6 +47,10 @@ func TestAPIServer_CreatePipelineV2_noDefaults(t *testing.T) {
 				"name": "in"
 			}
 		},
+                "resource_requests": {
+	                "cpu": null,
+	                "disk": "187Mi"
+                },
 		"autoscaling": false
 	}`
 	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
@@ -57,17 +68,17 @@ func TestAPIServer_CreatePipelineV2_noDefaults(t *testing.T) {
 	err = protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req)
 	require.NoError(t, err, "unmarshalling effective JSON must not error")
 	require.False(t, req.Autoscaling, "spec must override default")
+	require.Equal(t, float32(0), req.ResourceRequests.Cpu, "CPU request must be deleted")
+	require.Equal(t, "187Mi", req.ResourceRequests.Disk, "disk request must be overridden")
+	require.Equal(t, defaults.CreatePipelineRequest.ResourceRequests.Memory, req.ResourceRequests.Memory, "memory request must be default")
+	require.NotNil(t, req.SidecarResourceRequests, "unspecified object must be default")
 }
 
 func TestAPIServer_CreatePipelineV2_defaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
-	dr, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
-	require.NoError(t, err, "GetClusterDefaults must succeed")
-	require.NotEqual(t, "", dr.ClusterDefaultsJson, "baseline cluster defaults must not be missing")
-
-	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
 	})
 	require.NoError(t, err, "SetClusterDefaults must succeed")
@@ -110,6 +121,8 @@ func TestAPIServer_CreatePipelineV2_defaults(t *testing.T) {
 	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
 	require.Equal(t, int64(17), req.DatumTries, "cluster default is effective")
 	require.False(t, req.Autoscaling, "spec must override default")
+	require.NotNil(t, req.Transform)
+	require.Len(t, req.Transform.Cmd, 4)
 }
 
 func TestAPIServer_CreatePipelineV2_regenerate(t *testing.T) {
@@ -169,6 +182,7 @@ func TestAPIServer_CreatePipelineV2_regenerate(t *testing.T) {
 	require.NoError(t, err, "InspectPipeline must succeed")
 	require.NoError(t, protojson.Unmarshal([]byte(ir.EffectiveSpecJson), &req), "unmarshalling effective spec JSON must not error")
 	require.Equal(t, int64(4), req.DatumTries, "cluster default is effective")
+	require.Equal(t, false, req.Autoscaling, "autoscaling is still false")
 }
 
 func TestAPIServer_CreatePipelineV2_delete(t *testing.T) {
@@ -227,4 +241,5 @@ func TestAPIServer_CreatePipelineV2_delete(t *testing.T) {
 	require.NoError(t, err, "InspectPipeline must succeed")
 	require.NoError(t, protojson.Unmarshal([]byte(ir.EffectiveSpecJson), &req), "unmarshalling effective spec JSON must not error")
 	require.Equal(t, int64(4), req.DatumTries, "cluster default is effective")
+	require.Equal(t, false, req.Autoscaling, "autoscaling is still false")
 }
