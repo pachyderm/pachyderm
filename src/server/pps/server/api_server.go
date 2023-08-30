@@ -3177,22 +3177,24 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
 			if err := a.authorizePipelineOpInTransaction(ctx, txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
-				return err
+				return errors.Wrap(err, "authorize")
 			}
 
 			// Remove branch provenance to prevent new output and meta commits from being created
+			br := client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch)
 			if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+				Branch:     br,
 				Provenance: nil,
 			}); err != nil {
-				return errors.EnsureStack(err)
+				return errors.Wrapf(err, "clear provenance: create branch %v", br)
 			}
 			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
+				mbr := client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch)
 				if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+					Branch:     mbr,
 					Provenance: nil,
 				}); err != nil {
-					return errors.EnsureStack(err)
+					return errors.Wrapf(err, "clear provenance (meta): create branch %v")
 				}
 			}
 
@@ -3201,7 +3203,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 				newPipelineInfo.Stopped = true
 				return nil
 			}); err != nil {
-				return err
+				return errors.Wrapf(err, "update pipeline")
 			}
 		} else if !errutil.IsNotFoundError(err) || request.MustExist {
 			return err
@@ -3210,9 +3212,9 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		// Kill any remaining jobs
 		// if the pipeline output repo doesn't exist, we technically run this without authorization,
 		// but it's not clear what authorization means in that case, and those jobs are doomed, anyway
-		return a.stopAllJobsInPipeline(ctx, txnCtx, request.Pipeline, "all jobs killed because pipeline was stopped")
+		return errors.Wrap(a.stopAllJobsInPipeline(ctx, txnCtx, request.Pipeline, "all jobs killed because pipeline was stopped"), "stop all jobs")
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &emptypb.Empty{}, nil
 }

@@ -1506,7 +1506,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				if errutil.IsNotFoundError(err) {
 					return err
 				}
-				return errors.Wrapf(err, "could not inspect repo %s", err, file.Commit.Branch.Repo.Name)
+				return errors.Wrapf(err, "could not inspect repo %s", file.Commit.Branch.Repo.Name)
 			}
 
 			// TODO: Rethink put file parallelism for 2.0.

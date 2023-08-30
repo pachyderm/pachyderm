@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
@@ -69,7 +70,7 @@ func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (
 	// query pipelineInfo
 	var pi *pps.PipelineInfo
 	var err error
-	if pi, err = sd.tryLoadLatestPipelineInfo(ctx, pipeline); err != nil && collection.IsErrNotFound(err) {
+	if pi, err = sd.tryLoadLatestPipelineInfo(ctx, pipeline); err != nil && errutil.IsNotFoundError(err) {
 		// if the pipeline info is not found, interpret the operation as a delete
 		return nil, nil, nil
 	} else if err != nil {
