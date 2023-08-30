@@ -152,21 +152,9 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 					return err
 				}
 				defer c.Close()
-				info, err := c.InspectCluster()
-				if err != nil {
-					return errors.Wrap(err, "lookup cluster address")
-				}
-				host := info.GetProxyHost()
-				if host == "" {
-					return errors.New("server does not know its public hostname")
-				}
-				if info.GetProxyTls() {
-					u.Scheme = "https"
-				} else {
-					u.Scheme = "http"
-				}
-				u.Host = host
-				u.Path = "/archive/" + path + ".zip"
+
+				info, _ := c.ClusterInfo()
+				fmt.Println(info.GetWebResources().GetArchiveDownloadBaseUrl() + path + ".zip")
 				return nil
 			}
 			if err := getPrefix(); err != nil {

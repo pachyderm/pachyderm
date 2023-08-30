@@ -141,6 +141,9 @@ type APIClient struct {
 
 	defaultTransformImage string
 	defaultTransformUser  string
+
+	// inspectClusterResult is the result from the InspectCluster call made at connection time.
+	inspectClusterResult *admin.ClusterInfo
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -609,6 +612,7 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		}
 		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
 	}
+	client.inspectClusterResult = clusterInfo
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
 		if !clusterInfo.GetWarningsOk() {
@@ -928,4 +932,11 @@ func (c *APIClient) SetAuthToken(token string) {
 // produced from a configured client context.
 func (c *APIClient) ClientContextName() string {
 	return c.clientContextName
+}
+
+func (c *APIClient) ClusterInfo() (info *admin.ClusterInfo, ok bool) {
+	if c == nil || c.inspectClusterResult == nil {
+		return nil, false
+	}
+	return c.inspectClusterResult, true
 }
