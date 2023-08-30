@@ -1594,7 +1594,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			defer client.Close()
 			if cluster {
-				resp, err := client.PpsAPIClient.GetClusterDefaults(mainCtx, &pps.GetClusterDefaultsRequest{})
+				resp, err := client.PpsAPIClient.GetClusterDefaults(client.Ctx(), &pps.GetClusterDefaultsRequest{})
 				if err != nil {
 					return errors.Wrap(err, "could not get cluster defaults")
 				}
@@ -1707,7 +1707,7 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	defer client.Close()
 
 	var resp *pps.SetClusterDefaultsResponse
-	if resp, err = client.PpsAPIClient.SetClusterDefaults(ctx, req); err != nil {
+	if resp, err = client.PpsAPIClient.SetClusterDefaults(client.Ctx(), req); err != nil {
 		return errors.Wrap(err, "could not set cluster defaults")
 	}
 	if req.Regenerate {
