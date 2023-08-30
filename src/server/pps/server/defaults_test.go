@@ -63,7 +63,11 @@ func TestAPIServer_CreatePipelineV2_defaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
-	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+	dr, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	require.NoError(t, err, "GetClusterDefaults must succeed")
+	require.NotEqual(t, "", dr.ClusterDefaultsJson, "baseline cluster defaults must not be missing")
+
+	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
 	})
 	require.NoError(t, err, "SetClusterDefaults must succeed")
