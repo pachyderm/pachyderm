@@ -6,7 +6,7 @@ import {
   screen,
   within,
 } from '@testing-library/react';
-import {setupServer} from 'msw/lib/node';
+import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {

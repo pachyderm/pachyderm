@@ -1,6 +1,5 @@
 import * as sentryReact from '@sentry/react';
 import {render, waitFor, screen} from '@testing-library/react';
-import {mocked} from 'jest-mock';
 import Cookies from 'js-cookie';
 import React from 'react';
 
@@ -160,7 +159,7 @@ describe('lib/analytics', () => {
   });
 
   it('should send an event to sentry when a click event fails', () => {
-    mocked(track).mockImplementationOnce(() => {
+    track.mockImplementationOnce(() => {
       throw new Error('Analytics exploded!');
     });
 
@@ -171,7 +170,7 @@ describe('lib/analytics', () => {
   });
 
   it('should send an event to sentry when an identify event fails', () => {
-    mocked(track).mockImplementationOnce(() => {
+    track.mockImplementationOnce(() => {
       throw new Error('Analytics exploded!');
     });
 
@@ -188,7 +187,7 @@ describe('lib/analytics', () => {
   });
 
   it('should send an event to sentry when a UTM event fails', () => {
-    mocked(track).mockImplementationOnce(() => {
+    track.mockImplementationOnce(() => {
       throw new Error('Analytics exploded!');
     });
 

@@ -2,7 +2,6 @@ const baseConfig = {
   cacheDirectory: '.jestcache',
   clearMocks: true,
   collectCoverageFrom: ['<rootDir>/**/*.{js,jsx,ts,tsx}'],
-  coverageReporters: ['text-summary', 'lcov', 'json'],
   modulePaths: ['<rootDir>'],
   moduleDirectories: ['src', 'node_modules'],
   roots: ['<rootDir>'],
@@ -15,8 +14,7 @@ const baseConfig = {
     '^d3-(.*)$': `d3-$1/dist/d3-$1`,
   },
   setupFilesAfterEnv: ['./setupTests.ts'],
-  testTimeout: 20000,
-  timers: 'real',
+  fakeTimers: {},
   transform: {
     '^.+\\.tsx?$': '@swc/jest',
   },

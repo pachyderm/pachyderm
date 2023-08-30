@@ -1,6 +1,6 @@
 import {mockCommitSearchQuery, mockGetCommitsQuery} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
-import {setupServer} from 'msw/lib/node';
+import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {getStandardDate} from '@dash-frontend/lib/dateTime';

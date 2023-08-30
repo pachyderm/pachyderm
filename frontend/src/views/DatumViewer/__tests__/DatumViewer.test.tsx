@@ -1,7 +1,7 @@
 import {DatumState, mockDatumQuery} from '@graphqlTypes';
 import {render, waitFor, within, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {setupServer} from 'msw/lib/node';
+import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {

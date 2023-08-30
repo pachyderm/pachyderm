@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';
-import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 import {Account} from '@graphqlTypes';
 import {act} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -38,7 +37,10 @@ export const withContextProviders = <
 };
 
 export const setIdTokenForAccount = (account: Account) => {
-  window.localStorage.setItem('id-token', generateIdTokenForAccount(account));
+  window.localStorage.setItem(
+    'id-token',
+    `${account.id}-${account.email}-token`,
+  );
 };
 
 export const loginUser = (

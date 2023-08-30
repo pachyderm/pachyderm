@@ -5,10 +5,8 @@ import ErrorView from '@dash-frontend/views/ErrorView/GraphQLErrorView';
 
 import useAuthenticatedRoute from './hooks/useAuthenticatedRoute';
 
-const AuthenticatedRoute = <T,>(
-  Component: React.ComponentType<T>,
-): React.ComponentType<T> => {
-  const WrappedComponent: React.FC<T> = (props) => {
+const AuthenticatedRoute = <T,>(Component: React.ComponentType<T>) => {
+  const WrappedComponent: React.FC<T & JSX.IntrinsicAttributes> = (props) => {
     const {error, loggedIn} = useAuthenticatedRoute();
 
     if (error) {

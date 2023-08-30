@@ -36,7 +36,7 @@ const WrappedTestComponent = withContextProviders(TestComponent);
 
 describe('NotificationBanner', () => {
   it('should show a notification banner and default to removing it after 3 seconds', async () => {
-    jest.useFakeTimers('legacy');
+    jest.useFakeTimers({legacyFakeTimers: true});
 
     render(<WrappedTestComponent />);
 
@@ -62,7 +62,7 @@ describe('NotificationBanner', () => {
   });
 
   it('should show the notification banner for the specified duration', async () => {
-    jest.useFakeTimers('legacy');
+    jest.useFakeTimers({legacyFakeTimers: true});
 
     render(<WrappedTestComponent type="success" duration={2000} />);
 
