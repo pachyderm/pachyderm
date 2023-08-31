@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -20,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"google.golang.org/protobuf/proto"
 )
 
 // TODO(acohen4): signature should accept a branch seperate from the commit
@@ -74,7 +75,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return d.finishCommit(txnCtx, commit, "", "", false)
+		return d.finishCommit(ctx, txnCtx, commit, "", "", false)
 	})
 }
 
@@ -618,8 +619,8 @@ func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.Path
 	return pathRanges, nil
 }
 
-func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
-	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
+func (d *driver) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+	commitInfo, err := d.resolveCommit(ctx, txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
 	}

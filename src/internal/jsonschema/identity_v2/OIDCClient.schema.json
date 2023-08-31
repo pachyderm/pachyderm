@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/OIDCClient",
+    "definitions": {
+        "OIDCClient": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "redirect_uris": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "redirectUris": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "trusted_peers": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "trustedPeers": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "OIDC Client"
+        }
+    }
+}

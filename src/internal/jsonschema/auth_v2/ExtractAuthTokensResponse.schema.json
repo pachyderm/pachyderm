@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ExtractAuthTokensResponse",
+    "definitions": {
+        "ExtractAuthTokensResponse": {
+            "properties": {
+                "tokens": {
+                    "items": {
+                        "$ref": "#/definitions/auth_v2.TokenInfo"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Extract Auth Tokens Response"
+        },
+        "auth_v2.TokenInfo": {
+            "properties": {
+                "subject": {
+                    "type": "string",
+                    "description": "Subject (i.e. Pachyderm account) that a given token authorizes. See the note at the top of the doc for an explanation of subject structure."
+                },
+                "expiration": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "hashed_token": {
+                    "type": "string"
+                },
+                "hashedToken": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "// Authentication data structures",
+            "description": "// Authentication data structures  TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection"
+        }
+    }
+}

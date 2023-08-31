@@ -92,13 +92,14 @@ func run(ctx context.Context) error {
 	basePath := findBasePath(jobInfo)
 	// upload individual test  results
 	eg, _ := errgroup.WithContext(ctx)
+
 	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
 			eg.Go(func() error {
-				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, commit)
+				return uploadTestResult(path, d, basePath, resultsFolder, jobInfo, pachClient, commit)
 			})
 		}
 		return nil
@@ -109,10 +110,6 @@ func run(ctx context.Context) error {
 	}
 	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
 		return errors.Wrapf(goRoutineErrs, "Problem putting files to pachyderm")
-	}
-	// do this last so the egress knows that we are done for this job/executor
-	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
-		return errors.Wrapf(err, "Problem uploading job info")
 	}
 	log.Info(ctx, "Successfully uploaded files.")
 	return nil
@@ -177,27 +174,29 @@ func findBasePath(jobInfo gotestresults.JobInfo) string {
 	return basePath
 }
 
-// Uploads job info to pachyderm cluster.
-func uploadJobInfo(basePath string, jobInfo gotestresults.JobInfo, pachClient *client.APIClient, commit *pfs.Commit) error {
+func uploadTestResult(path string,
+	d fs.DirEntry,
+	basePath string,
+	resultsFolder string,
+	jobInfo gotestresults.JobInfo,
+	pachClient *client.APIClient,
+	commit *pfs.Commit,
+) error {
 	jobInfoJson, err := json.Marshal(jobInfo)
 	if err != nil {
 		return errors.Wrapf(err, "Could not marshal CI job stats to json: %v ", jobInfo)
 	}
-	if err = pachClient.PutFile(commit, filepath.Join(basePath, "JobInfo.json"), bytes.NewReader(jobInfoJson)); err != nil {
-		return errors.Wrapf(err, "Could not output CI job stats to pachyderm cluster ")
-	}
-	return nil
-}
-
-func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder string, pachClient *client.APIClient, commit *pfs.Commit) error {
-	file, err := os.Open(path)
+	resultsFile, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "opening file %v", d.Name())
 	}
-	defer file.Close()
-	destPath := findDestinationPath(path, basePath, resultsFolder)
-	if err = pachClient.PutFile(commit, destPath, file); err != nil {
-		return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetId())
-	}
-	return nil
+	defer resultsFile.Close()
+	resultsPath := findDestinationPath(path, basePath, resultsFolder)
+	// upload files together to avoid no-op datums
+	return pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+		if err = mf.PutFile(resultsPath, resultsFile); err != nil {
+			return err
+		}
+		return mf.PutFile(filepath.Join(basePath, "JobInfo.json"), bytes.NewReader(jobInfoJson))
+	})
 }

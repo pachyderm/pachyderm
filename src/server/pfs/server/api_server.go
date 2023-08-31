@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"github.com/ghodss/yaml"
@@ -98,15 +101,18 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "list projects")
 	}
 	// Create role bindings for repos created before auth activation
-	var repoInfo pfs.RepoInfo
-	if err := a.driver.repos.ReadWrite(txnCtx.SqlTx).List(&repoInfo, col.DefaultOptions(), func(string) error {
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfo.Repo.AuthResource())
+	repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "list projects")
+	}
+	if err := stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repoPair.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "list repos")
 	}
 	return &pfs.ActivateAuthResponse{}, nil
 }
@@ -149,7 +155,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 		if err != nil {
 			return err
 		}
-		size, err = a.driver.repoSize(txnCtx, repoInfo.Repo)
+		size, err = a.driver.repoSize(ctx, txnCtx, repoInfo)
 		return err
 	}); err != nil {
 		return nil, err
@@ -163,12 +169,30 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, request.Projects, srv.Send)
+	var repos []*pfs.RepoInfo
+	var err error
+	if err := errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		return a.driver.txnEnv.WithReadContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
+			repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}, dbutil.WithReadOnly()), "list repo"); err != nil {
+		return err
+	}
+	for _, repo := range repos {
+		if err := errors.Wrap(srv.Send(repo), "sending repo"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *apiServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) (bool, error) {
 	return a.driver.deleteRepo(ctx, txnCtx, request.Repo, request.Force)
 }
 
@@ -190,17 +214,23 @@ func (a *apiServer) DeleteReposInTransaction(ctx context.Context, txnCtx *txncon
 }
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
-func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *emptypb.Empty, retErr error) {
+func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *pfs.DeleteRepoResponse, retErr error) {
 	request.GetRepo().EnsureProject()
 	if request.GetRepo() == nil {
 		return nil, status.Error(codes.InvalidArgument, "no repo specified")
 	}
+	result := &pfs.DeleteRepoResponse{}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.DeleteRepo(request))
+		repoDeleted, err := txn.DeleteRepo(request)
+		if err != nil {
+			return errors.Wrap(err, "delete repo")
+		}
+		result.Deleted = repoDeleted
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	return result, nil
 }
 
 // DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
@@ -242,9 +272,9 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *apiServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		return a.driver.finishCommit(txnCtx, request.Commit, request.Description, request.Error, request.Force)
+		return a.driver.finishCommit(ctx, txnCtx, request.Commit, request.Description, request.Error, request.Force)
 	})
 }
 
@@ -261,8 +291,8 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 // InspectCommitInTransaction is identical to InspectCommit (some features
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
-func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
+func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+	return a.driver.resolveCommit(ctx, txnCtx.SqlTx, request.Commit)
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
@@ -281,8 +311,8 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 // InspectCommitSetInTransaction performs the same job as InspectCommitSet
 // without the option of blocking for commits to finish so that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectCommitSetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
-	return a.driver.inspectCommitSetImmediateTx(txnCtx, commitset, includeAliases)
+func (a *apiServer) InspectCommitSetInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
+	return a.driver.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, includeAliases)
 }
 
 // InspectCommitSet implements the protobuf pfs.InspectCommitSet RPC
@@ -383,9 +413,9 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	return a.driver.inspectBranch(ctx, request.Branch)
 }
 
-func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
+func (a *apiServer) InspectBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
 	request.GetBranch().GetRepo().EnsureProject()
-	return a.driver.inspectBranchInTransaction(txnCtx, request.Branch)
+	return a.driver.inspectBranchInTransaction(ctx, txnCtx, request.Branch)
 }
 
 // ListBranch implements the protobuf pfs.ListBranch RPC
@@ -659,7 +689,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *emptypb.Empty) (resp
 	return &emptypb.Empty{}, nil
 }
 
-// Fsckimplements the protobuf pfs.Fsck RPC
+// Fsck implements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
 	ctx := fsckServer.Context()
 	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
@@ -667,14 +697,23 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}); err != nil {
 		return err
 	}
-
 	if target := request.GetZombieTarget(); target != nil {
 		target.GetBranch().GetRepo().EnsureProject()
 		return a.driver.detectZombie(ctx, target, fsckServer.Send)
 	}
+	var repos []*pfs.RepoInfo
+	var err error
 	if request.GetZombieAll() {
-		// list meta repos as a proxy for finding pipelines
-		return a.driver.listRepo(ctx, false /* includeAuth */, pfs.MetaRepoType, nil /* projectsFilter */, func(info *pfs.RepoInfo) error {
+		if err := dbutil.WithTx(fsckServer.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+			return a.driver.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
+				// list meta repos as a proxy for finding pipelines
+				repos, err = a.driver.listRepoInTransaction(ctx, txnCxt, false, pfs.MetaRepoType, nil)
+				return errors.Wrap(err, "list repos in tx by meta repo type")
+			})
+		}, dbutil.WithReadOnly()); err != nil {
+			return err
+		}
+		for _, info := range repos {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
@@ -691,8 +730,10 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			if output == nil {
 				return nil
 			}
-			return a.driver.detectZombie(ctx, output, fsckServer.Send)
-		})
+			if err := a.driver.detectZombie(ctx, output, fsckServer.Send); err != nil {
+				return errors.Wrap(err, "fsck")
+			}
+		}
 	}
 	return nil
 }
@@ -737,19 +778,19 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *emptypb.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.AddFileSetInTransaction(txnCtx, req)
+		return a.AddFileSetInTransaction(ctx, txnCtx, req)
 	}); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
+func (a *apiServer) AddFileSetInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
 	fsid, err := fileset.ParseID(request.FileSetId)
 	if err != nil {
 		return err
 	}
-	if err := a.driver.addFileSet(txnCtx, request.Commit, *fsid); err != nil {
+	if err := a.driver.addFileSet(ctx, txnCtx, request.Commit, *fsid); err != nil {
 		return err
 	}
 	return nil

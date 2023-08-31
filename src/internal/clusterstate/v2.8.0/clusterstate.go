@@ -26,5 +26,13 @@ func Migrate(state migrations.State) migrations.State {
 				return errors.Wrap(err, "migrating repos")
 			}
 			return nil
-		}, migrations.Squash)
+		}, migrations.Squash).
+		Apply("Migrate collections.branches to pfs.branches", migrateBranches, migrations.Squash).
+		Apply("Synthesize cluster defaults from environment variables", func(ctx context.Context, env migrations.Env) error {
+			if err := synthesizeClusterDefaults(ctx, env); err != nil {
+				return errors.Wrap(err, "could not synthesize cluster defaults")
+			}
+			return nil
+		}).
+		Apply("Synthesize user and effective specs from their pipeline details", synthesizeSpecs, migrations.Squash)
 }

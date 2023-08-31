@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SizeSpec",
+    "definitions": {
+        "SizeSpec": {
+            "properties": {
+                "min_size": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "integer"
+                },
+                "max_size": {
+                    "type": "integer"
+                },
+                "max": {
+                    "type": "integer"
+                },
+                "prob": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Size Spec"
+        }
+    }
+}

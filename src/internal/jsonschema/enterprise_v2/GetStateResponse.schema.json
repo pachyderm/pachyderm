@@ -1,0 +1,48 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetStateResponse",
+    "definitions": {
+        "GetStateResponse": {
+            "properties": {
+                "state": {
+                    "enum": [
+                        "NONE",
+                        "ACTIVE",
+                        "EXPIRED",
+                        "HEARTBEAT_FAILED"
+                    ],
+                    "type": "string",
+                    "title": "State"
+                },
+                "info": {
+                    "$ref": "#/definitions/enterprise_v2.TokenInfo",
+                    "additionalProperties": false
+                },
+                "activation_code": {
+                    "type": "string",
+                    "description": "activation_code will always be an empty string, call GetEnterpriseCode to get the activation code"
+                },
+                "activationCode": {
+                    "type": "string",
+                    "description": "activation_code will always be an empty string, call GetEnterpriseCode to get the activation code"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get State Response"
+        },
+        "enterprise_v2.TokenInfo": {
+            "properties": {
+                "expires": {
+                    "type": "string",
+                    "description": "expires indicates when the current token expires (unset if there is no current token)",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Token Info",
+            "description": "TokenInfo contains information about the currently active enterprise token"
+        }
+    }
+}

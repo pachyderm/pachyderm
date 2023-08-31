@@ -8,19 +8,21 @@ import (
 	"strings"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
+
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
-	"google.golang.org/protobuf/proto"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -317,26 +319,21 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 	return nil
 }
 
-func (d *driver) listReferencedCommits(ctx context.Context) (map[string]*pfs.Commit, error) {
+func (d *driver) listReferencedCommits(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
 	cs := make(map[string]*pfs.Commit)
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		var ids []string
-		if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
-			return errors.Wrap(err, "select commit ids from pfs.commit_totals")
-		}
-		for _, id := range ids {
-			cs[id] = pfsdb.ParseCommit(id)
-		}
-		ids = make([]string, 0)
-		if err := sqlTx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
-			return errors.Wrap(err, "select commit ids from pfs.commit_diffs")
-		}
-		for _, id := range ids {
-			cs[id] = pfsdb.ParseCommit(id)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
+	var ids []string
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
+	}
+	ids = make([]string, 0)
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
 	}
 	return cs, nil
 }
@@ -365,33 +362,49 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfos := make(map[string]*pfs.RepoInfo)
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), func(string) error {
-		repoInfos[pfsdb.RepoKey(repoInfo.Repo)] = proto.Clone(repoInfo).(*pfs.RepoInfo)
-		commitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repoInfo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-			commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-			return nil
-		}); err != nil {
-			return errors.EnsureStack(err)
+	referencedCommits := make(map[string]*pfs.Commit)
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		repoIter, err := pfsdb.ListRepo(ctx, tx, nil)
+		if err != nil {
+			return errors.Wrap(err, "list repo iterator")
 		}
-		branchInfo := &pfs.BranchInfo{}
-		err := d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repoInfo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
-			branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+		return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
+			repoInfos[pfsdb.RepoKey(repoPair.RepoInfo.Repo)] = repoPair.RepoInfo
 			return nil
-		})
-		return errors.EnsureStack(err)
-	}); err != nil {
-		return errors.EnsureStack(err)
+		}), "for each repo")
+	}, dbutil.WithReadOnly()); err != nil {
+		return errors.Wrap(err, "fsck: repos")
+	}
+	for _, repo := range repoInfos {
+		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+			commitInfo := &pfs.CommitInfo{}
+			if err := d.commits.ReadWrite(tx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
+				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "get commits by commits repo index")
+			}
+			branchInfo := &pfs.BranchInfo{}
+			err := d.branches.ReadWrite(tx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
+				branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+				return nil
+			})
+			return errors.Wrap(err, "get commits by branch repo index")
+		}, dbutil.WithReadOnly()); err != nil {
+			return errors.Wrap(err, "for each repo")
+		}
 	}
 	if err := fsckBranches(branchInfos, commitInfos, onError); err != nil {
-		return err
+		return errors.Wrap(err, "branches")
 	}
 	if err := fsckCommits(commitInfos, onError); err != nil {
-		return err
+		return errors.Wrap(err, "commits")
 	}
-	referencedCommits, err := d.listReferencedCommits(ctx)
-	if err != nil {
+	var err error
+	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		referencedCommits, err = d.listReferencedCommits(tx)
+		return errors.Wrap(err, "list referenced commits")
+	}, dbutil.WithReadOnly()); err != nil {
 		return err
 	}
 	dangCs := fsckDanglingCommits(repoInfos, referencedCommits)
@@ -473,7 +486,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		if err != nil {
 			return err
 		}
-		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit))
+		_, metaFS, err := d.openCommit(ctx, pfsutil.MetaCommit(outputCommit))
 		if err != nil {
 			return err
 		}

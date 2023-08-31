@@ -1,5 +1,6 @@
 #!/bin/bash
-set -ex
+set -exuo pipefail
+IFS=$'\n\t'
 
 tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 
@@ -17,39 +18,41 @@ if [[ "${max_age}" -gt "$(cat /last_run_time)" ]]; then
 fi
 
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
-
 mkdir -p v2/src
+mkdir -p v2/src/internal/jsonschema
 
-# shellcheck disable=SC2044
-for i in $(find src -name "*.proto"); do \
+mapfile -t PROTOS < <(find src -name "*.proto" | sort)
+
+for i in "${PROTOS[@]}"; do \
     if ! grep -q 'go_package' "${i}"; then
         echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
+        exit 1
     fi
-    protoc \
-        -Isrc \
-        --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
-        --zap_out=":${GOPATH}/src" \
-        --go_out=":${GOPATH}/src" \
-        --go-grpc_out=":${GOPATH}/src" \
-    "${i}" >/dev/stderr
 done
 
-pushd src > /dev/stderr
-read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
 protoc \
-    --proto_path . \
+    -Isrc \
+    --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
     --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
-    --pach_out="../v2/src" \
-    "${proto_files[@]}" > /dev/stderr
+    --plugin="${GOPATH}/bin/protoc-gen-jsonschema" \
+    --zap_out=":${GOPATH}/src" \
+    --pach_out="v2/src" \
+    --go_out=":${GOPATH}/src" \
+    --go-grpc_out=":${GOPATH}/src" \
+    --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/src/internal/jsonschema" \
+    --jsonschema_opt="enforce_oneof" \
+    --jsonschema_opt="file_extension=schema.json" \
+    --jsonschema_opt="disallow_additional_properties" \
+    --jsonschema_opt="enums_as_strings_only" \
+    --jsonschema_opt="disallow_bigints_as_strings" \
+    --jsonschema_opt="prefix_schema_files_with_package" \
+    --jsonschema_opt="proto_and_json_fieldnames" \
+    "${PROTOS[@]}" > /dev/stderr
 
-popd > /dev/stderr
-
-# TODO (brendon): figure out how to configure protoc
 pushd v2 > /dev/stderr
-
 pushd src > /dev/stderr
 gopatch ./... -p=/proto.patch
 popd > /dev/stderr
 
 gofmt -w . > /dev/stderr
-find src -regex ".*\.go" -print0 | xargs -0 tar cf -
+find . -regextype egrep -regex ".*[.](go|schema.json)$" -print0 | xargs -0 tar cf -

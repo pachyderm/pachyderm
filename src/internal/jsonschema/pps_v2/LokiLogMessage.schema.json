@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/LokiLogMessage",
+    "definitions": {
+        "LokiLogMessage": {
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Loki Log Message"
+        }
+    }
+}

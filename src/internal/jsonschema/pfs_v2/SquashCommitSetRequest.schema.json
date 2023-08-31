@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SquashCommitSetRequest",
+    "definitions": {
+        "SquashCommitSetRequest": {
+            "properties": {
+                "commit_set": {
+                    "$ref": "#/definitions/pfs_v2.CommitSet",
+                    "additionalProperties": false
+                },
+                "commitSet": {
+                    "$ref": "#/definitions/pfs_v2.CommitSet",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Squash Commit Set Request"
+        },
+        "pfs_v2.CommitSet": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit Set"
+        }
+    }
+}

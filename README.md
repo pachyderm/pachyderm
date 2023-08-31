@@ -49,10 +49,6 @@ You should also check out our [contributing guide](https://docs.pachyderm.com/la
 
 Send us PRs, we would love to see what you do! You can also check our GH issues for things labeled "help-wanted" as a good place to start. We're sometimes bad about keeping that label up-to-date, so if you don't see any, just let us know.
 
-## Join Us
-
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our open positions](https://boards.greenhouse.io/pachyderm)
-
 ## Usage Metrics
 
 Pachyderm automatically reports anonymized usage metrics. These metrics help us

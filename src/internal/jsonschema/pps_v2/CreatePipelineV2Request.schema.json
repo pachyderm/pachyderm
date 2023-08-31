@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CreatePipelineV2Request",
+    "definitions": {
+        "CreatePipelineV2Request": {
+            "properties": {
+                "create_pipeline_request_json": {
+                    "type": "string",
+                    "description": "a JSON-encoded CreatePipelineRequest"
+                },
+                "createPipelineRequestJson": {
+                    "type": "string",
+                    "description": "a JSON-encoded CreatePipelineRequest"
+                },
+                "dry_run": {
+                    "type": "boolean"
+                },
+                "dryRun": {
+                    "type": "boolean"
+                },
+                "update": {
+                    "type": "boolean"
+                },
+                "reprocess": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Create Pipeline V 2 Request"
+        }
+    }
+}

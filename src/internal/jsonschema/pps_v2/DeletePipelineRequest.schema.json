@@ -1,0 +1,63 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeletePipelineRequest",
+    "definitions": {
+        "DeletePipelineRequest": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.Pipeline",
+                    "additionalProperties": false
+                },
+                "all": {
+                    "type": "boolean",
+                    "description": "Deprecated."
+                },
+                "force": {
+                    "type": "boolean"
+                },
+                "keep_repo": {
+                    "type": "boolean"
+                },
+                "keepRepo": {
+                    "type": "boolean"
+                },
+                "must_exist": {
+                    "type": "boolean",
+                    "description": "If true, an error will be returned if the pipeline doesn't exist."
+                },
+                "mustExist": {
+                    "type": "boolean",
+                    "description": "If true, an error will be returned if the pipeline doesn't exist."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Pipeline Request",
+            "description": "Delete a pipeline.  If the deprecated all member is true, then delete all pipelines in the default project."
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pps_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        }
+    }
+}

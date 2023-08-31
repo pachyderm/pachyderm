@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // TODO: Block tmp repo writes.
@@ -28,16 +29,16 @@ func newValidatedAPIServer(embeddedServer *apiServer, auth authserver.APIServer)
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *validatedAPIServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) (bool, error) {
 	if request.Repo == nil {
-		return errors.New("must specify repo")
+		return false, errors.New("must specify repo")
 	}
 	return a.apiServer.DeleteRepoInTransaction(ctx, txnCtx, request)
 }
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *validatedAPIServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
 	if err := checkCommit(userCommit); err != nil {
@@ -46,7 +47,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
+	return a.apiServer.FinishCommitInTransaction(ctx, txnCtx, request)
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC

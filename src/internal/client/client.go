@@ -141,6 +141,9 @@ type APIClient struct {
 
 	defaultTransformImage string
 	defaultTransformUser  string
+
+	// inspectClusterResult is the result from the InspectCluster call made at connection time.
+	inspectClusterResult *admin.ClusterInfo
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -609,14 +612,20 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		}
 		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
 	}
+	client.inspectClusterResult = clusterInfo
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
-		if !clusterInfo.GetVersionWarningsOk() {
+		if !clusterInfo.GetWarningsOk() {
 			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
 		} else {
-			for _, w := range clusterInfo.GetVersionWarnings() {
+			for _, w := range clusterInfo.GetWarnings() {
 				log.Error(pctx.TODO(), w)
 			}
+		}
+	}
+	if os.Getenv("PACHYDERM_IGNORE_PAUSED_MODE") == "" {
+		if clusterInfo.GetPaused() {
+			log.Info(pctx.TODO(), "NOTE: This pachd instance is currently paused, which prevents many commands from working.")
 		}
 	}
 	if context.ClusterDeploymentId != clusterInfo.DeploymentId {
@@ -923,4 +932,11 @@ func (c *APIClient) SetAuthToken(token string) {
 // produced from a configured client context.
 func (c *APIClient) ClientContextName() string {
 	return c.clientContextName
+}
+
+func (c *APIClient) ClusterInfo() (info *admin.ClusterInfo, ok bool) {
+	if c == nil || c.inspectClusterResult == nil {
+		return nil, false
+	}
+	return c.inspectClusterResult, true
 }

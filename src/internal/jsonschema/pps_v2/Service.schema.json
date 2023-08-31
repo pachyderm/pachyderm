@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Service",
+    "definitions": {
+        "Service": {
+            "properties": {
+                "internal_port": {
+                    "type": "integer"
+                },
+                "internalPort": {
+                    "type": "integer"
+                },
+                "external_port": {
+                    "type": "integer"
+                },
+                "externalPort": {
+                    "type": "integer"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Service"
+        }
+    }
+}

@@ -496,7 +496,7 @@ func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobSt
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
+func (a *apiServer) UpdateJobStateInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
 	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 	jobInfo := &pps.JobInfo{}
 	if err := jobs.Get(ppsdb.JobKey(request.Job), jobInfo); err != nil {
@@ -979,7 +979,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	}
 	ensurePipelineProject(request.Job.Pipeline)
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.deleteJobInTransaction(txnCtx, request)
+		return a.deleteJobInTransaction(ctx, txnCtx, request)
 	}); err != nil {
 		return nil, err
 	}
@@ -987,8 +987,8 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
-	if err := a.stopJob(txnCtx, request.Job, "job deleted"); err != nil {
+func (a *apiServer) deleteJobInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
+	if err := a.stopJob(ctx, txnCtx, request.Job, "job deleted"); err != nil {
 		return err
 	}
 	return errors.EnsureStack(a.jobs.ReadWrite(txnCtx.SqlTx).Delete(ppsdb.JobKey(request.Job)))
@@ -1017,15 +1017,15 @@ func clearJobCache(pachClient *client.APIClient, tagPrefix string) {
 
 // StopJobInTransaction is identical to StopJob except that it can run inside an
 // existing postgres transaction.  This is not an RPC.
-func (a *apiServer) StopJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.StopJobRequest) error {
+func (a *apiServer) StopJobInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.StopJobRequest) error {
 	reason := request.Reason
 	if reason == "" {
 		reason = "job stopped"
 	}
-	return a.stopJob(txnCtx, request.Job, reason)
+	return a.stopJob(ctx, txnCtx, request.Job, reason)
 }
 
-func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job, reason string) error {
+func (a *apiServer) stopJob(ctx context.Context, txnCtx *txncontext.TransactionContext, job *pps.Job, reason string) error {
 	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
 	if job == nil {
 		return errors.New("Job must be specified")
@@ -1036,7 +1036,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 		return errors.EnsureStack(err)
 	}
 
-	commitInfo, err := a.env.PFSServer.InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+	commitInfo, err := a.env.PFSServer.InspectCommitInTransaction(ctx, txnCtx, &pfs.InspectCommitRequest{
 		Commit: jobInfo.OutputCommit,
 	})
 	if err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) {
@@ -1046,14 +1046,14 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 	// TODO: Leaning on the reason rather than state for commit errors seems a bit sketchy, but we don't
 	// store commit states.
 	if commitInfo != nil {
-		if err := a.env.PFSServer.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		if err := a.env.PFSServer.FinishCommitInTransaction(ctx, txnCtx, &pfs.FinishCommitRequest{
 			Commit: ppsutil.MetaCommit(commitInfo.Commit),
 			Error:  reason,
 			Force:  true,
 		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !pfsServer.IsCommitDeletedErr(err) && !pfsServer.IsCommitFinishedErr(err) {
 			return errors.EnsureStack(err)
 		}
-		if err := a.env.PFSServer.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		if err := a.env.PFSServer.FinishCommitInTransaction(ctx, txnCtx, &pfs.FinishCommitRequest{
 			Commit: commitInfo.Commit,
 			Error:  reason,
 			Force:  true,
@@ -2187,53 +2187,21 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	if defaultsJSON == "" {
 		defaultsJSON = "{}"
 	}
-	reqJSON, err := json.Marshal(struct {
-		CreatePipelineRequest json.RawMessage `json:"create_pipeline_request"`
-	}{json.RawMessage(req.GetCreatePipelineRequestJson())})
+	effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(defaultsJSON, req.GetCreatePipelineRequestJson())
 	if err != nil {
-		return "", badRequest(ctx, "could not unmarshal Create Pipeline Request JSON within cluster defaults", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: err.Error()},
+		return "", badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
+			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: effectiveSpecJSON},
+			{Field: "cluster defaults", Description: defaultsJSON},
 		})
 	}
-	if wrappedJSON, err = jsonMergePatch(defaultsJSON, string(reqJSON), clusterDefaultsCanonicalizer); err != nil {
-		return "", badRequest(ctx, "could not merge Create Pipeline Request JSON with cluster defaults", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not merge %s into %s: %v", string(reqJSON), defaultsJSON, err)},
-		})
-	}
+	effectiveSpec.Update = req.Update
+	effectiveSpec.Reprocess = req.Reprocess
 
-	var wrapper pps.ClusterDefaults
-	if err := protojson.Unmarshal([]byte(wrappedJSON), &wrapper); err != nil {
-		return "", badRequest(ctx, "cannot unmarshal Create Pipeline Request JSON", []*errdetails.BadRequest_FieldViolation{
-			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: fmt.Sprintf("could not unmarshal %s: %v", wrappedJSON, err)},
-		})
-	}
-	// to get the effective spec from the wrapped JSON, we must unmarshal and then marshal
-	var (
-		wrapped           map[string]any
-		effectiveSpec     any
-		effectiveSpecJSON []byte
-	)
-	d := json.NewDecoder(strings.NewReader(wrappedJSON))
-	d.UseNumber()
-	if err := d.Decode(&wrapped); err != nil {
-		return "", unknownError(ctx, fmt.Sprintf("could not decode wrapped spec %s", wrappedJSON), err)
-	}
-	if effectiveSpec = wrapped["createPipelineRequest"]; effectiveSpec == nil {
-		return "", errors.Errorf("wrapped spec %v missing createPipelineRequest", wrapped)
-	}
-	if effectiveSpecJSON, err = json.Marshal(effectiveSpec); err != nil {
-		return "", errors.Errorf("could not marshal effective spec %v", effectiveSpec)
-	}
-
-	var request = wrapper.GetCreatePipelineRequest()
-	request.Update = req.Update
-	request.Reprocess = req.Reprocess
-
-	if request.Pipeline == nil {
+	if effectiveSpec.Pipeline == nil {
 		return "", errors.New("request.Pipeline cannot be nil")
 	}
-	ensurePipelineProject(request.GetPipeline())
-	b, err := protojson.Marshal(request)
+	ensurePipelineProject(effectiveSpec.GetPipeline())
+	b, err := protojson.Marshal(effectiveSpec)
 	if err != nil {
 		return "", errors.Wrap(err, "could not marshal CreatePipelineRequest")
 	}
@@ -2243,28 +2211,28 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
-	tracing.TagAnySpan(span, "project", request.Pipeline.Project.GetName(), "pipeline", request.Pipeline.Name)
+	tracing.TagAnySpan(span, "project", effectiveSpec.Pipeline.Project.GetName(), "pipeline", effectiveSpec.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", err)
 	}()
-	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline)
+	extended.PersistAny(ctx, a.env.EtcdClient, effectiveSpec.Pipeline)
 
-	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
+	if err := a.validateEnterpriseChecks(ctx, effectiveSpec); err != nil {
 		return "", err
 	}
 
-	if err := a.validateSecret(ctx, request); err != nil {
+	if err := a.validateSecret(ctx, effectiveSpec); err != nil {
 		return "", err
 	}
-	if request.Determined != nil {
-		if err := a.CreateDetPipelineSideEffects(ctx, request.Pipeline, request.Determined.Workspaces); err != nil {
+	if effectiveSpec.Determined != nil {
+		if err := a.CreateDetPipelineSideEffects(ctx, effectiveSpec.Pipeline, effectiveSpec.Determined.Workspaces); err != nil {
 			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{
-			CreatePipelineRequest: request,
-			EffectiveJson:         string(effectiveSpecJSON),
+			CreatePipelineRequest: effectiveSpec,
+			EffectiveJson:         effectiveSpecJSON,
 			UserJson:              req.CreatePipelineRequestJson,
 		}))
 	}); err != nil {
@@ -2394,7 +2362,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	var (
 		projectName          = request.Pipeline.Project.GetName()
 		pipelineName         = request.Pipeline.Name
-		oldPipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+		oldPipelineInfo, err = a.InspectPipelineInTransaction(ctx, txnCtx, request.Pipeline)
 	)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		// silently ignore pipeline not found, old info will be nil
@@ -2493,7 +2461,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			return errors.New("Cannot update a pipeline and provide a spec commit at the same time")
 		}
 		// Check if there is an existing spec commit
-		commitInfo, err := a.env.PFSServer.InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+		commitInfo, err := a.env.PFSServer.InspectCommitInTransaction(ctx, txnCtx, &pfs.InspectCommitRequest{
 			Commit: request.SpecCommit,
 		})
 		if err != nil {
@@ -2509,7 +2477,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := a.env.PFSServer.FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+		if err := a.env.PFSServer.FinishCommitInTransaction(ctx, txnCtx, &pfs.FinishCommitRequest{
 			Commit: newPipelineInfo.SpecCommit,
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -2543,7 +2511,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	if update {
 		// Kill all unfinished jobs (as those are for the previous version and will
 		// no longer be completed)
-		if err := a.stopAllJobsInPipeline(txnCtx, request.Pipeline, "all jobs killed because pipeline was updated"); err != nil {
+		if err := a.stopAllJobsInPipeline(ctx, txnCtx, request.Pipeline, "all jobs killed because pipeline was updated"); err != nil {
 			return err
 		}
 
@@ -2579,7 +2547,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	if visitErr := pps.VisitInput(request.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
 			var prevHead *pfs.Commit
-			if branchInfo, err := a.env.PFSServer.InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
+			if branchInfo, err := a.env.PFSServer.InspectBranchInTransaction(ctx, txnCtx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
 			}); err != nil {
 				if !errutil.IsNotFoundError(err) {
@@ -2693,7 +2661,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 	})
 }
 
-func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline, reason string) error {
+func (a *apiServer) stopAllJobsInPipeline(ctx context.Context, txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline, reason string) error {
 	// Using ReadWrite here may load a large number of jobs inline in the
 	// transaction, but doing an inconsistent read outside of the transaction
 	// would be pretty sketchy (and we'd have to worry about trying to get another
@@ -2706,24 +2674,25 @@ func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext,
 	}
 	reason += " for user " + username
 	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
-		return a.stopJob(txnCtx, jobInfo.Job, reason)
+		return a.stopJob(ctx, txnCtx, jobInfo.Job, reason)
 	})
 	return errors.EnsureStack(err)
 }
 
 func (a *apiServer) updatePipeline(
+	ctx context.Context,
 	txnCtx *txncontext.TransactionContext,
 	pipeline *pps.Pipeline,
 	info *pps.PipelineInfo,
 	cb func() error) error {
 
 	// get most recent pipeline key
-	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
+	key, err := ppsutil.FindPipelineSpecCommitInTransaction(ctx, txnCtx, a.env.PFSServer, pipeline, "")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "find pipeline spec commit")
 	}
 
-	return errors.EnsureStack(a.pipelines.ReadWrite(txnCtx.SqlTx).Update(key, info, cb))
+	return errors.Wrapf(a.pipelines.ReadWrite(txnCtx.SqlTx).Update(key, info, cb), "update pipeline %v", key)
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
@@ -2739,7 +2708,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 	var info *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		info, err = a.InspectPipelineInTransaction(txnCtx, pipeline)
+		info, err = a.InspectPipelineInTransaction(ctx, txnCtx, pipeline)
 		return err
 	}); err != nil {
 		return nil, err
@@ -2794,7 +2763,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 }
 
 // InspectPipelineInTransaction implements the APIServer interface.
-func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
+func (a *apiServer) InspectPipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 	// The pipeline pipelineName arrived in ancestry format; need to turn it into a simple pipelineName.
 	pipelineName, ancestors, err := ancestry.Parse(pipeline.Name)
 	if err != nil {
@@ -2806,7 +2775,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	}
 
 	pipeline.Name = pipelineName
-	commit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
+	commit, err := ppsutil.FindPipelineSpecCommitInTransaction(ctx, txnCtx, a.env.PFSServer, pipeline, "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "pipeline was not inspected: couldn't find up to date spec for pipeline %q", pipeline)
 	}
@@ -2880,7 +2849,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 
 	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
 		return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
+			key, err := ppsutil.FindPipelineSpecCommitInTransaction(ctx, txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
 			if err != nil {
 				return errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", pi.Pipeline)
 			}
@@ -2953,7 +2922,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	pipelineName := request.Pipeline.Name
 	// stop the pipeline to avoid interference from new jobs
 	if _, err := a.StopPipeline(ctx,
-		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
+		&pps.StopPipelineRequest{Pipeline: request.Pipeline, MustExist: request.MustExist}); err != nil && errutil.IsNotFoundError(err) && !request.MustExist {
 		log.Error(ctx, "failed to stop pipeline, continuing with delete", zap.Error(err))
 	} else if err != nil {
 		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline)
@@ -3001,7 +2970,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 	pipelineInfo := &pps.PipelineInfo{}
 	// Try to retrieve PipelineInfo for this pipeline. If we see a not found error,
 	// we will still try to delete what we can because we know there is a pipeline
-	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, request.Pipeline, ""); err == nil {
+	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(ctx, txnCtx, a.env.PFSServer, request.Pipeline, ""); err == nil {
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
 			return nil, errors.EnsureStack(err)
 		}
@@ -3041,7 +3010,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 	jobInfo := &pps.JobInfo{}
 	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(request.Pipeline), jobInfo, col.DefaultOptions(), func(string) error {
 		job := proto.Clone(jobInfo.Job).(*pps.Job)
-		err := a.deleteJobInTransaction(txnCtx, &pps.DeleteJobRequest{Job: job})
+		err := a.deleteJobInTransaction(ctx, txnCtx, &pps.DeleteJobRequest{Job: job})
 		if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {
 			return nil
 		}
@@ -3156,7 +3125,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	ensurePipelineProject(request.Pipeline)
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+		pipelineInfo, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.Pipeline)
 		if err != nil {
 			return err
 		}
@@ -3186,7 +3155,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		newPipelineInfo := &pps.PipelineInfo{}
-		return a.updatePipeline(txnCtx, pipelineInfo.Pipeline, newPipelineInfo, func() error {
+		return a.updatePipeline(ctx, txnCtx, pipelineInfo.Pipeline, newPipelineInfo, func() error {
 			newPipelineInfo.Stopped = false
 			return nil
 		})
@@ -3203,7 +3172,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 	ensurePipelineProject(request.Pipeline)
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		if pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline); err == nil {
+		if pipelineInfo, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.Pipeline); err == nil {
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
@@ -3228,20 +3197,20 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}
 
 			newPipelineInfo := &pps.PipelineInfo{}
-			if err := a.updatePipeline(txnCtx, pipelineInfo.Pipeline, newPipelineInfo, func() error {
+			if err := a.updatePipeline(ctx, txnCtx, pipelineInfo.Pipeline, newPipelineInfo, func() error {
 				newPipelineInfo.Stopped = true
 				return nil
 			}); err != nil {
 				return err
 			}
-		} else if !errutil.IsNotFoundError(err) {
+		} else if !errutil.IsNotFoundError(err) || request.MustExist {
 			return err
 		}
 
 		// Kill any remaining jobs
 		// if the pipeline output repo doesn't exist, we technically run this without authorization,
 		// but it's not clear what authorization means in that case, and those jobs are doomed, anyway
-		return a.stopAllJobsInPipeline(txnCtx, request.Pipeline, "all jobs killed because pipeline was stopped")
+		return a.stopAllJobsInPipeline(ctx, txnCtx, request.Pipeline, "all jobs killed because pipeline was stopped")
 	}); err != nil {
 		return nil, err
 	}
@@ -3291,8 +3260,8 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
-	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID), false)
+func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(ctx, txnCtx, client.NewCommitSet(txnCtx.CommitSetID), false)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -3307,7 +3276,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		}
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
-		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
+		if pipelineInfo, err = a.InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}
@@ -3458,7 +3427,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	var resp *pps.ActivateAuthResponse
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		resp, err = a.ActivateAuthInTransaction(txnCtx, req)
+		resp, err = a.ActivateAuthInTransaction(ctx, txnCtx, req)
 		return err
 	}); err != nil {
 		return nil, err
@@ -3466,7 +3435,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	return resp, nil
 }
 
-func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
+func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	pi := &pps.PipelineInfo{}
@@ -3477,7 +3446,7 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
 		}
-		if err := a.updatePipeline(txnCtx, pi.Pipeline, pi, func() error {
+		if err := a.updatePipeline(ctx, txnCtx, pi.Pipeline, pi, func() error {
 			pi.AuthToken = token
 			return nil
 		}); err != nil {
@@ -3771,6 +3740,7 @@ func unknownError(ctx context.Context, msg string, err error) error {
 func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
 	var (
 		cd pps.ClusterDefaults
+		pp map[*pps.Pipeline]*pps.CreatePipelineTransaction
 	)
 	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
 		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
@@ -3778,14 +3748,70 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		})
 	}
 
+	if req.Regenerate {
+		// Determine if the new defaults imply changes to any pipelines.
+		// To do this, each pipeline’s info is synthesized to a
+		// CreatePipelineRequest using the same logic already ultimately
+		// used by `pachctl edit pipeline`, then that is turned into
+		// JSON and merged with the new defaults.  The result of the
+		// merger is then unmarshalled into a CreatePipelineRequest and
+		// equality is checked with proto.Equal.
+		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+			// if the old details are missing, synthesize them
+			if pi.UserSpecJson == "" {
+				spec := ppsutil.PipelineReqFromInfo(pi)
+				b, err := protojson.Marshal(spec)
+				if err != nil {
+					return errors.Wrap(err, "could not marshal spec to JSON")
+				}
+				pi.UserSpecJson = string(b)
+			}
+			if pi.EffectiveSpecJson == "" {
+				pi.EffectiveSpecJson = pi.UserSpecJson
+			}
+			effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), pi.UserSpecJson)
+			if err != nil {
+				return errors.Wrap(err, "could not create effective spec")
+			}
+			var oldEffectiveSpec pps.CreatePipelineRequest
+			if err := protojson.Unmarshal([]byte(pi.EffectiveSpecJson), &oldEffectiveSpec); err != nil {
+				return errors.Wrap(err, "could not unmarshal old effective spec JSON")
+			}
+			if !proto.Equal(&oldEffectiveSpec, effectiveSpec) {
+				effectiveSpec.Update = true
+				effectiveSpec.Reprocess = req.Reprocess
+				pp[pi.GetPipeline()] = &pps.CreatePipelineTransaction{
+					CreatePipelineRequest: effectiveSpec,
+					EffectiveJson:         effectiveSpecJSON,
+					UserJson:              pi.UserSpecJson,
+				}
+			}
+			return nil
+		}); err != nil {
+			return nil, unknownError(ctx, "could not list pipelines", err)
+		}
+	}
+	var resp pps.SetClusterDefaultsResponse
+	for p := range pp {
+		resp.AffectedPipelines = append(resp.AffectedPipelines, p)
+	}
+	if req.DryRun {
+		return &resp, nil
+	}
+
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
 			return err
+		}
+		for _, p := range pp {
+			if err := a.CreatePipelineInTransaction(ctx, txnCtx, p); err != nil {
+				return errors.Wrapf(err, "could not regenerate pipeline %v", p.CreatePipelineRequest.Pipeline)
+			}
 		}
 		return nil
 	}); err != nil {
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
-	// TODO(CORE-1708): add affected pipelines
-	return &pps.SetClusterDefaultsResponse{}, nil
+	return &resp, nil
 }

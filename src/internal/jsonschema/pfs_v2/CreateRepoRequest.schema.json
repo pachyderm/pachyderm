@@ -1,0 +1,52 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CreateRepoRequest",
+    "definitions": {
+        "CreateRepoRequest": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.Repo",
+                    "additionalProperties": false
+                },
+                "description": {
+                    "type": "string"
+                },
+                "update": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "PFS API",
+            "description": "PFS API"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pfs_v2.Repo": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "//  PFS Data structures (stored in etcd)",
+            "description": "//  PFS Data structures (stored in etcd)"
+        }
+    }
+}

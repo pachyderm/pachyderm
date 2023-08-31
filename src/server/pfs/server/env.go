@@ -13,10 +13,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
-	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	etcd "go.etcd.io/etcd/client/v3"
 )
+
+type PipelineInspector interface {
+	InspectPipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
+}
 
 // Env is the dependencies needed to run the PFS API server
 type Env struct {
@@ -28,10 +33,8 @@ type Env struct {
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
 
-	AuthServer authserver.APIServer
-	// TODO: a reasonable repo metadata solution would let us get rid of this circular dependency
-	// permissions might also work.
-	GetPPSServer func() ppsserver.APIServer
+	AuthServer           authserver.APIServer
+	GetPipelineInspector func() PipelineInspector
 	// TODO: remove this, the load tests need a pachClient
 	GetPachClient func(ctx context.Context) *client.APIClient
 
@@ -40,6 +43,7 @@ type Env struct {
 	PachwInSidecar    bool
 }
 
+// TODO: move this to serviceenv
 func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {
 	// Setup etcd, object storage, and database clients.
 	objClient, err := obj.NewClient(env.Context(), env.Config().StorageBackend, env.Config().StorageRoot)
@@ -59,9 +63,9 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		EtcdClient:   env.GetEtcdClient(),
 		TaskService:  env.GetTaskService(etcdPrefix),
 
-		AuthServer:    env.AuthServer(),
-		GetPPSServer:  env.PpsServer,
-		GetPachClient: env.GetPachClient,
+		AuthServer:           env.AuthServer(),
+		GetPipelineInspector: func() PipelineInspector { return env.PpsServer() },
+		GetPachClient:        env.GetPachClient,
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
 		StorageConfig:     env.Config().StorageConfiguration,
