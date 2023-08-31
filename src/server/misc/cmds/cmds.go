@@ -288,8 +288,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 			var raw []byte
 			switch decodeProtoFormat {
 			case "hex":
-				input = bytes.TrimPrefix(input, []byte("0x"))
 				// Hex format, like "369cf1215181b1e".
+				input = bytes.TrimPrefix(input, []byte("0x"))
 				raw = make([]byte, hex.DecodedLen(len(input)))
 				n, err := hex.Decode(raw, input)
 				if err != nil {
@@ -310,6 +310,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 				return errors.Errorf("no known input format %q", decodeProtoFormat)
 			}
 
+			// Decode the actual protobuf data.
 			m, err := decodeBinaryProto(md, raw)
 			if err != nil {
 				n := min(len(raw), 10)
@@ -319,6 +320,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 				}
 				return errors.Wrapf(err, "unmarshal binary %x%s", raw[:n], dots)
 			}
+
+			// Print the message out as JSON.
 			mo := protojson.MarshalOptions{
 				Indent:    "  ",
 				Multiline: true,
