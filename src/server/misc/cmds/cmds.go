@@ -1,15 +1,20 @@
 package cmds
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"time"
 
@@ -26,6 +31,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
@@ -240,6 +247,95 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	grpc.PersistentFlags().BoolVar(&grpcTLS, "tls", false, "If set along with --address, use TLS to connect to the server.  The certificate is NOT checked for validity.")
 	grpc.PersistentFlags().StringSliceVarP(&grpcHeaders, "header", "H", nil, "Key=Value metadata to add to the request; repeatable.")
 	commands = append(commands, cmdutil.CreateAlias(grpc, "misc grpc"))
+
+	var decodeProtoFormat string
+	var decodeCompact bool
+	decodeProto := &cobra.Command{
+		Use:   "{{alias}} <message type> <message bytes>",
+		Short: "Decodes a protocol buffer message",
+		Long:  "Decodes the provided bytes as the named proto message type and prints the result as JSON.  Without the last arg, reads from stdin.",
+		Run: cmdutil.RunBoundedArgs(0, 2, func(args []string) error {
+			all := allProtoMessages()
+
+			// If no args, print all message types.
+			if len(args) == 0 {
+				keys := maps.Keys(all)
+				sort.Strings(keys)
+				fmt.Println(strings.Join(keys, "\n"))
+				return nil
+			}
+
+			// If at least one arg, figure out if we can decode it.
+			md, ok := all[args[0]]
+			if !ok {
+				return errors.Errorf("no known message %q", args[0])
+			}
+
+			// If a second arg, don't read stdin.
+			var input []byte
+			if len(args) > 1 {
+				input = []byte(args[1])
+			} else {
+				fmt.Fprintln(os.Stderr, "Reading from stdin...")
+				var err error
+				input, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return errors.Wrap(err, "read stdin")
+				}
+			}
+
+			// Decode the binary encoding.
+			var raw []byte
+			switch decodeProtoFormat {
+			case "hex":
+				input = bytes.TrimPrefix(input, []byte("0x"))
+				// Hex format, like "369cf1215181b1e".
+				raw = make([]byte, hex.DecodedLen(len(input)))
+				n, err := hex.Decode(raw, input)
+				if err != nil {
+					return errors.Wrap(err, "decode hex")
+				}
+				raw = raw[:n]
+			case "base64":
+				// Normal base64.
+				raw = make([]byte, base64.StdEncoding.DecodedLen(len(input)))
+				n, err := base64.StdEncoding.Decode(raw, input)
+				if err != nil {
+					return errors.Wrap(err, "decode hex")
+				}
+				raw = raw[:n]
+			case "raw":
+				// Do nothing.
+			default:
+				return errors.Errorf("no known input format %q", decodeProtoFormat)
+			}
+
+			m, err := decodeBinaryProto(md, raw)
+			if err != nil {
+				n := min(len(raw), 10)
+				dots := ""
+				if len(raw) > n {
+					dots = "..."
+				}
+				return errors.Wrapf(err, "unmarshal binary %x%s", raw[:n], dots)
+			}
+			js, err := protojson.MarshalOptions{
+				Indent:    "  ",
+				Multiline: !decodeCompact,
+			}.Marshal(m)
+			if err != nil {
+				// If we can't do JSON for some reason, we can at least do
+				// something.  And exit non-zero to not mess up scripts.
+				fmt.Fprintf(os.Stderr, "%s\n", m)
+				return errors.Wrap(err, "marshal to json")
+			}
+			fmt.Printf("%s\n", js)
+			return nil
+		}),
+	}
+	decodeProto.PersistentFlags().StringVarP(&decodeProtoFormat, "format", "f", "hex", "The format of binary data to read; 'hex', 'base64', or 'raw'")
+	decodeProto.PersistentFlags().BoolVarP(&decodeCompact, "compact", "c", false, "If true, print the output on a single line.")
+	commands = append(commands, cmdutil.CreateAlias(decodeProto, "misc decode-proto"))
 
 	misc := &cobra.Command{
 		Short:  "Miscellaneous utilities unrelated to Pachyderm itself.",
