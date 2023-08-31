@@ -10,7 +10,16 @@
                     },
                     "type": "array"
                 },
+                "fileSetIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
                 "ttl_seconds": {
+                    "type": "integer"
+                },
+                "ttlSeconds": {
                     "type": "integer"
                 },
                 "compact": {

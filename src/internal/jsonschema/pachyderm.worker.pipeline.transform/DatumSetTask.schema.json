@@ -11,11 +11,22 @@
                 "file_set_id": {
                     "type": "string"
                 },
+                "fileSetId": {
+                    "type": "string"
+                },
                 "path_range": {
                     "$ref": "#/definitions/pfs_v2.PathRange",
                     "additionalProperties": false
                 },
+                "pathRange": {
+                    "$ref": "#/definitions/pfs_v2.PathRange",
+                    "additionalProperties": false
+                },
                 "output_commit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
+                "outputCommit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 }

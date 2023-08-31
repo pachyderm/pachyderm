@@ -297,7 +297,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 			return errors.EnsureStack(context.Cause(ctx))
 		}
 		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			trigBI, err := d.inspectBranchInTransaction(txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
+			trigBI, err := d.inspectBranchInTransaction(ctx, txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
 			if err != nil {
 				return err
 			}
@@ -449,7 +449,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 				txnCtx.FinishJob(commitInfo)
 			}
 			if commitInfo.Error == "" {
-				return d.triggerCommit(txnCtx, commitInfo)
+				return d.triggerCommit(ctx, txnCtx, commitInfo)
 			}
 			return nil
 		})

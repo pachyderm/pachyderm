@@ -21,6 +21,13 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
+                "fileSources": {
+                    "items": {
+                        "$ref": "#/definitions/pfsload.FileSourceSpec"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
                 "validator": {
                     "$ref": "#/definitions/pfsload.ValidatorSpec",
                     "additionalProperties": false
@@ -63,6 +70,10 @@
                     "type": "integer"
                 },
                 "put_file": {
+                    "$ref": "#/definitions/pfsload.PutFileSpec",
+                    "additionalProperties": false
+                },
+                "putFile": {
                     "$ref": "#/definitions/pfsload.PutFileSpec",
                     "additionalProperties": false
                 }
@@ -113,6 +124,9 @@
                 },
                 "increment_path": {
                     "type": "boolean"
+                },
+                "incrementPath": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false,
@@ -124,7 +138,13 @@
                 "min_size": {
                     "type": "integer"
                 },
+                "min": {
+                    "type": "integer"
+                },
                 "max_size": {
+                    "type": "integer"
+                },
+                "max": {
                     "type": "integer"
                 },
                 "prob": {

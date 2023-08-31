@@ -8,7 +8,15 @@
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
+                "setCommit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false
+                },
                 "add_file": {
+                    "$ref": "#/definitions/pfs_v2.AddFile",
+                    "additionalProperties": false
+                },
+                "addFile": {
                     "$ref": "#/definitions/pfs_v2.AddFile",
                     "additionalProperties": false
                 },
@@ -16,7 +24,15 @@
                     "$ref": "#/definitions/pfs_v2.DeleteFile",
                     "additionalProperties": false
                 },
+                "deleteFile": {
+                    "$ref": "#/definitions/pfs_v2.DeleteFile",
+                    "additionalProperties": false
+                },
                 "copy_file": {
+                    "$ref": "#/definitions/pfs_v2.CopyFile",
+                    "additionalProperties": false
+                },
+                "copyFile": {
                     "$ref": "#/definitions/pfs_v2.CopyFile",
                     "additionalProperties": false
                 }

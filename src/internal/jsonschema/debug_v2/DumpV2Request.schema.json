@@ -18,10 +18,17 @@
                 "input_repos": {
                     "type": "boolean"
                 },
+                "inputRepos": {
+                    "type": "boolean"
+                },
                 "timeout": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
+                },
+                "defaults": {
+                    "$ref": "#/definitions/debug_v2.DumpV2Request.Defaults",
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false,
@@ -53,6 +60,16 @@
             "additionalProperties": false,
             "type": "object",
             "title": "App"
+        },
+        "debug_v2.DumpV2Request.Defaults": {
+            "properties": {
+                "cluster_defaults": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Defaults"
         },
         "debug_v2.Pipeline": {
             "properties": {
@@ -112,6 +129,13 @@
                     "type": "array"
                 },
                 "loki_logs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "lokiLogs": {
                     "items": {
                         "$ref": "#/definitions/debug_v2.App"
                     },

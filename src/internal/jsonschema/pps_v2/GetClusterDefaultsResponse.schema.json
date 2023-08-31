@@ -7,6 +7,10 @@
                 "cluster_defaults_json": {
                     "type": "string",
                     "description": "A JSON-encoded ClusterDefaults message, this is the verbatim input passed to SetClusterDefaults."
+                },
+                "clusterDefaultsJson": {
+                    "type": "string",
+                    "description": "A JSON-encoded ClusterDefaults message, this is the verbatim input passed to SetClusterDefaults."
                 }
             },
             "additionalProperties": false,

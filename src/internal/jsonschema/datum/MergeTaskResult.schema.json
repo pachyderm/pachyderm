@@ -6,6 +6,9 @@
             "properties": {
                 "file_set_id": {
                     "type": "string"
+                },
+                "fileSetId": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

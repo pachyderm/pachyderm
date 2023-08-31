@@ -283,7 +283,7 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 		}
 	}
 	if len(headlessBranches) > 0 {
-		repoCommit, err := d.makeEmptyCommit(txnCtx, headlessBranches[0].Branch, headlessBranches[0].DirectProvenance, nil)
+		repoCommit, err := d.makeEmptyCommit(ctx, txnCtx, headlessBranches[0].Branch, headlessBranches[0].DirectProvenance, nil)
 		if err != nil {
 			return err
 		}

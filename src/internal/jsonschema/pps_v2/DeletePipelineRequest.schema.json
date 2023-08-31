@@ -17,6 +17,17 @@
                 },
                 "keep_repo": {
                     "type": "boolean"
+                },
+                "keepRepo": {
+                    "type": "boolean"
+                },
+                "must_exist": {
+                    "type": "boolean",
+                    "description": "If true, an error will be returned if the pipeline doesn't exist."
+                },
+                "mustExist": {
+                    "type": "boolean",
+                    "description": "If true, an error will be returned if the pipeline doesn't exist."
                 }
             },
             "additionalProperties": false,

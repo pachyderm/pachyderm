@@ -25,6 +25,14 @@
                     "type": "array",
                     "description": "nil means all inputs"
                 },
+                "inputCommit": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Commit"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "nil means all inputs"
+                },
                 "history": {
                     "type": "integer",
                     "description": "History indicates return jobs from historical versions of pipelines semantics are: 0: Return jobs from the current version of the pipeline or pipelines. 1: Return the above and jobs from the next most recent version 2: etc.-1: Return jobs from all historical versions."

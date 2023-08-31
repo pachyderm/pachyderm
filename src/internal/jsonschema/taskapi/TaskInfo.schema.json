@@ -28,7 +28,13 @@
                 "input_type": {
                     "type": "string"
                 },
+                "inputType": {
+                    "type": "string"
+                },
                 "input_data": {
+                    "type": "string"
+                },
+                "inputData": {
                     "type": "string"
                 }
             },

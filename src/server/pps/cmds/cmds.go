@@ -1278,8 +1278,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return errors.Errorf("--allProjects only valid with --all")
 			}
 			req := &pps.DeletePipelineRequest{
-				Force:    force,
-				KeepRepo: keepRepo,
+				Force:     force,
+				KeepRepo:  keepRepo,
+				MustExist: true,
 			}
 			if len(args) > 0 {
 				req.Pipeline = pachdclient.NewPipeline(project, args[0])
@@ -1325,13 +1326,19 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			if err := client.StopPipeline(project, args[0]); err != nil {
-				return errors.Wrap(err, "error from StopProjectPipeline")
+			defer c.Close()
+			if _, err := c.PpsAPIClient.StopPipeline(
+				c.Ctx(),
+				&pps.StopPipelineRequest{
+					Pipeline:  pachdclient.NewPipeline(project, args[0]),
+					MustExist: true,
+				},
+			); err != nil {
+				return errors.Wrap(grpcutil.ScrubGRPC(err), "error from StopProjectPipeline")
 			}
 			return nil
 		}),

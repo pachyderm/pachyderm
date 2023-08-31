@@ -8,11 +8,23 @@
                     "type": "boolean",
                     "description": "Enums tagged with this will have be encoded to use constants instead of simple types (supports value annotations):"
                 },
+                "enumsAsConstants": {
+                    "type": "boolean",
+                    "description": "Enums tagged with this will have be encoded to use constants instead of simple types (supports value annotations):"
+                },
                 "enums_as_strings_only": {
                     "type": "boolean",
                     "description": "Enums tagged with this will only provide string values as options (not their numerical equivalents):"
                 },
+                "enumsAsStringsOnly": {
+                    "type": "boolean",
+                    "description": "Enums tagged with this will only provide string values as options (not their numerical equivalents):"
+                },
                 "enums_trim_prefix": {
+                    "type": "boolean",
+                    "description": "Enums tagged with this will have enum name prefix removed from values:"
+                },
+                "enumsTrimPrefix": {
                     "type": "boolean",
                     "description": "Enums tagged with this will have enum name prefix removed from values:"
                 },
