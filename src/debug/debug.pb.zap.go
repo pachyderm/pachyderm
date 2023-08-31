@@ -202,15 +202,6 @@ func (x *System) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("profiles", zapcore.ArrayMarshalerFunc(profilesArrMarshaller))
-	enc.AddObject("defaults", x.Defaults)
-	return nil
-}
-
-func (x *System_Defaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddBool("cluster_defaults", x.ClusterDefaults)
 	return nil
 }
 
@@ -228,6 +219,15 @@ func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("pipelines", zapcore.ArrayMarshalerFunc(pipelinesArrMarshaller))
 	enc.AddBool("input_repos", x.InputRepos)
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
+	enc.AddObject("defaults", x.Defaults)
+	return nil
+}
+
+func (x *DumpV2Request_Defaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("cluster_defaults", x.ClusterDefaults)
 	return nil
 }
 

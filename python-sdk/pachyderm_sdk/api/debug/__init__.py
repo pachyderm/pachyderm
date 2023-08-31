@@ -128,12 +128,6 @@ class System(betterproto.Message):
     loki_logs: List["App"] = betterproto.message_field(6)
     binaries: List["App"] = betterproto.message_field(7)
     profiles: List["App"] = betterproto.message_field(8)
-    defaults: "SystemDefaults" = betterproto.message_field(9)
-
-
-@dataclass(eq=False, repr=False)
-class SystemDefaults(betterproto.Message):
-    cluster_defaults: bool = betterproto.bool_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -142,6 +136,12 @@ class DumpV2Request(betterproto.Message):
     pipelines: List["Pipeline"] = betterproto.message_field(2)
     input_repos: bool = betterproto.bool_field(3)
     timeout: timedelta = betterproto.message_field(4)
+    defaults: "DumpV2RequestDefaults" = betterproto.message_field(5)
+
+
+@dataclass(eq=False, repr=False)
+class DumpV2RequestDefaults(betterproto.Message):
+    cluster_defaults: bool = betterproto.bool_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -261,7 +261,8 @@ class DebugStub:
         system: "System" = None,
         pipelines: Optional[List["Pipeline"]] = None,
         input_repos: bool = False,
-        timeout: timedelta = None
+        timeout: timedelta = None,
+        defaults: "DumpV2RequestDefaults" = None
     ) -> Iterator["DumpChunk"]:
         pipelines = pipelines or []
 
@@ -273,6 +274,8 @@ class DebugStub:
         request.input_repos = input_repos
         if timeout is not None:
             request.timeout = timeout
+        if defaults is not None:
+            request.defaults = defaults
 
         for response in self.__rpc_dump_v2(request):
             yield response
@@ -325,6 +328,7 @@ class DebugBase:
         pipelines: Optional[List["Pipeline"]],
         input_repos: bool,
         timeout: timedelta,
+        defaults: "DumpV2RequestDefaults",
         context: "grpc.ServicerContext",
     ) -> Iterator["DumpChunk"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

@@ -98,10 +98,6 @@ message System {
   repeated App loki_logs = 6;
   repeated App binaries = 7;
   repeated App profiles = 8;
-  message Defaults {
-    bool cluster_defaults = 1;
-  }
-  Defaults defaults = 9;
 }
 
 message DumpV2Request {
@@ -109,6 +105,10 @@ message DumpV2Request {
   repeated Pipeline pipelines = 2;
   bool input_repos = 3;
   google.protobuf.Duration timeout = 4;
+  message Defaults {
+    bool cluster_defaults = 1;
+  }
+  Defaults defaults = 5;
 }
 
 message DumpContent {

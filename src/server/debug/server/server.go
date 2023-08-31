@@ -131,12 +131,12 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Logs:      apps,
 				LokiLogs:  apps,
 				Profiles:  pachApps,
-				Defaults: &debug.System_Defaults{
-					ClusterDefaults: true,
-				},
 			},
 			InputRepos: true,
 			Pipelines:  ps,
+			Defaults: &debug.DumpV2Request_Defaults{
+				ClusterDefaults: true,
+			},
 		},
 	}, nil
 }
@@ -312,12 +312,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 		if len(sys.Binaries) > 0 {
 			ts = append(ts, s.makeBinariesTask(server, sys.Binaries))
 		}
-		if sys.Defaults.GetClusterDefaults() {
-			rp := recordProgress(server, "defaults", 1)
-			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
-				return s.collectDefaults(ctx, dfs.WithPrefix(defaultsPrefix), server, rp)
-			})
-		}
+	}
+	if request.Defaults.GetClusterDefaults() {
+		rp := recordProgress(server, "defaults", 1)
+		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
+			return s.collectDefaults(ctx, dfs.WithPrefix(defaultsPrefix), server, rp)
+		})
 	}
 	return ts
 }
