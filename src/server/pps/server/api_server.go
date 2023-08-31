@@ -3106,9 +3106,11 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 		}
 
 	}
+	count := 0
 	err := backoff.RetryUntilCancel(ctx, func() error { // DNJ TODO
+		count++
 		for _, p := range ps {
-			log.Info(ctx, "DNJ TODO about to wait for pipeline stopping", zap.Any("Pipeline", p))
+			log.Info(ctx, fmt.Sprintf("DNJ TODO about to wait for pipeline stopping attempt %v", count), zap.Any("Pipeline", p))
 			pipelineInfo, err := a.inspectPipeline(ctx, p, false)
 			if err != nil {
 				log.Info(ctx, "DNJ TODO wait for pipeline stopping err", zap.Any("Pipeline", p), zap.Error(err))
@@ -3120,7 +3122,8 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 			}
 		}
 		return nil
-	}, backoff.NewExponentialBackOff(), nil)
+	}, backoff.NewExponentialBackOff(), backoff.NotifyContinue("Waitinging for pipeline stop before delete."))
+	log.Info(ctx, "DNJ TODO done with wait for pipeline stopping", zap.Any("Pipelines", ps))
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
