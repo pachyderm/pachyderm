@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/utils"
 )
 
 type index struct {
@@ -268,10 +269,37 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 		vals[oldKey] = pair{newKey, proto.Clone(newVal)}
 
 	}
-	log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name))
-	i := 0
-	batcher := newPostgresBatcher(ctx, tx)
+	log.Info(ctx, fmt.Sprintf("Migrating %d records from collection.%s", len(vals), name))
 
+	var (
+		columns   []string  // An array containing the names of the columns being updated
+		w_columns []string  // An array containing the names of the columns used in the WHERE clause
+	)
+	
+	// Get the columns associated with the table, and add them to the columns array
+	for key, pair := range vals {
+		params, err := col.getWriteParams(key, pair.val)
+
+		if err != nil {
+			return err
+		}
+
+		for k := range params {
+			columns = append(columns, k)
+		}
+		break
+	}
+
+	// Define the columns that are used in the WHERE clause
+	w_columns = append(w_columns, "key")
+
+	// Create new batcher with a batch size of 1000	
+	err, batcher := utils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, w_columns, 1000)
+	if err != nil {
+		return err
+	}
+
+	i:= 0
 	for oldKey, pair := range vals {
 		if err := col.withKey(oldKey, func(oldKey string) error {
 			return col.withKey(pair.key, func(newKey string) error {
@@ -280,28 +308,41 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 					return err
 				}
 
-				updateFields := []string{}
-				for k := range params {
+				var (
+					col_values []any  // Array with this row's values for update
+					w_values   []any  // Array with the values for this row's WHERE clause
+				)
+
+				// Loop through each of the columns, get the value for update, and append to col_values
+				for _, k := range columns {
+
+					// If this is a proto field, we need to hex encode it because it's actually binary
 					if k == "proto" {
-						updateFields = append(updateFields, fmt.Sprintf("proto = decode('%v', 'hex') ", hex.EncodeToString([]byte(params["proto"].([]uint8)))))
+						col_values = append(col_values, hex.EncodeToString([]byte(params[k].([]uint8))))
 					} else {
-						updateFields = append(updateFields, fmt.Sprintf("%s = '%s'", k, params[k]))
+						col_values = append(col_values, params[k])
 					}
 				}
+				
+				// There's only one value for the WHERE cluase, which is the old key
+				w_values = append(w_values, oldKey)
 
-				query := fmt.Sprintf("update collections.%s set %s where key = '%s'", col.table, strings.Join(updateFields, ", "), oldKey)
-				err = batcher.Add(query)
+				// Add this row's values to the batcher
+				err = batcher.Add(ctx, col_values, w_values)
 				if err != nil {
 					return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
 				}
 
 				i++
-				log.Info(ctx, fmt.Sprintf("Migrating collection.%s", name), zap.String("old", oldKey), zap.String("new", newKey), zap.String("progress", fmt.Sprintf("%d/%d", i, len(vals))))
+				log.Debug(ctx, fmt.Sprintf("Migrating collection.%s", name), zap.String("old", oldKey), zap.String("new", newKey), zap.String("progress", fmt.Sprintf("%d/%d", i, len(vals))))
+
 				return col.mapSQLError(err, oldKey)
 			})
 		}); err != nil {
 			return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
 		}
 	}
-	return batcher.Close()
+
+	// Make sure we send the final batch
+	return batcher.Finish(ctx)
 }
