@@ -217,14 +217,14 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 
 // Migrate commits from collections.commits to pfs.commits
 func migrateCommits(ctx context.Context, tx *pachsql.Tx) error {
-	if err := alterCommitsTable1(ctx, tx); err != nil {
-		return err
-	}
-	if err := createCommitAncestryTable(ctx, tx); err != nil {
-		return err
-	}
-	if err := createNotifyCommitsTrigger(ctx, tx); err != nil {
-		return err
-	}
+	//if err := alterCommitsTable1(ctx, tx); err != nil {
+	//	return err
+	//}
+	//if err := createCommitAncestryTable(ctx, tx); err != nil {
+	//	return err
+	//}
+	//if err := createNotifyCommitsTrigger(ctx, tx); err != nil {
+	//	return err
+	//}
 	return nil
 }
