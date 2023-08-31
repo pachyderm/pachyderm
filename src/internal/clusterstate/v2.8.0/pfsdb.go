@@ -85,9 +85,14 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 	keyToBranch := make(map[string]*Branch)
 	// Map branch key to its direct provenance.
 	keyToDirectProv := make(map[string][]string)
-	// // Map branch key to its trigger, which contains the key to the branch to re-point.
+	// Map trigger to the source branch
 	triggerToBranchID := make(map[*pfs.Trigger]uint64)
-	var branches []*Branch
+
+	var (
+		branches []*Branch
+		edges    []*Edge
+		triggers []*BranchTrigger
+	)
 	for i, row := range branchColRows {
 		var branchInfo pfs.BranchInfo
 		if err := proto.Unmarshal(row.Proto, &branchInfo); err != nil {
@@ -100,6 +105,7 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 			CreatedAt: row.CreatedAt,
 			UpdatedAt: row.UpdatedAt,
 		}
+		// Not ideal to make a db call for each branch, but we need the commit id to populate the head field.
 		if err := sqlx.GetContext(ctx, q, &branch.Head, `select int_id from pfs.commits where commit_id = $1`, branchInfo.Head.Key()); err != nil {
 			return nil, nil, nil, errors.Wrap(err, "getting commit id")
 		}
@@ -115,16 +121,11 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 		keyToBranch[row.Key] = &branch
 		branches = append(branches, &branch)
 	}
-
-	var edges []*Edge
 	for fromKey, prov := range keyToDirectProv {
 		for _, toKey := range prov {
 			edges = append(edges, &Edge{FromID: keyToBranch[fromKey].ID, ToID: keyToBranch[toKey].ID})
 		}
 	}
-
-	// Branch triggers
-	var triggers []*BranchTrigger
 	for trigger, fromBranchID := range triggerToBranchID {
 		if _, ok := keyToBranch[trigger.Branch]; !ok {
 			return nil, nil, nil, errors.Errorf("branch not found: %s", trigger.Branch)

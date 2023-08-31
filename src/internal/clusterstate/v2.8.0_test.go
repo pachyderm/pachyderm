@@ -1,6 +1,7 @@
 package clusterstate
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 
@@ -79,4 +80,8 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	var gotTriggers []*v2_8_0.BranchTrigger
 	require.NoError(t, db.SelectContext(ctx, &gotTriggers, `SELECT from_branch_id, to_branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions FROM pfs.branch_triggers ORDER BY from_branch_id, to_branch_id`))
 	require.Equal(t, len(expectedTriggers), len(gotTriggers))
+	fmt.Printf("qqq expectedTriggers: %+v, gotTriggers: %+v\n", expectedTriggers[0], gotTriggers[0])
+	if diff := cmp.Diff(expectedTriggers, gotTriggers); diff != "" {
+		t.Errorf("triggers differ: (-want +got)\n%s", diff)
+	}
 }

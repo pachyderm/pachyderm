@@ -1,8 +1,6 @@
 package v2_8_0
 
-import (
-	"time"
-)
+import "time"
 
 type Repo struct {
 	ID          uint64    `db:"id"`
