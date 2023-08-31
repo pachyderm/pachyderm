@@ -53,7 +53,7 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	// Check whether all the data is migrated to pfs.branches table
 	var gotBranches []*v2_8_0.Branch
 	require.NoError(t, db.SelectContext(ctx, &gotBranches, `
-		SELECT branch.id, branch.name, branch.head, repo.id as repo_id, branch.trigger_id, branch.created_at, branch.updated_at
+		SELECT branch.id, branch.name, branch.head, repo.id as repo_id, branch.created_at, branch.updated_at
 		FROM pfs.branches branch JOIN pfs.repos repo ON  repo.id = branch.repo_id
 			JOIN core.projects project ON project.id = repo.project_id
 		ORDER BY id`))
@@ -77,6 +77,6 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 
 	// Verify triggers
 	var gotTriggers []*v2_8_0.BranchTrigger
-	require.NoError(t, db.SelectContext(ctx, &gotTriggers, `SELECT branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions FROM pfs.branch_triggers ORDER BY branch_id`))
+	require.NoError(t, db.SelectContext(ctx, &gotTriggers, `SELECT from_branch_id, to_branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions FROM pfs.branch_triggers ORDER BY from_branch_id, to_branch_id`))
 	require.Equal(t, len(expectedTriggers), len(gotTriggers))
 }
