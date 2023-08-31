@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -43,10 +44,30 @@ func Proto(name string, msg proto.Message) Field {
 		}
 		return Proto(name, msg)
 	}
-	if js, err := protojson.Marshal(msg); err == nil {
-		return zap.ByteString(name, js)
+	if js, err := protoToJSONMap(msg); err == nil {
+		return zap.Any(name, js)
 	}
 	return zap.Any(name, msg)
+}
+
+func protoToJSONMap(msg proto.Message) (map[string]any, error) {
+	// This is a detail of dynamicpb.Message; if you pass in a raw &dynamicpb.Message{}, then
+	// marshalling panics.  This avoids that panic.
+	if x, ok := msg.(interface{ IsValid() bool }); ok {
+		if !x.IsValid() {
+			return nil, errors.New("invalid dynamic message")
+		}
+	}
+
+	js, err := protojson.Marshal(msg)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal arbitrary message")
+	}
+	result := make(map[string]any)
+	if err := json.Unmarshal(js, &result); err != nil {
+		return nil, errors.Wrap(err, "unmarshal into map[string]any")
+	}
+	return result, nil
 }
 
 type attempt struct{ i, max int }

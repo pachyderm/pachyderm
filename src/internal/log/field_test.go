@@ -4,7 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -54,4 +57,17 @@ func TestProto(t *testing.T) {
 
 	Info(ctx, "time", Proto("time", timestamppb.Now()))
 	Info(ctx, "nil time", Proto("time", (*timestamppb.Timestamp)(nil)))
+
+	v := &versionpb.Version{}
+	dynamic := dynamicpb.NewMessage(v.ProtoReflect().Descriptor())
+	dynamic.Set(v.ProtoReflect().Descriptor().Fields().ByName("major"), protoreflect.ValueOf(uint32(3)))
+	raw, err := protoToJSONMap(dynamic)
+	if err != nil {
+		t.Errorf("protoToJSONMap: %v", err)
+	}
+	if diff := cmp.Diff(map[string]interface{}{"major": float64(3)}, raw); diff != "" {
+		t.Errorf("protoToJSONMap (-want +got):\n%s", diff)
+	}
+	Info(ctx, "dynamic message", Proto("dynamic", dynamic))
+	Info(ctx, "nil dynamic message", Proto("dynamic", &dynamicpb.Message{}))
 }
