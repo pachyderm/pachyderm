@@ -25,7 +25,7 @@ func newPausedBuilder(config any) *pausedBuilder {
 }
 
 func (pb *pausedBuilder) registerAdminServer(ctx context.Context) error {
-	apiServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(pb.env, true))
+	apiServer := adminserver.NewAPIServer(AdminEnv(pb.env, true))
 	pb.forGRPCServer(func(s *grpc.Server) { admin.RegisterAPIServer(s, apiServer) })
 	return nil
 }
@@ -39,16 +39,18 @@ func (pb *pausedBuilder) registerAdminServer(ctx context.Context) error {
 // TODO: refactor the four modes to have a cleaner license/enterprise server
 // abstraction.
 func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
-	pb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+	pb.enterpriseEnv = EnterpriseEnv(
 		pb.env,
 		path.Join(pb.env.Config().EtcdPrefix, pb.env.Config().EnterpriseEtcdPrefix),
 		pb.txnEnv,
-		eprsserver.WithMode(eprsserver.PausedMode),
-		eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")),
 	)
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		pb.enterpriseEnv,
-		true,
+		eprsserver.Config{
+			Heartbeat: true,
+			Mode: eprsserver.PausedMode,
+			UnpausedMode: os.Getenv("UNPAUSED_MODE"),
+		},
 	)
 	if err != nil {
 		return err
@@ -62,7 +64,7 @@ func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 
 	// Stop workers because unpaused pachds in the process
 	// of rolling may have started them back up.
-	if err := pb.enterpriseEnv.StopWorkers(ctx); err != nil {
+	if err := eprsserver.StopWorkers(ctx, pb.enterpriseEnv); err != nil {
 		return err
 	}
 	return nil

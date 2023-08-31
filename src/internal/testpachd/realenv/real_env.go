@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -162,25 +163,25 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 
 	txnEnv := txnenv.New()
 	// AUTH
-	authEnv := authserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	authEnv := pachd.AuthEnv(realEnv.ServiceEnv, txnEnv)
 	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
 
 	// ENTERPRISE
-	entEnv := enterpriseserver.EnvFromServiceEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
-	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, true)
+	entEnv := pachd.EnterpriseEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
+	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, enterpriseserver.Config{Heartbeat: true})
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetEnterpriseServer(realEnv.EnterpriseServer)
 	mockEnv.MockPachd.GetAuthServer = realEnv.ServiceEnv.AuthServer
 
 	// LICENSE
-	licenseEnv := licenseserver.EnvFromServiceEnv(realEnv.ServiceEnv)
+	licenseEnv := pachd.LicenseEnv(realEnv.ServiceEnv)
 	realEnv.LicenseServer, err = licenseserver.New(licenseEnv)
 	require.NoError(t, err)
 
 	// PFS
-	pfsEnv, err := pfsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	pfsEnv, err := pachd.PFSEnv(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 	pfsEnv.EtcdPrefix = ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
@@ -212,7 +213,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		reporter := metrics.NewReporter(realEnv.ServiceEnv)
 		clientset := testclient.NewSimpleClientset()
 		realEnv.ServiceEnv.SetKubeClient(clientset)
-		ppsEnv := ppsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv, reporter)
+		ppsEnv := pachd.PPSEnv(realEnv.ServiceEnv, txnEnv, reporter)
 		realEnv.PPSServer, err = ppsserver.NewAPIServer(ppsEnv)
 		realEnv.ServiceEnv.SetPpsServer(realEnv.PPSServer)
 		require.NoError(t, err)

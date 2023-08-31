@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/weblinker"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -24,15 +23,6 @@ type Env struct {
 	Config    *pachconfig.Configuration
 	PFSServer pfs.APIServer
 	Paused    bool
-}
-
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, paused bool) Env {
-	return Env{
-		ClusterID: senv.ClusterID(),
-		Config:    senv.Config(),
-		PFSServer: senv.PfsServer(),
-		Paused:    paused,
-	}
 }
 
 // APIServer represents an APIServer
