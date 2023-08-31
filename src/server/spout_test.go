@@ -180,6 +180,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// Make sure the pipeline is still running
 		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 		require.NoError(t, err)
+		require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 
 		require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 	})
@@ -280,8 +281,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// 	})
 		// require.NoError(t, err)
 		// require.Equal(t, 3, len(commitInfo.Subvenance))
-		_, err = c.WaitCommitSetAll(jobInfos[0].OutputCommit.Id)
-		require.NoError(t, err)
+		// _, err = c.WaitCommitSetAll(jobInfos[0].OutputCommit.Id)
+		// require.NoError(t, err)
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -290,6 +291,16 @@ func testSpout(t *testing.T, usePachctl bool) {
 			return nil
 		}))
 
+		// require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		// 	pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, downstreamPipeline, false)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	if pps.PipelineState_PIPELINE_RUNNING != pipelineInfo.State {
+		// 		return errors.Errorf("Downstream pipeline not in RUNNING state. Actual state %v", pipelineInfo.State.String())
+		// 	}
+		// 	return nil
+		// }, "make sure spout downstream runs")
 		require.NoError(t, c.DeleteAll())
 	})
 

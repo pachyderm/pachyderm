@@ -215,7 +215,9 @@ func dropTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit) error {
 	id, err := getTotal(tx, commit)
 	if err != nil {
 		log.Info(context.Background(), "DNJ TODO err with get total", zap.Any("Commit", commit), zap.Error(err))
-
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
 		return err
 	}
 	trackID := commitTotalTrackerID(commit, *id)
