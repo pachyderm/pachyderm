@@ -45,6 +45,7 @@ import (
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -2685,13 +2686,13 @@ func (a *apiServer) updatePipeline(
 	pipeline *pps.Pipeline,
 	info *pps.PipelineInfo,
 	cb func() error) error {
-
+	log.Info(context.Background(), "DNJ TODO find spec commit", zap.Any("Pipeline", info))
 	// get most recent pipeline key
 	key, err := ppsutil.FindPipelineSpecCommitInTransaction(ctx, txnCtx, a.env.PFSServer, pipeline, "")
 	if err != nil {
 		return errors.Wrap(err, "find pipeline spec commit")
 	}
-
+	log.Info(context.Background(), "DNJ TODO updating db", zap.Any("Pipeline", info))
 	return errors.Wrapf(a.pipelines.ReadWrite(txnCtx.SqlTx).Update(key, info, cb), "update pipeline %v", key)
 }
 
@@ -3081,6 +3082,7 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 	pipelineInfo := &pps.PipelineInfo{}
 	deleted := make(map[string]struct{})
 	if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
+		log.Info(ctx, "DNJ TODO found pipelines", zap.Any("Pipelines", pipelineInfo))
 		if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
 			// while the delete pipeline call will delete historical versions,
 			// they could still show up in the list.  Ignore them.
@@ -3090,17 +3092,37 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 			return nil
 		}
 		deleted[pipelineInfo.Pipeline.String()] = struct{}{}
+		log.Info(ctx, "DNJ TODO adding pipeline to delete", zap.Any("Pipeline", pipelineInfo), zap.Any("State", pipelineInfo.State))
 		ps = append(ps, pipelineInfo.Pipeline)
 		return nil
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	log.Info(ctx, "DNJ TODO about to stop listed pipelines", zap.Any("Pipelines", ps))
 	for _, p := range ps {
+		log.Info(ctx, "DNJ TODO about to stop one pipeline", zap.Any("Pipeline", p))
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: p}); err != nil {
 			return nil, errors.Wrapf(err, "stop pipeline %q", p.String())
 		}
 
 	}
+	backoff.RetryUntilCancel(ctx, func() error { // DNJ TODO
+		for _, p := range ps {
+			log.Info(ctx, "DNJ TODO about to wait for pipeline stopping", zap.Any("Pipeline", p))
+			pipelineInfo, err := a.inspectPipeline(ctx, p, false)
+			if err != nil {
+				log.Info(ctx, "DNJ TODO wait for pipeline stopping err", zap.Any("Pipeline", p), zap.Error(err))
+				return err
+			}
+			log.Info(ctx, "DNJ TODO wait for pipeline stopping", zap.Any("Pipeline state", pipelineInfo))
+			if !pipelineInfo.Stopped || pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
+				return errors.Errorf("Pipeline can't be deleted while not stopped. %v", pipelineInfo)
+			}
+		}
+		return nil
+	}, backoff.NewExponentialBackOff(), nil)
+
+	log.Info(ctx, "DNJ TODO about to delete listed pipelines", zap.Any("Pipelines", ps))
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var rs []*pfs.Repo
 		for _, p := range ps {
@@ -3110,8 +3132,10 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 			}
 			rs = append(rs, deleteRepos...)
 		}
+		log.Info(ctx, "DNJ TODO pipelines deleted, deleing repos", zap.Any("repos", rs))
 		return a.env.PFSServer.DeleteReposInTransaction(ctx, txnCtx, rs, request.Force)
 	}); err != nil {
+		log.Info(ctx, "DNJ TODO any error bubble up to del pipelines?", zap.Error(err))
 		return nil, err
 	}
 	return &pps.DeletePipelinesResponse{Pipelines: ps}, nil
@@ -3171,8 +3195,10 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(request.Pipeline)
+	log.Info(ctx, "DNJ TODO pipeline project ensured", zap.Any("Pipeline", request.Pipeline))
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		if pipelineInfo, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.Pipeline); err == nil {
+			log.Info(ctx, "DNJ TODO inspecting pipe in txn", zap.Any("Pipeline", pipelineInfo))
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
@@ -3188,6 +3214,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 				return errors.EnsureStack(err)
 			}
 			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
+				log.Info(ctx, "DNJ TODO creat branch for spout in delete", zap.Any("Pipeline", pipelineInfo.Details))
 				if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
 					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
 					Provenance: nil,
@@ -3203,6 +3230,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}); err != nil {
 				return err
 			}
+			log.Info(ctx, "DNJ TODO pipeline updated", zap.Any("Pipeline", pipelineInfo))
 		} else if !errutil.IsNotFoundError(err) || request.MustExist {
 			return err
 		}
