@@ -20,7 +20,7 @@ import (
 )
 
 type PipelineInspector interface {
-	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
+	InspectPipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }
 
 // Env is the dependencies needed to run the PFS API server

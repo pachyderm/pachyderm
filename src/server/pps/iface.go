@@ -14,16 +14,16 @@ import (
 type APIServer interface {
 	pps_client.APIServer
 
-	NewPropagater(context.Context, *txncontext.TransactionContext) txncontext.PpsPropagater
+	NewPropagater(*txncontext.TransactionContext) txncontext.PpsPropagater
 	NewJobStopper(*txncontext.TransactionContext) txncontext.PpsJobStopper
 	NewJobFinisher(*txncontext.TransactionContext) txncontext.PpsJobFinisher
 
-	StopJobInTransaction(*txncontext.TransactionContext, *pps_client.StopJobRequest) error
-	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
+	StopJobInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.StopJobRequest) error
+	UpdateJobStateInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
 	CreatePipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.CreatePipelineTransaction) error
 	// InspectPipelineInTransaction returns the pipeline information for a
 	// pipeline.  Note that the pipeline name may include ancestry syntax.
-	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps_client.PipelineInfo, error)
-	ActivateAuthInTransaction(*txncontext.TransactionContext, *pps_client.ActivateAuthRequest) (*pps_client.ActivateAuthResponse, error)
+	InspectPipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps_client.PipelineInfo, error)
+	ActivateAuthInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.ActivateAuthRequest) (*pps_client.ActivateAuthResponse, error)
 	CreateDetPipelineSideEffects(context.Context, *pps.Pipeline, []string) error
 }
