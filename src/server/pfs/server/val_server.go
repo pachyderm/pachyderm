@@ -38,7 +38,7 @@ func (a *validatedAPIServer) DeleteRepoInTransaction(ctx context.Context, txnCtx
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *validatedAPIServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
 	if err := checkCommit(userCommit); err != nil {
@@ -47,7 +47,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
+	return a.apiServer.FinishCommitInTransaction(ctx, txnCtx, request)
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC

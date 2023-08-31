@@ -310,7 +310,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
-	return errors.EnsureStack(jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo))
+	return errors.Wrapf(jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo), "put job %v", ppsdb.JobKey(jobInfo.Job))
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) (retErr error) {
@@ -440,7 +440,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.P
 func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline *pps.Pipeline) (*pfs.Commit, error) {
 	var commit *pfs.Commit
 	if err := txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) (err error) {
-		commit, err = FindPipelineSpecCommitInTransaction(txnCtx, pfsServer, pipeline, "")
+		commit, err = FindPipelineSpecCommitInTransaction(ctx, txnCtx, pfsServer, pipeline, "")
 		return
 	}); err != nil {
 		return nil, err
@@ -450,13 +450,13 @@ func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, 
 
 // FindPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given
 // by startID. If startID is blank, find the current pipeline version
-func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline *pps.Pipeline, startID string) (*pfs.Commit, error) {
+func FindPipelineSpecCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline *pps.Pipeline, startID string) (*pfs.Commit, error) {
 	curr := (&pfs.Repo{
 		Project: pipeline.Project,
 		Name:    pipeline.Name,
 		Type:    pfs.SpecRepoType,
 	}).NewCommit("master", startID)
-	commitInfo, err := pfsServer.InspectCommitInTransaction(txnCtx,
+	commitInfo, err := pfsServer.InspectCommitInTransaction(ctx, txnCtx,
 		&pfs.InspectCommitRequest{Commit: curr})
 	if err != nil {
 		return nil, errors.EnsureStack(err)

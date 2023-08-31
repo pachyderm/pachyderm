@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -17,15 +18,13 @@ import (
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
 	a        *apiServer
-	ctx      context.Context
 	txnCtx   *txncontext.TransactionContext
 	notified bool
 }
 
-func (a *apiServer) NewPropagater(ctx context.Context, txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
+func (a *apiServer) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
 	return &Propagater{
 		a:      a,
-		ctx:    ctx,
 		txnCtx: txnCtx,
 	}
 }
@@ -38,9 +37,9 @@ func (t *Propagater) PropagateJobs() {
 }
 
 // Run creates any jobs for the modified CommitSets
-func (t *Propagater) Run() error {
+func (t *Propagater) Run(ctx context.Context) error {
 	if t.notified {
-		return t.a.propagateJobs(t.ctx, t.txnCtx)
+		return t.a.propagateJobs(ctx, t.txnCtx)
 	}
 	return nil
 }
@@ -70,12 +69,12 @@ func (t *JobStopper) StopJobs(commitset *pfs.CommitSet) {
 }
 
 // Run stops any jobs for the removed CommitSets
-func (t *JobStopper) Run() error {
+func (t *JobStopper) Run(ctx context.Context) error {
 	if len(t.commitsets) > 0 {
 		for _, commitset := range t.commitsets {
 			jobInfo := &pps.JobInfo{}
 			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.Id, jobInfo, col.DefaultOptions(), func(string) error {
-				return t.a.stopJob(t.txnCtx, jobInfo.Job, "output commit removed")
+				return t.a.stopJob(ctx, t.txnCtx, jobInfo.Job, "output commit removed")
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -101,7 +100,7 @@ func (jf *JobFinisher) FinishJob(commitInfo *pfs.CommitInfo) {
 	jf.commitInfos = append(jf.commitInfos, commitInfo)
 }
 
-func (jf *JobFinisher) Run() error {
+func (jf *JobFinisher) Run(ctx context.Context) error {
 	if len(jf.commitInfos) > 0 {
 		pipelines := jf.a.pipelines.ReadWrite(jf.txnCtx.SqlTx)
 		jobs := jf.a.jobs.ReadWrite(jf.txnCtx.SqlTx)
