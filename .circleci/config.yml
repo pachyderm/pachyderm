@@ -114,7 +114,12 @@ jobs:
       - checkout
       - run: cd backend && npm ci
       - run: cd backend && npm run lint:no-fix
-
+  lint-cypress:
+    executor: small-node
+    steps:
+      - checkout
+      - run: npm ci --prefix cypress
+      - run: npm run lint --prefix cypress
   test-backend:
     executor: xlarge-node
     steps:
@@ -330,6 +335,7 @@ workflows:
     jobs:
       - lint-backend
       - lint-frontend
+      - lint-cypress
       - lint-graphql-validate-generation
       - build
       - test-backend
