@@ -573,6 +573,10 @@ func TestRerunPipeline(t *testing.T) {
 		Reprocess: false,
 	})
 	require.NoError(t, err, "no error on rerun")
+	// validate that the pipeline version increments
+	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	require.Equal(t, r.Version, uint64(2), "pipeline version should = 2")
 }
 
 // TestCreatePipelineMultipleNames tests that camelCase and snake_case names map

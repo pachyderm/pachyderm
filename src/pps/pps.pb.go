@@ -4144,7 +4144,6 @@ type RerunPipelineRequest struct {
 
 	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	// Reprocess forces the pipeline to reprocess all datums.
-	// It only has meaning if Update is true
 	Reprocess bool `protobuf:"varint,15,opt,name=reprocess,proto3" json:"reprocess,omitempty"`
 }
 
