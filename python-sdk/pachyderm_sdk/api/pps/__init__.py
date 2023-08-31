@@ -885,10 +885,7 @@ class SchedulingSpec(betterproto.Message):
 class RerunPipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     reprocess: bool = betterproto.bool_field(15)
-    """
-    Reprocess forces the pipeline to reprocess all datums. It only has meaning
-    if Update is true
-    """
+    """Reprocess forces the pipeline to reprocess all datums."""
 
 
 @dataclass(eq=False, repr=False)

@@ -683,7 +683,6 @@ message SchedulingSpec {
 message RerunPipelineRequest {
   Pipeline pipeline = 1;
   // Reprocess forces the pipeline to reprocess all datums.
-  // It only has meaning if Update is true
   bool reprocess = 15;
 }
 
