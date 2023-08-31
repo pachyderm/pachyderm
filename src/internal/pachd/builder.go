@@ -303,7 +303,7 @@ func (b *builder) registerTransactionServer(ctx context.Context) error {
 }
 
 func (b *builder) registerAdminServer(ctx context.Context) error {
-	apiServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(b.env))
+	apiServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(b.env, false))
 	b.forGRPCServer(func(s *grpc.Server) { admin.RegisterAPIServer(s, apiServer) })
 	return nil
 }

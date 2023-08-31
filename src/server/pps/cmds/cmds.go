@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/pachyderm/pachyderm/v2/src/constants"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -969,13 +970,19 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer client.Close()
+			info, _ := client.ClusterInfo()
 
 			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}
 
-			f, err := os.CreateTemp("", args[0])
+			format := output
+			if format == "" {
+				format = "json"
+			}
+
+			f, err := os.CreateTemp("", fmt.Sprintf("%v-*.%v", pipelineInfo.GetPipeline().GetName(), format))
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -990,9 +997,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err := decoder.Decode(&oldSpec); err != nil {
 				return errors.Wrapf(err, "could not decode old user spec %s", pipelineInfo.UserSpecJson)
 			}
+			oldSpec[constants.JSONSchemaKey] = info.GetWebResources().GetCreatePipelineRequestJsonSchemaUrl()
 			if err := cmdutil.Encoder(output, f).Encode(oldSpec); err != nil {
 				return errors.Wrapf(err, "could not encode old user spec %v", oldSpec)
 			}
+			delete(oldSpec, constants.JSONSchemaKey)
 
 			if editor == "" {
 				editor = os.Getenv("EDITOR")
