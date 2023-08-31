@@ -26,24 +26,167 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
 	defer tx.Rollback()
-	projectNames := []string{"testProject1", "testProject2", "testProject3", strings.Repeat("A", 51)}
-	repoNames := []string{"testRepo1", "testRepo2", "testRepo3"}
-	for _, name := range projectNames {
-		projectInfo := pfs.ProjectInfo{Project: &pfs.Project{Name: name}, Description: "test project", CreatedAt: timestamppb.Now()}
-		b, err := proto.Marshal(&projectInfo)
+
+	// OpenCV example
+	// Create project
+	projectInfo := pfs.ProjectInfo{Project: &pfs.Project{Name: "opencv"}, Description: "OpenCV project", CreatedAt: timestamppb.Now()}
+	b, err := proto.Marshal(&projectInfo)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, projectInfo.Project.Key(), b)
+	require.NoError(t, err)
+	// Create repos
+	repos := map[string]*pfs.RepoInfo{
+		"images":       {Repo: &pfs.Repo{Name: "images", Type: pfs.UserRepoType, Project: &pfs.Project{Name: "opencv"}}},
+		"edges":        {Repo: &pfs.Repo{Name: "edges", Type: pfs.UserRepoType, Project: &pfs.Project{Name: "opencv"}}},
+		"edges.spec":   {Repo: &pfs.Repo{Name: "edges", Type: pfs.SpecRepoType, Project: &pfs.Project{Name: "opencv"}}},
+		"edges.meta":   {Repo: &pfs.Repo{Name: "edges", Type: pfs.MetaRepoType, Project: &pfs.Project{Name: "opencv"}}},
+		"montage":      {Repo: &pfs.Repo{Name: "montage", Type: pfs.UserRepoType, Project: &pfs.Project{Name: "opencv"}}},
+		"montage.spec": {Repo: &pfs.Repo{Name: "montage", Type: pfs.SpecRepoType, Project: &pfs.Project{Name: "opencv"}}},
+		"montage.meta": {Repo: &pfs.Repo{Name: "montage", Type: pfs.MetaRepoType, Project: &pfs.Project{Name: "opencv"}}},
+	}
+	for _, repoInfo := range repos {
+		b, err := proto.Marshal(repoInfo)
 		require.NoError(t, err)
-		_, err = tx.ExecContext(ctx, `INSERT INTO collections.projects(key, proto) VALUES($1, $2)`, projectInfo.Project.String(), b)
+		_, err = tx.ExecContext(ctx, `INSERT INTO collections.repos(key, proto) VALUES($1, $2)`, repoInfo.Repo.Key(), b)
+		require.NoError(t, err)
+	}
+	// Create commits and commit provenance relationships
+	commits := map[string]*pfs.CommitInfo{
+		"images@12439bfdb10b4408aa7797efda44be24":       {Commit: &pfs.Commit{Repo: repos["images"].Repo, Id: "12439bfdb10b4408aa7797efda44be24"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"edges@12439bfdb10b4408aa7797efda44be24":        {Commit: &pfs.Commit{Repo: repos["edges"].Repo, Id: "12439bfdb10b4408aa7797efda44be24"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"edges.spec@12439bfdb10b4408aa7797efda44be24":   {Commit: &pfs.Commit{Repo: repos["edges.spec"].Repo, Id: "12439bfdb10b4408aa7797efda44be24"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}},
+		"edges.meta@12439bfdb10b4408aa7797efda44be24":   {Commit: &pfs.Commit{Repo: repos["edges.meta"].Repo, Id: "12439bfdb10b4408aa7797efda44be24"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"montage@1062b21221174d7984e1a7ece488e1ca":      {Commit: &pfs.Commit{Repo: repos["montage"].Repo, Id: "1062b21221174d7984e1a7ece488e1ca"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"montage.spec@1062b21221174d7984e1a7ece488e1ca": {Commit: &pfs.Commit{Repo: repos["montage.spec"].Repo, Id: "1062b21221174d7984e1a7ece488e1ca"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}},
+		"montage.meta@1062b21221174d7984e1a7ece488e1ca": {Commit: &pfs.Commit{Repo: repos["montage.meta"].Repo, Id: "1062b21221174d7984e1a7ece488e1ca"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"montage@f71d04d35df74baeb8cc4d6ef8a14da6":      {Commit: &pfs.Commit{Repo: repos["montage"].Repo, Id: "f71d04d35df74baeb8cc4d6ef8a14da6"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"montage.meta@f71d04d35df74baeb8cc4d6ef8a14da6": {Commit: &pfs.Commit{Repo: repos["montage.meta"].Repo, Id: "f71d04d35df74baeb8cc4d6ef8a14da6"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"images@f71d04d35df74baeb8cc4d6ef8a14da6":       {Commit: &pfs.Commit{Repo: repos["images"].Repo, Id: "f71d04d35df74baeb8cc4d6ef8a14da6"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}},
+		"edges@f71d04d35df74baeb8cc4d6ef8a14da6":        {Commit: &pfs.Commit{Repo: repos["edges"].Repo, Id: "f71d04d35df74baeb8cc4d6ef8a14da6"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"edges.meta@f71d04d35df74baeb8cc4d6ef8a14da6":   {Commit: &pfs.Commit{Repo: repos["edges.meta"].Repo, Id: "f71d04d35df74baeb8cc4d6ef8a14da6"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"montage@a91f6f92b145435396af700be4bb5533":      {Commit: &pfs.Commit{Repo: repos["montage"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"montage.meta@a91f6f92b145435396af700be4bb5533": {Commit: &pfs.Commit{Repo: repos["montage.meta"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"images@a91f6f92b145435396af700be4bb5533":       {Commit: &pfs.Commit{Repo: repos["images"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}},
+		"edges@a91f6f92b145435396af700be4bb5533":        {Commit: &pfs.Commit{Repo: repos["edges"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"edges.meta@a91f6f92b145435396af700be4bb5533":   {Commit: &pfs.Commit{Repo: repos["edges.meta"].Repo, Id: "a91f6f92b145435396af700be4bb5533"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+		"images@98606143463b4105924d9f9d0bed873d":       {Commit: &pfs.Commit{Repo: repos["images"].Repo, Id: "98606143463b4105924d9f9d0bed873d"}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}},
+	}
+	// images
+	commits["images@a91f6f92b145435396af700be4bb5533"].ParentCommit = commits["images@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit
+	commits["images@f71d04d35df74baeb8cc4d6ef8a14da6"].ParentCommit = commits["images@12439bfdb10b4408aa7797efda44be24"].Commit
+	// edges
+	commits["edges@a91f6f92b145435396af700be4bb5533"].ParentCommit = commits["edges@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit
+	commits["edges@a91f6f92b145435396af700be4bb5533"].DirectProvenance = []*pfs.Commit{
+		commits["images@a91f6f92b145435396af700be4bb5533"].Commit,
+		commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit,
+	}
+	commits["edges@f71d04d35df74baeb8cc4d6ef8a14da6"].ParentCommit = commits["edges@12439bfdb10b4408aa7797efda44be24"].Commit
+	commits["edges@f71d04d35df74baeb8cc4d6ef8a14da6"].DirectProvenance = []*pfs.Commit{
+		commits["images@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit,
+		commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit,
+	}
+	commits["edges@12439bfdb10b4408aa7797efda44be24"].DirectProvenance = []*pfs.Commit{
+		commits["images@12439bfdb10b4408aa7797efda44be24"].Commit,
+		commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit,
+	}
+	// edges.meta
+	commits["edges.meta@a91f6f92b145435396af700be4bb5533"].ParentCommit = commits["edges.meta@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit
+	commits["edges.meta@a91f6f92b145435396af700be4bb5533"].DirectProvenance = []*pfs.Commit{
+		commits["images@a91f6f92b145435396af700be4bb5533"].Commit,
+		commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit,
+	}
+	commits["edges.meta@f71d04d35df74baeb8cc4d6ef8a14da6"].ParentCommit = commits["edges.meta@12439bfdb10b4408aa7797efda44be24"].Commit
+	commits["edges.meta@f71d04d35df74baeb8cc4d6ef8a14da6"].DirectProvenance = []*pfs.Commit{
+		commits["images@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit,
+		commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit,
+	}
+	commits["edges.meta@12439bfdb10b4408aa7797efda44be24"].DirectProvenance = []*pfs.Commit{
+		commits["images@12439bfdb10b4408aa7797efda44be24"].Commit,
+		commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit,
+	}
+	// montage
+	commits["montage@a91f6f92b145435396af700be4bb5533"].ParentCommit = commits["montage@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit
+	commits["montage@a91f6f92b145435396af700be4bb5533"].DirectProvenance = []*pfs.Commit{
+		commits["images@a91f6f92b145435396af700be4bb5533"].Commit,
+		commits["edges@a91f6f92b145435396af700be4bb5533"].Commit,
+		commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit,
+	}
+	commits["montage@f71d04d35df74baeb8cc4d6ef8a14da6"].ParentCommit = commits["montage@1062b21221174d7984e1a7ece488e1ca"].Commit
+	commits["montage@f71d04d35df74baeb8cc4d6ef8a14da6"].DirectProvenance = []*pfs.Commit{
+		commits["images@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit,
+		commits["edges@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit,
+		commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit,
+	}
+	commits["montage@1062b21221174d7984e1a7ece488e1ca"].DirectProvenance = []*pfs.Commit{
+		commits["images@12439bfdb10b4408aa7797efda44be24"].Commit,
+		commits["edges@12439bfdb10b4408aa7797efda44be24"].Commit,
+		commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit,
+	}
+	// montage.meta
+	commits["montage.meta@a91f6f92b145435396af700be4bb5533"].ParentCommit = commits["montage@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit
+	commits["montage.meta@a91f6f92b145435396af700be4bb5533"].DirectProvenance = []*pfs.Commit{
+		commits["images@a91f6f92b145435396af700be4bb5533"].Commit,
+		commits["edges@a91f6f92b145435396af700be4bb5533"].Commit,
+		commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit,
+	}
+	commits["montage.meta@f71d04d35df74baeb8cc4d6ef8a14da6"].ParentCommit = commits["montage@1062b21221174d7984e1a7ece488e1ca"].Commit
+	commits["montage.meta@f71d04d35df74baeb8cc4d6ef8a14da6"].DirectProvenance = []*pfs.Commit{
+		commits["images@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit,
+		commits["edges@f71d04d35df74baeb8cc4d6ef8a14da6"].Commit,
+		commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit,
+	}
+	commits["montage.meta@1062b21221174d7984e1a7ece488e1ca"].DirectProvenance = []*pfs.Commit{
+		commits["images@12439bfdb10b4408aa7797efda44be24"].Commit,
+		commits["edges@12439bfdb10b4408aa7797efda44be24"].Commit,
+		commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit,
+	}
+	for _, commitInfo := range commits {
+		b, err := proto.Marshal(commitInfo)
+		require.NoError(t, err)
+		_, err = tx.ExecContext(ctx, `INSERT INTO collections.commits(key, proto) VALUES($1, $2)`, commitInfo.Commit.Key(), b)
+		require.NoError(t, err)
+		_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES($1, $2)`, commitInfo.Commit.Key(), commitInfo.Commit.Id)
 		require.NoError(t, err)
 
-		// Create repos for each project.
-		for _, repoName := range repoNames {
-			repoInfo := pfs.RepoInfo{Repo: &pfs.Repo{Name: repoName, Type: pfs.UserRepoType, Project: projectInfo.Project}, Description: "test repo"}
-			b, err = proto.Marshal(&repoInfo)
-			require.NoError(t, err)
-			_, err = tx.ExecContext(ctx, `INSERT INTO collections.repos(key, proto) VALUES($1, $2)`, repoInfo.Repo.String(), b)
-			require.NoError(t, err)
-		}
 	}
+	// Create branches and branch provenance relationships
+	branches := map[string]*pfs.BranchInfo{
+		"images@master":       {Branch: &pfs.Branch{Repo: repos["images"].Repo, Name: "master"}, Head: commits["images@a91f6f92b145435396af700be4bb5533"].Commit, Trigger: &pfs.Trigger{Branch: "staging", All: true, RateLimitSpec: "my_rate_limit_spec", Size: "1", Commits: 1, CronSpec: "my_cron_spec"}},
+		"images@staging":      {Branch: &pfs.Branch{Repo: repos["images"].Repo, Name: "staging"}, Head: commits["images@98606143463b4105924d9f9d0bed873d"].Commit},
+		"edges@master":        {Branch: &pfs.Branch{Repo: repos["edges"].Repo, Name: "master"}, Head: commits["edges@a91f6f92b145435396af700be4bb5533"].Commit},
+		"edges.spec@master":   {Branch: &pfs.Branch{Repo: repos["edges.spec"].Repo, Name: "master"}, Head: commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit},
+		"edges.meta@master":   {Branch: &pfs.Branch{Repo: repos["edges.meta"].Repo, Name: "master"}, Head: commits["edges.meta@a91f6f92b145435396af700be4bb5533"].Commit},
+		"montage@master":      {Branch: &pfs.Branch{Repo: repos["montage"].Repo, Name: "master"}, Head: commits["montage@a91f6f92b145435396af700be4bb5533"].Commit},
+		"montage.spec@master": {Branch: &pfs.Branch{Repo: repos["montage.spec"].Repo, Name: "master"}, Head: commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit},
+		"montage.meta@master": {Branch: &pfs.Branch{Repo: repos["montage.meta"].Repo, Name: "master"}, Head: commits["montage.meta@a91f6f92b145435396af700be4bb5533"].Commit},
+	}
+	branches["edges@master"].DirectProvenance = []*pfs.Branch{
+		branches["images@master"].Branch,
+		branches["edges.spec@master"].Branch,
+	}
+	branches["edges.meta@master"].DirectProvenance = []*pfs.Branch{
+		branches["images@master"].Branch,
+		branches["edges.spec@master"].Branch,
+	}
+	branches["montage@master"].DirectProvenance = []*pfs.Branch{
+		branches["images@master"].Branch,
+		branches["edges@master"].Branch,
+		branches["montage.spec@master"].Branch,
+	}
+	branches["montage.meta@master"].DirectProvenance = []*pfs.Branch{
+		branches["images@master"].Branch,
+		branches["edges@master"].Branch,
+		branches["montage.spec@master"].Branch,
+	}
+	for _, branchInfo := range branches {
+		b, err := proto.Marshal(branchInfo)
+		require.NoError(t, err)
+		_, err = tx.ExecContext(ctx, `INSERT INTO collections.branches(key, proto, idx_repo) VALUES($1, $2, $3)`, branchInfo.Branch.Key(), b, branchInfo.Branch.Repo.Key())
+		require.NoError(t, err)
+	}
+
+	// TODO create pipelines and jobs
+
 	require.NoError(t, tx.Commit())
 }
 
