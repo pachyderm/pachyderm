@@ -319,10 +319,14 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 				}
 				return errors.Wrapf(err, "unmarshal binary %x%s", raw[:n], dots)
 			}
-			js, err := protojson.MarshalOptions{
+			mo := protojson.MarshalOptions{
 				Indent:    "  ",
-				Multiline: !decodeCompact,
-			}.Marshal(m)
+				Multiline: true,
+			}
+			if decodeCompact {
+				mo = protojson.MarshalOptions{}
+			}
+			js, err := mo.Marshal(m)
 			if err != nil {
 				// If we can't do JSON for some reason, we can at least do
 				// something.  And exit non-zero to not mess up scripts.
