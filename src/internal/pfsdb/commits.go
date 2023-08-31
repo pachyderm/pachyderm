@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/jackc/pgconn"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -35,7 +36,7 @@ const (
 			commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str,
 			repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
 		FROM pfs.commits commit
-		JOIN pfs.commit_ancestry ancestry ON ancestry.to_id = commit.int_id
+		JOIN pfs.commit_ancestry ancestry ON ancestry.from_id = commit.int_id
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
 		JOIN core.projects project ON repo.project_id = project.id
 	`
@@ -64,22 +65,66 @@ func (err ErrCommitNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
-// ErrParentCommitNotFound is returned by GetCommit() when a commit's parent is not found in postgres.
+// ErrParentCommitNotFound is returned when a commit's parent is not found in postgres.
 type ErrParentCommitNotFound struct {
-	Repo     string
-	ID       CommitID
-	CommitID string
+	Repo          string
+	ChildID       CommitID
+	ChildCommitID string
+}
+
+func IsParentCommitNotFound(err error) bool {
+	targetErr := &pgconn.PgError{}
+	ok := errors.As(err, targetErr)
+	if !ok {
+		return false
+	}
+	if targetErr.Code == "23502" && targetErr.ColumnName == "from_id" {
+		return true
+	}
+	return false
 }
 
 // Error satisfies the error interface.
 func (err ErrParentCommitNotFound) Error() string {
-	if id := err.ID; id != 0 {
+	if id := err.ChildID; id != 0 {
 		return fmt.Sprintf("parent commit of commit id=%d not found", id)
 	}
-	return fmt.Sprintf("parent commit of commit %s/%s not found", err.Repo, err.CommitID)
+	return fmt.Sprintf("parent commit of commit %s/%s not found", err.Repo, err.ChildCommitID)
 }
 
 func (err ErrParentCommitNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, err.Error())
+}
+
+// ErrChildCommitNotFound is returned when a commit's child is not found in postgres.
+type ErrChildCommitNotFound struct {
+	Repo           string
+	ParentID       CommitID
+	ParentCommitID string
+}
+
+func IsChildCommitNotFound(err error) bool {
+	return isViolates
+	targetErr := &pgconn.PgError{}
+	ok := errors.As(err, targetErr)
+	if !ok {
+		return false
+	}
+	if targetErr.Code == "23502" && targetErr.ColumnName == "to_id" {
+		return true
+	}
+	return false
+}
+
+// Error satisfies the error interface.
+func (err ErrChildCommitNotFound) Error() string {
+	if id := err.ParentID; id != 0 {
+		return fmt.Sprintf("parent commit of commit id=%d not found", id)
+	}
+	return fmt.Sprintf("parent commit of commit %s/%s not found", err.Repo, err.ParentCommitID)
+}
+
+func (err ErrChildCommitNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
@@ -141,7 +186,6 @@ type commitRow struct {
 }
 
 // CreateCommit creates an entry in the pfs.commits table.
-// todo(fahad): handle commitInfo.ParentCommit and commitInfo.ChildCommit
 func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) error {
 	if commitInfo.Commit == nil {
 		return ErrCommitMissingInfo{Field: "Commit"}
@@ -203,20 +247,86 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	if err := row.Scan(&lastInsertId); err != nil {
 		return errors.Wrap(err, "scanning id from create commitInfo")
 	}
-	if commitInfo.ParentCommit == nil {
-		return nil
+	if commitInfo.ParentCommit != nil {
+		if err := PutParent(ctx, tx, commitInfo.ParentCommit, CommitID(lastInsertId)); err != nil {
+			return errors.Wrap(err, "putting parent")
+		}
 	}
-	// postgres doesn't support lastInsertId, so the library must use a subquery.
+	if len(commitInfo.ChildCommits) != 0 {
+		if err := PutChildren(ctx, tx, CommitID(lastInsertId), commitInfo.ChildCommits); err != nil {
+			return errors.Wrap(err, "putting children")
+		}
+	}
+	return nil
+}
+
+// PutParent inserts a single ancestry relationship where the child is known and parent must be derived.
+func PutParent(ctx context.Context, tx *pachsql.Tx, parentCommit *pfs.Commit, childCommit CommitID) error {
 	ancestryQuery := `
 		INSERT INTO pfs.commit_ancestry
 		(from_id, to_id)
 		VALUES ((SELECT int_id FROM pfs.commits WHERE commit_id=$1), $2)
+		ON CONFLICT DO NOTHING;
 	`
-	_, err = tx.ExecContext(ctx, ancestryQuery, CommitKey(commitInfo.ParentCommit), lastInsertId)
+	_, err := tx.ExecContext(ctx, ancestryQuery, CommitKey(parentCommit), childCommit)
+	if err != nil {
+		if IsParentCommitNotFound(err) {
+			return ErrParentCommitNotFound{ChildID: childCommit}
+		}
+		return errors.Wrap(err, "linking commit parent")
+	}
+	return nil
+}
+
+// PutChild inserts a single ancestry relationship where the parent is known and child must be derived.
+func PutChild(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID, childCommit *pfs.Commit) error {
+	ancestryQuery := `
+		INSERT INTO pfs.commit_ancestry
+		(from_id, to_id)
+		VALUES ($1, (SELECT int_id FROM pfs.commits WHERE commit_id=$2))
+		ON CONFLICT DO NOTHING;
+	`
+	_, err := tx.ExecContext(ctx, ancestryQuery, parentCommit, CommitKey(childCommit))
 	return errors.Wrap(err, "linking commit parent")
 }
 
-// DeleteCommit deletes an entry in the pfs.commits table.
+// PutAncestry inserts a single ancestry relationship where the ids of both parent and child are known.
+func PutAncestry(ctx context.Context, tx *pachsql.Tx, parentCommit, childCommit CommitID) error {
+	ancestryQuery := `
+		INSERT INTO pfs.commit_ancestry
+		(from_id, to_id)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING;
+	`
+	_, err := tx.ExecContext(ctx, ancestryQuery, parentCommit, childCommit)
+	return errors.Wrap(err, "linking commit parent")
+}
+
+// PutChildren builds a single query to insert all children.
+func PutChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID, childCommits []*pfs.Commit) error {
+	ancestryQueryTemplate := `
+		INSERT INTO pfs.commit_ancestry
+		(from_id, to_id)
+		VALUES %s
+		ON CONFLICT DO NOTHING;
+	`
+	childValuesTemplate := `($1, (SELECT int_id FROM pfs.commits WHERE commit_id=$%d))`
+	params := make([]any, 0)
+	params = append(params, parentCommit)
+	queryVarNum := 2
+	values := make([]string, 0)
+	for _, child := range childCommits {
+		values = append(values, fmt.Sprintf(childValuesTemplate, queryVarNum))
+		params = append(params, CommitKey(child))
+		queryVarNum++
+	}
+	valuesStr := strings.Join(values, ",")
+	fmt.Println(fmt.Sprintf(ancestryQueryTemplate, valuesStr))
+	_, err := tx.ExecContext(ctx, fmt.Sprintf(ancestryQueryTemplate, valuesStr), params...)
+	return errors.Wrap(err, "linking commit parent")
+}
+
+// DeleteCommit deletes an entry in the pfs.commits table. It also deletes references in the commit_ancestry table.
 func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	if commit == nil {
 		return ErrCommitMissingInfo{Field: "Commit"}
@@ -262,7 +372,7 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 		return nil, errors.Wrap(err, "get commit from row")
 	}
 	parentRow := &commitRow{}
-	err = tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE commit.int_id=$1", getParentCommit), row.ID).Scan(parentRow)
+	err = tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE ancestry.to_id=$1", getParentCommit), row.ID).StructScan(parentRow)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return commit, nil // assume if no parent is found then that means that commit intentionally has no parent.
@@ -287,7 +397,7 @@ func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commi
 		return nil, errors.Wrap(err, "get commit from row")
 	}
 	parentRow := &commitRow{}
-	err = tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE commit.int_id=$1", getParentCommit), row.ID).Scan(parentRow)
+	err = tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE ancestry.to_id=$1", getParentCommit), row.ID).StructScan(parentRow)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return commitInfo, nil // assume if no parent is found then that means that commit intentionally has no parent.

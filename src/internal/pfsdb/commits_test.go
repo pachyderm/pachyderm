@@ -21,15 +21,44 @@ import (
 	"time"
 )
 
-/*
+func TestCreateCommitWithParent(t *testing.T) {
+	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
+		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			commitInfo.ParentCommit = parentInfo.Commit
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, parentInfo), "should be able to create parent commit")
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create parent commit")
+			getInfo, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			require.NoError(t, err, "should be able to get child commit")
+			require.Equal(t, getInfo.ParentCommit.Id, parentInfo.Commit.Id)
+			return nil
+		}))
+		require.YesError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			commitInfo.ParentCommit = parentInfo.Commit
+			err := pfsdb.CreateCommit(ctx, tx, commitInfo)
+			require.YesError(t, err, "should not be able to create commit before creating parent")
+			require.True(t, errors.Is(pfsdb.ErrParentCommitNotFound{ChildID: 3}, errors.Cause(err)))
+			return nil
+		}))
+	})
+}
 
-SELECT commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str,
-       repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
-		FROM pfs.commits commit
-		JOIN pfs.commit_ancestry ancestry ON ancestry.to_id = commit.int_id
-		JOIN pfs.repos repo ON commit.repo_id = repo.id
-		JOIN core.projects project ON repo.project_id = project.id
-*/
+func TestCreateCommitWithChildren(t *testing.T) {
+	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
+		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			//commitInfo2 := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			parentInfo.ChildCommits = append(parentInfo.ChildCommits, commitInfo.Commit)
+			err := pfsdb.CreateCommit(ctx, tx, parentInfo)
+			require.NoError(t, err, "should be able to create parent commit")
+			return nil
+		}))
+	})
+}
 
 func TestCreateCommit(t *testing.T) {
 	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
@@ -54,12 +83,6 @@ func TestCreateCommit(t *testing.T) {
 			err = pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.YesError(t, err, "should not be able to create commit when commit is nil")
 			require.True(t, errors.Is(pfsdb.ErrCommitMissingInfo{Field: "Commit"}, err))
-			commitInfo = testCommit(ctx, t, branchesCol, tx, testRepoName)
-			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
-			commitInfo.ParentCommit = parentInfo.Commit
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, parentInfo), "should be able to create parent commit")
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create parent commit")
-			//todo(fahad): check commitInfo via get to see if parent matches.
 			return nil
 		}), "transaction should succeed because test is failing before calling db")
 		require.YesError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
