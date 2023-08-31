@@ -75,10 +75,6 @@ jobs:
           role_arn: "arn:aws:iam::011466359146:role/CircleCIBuildBot"
           profile_name: "PACH-BUILDBOT-OIDC-PROFILE"
           role_session_name: ${CIRCLE_JOB}
-      - run:
-          name: get test cred
-          command: |
-            aws secretsmanager get-secret-value --secret-id test --profile PACH-BUILDBOT-OIDC-PROFILE
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1198,7 +1194,10 @@ jobs:
       - node/install
       - kubernetes/install
       - aws-eks/install-aws-iam-authenticator
-      - aws-cli/setup
+      - aws-cli/setup:
+          role_arn: "arn:aws:iam::011466359146:role/CircleCIBuildBot"
+          profile_name: "default"
+          role_session_name: ${CIRCLE_JOB}
       - pulumi/login
       - gcp-cli/initialize
       - run: |
@@ -1616,7 +1615,12 @@ jobs:
 workflows:
   aws-cli:
     jobs:
-      - aws-oidc-example
+      - pulumi-aws-test-env:
+          name: aws-prerelease-testing-env-1
+          env: qa1
+          action: update
+          pachdVersion: 2.7.2
+          helmChartVersion: 2.7.2
   # integration-tests:
   #   when: << pipeline.parameters.run-core-jobs >>
   #   jobs:
