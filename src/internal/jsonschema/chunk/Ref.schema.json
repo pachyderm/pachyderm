@@ -1,0 +1,64 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Ref",
+    "definitions": {
+        "Ref": {
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "edge": {
+                    "type": "boolean"
+                },
+                "dek": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "encryption_algo": {
+                    "enum": [
+                        "ENCRYPTION_ALGO_UNKNOWN",
+                        "CHACHA20"
+                    ],
+                    "type": "string",
+                    "title": "Encryption Algo"
+                },
+                "encryptionAlgo": {
+                    "enum": [
+                        "ENCRYPTION_ALGO_UNKNOWN",
+                        "CHACHA20"
+                    ],
+                    "type": "string",
+                    "title": "Encryption Algo"
+                },
+                "compression_algo": {
+                    "enum": [
+                        "NONE",
+                        "GZIP_BEST_SPEED"
+                    ],
+                    "type": "string",
+                    "title": "Compression Algo"
+                },
+                "compressionAlgo": {
+                    "enum": [
+                        "NONE",
+                        "GZIP_BEST_SPEED"
+                    ],
+                    "type": "string",
+                    "title": "Compression Algo"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Ref"
+        }
+    }
+}

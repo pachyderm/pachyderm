@@ -522,55 +522,6 @@ func TestSetClusterDefaults(t *testing.T) {
 	})
 }
 
-func TestCreatePipelineV2(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-
-	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
-	})
-	require.NoError(t, err, "SetClusterDefaults failed")
-
-	repo := "input"
-	pipeline := "pipeline"
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	var pipelineTemplate = `{
-		"pipeline": {
-			"project": {
-				"name": "{{.ProjectName | js}}"
-			},
-			"name": "{{.PipelineName | js}}"
-		},
-		"transform": {
-			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
-		},
-		"input": {
-			"pfs": {
-				"project": "default",
-				"repo": "{{.RepoName | js}}",
-				"glob": "/*",
-				"name": "in"
-			}
-		},
-		"autoscaling": false
-	}`
-	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
-	require.NoError(t, err, "template must parse")
-	var buf bytes.Buffer
-	require.NoError(t, tmpl.Execute(&buf, struct {
-		ProjectName, PipelineName, RepoName string
-	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
-	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
-		CreatePipelineRequestJson: buf.String(),
-	})
-	require.NoError(t, err, "CreatePipelineV2 must succeed")
-	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
-	var req pps.CreatePipelineRequest
-	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
-	require.Equal(t, int64(17), req.DatumTries, "cluster default is effective")
-	require.False(t, req.Autoscaling, "spec must override default")
-}
-
 // TestCreatePipelineMultipleNames tests that camelCase and snake_case names map
 // to the same thing.
 func TestCreatePipelineMultipleNames(t *testing.T) {

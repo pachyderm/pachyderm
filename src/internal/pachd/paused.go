@@ -7,8 +7,10 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
@@ -20,6 +22,12 @@ type pausedBuilder struct {
 // newPausedBuilder returns an initialized PausedBuilder.
 func newPausedBuilder(config any) *pausedBuilder {
 	return &pausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
+}
+
+func (pb *pausedBuilder) registerAdminServer(ctx context.Context) error {
+	apiServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(pb.env, true))
+	pb.forGRPCServer(func(s *grpc.Server) { admin.RegisterAPIServer(s, apiServer) })
+	return nil
 }
 
 // registerEnterpriseServer registers a PAUSED-mode enterprise server.  This

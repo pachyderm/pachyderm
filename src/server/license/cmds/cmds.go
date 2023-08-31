@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/license"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/spf13/cobra"
 )
 
@@ -45,17 +43,13 @@ func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 			if _, err := c.License.Activate(c.Ctx(), req); err != nil {
 				return errors.EnsureStack(err)
 			}
-
 			if onlyActivate {
 				return nil
 			}
 
-			// inspect the activated cluster for its Deployment Id
-			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &admin.InspectClusterRequest{
-				ClientVersion: version.Version,
-			})
-			if inspectErr != nil {
-				return errors.Wrapf(inspectErr, "could not inspect cluster")
+			clusterInfo, ok := c.ClusterInfo()
+			if !ok {
+				return errors.New("internal: no cluster info in pach client?")
 			}
 
 			// Register the localhost as a cluster

@@ -1,0 +1,37 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SetLogLevelResponse",
+    "definitions": {
+        "SetLogLevelResponse": {
+            "properties": {
+                "affected_pods": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "affectedPods": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "errored_pods": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "erroredPods": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Set Log Level Response"
+        }
+    }
+}

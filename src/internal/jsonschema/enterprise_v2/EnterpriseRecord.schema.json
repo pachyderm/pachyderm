@@ -1,0 +1,55 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/EnterpriseRecord",
+    "definitions": {
+        "EnterpriseRecord": {
+            "properties": {
+                "license": {
+                    "$ref": "#/definitions/enterprise_v2.LicenseRecord",
+                    "additionalProperties": false,
+                    "description": "license is the cached LicenseRecord retrieved from the most recent heartbeat to the license server."
+                },
+                "last_heartbeat": {
+                    "type": "string",
+                    "description": "last_heartbeat is the timestamp of the last successful heartbeat to the license server",
+                    "format": "date-time"
+                },
+                "lastHeartbeat": {
+                    "type": "string",
+                    "description": "last_heartbeat is the timestamp of the last successful heartbeat to the license server",
+                    "format": "date-time"
+                },
+                "heartbeat_failed": {
+                    "type": "boolean",
+                    "description": "heartbeat_failed is set if the license is still valid, but the pachd is no longer registered with an enterprise server. This is the same as the expired state, where auth is locked but not disabled."
+                },
+                "heartbeatFailed": {
+                    "type": "boolean",
+                    "description": "heartbeat_failed is set if the license is still valid, but the pachd is no longer registered with an enterprise server. This is the same as the expired state, where auth is locked but not disabled."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Enterprise Record",
+            "description": "EnterpriseRecord is a protobuf we cache in etcd to store the enterprise status."
+        },
+        "enterprise_v2.LicenseRecord": {
+            "properties": {
+                "activation_code": {
+                    "type": "string"
+                },
+                "activationCode": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Enterprise data structures",
+            "description": "Enterprise data structures  LicenseRecord is the record we store in etcd for a Pachyderm enterprise token that has been provided to a Pachyderm license server"
+        }
+    }
+}
