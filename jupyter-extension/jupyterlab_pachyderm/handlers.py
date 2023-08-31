@@ -288,7 +288,7 @@ class HealthHandler(BaseHandler):
 class PPSHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self, project_name, name):
-        """Get details for the specified pps"""
+        """Get details for the specified pipeline"""
         try:
             response = await self.pps_client.retrieve(name=name, project_name=project_name)
             get_logger().debug(f"RetrievePipeline: {response}")
