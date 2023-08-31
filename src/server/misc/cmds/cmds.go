@@ -10,41 +10,22 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	ci "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
-	"github.com/pachyderm/pachyderm/v2/src/license"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/proxy"
-	"github.com/pachyderm/pachyderm/v2/src/transaction"
-	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"github.com/pachyderm/pachyderm/v2/src/worker"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/exp/maps"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 )
 
 func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
@@ -248,90 +229,11 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Short: "Call a gRPC method on the server.",
 		Long:  "Call a gRPC method on the server.",
 		Run: cmdutil.Run(func(args []string) error {
-			handlers := buildRPCs(
-				admin.File_admin_admin_proto,
-				auth.File_auth_auth_proto,
-				debug.File_debug_debug_proto,
-				enterprise.File_enterprise_enterprise_proto,
-				identity.File_identity_identity_proto,
-				license.File_license_license_proto,
-				pfs.File_pfs_pfs_proto,
-				pps.File_pps_pps_proto,
-				proxy.File_proxy_proxy_proto,
-				transaction.File_transaction_transaction_proto,
-				versionpb.File_version_versionpb_version_proto,
-				worker.File_worker_worker_proto,
-			)
-
-			// If no args, print all available RPCs.  The names can be difficult to
-			// guess.
-			if len(args) == 0 {
-				// Print RPCs.
-				methods := maps.Keys(handlers)
-				sort.Strings(methods)
-				fmt.Fprintf(os.Stderr, "Specify the RPC you'd like to call:\n%s",
-					strings.Join(methods, "\n"))
-				return nil
-			}
-
-			// If there's an arg, find the method.
-			f, ok := handlers[args[0]]
-			if !ok {
-				return errors.Errorf("no method %v", args[0])
-			}
-
-			ctx, c := signal.NotifyContext(ctx, signals.TerminationSignals...)
-			defer c()
-
-			// Get a client connection.
-			authCtx := ctx
-			var cc grpc.ClientConnInterface
-			if grpcAddress == "" {
-				// If --address isn't set, use the pach context to connect.
-				cl, err := pachctlCfg.NewOnUserMachine(ctx, false)
-				if err != nil {
-					return errors.Wrap(err, "connect")
-				}
-				authCtx = cl.Ctx()
-				cc = cl.ClientConn()
-				defer cl.Close()
-			} else {
-				// If --address is set, just dial the server.
-				creds := insecure.NewCredentials()
-				if grpcTLS {
-					creds = credentials.NewTLS(&tls.Config{
-						InsecureSkipVerify: true,
-					})
-				}
-				var err error
-				cc, err = grpc.Dial(grpcAddress, grpc.WithTransportCredentials(creds), grpc.WithUnaryInterceptor(ci.LogUnary), grpc.WithStreamInterceptor(ci.LogStream))
-				if err != nil {
-					return errors.Wrap(err, "dial --address")
-				}
-			}
-
-			// Add headers
-			for _, h := range grpcHeaders {
-				parts := strings.SplitN(h, "=", 2)
-				if len(parts) != 2 {
-					return errors.Errorf("malformed --header %q; use Key=Value", h)
-				}
-				authCtx = metadata.AppendToOutgoingContext(authCtx, parts[0], parts[1])
-			}
-
-			// Add a note during "long" RPCs.
-			go func() {
-				select {
-				case <-time.After(5 * time.Second):
-					fmt.Fprintln(os.Stderr, "RPC running; press Control-c to cancel...")
-				case <-ctx.Done():
-					return
-				}
-			}()
-			if err := f(authCtx, cc, os.Stdout, args[1:]...); err != nil {
-				return errors.Wrap(err, "do RPC")
-			}
-			return nil
+			return gRPCParams{
+				Address: grpcAddress,
+				TLS:     grpcTLS,
+				Headers: grpcHeaders,
+			}.Run(ctx, pachctlCfg, os.Stdout, args)
 		}),
 	}
 	grpc.PersistentFlags().StringVar(&grpcAddress, "address", "", "If set, don't use the pach client to connect, but manually dial the provided GRPC address instead; url must be in a form like dns:/// or passthrough:///, not http:// or grpc://")
