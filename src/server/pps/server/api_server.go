@@ -2921,7 +2921,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	pipelineName := request.Pipeline.Name
 	// stop the pipeline to avoid interference from new jobs
 	if _, err := a.StopPipeline(ctx,
-		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
+		&pps.StopPipelineRequest{Pipeline: request.Pipeline, MustExist: request.MustExist}); err != nil && errutil.IsNotFoundError(err) && !request.MustExist {
 		log.Error(ctx, "failed to stop pipeline, continuing with delete", zap.Error(err))
 	} else if err != nil {
 		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline)
@@ -3202,7 +3202,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}); err != nil {
 				return err
 			}
-		} else if !errutil.IsNotFoundError(err) {
+		} else if !errutil.IsNotFoundError(err) || request.MustExist {
 			return err
 		}
 

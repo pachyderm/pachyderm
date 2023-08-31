@@ -790,6 +790,8 @@ message DeletePipelineRequest {
   bool all = 2 [deprecated = true]; // Deprecated.
   bool force = 3;
   bool keep_repo = 4;
+  // If true, an error will be returned if the pipeline doesn't exist.
+  bool must_exist = 5;
 }
 
 // Delete more than one pipeline.
@@ -814,6 +816,8 @@ message StartPipelineRequest {
 
 message StopPipelineRequest {
   Pipeline pipeline = 1;
+  // If true, an error will be returned if the pipeline doesn't exist.
+  bool must_exist = 2;
 }
 
 message RunPipelineRequest {

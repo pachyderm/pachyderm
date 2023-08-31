@@ -7,6 +7,14 @@
                 "pipeline": {
                     "$ref": "#/definitions/pps_v2.Pipeline",
                     "additionalProperties": false
+                },
+                "must_exist": {
+                    "type": "boolean",
+                    "description": "If true, an error will be returned if the pipeline doesn't exist."
+                },
+                "mustExist": {
+                    "type": "boolean",
+                    "description": "If true, an error will be returned if the pipeline doesn't exist."
                 }
             },
             "additionalProperties": false,
