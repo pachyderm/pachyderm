@@ -2139,15 +2139,14 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
 
-	var oldPipelineInfo, err2 = a.inspectPipeline(ctx, request.Pipeline, true)
+	info, err := a.inspectPipeline(ctx, request.Pipeline, true)
 
-	if err2 != nil {
-		//TODO: Add nice error :-)
-		return &emptypb.Empty{}, err2
+	if err != nil {
+		return nil, err
 	}
 
 	v2Req := &pps.CreatePipelineV2Request{
-		CreatePipelineRequestJson: oldPipelineInfo.UserSpecJson,
+		CreatePipelineRequestJson: info.UserSpecJson,
 		Update:                    true,
 		Reprocess:                 request.Reprocess,
 		DryRun:                    false,
