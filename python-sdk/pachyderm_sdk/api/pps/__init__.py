@@ -1004,6 +1004,8 @@ class DeletePipelineRequest(betterproto.Message):
     all: bool = betterproto.bool_field(2)
     force: bool = betterproto.bool_field(3)
     keep_repo: bool = betterproto.bool_field(4)
+    must_exist: bool = betterproto.bool_field(5)
+    """If true, an error will be returned if the pipeline doesn't exist."""
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -1042,6 +1044,8 @@ class StartPipelineRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class StopPipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
+    must_exist: bool = betterproto.bool_field(2)
+    """If true, an error will be returned if the pipeline doesn't exist."""
 
 
 @dataclass(eq=False, repr=False)
@@ -1676,7 +1680,8 @@ class ApiStub:
         pipeline: "Pipeline" = None,
         all: bool = False,
         force: bool = False,
-        keep_repo: bool = False
+        keep_repo: bool = False,
+        must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
         request = DeletePipelineRequest()
         if pipeline is not None:
@@ -1684,6 +1689,7 @@ class ApiStub:
         request.all = all
         request.force = force
         request.keep_repo = keep_repo
+        request.must_exist = must_exist
 
         return self.__rpc_delete_pipeline(request)
 
@@ -1716,11 +1722,12 @@ class ApiStub:
         return self.__rpc_start_pipeline(request)
 
     def stop_pipeline(
-        self, *, pipeline: "Pipeline" = None
+        self, *, pipeline: "Pipeline" = None, must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
         request = StopPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
+        request.must_exist = must_exist
 
         return self.__rpc_stop_pipeline(request)
 
@@ -2120,6 +2127,7 @@ class ApiBase:
         all: bool,
         force: bool,
         keep_repo: bool,
+        must_exist: bool,
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2146,7 +2154,7 @@ class ApiBase:
         raise NotImplementedError("Method not implemented!")
 
     def stop_pipeline(
-        self, pipeline: "Pipeline", context: "grpc.ServicerContext"
+        self, pipeline: "Pipeline", must_exist: bool, context: "grpc.ServicerContext"
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
