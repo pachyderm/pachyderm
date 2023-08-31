@@ -17,6 +17,9 @@
                 },
                 "keep_repo": {
                     "type": "boolean"
+                },
+                "keepRepo": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false,

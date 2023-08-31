@@ -7,7 +7,16 @@
                 "job_id": {
                     "type": "string"
                 },
+                "jobId": {
+                    "type": "string"
+                },
                 "data_filters": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "dataFilters": {
                     "items": {
                         "type": "string"
                     },

@@ -106,6 +106,10 @@
                     "type": "string",
                     "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
                 },
+                "rateLimitSpec": {
+                    "type": "string",
+                    "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
+                },
                 "size": {
                     "type": "string",
                     "description": "Triggers if there's been `size` new data added since the last trigger."
@@ -115,6 +119,10 @@
                     "description": "Triggers if there's been `commits` new commits added since the last trigger."
                 },
                 "cron_spec": {
+                    "type": "string",
+                    "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
+                },
+                "cronSpec": {
                     "type": "string",
                     "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
                 }
@@ -196,6 +204,16 @@
                         }
                     ]
                 },
+                "repoType": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
                 "branch": {
                     "oneOf": [
                         {
@@ -236,6 +254,16 @@
                         }
                     ]
                 },
+                "joinOn": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
                 "outer_join": {
                     "oneOf": [
                         {
@@ -246,7 +274,27 @@
                         }
                     ]
                 },
+                "outerJoin": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
                 "group_by": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "groupBy": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -267,6 +315,17 @@
                     ]
                 },
                 "empty_files": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks."
+                },
+                "emptyFiles": {
                     "oneOf": [
                         {
                             "type": "null"

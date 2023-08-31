@@ -6,6 +6,9 @@
             "properties": {
                 "root_token": {
                     "type": "string"
+                },
+                "rootToken": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

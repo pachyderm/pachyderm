@@ -11,10 +11,17 @@
                     "$ref": "#/definitions/pfsload.FileSourceSpec",
                     "additionalProperties": false
                 },
+                "fileSource": {
+                    "$ref": "#/definitions/pfsload.FileSourceSpec",
+                    "additionalProperties": false
+                },
                 "seed": {
                     "type": "integer"
                 },
                 "auth_token": {
+                    "type": "string"
+                },
+                "authToken": {
                     "type": "string"
                 }
             },
@@ -65,6 +72,9 @@
                 },
                 "increment_path": {
                     "type": "boolean"
+                },
+                "incrementPath": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false,
@@ -76,7 +86,13 @@
                 "min_size": {
                     "type": "integer"
                 },
+                "min": {
+                    "type": "integer"
+                },
                 "max_size": {
+                    "type": "integer"
+                },
+                "max": {
                     "type": "integer"
                 },
                 "prob": {

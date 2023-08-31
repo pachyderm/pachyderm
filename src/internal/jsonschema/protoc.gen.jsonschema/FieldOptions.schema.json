@@ -16,7 +16,15 @@
                     "type": "integer",
                     "description": "Fields tagged with this will constrain strings using the \"minLength\" keyword in generated schemas"
                 },
+                "minLength": {
+                    "type": "integer",
+                    "description": "Fields tagged with this will constrain strings using the \"minLength\" keyword in generated schemas"
+                },
                 "max_length": {
+                    "type": "integer",
+                    "description": "Fields tagged with this will constrain strings using the \"maxLength\" keyword in generated schemas"
+                },
+                "maxLength": {
                     "type": "integer",
                     "description": "Fields tagged with this will constrain strings using the \"maxLength\" keyword in generated schemas"
                 },

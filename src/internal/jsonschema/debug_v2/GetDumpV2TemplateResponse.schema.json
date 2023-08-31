@@ -55,6 +55,9 @@
                 "input_repos": {
                     "type": "boolean"
                 },
+                "inputRepos": {
+                    "type": "boolean"
+                },
                 "timeout": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
@@ -137,6 +140,13 @@
                     "type": "array"
                 },
                 "loki_logs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "lokiLogs": {
                     "items": {
                         "$ref": "#/definitions/debug_v2.App"
                     },

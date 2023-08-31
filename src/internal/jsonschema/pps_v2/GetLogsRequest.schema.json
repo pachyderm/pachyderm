@@ -21,6 +21,13 @@
                     "type": "array",
                     "description": "Names of input files from which we want processing logs. This may contain multiple files, to query pipelines that contain multiple inputs. Each filter may be an absolute path of a file within a pps repo, or it may be a hash for that file (to search for files at specific versions)"
                 },
+                "dataFilters": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "Names of input files from which we want processing logs. This may contain multiple files, to query pipelines that contain multiple inputs. Each filter may be an absolute path of a file within a pps repo, or it may be a hash for that file (to search for files at specific versions)"
+                },
                 "datum": {
                     "$ref": "#/definitions/pps_v2.Datum",
                     "additionalProperties": false
@@ -38,6 +45,10 @@
                     "description": "If nonzero, the number of lines from the end of the logs to return.  Note: tail applies per container, so you will get tail * \u003cnumber of pods\u003e total lines back."
                 },
                 "use_loki_backend": {
+                    "type": "boolean",
+                    "description": "UseLokiBackend causes the logs request to go through the loki backend rather than through kubernetes. This behavior can also be achieved by setting the LOKI_LOGGING feature flag."
+                },
+                "useLokiBackend": {
                     "type": "boolean",
                     "description": "UseLokiBackend causes the logs request to go through the loki backend rather than through kubernetes. This behavior can also be achieved by setting the LOKI_LOGGING feature flag."
                 },

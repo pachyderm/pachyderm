@@ -8,7 +8,14 @@
                     "type": "string",
                     "description": "a JSON-encoded CreatePipelineRequest"
                 },
+                "createPipelineRequestJson": {
+                    "type": "string",
+                    "description": "a JSON-encoded CreatePipelineRequest"
+                },
                 "dry_run": {
+                    "type": "boolean"
+                },
+                "dryRun": {
                     "type": "boolean"
                 },
                 "update": {

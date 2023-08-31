@@ -7,11 +7,22 @@
                 "file_set_id": {
                     "type": "string"
                 },
+                "fileSetId": {
+                    "type": "string"
+                },
                 "path_range": {
                     "$ref": "#/definitions/pfs_v2.PathRange",
                     "additionalProperties": false
                 },
+                "pathRange": {
+                    "$ref": "#/definitions/pfs_v2.PathRange",
+                    "additionalProperties": false
+                },
                 "set_spec": {
+                    "$ref": "#/definitions/datum.SetSpec",
+                    "additionalProperties": false
+                },
+                "setSpec": {
                     "$ref": "#/definitions/datum.SetSpec",
                     "additionalProperties": false
                 }
@@ -26,6 +37,9 @@
                     "type": "integer"
                 },
                 "size_bytes": {
+                    "type": "integer"
+                },
+                "sizeBytes": {
                     "type": "integer"
                 }
             },

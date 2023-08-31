@@ -10,6 +10,9 @@
                 },
                 "pfs_state_id": {
                     "type": "string"
+                },
+                "pfsStateId": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

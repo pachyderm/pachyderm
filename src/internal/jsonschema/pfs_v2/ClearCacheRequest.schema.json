@@ -6,6 +6,9 @@
             "properties": {
                 "tag_prefix": {
                     "type": "string"
+                },
+                "tagPrefix": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

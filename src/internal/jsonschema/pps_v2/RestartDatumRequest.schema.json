@@ -13,6 +13,12 @@
                         "type": "string"
                     },
                     "type": "array"
+                },
+                "dataFilters": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
                 }
             },
             "additionalProperties": false,

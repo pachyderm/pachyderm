@@ -34,6 +34,13 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
+                "lokiLogs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
                 "binaries": {
                     "items": {
                         "$ref": "#/definitions/debug_v2.App"

@@ -10,6 +10,13 @@
                     },
                     "additionalProperties": false,
                     "type": "array"
+                },
+                "affectedPipelines": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.Pipeline"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
                 }
             },
             "additionalProperties": false,

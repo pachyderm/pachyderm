@@ -24,7 +24,27 @@
                         {}
                     ]
                 },
+                "objectStorage": {
+                    "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
                 "sql_database": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "sqlDatabase": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
                     "additionalProperties": false,
                     "oneOf": [
@@ -72,6 +92,10 @@
                     "type": "string"
                 },
                 "file_format": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
+                    "additionalProperties": false
+                },
+                "fileFormat": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
                     "additionalProperties": false
                 },

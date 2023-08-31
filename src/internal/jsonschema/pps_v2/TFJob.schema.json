@@ -7,6 +7,10 @@
                 "tf_job": {
                     "type": "string",
                     "description": "tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly to a kubernetes cluster on which kubeflow has been installed, instead of creating a pipeline ReplicationController as it normally would."
+                },
+                "tfJob": {
+                    "type": "string",
+                    "description": "tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly to a kubernetes cluster on which kubeflow has been installed, instead of creating a pipeline ReplicationController as it normally would."
                 }
             },
             "additionalProperties": false,

@@ -21,6 +21,10 @@
                 "activation_code": {
                     "type": "string",
                     "description": "activation_code will always be an empty string, call GetEnterpriseCode to get the activation code"
+                },
+                "activationCode": {
+                    "type": "string",
+                    "description": "activation_code will always be an empty string, call GetEnterpriseCode to get the activation code"
                 }
             },
             "additionalProperties": false,

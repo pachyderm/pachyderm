@@ -42,6 +42,17 @@
                     "type": "string",
                     "title": "Origin Kind",
                     "description": "These are the different places where a commit may be originated from"
+                },
+                "originKind": {
+                    "enum": [
+                        "ORIGIN_KIND_UNKNOWN",
+                        "USER",
+                        "AUTO",
+                        "FSCK"
+                    ],
+                    "type": "string",
+                    "title": "Origin Kind",
+                    "description": "These are the different places where a commit may be originated from"
                 }
             },
             "additionalProperties": false,

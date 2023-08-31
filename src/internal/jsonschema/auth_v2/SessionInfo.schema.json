@@ -15,6 +15,10 @@
                 "conversion_err": {
                     "type": "boolean",
                     "description": "conversion_err indicates whether an error was encountered while exchanging an auth code for an access token, or while obtaining a user's email (in /authorization-code/callback). Storing the error state here allows any sibling calls to Authenticate() (i.e. using the same OIDC state token) to notify their caller that an error has occurred. We avoid passing the caller any details of the error (which are logged by Pachyderm) to avoid giving information to a user who has network access to Pachyderm but not an account in the OIDC provider."
+                },
+                "conversionErr": {
+                    "type": "boolean",
+                    "description": "conversion_err indicates whether an error was encountered while exchanging an auth code for an access token, or while obtaining a user's email (in /authorization-code/callback). Storing the error state here allows any sibling calls to Authenticate() (i.e. using the same OIDC state token) to notify their caller that an error has occurred. We avoid passing the caller any details of the error (which are logged by Pachyderm) to avoid giving information to a user who has network access to Pachyderm but not an account in the OIDC provider."
                 }
             },
             "additionalProperties": false,

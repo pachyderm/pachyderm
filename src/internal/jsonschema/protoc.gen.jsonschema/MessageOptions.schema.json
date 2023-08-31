@@ -12,7 +12,15 @@
                     "type": "boolean",
                     "description": "Messages tagged with this will have all fields marked as \"required\":"
                 },
+                "allFieldsRequired": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all fields marked as \"required\":"
+                },
                 "allow_null_values": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will additionally accept null values for all properties:"
+                },
+                "allowNullValues": {
                     "type": "boolean",
                     "description": "Messages tagged with this will additionally accept null values for all properties:"
                 },
@@ -20,7 +28,15 @@
                     "type": "boolean",
                     "description": "Messages tagged with this will have all fields marked as not allowing additional properties:"
                 },
+                "disallowAdditionalProperties": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all fields marked as not allowing additional properties:"
+                },
                 "enums_as_constants": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all nested enums encoded to use constants instead of simple types (supports value annotations):"
+                },
+                "enumsAsConstants": {
                     "type": "boolean",
                     "description": "Messages tagged with this will have all nested enums encoded to use constants instead of simple types (supports value annotations):"
                 }
