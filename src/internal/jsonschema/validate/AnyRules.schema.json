@@ -1,0 +1,39 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/AnyRules",
+    "definitions": {
+        "AnyRules": {
+            "properties": {
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                },
+                "in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field's `type_url` must be equal to one of the specified values."
+                },
+                "not_in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field's `type_url` must not be equal to any of the specified values."
+                },
+                "notIn": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field's `type_url` must not be equal to any of the specified values."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Any Rules",
+            "description": "AnyRules describe constraints applied exclusively to the `google.protobuf.Any` well-known type"
+        }
+    }
+}
