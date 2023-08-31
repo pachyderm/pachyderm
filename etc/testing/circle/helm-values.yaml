@@ -38,9 +38,3 @@ proxy:
     service:
         type: NodePort
         httpNodePort: 30650
-        legacyPorts:
-            console: 30400
-            s3Gateway: 30600
-            oidc: 30657
-            identity: 30658
-            metrics: 30656

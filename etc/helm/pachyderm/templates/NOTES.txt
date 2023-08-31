@@ -33,19 +33,13 @@ migrate by exposing the proxy and removing the external service:
     service:
       type: LoadBalancer
       loadBalancerIP: "{{ or .Values.pachd.externalService.loadBalancerIP .Values.proxy.service.loadBalancerIP "<the IP provisioned for the load balancer; not setting this is OK if you don't know it>"}}"
-      legacyPorts:
-        grpc: {{ or .Values.pachd.externalService.apiGRPCPort 0 }}
-        s3Gateway: {{ or .Values.pachd.externalService.s3GatewayPort 0 }}
-        oidcPort: {{ or .Values.pachd.externalService.oidcPort 0 }}
-        identityPort: {{ or .Values.pachd.externalService.identityPort 0 }}
 
 Please see values.yaml for a full list of configuration options, including SSL/TLS/HTTPS support.
 
-The legacy ports are not strictly necessary except for compatability with your existing
-configuration.  The proxy inspects traffic arriving on normal http or https ports (80 and 443) and
-automatically routes it to the right service.  pachd, console, S3, oidc, and identity will be
-available on port 80 (grpc://<proxy.host>:80, http://<proxy.host>) if TLS is disabled, or port 443
-otherwise (grpcs://<proxy.host>:443, https://<proxy.host>).
+In the past, Pachyderm exposed many ports, but the proxy inspects traffic arriving on normal http or
+https ports (80 and 443) and automatically routes it to the right service.  pachd, console, S3,
+oidc, and identity will be available on port 80 (grpc://<proxy.host>:80, http://<proxy.host>) if TLS
+is disabled, or port 443 otherwise (grpcs://<proxy.host>:443, https://<proxy.host>).
 
 As of 2.5.0, the proxy is enabled by default, but not exposed to the Internet.  You can test it out
 with:

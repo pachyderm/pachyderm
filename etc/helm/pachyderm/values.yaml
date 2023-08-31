@@ -1256,16 +1256,6 @@ proxy:
     annotations: {}
     # Any additional labels to add to the service itself (not the selector!).
     labels: {}
-    # The proxy can also serve each backend service on a numbered port, and will do so for any port
-    # not numbered 0 here.  If this service is of type NodePort, the port numbers here will be used
-    # for the node port, and will need to be in the node port range.
-    legacyPorts:
-      console: 0 # legacy 30080, conflicts with default httpNodePort
-      grpc: 0 # legacy 30650
-      s3Gateway: 0 # legacy 30600
-      oidc: 0 # legacy 30657
-      identity: 0 # legacy 30658
-      metrics: 0 # legacy 30656
     # externalTrafficPolicy determines cluster-wide routing policy; see "kubectl explain
     # service.spec.externalTrafficPolicy".
     externalTrafficPolicy: ""

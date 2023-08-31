@@ -255,26 +255,9 @@ func RewriteURL(t testing.TB, urlStr, host string) string {
 
 // DexHost returns the address to access the identity server during tests
 func DexHost(c *client.APIClient) string {
-	if c.GetAddress().Port == 1650 {
-		return c.GetAddress().Host + ":1658"
-	}
-	if c.GetAddress().Port == 31650 {
-		return c.GetAddress().Host + ":31658"
-	}
-	// TODO(acohen4): revisit the way we are doing rewrites here
-	// NOTE: the identity port is dynamically allocated in
-	// src/internal/minikubetestenv/deploy.go
-	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+8)
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port)
 }
 
 func pachHost(c *client.APIClient) string {
-	if c.GetAddress().Port == 1650 {
-		return c.GetAddress().Host + ":1657"
-	}
-	if c.GetAddress().Port == 31650 {
-		return c.GetAddress().Host + ":31657"
-	}
-	// NOTE: the identity port is dynamically allocated in
-	// src/internal/minikubetestenv/deploy.go
-	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+7)
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port)
 }

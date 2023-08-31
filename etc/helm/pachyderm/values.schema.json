@@ -451,6 +451,14 @@
                 "customCaCerts": {
                     "type": "boolean"
                 },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "imagePullSecrets": {
                     "type": "array"
                 },
@@ -1668,29 +1676,6 @@
                         },
                         "labels": {
                             "type": "object"
-                        },
-                        "legacyPorts": {
-                            "type": "object",
-                            "properties": {
-                                "console": {
-                                    "type": "integer"
-                                },
-                                "grpc": {
-                                    "type": "integer"
-                                },
-                                "identity": {
-                                    "type": "integer"
-                                },
-                                "metrics": {
-                                    "type": "integer"
-                                },
-                                "oidc": {
-                                    "type": "integer"
-                                },
-                                "s3Gateway": {
-                                    "type": "integer"
-                                }
-                            }
                         },
                         "loadBalancerIP": {
                             "type": "string"

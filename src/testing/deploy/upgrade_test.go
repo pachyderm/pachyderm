@@ -77,6 +77,8 @@ func TestUpgradeTrigger(t *testing.T) {
 	fromVersions := []string{
 		"2.4.6",
 		"2.5.0",
+		"2.6.0",
+		"2.7.1",
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -173,9 +175,10 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{
-		"2.3.9",
 		"2.4.6",
 		"2.5.0",
+		"2.6.0",
+		"2.7.1",
 	}
 	montage := func(fromVersion string) string {
 		repo := montageRepo
@@ -284,7 +287,7 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
-	fromVersions := []string{"2.5.0", "2.6.0"}
+	fromVersions := []string{"2.5.0", "2.6.0", "2.7.1"}
 	files := []string{"file1", "file2", "file3", "file4"}
 	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { // preUpgrade
@@ -372,7 +375,7 @@ func TestUpgradeLoad(t *testing.T) {
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
-	fromVersions := []string{"2.6.2", "2.5.4"}
+	fromVersions := []string{"2.6.2", "2.5.4", "2.7.1"}
 	dagSpec := `
 default-load-test-source-1:
 default-load-test-pipeline-1: default-load-test-source-1

@@ -21,17 +21,6 @@ Envoy.bootstrap(
         Envoy.messageRoute(500, 'This is the cleartext installation of pachyderm-proxy; enable TLS in the helm chart and reinstall.'),
       ],
     ),
-  ] + [
-    local svc = Services[name];
-    Envoy.httpListener(
-      port=svc.internal_port,
-      name='direct-' + name,
-      routes=svc.routes,
-    )
-    // Every service gets a direct route.  Whether or not traffic from the Internet can reach these
-    // is controlled by helm values (the service won't bind the ports if the user doesn't want to
-    // use them).  We sort the keys here so that the output is stable across regeneration.
-    for name in std.sort(std.objectFields(Services), keyF=function(name) Services[name].internal_port)
   ],
   clusters=[
     Envoy.serviceAsCluster(name, Services[name])
