@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/MessageOptions",
+    "definitions": {
+        "MessageOptions": {
+            "properties": {
+                "ignore": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will not be processed"
+                },
+                "all_fields_required": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all fields marked as \"required\":"
+                },
+                "allFieldsRequired": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all fields marked as \"required\":"
+                },
+                "allow_null_values": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will additionally accept null values for all properties:"
+                },
+                "allowNullValues": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will additionally accept null values for all properties:"
+                },
+                "disallow_additional_properties": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all fields marked as not allowing additional properties:"
+                },
+                "disallowAdditionalProperties": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all fields marked as not allowing additional properties:"
+                },
+                "enums_as_constants": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all nested enums encoded to use constants instead of simple types (supports value annotations):"
+                },
+                "enumsAsConstants": {
+                    "type": "boolean",
+                    "description": "Messages tagged with this will have all nested enums encoded to use constants instead of simple types (supports value annotations):"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Message Options",
+            "description": "Custom MessageOptions"
+        }
+    }
+}

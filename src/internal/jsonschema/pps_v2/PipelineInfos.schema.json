@@ -1,0 +1,1715 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PipelineInfos",
+    "definitions": {
+        "PipelineInfos": {
+            "properties": {
+                "pipeline_info": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.PipelineInfo"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "pipelineInfo": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.PipelineInfo"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Infos"
+        },
+        "pfs_v2.Branch": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.Repo",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Branch"
+        },
+        "pfs_v2.Commit": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.Repo",
+                    "additionalProperties": false
+                },
+                "id": {
+                    "type": "string"
+                },
+                "branch": {
+                    "$ref": "#/definitions/pfs_v2.Branch",
+                    "additionalProperties": false,
+                    "description": "only used by the client"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit",
+            "description": "Commit is a reference to a commit (e.g. the collection of branches and the collection of currently-open commits in etcd are collections of Commit protos)"
+        },
+        "pfs_v2.ObjectStorageEgress": {
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Object Storage Egress"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pfs_v2.Repo": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "//  PFS Data structures (stored in etcd)",
+            "description": "//  PFS Data structures (stored in etcd)"
+        },
+        "pfs_v2.SQLDatabaseEgress": {
+            "properties": {
+                "url": {
+                    "type": "string"
+                },
+                "file_format": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
+                    "additionalProperties": false
+                },
+                "fileFormat": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
+                    "additionalProperties": false
+                },
+                "secret": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.Secret",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "SQL Database Egress"
+        },
+        "pfs_v2.SQLDatabaseEgress.FileFormat": {
+            "properties": {
+                "type": {
+                    "enum": [
+                        "UNKNOWN",
+                        "CSV",
+                        "JSON",
+                        "PARQUET"
+                    ],
+                    "type": "string",
+                    "title": "Type"
+                },
+                "columns": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File Format"
+        },
+        "pfs_v2.SQLDatabaseEgress.Secret": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Secret"
+        },
+        "pfs_v2.Trigger": {
+            "properties": {
+                "branch": {
+                    "type": "string",
+                    "description": "Which branch this trigger refers to"
+                },
+                "all": {
+                    "type": "boolean",
+                    "description": "All indicates that all conditions must be satisfied before the trigger happens, otherwise any conditions being satisfied will trigger it."
+                },
+                "rate_limit_spec": {
+                    "type": "string",
+                    "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
+                },
+                "rateLimitSpec": {
+                    "type": "string",
+                    "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
+                },
+                "size": {
+                    "type": "string",
+                    "description": "Triggers if there's been `size` new data added since the last trigger."
+                },
+                "commits": {
+                    "type": "integer",
+                    "description": "Triggers if there's been `commits` new commits added since the last trigger."
+                },
+                "cron_spec": {
+                    "type": "string",
+                    "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
+                },
+                "cronSpec": {
+                    "type": "string",
+                    "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Trigger",
+            "description": "Trigger defines the conditions under which a head is moved, and to which branch it is moved."
+        },
+        "pps_v2.CronInput": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "project": {
+                    "type": "string"
+                },
+                "repo": {
+                    "type": "string"
+                },
+                "commit": {
+                    "type": "string"
+                },
+                "spec": {
+                    "type": "string"
+                },
+                "overwrite": {
+                    "type": "boolean",
+                    "description": "Overwrite, if true, will expose a single datum that gets overwritten each tick. If false, it will create a new datum for each tick."
+                },
+                "start": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cron Input"
+        },
+        "pps_v2.DatumSetSpec": {
+            "properties": {
+                "number": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "number, if nonzero, specifies that each datum set should contain `number` datums. Datum sets may contain fewer if the total number of datums don't divide evenly."
+                },
+                "size_bytes": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
+                },
+                "sizeBytes": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
+                },
+                "per_worker": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "per_worker, if nonzero, specifies how many datum sets should be created for each worker. It can't be set with number or size_bytes."
+                },
+                "perWorker": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "per_worker, if nonzero, specifies how many datum sets should be created for each worker. It can't be set with number or size_bytes."
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Datum Set Spec",
+            "description": "DatumSetSpec specifies how a pipeline should split its datums into datum sets."
+        },
+        "pps_v2.Determined": {
+            "properties": {
+                "workspaces": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Determined"
+        },
+        "pps_v2.Egress": {
+            "properties": {
+                "URL": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "object_storage": {
+                    "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "objectStorage": {
+                    "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "sql_database": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "sqlDatabase": {
+                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                },
+                {
+                    "required": [
+                        "object_storage"
+                    ]
+                },
+                {
+                    "required": [
+                        "sql_database"
+                    ]
+                }
+            ],
+            "title": "Egress"
+        },
+        "pps_v2.GPUSpec": {
+            "properties": {
+                "type": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The type of GPU (nvidia.com/gpu or amd.com/gpu for example)."
+                },
+                "number": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "The number of GPUs to request."
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "GPU Spec"
+        },
+        "pps_v2.Input": {
+            "properties": {
+                "pfs": {
+                    "$ref": "#/definitions/pps_v2.PFSInput",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "join": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "group": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "cross": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "union": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "cron": {
+                    "$ref": "#/definitions/pps_v2.CronInput",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Input"
+        },
+        "pps_v2.Metadata": {
+            "properties": {
+                "annotations": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
+                },
+                "labels": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Metadata"
+        },
+        "pps_v2.PFSInput": {
+            "properties": {
+                "project": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "name": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "repo": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "repo_type": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "repoType": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "branch": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "commit": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "glob": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "join_on": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "joinOn": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "outer_join": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "outerJoin": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "group_by": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "groupBy": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "lazy": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "empty_files": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks."
+                },
+                "emptyFiles": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks."
+                },
+                "s3": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "S3, if true, will cause the worker to NOT download or link files from this input into the /pfs_v2 directory. Instead, an instance of our S3 gateway service will run on each of the sidecars, and data can be retrieved from this input by querying http://\u003cpipeline\u003e-s3.\u003cnamespace\u003e/\u003cjob id\u003e.\u003cinput\u003e/my/file"
+                },
+                "trigger": {
+                    "$ref": "#/definitions/pfs_v2.Trigger",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ],
+                    "description": "Trigger defines when this input is processed by the pipeline, if it's nil the input is processed anytime something is committed to the input branch."
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "PFS Input"
+        },
+        "pps_v2.ParallelismSpec": {
+            "properties": {
+                "constant": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "Starts the pipeline/job with a 'constant' workers, unless 'constant' is zero. If 'constant' is zero (which is the zero value of ParallelismSpec), then Pachyderm will choose the number of workers that is started, (currently it chooses the number of workers in the cluster)"
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Parallelism Spec"
+        },
+        "pps_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        },
+        "pps_v2.PipelineInfo": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.Pipeline",
+                    "additionalProperties": false
+                },
+                "version": {
+                    "type": "integer"
+                },
+                "spec_commit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false,
+                    "description": "The first spec commit for this version of the pipeline"
+                },
+                "specCommit": {
+                    "$ref": "#/definitions/pfs_v2.Commit",
+                    "additionalProperties": false,
+                    "description": "The first spec commit for this version of the pipeline"
+                },
+                "stopped": {
+                    "type": "boolean"
+                },
+                "state": {
+                    "enum": [
+                        "PIPELINE_STATE_UNKNOWN",
+                        "PIPELINE_STARTING",
+                        "PIPELINE_RUNNING",
+                        "PIPELINE_RESTARTING",
+                        "PIPELINE_FAILURE",
+                        "PIPELINE_PAUSED",
+                        "PIPELINE_STANDBY",
+                        "PIPELINE_CRASHING"
+                    ],
+                    "type": "string",
+                    "title": "Pipeline State"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "reason includes any error messages associated with a failed pipeline"
+                },
+                "last_job_state": {
+                    "enum": [
+                        "JOB_STATE_UNKNOWN",
+                        "JOB_CREATED",
+                        "JOB_STARTING",
+                        "JOB_RUNNING",
+                        "JOB_FAILURE",
+                        "JOB_SUCCESS",
+                        "JOB_KILLED",
+                        "JOB_EGRESSING",
+                        "JOB_FINISHING",
+                        "JOB_UNRUNNABLE"
+                    ],
+                    "type": "string",
+                    "title": "Job State"
+                },
+                "lastJobState": {
+                    "enum": [
+                        "JOB_STATE_UNKNOWN",
+                        "JOB_CREATED",
+                        "JOB_STARTING",
+                        "JOB_RUNNING",
+                        "JOB_FAILURE",
+                        "JOB_SUCCESS",
+                        "JOB_KILLED",
+                        "JOB_EGRESSING",
+                        "JOB_FINISHING",
+                        "JOB_UNRUNNABLE"
+                    ],
+                    "type": "string",
+                    "title": "Job State"
+                },
+                "parallelism": {
+                    "type": "integer",
+                    "description": "parallelism tracks the literal number of workers that this pipeline should run."
+                },
+                "type": {
+                    "enum": [
+                        "PIPELINT_TYPE_UNKNOWN",
+                        "PIPELINE_TYPE_TRANSFORM",
+                        "PIPELINE_TYPE_SPOUT",
+                        "PIPELINE_TYPE_SERVICE"
+                    ],
+                    "type": "string",
+                    "title": "Pipeline Type",
+                    "description": "The pipeline type is stored here so that we can internally know the type of the pipeline without loading the spec from PFS."
+                },
+                "auth_token": {
+                    "type": "string"
+                },
+                "authToken": {
+                    "type": "string"
+                },
+                "details": {
+                    "$ref": "#/definitions/pps_v2.PipelineInfo.Details",
+                    "additionalProperties": false
+                },
+                "user_spec_json": {
+                    "type": "string",
+                    "description": "The user-submitted pipeline spec in JSON format."
+                },
+                "userSpecJson": {
+                    "type": "string",
+                    "description": "The user-submitted pipeline spec in JSON format."
+                },
+                "effective_spec_json": {
+                    "type": "string",
+                    "description": "The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults."
+                },
+                "effectiveSpecJson": {
+                    "type": "string",
+                    "description": "The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Info",
+            "description": "PipelineInfo is proto for each pipeline that Pachd stores in the database. It tracks the state of the pipeline, and points to its metadata in PFS (and, by pointing to a PFS commit, de facto tracks the pipeline's version).  Any information about the pipeline _not_ stored in the database is in the Details object, which requires fetching the spec from PFS or other potentially expensive operations."
+        },
+        "pps_v2.PipelineInfo.Details": {
+            "properties": {
+                "transform": {
+                    "$ref": "#/definitions/pps_v2.Transform",
+                    "additionalProperties": false
+                },
+                "tf_job": {
+                    "$ref": "#/definitions/pps_v2.TFJob",
+                    "additionalProperties": false,
+                    "description": "tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs when running in a kubernetes cluster on which kubeflow has been installed. Exactly one of 'tf_job' and 'transform' should be set"
+                },
+                "tfJob": {
+                    "$ref": "#/definitions/pps_v2.TFJob",
+                    "additionalProperties": false,
+                    "description": "tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs when running in a kubernetes cluster on which kubeflow has been installed. Exactly one of 'tf_job' and 'transform' should be set"
+                },
+                "parallelism_spec": {
+                    "$ref": "#/definitions/pps_v2.ParallelismSpec",
+                    "additionalProperties": false
+                },
+                "parallelismSpec": {
+                    "$ref": "#/definitions/pps_v2.ParallelismSpec",
+                    "additionalProperties": false
+                },
+                "egress": {
+                    "$ref": "#/definitions/pps_v2.Egress",
+                    "additionalProperties": false
+                },
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "recent_error": {
+                    "type": "string"
+                },
+                "recentError": {
+                    "type": "string"
+                },
+                "workers_requested": {
+                    "type": "integer"
+                },
+                "workersRequested": {
+                    "type": "integer"
+                },
+                "workers_available": {
+                    "type": "integer"
+                },
+                "workersAvailable": {
+                    "type": "integer"
+                },
+                "output_branch": {
+                    "type": "string"
+                },
+                "outputBranch": {
+                    "type": "string"
+                },
+                "resource_requests": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "resourceRequests": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "resource_limits": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "resourceLimits": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "sidecar_resource_limits": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "sidecarResourceLimits": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "input": {
+                    "$ref": "#/definitions/pps_v2.Input",
+                    "additionalProperties": false
+                },
+                "description": {
+                    "type": "string"
+                },
+                "salt": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "service": {
+                    "$ref": "#/definitions/pps_v2.Service",
+                    "additionalProperties": false
+                },
+                "spout": {
+                    "$ref": "#/definitions/pps_v2.Spout",
+                    "additionalProperties": false
+                },
+                "datum_set_spec": {
+                    "$ref": "#/definitions/pps_v2.DatumSetSpec",
+                    "additionalProperties": false
+                },
+                "datumSetSpec": {
+                    "$ref": "#/definitions/pps_v2.DatumSetSpec",
+                    "additionalProperties": false
+                },
+                "datum_timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "datumTimeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "job_timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "jobTimeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "datum_tries": {
+                    "type": "integer"
+                },
+                "datumTries": {
+                    "type": "integer"
+                },
+                "scheduling_spec": {
+                    "$ref": "#/definitions/pps_v2.SchedulingSpec",
+                    "additionalProperties": false
+                },
+                "schedulingSpec": {
+                    "$ref": "#/definitions/pps_v2.SchedulingSpec",
+                    "additionalProperties": false
+                },
+                "pod_spec": {
+                    "type": "string"
+                },
+                "podSpec": {
+                    "type": "string"
+                },
+                "pod_patch": {
+                    "type": "string"
+                },
+                "podPatch": {
+                    "type": "string"
+                },
+                "s3_out": {
+                    "type": "boolean"
+                },
+                "s3Out": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/pps_v2.Metadata",
+                    "additionalProperties": false
+                },
+                "reprocess_spec": {
+                    "type": "string"
+                },
+                "reprocessSpec": {
+                    "type": "string"
+                },
+                "unclaimed_tasks": {
+                    "type": "integer"
+                },
+                "unclaimedTasks": {
+                    "type": "integer"
+                },
+                "worker_rc": {
+                    "type": "string"
+                },
+                "workerRc": {
+                    "type": "string"
+                },
+                "autoscaling": {
+                    "type": "boolean"
+                },
+                "tolerations": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.Toleration"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "sidecar_resource_requests": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "sidecarResourceRequests": {
+                    "$ref": "#/definitions/pps_v2.ResourceSpec",
+                    "additionalProperties": false
+                },
+                "determined": {
+                    "$ref": "#/definitions/pps_v2.Determined",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Details"
+        },
+        "pps_v2.ResourceSpec": {
+            "properties": {
+                "cpu": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ],
+                    "description": "The number of CPUs each worker needs (partial values are allowed, and encouraged)"
+                },
+                "memory": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The amount of memory each worker needs (in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)."
+                },
+                "gpu": {
+                    "$ref": "#/definitions/pps_v2.GPUSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ],
+                    "description": "The spec for GPU resources."
+                },
+                "disk": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The amount of ephemeral storage each worker needs (in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)."
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Resource Spec",
+            "description": "ResourceSpec describes the amount of resources that pipeline pods should request from kubernetes, for scheduling."
+        },
+        "pps_v2.SchedulingSpec": {
+            "properties": {
+                "node_selector": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
+                },
+                "nodeSelector": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
+                },
+                "priority_class_name": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "priorityClassName": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Scheduling Spec"
+        },
+        "pps_v2.SecretMount": {
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name must be the name of the secret in kubernetes."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Key of the secret to load into env_var, this field only has meaning if EnvVar != \"\"."
+                },
+                "mount_path": {
+                    "type": "string"
+                },
+                "mountPath": {
+                    "type": "string"
+                },
+                "env_var": {
+                    "type": "string"
+                },
+                "envVar": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Secret Mount"
+        },
+        "pps_v2.Service": {
+            "properties": {
+                "internal_port": {
+                    "type": "integer"
+                },
+                "internalPort": {
+                    "type": "integer"
+                },
+                "external_port": {
+                    "type": "integer"
+                },
+                "externalPort": {
+                    "type": "integer"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Service"
+        },
+        "pps_v2.Spout": {
+            "properties": {
+                "service": {
+                    "$ref": "#/definitions/pps_v2.Service",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Spout"
+        },
+        "pps_v2.TFJob": {
+            "properties": {
+                "tf_job": {
+                    "type": "string",
+                    "description": "tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly to a kubernetes cluster on which kubeflow has been installed, instead of creating a pipeline ReplicationController as it normally would."
+                },
+                "tfJob": {
+                    "type": "string",
+                    "description": "tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly to a kubernetes cluster on which kubeflow has been installed, instead of creating a pipeline ReplicationController as it normally would."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "TF Job"
+        },
+        "pps_v2.Toleration": {
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "description": "key is the taint key that the toleration applies to.  Empty means match all taint keys."
+                },
+                "operator": {
+                    "enum": [
+                        "EMPTY",
+                        "EXISTS",
+                        "EQUAL"
+                    ],
+                    "type": "string",
+                    "title": "Toleration Operator",
+                    "description": "TolerationOperator relates a Toleration's key to its value."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "value is the taint value the toleration matches to."
+                },
+                "effect": {
+                    "enum": [
+                        "ALL_EFFECTS",
+                        "NO_SCHEDULE",
+                        "PREFER_NO_SCHEDULE",
+                        "NO_EXECUTE"
+                    ],
+                    "type": "string",
+                    "title": "Taint Effect",
+                    "description": "TaintEffect is an effect that can be matched by a toleration."
+                },
+                "toleration_seconds": {
+                    "additionalProperties": false,
+                    "type": "integer",
+                    "description": "toleration_seconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint.  If not set, tolerate the taint forever."
+                },
+                "tolerationSeconds": {
+                    "additionalProperties": false,
+                    "type": "integer",
+                    "description": "toleration_seconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint.  If not set, tolerate the taint forever."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Toleration",
+            "description": "Toleration is a Kubernetes toleration."
+        },
+        "pps_v2.Transform": {
+            "properties": {
+                "image": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "cmd": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "err_cmd": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "errCmd": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "env": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object"
+                        }
+                    ]
+                },
+                "secrets": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.SecretMount"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "image_pull_secrets": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "imagePullSecrets": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "stdin": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "err_stdin": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "errStdin": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "accept_return_code": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "acceptReturnCode": {
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "debug": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "user": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "working_dir": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "workingDir": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "dockerfile": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "memory_volume": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "memoryVolume": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "datum_batching": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "datumBatching": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Transform"
+        }
+    }
+}

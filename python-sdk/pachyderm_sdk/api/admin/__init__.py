@@ -29,18 +29,54 @@ class ClusterInfo(betterproto.Message):
     id: str = betterproto.string_field(1)
     deployment_id: str = betterproto.string_field(2)
     warnings_ok: bool = betterproto.bool_field(3)
+    """True if the server is capable of generating warnings."""
+
     warnings: List[str] = betterproto.string_field(4)
+    """Warnings about the client configuration."""
+
     proxy_host: str = betterproto.string_field(5)
+    """The configured public URL of Pachyderm."""
+
     proxy_tls: bool = betterproto.bool_field(6)
+    """True if Pachyderm is served over TLS (HTTPS)."""
+
+    paused: bool = betterproto.bool_field(7)
+    """True if this pachd is in "paused" mode."""
+
+    web_resources: "WebResource" = betterproto.message_field(8)
+    """Any HTTP links that the client might want to be aware of."""
 
 
 @dataclass(eq=False, repr=False)
 class InspectClusterRequest(betterproto.Message):
     client_version: "_version__.Version" = betterproto.message_field(1)
+    """
+    The version of the client that's connecting; used by the server to warn
+    about too-old (or too-new!) clients.
+    """
+
     current_project: "_pfs__.Project" = betterproto.message_field(2)
     """
     If CurrentProject is set, then InspectCluster will return an error if the
     project does not exist.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class WebResource(betterproto.Message):
+    """WebResource contains URL prefixes of common HTTP functions."""
+
+    archive_download_base_url: str = betterproto.string_field(1)
+    """
+    The base URL of the archive server; append a filename to this.  Empty if
+    the archive server is not exposed.
+    """
+
+    create_pipeline_request_json_schema_url: str = betterproto.string_field(2)
+    """
+    Where to find the CreatePipelineRequest JSON schema; if this server is not
+    accessible via a URL, then a link to Github is provided based on the baked-
+    in version of the server.
     """
 
 

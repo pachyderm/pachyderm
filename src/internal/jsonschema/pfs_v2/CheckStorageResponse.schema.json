@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CheckStorageResponse",
+    "definitions": {
+        "CheckStorageResponse": {
+            "properties": {
+                "chunk_object_count": {
+                    "type": "integer"
+                },
+                "chunkObjectCount": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Check Storage Response"
+        }
+    }
+}

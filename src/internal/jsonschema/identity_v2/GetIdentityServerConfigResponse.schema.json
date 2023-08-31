@@ -1,0 +1,40 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetIdentityServerConfigResponse",
+    "definitions": {
+        "GetIdentityServerConfigResponse": {
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/identity_v2.IdentityServerConfig",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Identity Server Config Response"
+        },
+        "identity_v2.IdentityServerConfig": {
+            "properties": {
+                "issuer": {
+                    "type": "string"
+                },
+                "id_token_expiry": {
+                    "type": "string"
+                },
+                "idTokenExpiry": {
+                    "type": "string"
+                },
+                "rotation_token_expiry": {
+                    "type": "string"
+                },
+                "rotationTokenExpiry": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Identity Server Config",
+            "description": "IdentityServerConfig is the configuration for the identity web server. When the configuration is changed the web server is reloaded automatically."
+        }
+    }
+}

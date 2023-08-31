@@ -1,0 +1,24 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PutFileTaskResult",
+    "definitions": {
+        "PutFileTaskResult": {
+            "properties": {
+                "file_set_id": {
+                    "type": "string"
+                },
+                "fileSetId": {
+                    "type": "string"
+                },
+                "hash": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Put File Task Result"
+        }
+    }
+}

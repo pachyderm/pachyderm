@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/UserClusterInfo",
+    "definitions": {
+        "UserClusterInfo": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "cluster_deployment_id": {
+                    "type": "string"
+                },
+                "clusterDeploymentId": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "enterprise_server": {
+                    "type": "boolean"
+                },
+                "enterpriseServer": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "User Cluster Info"
+        }
+    }
+}

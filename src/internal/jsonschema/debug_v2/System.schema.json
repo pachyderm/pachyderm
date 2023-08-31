@@ -1,0 +1,122 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/System",
+    "definitions": {
+        "System": {
+            "properties": {
+                "helm": {
+                    "type": "boolean"
+                },
+                "database": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "boolean"
+                },
+                "describes": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "logs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "loki_logs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "lokiLogs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "binaries": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "profiles": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "System"
+        },
+        "debug_v2.App": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "pods": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.Pod"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "pipeline": {
+                    "$ref": "#/definitions/debug_v2.Pipeline",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "App"
+        },
+        "debug_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        },
+        "debug_v2.Pod": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "containers": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pod"
+        }
+    }
+}
