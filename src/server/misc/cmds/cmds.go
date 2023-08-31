@@ -1,11 +1,8 @@
 package cmds
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -283,31 +280,10 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 					return errors.Wrap(err, "read stdin")
 				}
 			}
-
-			// Decode the binary encoding.
-			var raw []byte
-			switch decodeProtoFormat {
-			case "hex":
-				// Hex format, like "369cf1215181b1e".
-				input = bytes.TrimPrefix(input, []byte("0x"))
-				raw = make([]byte, hex.DecodedLen(len(input)))
-				n, err := hex.Decode(raw, input)
-				if err != nil {
-					return errors.Wrap(err, "decode hex")
-				}
-				raw = raw[:n]
-			case "base64":
-				// Normal base64.
-				raw = make([]byte, base64.StdEncoding.DecodedLen(len(input)))
-				n, err := base64.StdEncoding.Decode(raw, input)
-				if err != nil {
-					return errors.Wrap(err, "decode hex")
-				}
-				raw = raw[:n]
-			case "raw":
-				// Do nothing.
-			default:
-				return errors.Errorf("no known input format %q", decodeProtoFormat)
+			// Decode the transport encoding.
+			raw, err := decodeBinfmt(input, decodeProtoFormat)
+			if err != nil {
+				return errors.Wrapf(err, "decode transport format")
 			}
 
 			// Decode the actual protobuf data.
