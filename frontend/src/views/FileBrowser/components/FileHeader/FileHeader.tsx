@@ -56,11 +56,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({commitId}) => {
           </>
         )}
       </div>
-      <Tooltip
-        tooltipText="Copy commit id"
-        placement="bottom"
-        tooltipKey="copy-commit-id"
-      >
+      <Tooltip tooltipText="Copy commit id">
         <Button
           IconSVG={CopySVG}
           buttonType="ghost"

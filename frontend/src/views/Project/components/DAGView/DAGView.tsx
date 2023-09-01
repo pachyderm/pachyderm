@@ -190,9 +190,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
               </Button>
               <Tooltip
                 className={styles.tooltip}
-                tooltipKey="zoomOut"
-                size="large"
-                placement="bottom"
+                allowedPlacements={['bottom']}
                 tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
               >
                 <Button
@@ -209,9 +207,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
               </Tooltip>
               <Tooltip
                 className={styles.tooltip}
-                tooltipKey="skipCenter"
-                size="large"
-                placement="bottom"
+                allowedPlacements={['bottom']}
                 tooltipText={`${
                   !skipCenterOnSelect ? 'Disable' : 'Enable'
                 } panning and zooming to a selection`}
@@ -256,19 +252,10 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
             createRepoIsAuthorizedAction ? (
               <Button onClick={openModal}>Create Your First Repo</Button>
             ) : (
-              <Tooltip
-                tooltipKey="Create repo disabled"
-                tooltipText="You need at least projectWriter to create a repo."
-              >
-                <span>
-                  <Button
-                    onClick={openModal}
-                    disabled
-                    className={styles.pointerEventsNone}
-                  >
-                    Create Your First Repo
-                  </Button>
-                </span>
+              <Tooltip tooltipText="You need at least projectWriter to create a repo.">
+                <Button onClick={openModal} disabled>
+                  Create Your First Repo
+                </Button>
               </Tooltip>
             )
           }

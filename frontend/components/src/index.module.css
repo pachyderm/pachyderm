@@ -129,6 +129,7 @@
   --z-index-dropdown-menu: 1053;
   --z-index-modal-overlay: 1060;
   --z-index-modal: 1070;
+  --z-index-tooltip: 1080;
 
   /*  font variables are deprecated in 3.0.0 and only used in hub */
   --font-size-page-heading: 1.375rem;

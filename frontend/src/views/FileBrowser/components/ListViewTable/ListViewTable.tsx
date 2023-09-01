@@ -52,7 +52,6 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
     <>
       <Group spacing={8} className={styles.headerButtons}>
         <Tooltip
-          tooltipKey="delete"
           tooltipText={isOutputRepo ? OUTPUT_REPO : SELECT_FILES_DELETE}
           disabled={!deleteDisabled}
         >
@@ -70,7 +69,6 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
         </Tooltip>
 
         <Tooltip
-          tooltipKey="download"
           tooltipText={!proxyEnabled ? PROXY_NEEDED : SELECT_FILES_DOWNLOAD}
           disabled={!downloadDisabled}
         >

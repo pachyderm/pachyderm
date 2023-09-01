@@ -103,10 +103,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
                   </span>
                   <CaptionTextSmall>Total Datums</CaptionTextSmall>
                 </div>
-                <Tooltip
-                  tooltipText="Pipeline Version"
-                  tooltipKey="Pipeline Version"
-                >
+                <Tooltip tooltipText="Pipeline Version">
                   <div>v: {jobDetails.pipelineVersion}</div>
                 </Tooltip>
               </div>
@@ -224,10 +221,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
           data-testid="InfoPanel__details"
           header={
             jobConfig?.transform?.debug ? (
-              <Tooltip
-                tooltipText="Debug logs return more detailed information and can be enabled by setting debug: true before the next run of this pipeline."
-                tooltipKey="debugLogs"
-              >
+              <Tooltip tooltipText="Debug logs return more detailed information and can be enabled by setting debug: true before the next run of this pipeline.">
                 <span className={styles.detailedTooltip}>Detailed</span>
               </Tooltip>
             ) : undefined

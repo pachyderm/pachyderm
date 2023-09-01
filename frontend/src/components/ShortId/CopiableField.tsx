@@ -34,11 +34,7 @@ const CopiableField: React.FC<ShortIdProps> = ({
   }, [copy, reset]);
 
   return (
-    <Tooltip
-      tooltipText={`Click to copy: ${inputString}`}
-      placement="left"
-      tooltipKey={inputString}
-    >
+    <Tooltip tooltipText={`Click to copy: ${inputString}`}>
       <ButtonLink
         className={classnames(styles.copy, {[styles.inline]: inline})}
         onClick={handleCopy}

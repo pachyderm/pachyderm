@@ -28,6 +28,7 @@
     "@codemirror/language": "6.6.0",
     "@codemirror/legacy-modes": "6.3.2",
     "@codemirror/state": "6.2.1",
+    "@floating-ui/react": "^0.25.2",
     "@sentry/browser": "7.64.0",
     "@sentry/react": "7.64.0",
     "@sentry/tracing": "7.64.0",

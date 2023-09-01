@@ -84,12 +84,7 @@ const LogsControls: React.FC<LogsControlsProps> = ({
   );
   return (
     <ButtonGroup>
-      <Tooltip
-        tooltipKey="download"
-        tooltipText="Download selected"
-        placement="bottom"
-        disabled={disableExport}
-      >
+      <Tooltip tooltipText="Download selected" disabled={disableExport}>
         <Button
           IconSVG={DownloadSVG}
           onClick={download}
@@ -100,12 +95,7 @@ const LogsControls: React.FC<LogsControlsProps> = ({
         />
       </Tooltip>
 
-      <Tooltip
-        tooltipKey="copy"
-        tooltipText="Copy selected"
-        placement="bottom"
-        disabled={disableExport}
-      >
+      <Tooltip tooltipText="Copy selected" disabled={disableExport}>
         <Button
           disabled={disableExport}
           IconSVG={CopySVG}
@@ -117,19 +107,13 @@ const LogsControls: React.FC<LogsControlsProps> = ({
       </Tooltip>
 
       <Dropdown>
-        <Tooltip
-          tooltipKey="filter"
-          tooltipText="Filter logs"
-          placement="bottom"
-        >
-          <Dropdown.Button
-            className={styles.dropdownButton}
-            IconSVG={FilterSVG}
-            color="black"
-            buttonType="ghost"
-            aria-label="Filter logs"
-          />
-        </Tooltip>
+        <Dropdown.Button
+          className={styles.dropdownButton}
+          IconSVG={FilterSVG}
+          color="black"
+          buttonType="ghost"
+          aria-label="Filter logs"
+        />
         <Dropdown.Menu pin="right" className={styles.dropdownMenu}>
           <Form formContext={formCtx}>
             <div className={classnames(styles.divider, styles.group)}>

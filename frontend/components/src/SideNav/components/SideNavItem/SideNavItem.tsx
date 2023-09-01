@@ -50,8 +50,8 @@ const SideNavItem: React.FC<SideNavItemProps> = ({
 
   const tooltipWrapper = (children: JSX.Element) => (
     <Tooltip
-      tooltipKey={tooltipContent}
-      placement="right"
+      allowedPlacements={['right']}
+      noWrap
       disabled={!minimized}
       tooltipText={tooltipContent}
     >

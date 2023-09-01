@@ -6,13 +6,11 @@ import styles from './EllipsisMessage.module.css';
 
 interface EllipsisMessageProps {
   message: string;
-  tooltipKey: string;
   'data-testid'?: string;
 }
 
 const EllipsisMessage: React.FC<EllipsisMessageProps> = ({
   message,
-  tooltipKey,
   ...rest
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -28,13 +26,7 @@ const EllipsisMessage: React.FC<EllipsisMessageProps> = ({
 
   return (
     <div {...rest} onMouseOver={shouldEnableTooltip}>
-      <Tooltip
-        tooltipKey={tooltipKey}
-        tooltipText={message}
-        placement="top"
-        size="large"
-        disabled={!showTooltip}
-      >
+      <Tooltip tooltipText={message} disabled={!showTooltip}>
         <div className={styles.base} ref={ref}>
           {message}
         </div>

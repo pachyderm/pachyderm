@@ -48,12 +48,10 @@ const ProjectHeader = () => {
           />
         ) : (
           <Tooltip
-            tooltipKey="Project Name"
             tooltipText={projectName}
-            placement="bottom"
-            size="large"
             disabled={!showTooltip}
             className={styles.projectNameTooltip}
+            allowedPlacements={['bottom']}
           >
             <h6 ref={setProjectNameRef} className={styles.projectName}>
               {!error ? (

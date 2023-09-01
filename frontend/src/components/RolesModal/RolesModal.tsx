@@ -183,7 +183,6 @@ export const RolesModal: React.FC<RolesModalProps> = ({
                       !deletedRoles[principal] &&
                       userTableRoles[principal].unlockedRoles.length > 0 && (
                         <Tooltip
-                          tooltipKey="deleteRoles"
                           tooltipText={`Delete all 
                           ${resourceType.toLowerCase()} roles`}
                         >
@@ -203,10 +202,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
                         </Tooltip>
                       )}
                     {!readOnly && deletedRoles[principal] && (
-                      <Tooltip
-                        tooltipKey="undoDeleteRoles"
-                        tooltipText="Undo Delete"
-                      >
+                      <Tooltip tooltipText="Undo Delete">
                         <Icon
                           small
                           color="black"
@@ -235,7 +231,6 @@ export const RolesModal: React.FC<RolesModalProps> = ({
                       )}
                       {userTableRoles[principal].higherRoles.length > 2 && (
                         <Tooltip
-                          tooltipKey="additional roles"
                           tooltipText={userTableRoles[principal].higherRoles
                             .slice(2)
                             .join(', ')}

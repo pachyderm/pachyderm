@@ -61,11 +61,7 @@ const DatumHeaderBreadCrumbs: React.FC<DatumHeaderBreadcrumbsProps> = ({
           </>
         )}
       </div>
-      <Tooltip
-        tooltipText={tooltipText}
-        placement="bottom"
-        tooltipKey={tooltipText}
-      >
+      <Tooltip tooltipText={tooltipText}>
         <Button
           IconSVG={CopySVG}
           buttonType="ghost"

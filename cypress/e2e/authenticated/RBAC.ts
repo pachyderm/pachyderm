@@ -173,7 +173,7 @@ describe('Repo / Pipeline table and DAG view', () => {
         name: /delete/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoOwner to delete this.');
 
@@ -283,7 +283,7 @@ describe('Repo / Pipeline table and DAG view', () => {
         name: /upload files/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoWriter to upload files.');
 
@@ -292,7 +292,7 @@ describe('Repo / Pipeline table and DAG view', () => {
         name: /delete/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoOwner to delete this.');
 
@@ -350,7 +350,7 @@ describe('Repo / Pipeline table and DAG view', () => {
         name: /delete/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoOwner to delete this.');
 
@@ -361,7 +361,7 @@ describe('Repo / Pipeline table and DAG view', () => {
         name: /delete/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
 
       cy.findByRole('button', {
         name: /see all roles via repo/i,
@@ -402,7 +402,7 @@ describe('Repo / Pipeline table and DAG view', () => {
         name: /upload files/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoWriter to upload files.');
 
@@ -411,7 +411,7 @@ describe('Repo / Pipeline table and DAG view', () => {
         name: /delete/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoOwner to delete this.');
 

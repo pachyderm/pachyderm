@@ -12,10 +12,7 @@ export default {
 export const Default = () => {
   return (
     <div style={{width: '4rem'}}>
-      <EllipsisMessage
-        tooltipKey="EllipsisMessage"
-        message="This is text that needs a tooltip."
-      />
+      <EllipsisMessage message="This is text that needs a tooltip." />
     </div>
   );
 };

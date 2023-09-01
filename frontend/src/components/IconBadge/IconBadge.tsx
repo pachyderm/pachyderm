@@ -36,12 +36,7 @@ const IconBadge: React.FC<IconBadgeProps> = ({
   };
 
   return (
-    <Tooltip
-      disabled={!tooltip}
-      tooltipKey={String(tooltip)}
-      tooltipText={tooltip}
-      placement="top"
-    >
+    <Tooltip disabled={!tooltip} tooltipText={tooltip}>
       <div
         className={classnames(styles.base, {
           [styles[color]]: true,

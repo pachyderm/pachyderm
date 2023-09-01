@@ -70,7 +70,7 @@ describe('Repo / Pipeline table', () => {
         name: /delete/i,
       })
         .should('be.disabled')
-        .trigger('mouseover', {force: true});
+        .trigger('mouseenter', {force: true});
     });
     cy.findByText(
       "This repo can't be deleted while it has associated pipelines.",

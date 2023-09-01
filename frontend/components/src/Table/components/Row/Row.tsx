@@ -62,7 +62,7 @@ const Row: React.FC<RowProps> = ({
             />
           )}
           {hasLock && (
-            <Tooltip tooltipKey="locked" tooltipText={lockedTooltipText}>
+            <Tooltip tooltipText={lockedTooltipText}>
               <Icon color="grey" className={styles.checkbox}>
                 <LockSVG />
               </Icon>

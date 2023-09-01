@@ -46,7 +46,3 @@
   height: 1.5rem;
   border-right: 1px solid var(--line-grey);
 }
-
-.pointerEventsNone {
-  pointer-events: none;
-}
