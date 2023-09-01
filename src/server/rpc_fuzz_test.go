@@ -36,33 +36,22 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func TestEmptyRequests(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-	tu.ActivateAuthClient(t, env.PachClient, peerPort)
+var protos = []protoreflect.FileDescriptor{
+	admin.File_admin_admin_proto,
+	auth.File_auth_auth_proto,
+	debug.File_debug_debug_proto,
+	enterprise.File_enterprise_enterprise_proto,
+	identity.File_identity_identity_proto,
+	license.File_license_license_proto,
+	pfs.File_pfs_pfs_proto,
+	pps.File_pps_pps_proto,
+	proxy.File_proxy_proxy_proto,
+	transaction.File_transaction_transaction_proto,
+	versionpb.File_version_versionpb_version_proto,
+	worker.File_worker_worker_proto,
+}
 
-	protos := []protoreflect.FileDescriptor{
-		admin.File_admin_admin_proto,
-		auth.File_auth_auth_proto,
-		debug.File_debug_debug_proto,
-		enterprise.File_enterprise_enterprise_proto,
-		identity.File_identity_identity_proto,
-		license.File_license_license_proto,
-		pfs.File_pfs_pfs_proto,
-		pps.File_pps_pps_proto,
-		proxy.File_proxy_proxy_proto,
-		transaction.File_transaction_transaction_proto,
-		versionpb.File_version_versionpb_version_proto,
-		worker.File_worker_worker_proto,
-	}
-
-	// TODO(jrockway): use pachClient.ClientConn() when that is merged
-	cc, err := grpc.DialContext(ctx, net.JoinHostPort(env.PachClient.GetAddress().Host, strconv.Itoa(int(env.PachClient.GetAddress().Port))), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("dial real env: %v", err)
-	}
-
+func rangeRPCs(f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor)) {
 	for _, fd := range protos {
 		svcs := fd.Services()
 		for si := 0; si < svcs.Len(); si++ {
@@ -70,22 +59,42 @@ func TestEmptyRequests(t *testing.T) {
 			methods := sd.Methods()
 			for mi := 0; mi < methods.Len(); mi++ {
 				md := methods.Get(mi)
-				name := string(sd.FullName()) + "." + string(md.Name())
-				t.Run(name, func(t *testing.T) {
-					switch {
-					case strings.Contains(name, "RunLoadTest"):
-						t.Skip("skipping load tests")
-					case strings.Contains(name, "Deactivate"):
-						t.Skip("not deactivating auth/enterprise")
-					}
-					ctx, c := context.WithTimeout(pctx.Child(ctx, name), 5*time.Second)
-					client := env.PachClient.WithCtx(ctx)
-					testRPC(client.Ctx(), t, sd, md, cc, &emptypb.Empty{})
-					defer c()
-				})
+				f(fd, sd, md)
 			}
 		}
 	}
+}
+
+func TestEmptyRequests(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateAuthClient(t, env.PachClient, peerPort)
+
+	// TODO(jrockway): use pachClient.ClientConn() when that is merged
+	cc, err := grpc.DialContext(ctx, net.JoinHostPort(env.PachClient.GetAddress().Host, strconv.Itoa(int(env.PachClient.GetAddress().Port))), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial real env: %v", err)
+	}
+
+	rangeRPCs(func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
+		name := string(sd.FullName()) + "." + string(md.Name())
+		t.Run(name, func(t *testing.T) {
+			switch {
+			case strings.Contains(name, "RunLoadTest"):
+				t.Skip("skipping load tests")
+			case strings.Contains(name, "Deactivate"):
+				t.Skip("skipping auth deactivation")
+			case strings.Contains(name, "RotateRootToken"):
+				t.Skip("skipping RotateRootToken")
+			}
+			ctx, c := context.WithTimeout(pctx.Child(ctx, name), 5*time.Second)
+			defer c()
+			client := env.PachClient.WithCtx(ctx)
+			testRPC(client.Ctx(), t, sd, md, cc, &emptypb.Empty{})
+		})
+
+	})
 }
 
 func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor, cc *grpc.ClientConn, req proto.Message) {
