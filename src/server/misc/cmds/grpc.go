@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	ci "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
@@ -32,6 +33,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -117,7 +119,20 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 			})
 		}
 		var err error
-		cc, err = grpc.Dial(p.Address, grpc.WithTransportCredentials(creds), grpc.WithUnaryInterceptor(ci.LogUnary), grpc.WithStreamInterceptor(ci.LogStream))
+		cc, err = grpc.DialContext(ctx, p.Address,
+			grpc.WithTransportCredentials(creds),
+			grpc.WithUnaryInterceptor(ci.LogUnary),
+			grpc.WithStreamInterceptor(ci.LogStream),
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{
+				Time:                20 * time.Second,
+				Timeout:             20 * time.Second,
+				PermitWithoutStream: true,
+			}),
+			grpc.WithDefaultCallOptions(
+				grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
+				grpc.MaxCallSendMsgSize(grpcutil.MaxMsgSize),
+			),
+		)
 		if err != nil {
 			return errors.Wrap(err, "dial --address")
 		}
