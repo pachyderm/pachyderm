@@ -146,6 +146,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			30228: 5432,
 		},
 		Image: "postgres:13.0-alpine",
+		Cmd:   []string{"postgres", "-c", "max_connections=500"},
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -164,7 +165,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			"POSTGRESQL_PASSWORD":                 "password",
 			"POSTGRESQL_HOST":                     postgresIP,
 			"POSTGRESQL_PORT":                     "5432",
-			"PGBOUNCER_MAX_CLIENT_CONN":           "1000",
+			"PGBOUNCER_MAX_CLIENT_CONN":           "100000",
 			"PGBOUNCER_POOL_MODE":                 "transaction",
 			"PGBOUNCER_IGNORE_STARTUP_PARAMETERS": "extra_float_digits",
 		},
