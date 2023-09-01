@@ -27,8 +27,8 @@ done
 
 pushd examples/opencv
     pachctl create repo images
-    pachctl create pipeline -f edges.json
-    pachctl create pipeline -f montage.json
+    pachctl create pipeline -f edges.pipeline.json
+    pachctl create pipeline -f montage.pipeline.json
     pachctl put file images@master -i images.txt
     pachctl put file images@master -i images2.txt
 
@@ -45,11 +45,11 @@ pachctl delete repo --all
 pushd examples/shuffle
     pachctl create repo fruits
     pachctl create repo pricing
-    pachctl create pipeline -f shuffle.json
+    pachctl create pipeline -f shuffle.pipeline.json
     pachctl put file fruits@master -f mango.jpeg
     pachctl put file fruits@master -f apple.jpeg
-    pachctl put file pricing@master -f mango.json
-    pachctl put file pricing@master -f apple.json
+    pachctl put file pricing@master -f mango.pipeline.json
+    pachctl put file pricing@master -f apple.pipeline.json
 
     # wait for everything to finish
     pachctl wait commit "shuffle@master"
@@ -85,8 +85,8 @@ pachctl delete repo --all
 ##    # note: we do not test reducing because it's slower
 ##    pachctl create repo urls
 ##    pachctl put file urls@master -f Wikipedia
-##    pachctl create pipeline -f scraper.json
-##    pachctl create pipeline -f map/map.json
+##    pachctl create pipeline -f scraper.pipeline.json
+##    pachctl create pipeline -f map/map.pipeline.json
 ##
 ##    # wait for everything to finish
 ##    commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)
@@ -119,10 +119,10 @@ pachctl delete repo --all
 ##        popd
 ##    popd
 ##
-##    pachctl create pipeline -f split.json
-##    pachctl create pipeline -f model.json
-##    pachctl create pipeline -f test.json
-##    pachctl create pipeline -f select.json
+##    pachctl create pipeline -f split.pipeline.json
+##    pachctl create pipeline -f model.pipeline.json
+##    pachctl create pipeline -f test.pipeline.json
+##    pachctl create pipeline -f select.pipeline.json
 ##
 ##    pachctl wait commit "select@master"
 ##
@@ -145,9 +145,9 @@ pushd examples/word_count/
     popd
 
     pushd pipelines
-        pachctl create pipeline -f scraper.json
-        pachctl create pipeline -f map.json
-        pachctl create pipeline -f reduce.json
+        pachctl create pipeline -f scraper.pipeline.json
+        pachctl create pipeline -f map.pipeline.json
+        pachctl create pipeline -f reduce.pipeline.json
     popd
 
     pachctl wait commit "reduce@master"
