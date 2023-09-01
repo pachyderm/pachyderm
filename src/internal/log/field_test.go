@@ -42,11 +42,11 @@ func TestProto(t *testing.T) {
 	}
 	Info(ctx, "bad any", Proto("any", badAny))
 
-	any, err := anypb.New(&versionpb.Version{Major: 42})
+	goodAny, err := anypb.New(&versionpb.Version{Major: 42})
 	if err != nil {
 		t.Fatal(err)
 	}
-	Info(ctx, "good any", Proto("any", any))
+	Info(ctx, "good any", Proto("any", goodAny))
 	Info(ctx, "nil any", Proto("any", (*anypb.Any)(nil)))
 
 	Info(ctx, "empty", Proto("empty", &emptypb.Empty{}))
@@ -65,7 +65,7 @@ func TestProto(t *testing.T) {
 	if err != nil {
 		t.Errorf("protoToJSONMap: %v", err)
 	}
-	if diff := cmp.Diff(map[string]interface{}{"major": float64(3)}, raw); diff != "" {
+	if diff := cmp.Diff(map[string]any{"major": float64(3)}, raw); diff != "" {
 		t.Errorf("protoToJSONMap (-want +got):\n%s", diff)
 	}
 	Info(ctx, "dynamic message", Proto("dynamic", dynamic))
