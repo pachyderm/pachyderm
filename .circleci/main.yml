@@ -68,7 +68,7 @@ jobs:
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
-    resource_class: xlarge
+    resource_class: 2xlarge
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -86,7 +86,7 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
