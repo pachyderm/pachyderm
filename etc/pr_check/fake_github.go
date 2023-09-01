@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
+	"net/url"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,6 +15,7 @@ type fakeGitHub struct {
 	*http.ServeMux
 	prs          []*prSpec
 	pagesFetched int
+	nextPRNum    int
 }
 
 func newFakeGitHub() *fakeGitHub {
@@ -20,15 +23,80 @@ func newFakeGitHub() *fakeGitHub {
 		ServeMux: http.NewServeMux(),
 		prs:      make([]*prSpec, 0, 32),
 	}
-	fakePRs, err := os.Open("fake_github_prs.json")
-	if err != nil {
-		panic("could not open fake_github_prs.json:\n" + err.Error())
-	}
-	json.NewDecoder(fakePRs).Decode(&r.prs)
-
 	r.HandleFunc("/repos/pachyderm/pachyderm/pulls", r.listHandler)
 	r.HandleFunc("/", r.defaultHandler)
 	return r
+}
+
+func (f *fakeGitHub) AddPR(title, body string, author *githubUser, created time.Time) {
+	if created.IsZero() {
+		if len(f.prs) == 0 {
+			created = earliestPR
+		} else {
+			created = f.prs[0].Created.Add(time.Hour)
+		}
+	}
+	if len(f.prs) == 0 {
+		f.nextPRNum = 100_000
+	}
+
+	pr := NewPRSpec(f.nextPRNum, title, body, author, created)
+	f.nextPRNum++
+
+	// maintain that f.prs is sorted by ascending creation time
+	idx, _ := sort.Find(len(f.prs), func(i int) int {
+		return pr.Created.Compare(f.prs[i].Created)
+	})
+	f.prs = append(f.prs, nil)
+	if idx+1 < len(f.prs) {
+		copy(f.prs[idx+1:], f.prs[idx:len(f.prs)-1])
+	}
+	f.prs[idx] = pr
+}
+
+func getIntParam(query url.Values, key string, defaultVal int) (int, error) {
+	if query.Has(key) {
+		result, err := strconv.Atoi(query.Get(key))
+		if err != nil {
+			return 0, fmt.Errorf("invalid parameter value for '%s': could not be parsed as an int (%q)", key, err)
+		}
+		return result, nil
+	}
+	return defaultVal, nil
+}
+
+func ceil(n, d int) int {
+	// See http://blog.pkh.me/p/36-figuring-out-round%2C-floor-and-ceil-with-integer-division.html
+	return (n-1)/d + 1
+}
+
+// linkHeader generates the value of the 'link' header included in GitHub
+// responses. I got this strange header value by querying GitHub with curl and
+// inspecting the response (see README.md). This is how go-github seems to
+// determine pagination.
+//
+// I moved this logic into a helper function because it's quite verbose, and
+// listHandler is already long. This logic may seem more complicated than
+// necessary (there are multiple checks for page > 1, for example), but the
+// links are included in the same order as GitHub--prev, next, last, first--for
+// fidelity.
+func linkHeader(page, numPages, perPage int, includePerPage bool) string {
+	links := make([]string, 0, 4)
+	perPageParam := ""
+	if includePerPage {
+		perPageParam = fmt.Sprintf("&per_page=%d", perPage)
+	}
+	if page > 1 {
+		links = append(links, fmt.Sprintf("<https://api.github.com/repositories/23653453/pulls?page=%d%s>; rel=\"prev\"", page-1, perPageParam))
+	}
+	if page < numPages {
+		links = append(links, fmt.Sprintf("<https://api.github.com/repositories/23653453/pulls?page=%d%s>; rel=\"next\"", page+1, perPageParam))
+		links = append(links, fmt.Sprintf("<https://api.github.com/repositories/23653453/pulls?page=%d%s>; rel=\"last\"", numPages, perPageParam))
+	}
+	if page > 1 {
+		links = append(links, fmt.Sprintf("<https://api.github.com/repositories/23653453/pulls?page=1%s>; rel=\"first\"", perPageParam))
+	}
+	return strings.Join(links, ", ")
 }
 
 func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,31 +110,24 @@ func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("direction") {
 		direction = r.URL.Query().Get("direction")
 	}
-	getIntParam := func(key string, defaultVal int) (int, error) {
-		if r.URL.Query().Has(key) {
-			result, err := strconv.Atoi(r.URL.Query().Get(key))
-			if err != nil {
-				return 0, fmt.Errorf("invalid parameter value for '%s': could not be parsed as an int (%q)", key, err)
-			}
-			return result, nil
-		}
-		return defaultVal, nil
+	if direction != "asc" && direction != "desc" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid parameter value %q for 'direction': must be \"asc\" or \"desc\"", direction)))
+		return
 	}
-	if page, err = getIntParam("page", page); err != nil {
+	if page, err = getIntParam(r.URL.Query(), "page", page); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
-	if resultsPerPage, err = getIntParam("per_page", resultsPerPage); err != nil {
+	if resultsPerPage, err = getIntParam(r.URL.Query(), "per_page", resultsPerPage); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
 	// Prepare results -- mostly iterating through the PRs in the right order
-	// numPages = ceil(results/resultsPerPage) = expression below.
-	// See http://blog.pkh.me/p/36-figuring-out-round%2C-floor-and-ceil-with-integer-division.html
-	numPages := (len(f.prs)-1)/resultsPerPage + 1
+	numPages := ceil(len(f.prs), resultsPerPage)
 	if page > numPages {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("invalid parameter value %d for 'page': greater than the maximum page (%d)", page, numPages)))
@@ -93,10 +154,7 @@ func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("x-github-media-type", "github.v3; format=json")   // const
 	w.Header().Add("date", time.Now().Format(time.RFC1123))           // time.Now()
 	w.Header().Add("content-length", strconv.Itoa(len(respBytes)))    // len(resp)
-	// I got this strange header value by querying GitHub with curl and inspecting
-	// the response (see README.md). This is how go-github seems to determine
-	// pagination
-	w.Header().Add("link", fmt.Sprintf("<https://api.github.com/repositories/23653453/pulls?page=%d&per_page=%d>; rel=\"next\", <https://api.github.com/repositories/23653453/pulls?page=%d&per_page=%d>; rel=\"last\"", page+1, resultsPerPage, numPages, resultsPerPage))
+	w.Header().Add("link", linkHeader(page, numPages, resultsPerPage, r.URL.Query().Has("per_page")))
 
 	fmt.Printf("Request %s %q (sending mock resp)\n", r.Method, r.URL.Path)
 	n, err := w.Write(respBytes)
