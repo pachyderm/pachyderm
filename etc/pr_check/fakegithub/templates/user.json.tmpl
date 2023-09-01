@@ -1,0 +1,21 @@
+{
+  "login": "{{.Login}}",
+  "id": {{if .ID }}{{.ID}}{{else}}{{ .Login | intsha 9 }}{{end}},
+  "node_id": "{{ .Login | b64sha 33 }}",
+  "avatar_url": "https://avatars.githubusercontent.com/u/{{.ID}}?v=4",
+  "gravatar_id": "",
+  "url": "https://api.github.com/users/{{.Login}}",
+  "html_url": "https://github.com/{{.Login}}",
+  "followers_url": "https://api.github.com/users/{{.Login}}/followers",
+  "following_url": "https://api.github.com/users/{{.Login}}/following{/other_user}",
+  "gists_url": "https://api.github.com/users/{{.Login}}/gists{/gist_id}",
+  "starred_url": "https://api.github.com/users/{{.Login}}/starred{/owner}{/repo}",
+  "subscriptions_url": "https://api.github.com/users/{{.Login}}/subscriptions",
+  "organizations_url": "https://api.github.com/users/{{.Login}}/orgs",
+  "repos_url": "https://api.github.com/users/{{.Login}}/repos",
+  "events_url": "https://api.github.com/users/{{.Login}}/events{/privacy}",
+  "received_events_url": "https://api.github.com/users/{{.Login}}/received_events",
+  "type": "{{.Type}}",
+  "site_admin": false
+}
+
