@@ -73,7 +73,6 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 	fullName := "/" + path.Join(string(sd.FullName()), string(md.Name()))
 	reply := &emptypb.Empty{}
 	if err := cc.Invoke(ctx, fullName, req, reply); err != nil {
-		t.Log(err)
 		if s, ok := status.FromError(err); ok {
 			switch {
 			case s.Code() == codes.Aborted && strings.Contains(s.Message(), "panic: "):
@@ -90,6 +89,8 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 			case s.Code() == codes.Unauthenticated:
 				t.Fatal("unauthenticated?")
 			}
+		} else {
+			t.Log(err)
 		}
 	}
 }

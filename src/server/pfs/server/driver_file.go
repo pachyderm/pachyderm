@@ -117,6 +117,9 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 }
 
 func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
+	if commit.AccessRepo() == nil {
+		return nil, nil, errors.New("nil repo or branch.repo in commit")
+	}
 	if commit.AccessRepo().Name == fileSetsRepo {
 		fsid, err := fileset.ParseID(commit.Id)
 		if err != nil {
