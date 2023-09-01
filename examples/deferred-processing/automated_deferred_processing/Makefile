@@ -11,8 +11,8 @@ include ../../../etc/govars.mk
 SHELL := /bin/bash
 DOCKER := docker
 
-DEFERRED_PROCESSING_PIPELINES = ../deferred-processing_plus_transactions/edges_dp.json \
-				../deferred-processing_plus_transactions/montage_dp.json 
+DEFERRED_PROCESSING_PIPELINES = ../deferred-processing_plus_transactions/edges_dp.pipeline.json \
+				../deferred-processing_plus_transactions/montage_dp.pipeline.json
 
 DEFERRED_PROCESSING_1_FILES = ../deferred-processing_plus_transactions/images.txt \
 				../deferred-processing_plus_transactions/images2.txt
@@ -56,19 +56,19 @@ pachyderm-user-secret.secret: pachyderm-user-secret.clear
 	-${PACHCTL} delete secret $$(jq .metadata.name $@ | tr -d '"')
 	${PACHCTL} create secret -f $@
 
-create-branch-mover: pachyderm-user-secret.secret branch-mover.json 
-	${PACHCTL} create pipeline -f branch-mover.json
+create-branch-mover: pachyderm-user-secret.secret branch-mover.pipeline.json
+	${PACHCTL} create pipeline -f branch-mover.pipeline.json
 
-update-branch-mover: pachyderm-user-secret.secret branch-mover.json
-	${PACHCTL} update pipeline -f branch-mover.json
+update-branch-mover: pachyderm-user-secret.secret branch-mover.pipeline.json
+	${PACHCTL} update pipeline -f branch-mover.pipeline.json
 
 delete-branch-mover:
 	-@${PACHCTL} delete pipeline branch-mover
 
-create-branch-mover-no-auth: branch-mover-no-auth.json
+create-branch-mover-no-auth: branch-mover-no-auth.pipeline.json
 	${PACHCTL} create pipeline -f $<
 
-update-branch-mover-no-auth: branch-mover-no-auth.json
+update-branch-mover-no-auth: branch-mover-no-auth.pipeline.json
 	${PACHCTL} update pipeline -f $<
 
 delete-branch-mover-no-auth:
@@ -78,6 +78,4 @@ delete-secret:
 	-@${PACHCTL} delete secret pachyderm-user-secret > /dev/null 2>&1
 
 clean: delete-branch-mover delete-deferred-processing-cluster delete-secret
-	-@rm -f  pachyderm-user-secret.secret 
-
-
+	-@rm -f  pachyderm-user-secret.secret
