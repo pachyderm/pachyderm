@@ -5,7 +5,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"strconv"
@@ -32,7 +31,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -124,6 +122,8 @@ func FuzzRPCs(f *testing.F) {
 		},
 	}))
 	f.Fuzz(func(t *testing.T, a []byte) {
+		// TODO(jrockway): remove this when https://github.com/pachyderm/pachyderm/pull/9293
+		// is merged.
 		pid := os.Getpid()
 		cfg := zap.NewProductionConfig()
 		cfg.Sampling = nil
@@ -138,12 +138,6 @@ func FuzzRPCs(f *testing.F) {
 		env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 		peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 		tu.ActivateAuthClient(t, env.PachClient, peerPort)
-
-		// TODO(jrockway): use pachClient.ClientConn() when that is merged
-		cc, err := grpc.DialContext(ctx, net.JoinHostPort(env.PachClient.GetAddress().Host, strconv.Itoa(int(env.PachClient.GetAddress().Port))), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			t.Fatalf("dial real env: %v", err)
-		}
 
 		rangeRPCs(func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
 			name := string(sd.FullName()) + "." + string(md.Name())
@@ -165,7 +159,7 @@ func FuzzRPCs(f *testing.F) {
 					// Random data was not a proto, don't go any further.
 					return
 				}
-				testRPC(client.Ctx(), t, sd, md, cc, msg)
+				testRPC(client.Ctx(), t, sd, md, client.ClientConn(), msg)
 			})
 		})
 	})
