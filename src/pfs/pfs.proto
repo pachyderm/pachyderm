@@ -13,6 +13,8 @@ import "auth/auth.proto";
 
 import "task/task.proto";
 
+import "protoextensions/validate.proto";
+
 ////  PFS Data structures (stored in etcd)
 
 message Repo {
@@ -285,7 +287,7 @@ message SquashCommitSetRequest {
 }
 
 message DropCommitSetRequest {
-  CommitSet commit_set = 1;
+  CommitSet commit_set = 1 [(validate.rules).message.required = true];
 }
 
 message SubscribeCommitRequest {

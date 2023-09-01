@@ -4520,6 +4520,17 @@ func (m *DropCommitSetRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetCommitSet() == nil {
+		err := DropCommitSetRequestValidationError{
+			field:  "CommitSet",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetCommitSet()).(type) {
 		case interface{ ValidateAll() error }:
