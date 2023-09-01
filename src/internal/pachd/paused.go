@@ -47,8 +47,8 @@ func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		pb.enterpriseEnv,
 		eprsserver.Config{
-			Heartbeat: true,
-			Mode: eprsserver.PausedMode,
+			Heartbeat:    true,
+			Mode:         eprsserver.PausedMode,
 			UnpausedMode: os.Getenv("UNPAUSED_MODE"),
 		},
 	)
