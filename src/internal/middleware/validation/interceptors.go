@@ -40,7 +40,7 @@ var _ grpc.ServerStream = new(streamWrapper)
 // RecvMsg implements grpc.ServerStream.
 func (w *streamWrapper) RecvMsg(m any) error {
 	if err := w.ServerStream.RecvMsg(m); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 	if r, ok := m.(validatable); ok {
 		if err := r.ValidateAll(); err != nil {
