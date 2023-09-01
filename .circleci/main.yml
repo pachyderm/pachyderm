@@ -240,9 +240,6 @@ jobs:
           file: /tmp/test-results/coverage.txt
       - collect-test-results
   static-checks:
-    parameters:
-      bucket:
-        type: string
     resource_class: 2xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
