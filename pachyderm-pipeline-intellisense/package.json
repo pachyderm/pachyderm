@@ -17,6 +17,12 @@
         "command": "pachyderm-pipeline-intellisense.helloWorld",
         "title": "Hello World"
       }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "*.pipeline.json",
+        "url": "https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json"
+      }
     ]
   },
   "scripts": {
