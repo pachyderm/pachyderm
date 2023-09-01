@@ -2715,6 +2715,17 @@ func (m *AuthorizeRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetResource() == nil {
+		err := AuthorizeRequestValidationError{
+			field:  "Resource",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetResource()).(type) {
 		case interface{ ValidateAll() error }:
@@ -2950,6 +2961,17 @@ func (m *GetPermissionsRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetResource() == nil {
+		err := GetPermissionsRequestValidationError{
+			field:  "Resource",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetResource()).(type) {
 		case interface{ ValidateAll() error }:
@@ -3081,6 +3103,17 @@ func (m *GetPermissionsForPrincipalRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetResource() == nil {
+		err := GetPermissionsForPrincipalRequestValidationError{
+			field:  "Resource",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetResource()).(type) {
@@ -3319,6 +3352,17 @@ func (m *ModifyRoleBindingRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetResource() == nil {
+		err := ModifyRoleBindingRequestValidationError{
+			field:  "Resource",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetResource()).(type) {
 		case interface{ ValidateAll() error }:
@@ -3553,6 +3597,17 @@ func (m *GetRoleBindingRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetResource() == nil {
+		err := GetRoleBindingRequestValidationError{
+			field:  "Resource",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetResource()).(type) {
@@ -5705,6 +5760,17 @@ func (m *RestoreAuthTokenRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetToken() == nil {
+		err := RestoreAuthTokenRequestValidationError{
+			field:  "Token",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetToken()).(type) {

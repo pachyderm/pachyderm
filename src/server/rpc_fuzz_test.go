@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -37,7 +38,9 @@ import (
 
 func TestEmptyRequests(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateAuthClient(t, env.PachClient, peerPort)
 
 	protos := []protoreflect.FileDescriptor{
 		admin.File_admin_admin_proto,
@@ -69,11 +72,15 @@ func TestEmptyRequests(t *testing.T) {
 				md := methods.Get(mi)
 				name := string(sd.FullName()) + "." + string(md.Name())
 				t.Run(name, func(t *testing.T) {
-					if strings.Contains(name, "RunLoadTest") {
+					switch {
+					case strings.Contains(name, "RunLoadTest"):
 						t.Skip("skipping load tests")
+					case strings.Contains(name, "Deactivate"):
+						t.Skip("not deactivating auth/enterprise")
 					}
 					ctx, c := context.WithTimeout(pctx.Child(ctx, name), 5*time.Second)
-					testRPC(ctx, t, sd, md, cc, &emptypb.Empty{})
+					client := env.PachClient.WithCtx(ctx)
+					testRPC(client.Ctx(), t, sd, md, cc, &emptypb.Empty{})
 					defer c()
 				})
 			}
@@ -87,8 +94,15 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 	if err := cc.Invoke(ctx, fullName, req, reply); err != nil {
 		t.Log(err)
 		if s, ok := status.FromError(err); ok {
-			if s.Code() == codes.Unimplemented || strings.Contains(s.Message(), "pachd mock") {
+			switch {
+			case strings.Contains(s.Message(), "pachd mock"):
 				t.Skip("skipping method that has no mock")
+			case strings.Contains(s.Message(), "not activated"):
+				t.Fatal("auth not activated?")
+			case s.Code() == codes.Unimplemented:
+				t.Skip("skipping unimplemented method/service")
+			case s.Code() == codes.Unauthenticated:
+				t.Fatal("unauthenticated?")
 			}
 		}
 	}
