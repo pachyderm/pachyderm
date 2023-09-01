@@ -36,7 +36,7 @@ func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 	var (
 		direction      = "desc"
 		page           = 1
-		resultsPerPage = 5 // real GitHub is 30 by default
+		resultsPerPage = 7 // real GitHub is 30 by default
 		err            error
 	)
 	if r.URL.Query().Has("direction") {
@@ -85,7 +85,7 @@ func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 	// Send response
 	respBytes, err := json.Marshal(resp)
 	if err != nil {
-		panic("fakeGitHub: could not serialize response JSON: " + err.Error())
+		panic("could not serialize response JSON: " + err.Error())
 	}
 	w.Header().Add("content-type", "application/json; charset=utf-8") // const
 	w.Header().Add("x-github-media-type", "github.v3; format=json")   // const
