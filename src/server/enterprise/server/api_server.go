@@ -49,7 +49,7 @@ const (
 
 type apiServer struct {
 	enterprise.UnimplementedAPIServer
-	env                  Env
+	env                  *Env
 	config               Config
 	enterpriseTokenCache *keycache.Cache
 	// enterpriseTokenCol is a collection containing the enterprise license state
@@ -59,7 +59,8 @@ type apiServer struct {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env Env, config Config) (*apiServer, error) {
+// TODO: Envs should not be passed by pointer
+func NewEnterpriseServer(env *Env, config Config) (*apiServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.EtcdClient,

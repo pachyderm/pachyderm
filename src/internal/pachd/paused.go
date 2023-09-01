@@ -64,7 +64,7 @@ func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 
 	// Stop workers because unpaused pachds in the process
 	// of rolling may have started them back up.
-	if err := eprsserver.StopWorkers(ctx, pb.enterpriseEnv); err != nil {
+	if err := eprsserver.StopWorkers(ctx, pb.enterpriseEnv.GetKubeClient(), pb.enterpriseEnv.Namespace); err != nil {
 		return err
 	}
 	return nil

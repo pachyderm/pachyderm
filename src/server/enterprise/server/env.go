@@ -101,6 +101,6 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 }
 
 // StopWorkers stops all workers
-func StopWorkers(ctx context.Context, env Env) error {
-	return scaleDownWorkers(ctx, env.GetKubeClient(), env.Namespace)
+func StopWorkers(ctx context.Context, kc kube.Interface, namespace string) error {
+	return scaleDownWorkers(ctx, kc, namespace)
 }

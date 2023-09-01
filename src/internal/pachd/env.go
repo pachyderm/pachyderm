@@ -44,8 +44,8 @@ func AuthEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) auth_ser
 	}
 }
 
-func EnterpriseEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) enterprise_server.Env {
-	e := enterprise_server.Env{
+func EnterpriseEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) *enterprise_server.Env {
+	e := &enterprise_server.Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
 		TxnEnv:   txEnv,
@@ -64,8 +64,8 @@ func EnterpriseEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.
 	return e
 }
 
-func LicenseEnv(senv serviceenv.ServiceEnv) license_server.Env {
-	return license_server.Env{
+func LicenseEnv(senv serviceenv.ServiceEnv) *license_server.Env {
+	return &license_server.Env{
 		DB:               senv.GetDBClient(),
 		Listener:         senv.GetPostgresListener(),
 		Config:           senv.Config(),

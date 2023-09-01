@@ -73,8 +73,8 @@ type builder struct {
 	env                serviceenv.ServiceEnv
 	daemon             daemon
 	txnEnv             *transactionenv.TransactionEnv
-	licenseEnv         licenseserver.Env
-	enterpriseEnv      eprsserver.Env
+	licenseEnv         *licenseserver.Env
+	enterpriseEnv      *eprsserver.Env
 	reporter           *metrics.Reporter
 	authInterceptor    *authmw.Interceptor
 	loggingInterceptor *loggingmw.LoggingInterceptor
