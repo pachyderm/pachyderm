@@ -127,13 +127,13 @@ forEachPage:
 		}
 		fmt.Printf("of %d. (Got %d PRs %s)\n", resp.LastPage, len(nextPrs), prsSummaryStr(nextPrs))
 		for _, pr := range nextPrs {
-			beforeRange := (direction == "asc" && pr.CreatedAt.GetTime().Before(start)) ||
-				(direction == "desc" && pr.CreatedAt.GetTime().After(end))
+			beforeRange := (direction == "asc" && pr.GetCreatedAt().Time.Before(start)) ||
+				(direction == "desc" && pr.GetCreatedAt().Time.After(end))
 			if beforeRange {
 				continue // skip PRs that are before the beginning of [start, end]
 			}
-			afterRange := (direction == "asc" && pr.CreatedAt.GetTime().After(end)) ||
-				(direction == "desc" && pr.CreatedAt.GetTime().Before(start))
+			afterRange := (direction == "asc" && pr.GetCreatedAt().Time.After(end)) ||
+				(direction == "desc" && pr.GetCreatedAt().Time.Before(start))
 			if afterRange {
 				break forEachPage
 			}
