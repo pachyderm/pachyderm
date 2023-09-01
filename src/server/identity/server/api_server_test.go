@@ -28,7 +28,7 @@ func TestAuthNotActivated(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	client := env.PachClient
-	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
+	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{Config: &identity.IdentityServerConfig{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -36,7 +36,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.CreateIDPConnector(client.Ctx(), &identity.CreateIDPConnectorRequest{})
+	_, err = client.CreateIDPConnector(client.Ctx(), &identity.CreateIDPConnectorRequest{Connector: &identity.IDPConnector{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -44,7 +44,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.UpdateIDPConnector(client.Ctx(), &identity.UpdateIDPConnectorRequest{})
+	_, err = client.UpdateIDPConnector(client.Ctx(), &identity.UpdateIDPConnectorRequest{Connector: &identity.IDPConnector{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -56,7 +56,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.CreateOIDCClient(client.Ctx(), &identity.CreateOIDCClientRequest{})
+	_, err = client.CreateOIDCClient(client.Ctx(), &identity.CreateOIDCClientRequest{Client: &identity.OIDCClient{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -64,7 +64,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.UpdateOIDCClient(client.Ctx(), &identity.UpdateOIDCClientRequest{})
+	_, err = client.UpdateOIDCClient(client.Ctx(), &identity.UpdateOIDCClientRequest{Client: &identity.OIDCClient{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
