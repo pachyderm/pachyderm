@@ -4,7 +4,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -27,12 +29,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/pachyderm/pachyderm/v2/src/worker"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -65,38 +69,6 @@ func rangeRPCs(f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDes
 	}
 }
 
-func TestEmptyRequests(t *testing.T) {
-	ctx := context.Background()
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-	tu.ActivateAuthClient(t, env.PachClient, peerPort)
-
-	// TODO(jrockway): use pachClient.ClientConn() when that is merged
-	cc, err := grpc.DialContext(ctx, net.JoinHostPort(env.PachClient.GetAddress().Host, strconv.Itoa(int(env.PachClient.GetAddress().Port))), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("dial real env: %v", err)
-	}
-
-	rangeRPCs(func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
-		name := string(sd.FullName()) + "." + string(md.Name())
-		t.Run(name, func(t *testing.T) {
-			switch {
-			case strings.Contains(name, "RunLoadTest"):
-				t.Skip("skipping load tests")
-			case strings.Contains(name, "Deactivate"):
-				t.Skip("skipping auth deactivation")
-			case strings.Contains(name, "RotateRootToken"):
-				t.Skip("skipping RotateRootToken")
-			}
-			ctx, c := context.WithTimeout(pctx.Child(ctx, name), 5*time.Second)
-			defer c()
-			client := env.PachClient.WithCtx(ctx)
-			testRPC(client.Ctx(), t, sd, md, cc, &emptypb.Empty{})
-		})
-
-	})
-}
-
 func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor, cc *grpc.ClientConn, req proto.Message) {
 	fullName := "/" + path.Join(string(sd.FullName()), string(md.Name()))
 	reply := &emptypb.Empty{}
@@ -120,4 +92,80 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 			}
 		}
 	}
+}
+
+func protoBytes(msg proto.Message) []byte {
+	b, err := proto.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func FuzzRPCs(f *testing.F) {
+	f.Add(protoBytes(&emptypb.Empty{}))
+	f.Add(protoBytes(&pfs.InspectRepoRequest{
+		Repo: nil,
+	}))
+	f.Add(protoBytes(&pfs.FindCommitsRequest{
+		Start: &pfs.Commit{},
+	}))
+	f.Add(protoBytes(&pfs.DiffFileRequest{
+		OldFile: &pfs.File{
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: "test",
+					Project: &pfs.Project{
+						Name: "default",
+					},
+				},
+			},
+		},
+	}))
+	f.Fuzz(func(t *testing.T, a []byte) {
+		pid := os.Getpid()
+		cfg := zap.NewProductionConfig()
+		cfg.Sampling = nil
+		cfg.OutputPaths = []string{fmt.Sprintf("/tmp/fuzz.%v.log", pid)}
+		l, err := cfg.Build()
+		if err != nil {
+			t.Fatalf("logger: %v", err)
+		}
+		zap.ReplaceGlobals(l)
+
+		ctx := pctx.Background("")
+		env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+		peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+		tu.ActivateAuthClient(t, env.PachClient, peerPort)
+
+		// TODO(jrockway): use pachClient.ClientConn() when that is merged
+		cc, err := grpc.DialContext(ctx, net.JoinHostPort(env.PachClient.GetAddress().Host, strconv.Itoa(int(env.PachClient.GetAddress().Port))), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			t.Fatalf("dial real env: %v", err)
+		}
+
+		rangeRPCs(func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
+			name := string(sd.FullName()) + "." + string(md.Name())
+			t.Run(name, func(t *testing.T) {
+				switch {
+				case strings.Contains(name, "RunLoadTest"):
+					t.Skip("skipping load tests")
+				case strings.Contains(name, "Deactivate"):
+					t.Skip("skipping auth deactivation")
+				case strings.Contains(name, "RotateRootToken"):
+					t.Skip("skipping RotateRootToken")
+				}
+				ctx, c := context.WithTimeout(pctx.Child(ctx, name), 5*time.Second)
+				defer c()
+				client := env.PachClient.WithCtx(ctx)
+
+				msg := dynamicpb.NewMessage(md.Input())
+				if err := proto.Unmarshal(a, msg); err != nil {
+					// Random data was not a proto, don't go any further.
+					return
+				}
+				testRPC(client.Ctx(), t, sd, md, cc, msg)
+			})
+		})
+	})
 }
