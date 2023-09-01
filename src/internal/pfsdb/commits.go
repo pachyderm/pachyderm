@@ -30,7 +30,15 @@ const (
 		FROM pfs.commits commit
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
 		JOIN core.projects project ON repo.project_id = project.id`
-	getRelativeCommmit = `
+	getCommitWithAncestry = `
+		SELECT 
+    		commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str, commit.origin, commit.description, commit.start_time, 
+    		commit.finishing_time, commit.finished_time, commit.compacting_time, commit.validating_time,
+    		commit.error, commit.size, repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
+		FROM pfs.commits commit
+		JOIN pfs.repos repo ON commit.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id`
+	getRelativeCommit = `
 		SELECT
 			commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str,
 			repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
@@ -38,9 +46,9 @@ const (
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
 		JOIN core.projects project ON repo.project_id = project.id
 	`
-	getParentCommit = getRelativeCommmit + `
+	getParentCommit = getRelativeCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.from_id = commit.int_id`
-	getChildCommit = getRelativeCommmit + `
+	getChildCommit = getRelativeCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.to_id = commit.int_id`
 )
 
@@ -552,14 +560,6 @@ type CommitPair struct {
 var _ stream.Iterator[CommitPair] = &CommitIterator{}
 var _ stream.Iterator[CommitPair] = &CommitIteratorTx{}
 
-type commitIterator struct {
-	limit   int
-	offset  int
-	commits []commitRow
-	index   int
-	filter  CommitListFilter
-}
-
 // CommitIterator batches a page of commitRow entries. (id, entry) tuples can be retrieved using iter.Next().
 type CommitIterator struct {
 	*commitIterator
@@ -570,6 +570,25 @@ type CommitIterator struct {
 type CommitIteratorTx struct {
 	*commitIterator
 	tx *pachsql.Tx
+}
+
+type commitIterator struct {
+	limit   int
+	offset  int
+	commits []commitRow
+	index   int
+	filter  CommitListFilter
+}
+
+// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
+func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
+	return errors.Wrap(dbutil.WithTx(ctx, iter.db, func(ctx context.Context, tx *pachsql.Tx) error {
+		return iter.next(ctx, tx, dst)
+	}, dbutil.WithReadOnly()), "next commit")
+}
+
+func (iter *CommitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
+	return errors.Wrap(iter.next(ctx, iter.tx, dst), "next commit in transaction")
 }
 
 func (iter *commitIterator) next(ctx context.Context, tx *pachsql.Tx, dst *CommitPair) error {
@@ -602,17 +621,6 @@ func (iter *commitIterator) next(ctx context.Context, tx *pachsql.Tx, dst *Commi
 	return nil
 }
 
-// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
-func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
-	return errors.Wrap(dbutil.WithTx(ctx, iter.db, func(ctx context.Context, tx *pachsql.Tx) error {
-		return iter.next(ctx, tx, dst)
-	}, dbutil.WithReadOnly()), "next commit")
-}
-
-func (iter *CommitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
-	return errors.Wrap(iter.next(ctx, iter.tx, dst), "next commit in transaction")
-}
-
 // CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
 // This should hopefully prevent a library user from misconfiguring the filter.
 type CommitFields string
@@ -623,6 +631,8 @@ var (
 	CommitRepos    = CommitFields("repo_id")
 	CommitBranches = CommitFields("branch_id_str")
 	CommitProjects = CommitFields("project_id")
+	CommitParents  = CommitFields("from_id")
+	CommitChildren = CommitFields("to_id")
 )
 
 // CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
@@ -669,6 +679,7 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	var page []commitRow
 	where := ""
 	conditions := make([]string, 0)
+	query := getCommit
 	for key, vals := range filter {
 		if len(vals) == 0 {
 			continue
@@ -682,6 +693,12 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.repos WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
 		case CommitProjects:
 			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+		case CommitParents:
+			query += fmt.Sprintf("JOIN pfs.commit_ancestry parent ON parent.%s = commit.int_id", string(key))
+			conditions = append(conditions, fmt.Sprintf("parent.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
+		case CommitChildren:
+			query += fmt.Sprintf("JOIN pfs.commit_ancestry child ON child.%s = commit.int_id", string(key))
+			conditions = append(conditions, fmt.Sprintf("child.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
 		default:
 			conditions = append(conditions, fmt.Sprintf("commit.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
 		}
@@ -690,7 +707,7 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
 	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, project.name ORDER BY commit.int_id ASC LIMIT $1 OFFSET $2;",
-		getCommit, where), limit, offset); err != nil {
+		query, where), limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil
