@@ -266,55 +266,6 @@ func TestListCommitsFilter(t *testing.T) {
 	})
 }
 
-func TestListCommitsFilterWithAncestry(t *testing.T) {
-	size := 120
-	expectedInfos := make([]*pfs.CommitInfo, 0)
-	commits := make([]*pfs.CommitInfo, 0)
-	type possibility struct {
-		Parent *pfs.Commit
-		Child  *pfs.Commit
-	}
-	var filter pfsdb.CommitListFilter
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
-		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-			parentInfo1 := testCommit(ctx, t, branchesCol, tx, testRepoName)
-			parentInfo2 := testCommit(ctx, t, branchesCol, tx, testRepoName)
-			childInfo1 := testCommit(ctx, t, branchesCol, tx, testRepoName)
-			childInfo2 := testCommit(ctx, t, branchesCol, tx, testRepoName)
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, parentInfo1))
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, parentInfo2))
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, childInfo1))
-			require.NoError(t, pfsdb.CreateCommit(ctx, tx, childInfo2))
-			possibilities := []possibility{
-				{Parent: parentInfo1.Commit, Child: childInfo1.Commit},
-				{Parent: parentInfo1.Commit, Child: childInfo2.Commit},
-				{Parent: parentInfo2.Commit, Child: childInfo1.Commit},
-				{Parent: parentInfo2.Commit, Child: childInfo2.Commit},
-			}
-			for i := 0; i < size; i++ {
-				commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
-				commitInfo.ParentCommit = possibilities[i%len(possibilities)].Parent
-				commitInfo.ChildCommits = append(commitInfo.ChildCommits, possibilities[i%len(possibilities)].Child)
-				commits = append(commits, commitInfo)
-			}
-			filter = pfsdb.CommitListFilter{
-				pfsdb.CommitChildren: []string{pfsdb.CommitKey(childInfo1.Commit)},
-				pfsdb.CommitParents:  []string{pfsdb.CommitKey(parentInfo1.Commit)},
-			}
-			for _, commitInfo := range commits {
-				require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo))
-			}
-			iter, err := pfsdb.ListCommitTx(ctx, tx, filter)
-			require.NoError(t, err, "should be able to list repos")
-			checkOutput(ctx, t, iter, expectedInfos)
-			return nil
-		}))
-		iter, err := pfsdb.ListCommit(ctx, db, filter)
-		require.NoError(t, err, "should be able to list repos")
-		checkOutput(ctx, t, iter, expectedInfos)
-	})
-}
-
 type commitTestCase func(context.Context, *testing.T, *pachsql.DB, collection.PostgresCollection)
 
 func testCommitDataModelAPI(t *testing.T, testCase commitTestCase) {

@@ -631,8 +631,6 @@ var (
 	CommitRepos    = CommitFields("repo_id")
 	CommitBranches = CommitFields("branch_id_str")
 	CommitProjects = CommitFields("project_id")
-	CommitParents  = CommitFields("from_id")
-	CommitChildren = CommitFields("to_id")
 )
 
 // CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
@@ -693,12 +691,6 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.repos WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
 		case CommitProjects:
 			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
-		case CommitParents:
-			query += fmt.Sprintf("JOIN pfs.commit_ancestry parent ON parent.%s = commit.int_id", string(key))
-			conditions = append(conditions, fmt.Sprintf("parent.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
-		case CommitChildren:
-			query += fmt.Sprintf("JOIN pfs.commit_ancestry child ON child.%s = commit.int_id", string(key))
-			conditions = append(conditions, fmt.Sprintf("child.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
 		default:
 			conditions = append(conditions, fmt.Sprintf("commit.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
 		}
