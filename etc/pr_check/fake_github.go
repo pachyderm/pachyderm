@@ -98,17 +98,23 @@ func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Request %s %q (sending mock resp)\n", r.Method, r.URL.Path)
 	n, err := w.Write(respBytes)
-	f.pagesFetched++
-	if n < len(respBytes) {
-		panic(fmt.Sprintf("intended to send %d bytes back, but only sent %d", len(respBytes), n))
-	}
 	if err != nil {
 		panic("error sending /pulls response: " + err.Error())
 	}
+	if n < len(respBytes) {
+		panic(fmt.Sprintf("intended to send %d bytes back, but only sent %d", len(respBytes), n))
+	}
+	f.pagesFetched++
 }
 
 func (f *fakeGitHub) defaultHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Request %s %q (sending 404)\n", r.Method, r.URL.Path)
+	if !strings.Contains(r.URL.Path, "api") {
+		// For some reason, go-github seems to spam /api and /apis, which AFAICT are
+		// not valid paths of api.github.com. Everything works if I return 404 for
+		// those calls (which is what GitHub returned when I curl'ed /api). Now I
+		// don't even bother logging those requests.
+		fmt.Printf("Request %s %q (sending 404)\n", r.Method, r.URL.Path)
+	}
 	http.Error(w, "404 Not Found", http.StatusNotFound)
 }
 
