@@ -1,7 +1,6 @@
 package errors
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -13,6 +12,10 @@ var (
 	// New returns an error with the supplied message.
 	// New also records the stack trace at the point it was called.
 	New = errors.New
+	// Errorf formats according to a format specifier and returns the string
+	// as a value that satisfies error.
+	// Errorf also records the stack trace at the point it was called.
+	Errorf = errors.Errorf
 	// Unwrap returns the underlying wrapped error if it exists, or nil otherwise.
 	Unwrap = errors.Unwrap
 	// Is reports whether any error in err's chain matches target. An error is
@@ -31,13 +34,6 @@ var (
 	// If err is nil, WithStack returns nil.
 	WithStack = errors.WithStack
 )
-
-// Errorf formats according to a format specifier and returns the string
-// as a value that satisfies error.
-// Errorf also records the stack trace at the point it was called.
-func Errorf(fmtStr string, args ...any) error {
-	return EnsureStack(fmt.Errorf(fmtStr, args...))
-}
 
 // EnsureStack will add a stack onto the given error only if it does not already
 // have a stack. If err is nil, EnsureStack returns nil.

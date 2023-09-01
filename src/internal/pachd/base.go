@@ -66,6 +66,8 @@ func (b *base) Run(ctx context.Context) error {
 	log.Info(ctx, "pachd running services")
 	eg, ctx := errgroup.WithContext(ctx)
 	for name, fn := range b.background {
+		name := name
+		fn := fn
 		ctx := pctx.Child(ctx, name)
 		eg.Go(func() error {
 			return fn(ctx)
