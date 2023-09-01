@@ -4809,6 +4809,17 @@ func (m *InspectJobSetRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetJobSet() == nil {
+		err := InspectJobSetRequestValidationError{
+			field:  "JobSet",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetJobSet()).(type) {
 		case interface{ ValidateAll() error }:
@@ -5880,6 +5891,17 @@ func (m *UpdateJobStateRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetJob() == nil {
+		err := UpdateJobStateRequestValidationError{
+			field:  "Job",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetJob()).(type) {
@@ -8048,6 +8070,17 @@ func (m *InspectPipelineRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetPipeline() == nil {
+		err := InspectPipelineRequestValidationError{
+			field:  "Pipeline",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetPipeline()).(type) {
 		case interface{ ValidateAll() error }:
@@ -8380,6 +8413,17 @@ func (m *DeletePipelineRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetPipeline() == nil {
+		err := DeletePipelineRequestValidationError{
+			field:  "Pipeline",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetPipeline()).(type) {
@@ -9229,6 +9273,17 @@ func (m *RunCronRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetPipeline() == nil {
+		err := RunCronRequestValidationError{
+			field:  "Pipeline",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetPipeline()).(type) {
 		case interface{ ValidateAll() error }:
@@ -9462,6 +9517,17 @@ func (m *DeleteSecretRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetSecret() == nil {
+		err := DeleteSecretRequestValidationError{
+			field:  "Secret",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetSecret()).(type) {
 		case interface{ ValidateAll() error }:
@@ -9592,6 +9658,17 @@ func (m *InspectSecretRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetSecret() == nil {
+		err := InspectSecretRequestValidationError{
+			field:  "Secret",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetSecret()).(type) {
