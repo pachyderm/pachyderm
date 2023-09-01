@@ -68,7 +68,7 @@ jobs:
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
-    resource_class: 2xlarge
+    resource_class: xlarge
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
