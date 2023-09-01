@@ -47,7 +47,7 @@ const Modal = ({
 
     return () =>
       document.getElementById('root')?.removeAttribute('aria-hidden');
-  });
+  }, [showing]);
 
   return (
     <>
