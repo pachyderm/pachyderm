@@ -297,6 +297,17 @@ func (m *ListTaskRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetGroup() == nil {
+		err := ListTaskRequestValidationError{
+			field:  "Group",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetGroup()).(type) {
 		case interface{ ValidateAll() error }:

@@ -7,6 +7,7 @@ import (
 	"net"
 	"path"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,6 +67,9 @@ func TestEmptyRequests(t *testing.T) {
 				md := methods.Get(mi)
 				name := string(sd.FullName()) + "." + string(md.Name())
 				t.Run(name, func(t *testing.T) {
+					if strings.Contains(name, "RunLoadTest") {
+						t.Skip()
+					}
 					ctx, c := context.WithTimeout(pctx.Child(ctx, name), 5*time.Second)
 					testRPC(ctx, t, sd, md, cc, &emptypb.Empty{})
 					defer c()

@@ -5186,6 +5186,17 @@ func (m *FindCommitsRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetStart() == nil {
+		err := FindCommitsRequestValidationError{
+			field:  "Start",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetStart()).(type) {
 		case interface{ ValidateAll() error }:
@@ -6043,6 +6054,17 @@ func (m *InspectProjectRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetProject() == nil {
+		err := InspectProjectRequestValidationError{
+			field:  "Project",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetProject()).(type) {

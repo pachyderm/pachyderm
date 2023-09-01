@@ -314,7 +314,7 @@ message CreateBranchRequest {
 }
 
 message FindCommitsRequest {
-  Commit start = 1;
+  Commit start = 1 [(validate.rules).message.required = true];
   string file_path = 2;
   uint32 limit = 3; // a limit of 0 means there is no upper bound on the limit.
 }
@@ -348,7 +348,7 @@ message CreateProjectRequest {
 }
 
 message InspectProjectRequest {
-  Project project = 1;
+  Project project = 1 [(validate.rules).message.required = true];
 }
 
 message ListProjectRequest {}
