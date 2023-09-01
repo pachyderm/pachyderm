@@ -1674,6 +1674,7 @@ workflows:
       - jsonnet-lint
       - test-go
       - govulncheck
+      - static-checks
       - test-envoy
       - test-pps
       - integration-tests:
