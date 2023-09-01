@@ -19,14 +19,13 @@ type PreFlightEnv struct {
 // PreFlight is a minimal pachd for running preflight checks.
 type PreFlight struct {
 	base
-	env PreFlightEnv
+	env    PreFlightEnv
+	config pachconfig.PachdPreflightConfiguration
 }
 
-func NewPreflight(env PreFlightEnv, config pachconfig.Configuration) *PreFlight {
-	pf := &PreFlight{env: env}
-	pf.setConfig(config)
+func NewPreflight(env PreFlightEnv, config pachconfig.PachdPreflightConfiguration) *PreFlight {
+	pf := &PreFlight{env: env, config: config}
 	pf.addSetup("print version", pf.printVersion)
-	pf.addSetup("tweak resources", pf.tweakResources)
 	pf.addSetup("await DB", pf.awaitDB)
 	pf.addSetup("test migrations", pf.testMigrations)
 	pf.addSetup("", pf.everythingOK)

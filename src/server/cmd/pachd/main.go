@@ -65,14 +65,14 @@ func main() {
 		cmdutil.Main(ctx, pachd.PausedMode, &pachconfig.PachdFullConfiguration{})
 	case mode == "preflight":
 		logMode("preflight")
-		cmdutil.Main(ctx, func(ctx context.Context, config *pachconfig.Configuration) error {
+		cmdutil.Main(ctx, func(ctx context.Context, config *pachconfig.PachdPreflightConfiguration) error {
 			env, err := setupenv.NewPreflightEnv(*config)
 			if err != nil {
 				return err
 			}
 			pd := pachd.NewPreflight(*env, *config)
 			return pd.Run(ctx)
-		}, &pachconfig.Configuration{})
+		}, &pachconfig.PachdPreflightConfiguration{})
 	default:
 		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))
 		fmt.Printf("unrecognized mode: %s\n", mode)

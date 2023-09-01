@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func openDirectDB(config pachconfig.Configuration) (*pachsql.DB, error) {
+func openDirectDB(config pachconfig.PostgresConfiguration) (*pachsql.DB, error) {
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
 		dbutil.WithDBName(config.PostgresDBName),

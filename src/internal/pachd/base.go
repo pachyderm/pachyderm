@@ -3,15 +3,11 @@ package pachd
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-	"go.uber.org/automaxprocs/maxprocs"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -25,12 +21,6 @@ type base struct {
 	setup      []setupStep
 	background map[string]func(context.Context) error
 	done       bool
-
-	config pachconfig.Configuration
-}
-
-func (b *base) setConfig(config pachconfig.Configuration) {
-	b.config = config
 }
 
 func (b *base) addSetup(name string, fn func(context.Context) error) {
@@ -76,15 +66,5 @@ func (b *base) Run(ctx context.Context) error {
 
 func (b *base) printVersion(ctx context.Context) error {
 	log.Info(ctx, "version info", log.Proto("versionInfo", version.Version))
-	return nil
-}
-
-// TODO: move this into caller of internal/pachd package
-func (b *base) tweakResources(ctx context.Context) error {
-	// set GOMAXPROCS to the container limit & log outcome to stdout
-	maxprocs.Set(maxprocs.Logger(zap.S().Named("maxprocs").Infof)) //nolint:errcheck
-	debug.SetGCPercent(b.config.GCPercent)
-	log.Info(ctx, "gc: set gc percent", zap.Int("value", b.config.GCPercent))
-	setupMemoryLimit(ctx, *b.config.GlobalConfiguration)
 	return nil
 }

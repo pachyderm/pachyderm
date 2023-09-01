@@ -6,8 +6,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 )
 
-func NewPreflightEnv(config pachconfig.Configuration) (*pachd.PreFlightEnv, error) {
-	db, err := openDirectDB(config)
+func NewPreflightEnv(config pachconfig.PachdPreflightConfiguration) (*pachd.PreFlightEnv, error) {
+	db, err := openDirectDB(config.PostgresConfiguration)
 	if err != nil {
 		return nil, err
 	}
