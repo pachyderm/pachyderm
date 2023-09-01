@@ -54,20 +54,45 @@ func (f *fakeGitHub) AddPR(title, body string, author *githubUser, created time.
 	f.prs[idx] = pr
 }
 
-func getIntParam(query url.Values, key string, defaultVal int) (int, error) {
-	if query.Has(key) {
-		result, err := strconv.Atoi(query.Get(key))
-		if err != nil {
-			return 0, fmt.Errorf("invalid parameter value for '%s': could not be parsed as an int (%q)", key, err)
-		}
-		return result, nil
-	}
-	return defaultVal, nil
-}
-
 func ceil(n, d int) int {
 	// See http://blog.pkh.me/p/36-figuring-out-round%2C-floor-and-ceil-with-integer-division.html
 	return (n-1)/d + 1
+}
+
+func (f *fakeGitHub) getListParams(query url.Values) (dir string, page, perPage int, err error) {
+	// set default values
+	dir = "desc"
+	page = 1
+	perPage = 7
+
+	// check for parameter values
+	if query.Has("direction") {
+		dir = query.Get("direction")
+	}
+	if dir != "asc" && dir != "desc" {
+		return "", 0, 0, fmt.Errorf("invalid parameter value %q for 'direction': must be \"asc\" or \"desc\"", dir)
+	}
+
+	if query.Has("page") {
+		page, err = strconv.Atoi(query.Get("page"))
+		if err != nil {
+			return "", 0, 0, fmt.Errorf("invalid parameter value %q for 'page': could not be parsed as an int (%q)", query.Get("page"), err)
+		}
+	}
+
+	if query.Has("per_page") {
+		perPage, err = strconv.Atoi(query.Get("per_page"))
+		if err != nil {
+			return "", 0, 0, fmt.Errorf("invalid parameter value for '%s': could not be parsed as an int (%q)", query.Get("per_page"), err)
+		}
+	}
+
+	numPages := ceil(len(f.prs), perPage)
+	if page > numPages {
+		return "", 0, 0, fmt.Errorf("invalid parameter value %d for 'page': greater than the maximum page (%d)", page, numPages)
+	}
+
+	return
 }
 
 // linkHeader generates the value of the 'link' header included in GitHub
@@ -100,43 +125,20 @@ func linkHeader(page, numPages, perPage int, includePerPage bool) string {
 }
 
 func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
-	// Get params from request (mostly 'page', but check 'per_page')
-	var (
-		direction      = "desc"
-		page           = 1
-		resultsPerPage = 7 // real GitHub is 30 by default
-		err            error
-	)
-	if r.URL.Query().Has("direction") {
-		direction = r.URL.Query().Get("direction")
-	}
-	if direction != "asc" && direction != "desc" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("invalid parameter value %q for 'direction': must be \"asc\" or \"desc\"", direction)))
-		return
-	}
-	if page, err = getIntParam(r.URL.Query(), "page", page); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	if resultsPerPage, err = getIntParam(r.URL.Query(), "per_page", resultsPerPage); err != nil {
+	// Get params from request
+	dir, page, perPage, err := f.getListParams(r.URL.Query())
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
 	// Prepare results -- mostly iterating through the PRs in the right order
-	numPages := ceil(len(f.prs), resultsPerPage)
-	if page > numPages {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("invalid parameter value %d for 'page': greater than the maximum page (%d)", page, numPages)))
-		return
-	}
-	startIdx := (page - 1) * resultsPerPage
-	endIdx := min(startIdx+resultsPerPage, len(f.prs))
+	numPages := ceil(len(f.prs), perPage)
+	startIdx := (page - 1) * perPage
+	endIdx := min(startIdx+perPage, len(f.prs))
 	resp := f.prs[startIdx:endIdx]
-	if direction == "desc" {
+	if dir == "desc" {
 		resp = make([]*prSpec, endIdx-startIdx)
 		// like copy(), but iterate through f.prs backwards (startIdx is "distance
 		// from the last item" in this case)
@@ -154,7 +156,7 @@ func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("x-github-media-type", "github.v3; format=json")   // const
 	w.Header().Add("date", time.Now().Format(time.RFC1123))           // time.Now()
 	w.Header().Add("content-length", strconv.Itoa(len(respBytes)))    // len(resp)
-	w.Header().Add("link", linkHeader(page, numPages, resultsPerPage, r.URL.Query().Has("per_page")))
+	w.Header().Add("link", linkHeader(page, numPages, perPage, r.URL.Query().Has("per_page")))
 
 	fmt.Printf("Request %s %q (sending mock resp)\n", r.Method, r.URL.Path)
 	n, err := w.Write(respBytes)
