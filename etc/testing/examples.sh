@@ -48,8 +48,8 @@ pushd examples/shuffle
     pachctl create pipeline -f shuffle.pipeline.json
     pachctl put file fruits@master -f mango.jpeg
     pachctl put file fruits@master -f apple.jpeg
-    pachctl put file pricing@master -f mango.pipeline.json
-    pachctl put file pricing@master -f apple.pipeline.json
+    pachctl put file pricing@master -f mango.json
+    pachctl put file pricing@master -f apple.json
 
     # wait for everything to finish
     pachctl wait commit "shuffle@master"
