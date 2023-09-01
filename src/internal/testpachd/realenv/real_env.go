@@ -166,7 +166,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	txnEnv := txnenv.New()
 
 	// ADMIN
-	adminEnv := adminapi.EnvFromServiceEnv(realEnv.ServiceEnv, false)
+	adminEnv := pachd.AdminEnv(realEnv.ServiceEnv, false)
 	realEnv.AdminServer = adminapi.NewAPIServer(adminEnv)
 
 	// AUTH
