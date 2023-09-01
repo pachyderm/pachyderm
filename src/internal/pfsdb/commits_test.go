@@ -204,10 +204,19 @@ func TestListCommit(t *testing.T) {
 	expectedInfos := make([]*pfs.CommitInfo, size)
 	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
 		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			var prevCommit *pfs.CommitInfo
 			for i := 0; i < size; i++ {
 				commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+				if prevCommit != nil {
+					commitInfo.ParentCommit = prevCommit.Commit
+				}
 				expectedInfos[i] = commitInfo
 				require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo))
+				if prevCommit != nil {
+					require.NoError(t, pfsdb.PutCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
+					expectedInfos[i-1].ChildCommits = append(expectedInfos[i-1].ChildCommits, commitInfo.Commit)
+				}
+				prevCommit = commitInfo
 			}
 			iter, err := pfsdb.ListCommitTx(ctx, tx, nil)
 			require.NoError(t, err, "should be able to list repos")
@@ -281,6 +290,16 @@ func commitsMatch(t *testing.T, a, b *pfs.CommitInfo) {
 	require.Equal(t, a.Origin.Kind, b.Origin.Kind)
 	require.Equal(t, a.Description, b.Description)
 	require.Equal(t, a.Started.Seconds, b.Started.Seconds)
+	if a.ParentCommit != nil || b.ParentCommit != nil {
+		require.Equal(t, a.ParentCommit.Id, b.ParentCommit.Id)
+		require.Equal(t, a.ParentCommit.Repo.Name, b.ParentCommit.Repo.Name)
+	}
+	require.Equal(t, len(a.ChildCommits), len(b.ChildCommits))
+	if len(a.ChildCommits) != 0 || len(b.ChildCommits) != 0 {
+		for i, _ := range a.ChildCommits {
+			require.Equal(t, a.ChildCommits[i], b.ChildCommits[i])
+		}
+	}
 }
 
 func testCommit(ctx context.Context, t *testing.T, branchesCol collection.PostgresCollection, tx *pachsql.Tx, repoName string) *pfs.CommitInfo {

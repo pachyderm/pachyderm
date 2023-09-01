@@ -310,6 +310,28 @@ func PutCommitAncestry(ctx context.Context, tx *pachsql.Tx, parentCommit, childC
 	return nil
 }
 
+// PutCommitAncestryByCommitKeys inserts a single ancestry relationship where the ids of both parent and child need to be derived.
+func PutCommitAncestryByCommitKeys(ctx context.Context, tx *pachsql.Tx, parentCommit, childCommit *pfs.Commit) error {
+	ancestryQuery := `
+		INSERT INTO pfs.commit_ancestry
+		(from_id, to_id)
+		VALUES ((SELECT int_id FROM pfs.commits WHERE commit_id=$1), 
+		        (SELECT int_id FROM pfs.commits WHERE commit_id=$2))
+		ON CONFLICT DO NOTHING;
+	`
+	_, err := tx.ExecContext(ctx, ancestryQuery, CommitKey(parentCommit), CommitKey(childCommit))
+	if err != nil {
+		if IsChildCommitNotFound(err) {
+			return ErrChildCommitNotFound{ParentCommitID: parentCommit.Id, Repo: RepoKey(parentCommit.Repo)}
+		}
+		if IsParentCommitNotFound(err) {
+			return ErrParentCommitNotFound{ChildCommitID: childCommit.Id, Repo: RepoKey(childCommit.Repo)}
+		}
+		return errors.Wrap(err, "putting commit")
+	}
+	return nil
+}
+
 // PutCommitChildren builds a single query to insert all children.
 func PutCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID, childCommits []*pfs.Commit) error {
 	ancestryQueryTemplate := `
@@ -567,10 +589,11 @@ func (iter *commitIterator) next(ctx context.Context, tx *pachsql.Tx, dst *Commi
 		}
 	}
 	row := iter.commits[iter.index]
-	commit, err := getCommitFromCommitRow(&row)
+	commit, err := getCommitInfoFromCommitRow(ctx, tx, &row)
 	if err != nil {
 		return errors.Wrap(err, "getting commitInfo from commit row")
 	}
+
 	*dst = CommitPair{
 		CommitInfo: commit,
 		ID:         row.ID,
