@@ -34,27 +34,71 @@ func TestCreateCommitWithParent(t *testing.T) {
 			require.Equal(t, getInfo.ParentCommit.Id, parentInfo.Commit.Id)
 			return nil
 		}))
+	})
+}
+
+func TestCreateCommitWithMissingParent(t *testing.T) {
+	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
 		require.YesError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
 			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
 			commitInfo.ParentCommit = parentInfo.Commit
 			err := pfsdb.CreateCommit(ctx, tx, commitInfo)
-			require.YesError(t, err, "should not be able to create commit before creating parent")
-			require.True(t, errors.Is(pfsdb.ErrParentCommitNotFound{ChildID: 3}, errors.Cause(err)))
+			require.YesError(t, err, "create commit should fail when creating parent")
+			require.True(t, errors.Is(pfsdb.ErrParentCommitNotFound{ChildID: 1}, errors.Cause(err)))
+			return nil
+		}))
+		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			commitInfo.ParentCommit = parentInfo.Commit
+			err := pfsdb.CreateCommit(ctx, tx, commitInfo, pfsdb.AncestryOpt{SkipParent: true})
+			require.NoError(t, err, "should be able to create commit before creating parent")
 			return nil
 		}))
 	})
 }
 
-func TestCreateCommitWithChildren(t *testing.T) {
+func TestCreateCommitWithMissingChild(t *testing.T) {
 	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
+		require.YesError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			parentInfo.ChildCommits = append(parentInfo.ChildCommits, commitInfo.Commit)
+			err := pfsdb.CreateCommit(ctx, tx, parentInfo)
+			require.YesError(t, err, "create commit should fail when creating children")
+			require.True(t, errors.Is(pfsdb.ErrChildCommitNotFound{ParentID: 1}, errors.Cause(err)))
+			return nil
+		}))
 		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
 			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
-			//commitInfo2 := testCommit(ctx, t, branchesCol, tx, testRepoName)
 			parentInfo.ChildCommits = append(parentInfo.ChildCommits, commitInfo.Commit)
-			err := pfsdb.CreateCommit(ctx, tx, parentInfo)
-			require.NoError(t, err, "should be able to create parent commit")
+			err := pfsdb.CreateCommit(ctx, tx, parentInfo, pfsdb.AncestryOpt{SkipChildren: true})
+			require.NoError(t, err, "should be able to create commit before creating parent")
+			return nil
+		}))
+	})
+}
+
+func TestCreateCommitWithRelatives(t *testing.T) {
+	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
+		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			parentInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			childInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			childInfo2 := testCommit(ctx, t, branchesCol, tx, testRepoName)
+			commitInfo.ParentCommit = parentInfo.Commit
+			commitInfo.ChildCommits = append(commitInfo.ChildCommits, childInfo.Commit, childInfo2.Commit)
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, parentInfo), "should be able to create parent commit")
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, childInfo), "should be able to create child commit")
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, childInfo2), "should be able to create child commit 2")
+			require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo), "should be able to create commit")
+			getInfo, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			require.NoError(t, err, "should be able to get child commit")
+			require.Equal(t, getInfo.ParentCommit.Id, parentInfo.Commit.Id)
+			require.Equal(t, getInfo.ChildCommits[0].Id, childInfo.Commit.Id)
+			require.Equal(t, getInfo.ChildCommits[1].Id, childInfo2.Commit.Id)
 			return nil
 		}))
 	})
@@ -111,8 +155,8 @@ func TestGetCommit(t *testing.T) {
 			require.YesError(t, err, "should not be able to get non-existent commit")
 			require.True(t, errors.Is(pfsdb.ErrCommitNotFound{ID: 3}, err))
 			getInfo, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
-			commitsMatch(t, commitInfo, getInfo)
 			require.NoError(t, err, "should be able to get a commit by key")
+			commitsMatch(t, commitInfo, getInfo)
 			commitInfo.Commit = nil
 			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "should not be able to get commit when commit is nil.")
@@ -145,14 +189,14 @@ func TestDeleteCommit(t *testing.T) {
 	})
 }
 
-func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.CommitPair], expectedInfos []*pfs.CommitInfo, size int) {
+func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.CommitPair], expectedInfos []*pfs.CommitInfo) {
 	i := 0
 	require.NoError(t, stream.ForEach[pfsdb.CommitPair](ctx, iter, func(commitPair pfsdb.CommitPair) error {
 		commitsMatch(t, expectedInfos[i], commitPair.CommitInfo)
 		i++
 		return nil
 	}))
-	require.Equal(t, size, i)
+	require.Equal(t, len(expectedInfos), i)
 }
 
 func TestListCommit(t *testing.T) {
@@ -167,12 +211,12 @@ func TestListCommit(t *testing.T) {
 			}
 			iter, err := pfsdb.ListCommitTx(ctx, tx, nil)
 			require.NoError(t, err, "should be able to list repos")
-			checkOutput(ctx, t, iter, expectedInfos, size)
+			checkOutput(ctx, t, iter, expectedInfos)
 			return nil
 		}))
 		iter, err := pfsdb.ListCommit(ctx, db, nil)
 		require.NoError(t, err, "should be able to list repos")
-		checkOutput(ctx, t, iter, expectedInfos, size)
+		checkOutput(ctx, t, iter, expectedInfos)
 	})
 }
 
@@ -204,12 +248,12 @@ func TestListCommitsFilter(t *testing.T) {
 			}
 			iter, err := pfsdb.ListCommitTx(ctx, tx, filter)
 			require.NoError(t, err, "should be able to list repos")
-			checkOutput(ctx, t, iter, expectedInfos, size)
+			checkOutput(ctx, t, iter, expectedInfos)
 			return nil
 		}))
 		iter, err := pfsdb.ListCommit(ctx, db, filter)
 		require.NoError(t, err, "should be able to list repos")
-		checkOutput(ctx, t, iter, expectedInfos, size)
+		checkOutput(ctx, t, iter, expectedInfos)
 	})
 }
 
