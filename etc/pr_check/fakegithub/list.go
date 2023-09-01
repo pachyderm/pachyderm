@@ -55,6 +55,16 @@ func (f *Server) listHandler(w http.ResponseWriter, r *http.Request) {
 	f.pagesFetched++
 }
 
+// GetPagesFetched is a testing function that shows how many pages have been
+// served since the last time it was called. This is entirely used by pr_check
+// tests to ensure that pr_check's scan() function doesn't fetch more data than
+// it needs.
+func (f *Server) GetPagesFetched() (ret int) {
+	ret = f.pagesFetched
+	f.pagesFetched = 0
+	return
+}
+
 // getListParams is a helper for listHandler that pulls all relevant params out
 // of the request's query string & validates them.
 func (f *Server) getListParams(query url.Values) (dir string, page, perPage int, err error) {
