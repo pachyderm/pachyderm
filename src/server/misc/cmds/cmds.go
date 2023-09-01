@@ -227,7 +227,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	grpc := &cobra.Command{
 		Use:   "{{alias}} service.Method {msg}... ",
 		Short: "Call a gRPC method on the server.",
-		Long:  "Call a gRPC method on the server.",
+		Long:  "Call a gRPC method on the server.  With no args; prints all available methods.  With 1 arg; reads messages to send as JSON lines from stdin.  With >1 arg, sends each JSON-encoded argument as a message.",
 		Run: cmdutil.Run(func(args []string) error {
 			return gRPCParams{
 				Address: grpcAddress,

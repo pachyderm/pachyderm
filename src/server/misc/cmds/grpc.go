@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -74,10 +75,28 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		return errors.Errorf("no method %v", args[0])
 	}
 
+	var msgs []string
+	// If there's no more args, read messages from stdin.
+	if len(args) == 1 {
+		fmt.Fprintf(os.Stderr, "Reading messages from stdin; will send after EOF...\n")
+		s := bufio.NewScanner(os.Stdin)
+		for s.Scan() {
+			text := strings.TrimSpace(s.Text())
+			if text != "" {
+				msgs = append(msgs, s.Text())
+			}
+		}
+		if err := s.Err(); err != nil {
+			return errors.Wrap(err, "scan lines")
+		}
+	} else {
+		msgs = args[1:]
+	}
+
+	// Get a client connection.
 	ctx, c := signal.NotifyContext(ctx, signals.TerminationSignals...)
 	defer c()
 
-	// Get a client connection.
 	authCtx := ctx
 	var cc grpc.ClientConnInterface
 	if p.Address == "" {
@@ -122,7 +141,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 			return
 		}
 	}()
-	if err := f(authCtx, cc, w, args[1:]...); err != nil {
+	if err := f(authCtx, cc, w, msgs...); err != nil {
 		return errors.Wrap(err, "do RPC")
 	}
 	return nil
