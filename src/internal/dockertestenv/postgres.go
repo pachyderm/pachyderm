@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -32,7 +33,7 @@ func PGBouncerHost() string {
 
 func NewTestDBConfig(t testing.TB) pachconfig.ConfigOption {
 	var (
-		ctx     = context.Background()
+		ctx     = pctx.Background("testDB")
 		dbName  = testutil.GenerateEphemeralDBName(t)
 		dexName = testutil.UniqueString("dex")
 	)
@@ -163,7 +164,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			"POSTGRESQL_PASSWORD":                 "password",
 			"POSTGRESQL_HOST":                     postgresIP,
 			"POSTGRESQL_PORT":                     "5432",
-			"PGBOUNCER_MAX_CLIENT_CONN":           "1000",
+			"PGBOUNCER_MAX_CLIENT_CONN":           "100000",
 			"PGBOUNCER_POOL_MODE":                 "transaction",
 			"PGBOUNCER_IGNORE_STARTUP_PARAMETERS": "extra_float_digits",
 		},
