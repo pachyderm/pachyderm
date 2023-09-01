@@ -3,50 +3,48 @@ package pachd
 import (
 	"context"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
-// preflightBuilder builds a preflight-mode pachd instance.
-type preflightBuilder struct {
-	builder
+type PreFlightEnv struct {
+	// DB should be a direct database connection.
+	DB *sqlx.DB
 }
 
-func (pb *preflightBuilder) initServiceEnv(ctx context.Context) error {
-	pb.env = serviceenv.InitDBOnlyEnv(ctx, pb.config)
-	return nil
+// PreFlight is a minimal pachd for running preflight checks.
+type PreFlight struct {
+	base
+	env PreFlightEnv
 }
 
-func (pb *preflightBuilder) setupDB(ctx context.Context) error {
-	if err := dbutil.WaitUntilReady(ctx, pb.env.GetDBClient()); err != nil {
+func NewPreflight(env PreFlightEnv, config pachconfig.Configuration) *PreFlight {
+	pf := &PreFlight{env: env}
+	pf.setConfig(config)
+	pf.addSetup("print version", pf.printVersion)
+	pf.addSetup("tweak resources", pf.tweakResources)
+	pf.addSetup("await DB", pf.awaitDB)
+	pf.addSetup("test migrations", pf.testMigrations)
+	pf.addSetup("", pf.everythingOK)
+	return pf
+}
+
+func (pf *PreFlight) awaitDB(ctx context.Context) error {
+	if err := dbutil.WaitUntilReady(ctx, pf.env.DB); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (pb *preflightBuilder) testMigrations(ctx context.Context) error {
-	return preflight.TestMigrations(ctx, pb.env.GetDBClient())
+func (pf *PreFlight) testMigrations(ctx context.Context) error {
+	return preflight.TestMigrations(ctx, pf.env.DB)
 }
 
-func (pb *preflightBuilder) everythingOK(ctx context.Context) error {
+func (pf *PreFlight) everythingOK(ctx context.Context) error {
 	log.Info(ctx, "all preflight checks OK; it is safe to upgrade this environment to Pachyderm "+version.Version.Canonical())
 	return nil
-}
-
-func (pb *preflightBuilder) buildAndRun(ctx context.Context) error {
-	return pb.apply(ctx, pb.printVersion, pb.tweakResources, pb.initServiceEnv, pb.setupDB, pb.testMigrations, pb.everythingOK)
-}
-
-// PreflightMode runs pachd's preflight checks.  It is safe to run these at any time, even for a
-// version different than the currently-running full pachd version.
-func PreflightMode(ctx context.Context, config *pachconfig.PachdPreflightConfiguration) error {
-	log.SetLevel(log.DebugLevel)
-	b := &preflightBuilder{
-		builder: newBuilder(config, "pachyderm-pachd-preflight"),
-	}
-	return b.buildAndRun(ctx)
 }
