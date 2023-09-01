@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func (f *FakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
+func (f *Server) listHandler(w http.ResponseWriter, r *http.Request) {
 	// Get params from request
 	dir, page, perPage, err := f.getListParams(r.URL.Query())
 	if err != nil {
@@ -57,7 +57,7 @@ func (f *FakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 
 // getListParams is a helper for listHandler that pulls all relevant params out
 // of the request's query string & validates them.
-func (f *FakeGitHub) getListParams(query url.Values) (dir string, page, perPage int, err error) {
+func (f *Server) getListParams(query url.Values) (dir string, page, perPage int, err error) {
 	// set default values
 	dir = "desc"
 	page = 1

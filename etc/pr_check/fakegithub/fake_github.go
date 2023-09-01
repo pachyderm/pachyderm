@@ -8,15 +8,15 @@ import (
 	"time"
 )
 
-type FakeGitHub struct {
+type Server struct {
 	*http.ServeMux
 	prs          []*PR
 	pagesFetched int
 	nextPRNum    int
 }
 
-func newFakeGitHub() *FakeGitHub {
-	r := &FakeGitHub{
+func New() *Server {
+	r := &Server{
 		ServeMux: http.NewServeMux(),
 		prs:      make([]*PR, 0, 32),
 	}
@@ -25,7 +25,7 @@ func newFakeGitHub() *FakeGitHub {
 	return r
 }
 
-func (f *FakeGitHub) AddPR(title, body string, author *User, created time.Time) {
+func (f *Server) AddPR(title, body string, author *User, created time.Time) {
 	if created.IsZero() {
 		panic("must set 'created' time when calling AddPR")
 	}
@@ -47,7 +47,7 @@ func (f *FakeGitHub) AddPR(title, body string, author *User, created time.Time) 
 	f.prs[idx] = pr
 }
 
-func (f *FakeGitHub) defaultHandler(w http.ResponseWriter, r *http.Request) {
+func (f *Server) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(r.URL.Path, "api") {
 		// For some reason, go-github seems to spam /api and /apis, which AFAICT are
 		// not valid paths of api.github.com. Everything works if I return 404 for
@@ -58,6 +58,6 @@ func (f *FakeGitHub) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404 Not Found", http.StatusNotFound)
 }
 
-func (f *FakeGitHub) start() {
+func (f *Server) Start() {
 	go http.ListenAndServe(":8080", f)
 }
