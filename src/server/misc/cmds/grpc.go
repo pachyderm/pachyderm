@@ -62,8 +62,9 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		// Print RPCs.
 		methods := maps.Keys(handlers)
 		sort.Strings(methods)
-		fmt.Fprintf(os.Stderr, "Specify the RPC you'd like to call:\n%s",
-			strings.Join(methods, "\n"))
+		for _, m := range methods {
+			fmt.Println(m)
+		}
 		return nil
 	}
 
