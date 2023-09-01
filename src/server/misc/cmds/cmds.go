@@ -236,9 +236,9 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 			}.Run(ctx, pachctlCfg, os.Stdout, args)
 		}),
 	}
-	grpc.PersistentFlags().StringVar(&grpcAddress, "address", "", "If set, don't use the pach client to connect, but manually dial the provided GRPC address instead; url must be in a form like dns:/// or passthrough:///, not http:// or grpc://")
+	grpc.PersistentFlags().StringVar(&grpcAddress, "address", "", "If set, don't use the pach client to connect, but manually dial the provided GRPC address instead; url must be in a form like dns:/// or passthrough:///, not http:// or grpc://.")
 	grpc.PersistentFlags().BoolVar(&grpcTLS, "tls", false, "If set along with --address, use TLS to connect to the server.  The certificate is NOT checked for validity.")
-	grpc.PersistentFlags().StringSliceVarP(&grpcHeaders, "header", "H", nil, "foo")
+	grpc.PersistentFlags().StringSliceVarP(&grpcHeaders, "header", "H", nil, "Key=Value metadata to add to the request; repeatable.")
 	commands = append(commands, cmdutil.CreateAlias(grpc, "misc grpc"))
 
 	misc := &cobra.Command{
