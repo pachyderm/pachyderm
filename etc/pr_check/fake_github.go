@@ -11,14 +11,14 @@ import (
 
 type fakeGitHub struct {
 	*http.ServeMux
-	prs          []map[string]interface{}
+	prs          []*prSpec
 	pagesFetched int
 }
 
 func newFakeGitHub() *fakeGitHub {
 	r := &fakeGitHub{
 		ServeMux: http.NewServeMux(),
-		prs:      make([]map[string]interface{}, 0, 25),
+		prs:      make([]*prSpec, 0, 32),
 	}
 	fakePRs, err := os.Open("fake_github_prs.json")
 	if err != nil {
@@ -76,9 +76,11 @@ func (f *fakeGitHub) listHandler(w http.ResponseWriter, r *http.Request) {
 	endIdx := min(startIdx+resultsPerPage, len(f.prs))
 	resp := f.prs[startIdx:endIdx]
 	if direction == "desc" {
-		resp = make([]map[string]interface{}, endIdx-startIdx)
-		for i := 0; i < endIdx-startIdx; i++ {
-			resp[i] = f.prs[len(f.prs)-startIdx-1-i]
+		resp = make([]*prSpec, endIdx-startIdx)
+		// like copy(), but iterate through f.prs backwards (startIdx is "distance
+		// from the last item" in this case)
+		for i := 0; i < len(resp); i++ {
+			resp[i] = f.prs[len(f.prs)-1-startIdx-i]
 		}
 	}
 
