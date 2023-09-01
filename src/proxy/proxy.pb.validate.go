@@ -57,7 +57,16 @@ func (m *ListenRequest) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Channel
+	if len(m.GetChannel()) < 1 {
+		err := ListenRequestValidationError{
+			field:  "Channel",
+			reason: "value length must be at least 1 bytes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return ListenRequestMultiError(errors)

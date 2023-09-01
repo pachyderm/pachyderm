@@ -294,6 +294,17 @@ func (m *SetIdentityServerConfigRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetConfig() == nil {
+		err := SetIdentityServerConfigRequestValidationError{
+			field:  "Config",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetConfig()).(type) {
 		case interface{ ValidateAll() error }:
@@ -902,6 +913,17 @@ func (m *CreateIDPConnectorRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetConnector() == nil {
+		err := CreateIDPConnectorRequestValidationError{
+			field:  "Connector",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetConnector()).(type) {
 		case interface{ ValidateAll() error }:
@@ -1134,6 +1156,17 @@ func (m *UpdateIDPConnectorRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetConnector() == nil {
+		err := UpdateIDPConnectorRequestValidationError{
+			field:  "Connector",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetConnector()).(type) {
@@ -2152,6 +2185,17 @@ func (m *CreateOIDCClientRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetClient() == nil {
+		err := CreateOIDCClientRequestValidationError{
+			field:  "Client",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetClient()).(type) {
 		case interface{ ValidateAll() error }:
@@ -2886,6 +2930,17 @@ func (m *UpdateOIDCClientRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetClient() == nil {
+		err := UpdateOIDCClientRequestValidationError{
+			field:  "Client",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetClient()).(type) {

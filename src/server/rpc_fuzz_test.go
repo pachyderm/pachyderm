@@ -66,7 +66,7 @@ func rangeRPCs(f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDes
 }
 
 func TestEmptyRequests(t *testing.T) {
-	ctx := pctx.TestContext(t)
+	ctx := context.Background()
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(t, env.PachClient, peerPort)
@@ -104,10 +104,15 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 		t.Log(err)
 		if s, ok := status.FromError(err); ok {
 			switch {
+			case s.Code() == codes.Aborted && strings.Contains(s.Message(), "panic: "):
+				t.Fatal(err)
 			case strings.Contains(s.Message(), "pachd mock"):
 				t.Skip("skipping method that has no mock")
 			case strings.Contains(s.Message(), "not activated"):
 				t.Fatal("auth not activated?")
+			case strings.Contains(s.Message(), "already activated"):
+				// This is fine and is a useful test.
+				return
 			case s.Code() == codes.Unimplemented:
 				t.Skip("skipping unimplemented method/service")
 			case s.Code() == codes.Unauthenticated:
