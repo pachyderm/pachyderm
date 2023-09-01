@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -2046,10 +2047,12 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnaryServerInterceptor,
+		validation.UnaryServerInterceptor,
 	}
 	streamOpts := []grpc.StreamServerInterceptor{
 		errorsmw.StreamServerInterceptor,
 		loggingInterceptor.StreamServerInterceptor,
+		validation.StreamServerInterceptor,
 	}
 	for _, opt := range options {
 		interceptor := opt(mock)
