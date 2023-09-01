@@ -64,7 +64,9 @@ describe('FileBrowser', () => {
           $links[3].click();
         });
 
-      cy.findByText('58.65 kB');
+      cy.findByRole('dialog').within(() => {
+        cy.findByText('58.65 kB');
+      });
     });
   });
 

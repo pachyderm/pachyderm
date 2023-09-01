@@ -65,12 +65,7 @@ const FileBrowser: React.FC = () => {
   return (
     <>
       <BrandedTitle title="Files" />
-      <FullPagePanelModal
-        show={isOpen}
-        onHide={handleHide}
-        hideType="exit"
-        className={styles.fullModal}
-      >
+      <FullPagePanelModal show={isOpen} onHide={handleHide}>
         <LeftPanel selectedCommitId={selectedCommitId} />
         <FullPagePanelModal.Body>
           <div className={styles.base}>

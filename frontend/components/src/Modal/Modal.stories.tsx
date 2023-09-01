@@ -184,7 +184,7 @@ export const FullPage = () => {
   return (
     <>
       <Button onClick={openModal}>Open Modal</Button>
-      <FullPageModal show={isOpen} onHide={closeModal} hideType="exit">
+      <FullPageModal show={isOpen} onHide={closeModal}>
         This is a full page modal
       </FullPageModal>
     </>
@@ -197,7 +197,7 @@ export const FullPagePanel = () => {
   return (
     <>
       <Button onClick={openModal}>Open Modal</Button>
-      <FullPagePanelModal show={isOpen} onHide={closeModal} hideType="exit">
+      <FullPagePanelModal show={isOpen} onHide={closeModal}>
         <FullPagePanelModal.LeftPanel
           isExpanded={isExpanded}
           setIsExpanded={setIsExpanded}

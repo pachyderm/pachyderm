@@ -26,7 +26,6 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
         <FullPagePanelModal
           show={isOpen}
           onHide={onClose}
-          hideType="exit"
           hideLeftPanel={isServiceOrSpout}
         >
           {isServiceOrSpout && (

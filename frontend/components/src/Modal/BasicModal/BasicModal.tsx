@@ -63,7 +63,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
       onHide={onHide}
       onShow={onShow}
       className={className}
-      small={small}
+      mode={small ? 'Small' : 'Default'}
     >
       {modalStatus ? (
         <Modal.Status status={modalStatus}>

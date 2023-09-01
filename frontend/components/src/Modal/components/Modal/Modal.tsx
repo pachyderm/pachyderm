@@ -15,8 +15,9 @@ type ModalProps = {
   onHide?: () => void;
   onShow?: () => void;
   className?: string;
-  small?: boolean;
+  mode?: 'Small' | 'Default' | 'FullPage' | 'FullPagePanel';
   children?: React.ReactNode;
+  noCloseButton?: boolean;
 };
 
 const Modal = ({
@@ -25,7 +26,8 @@ const Modal = ({
   onHide = noop,
   onShow = noop,
   className,
-  small = false,
+  mode = 'Default',
+  noCloseButton = false,
 }: ModalProps) => {
   const {showing, animation} = usePopUp(show);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -37,6 +39,15 @@ const Modal = ({
       onShow();
     }
   }, [show, onShow]);
+
+  useEffect(() => {
+    if (showing) {
+      document.getElementById('root')?.setAttribute('aria-hidden', 'true');
+    }
+
+    return () =>
+      document.getElementById('root')?.removeAttribute('aria-hidden');
+  });
 
   return (
     <>
@@ -50,24 +61,24 @@ const Modal = ({
               aria-hidden
             />
             <div
-              className={classNames(animation, className, styles.modalWrapper, {
-                [styles.small]: small,
-              })}
+              className={classNames(animation, styles.modalWrapper, className)}
               ref={modalRef}
               role="dialog"
               aria-modal="true"
             >
-              <div className={styles.modalDialog}>
-                <div className={styles.modalContent}>
-                  <Button
-                    aria-label="Close"
-                    data-testid="Modal__close"
-                    onClick={onHide}
-                    className={styles.close}
-                    IconSVG={CloseSVG}
-                    buttonType="ghost"
-                    color="black"
-                  />
+              <div className={styles[`modalDialog${mode}`]}>
+                <div className={styles[`modalContent${mode}`]}>
+                  {!noCloseButton && (
+                    <Button
+                      aria-label="Close"
+                      data-testid="Modal__close"
+                      onClick={onHide}
+                      className={styles.close}
+                      IconSVG={CloseSVG}
+                      buttonType="ghost"
+                      color="black"
+                    />
+                  )}
                   {children}
                 </div>
               </div>

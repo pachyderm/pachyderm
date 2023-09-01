@@ -1,8 +1,6 @@
 import noop from 'lodash/noop';
 import {createContext} from 'react';
-import {ModalProps as BootstrapModalProps} from 'react-bootstrap/Modal';
-export interface IModalContext
-  extends Omit<BootstrapModalProps, 'show' | 'onHide' | 'onShow'> {
+export interface IModalContext {
   show: boolean;
   leftOpen: boolean;
   rightOpen: boolean;

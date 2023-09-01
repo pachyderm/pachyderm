@@ -53,7 +53,7 @@ const FileUpload: React.FC = () => {
     <>
       <BrandedTitle title="Upload Files" />
       {isOpen && (
-        <FullPageModal hideType="exit" show={isOpen} onHide={onClose}>
+        <FullPageModal show={isOpen} onHide={onClose}>
           <Form
             formContext={formCtx}
             className={styles.form}
