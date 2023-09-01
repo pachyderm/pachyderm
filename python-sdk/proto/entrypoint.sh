@@ -47,7 +47,7 @@ sed -i "s/version.API/versionpb_v2.API/" ${OUTDIR}/version/__init__.py
 sed -i "s/worker.Worker/pachyderm.worker.Worker/" ${OUTDIR}/worker/__init__.py
 
 # Clean up
-rm -rf api/log api/protoc
+rm -rf api/log api/protoc api/validate
 find ${OUTDIR} -empty -type d -delete
 
 tar cf - ${OUTDIR}

@@ -26,6 +26,7 @@ import (
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -190,12 +191,14 @@ func (b *builder) initInternalServer(ctx context.Context) error {
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
 			b.loggingInterceptor.UnaryServerInterceptor,
+			validation.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
 			b.loggingInterceptor.StreamServerInterceptor,
+			validation.StreamServerInterceptor,
 		),
 	)
 	return err

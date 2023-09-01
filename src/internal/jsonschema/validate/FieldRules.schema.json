@@ -1,0 +1,1562 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/FieldRules",
+    "definitions": {
+        "FieldRules": {
+            "properties": {
+                "message": {
+                    "$ref": "#/definitions/validate.MessageRules",
+                    "additionalProperties": false
+                },
+                "float": {
+                    "$ref": "#/definitions/validate.FloatRules",
+                    "additionalProperties": false,
+                    "description": "Scalar Field Types"
+                },
+                "double": {
+                    "$ref": "#/definitions/validate.DoubleRules",
+                    "additionalProperties": false
+                },
+                "int32": {
+                    "$ref": "#/definitions/validate.Int32Rules",
+                    "additionalProperties": false
+                },
+                "int64": {
+                    "$ref": "#/definitions/validate.Int64Rules",
+                    "additionalProperties": false
+                },
+                "uint32": {
+                    "$ref": "#/definitions/validate.UInt32Rules",
+                    "additionalProperties": false
+                },
+                "uint64": {
+                    "$ref": "#/definitions/validate.UInt64Rules",
+                    "additionalProperties": false
+                },
+                "sint32": {
+                    "$ref": "#/definitions/validate.SInt32Rules",
+                    "additionalProperties": false
+                },
+                "sint64": {
+                    "$ref": "#/definitions/validate.SInt64Rules",
+                    "additionalProperties": false
+                },
+                "fixed32": {
+                    "$ref": "#/definitions/validate.Fixed32Rules",
+                    "additionalProperties": false
+                },
+                "fixed64": {
+                    "$ref": "#/definitions/validate.Fixed64Rules",
+                    "additionalProperties": false
+                },
+                "sfixed32": {
+                    "$ref": "#/definitions/validate.SFixed32Rules",
+                    "additionalProperties": false
+                },
+                "sfixed64": {
+                    "$ref": "#/definitions/validate.SFixed64Rules",
+                    "additionalProperties": false
+                },
+                "bool": {
+                    "$ref": "#/definitions/validate.BoolRules",
+                    "additionalProperties": false
+                },
+                "string": {
+                    "$ref": "#/definitions/validate.StringRules",
+                    "additionalProperties": false
+                },
+                "bytes": {
+                    "$ref": "#/definitions/validate.BytesRules",
+                    "additionalProperties": false
+                },
+                "enum": {
+                    "$ref": "#/definitions/validate.EnumRules",
+                    "additionalProperties": false,
+                    "description": "Complex Field Types"
+                },
+                "repeated": {
+                    "$ref": "#/definitions/validate.RepeatedRules",
+                    "additionalProperties": false
+                },
+                "map": {
+                    "$ref": "#/definitions/validate.MapRules",
+                    "additionalProperties": false
+                },
+                "any": {
+                    "$ref": "#/definitions/validate.AnyRules",
+                    "additionalProperties": false,
+                    "description": "Well-Known Field Types"
+                },
+                "duration": {
+                    "$ref": "#/definitions/validate.DurationRules",
+                    "additionalProperties": false
+                },
+                "timestamp": {
+                    "$ref": "#/definitions/validate.TimestampRules",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "float"
+                    ]
+                },
+                {
+                    "required": [
+                        "double"
+                    ]
+                },
+                {
+                    "required": [
+                        "int32"
+                    ]
+                },
+                {
+                    "required": [
+                        "int64"
+                    ]
+                },
+                {
+                    "required": [
+                        "uint32"
+                    ]
+                },
+                {
+                    "required": [
+                        "uint64"
+                    ]
+                },
+                {
+                    "required": [
+                        "sint32"
+                    ]
+                },
+                {
+                    "required": [
+                        "sint64"
+                    ]
+                },
+                {
+                    "required": [
+                        "fixed32"
+                    ]
+                },
+                {
+                    "required": [
+                        "fixed64"
+                    ]
+                },
+                {
+                    "required": [
+                        "sfixed32"
+                    ]
+                },
+                {
+                    "required": [
+                        "sfixed64"
+                    ]
+                },
+                {
+                    "required": [
+                        "bool"
+                    ]
+                },
+                {
+                    "required": [
+                        "string"
+                    ]
+                },
+                {
+                    "required": [
+                        "bytes"
+                    ]
+                },
+                {
+                    "required": [
+                        "enum"
+                    ]
+                },
+                {
+                    "required": [
+                        "repeated"
+                    ]
+                },
+                {
+                    "required": [
+                        "map"
+                    ]
+                },
+                {
+                    "required": [
+                        "any"
+                    ]
+                },
+                {
+                    "required": [
+                        "duration"
+                    ]
+                },
+                {
+                    "required": [
+                        "timestamp"
+                    ]
+                }
+            ],
+            "title": "Field Rules",
+            "description": "FieldRules encapsulates the rules for each type of field. Depending on the field, the correct set should be used to ensure proper validations."
+        },
+        "validate.AnyRules": {
+            "properties": {
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                },
+                "in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field's `type_url` must be equal to one of the specified values."
+                },
+                "not_in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field's `type_url` must not be equal to any of the specified values."
+                },
+                "notIn": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field's `type_url` must not be equal to any of the specified values."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Any Rules",
+            "description": "AnyRules describe constraints applied exclusively to the `google.protobuf.Any` well-known type"
+        },
+        "validate.BoolRules": {
+            "properties": {
+                "const": {
+                    "type": "boolean",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Bool Rules",
+            "description": "BoolRules describes the constraints applied to `bool` values"
+        },
+        "validate.BytesRules": {
+            "properties": {
+                "const": {
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "len": {
+                    "type": "integer",
+                    "description": "Len specifies that this field must be the specified number of bytes"
+                },
+                "min_len": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "minLen": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "max_len": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "maxLen": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Pattern specifes that this field must match against the specified regular expression (RE2 syntax). The included expression should elide any delimiters."
+                },
+                "prefix": {
+                    "type": "string",
+                    "description": "Prefix specifies that this field must have the specified bytes at the beginning of the string.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "suffix": {
+                    "type": "string",
+                    "description": "Suffix specifies that this field must have the specified bytes at the end of the string.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "contains": {
+                    "type": "string",
+                    "description": "Contains specifies that this field must have the specified bytes anywhere in the string.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "ip": {
+                    "type": "boolean",
+                    "description": "Ip specifies that the field must be a valid IP (v4 or v6) address in byte format"
+                },
+                "ipv4": {
+                    "type": "boolean",
+                    "description": "Ipv4 specifies that the field must be a valid IPv4 address in byte format"
+                },
+                "ipv6": {
+                    "type": "boolean",
+                    "description": "Ipv6 specifies that the field must be a valid IPv6 address in byte format"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "ip"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv4"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv6"
+                    ]
+                }
+            ],
+            "title": "Bytes Rules",
+            "description": "BytesRules describe the constraints applied to `bytes` values"
+        },
+        "validate.DoubleRules": {
+            "properties": {
+                "const": {
+                    "type": "number",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "number",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "number",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "number",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "number",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Double Rules",
+            "description": "DoubleRules describes the constraints applied to `double` values"
+        },
+        "validate.DurationRules": {
+            "properties": {
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                },
+                "const": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value",
+                    "format": "regex"
+                },
+                "lt": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive",
+                    "format": "regex"
+                },
+                "lte": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Lt specifies that this field must be less than the specified value, inclusive",
+                    "format": "regex"
+                },
+                "gt": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive",
+                    "format": "regex"
+                },
+                "gte": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Gte specifies that this field must be greater than the specified value, inclusive",
+                    "format": "regex"
+                },
+                "in": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values",
+                    "format": "regex"
+                },
+                "not_in": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "regex"
+                },
+                "notIn": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Duration Rules",
+            "description": "DurationRules describe the constraints applied exclusively to the `google.protobuf.Duration` well-known type"
+        },
+        "validate.EnumRules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "defined_only": {
+                    "type": "boolean",
+                    "description": "DefinedOnly specifies that this field must be only one of the defined values for this enum, failing on any undefined value."
+                },
+                "definedOnly": {
+                    "type": "boolean",
+                    "description": "DefinedOnly specifies that this field must be only one of the defined values for this enum, failing on any undefined value."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Enum Rules",
+            "description": "EnumRules describe the constraints applied to enum values"
+        },
+        "validate.Fixed32Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Fixed 32 Rules",
+            "description": "Fixed32Rules describes the constraints applied to `fixed32` values"
+        },
+        "validate.Fixed64Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Fixed 64 Rules",
+            "description": "Fixed64Rules describes the constraints applied to `fixed64` values"
+        },
+        "validate.FloatRules": {
+            "properties": {
+                "const": {
+                    "type": "number",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "number",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "number",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "number",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "number",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Float Rules",
+            "description": "FloatRules describes the constraints applied to `float` values"
+        },
+        "validate.Int32Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Int 32 Rules",
+            "description": "Int32Rules describes the constraints applied to `int32` values"
+        },
+        "validate.Int64Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Int 64 Rules",
+            "description": "Int64Rules describes the constraints applied to `int64` values"
+        },
+        "validate.MapRules": {
+            "properties": {
+                "min_pairs": {
+                    "type": "integer",
+                    "description": "MinPairs specifies that this field must have the specified number of KVs at a minimum"
+                },
+                "minPairs": {
+                    "type": "integer",
+                    "description": "MinPairs specifies that this field must have the specified number of KVs at a minimum"
+                },
+                "max_pairs": {
+                    "type": "integer",
+                    "description": "MaxPairs specifies that this field must have the specified number of KVs at a maximum"
+                },
+                "maxPairs": {
+                    "type": "integer",
+                    "description": "MaxPairs specifies that this field must have the specified number of KVs at a maximum"
+                },
+                "no_sparse": {
+                    "type": "boolean",
+                    "description": "NoSparse specifies values in this field cannot be unset. This only applies to map's with message value types."
+                },
+                "noSparse": {
+                    "type": "boolean",
+                    "description": "NoSparse specifies values in this field cannot be unset. This only applies to map's with message value types."
+                },
+                "keys": {
+                    "$ref": "#/definitions/FieldRules",
+                    "additionalProperties": false,
+                    "description": "Keys specifies the constraints to be applied to each key in the field."
+                },
+                "values": {
+                    "$ref": "#/definitions/FieldRules",
+                    "additionalProperties": false,
+                    "description": "Values specifies the constraints to be applied to the value of each key in the field. Message values will still have their validations evaluated unless skip is specified here."
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Map Rules",
+            "description": "MapRules describe the constraints applied to `map` values"
+        },
+        "validate.MessageRules": {
+            "properties": {
+                "skip": {
+                    "type": "boolean",
+                    "description": "Skip specifies that the validation rules of this field should not be evaluated"
+                },
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Message Rules",
+            "description": "MessageRules describe the constraints applied to embedded message values. For message-type fields, validation is performed recursively."
+        },
+        "validate.RepeatedRules": {
+            "properties": {
+                "min_items": {
+                    "type": "integer",
+                    "description": "MinItems specifies that this field must have the specified number of items at a minimum"
+                },
+                "minItems": {
+                    "type": "integer",
+                    "description": "MinItems specifies that this field must have the specified number of items at a minimum"
+                },
+                "max_items": {
+                    "type": "integer",
+                    "description": "MaxItems specifies that this field must have the specified number of items at a maximum"
+                },
+                "maxItems": {
+                    "type": "integer",
+                    "description": "MaxItems specifies that this field must have the specified number of items at a maximum"
+                },
+                "unique": {
+                    "type": "boolean",
+                    "description": "Unique specifies that all elements in this field must be unique. This contraint is only applicable to scalar and enum types (messages are not supported)."
+                },
+                "items": {
+                    "$ref": "#/definitions/FieldRules",
+                    "additionalProperties": false,
+                    "description": "Items specifies the contraints to be applied to each item in the field. Repeated message fields will still execute validation against each item unless skip is specified here."
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repeated Rules",
+            "description": "RepeatedRules describe the constraints applied to `repeated` values"
+        },
+        "validate.SFixed32Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "S Fixed 32 Rules",
+            "description": "SFixed32Rules describes the constraints applied to `sfixed32` values"
+        },
+        "validate.SFixed64Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "S Fixed 64 Rules",
+            "description": "SFixed64Rules describes the constraints applied to `sfixed64` values"
+        },
+        "validate.SInt32Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "S Int 32 Rules",
+            "description": "SInt32Rules describes the constraints applied to `sint32` values"
+        },
+        "validate.SInt64Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "S Int 64 Rules",
+            "description": "SInt64Rules describes the constraints applied to `sint64` values"
+        },
+        "validate.StringRules": {
+            "properties": {
+                "const": {
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "len": {
+                    "type": "integer",
+                    "description": "Len specifies that this field must be the specified number of characters (Unicode code points). Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "min_len": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of characters (Unicode code points) at a minimum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "minLen": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of characters (Unicode code points) at a minimum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "max_len": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of characters (Unicode code points) at a maximum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "maxLen": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of characters (Unicode code points) at a maximum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "len_bytes": {
+                    "type": "integer",
+                    "description": "LenBytes specifies that this field must be the specified number of bytes"
+                },
+                "lenBytes": {
+                    "type": "integer",
+                    "description": "LenBytes specifies that this field must be the specified number of bytes"
+                },
+                "min_bytes": {
+                    "type": "integer",
+                    "description": "MinBytes specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "minBytes": {
+                    "type": "integer",
+                    "description": "MinBytes specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "description": "MaxBytes specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "maxBytes": {
+                    "type": "integer",
+                    "description": "MaxBytes specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Pattern specifes that this field must match against the specified regular expression (RE2 syntax). The included expression should elide any delimiters."
+                },
+                "prefix": {
+                    "type": "string",
+                    "description": "Prefix specifies that this field must have the specified substring at the beginning of the string."
+                },
+                "suffix": {
+                    "type": "string",
+                    "description": "Suffix specifies that this field must have the specified substring at the end of the string."
+                },
+                "contains": {
+                    "type": "string",
+                    "description": "Contains specifies that this field must have the specified substring anywhere in the string."
+                },
+                "not_contains": {
+                    "type": "string",
+                    "description": "NotContains specifies that this field cannot have the specified substring anywhere in the string."
+                },
+                "notContains": {
+                    "type": "string",
+                    "description": "NotContains specifies that this field cannot have the specified substring anywhere in the string."
+                },
+                "in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "email": {
+                    "type": "boolean",
+                    "description": "Email specifies that the field must be a valid email address as defined by RFC 5322"
+                },
+                "hostname": {
+                    "type": "boolean",
+                    "description": "Hostname specifies that the field must be a valid hostname as defined by RFC 1034. This constraint does not support internationalized domain names (IDNs)."
+                },
+                "ip": {
+                    "type": "boolean",
+                    "description": "Ip specifies that the field must be a valid IP (v4 or v6) address. Valid IPv6 addresses should not include surrounding square brackets."
+                },
+                "ipv4": {
+                    "type": "boolean",
+                    "description": "Ipv4 specifies that the field must be a valid IPv4 address."
+                },
+                "ipv6": {
+                    "type": "boolean",
+                    "description": "Ipv6 specifies that the field must be a valid IPv6 address. Valid IPv6 addresses should not include surrounding square brackets."
+                },
+                "uri": {
+                    "type": "boolean",
+                    "description": "Uri specifies that the field must be a valid, absolute URI as defined by RFC 3986"
+                },
+                "uri_ref": {
+                    "type": "boolean",
+                    "description": "UriRef specifies that the field must be a valid URI as defined by RFC 3986 and may be relative or absolute."
+                },
+                "uriRef": {
+                    "type": "boolean",
+                    "description": "UriRef specifies that the field must be a valid URI as defined by RFC 3986 and may be relative or absolute."
+                },
+                "address": {
+                    "type": "boolean",
+                    "description": "Address specifies that the field must be either a valid hostname as defined by RFC 1034 (which does not support internationalized domain names or IDNs), or it can be a valid IP (v4 or v6)."
+                },
+                "uuid": {
+                    "type": "boolean",
+                    "description": "Uuid specifies that the field must be a valid UUID as defined by RFC 4122"
+                },
+                "well_known_regex": {
+                    "enum": [
+                        "UNKNOWN",
+                        "HTTP_HEADER_NAME",
+                        "HTTP_HEADER_VALUE"
+                    ],
+                    "type": "string",
+                    "title": "Known Regex",
+                    "description": "WellKnownRegex contain some well-known patterns."
+                },
+                "wellKnownRegex": {
+                    "enum": [
+                        "UNKNOWN",
+                        "HTTP_HEADER_NAME",
+                        "HTTP_HEADER_VALUE"
+                    ],
+                    "type": "string",
+                    "title": "Known Regex",
+                    "description": "WellKnownRegex contain some well-known patterns."
+                },
+                "strict": {
+                    "type": "boolean",
+                    "description": "This applies to regexes HTTP_HEADER_NAME and HTTP_HEADER_VALUE to enable strict header validation. By default, this is true, and HTTP header validations are RFC-compliant. Setting to false will enable a looser validations that only disallows \\r\\n\\0 characters, which can be used to bypass header matching rules."
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "email"
+                    ]
+                },
+                {
+                    "required": [
+                        "hostname"
+                    ]
+                },
+                {
+                    "required": [
+                        "ip"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv4"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv6"
+                    ]
+                },
+                {
+                    "required": [
+                        "uri"
+                    ]
+                },
+                {
+                    "required": [
+                        "uri_ref"
+                    ]
+                },
+                {
+                    "required": [
+                        "address"
+                    ]
+                },
+                {
+                    "required": [
+                        "uuid"
+                    ]
+                },
+                {
+                    "required": [
+                        "well_known_regex"
+                    ]
+                }
+            ],
+            "title": "String Rules",
+            "description": "StringRules describe the constraints applied to `string` values"
+        },
+        "validate.TimestampRules": {
+            "properties": {
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                },
+                "const": {
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value",
+                    "format": "date-time"
+                },
+                "lt": {
+                    "type": "string",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive",
+                    "format": "date-time"
+                },
+                "lte": {
+                    "type": "string",
+                    "description": "Lte specifies that this field must be less than the specified value, inclusive",
+                    "format": "date-time"
+                },
+                "gt": {
+                    "type": "string",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive",
+                    "format": "date-time"
+                },
+                "gte": {
+                    "type": "string",
+                    "description": "Gte specifies that this field must be greater than the specified value, inclusive",
+                    "format": "date-time"
+                },
+                "lt_now": {
+                    "type": "boolean",
+                    "description": "LtNow specifies that this must be less than the current time. LtNow can only be used with the Within rule."
+                },
+                "ltNow": {
+                    "type": "boolean",
+                    "description": "LtNow specifies that this must be less than the current time. LtNow can only be used with the Within rule."
+                },
+                "gt_now": {
+                    "type": "boolean",
+                    "description": "GtNow specifies that this must be greater than the current time. GtNow can only be used with the Within rule."
+                },
+                "gtNow": {
+                    "type": "boolean",
+                    "description": "GtNow specifies that this must be greater than the current time. GtNow can only be used with the Within rule."
+                },
+                "within": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Within specifies that this field must be within this duration of the current time. This constraint can be used alone or with the LtNow and GtNow rules.",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Timestamp Rules",
+            "description": "TimestampRules describe the constraints applied exclusively to the `google.protobuf.Timestamp` well-known type"
+        },
+        "validate.UInt32Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "U Int 32 Rules",
+            "description": "UInt32Rules describes the constraints applied to `uint32` values"
+        },
+        "validate.UInt64Rules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "lt": {
+                    "type": "integer",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive"
+                },
+                "lte": {
+                    "type": "integer",
+                    "description": "Lte specifies that this field must be less than or equal to the specified value, inclusive"
+                },
+                "gt": {
+                    "type": "integer",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive. If the value of Gt is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "gte": {
+                    "type": "integer",
+                    "description": "Gte specifies that this field must be greater than or equal to the specified value, inclusive. If the value of Gte is larger than a specified Lt or Lte, the range is reversed."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "U Int 64 Rules",
+            "description": "UInt64Rules describes the constraints applied to `uint64` values"
+        }
+    }
+}
