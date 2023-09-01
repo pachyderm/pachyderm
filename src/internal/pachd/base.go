@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// setupSteps are run serially before the any of the background tasks
 type setupStep struct {
 	Name string
 	Fn   func(context.Context) error
@@ -20,9 +21,11 @@ type setupStep struct {
 type base struct {
 	setup      []setupStep
 	background map[string]func(context.Context) error
-	done       bool
+
+	done bool
 }
 
+// addSetup adds a setupStep
 func (b *base) addSetup(name string, fn func(context.Context) error) {
 	b.setup = append(b.setup, setupStep{
 		Name: name,
@@ -30,13 +33,20 @@ func (b *base) addSetup(name string, fn func(context.Context) error) {
 	})
 }
 
+// addBackground adds a background task
 func (b *base) addBackground(name string, fn func(context.Context) error) {
+	if b.background == nil {
+		b.background = make(map[string]func(context.Context) error)
+	}
 	if _, exists := b.background[name]; exists {
 		panic(fmt.Sprintf("2 background functions with same name %q", name))
 	}
 	b.background[name] = fn
 }
 
+// Run runs all the setup steps serially, returning the first error encountered.
+// Then all the background tasks are run concurrently, if any of them error then
+// the others are cancelled, and Run returns the error.
 func (b *base) Run(ctx context.Context) error {
 	if b.done {
 		panic("pachd has already been run")
@@ -61,7 +71,7 @@ func (b *base) Run(ctx context.Context) error {
 			return fn(ctx)
 		})
 	}
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 func (b *base) printVersion(ctx context.Context) error {

@@ -28,7 +28,9 @@ func NewPreflight(env PreFlightEnv, config pachconfig.PachdPreflightConfiguratio
 	pf.addSetup("print version", pf.printVersion)
 	pf.addSetup("await DB", pf.awaitDB)
 	pf.addSetup("test migrations", pf.testMigrations)
-	pf.addSetup("", pf.everythingOK)
+	pf.addSetup("OK", pf.everythingOK)
+	// TODO: remove
+	pf.addBackground("", func(context.Context) error { return nil })
 	return pf
 }
 

@@ -1,11 +1,11 @@
 package setupenv
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/dlmiddlecote/sqlstats"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,7 +27,7 @@ func openDirectDB(config pachconfig.PostgresConfiguration) (*pachsql.DB, error) 
 		return nil, err
 	}
 	if err := prometheus.Register(sqlstats.NewStatsCollector("direct", db)); err != nil {
-		return nil, fmt.Errorf("problem registering stats collector for direct db client: %w", err)
+		return nil, errors.Errorf("problem registering stats collector for direct db client: %w", err)
 	}
 	return db, nil
 }
