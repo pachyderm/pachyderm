@@ -1381,6 +1381,17 @@ func (m *InspectTransactionRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetTransaction() == nil {
+		err := InspectTransactionRequestValidationError{
+			field:  "Transaction",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetTransaction()).(type) {
 		case interface{ ValidateAll() error }:
@@ -1511,6 +1522,17 @@ func (m *DeleteTransactionRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetTransaction() == nil {
+		err := DeleteTransactionRequestValidationError{
+			field:  "Transaction",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetTransaction()).(type) {
@@ -1744,6 +1766,17 @@ func (m *FinishTransactionRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if m.GetTransaction() == nil {
+		err := FinishTransactionRequestValidationError{
+			field:  "Transaction",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetTransaction()).(type) {
