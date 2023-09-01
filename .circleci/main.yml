@@ -235,6 +235,67 @@ jobs:
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
       - collect-test-results
+  static-checks:
+    resource_class: 2xlarge
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      GOPROXY: https://proxy.golang.org
+      TEST_RESULTS: /tmp/test-results
+    steps:
+      - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+      - run: etc/testing/circle/install.sh
+      - save_cache:
+          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+          paths:
+            - cached-deps/
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - run: mkdir ${TEST_RESULTS}
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+      - save_cache:
+          key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/.go_workspace/pkg/mod
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
+      - run:
+          no_output_timeout: 20m
+          command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     parameters:
       bucket:
@@ -1535,6 +1596,7 @@ workflows:
       - jsonnet-lint
       - test-go
       - govulncheck
+      - static-checks
       - test-envoy
       - test-pps
       - integration-tests:
@@ -1747,6 +1809,8 @@ workflows:
           filters: *only-release-tags
       - test-pps:
           filters: *only-release-tags
+      - static-checks:
+          filters: *only-release-tags
       - integration-tests:
           matrix:
             parameters:
@@ -1770,6 +1834,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-tests
+            - static-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -1971,6 +2036,8 @@ workflows:
           filters: *only-nightly-tags
       - test-pps:
           filters: *only-nightly-tags
+      - static-checks:
+          filters: *only-nightly-tags
       - integration-tests:
           matrix:
             parameters:
@@ -1985,6 +2052,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
+            - static-checks
             - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
@@ -1994,6 +2062,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
+            - static-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
