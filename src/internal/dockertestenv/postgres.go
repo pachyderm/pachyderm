@@ -164,7 +164,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			"POSTGRESQL_PASSWORD":                 "password",
 			"POSTGRESQL_HOST":                     postgresIP,
 			"POSTGRESQL_PORT":                     "5432",
-			"PGBOUNCER_MAX_CLIENT_CONN":           "100000",
+			"PGBOUNCER_MAX_CLIENT_CONN":           "100",
 			"PGBOUNCER_POOL_MODE":                 "transaction",
 			"PGBOUNCER_IGNORE_STARTUP_PARAMETERS": "extra_float_digits",
 		},
