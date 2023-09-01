@@ -27,7 +27,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/pachyderm/pachyderm/v2/src/worker"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -68,7 +70,7 @@ func TestEmptyRequests(t *testing.T) {
 				name := string(sd.FullName()) + "." + string(md.Name())
 				t.Run(name, func(t *testing.T) {
 					if strings.Contains(name, "RunLoadTest") {
-						t.Skip()
+						t.Skip("skipping load tests")
 					}
 					ctx, c := context.WithTimeout(pctx.Child(ctx, name), 5*time.Second)
 					testRPC(ctx, t, sd, md, cc, &emptypb.Empty{})
@@ -84,5 +86,10 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 	reply := &emptypb.Empty{}
 	if err := cc.Invoke(ctx, fullName, req, reply); err != nil {
 		t.Log(err)
+		if s, ok := status.FromError(err); ok {
+			if s.Code() == codes.Unimplemented || strings.Contains(s.Message(), "pachd mock") {
+				t.Skip("skipping method that has no mock")
+			}
+		}
 	}
 }

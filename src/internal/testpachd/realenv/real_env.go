@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
@@ -56,6 +57,7 @@ type RealEnv struct {
 	testpachd.MockEnv
 
 	ServiceEnv               serviceenv.ServiceEnv
+	AdminServer              adminapi.APIServer
 	AuthServer               authapi.APIServer
 	IdentityServer           identity.APIServer
 	EnterpriseServer         enterprise.APIServer
@@ -161,6 +163,11 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	require.NoError(t, err)
 
 	txnEnv := txnenv.New()
+
+	// ADMIN
+	adminEnv := adminapi.EnvFromServiceEnv(realEnv.ServiceEnv, false)
+	realEnv.AdminServer = adminapi.NewAPIServer(adminEnv)
+
 	// AUTH
 	authEnv := authserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
 	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
@@ -220,6 +227,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	}
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
+	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 	linkServers(&realEnv.MockPachd.Enterprise, realEnv.EnterpriseServer)
 	linkServers(&realEnv.MockPachd.License, realEnv.LicenseServer)
