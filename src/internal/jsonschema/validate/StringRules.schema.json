@@ -1,0 +1,231 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/StringRules",
+    "definitions": {
+        "StringRules": {
+            "properties": {
+                "const": {
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "len": {
+                    "type": "integer",
+                    "description": "Len specifies that this field must be the specified number of characters (Unicode code points). Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "min_len": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of characters (Unicode code points) at a minimum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "minLen": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of characters (Unicode code points) at a minimum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "max_len": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of characters (Unicode code points) at a maximum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "maxLen": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of characters (Unicode code points) at a maximum. Note that the number of characters may differ from the number of bytes in the string."
+                },
+                "len_bytes": {
+                    "type": "integer",
+                    "description": "LenBytes specifies that this field must be the specified number of bytes"
+                },
+                "lenBytes": {
+                    "type": "integer",
+                    "description": "LenBytes specifies that this field must be the specified number of bytes"
+                },
+                "min_bytes": {
+                    "type": "integer",
+                    "description": "MinBytes specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "minBytes": {
+                    "type": "integer",
+                    "description": "MinBytes specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "description": "MaxBytes specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "maxBytes": {
+                    "type": "integer",
+                    "description": "MaxBytes specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Pattern specifes that this field must match against the specified regular expression (RE2 syntax). The included expression should elide any delimiters."
+                },
+                "prefix": {
+                    "type": "string",
+                    "description": "Prefix specifies that this field must have the specified substring at the beginning of the string."
+                },
+                "suffix": {
+                    "type": "string",
+                    "description": "Suffix specifies that this field must have the specified substring at the end of the string."
+                },
+                "contains": {
+                    "type": "string",
+                    "description": "Contains specifies that this field must have the specified substring anywhere in the string."
+                },
+                "not_contains": {
+                    "type": "string",
+                    "description": "NotContains specifies that this field cannot have the specified substring anywhere in the string."
+                },
+                "notContains": {
+                    "type": "string",
+                    "description": "NotContains specifies that this field cannot have the specified substring anywhere in the string."
+                },
+                "in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                },
+                "email": {
+                    "type": "boolean",
+                    "description": "Email specifies that the field must be a valid email address as defined by RFC 5322"
+                },
+                "hostname": {
+                    "type": "boolean",
+                    "description": "Hostname specifies that the field must be a valid hostname as defined by RFC 1034. This constraint does not support internationalized domain names (IDNs)."
+                },
+                "ip": {
+                    "type": "boolean",
+                    "description": "Ip specifies that the field must be a valid IP (v4 or v6) address. Valid IPv6 addresses should not include surrounding square brackets."
+                },
+                "ipv4": {
+                    "type": "boolean",
+                    "description": "Ipv4 specifies that the field must be a valid IPv4 address."
+                },
+                "ipv6": {
+                    "type": "boolean",
+                    "description": "Ipv6 specifies that the field must be a valid IPv6 address. Valid IPv6 addresses should not include surrounding square brackets."
+                },
+                "uri": {
+                    "type": "boolean",
+                    "description": "Uri specifies that the field must be a valid, absolute URI as defined by RFC 3986"
+                },
+                "uri_ref": {
+                    "type": "boolean",
+                    "description": "UriRef specifies that the field must be a valid URI as defined by RFC 3986 and may be relative or absolute."
+                },
+                "uriRef": {
+                    "type": "boolean",
+                    "description": "UriRef specifies that the field must be a valid URI as defined by RFC 3986 and may be relative or absolute."
+                },
+                "address": {
+                    "type": "boolean",
+                    "description": "Address specifies that the field must be either a valid hostname as defined by RFC 1034 (which does not support internationalized domain names or IDNs), or it can be a valid IP (v4 or v6)."
+                },
+                "uuid": {
+                    "type": "boolean",
+                    "description": "Uuid specifies that the field must be a valid UUID as defined by RFC 4122"
+                },
+                "well_known_regex": {
+                    "enum": [
+                        "UNKNOWN",
+                        "HTTP_HEADER_NAME",
+                        "HTTP_HEADER_VALUE"
+                    ],
+                    "type": "string",
+                    "title": "Known Regex",
+                    "description": "WellKnownRegex contain some well-known patterns."
+                },
+                "wellKnownRegex": {
+                    "enum": [
+                        "UNKNOWN",
+                        "HTTP_HEADER_NAME",
+                        "HTTP_HEADER_VALUE"
+                    ],
+                    "type": "string",
+                    "title": "Known Regex",
+                    "description": "WellKnownRegex contain some well-known patterns."
+                },
+                "strict": {
+                    "type": "boolean",
+                    "description": "This applies to regexes HTTP_HEADER_NAME and HTTP_HEADER_VALUE to enable strict header validation. By default, this is true, and HTTP header validations are RFC-compliant. Setting to false will enable a looser validations that only disallows \\r\\n\\0 characters, which can be used to bypass header matching rules."
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "email"
+                    ]
+                },
+                {
+                    "required": [
+                        "hostname"
+                    ]
+                },
+                {
+                    "required": [
+                        "ip"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv4"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv6"
+                    ]
+                },
+                {
+                    "required": [
+                        "uri"
+                    ]
+                },
+                {
+                    "required": [
+                        "uri_ref"
+                    ]
+                },
+                {
+                    "required": [
+                        "address"
+                    ]
+                },
+                {
+                    "required": [
+                        "uuid"
+                    ]
+                },
+                {
+                    "required": [
+                        "well_known_regex"
+                    ]
+                }
+            ],
+            "title": "String Rules",
+            "description": "StringRules describe the constraints applied to `string` values"
+        }
+    }
+}

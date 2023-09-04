@@ -13,19 +13,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 
 	"github.com/spf13/cobra/doc"
 )
 
-type appEnv struct{}
-
 func main() {
 	log.InitPachctlLogger()
-	cmdutil.Main(context.Background(), do, &appEnv{})
+	cmdutil.Main(context.Background(), do, &pachconfig.EmptyConfig{})
 }
 
-func do(ctx context.Context, appEnvObj *appEnv) error {
+func do(ctx context.Context, _ *pachconfig.EmptyConfig) error {
 	path := "./docs/"
 
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {

@@ -1,0 +1,75 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DurationRules",
+    "definitions": {
+        "DurationRules": {
+            "properties": {
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                },
+                "const": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value",
+                    "format": "regex"
+                },
+                "lt": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive",
+                    "format": "regex"
+                },
+                "lte": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Lt specifies that this field must be less than the specified value, inclusive",
+                    "format": "regex"
+                },
+                "gt": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive",
+                    "format": "regex"
+                },
+                "gte": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Gte specifies that this field must be greater than the specified value, inclusive",
+                    "format": "regex"
+                },
+                "in": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values",
+                    "format": "regex"
+                },
+                "not_in": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "regex"
+                },
+                "notIn": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Duration Rules",
+            "description": "DurationRules describe the constraints applied exclusively to the `google.protobuf.Duration` well-known type"
+        }
+    }
+}

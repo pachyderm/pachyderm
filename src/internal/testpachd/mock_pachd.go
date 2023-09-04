@@ -3,8 +3,11 @@ package testpachd
 import (
 	"context"
 	"net"
+	"runtime"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -12,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -2046,10 +2050,32 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnaryServerInterceptor,
+		validation.UnaryServerInterceptor,
+		func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
+			defer func() {
+				if err := recover(); err != nil {
+					stack := make([]byte, 16384)
+					runtime.Stack(stack, false)
+					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
+				}
+			}()
+			return handler(ctx, req)
+		},
 	}
 	streamOpts := []grpc.StreamServerInterceptor{
 		errorsmw.StreamServerInterceptor,
 		loggingInterceptor.StreamServerInterceptor,
+		validation.StreamServerInterceptor,
+		func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
+			defer func() {
+				if err := recover(); err != nil {
+					stack := make([]byte, 16384)
+					runtime.Stack(stack, false)
+					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
+				}
+			}()
+			return handler(srv, ss)
+		},
 	}
 	for _, opt := range options {
 		interceptor := opt(mock)
