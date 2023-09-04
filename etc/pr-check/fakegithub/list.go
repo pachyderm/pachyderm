@@ -55,11 +55,11 @@ func (f *Server) listHandler(w http.ResponseWriter, r *http.Request) {
 	f.pagesFetched++
 }
 
-// GetPagesFetched is a testing function that shows how many pages have been
-// served since the last time it was called. This is entirely used by pr_check
-// tests to ensure that pr_check's scan() function doesn't fetch more data than
-// it needs.
-func (f *Server) GetPagesFetched() (ret int) {
+// CheckAndResetPagesFetched is a testing function that shows how many pages of
+// PRs have been served since the last time it was called. This is entirely used
+// by pr_check tests to ensure that pr_check's scan() function doesn't fetch
+// more data than it needs.
+func (f *Server) CheckAndResetPagesFetched() (ret int) {
 	ret = f.pagesFetched
 	f.pagesFetched = 0
 	return
