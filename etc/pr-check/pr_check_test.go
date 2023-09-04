@@ -61,6 +61,39 @@ func (g fakeGitHubTransport) RoundTrip(r *http.Request) (*http.Response, error) 
 
 func TestMain(m *testing.M) {
 	fakeGH = fakegithub.New()
+	// Populate fakeGH with realistic-looking PRs:
+	// fakePRs, err := os.Open("fake_github_prs.json")
+	// if err != nil {
+	// 	panic("could not open fake_github_prs.json:\n" + err.Error())
+	// }
+	// json.NewDecoder(fakePRs).Decode(&r.prs)
+	/* >>> */
+	// create 6 PRs separated by each of the durations below (so some recent PRs
+	// close together, some older PRs farther apart, some PRs that are older still
+	// and more sparse, etc. Roughly matches the current distribution in GitHub,
+	// but stable for testing
+	dts := []time.Duration{
+		180 * 24 * time.Hour,
+		90 * 24 * time.Hour,
+		30 * 24 * time.Hour,
+		14 * 24 * time.Hour,
+		7 * 24 * time.Hour,
+		60 * time.Hour,
+		24 * time.Hour,
+		6 * time.Hour,
+	}
+	created := earliestPR
+	fakeGH.AddPR("", "", &fakegithub.User{Login: "alice", Type: "User"}, created)
+	for _, dt := range dts {
+		for i := 0; i < 5; i++ {
+			created = created.Add(dt)
+			fakeGH.AddPR(
+				"Title title title title tiiitle",
+				"body body body",
+				&fakegithub.User{Login: "bob", Type: "User"},
+				created)
+		}
+	}
 	fakeGH.Start()
 
 	os.Exit(m.Run())
