@@ -4,9 +4,6 @@
     "definitions": {
         "CreatePipelineV2Response": {
             "properties": {
-                "effective_create_pipeline_request_json": {
-                    "type": "string"
-                },
                 "effectiveCreatePipelineRequestJson": {
                     "type": "string"
                 }

@@ -11,10 +11,6 @@
                 "pattern": {
                     "type": "string"
                 },
-                "path_range": {
-                    "$ref": "#/definitions/pfs_v2.PathRange",
-                    "additionalProperties": false
-                },
                 "pathRange": {
                     "$ref": "#/definitions/pfs_v2.PathRange",
                     "additionalProperties": false

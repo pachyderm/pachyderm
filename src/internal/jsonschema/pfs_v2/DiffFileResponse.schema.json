@@ -4,15 +4,7 @@
     "definitions": {
         "DiffFileResponse": {
             "properties": {
-                "new_file": {
-                    "$ref": "#/definitions/pfs_v2.FileInfo",
-                    "additionalProperties": false
-                },
                 "newFile": {
-                    "$ref": "#/definitions/pfs_v2.FileInfo",
-                    "additionalProperties": false
-                },
-                "old_file": {
                     "$ref": "#/definitions/pfs_v2.FileInfo",
                     "additionalProperties": false
                 },
@@ -82,15 +74,6 @@
                     "$ref": "#/definitions/pfs_v2.File",
                     "additionalProperties": false
                 },
-                "file_type": {
-                    "enum": [
-                        "RESERVED",
-                        "FILE",
-                        "DIR"
-                    ],
-                    "type": "string",
-                    "title": "File Type"
-                },
                 "fileType": {
                     "enum": [
                         "RESERVED",
@@ -103,9 +86,6 @@
                 "committed": {
                     "type": "string",
                     "format": "date-time"
-                },
-                "size_bytes": {
-                    "type": "integer"
                 },
                 "sizeBytes": {
                     "type": "integer"

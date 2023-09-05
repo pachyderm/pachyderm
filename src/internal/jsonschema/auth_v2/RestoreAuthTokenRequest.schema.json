@@ -24,9 +24,6 @@
                     "type": "string",
                     "format": "date-time"
                 },
-                "hashed_token": {
-                    "type": "string"
-                },
                 "hashedToken": {
                     "type": "string"
                 }

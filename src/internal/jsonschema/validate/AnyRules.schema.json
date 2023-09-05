@@ -15,13 +15,6 @@
                     "type": "array",
                     "description": "In specifies that this field's `type_url` must be equal to one of the specified values."
                 },
-                "not_in": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array",
-                    "description": "NotIn specifies that this field's `type_url` must not be equal to any of the specified values."
-                },
                 "notIn": {
                     "items": {
                         "type": "string"

@@ -4,9 +4,6 @@
     "definitions": {
         "LicenseRecord": {
             "properties": {
-                "activation_code": {
-                    "type": "string"
-                },
                 "activationCode": {
                     "type": "string"
                 },

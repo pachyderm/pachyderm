@@ -18,19 +18,7 @@
                 "id": {
                     "type": "string"
                 },
-                "redirect_uris": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
                 "redirectUris": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
-                "trusted_peers": {
                     "items": {
                         "type": "string"
                     },

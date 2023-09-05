@@ -8,16 +8,8 @@
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
-                "object_storage": {
-                    "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
-                    "additionalProperties": false
-                },
                 "objectStorage": {
                     "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
-                    "additionalProperties": false
-                },
-                "sql_database": {
-                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
                     "additionalProperties": false
                 },
                 "sqlDatabase": {
@@ -117,10 +109,6 @@
             "properties": {
                 "url": {
                     "type": "string"
-                },
-                "file_format": {
-                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
-                    "additionalProperties": false
                 },
                 "fileFormat": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",

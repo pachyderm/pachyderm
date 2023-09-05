@@ -7,10 +7,6 @@
                 "email": {
                     "type": "string"
                 },
-                "last_authenticated": {
-                    "type": "string",
-                    "format": "date-time"
-                },
                 "lastAuthenticated": {
                     "type": "string",
                     "format": "date-time"
