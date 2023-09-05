@@ -26,5 +26,12 @@
 
   "css.validate": false,
   "less.validate": false,
-  "scss.validate": false
+  "scss.validate": false,
+
+  "json.schemas": [
+    {
+      "fileMatch": ["*.pipeline.json"],
+      "url": "https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json"
+    }
+  ]
 }
