@@ -2,9 +2,10 @@ syntax = "proto3";
 
 package proxy;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/proxy";
+import "protoextensions/validate.proto";
 
 message ListenRequest {
-  string channel = 1;
+  string channel = 1 [(validate.rules).string.min_bytes = 1];
 }
 
 message ListenResponse {
@@ -12,7 +13,7 @@ message ListenResponse {
 }
 
 service API {
-  // Listen streams database events. 
+  // Listen streams database events.
   // It signals that it is internally set up by sending an initial empty ListenResponse.
   rpc Listen(ListenRequest) returns (stream ListenResponse) {}
 }

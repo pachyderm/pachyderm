@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -41,7 +42,7 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string)
 	require.NoError(tb, config.WritePachTokenToConfig(RootToken, false))
 
 	// Activate auth for PPS
-	client = client.WithCtx(context.Background())
+	client = client.WithCtx(pctx.Background("activateAuthHelper"))
 	client.SetAuthToken(RootToken)
 	_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
 	require.NoError(tb, err)

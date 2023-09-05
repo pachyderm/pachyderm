@@ -1,7 +1,7 @@
 # This Makefile is a reference for setting up and running various parts of this demo quickly
 
 # Try to find the pachyderm files we'll need
-data_dir := $(strip $(if $(shell ls ./edges.json 2>/dev/null), "."))
+data_dir := $(strip $(if $(shell ls ./edges.pipeline.json 2>/dev/null), "."))
 data_dir := $(strip $(if $(data_dir), $(data_dir), $(shell ls -d $${HOME}/pachyderm/examples/opencv 2>/dev/null)))
 data_dir := $(strip $(if $(data_dir), $(data_dir), $(shell ls -d $${HOME}/go/src/github.com/pachyderm/pachyderm/examples/opencv 2>/dev/null)))
 
@@ -10,15 +10,15 @@ echo:
 
 opencv:
 	pachctl create repo images
-	pachctl create pipeline -f $(data_dir)/edges.json
-	pachctl create pipeline -f $(data_dir)/montage.json
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json
+	pachctl create pipeline -f $(data_dir)/montage.pipeline.json
 	pachctl put file images@master -i $(data_dir)/images.txt
 	pachctl put file images@master -i $(data_dir)/images2.txt
 
 
 # Generates the following DAG for testing
 #    I-default	  I-staging
-#    |      \    /       | \ 
+#    |      \    /       | \
 #    | edges-u-default   |  edges-staging
 #    |       |           |       |
 #    montage-default     montage-staging
@@ -26,10 +26,10 @@ opencv-union:
 	pachctl create project staging
 	pachctl create repo images
 	pachctl create repo images --project staging
-	pachctl create pipeline -f $(data_dir)/edges-union.json
-	pachctl create pipeline -f $(data_dir)/edges.json --project staging
-	pachctl create pipeline -f $(data_dir)/montage.json
-	pachctl create pipeline -f $(data_dir)/montage.json --project staging
+	pachctl create pipeline -f $(data_dir)/edges-union.pipeline.json
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json --project staging
+	pachctl create pipeline -f $(data_dir)/montage.pipeline.json
+	pachctl create pipeline -f $(data_dir)/montage.pipeline.json --project staging
 	pachctl put file images@master -i $(data_dir)/images.txt
 	pachctl put file images@master -i $(data_dir)/images2.txt --project staging
 
@@ -73,4 +73,3 @@ minikube:
 	opencv \
 	delete \
 	minikube
-

@@ -172,6 +172,12 @@ func PachctlBashCmdCtx(ctx context.Context, t *testing.T, c *client.APIClient, s
 	cmd, err := p.CommandTemplate(ctx, scriptTemplate, data)
 	require.NoError(t, err, "could not create command")
 	cmd.Cmd.Stdout = nil // some existing tests expect Stdout not to be redirected
-	cmd.Cmd.Stderr = log.WriterAt(ctx, log.DebugLevel)
+
+	// If you're wondering why you're not seeing stderr, it's probably because you got here via
+	// PachctlBashCmd (without a context), and thus there is no logger to log to.  Supply
+	// pctx.TestContext(t) as context, and you'll be good to go.
+	stderr := log.WriterAt(ctx, log.DebugLevel)
+	t.Cleanup(func() { stderr.Close() })
+	cmd.Cmd.Stderr = stderr
 	return cmd.Cmd
 }

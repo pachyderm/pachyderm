@@ -982,7 +982,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				format = "json"
 			}
 
-			f, err := os.CreateTemp("", fmt.Sprintf("%v-*.%v", pipelineInfo.GetPipeline().GetName(), format))
+			f, err := os.CreateTemp("", fmt.Sprintf("%v-*.pipeline.%v", pipelineInfo.GetPipeline().GetName(), format))
 			if err != nil {
 				return errors.EnsureStack(err)
 			}

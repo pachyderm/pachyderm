@@ -35,11 +35,13 @@ protoc \
     --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
     --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
     --plugin="${GOPATH}/bin/protoc-gen-jsonschema" \
+    --plugin="${GOPATH}/bin/protoc-gen-validate" \
     --zap_out=":${GOPATH}/src" \
     --pach_out="v2/src" \
     --go_out=":${GOPATH}/src" \
     --go-grpc_out=":${GOPATH}/src" \
     --jsonschema_out="${GOPATH}/src/github.com/pachyderm/pachyderm/v2/src/internal/jsonschema" \
+    --validate_out="lang=go,paths=:${GOPATH}/src" \
     --jsonschema_opt="enforce_oneof" \
     --jsonschema_opt="file_extension=schema.json" \
     --jsonschema_opt="disallow_additional_properties" \
