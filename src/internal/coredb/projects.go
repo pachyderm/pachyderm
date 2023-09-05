@@ -26,6 +26,12 @@ type Project struct {
 	Name string    `db:"name"`
 }
 
+func (project *Project) ProjectPb() *pfs.Project {
+	return &pfs.Project{
+		Name: project.Name,
+	}
+}
+
 // ErrProjectNotFound is returned by GetProject() when a project is not found in postgres.
 type ErrProjectNotFound struct {
 	Name string

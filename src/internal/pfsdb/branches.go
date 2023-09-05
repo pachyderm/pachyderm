@@ -8,72 +8,52 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-type BranchID uint64
-type BranchField string
-type ListBranchFilter map[BranchField][]string
-
-type BranchInfoWithID struct {
-	*pfs.BranchInfo
-	ID BranchID
-}
-type BranchIterator struct {
-}
-
-// var _ stream.Iterator[BranchInfoWithID] = &BranchIterator{}
-
-func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
-	var branch Branch
-	if err := tx.GetContext(ctx, &branch, `
+func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*Branch, error) {
+	branch := new(Branch)
+	if err := tx.GetContext(ctx, branch, `
 		SELECT
-			branch.id as id,
 			branch.name,
-			branch.head,
 			branch.created_at,
 			branch.updated_at,
-			repo.id as "repo.id",
 			repo.name as "repo.name",
-			project.name as "repo.project.name"
+			repo.type as "repo.type",
+			project.name as "repo.project.name",
+			commit.commit_set_id as "head.commit_set_id",
+			repo.name as "head.repo.name",
+			repo.type as "head.repo.type",
+			project.name as "head.repo.project.name"
 		FROM pfs.branches branch
 			JOIN pfs.repos repo ON branch.repo_id = repo.id
 			JOIN core.projects project ON repo.project_id = project.id
+			JOIN pfs.commits commit ON branch.head = commit.int_id
 		WHERE branch.id = $1
 	`, id); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	return &pfs.BranchInfo{
-		Branch: &pfs.Branch{Name: branch.Name,
-			Repo: &pfs.Repo{Name: branch.Repo.Name,
-				Project: &pfs.Project{Name: branch.Repo.Project.Name}}}}, nil
+	return branch, nil
 }
 
-func GetBranchID(ctx context.Context, tx *pachsql.Tx, project, repo, branch string) (BranchID, error) {
-	return 0, nil
-}
+func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (BranchID, error) {
+	var query string
+	if branch.Repo.Name != "" && branch.Repo.Type != "" && branch.Repo.Project.Name != "" && branch.Head.CommitSetID != "" {
+		query = `
+			INSERT INTO pfs.branches(repo_id, name, head)
+			VALUES (
+				(SELECT repo.id FROM pfs.repos repo JOIN core.projects project ON repo.project_id = project.id WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3),
+				$4,
+				(SELECT int_id FROM pfs.commits WHERE commit_id = $5)
+			)
+			ON CONFLICT (repo_id, name) DO UPDATE SET head = EXCLUDED.head
+			RETURNING id
+		`
+	} else {
+		return 0, errors.Errorf("branch must have a repo name and head commit")
+	}
 
-func ListBranch(ctx context.Context, tx *pachsql.Tx, filter ListBranchFilter) (*BranchIterator, error) {
-	return nil, nil
-}
-
-func CreateBranch(ctx context.Context, tx *pachsql.Tx, branch *pfs.BranchInfo) (BranchID, error) {
-	var id BranchID
-	if err := tx.QueryRowContext(ctx, `
-		INSERT INTO pfs.branches(repo_id, name, head)
-		VALUES (
-			(SELECT repo.id FROM pfs.repos repo JOIN core.projects project ON repo.project_id = project.id WHERE project.name = $1 AND repo.name = $2),
-			$3,
-			(SELECT int_id FROM pfs.commits WHERE commit_id = $4)
-		)
-		RETURNING id
-	`, branch.Branch.Repo.Project.Name, branch.Branch.Repo.Name, branch.Branch.Name, CommitKey(branch.Head)).Scan(&id); err != nil {
+	var branchID BranchID
+	head := &pfs.Commit{Repo: &pfs.Repo{Name: branch.Repo.Name, Type: branch.Repo.Type, Project: &pfs.Project{Name: branch.Repo.Project.Name}}, Id: branch.Head.CommitSetID}
+	if err := tx.QueryRowContext(ctx, query, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name, CommitKey(head)).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
-	return id, nil
-}
-
-func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) error {
-	return nil
-}
-
-func DeleteBranchByName(ctx context.Context, tx *pachsql.Tx, project, repo, branch string) error {
-	return nil
+	return branchID, nil
 }
