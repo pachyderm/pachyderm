@@ -255,10 +255,10 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS pfs.commit_ancestry (
 		from_id bigint REFERENCES pfs.commits(int_id),
-		to_id bigint REFERENCES pfs.commits(int_id),
+		to_id bigint REFERENCES pfs.commits(int_id) UNIQUE,
 		PRIMARY KEY (from_id, to_id)
 	);
-	CREATE INDEX ON pfs.commit_ancestry (from_id);
+	CREATE INDEX ON pfs.commit_ancestry (to_id, from_id);
 	CREATE INDEX ON pfs.commit_ancestry (to_id);
 	`
 	if _, err := tx.ExecContext(ctx, query); err != nil {

@@ -51,7 +51,6 @@ type CommitID uint64
 
 // ErrCommitNotFound is returned by GetCommit() when a commit is not found in postgres.
 type ErrCommitNotFound struct {
-	Repo     string
 	RowID    CommitID
 	CommitID string
 }
@@ -61,7 +60,7 @@ func (err ErrCommitNotFound) Error() string {
 	if id := err.RowID; id != 0 {
 		return fmt.Sprintf("commit id=%d not found", id)
 	}
-	return fmt.Sprintf("commit %s/%s not found", err.Repo, err.CommitID)
+	return fmt.Sprintf("commit %s not found", err.CommitID)
 }
 
 func (err ErrCommitNotFound) GRPCStatus() *status.Status {
@@ -133,14 +132,13 @@ func (err ErrCommitMissingInfo) GRPCStatus() *status.Status {
 
 // ErrCommitAlreadyExists is returned by CreateCommit() when a commit with the same name already exists in postgres.
 type ErrCommitAlreadyExists struct {
-	Repo     string
 	CommitID string
 }
 
 // Error satisfies the error interface.
 func (err ErrCommitAlreadyExists) Error() string {
-	if n, t := err.CommitID, err.Repo; n != "" && t != "" {
-		return fmt.Sprintf("commit %s.%s already exists", n, t)
+	if id := err.CommitID; id != "" {
+		return fmt.Sprintf("commit %s already exists", id)
 	}
 	return "commit already exists"
 }
@@ -178,27 +176,12 @@ type AncestryOpt struct {
 
 // CreateCommit creates an entry in the pfs.commits table.
 func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) error {
-	if commitInfo.Commit == nil {
-		return ErrCommitMissingInfo{Field: "Commit"}
-	}
-	if commitInfo.Commit.Repo == nil {
-		return ErrCommitMissingInfo{Field: "Repo"}
-	}
-	if commitInfo.Origin == nil {
-		return ErrCommitMissingInfo{Field: "Origin"}
-	}
-	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
-		commitInfo.Details = &pfs.CommitInfo_Details{}
+	if err := validateCommitInfo(commitInfo); err != nil {
+		return err
 	}
 	opt := AncestryOpt{}
 	if len(opts) > 0 {
 		opt = opts[0]
-	}
-	switch commitInfo.Origin.Kind {
-	case pfs.OriginKind_ORIGIN_KIND_UNKNOWN, pfs.OriginKind_USER, pfs.OriginKind_AUTO, pfs.OriginKind_FSCK:
-		break
-	default:
-		return errors.New(fmt.Sprintf("invalid origin: %v", commitInfo.Origin.Kind))
 	}
 	insert := commitRow{
 		CommitID:       CommitKey(commitInfo.Commit), //this might have to be pfsdb.CommitKey(commit)
@@ -234,7 +217,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	row := namedStmt.QueryRowxContext(ctx, insert)
 	if row.Err() != nil {
 		if IsDuplicateKeyErr(row.Err()) { // a duplicate key implies that an entry for the repo already exists.
-			return ErrCommitAlreadyExists{CommitID: commitInfo.Commit.Id, Repo: RepoKey(commitInfo.Commit.Repo)}
+			return ErrCommitAlreadyExists{CommitID: CommitKey(commitInfo.Commit)}
 		}
 		return errors.Wrap(row.Err(), "exec create commitInfo")
 	}
@@ -251,6 +234,30 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		if err := PutCommitChildren(ctx, tx, CommitID(lastInsertId), commitInfo.ChildCommits); err != nil {
 			return errors.Wrap(err, "linking children")
 		}
+	}
+	return nil
+}
+
+// validateCommitInfo returns an error if the commit is not valid and has a side-effect of instantiating the details
+// if they are nil.
+func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
+	if commitInfo.Commit == nil {
+		return ErrCommitMissingInfo{Field: "Commit"}
+	}
+	if commitInfo.Commit.Repo == nil {
+		return ErrCommitMissingInfo{Field: "Repo"}
+	}
+	if commitInfo.Origin == nil {
+		return ErrCommitMissingInfo{Field: "Origin"}
+	}
+	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
+		commitInfo.Details = &pfs.CommitInfo_Details{}
+	}
+	switch commitInfo.Origin.Kind {
+	case pfs.OriginKind_ORIGIN_KIND_UNKNOWN, pfs.OriginKind_USER, pfs.OriginKind_AUTO, pfs.OriginKind_FSCK:
+		break
+	default:
+		return errors.New(fmt.Sprintf("invalid origin: %v", commitInfo.Origin.Kind))
 	}
 	return nil
 }
@@ -383,6 +390,13 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("getting commit relatives for id=%d", id))
 	}
+	// delete commit.parent -> commit and commit -> commit.children if they exist.
+	if parent != nil || children != nil {
+		_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE from_id=$1 OR to_id=$1;", id)
+		if err != nil {
+			return errors.Wrap(err, "delete commit ancestry")
+		}
+	}
 	// repoint commit.parent -> commit.children
 	if parent != nil && children != nil {
 		childrenIDs := make([]CommitID, 0)
@@ -401,13 +415,6 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 			return errors.Wrap(err, fmt.Sprintf("repointing id=%d at %v", parent.RowID, childrenIDs))
 		}
 	}
-	// delete commit.parent -> commit and commit -> commit.children if they exist.
-	if parent != nil || children != nil {
-		_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE from_id=$1 OR to_id=$1;", id)
-		if err != nil {
-			return errors.Wrap(err, "delete commit ancestry")
-		}
-	}
 	// delete commit.
 	result, err := tx.ExecContext(ctx, "DELETE FROM pfs.commits WHERE int_id=$1;", id)
 	if err != nil {
@@ -424,6 +431,12 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 }
 
 func GetCommitID(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (CommitID, error) {
+	if commit == nil {
+		return 0, ErrCommitMissingInfo{Field: "Commit"}
+	}
+	if commit.Repo == nil {
+		return 0, ErrCommitMissingInfo{Field: "Repo"}
+	}
 	row, err := getCommitRowByCommitKey(ctx, tx, commit)
 	if err != nil {
 		return 0, errors.Wrap(err, "get commit by commit key")
@@ -629,12 +642,78 @@ func parseCommitFromRow(row *commitRow) (*pfs.Commit, error) {
 }
 
 // UpsertCommit will attempt to insert a commit. If the commit already exists, it will update its description.
-func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.CommitInfo) error {
-	return nil
+func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) error {
+	existingCommit, err := getCommitRowByCommitKey(ctx, tx, commitInfo.Commit)
+	if err != nil {
+		if errors.Is(ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
+			return CreateCommit(ctx, tx, commitInfo, opts...)
+		}
+		return errors.Wrap(err, "upserting commit")
+	}
+	return UpdateCommit(ctx, tx, existingCommit.RowID, commitInfo, opts...)
 }
 
 // UpdateCommit overwrites an existing commit entry by CommitID.
-func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commit *pfs.CommitInfo) error {
+func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) error {
+	if err := validateCommitInfo(commitInfo); err != nil {
+		return err
+	}
+	opt := AncestryOpt{}
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	update := commitRow{
+		RowID:          id,
+		CommitID:       CommitKey(commitInfo.Commit), //this might have to be pfsdb.CommitKey(commit)
+		CommitSetID:    commitInfo.Commit.Id,
+		RepoName:       commitInfo.Commit.Repo.Name,
+		RepoType:       commitInfo.Commit.Repo.Type,
+		ProjectName:    commitInfo.Commit.Repo.Project.Name,
+		BranchID:       commitInfo.Commit.Branch.Name,
+		Origin:         commitInfo.Origin.Kind.String(),
+		StartTime:      sanitizeTimestamppb(commitInfo.Started),
+		FinishingTime:  sanitizeTimestamppb(commitInfo.Finishing),
+		FinishedTime:   sanitizeTimestamppb(commitInfo.Finished),
+		Description:    commitInfo.Description,
+		CompactingTime: durationpbToBigInt(commitInfo.Details.CompactingTime),
+		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
+		Size:           commitInfo.Details.SizeBytes,
+		Error:          commitInfo.Error,
+		ChildCommits:   commitInfo.ChildCommits,
+		ParentCommit:   commitInfo.ParentCommit,
+	}
+	query := `
+		UPDATE pfs.commits SET commit_id=:commit_id, commit_set_id=:commit_set_id, 
+		    repo_id=(SELECT id from pfs.repos WHERE name=:repo_name AND type=:repo_type AND project_id=(SELECT id from core.projects WHERE name=:proj_name)), 
+		    branch_id_str=:branch_id_str, description=:description, origin=:origin, start_time=:start_time, finishing_time=:finishing_time, finished_time=:finished_time, 
+		    compacting_time=:compacting_time, validating_time=:validating_time, size=:size, error=:error WHERE int_id=:int_id;`
+	_, err := tx.NamedExecContext(ctx, query, update)
+	if err != nil {
+		return errors.Wrap(err, "exec update commitInfo")
+	}
+	if !opt.SkipParent {
+		_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE to_id=$1;", id)
+		if err != nil {
+			return errors.Wrap(err, "delete commit parent")
+		}
+		if commitInfo.ParentCommit != nil {
+			if err := PutCommitParent(ctx, tx, commitInfo.ParentCommit, id); err != nil {
+				return errors.Wrap(err, "linking parent")
+			}
+		}
+	}
+	if opt.SkipChildren {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE from_id=$1;", id)
+	if err != nil {
+		return errors.Wrap(err, "delete commit children")
+	}
+	if len(commitInfo.ChildCommits) != 0 {
+		if err := PutCommitChildren(ctx, tx, id, commitInfo.ChildCommits); err != nil {
+			return errors.Wrap(err, "linking children")
+		}
+	}
 	return nil
 }
 
