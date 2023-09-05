@@ -6,6 +6,9 @@ import (
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 )
 
@@ -119,17 +122,38 @@ func (r *runner) getArtifact(ref Reference) (Artifact, bool) {
 	return nil, false
 }
 
-// Plan returns an execution plan.
-func (r *runner) Plan(ctx context.Context, want ...Reference) ([][]string, error) {
-	var steps [][]string
-	var firstStep []string
+type stepReceiver interface {
+	Reportf(ctx context.Context, format string, args ...any)
+	Next(ctx context.Context)
+}
 
+type stringStepReceiver struct {
+	cur    []string
+	result [][]string
+}
+
+func (s *stringStepReceiver) Reportf(_ context.Context, format string, args ...any) {
+	s.cur = append(s.cur, fmt.Sprintf(format, args...))
+}
+func (s *stringStepReceiver) Next(_ context.Context) {
+	s.result = append(s.result, s.cur)
+	s.cur = nil
+}
+
+type logStepReceiver struct{}
+
+func (logStepReceiver) Reportf(ctx context.Context, format string, args ...any) {
+	log.Debug(pctx.Child(ctx, "", pctx.WithOptions(zap.AddCallerSkip(1))), fmt.Sprintf(format, args...))
+}
+func (logStepReceiver) Next(_ context.Context) {}
+
+func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s stepReceiver) error {
 	need := map[Reference]struct{}{}
 	for _, ref := range want {
 		need[ref] = struct{}{}
-		firstStep = append(firstStep, fmt.Sprintf("initial dependency on %v", ref))
+		s.Reportf(rctx, "initial dependency on %v", ref)
 	}
-	steps = append(steps, firstStep)
+	s.Next(rctx)
 
 	jc := &JobContext{
 		Cache:      r.Cache,
@@ -142,17 +166,15 @@ func (r *runner) Plan(ctx context.Context, want ...Reference) ([][]string, error
 	// Breadth-first search over the dependency graph.  We start with what we need, add jobs to
 	// satisfy those dependencies, until `want` is produced.  After each iteration that doesn't
 	// make progress resolving dependencies, we stop and wait for a job to finish.
-	//
-	// The 1_000_000 here is the maximum edge count between dependencies plus the total number of
-	// jobs plus the total number of outputs.
-	for i := 0; i < 1_000_000 && len(need) > 0; i++ {
-		var step []string
+	runOnce := func(i int) (retErr error) {
+		ctx, done := log.SpanContext(rctx, fmt.Sprintf("step.%d", i))
+		defer done(log.Errorp(&retErr))
 		var madeProgress bool
 
 		// See what we have to start with.
 		for ref := range need {
-			if a, ok := r.getArtifact(ref); ok {
-				step = append(step, fmt.Sprintf("yield ref %v -> %v", ref, a))
+			if _, ok := r.getArtifact(ref); ok {
+				s.Reportf(ctx, "yield ref %v", ref)
 				delete(need, ref)
 				madeProgress = true
 			}
@@ -176,16 +198,17 @@ func (r *runner) Plan(ctx context.Context, want ...Reference) ([][]string, error
 			}
 			_, jobs, err := r.resolveJob(job)
 			if err != nil {
-				return steps, errors.Wrapf(err, "internal error: resolveJob(%v)", job)
+				return errors.Wrapf(err, "internal error: resolveJob(%v)", job)
 			}
 			if len(dedupJobs(jobs...)) == 0 {
-				// We can run this job right now.
-				if err := r.startJob(ctx, jc, job, runFakeJob, resultCh); err != nil {
-					return steps, errors.Wrapf(err, "problem starting job %v", job)
+				// We can run this job right now.  This job uses the root context;
+				// it has nothing to do with this step in particular.
+				if err := r.startJob(rctx, jc, job, runFn, resultCh); err != nil {
+					return errors.Wrapf(err, "problem starting job %v", job)
 				}
 				runningJobs[job] = struct{}{}
 				delete(waitingJobs, job)
-				step = append(step, fmt.Sprintf("start job %v", job))
+				s.Reportf(ctx, "start job %v", job)
 				madeProgress = true
 				continue
 			}
@@ -198,35 +221,41 @@ func (r *runner) Plan(ctx context.Context, want ...Reference) ([][]string, error
 			for _, input := range job.Inputs() {
 				need[input] = struct{}{}
 				waitingJobs[job] = struct{}{}
-				step = append(step, fmt.Sprintf("discovered dependency on %v from %v", input, job))
+				s.Reportf(ctx, "discovered dependency on %v from %v", input, job)
 				madeProgress = true
 			}
 		}
 
 		// If we didn't do anything this iteration, wait for a job to return.
 		if !madeProgress {
-			step = append(step, fmt.Sprintf("wait for a job to finish; %v", maps.Keys(runningJobs)))
+			s.Reportf(ctx, "wait for a job to finish; one of %v", maps.Keys(runningJobs))
 			select {
 			case <-ctx.Done():
-				steps = append(steps, step)
-				return steps, ctx.Err()
+				return ctx.Err()
 			case result := <-resultCh:
 				if err := result.Err; err != nil {
-					steps = append(steps, step)
-					return steps, errors.Wrapf(err, "received error result from job %v", result.Job)
+					return errors.Wrapf(err, "received error result from job %v", result.Job)
 				}
 				r.artifacts = append(r.artifacts, result.Artifacts...)
 				delete(runningJobs, result.Job)
-				step = append(step, fmt.Sprintf("job %v finished", result.Job))
+				s.Reportf(ctx, "job %v finished", result.Job)
 			}
 		}
-		steps = append(steps, step)
+		s.Next(ctx)
+		return nil
+	}
 
+	// The 1_000_000 here is the maximum edge count between dependencies plus the total number of
+	// jobs plus the total number of outputs.
+	for i := 0; i < 1_000_000 && len(need) > 0; i++ {
+		if err := runOnce(i); err != nil {
+			return err
+		}
 	}
 	if len(need) > 0 {
-		return steps, errors.New("unresolved outputs after max iteration depth; probably a bug")
+		return errors.New("unresolved outputs after max iteration depth; probably a bug")
 	}
-	return steps, nil
+	return nil
 
 }
 
@@ -241,11 +270,15 @@ func runRealJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact)
 			if errors.Is(err, &Retryable{}) {
 				continue
 			}
-			return nil, errors.Wrapf(err, "job failed after %d attempts", i+1)
+			s := "s"
+			if i == 0 {
+				s = ""
+			}
+			return nil, errors.Wrapf(err, "run failed after %d attempt%s", i+1, s)
 		}
 		return outputs, nil
 	}
-	return nil, errors.New("job failed after all retries")
+	return nil, errors.Wrap(err, "job failed after all retries")
 }
 
 func runFakeJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact) ([]Artifact, error) {
@@ -297,12 +330,41 @@ func (r *runner) startJob(ctx context.Context, jc *JobContext, job Job, runJob r
 
 }
 
-func Plan(ctx context.Context, jobs []Job, requirements []Reference) ([][]string, error) {
+// Plan returns a human-readable plan of what the job runner will do to build want.
+func Plan(ctx context.Context, jobs []Job, want []Reference) ([][]string, error) {
 	r := newRunner()
 	for _, job := range jobs {
 		if err := r.addJob(job); err != nil {
 			return nil, err
 		}
 	}
-	return r.Plan(ctx, requirements...)
+	s := new(stringStepReceiver)
+	err := r.run(ctx, want, runFakeJob, s)
+	if len(s.cur) != 0 {
+		s.Next(ctx)
+	}
+	return s.result, err
+}
+
+// Resolve, using the provided jobs, builds the objects requested in want and returns the built
+// artifacts (in the same order as want).
+func Resolve(ctx context.Context, jobs []Job, want []Reference) ([]Artifact, error) {
+	r := newRunner()
+	for _, job := range jobs {
+		if err := r.addJob(job); err != nil {
+			return nil, errors.Wrapf(err, "add job %v", job)
+		}
+	}
+	if err := r.run(ctx, want, runRealJob, logStepReceiver{}); err != nil {
+		return nil, errors.Wrap(err, "resolve")
+	}
+	var output []Artifact
+	for _, ref := range want {
+		a, ok := r.getArtifact(ref)
+		if !ok {
+			return nil, errors.Errorf("unexpectedly missing artifact; no match for ref %q", ref)
+		}
+		output = append(output, a)
+	}
+	return output, nil
 }

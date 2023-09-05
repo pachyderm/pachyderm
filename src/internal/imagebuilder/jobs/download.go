@@ -9,6 +9,8 @@ import (
 	"net/url"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"go.uber.org/zap"
 )
 
 // A job that downloads a file.
@@ -34,6 +36,9 @@ func (d Download) Outputs() []Reference {
 }
 
 func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_ []Artifact, retErr error) {
+	ctx, done := log.SpanContext(ctx, "download", zap.String("url", d.URL))
+	defer done(log.Errorp(&retErr))
+
 	h, err := d.WantDigest.Hash()
 	if err != nil {
 		return nil, errors.Wrap(err, "get hasher")
@@ -48,12 +53,13 @@ func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 	}
 	defer errors.Close(&retErr, res.Body, "close body")
 	if got, want := res.StatusCode, http.StatusOK; got != want {
-		return nil, WrapRetryable(errors.Wrapf(err, "unexpected HTTP status %s", res.Status))
+		return nil, WrapRetryable(errors.Errorf("unexpected HTTP status %s", res.Status))
 	}
 	out, err := jc.Cache.NewCacheableFile("download-" + url.PathEscape(d.URL))
 	if err != nil {
 		return nil, errors.Wrap(err, "new cacheable file")
 	}
+
 	var tee io.Writer = out
 	if d.WantDigest.Algorithm != "blake3" {
 		// CacheableFile already calculates a blake3 hash.
@@ -70,7 +76,7 @@ func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 		hv = h.Sum(nil)
 	}
 	if !bytes.Equal(hv, d.WantDigest.Value) {
-		return nil, errors.Errorf("Downloaded file failed integrity check:\n   got: %s:%x\n want: %s:%x", d.WantDigest.Algorithm, hv, d.WantDigest.Algorithm, d.WantDigest.Value)
+		return nil, errors.Errorf("Downloaded file failed integrity check:\n   got: %s:%x\n  want: %s:%x", d.WantDigest.Algorithm, hv, d.WantDigest.Algorithm, d.WantDigest.Value)
 	}
 	return []Artifact{
 		&DownloadedFile{

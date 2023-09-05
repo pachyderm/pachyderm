@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 )
 
@@ -50,9 +51,11 @@ func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 	}
 	cmd.Env = append(cmd.Env, "GOARCH="+g.Platform.GOARCH())
 	cmd.Env = append(cmd.Env, "GOOS="+g.Platform.GOOS())
+	cmd.Env = append(cmd.Env, "GOPATH=/tmp/.gopath")
+	cmd.Env = append(cmd.Env, "GOCACHE=/tmp/.go-cache")
 
 	execCtx, done := log.SpanContext(ctx, "go build", zap.Stringer("platform", g.Platform))
-	stdout, stderr := log.WriterAt(execCtx, log.DebugLevel), log.WriterAt(execCtx, log.DebugLevel)
+	stdout, stderr := log.WriterAt(pctx.Child(execCtx, "stdout"), log.DebugLevel), log.WriterAt(pctx.Child(execCtx, "stderr"), log.InfoLevel)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	defer errors.Close(&retErr, stdout, "close stdout")
