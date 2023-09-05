@@ -5,18 +5,18 @@
   "description": "A pipeline that trains the model for each combination of C and Gamma parameters.",
   "transform": {
     "image": "pachyderm/iris-train:python-svm-adj-c-gamma",
-    "cmd": [ "/bin/ash" ],
+    "cmd": ["/bin/ash"],
     "stdin": [
-       "cp /pfs/raw_data/iris.csv /tmp/iris.csv",
-       "for cf in /pfs/c-parameters/c_parameters.txt/*",
-       "do",
-       "for gf in /pfs/gamma-parameters/gamma_parameters.txt/*",
-       "do",
-       "cparam=`cat $cf`",
-       "gammaparam=`cat $gf`",
-       "python /code/pytrain.py /tmp/ /pfs/out/ $cparam $gammaparam",
-       "done",
-       "done"
+      "cp /pfs/raw_data/iris.csv /tmp/iris.csv",
+      "for cf in /pfs/c-parameters/c_parameters.txt/*",
+      "do",
+      "for gf in /pfs/gamma-parameters/gamma_parameters.txt/*",
+      "do",
+      "cparam=`cat $cf`",
+      "gammaparam=`cat $gf`",
+      "python /code/pytrain.py /tmp/ /pfs/out/ $cparam $gammaparam",
+      "done",
+      "done"
     ]
   },
   "parallelism_spec": {

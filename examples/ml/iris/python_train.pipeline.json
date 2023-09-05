@@ -6,10 +6,10 @@
   "transform": {
     "image": "pachyderm/iris-train:python-svm",
     "cmd": [
-	"python3",
-	"/code/pytrain.py",
-	"/pfs/training/",
-	"/pfs/out/"
+      "python3",
+      "/code/pytrain.py",
+      "/pfs/training/",
+      "/pfs/out/"
     ]
   },
   "parallelism_spec": {

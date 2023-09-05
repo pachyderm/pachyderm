@@ -5,7 +5,7 @@
   "description": "A pipeline that selects the best evaluation metrics from the results of the `test` pipeline.",
   "transform": {
     "image": "dianoga/docker-ubuntu-jq-curl-bc",
-    "cmd": [ "/bin/bash" ],
+    "cmd": ["/bin/bash"],
     "stdin": [
       "bestmetric=0.0",
       "for f in /pfs/test/*",

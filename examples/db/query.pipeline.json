@@ -5,7 +5,7 @@
   "description": "A pipeline that queries a MongoDB database located outside of Pachyderm.",
   "transform": {
     "image": "mongo",
-    "cmd": [ "/bin/bash" ],
+    "cmd": ["/bin/bash"],
     "stdin": [
       "export uri=$(cat /tmp/mongosecret/uri)",
       "export db=$(cat /tmp/mongosecret/db)",
@@ -28,4 +28,3 @@
     }
   }
 }
-

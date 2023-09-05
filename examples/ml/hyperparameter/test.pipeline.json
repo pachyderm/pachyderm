@@ -5,7 +5,7 @@
   "description": "A pipeline that scores each of the trained models.",
   "transform": {
     "image": "pachyderm/iris-evaluate",
-    "cmd": [ "/bin/ash" ],
+    "cmd": ["/bin/ash"],
     "stdin": [
       "for f in /pfs/model/*",
       "do",

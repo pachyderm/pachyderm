@@ -6,10 +6,10 @@
   "transform": {
     "image": "pachyderm/iris-train:julia-tree",
     "cmd": [
-	"julia",
-	"/train.jl",
-	"/pfs/training/iris.csv",
-	"/pfs/out/model.jld"
+      "julia",
+      "/train.jl",
+      "/pfs/training/iris.csv",
+      "/pfs/out/model.jld"
     ]
   },
   "parallelism_spec": {

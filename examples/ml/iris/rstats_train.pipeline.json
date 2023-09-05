@@ -6,8 +6,8 @@
   "transform": {
     "image": "pachyderm/iris-train:rstats-svm",
     "cmd": [
-	"Rscript",
-	"train.R"
+      "Rscript",
+      "train.R"
     ]
   },
   "parallelism_spec": {

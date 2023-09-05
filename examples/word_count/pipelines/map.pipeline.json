@@ -7,7 +7,7 @@
     "image": "pachyderm/example-wordcount:2.0.3",
     "cmd": [
       "app",
-      "/pfs/scraper/", 
+      "/pfs/scraper/",
       "/pfs/out"
     ]
   },

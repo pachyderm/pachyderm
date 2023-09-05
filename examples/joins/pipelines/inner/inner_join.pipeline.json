@@ -13,18 +13,18 @@
           "join_on": "$1"
         }
       },
-     {
-       "pfs": {
-         "repo": "purchases",
-         "branch": "master",
-         "glob": "/*_STOREID(*).txt",
-         "join_on": "$1"
-       }
-     }
-   ]
- },
- "transform": {
-  "cmd": [ "python", "inner/main.py" ],
-  "image": "pachyderm/example-joins-inner-outer:2.1.0"
-}
+      {
+        "pfs": {
+          "repo": "purchases",
+          "branch": "master",
+          "glob": "/*_STOREID(*).txt",
+          "join_on": "$1"
+        }
+      }
+    ]
+  },
+  "transform": {
+    "cmd": ["python", "inner/main.py"],
+    "image": "pachyderm/example-joins-inner-outer:2.1.0"
+  }
 }
