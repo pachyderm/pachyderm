@@ -344,12 +344,42 @@ func TestListCommit(t *testing.T) {
 				}
 				prevCommit = commitInfo
 			}
-			iter, err := pfsdb.ListCommitTx(ctx, tx, nil)
+			iter, err := pfsdb.ListCommitTx(ctx, tx, nil, false)
 			require.NoError(t, err, "should be able to list repos")
 			checkOutput(ctx, t, iter, expectedInfos)
 			return nil
 		}))
-		iter, err := pfsdb.ListCommit(ctx, db, nil)
+		iter, err := pfsdb.ListCommit(ctx, db, nil, false)
+		require.NoError(t, err, "should be able to list repos")
+		checkOutput(ctx, t, iter, expectedInfos)
+	})
+}
+
+func TestListCommitRev(t *testing.T) {
+	size := 210
+	expectedInfos := make([]*pfs.CommitInfo, size)
+	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB, branchesCol collection.PostgresCollection) {
+		require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			var prevCommit *pfs.CommitInfo
+			for i := size - 1; i >= 0; i-- {
+				commitInfo := testCommit(ctx, t, branchesCol, tx, testRepoName)
+				if prevCommit != nil {
+					commitInfo.ParentCommit = prevCommit.Commit
+				}
+				expectedInfos[i] = commitInfo
+				require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo))
+				if prevCommit != nil {
+					require.NoError(t, pfsdb.PutCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
+					expectedInfos[i+1].ChildCommits = append(expectedInfos[i+1].ChildCommits, commitInfo.Commit)
+				}
+				prevCommit = commitInfo
+			}
+			iter, err := pfsdb.ListCommitTx(ctx, tx, nil, true)
+			require.NoError(t, err, "should be able to list repos")
+			checkOutput(ctx, t, iter, expectedInfos)
+			return nil
+		}))
+		iter, err := pfsdb.ListCommit(ctx, db, nil, true)
 		require.NoError(t, err, "should be able to list repos")
 		checkOutput(ctx, t, iter, expectedInfos)
 	})
@@ -381,12 +411,12 @@ func TestListCommitsFilter(t *testing.T) {
 			for _, commitInfo := range commits {
 				require.NoError(t, pfsdb.CreateCommit(ctx, tx, commitInfo))
 			}
-			iter, err := pfsdb.ListCommitTx(ctx, tx, filter)
+			iter, err := pfsdb.ListCommitTx(ctx, tx, filter, false)
 			require.NoError(t, err, "should be able to list repos")
 			checkOutput(ctx, t, iter, expectedInfos)
 			return nil
 		}))
-		iter, err := pfsdb.ListCommit(ctx, db, filter)
+		iter, err := pfsdb.ListCommit(ctx, db, filter, false)
 		require.NoError(t, err, "should be able to list repos")
 		checkOutput(ctx, t, iter, expectedInfos)
 	})
