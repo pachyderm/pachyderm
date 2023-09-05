@@ -30,14 +30,6 @@ const (
 		FROM pfs.commits commit
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
 		JOIN core.projects project ON repo.project_id = project.id`
-	getCommitWithAncestry = `
-		SELECT 
-    		commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str, commit.origin, commit.description, commit.start_time, 
-    		commit.finishing_time, commit.finished_time, commit.compacting_time, commit.validating_time,
-    		commit.error, commit.size, repo.name AS repo_name, repo.type AS repo_type, project.name AS proj_name
-		FROM pfs.commits commit
-		JOIN pfs.repos repo ON commit.repo_id = repo.id
-		JOIN core.projects project ON repo.project_id = project.id`
 	getRelativeCommit = `
 		SELECT
     		commit.int_id, commit.commit_id, commit.repo_id, commit.branch_id_str, commit.origin, commit.description, commit.start_time, 
@@ -47,9 +39,9 @@ const (
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
 		JOIN core.projects project ON repo.project_id = project.id
 	`
-	getParentCommit = getRelativeCommit + `
+	getParentCommit = getCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.from_id = commit.int_id`
-	getChildCommit = getRelativeCommit + `
+	getChildCommit = getCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.to_id = commit.int_id`
 )
 
