@@ -27,4 +27,4 @@ find . \
 | xargs -0 -P 16 shellcheck -e SC1091 -e SC2010 -e SC2181 -e SC2004 -e SC2219
 
 go install github.com/neilpa/yajsv@latest
-find . -name '*.pipeline.json' -exec yajsv -s src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json '{}' '+' | grep -E -v '.json: pass$'
+find . -name '*.pipeline.json' -exec yajsv -s src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json '{}' '+'
