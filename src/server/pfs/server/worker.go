@@ -10,15 +10,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
 )
 
 type WorkerEnv struct {
-	DB         *sqlx.DB
-	ObjClient  obj.Client
-	EtcdClient *etcd.Client
-	EtcdPrefix string
+	DB          *sqlx.DB
+	ObjClient   obj.Client
+	TaskService task.Service
 }
 
 type WorkerConfig struct {
@@ -29,8 +27,7 @@ type Worker struct {
 	env    WorkerEnv
 	config WorkerConfig
 
-	storage     *storage.Server
-	taskService task.Service
+	storage *storage.Server
 }
 
 func NewWorker(env WorkerEnv, config WorkerConfig) (*Worker, error) {
@@ -41,13 +38,11 @@ func NewWorker(env WorkerEnv, config WorkerConfig) (*Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &Worker{
 		env:    env,
 		config: config,
 
-		storage:     ss,
-		taskService: task.NewEtcdService(env.EtcdClient, env.EtcdPrefix),
+		storage: ss,
 	}, nil
 }
 
@@ -58,7 +53,7 @@ func (w *Worker) Run(ctx context.Context) error {
 	// compactionWorker
 	eg.Go(func() error {
 		ctx := pctx.Child(ctx, "compactionWorker")
-		return compactionWorker(ctx, w.taskService.NewSource(StorageTaskNamespace), w.storage.Filesets)
+		return compactionWorker(ctx, w.env.TaskService.NewSource(StorageTaskNamespace), w.storage.Filesets)
 	})
 	// URL Worker
 	eg.Go(func() error {

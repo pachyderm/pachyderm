@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
@@ -26,11 +27,15 @@ func newPachwBuilder(config any) *pachwBuilder {
 }
 
 func (b *pachwBuilder) registerPFSServer(ctx context.Context) error {
+	objClient, err := obj.NewClient(ctx, b.env.Config().StorageBackend, b.env.Config().StorageRoot)
+	if err != nil {
+		return err
+	}
 	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PFSEtcdPrefix)
 	env := pfs_server.WorkerEnv{
-		DB:         b.env.GetDBClient(),
-		EtcdClient: b.env.GetEtcdClient(),
-		EtcdPrefix: etcdPrefix,
+		DB:          b.env.GetDBClient(),
+		ObjClient:   objClient,
+		TaskService: b.env.GetTaskService(etcdPrefix),
 	}
 	config := pfs_server.WorkerConfig{
 		Storage: b.env.Config().StorageConfiguration,
