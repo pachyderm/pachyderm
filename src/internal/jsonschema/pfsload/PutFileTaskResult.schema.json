@@ -4,9 +4,6 @@
     "definitions": {
         "PutFileTaskResult": {
             "properties": {
-                "file_set_id": {
-                    "type": "string"
-                },
                 "fileSetId": {
                     "type": "string"
                 },

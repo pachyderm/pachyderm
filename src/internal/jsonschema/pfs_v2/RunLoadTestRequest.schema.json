@@ -14,9 +14,6 @@
                 "seed": {
                     "type": "integer"
                 },
-                "state_id": {
-                    "type": "string"
-                },
                 "stateId": {
                     "type": "string"
                 }

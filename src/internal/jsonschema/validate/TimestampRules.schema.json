@@ -33,17 +33,9 @@
                     "description": "Gte specifies that this field must be greater than the specified value, inclusive",
                     "format": "date-time"
                 },
-                "lt_now": {
-                    "type": "boolean",
-                    "description": "LtNow specifies that this must be less than the current time. LtNow can only be used with the Within rule."
-                },
                 "ltNow": {
                     "type": "boolean",
                     "description": "LtNow specifies that this must be less than the current time. LtNow can only be used with the Within rule."
-                },
-                "gt_now": {
-                    "type": "boolean",
-                    "description": "GtNow specifies that this must be greater than the current time. GtNow can only be used with the Within rule."
                 },
                 "gtNow": {
                     "type": "boolean",

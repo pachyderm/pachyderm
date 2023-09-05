@@ -4,40 +4,21 @@
     "definitions": {
         "CrossTask": {
             "properties": {
-                "file_set_ids": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
                 "fileSetIds": {
                     "items": {
                         "type": "string"
                     },
                     "type": "array"
                 },
-                "base_file_set_index": {
-                    "type": "integer"
-                },
                 "baseFileSetIndex": {
                     "type": "integer"
-                },
-                "base_file_set_path_range": {
-                    "$ref": "#/definitions/pfs_v2.PathRange",
-                    "additionalProperties": false
                 },
                 "baseFileSetPathRange": {
                     "$ref": "#/definitions/pfs_v2.PathRange",
                     "additionalProperties": false
                 },
-                "base_index": {
-                    "type": "integer"
-                },
                 "baseIndex": {
                     "type": "integer"
-                },
-                "auth_token": {
-                    "type": "string"
                 },
                 "authToken": {
                     "type": "string"

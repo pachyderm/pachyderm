@@ -4,19 +4,10 @@
     "definitions": {
         "CreateSerialDatumsTaskResult": {
             "properties": {
-                "file_set_id": {
-                    "type": "string"
-                },
                 "fileSetId": {
                     "type": "string"
                 },
-                "output_delete_file_set_id": {
-                    "type": "string"
-                },
                 "outputDeleteFileSetId": {
-                    "type": "string"
-                },
-                "meta_delete_file_set_id": {
                     "type": "string"
                 },
                 "metaDeleteFileSetId": {
@@ -33,10 +24,6 @@
         },
         "datum.Stats": {
             "properties": {
-                "process_stats": {
-                    "$ref": "#/definitions/pps_v2.ProcessStats",
-                    "additionalProperties": false
-                },
                 "processStats": {
                     "$ref": "#/definitions/pps_v2.ProcessStats",
                     "additionalProperties": false
@@ -56,9 +43,6 @@
                 "recovered": {
                     "type": "integer"
                 },
-                "failed_id": {
-                    "type": "string"
-                },
                 "failedId": {
                     "type": "string"
                 }
@@ -69,17 +53,7 @@
         },
         "pps_v2.ProcessStats": {
             "properties": {
-                "download_time": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "downloadTime": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
-                "process_time": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
@@ -89,23 +63,12 @@
                     "type": "string",
                     "format": "regex"
                 },
-                "upload_time": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "uploadTime": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
                 },
-                "download_bytes": {
-                    "type": "integer"
-                },
                 "downloadBytes": {
-                    "type": "integer"
-                },
-                "upload_bytes": {
                     "type": "integer"
                 },
                 "uploadBytes": {

@@ -4,13 +4,6 @@
     "definitions": {
         "CreateDatumSetsTaskResult": {
             "properties": {
-                "datum_sets": {
-                    "items": {
-                        "$ref": "#/definitions/pfs_v2.PathRange"
-                    },
-                    "additionalProperties": false,
-                    "type": "array"
-                },
                 "datumSets": {
                     "items": {
                         "$ref": "#/definitions/pfs_v2.PathRange"

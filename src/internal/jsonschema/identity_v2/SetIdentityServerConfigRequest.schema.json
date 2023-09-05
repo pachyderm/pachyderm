@@ -18,13 +18,7 @@
                 "issuer": {
                     "type": "string"
                 },
-                "id_token_expiry": {
-                    "type": "string"
-                },
                 "idTokenExpiry": {
-                    "type": "string"
-                },
-                "rotation_token_expiry": {
                     "type": "string"
                 },
                 "rotationTokenExpiry": {

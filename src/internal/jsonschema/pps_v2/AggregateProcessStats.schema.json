@@ -4,15 +4,7 @@
     "definitions": {
         "AggregateProcessStats": {
             "properties": {
-                "download_time": {
-                    "$ref": "#/definitions/pps_v2.Aggregate",
-                    "additionalProperties": false
-                },
                 "downloadTime": {
-                    "$ref": "#/definitions/pps_v2.Aggregate",
-                    "additionalProperties": false
-                },
-                "process_time": {
                     "$ref": "#/definitions/pps_v2.Aggregate",
                     "additionalProperties": false
                 },
@@ -20,23 +12,11 @@
                     "$ref": "#/definitions/pps_v2.Aggregate",
                     "additionalProperties": false
                 },
-                "upload_time": {
-                    "$ref": "#/definitions/pps_v2.Aggregate",
-                    "additionalProperties": false
-                },
                 "uploadTime": {
                     "$ref": "#/definitions/pps_v2.Aggregate",
                     "additionalProperties": false
                 },
-                "download_bytes": {
-                    "$ref": "#/definitions/pps_v2.Aggregate",
-                    "additionalProperties": false
-                },
                 "downloadBytes": {
-                    "$ref": "#/definitions/pps_v2.Aggregate",
-                    "additionalProperties": false
-                },
-                "upload_bytes": {
                     "$ref": "#/definitions/pps_v2.Aggregate",
                     "additionalProperties": false
                 },
@@ -60,13 +40,7 @@
                 "stddev": {
                     "type": "number"
                 },
-                "fifth_percentile": {
-                    "type": "number"
-                },
                 "fifthPercentile": {
-                    "type": "number"
-                },
-                "ninety_fifth_percentile": {
                     "type": "number"
                 },
                 "ninetyFifthPercentile": {

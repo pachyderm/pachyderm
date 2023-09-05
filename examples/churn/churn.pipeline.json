@@ -1,36 +1,36 @@
 {
-    "pipeline": {
-        "name": "churn"
-    },
-    "description": "A pipeline to predict user churn.",
-    "transform": {
-        "image": "pachyderm/churn",
-        "cmd": ["python", "/churn.py"]
-    },
-    "input": {
-        "pfs": {
-            "repo": "customer",
-            "glob": "/*"
-        }
-    },
-    "resource_limits": {
-        "memory": "256MB",
-        "cpu": 1
-    },
-    "resource_requests": {
-        "memory": "256MB",
-        "cpu": 1
-    },
-    "egress": {
-        "sql_database": {
-            "url": "snowflake://<username>@<account>/<database>/PUBLIC?warehouse=COMPUTE_WH",
-            "file_format": {
-                "type": "CSV"
-            },
-            "secret": {
-                "name": "snowflakesecret",
-                "key": "PACHYDERM_SQL_PASSWORD"
-            }
-        }
+  "pipeline": {
+    "name": "churn"
+  },
+  "description": "A pipeline to predict user churn.",
+  "transform": {
+    "image": "pachyderm/churn",
+    "cmd": ["python", "/churn.py"]
+  },
+  "input": {
+    "pfs": {
+      "repo": "customer",
+      "glob": "/*"
     }
+  },
+  "resourceLimits": {
+    "memory": "256MB",
+    "cpu": 1
+  },
+  "resourceRequests": {
+    "memory": "256MB",
+    "cpu": 1
+  },
+  "egress": {
+    "sqlDatabase": {
+      "url": "snowflake://<username>@<account>/<database>/PUBLIC?warehouse=COMPUTE_WH",
+      "fileFormat": {
+        "type": "CSV"
+      },
+      "secret": {
+        "name": "snowflakesecret",
+        "key": "PACHYDERM_SQL_PASSWORD"
+      }
+    }
+  }
 }

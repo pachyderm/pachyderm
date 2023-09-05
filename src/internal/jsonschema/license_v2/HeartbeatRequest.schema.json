@@ -13,14 +13,8 @@
                 "version": {
                     "type": "string"
                 },
-                "auth_enabled": {
-                    "type": "boolean"
-                },
                 "authEnabled": {
                     "type": "boolean"
-                },
-                "client_id": {
-                    "type": "string"
                 },
                 "clientId": {
                     "type": "string"

@@ -4,13 +4,7 @@
     "definitions": {
         "SizeSpec": {
             "properties": {
-                "min_size": {
-                    "type": "integer"
-                },
                 "min": {
-                    "type": "integer"
-                },
-                "max_size": {
                     "type": "integer"
                 },
                 "max": {

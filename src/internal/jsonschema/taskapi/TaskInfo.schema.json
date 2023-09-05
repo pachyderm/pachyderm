@@ -25,13 +25,7 @@
                 "reason": {
                     "type": "string"
                 },
-                "input_type": {
-                    "type": "string"
-                },
                 "inputType": {
-                    "type": "string"
-                },
-                "input_data": {
                     "type": "string"
                 },
                 "inputData": {

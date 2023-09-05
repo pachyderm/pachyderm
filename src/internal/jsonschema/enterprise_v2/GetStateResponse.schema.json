@@ -18,10 +18,6 @@
                     "$ref": "#/definitions/enterprise_v2.TokenInfo",
                     "additionalProperties": false
                 },
-                "activation_code": {
-                    "type": "string",
-                    "description": "activation_code will always be an empty string, call GetEnterpriseCode to get the activation code"
-                },
                 "activationCode": {
                     "type": "string",
                     "description": "activation_code will always be an empty string, call GetEnterpriseCode to get the activation code"

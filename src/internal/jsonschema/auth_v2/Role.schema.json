@@ -86,35 +86,7 @@
                     "title": "Permission",
                     "description": "Permission represents the ability to perform a given operation on a Resource"
                 },
-                "can_be_bound_to": {
-                    "items": {
-                        "enum": [
-                            "RESOURCE_TYPE_UNKNOWN",
-                            "CLUSTER",
-                            "REPO",
-                            "SPEC_REPO",
-                            "PROJECT"
-                        ]
-                    },
-                    "type": "array",
-                    "title": "Resource Type",
-                    "description": "ResourceType represents the type of a Resource"
-                },
                 "canBeBoundTo": {
-                    "items": {
-                        "enum": [
-                            "RESOURCE_TYPE_UNKNOWN",
-                            "CLUSTER",
-                            "REPO",
-                            "SPEC_REPO",
-                            "PROJECT"
-                        ]
-                    },
-                    "type": "array",
-                    "title": "Resource Type",
-                    "description": "ResourceType represents the type of a Resource"
-                },
-                "returned_for": {
                     "items": {
                         "enum": [
                             "RESOURCE_TYPE_UNKNOWN",

@@ -4,19 +4,17 @@
   },
   "input": {
     "cron": {
-        "name": "tick",
-        "spec": "@every 1m",
-        "overwrite": true
+      "name": "tick",
+      "spec": "@every 1m",
+      "overwrite": true
     }
   },
   "transform": {
-      "cmd": ["sh" ],
-      "stdin": [
-          "echo '{\"pachd_address\": \"grpc://pachd:650\"}' | pachctl config set context default --overwrite",
-          "pachctl create branch edges_dp@master --head dev"
-      ],
+    "cmd": ["sh"],
+    "stdin": [
+      "echo '{\"pachd_address\": \"grpc://pachd:650\"}' | pachctl config set context default --overwrite",
+      "pachctl create branch edges_dp@master --head dev"
+    ],
     "image": "pachyderm/pachctl:1.11.0"
   }
 }
-
-

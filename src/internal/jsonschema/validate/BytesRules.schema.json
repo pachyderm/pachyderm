@@ -14,17 +14,9 @@
                     "type": "integer",
                     "description": "Len specifies that this field must be the specified number of bytes"
                 },
-                "min_len": {
-                    "type": "integer",
-                    "description": "MinLen specifies that this field must be the specified number of bytes at a minimum"
-                },
                 "minLen": {
                     "type": "integer",
                     "description": "MinLen specifies that this field must be the specified number of bytes at a minimum"
-                },
-                "max_len": {
-                    "type": "integer",
-                    "description": "MaxLen specifies that this field must be the specified number of bytes at a maximum"
                 },
                 "maxLen": {
                     "type": "integer",
@@ -61,15 +53,6 @@
                     "format": "binary",
                     "binaryEncoding": "base64"
                 },
-                "not_in": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array",
-                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
-                    "format": "binary",
-                    "binaryEncoding": "base64"
-                },
                 "notIn": {
                     "items": {
                         "type": "string"
@@ -90,10 +73,6 @@
                 "ipv6": {
                     "type": "boolean",
                     "description": "Ipv6 specifies that the field must be a valid IPv6 address in byte format"
-                },
-                "ignore_empty": {
-                    "type": "boolean",
-                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
                 },
                 "ignoreEmpty": {
                     "type": "boolean",

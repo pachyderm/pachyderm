@@ -4,19 +4,7 @@
     "definitions": {
         "SetLogLevelResponse": {
             "properties": {
-                "affected_pods": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
                 "affectedPods": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
-                "errored_pods": {
                     "items": {
                         "type": "string"
                     },

@@ -4,23 +4,10 @@
     "definitions": {
         "CheckStorageRequest": {
             "properties": {
-                "read_chunk_data": {
-                    "type": "boolean"
-                },
                 "readChunkData": {
                     "type": "boolean"
                 },
-                "chunk_begin": {
-                    "type": "string",
-                    "format": "binary",
-                    "binaryEncoding": "base64"
-                },
                 "chunkBegin": {
-                    "type": "string",
-                    "format": "binary",
-                    "binaryEncoding": "base64"
-                },
-                "chunk_end": {
                     "type": "string",
                     "format": "binary",
                     "binaryEncoding": "base64"

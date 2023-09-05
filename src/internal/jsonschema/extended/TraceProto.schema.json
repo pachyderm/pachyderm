@@ -4,13 +4,6 @@
     "definitions": {
         "TraceProto": {
             "properties": {
-                "serialized_trace": {
-                    "additionalProperties": {
-                        "type": "string"
-                    },
-                    "type": "object",
-                    "description": "serialized_trace contains the info identifying a trace in Jaeger (a (trace ID, span ID, sampled) tuple, basically)"
-                },
                 "serializedTrace": {
                     "additionalProperties": {
                         "type": "string"

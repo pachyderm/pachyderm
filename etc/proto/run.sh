@@ -52,7 +52,7 @@ protoc \
     --jsonschema_opt="enums_as_strings_only" \
     --jsonschema_opt="disallow_bigints_as_strings" \
     --jsonschema_opt="prefix_schema_files_with_package" \
-    --jsonschema_opt="proto_and_json_fieldnames" \
+    --jsonschema_opt="json_fieldnames" \
     --doc_opt="json,proto-docs.json" \
     --doc2_opt="markdown,proto-docs.md" \
     "${PROTOS[@]}" > /dev/stderr

@@ -4,10 +4,6 @@
     "definitions": {
         "GetOIDCLoginResponse": {
             "properties": {
-                "login_url": {
-                    "type": "string",
-                    "description": "The login URL generated for the OIDC object"
-                },
                 "loginUrl": {
                     "type": "string",
                     "description": "The login URL generated for the OIDC object"

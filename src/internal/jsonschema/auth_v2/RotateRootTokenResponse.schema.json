@@ -4,9 +4,6 @@
     "definitions": {
         "RotateRootTokenResponse": {
             "properties": {
-                "root_token": {
-                    "type": "string"
-                },
                 "rootToken": {
                     "type": "string"
                 }

@@ -15,9 +15,6 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
-                "input_repos": {
-                    "type": "boolean"
-                },
                 "inputRepos": {
                     "type": "boolean"
                 },
@@ -63,9 +60,6 @@
         },
         "debug_v2.DumpV2Request.Defaults": {
             "properties": {
-                "cluster_defaults": {
-                    "type": "boolean"
-                },
                 "clusterDefaults": {
                     "type": "boolean"
                 }
@@ -125,13 +119,6 @@
                     "type": "array"
                 },
                 "logs": {
-                    "items": {
-                        "$ref": "#/definitions/debug_v2.App"
-                    },
-                    "additionalProperties": false,
-                    "type": "array"
-                },
-                "loki_logs": {
                     "items": {
                         "$ref": "#/definitions/debug_v2.App"
                     },

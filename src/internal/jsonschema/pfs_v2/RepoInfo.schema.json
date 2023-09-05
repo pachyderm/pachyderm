@@ -12,9 +12,6 @@
                     "type": "string",
                     "format": "date-time"
                 },
-                "size_bytes_upper_bound": {
-                    "type": "integer"
-                },
                 "sizeBytesUpperBound": {
                     "type": "integer"
                 },
@@ -27,11 +24,6 @@
                     },
                     "additionalProperties": false,
                     "type": "array"
-                },
-                "auth_info": {
-                    "$ref": "#/definitions/pfs_v2.AuthInfo",
-                    "additionalProperties": false,
-                    "description": "Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but not stored in etcd. To set a user's auth scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)"
                 },
                 "authInfo": {
                     "$ref": "#/definitions/pfs_v2.AuthInfo",
@@ -186,9 +178,6 @@
         },
         "pfs_v2.RepoInfo.Details": {
             "properties": {
-                "size_bytes": {
-                    "type": "integer"
-                },
                 "sizeBytes": {
                     "type": "integer"
                 }
