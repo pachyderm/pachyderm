@@ -14,10 +14,10 @@
     "secrets": [
       {
         "name": "$PIPELINE_DOCKER_SECRETS",
-        "mount_path": "$PIPELINE_DOCKER_SECRETS_PATH"
+        "mountPath": "$PIPELINE_DOCKER_SECRETS_PATH"
       }
     ],
-    "image_pull_secrets": ["$PIPELINE_DOCKER_REGISTRY_SECRETS"]
+    "imagePullSecrets": ["$PIPELINE_DOCKER_REGISTRY_SECRETS"]
   },
   "input": {
     "pfs": {

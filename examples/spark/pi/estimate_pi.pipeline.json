@@ -7,7 +7,7 @@
     "cmd": ["spark-submit", "/home/estimate_pi.py"],
     "image": "pachyderm/estimate-pi-spark:0.3"
   },
-  "parallelism_spec": {
+  "parallelismSpec": {
     "constant": 1
   },
   "input": {

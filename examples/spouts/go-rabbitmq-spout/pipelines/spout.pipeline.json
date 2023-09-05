@@ -28,7 +28,7 @@
     "secrets": [{
       "name": "rabbitmq-password",
       "key": "rabbitmq-password",
-      "env_var": "RABBITMQ_PASSWORD"
+      "envVar": "RABBITMQ_PASSWORD"
     }]
   }
 }

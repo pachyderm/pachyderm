@@ -11,8 +11,8 @@
       "tail -n20 /tmp/iris_shuffled.csv > /pfs/out/test.csv"
     ]
   },
-  "parallelism_spec": {
-    "constant": "1"
+  "parallelismSpec": {
+    "constant": 1
   },
   "input": {
     "pfs": {

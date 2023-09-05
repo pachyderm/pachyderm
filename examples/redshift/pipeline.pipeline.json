@@ -25,11 +25,11 @@
     "secrets": [
       {
         "name": "pgpass-secret",
-        "mount_path": "/secrets/pgpass"
+        "mountPath": "/secrets/pgpass"
       }
     ]
   },
-  "parallelism_spec": {
+  "parallelismSpec": {
     "constant": 1
   }
 }

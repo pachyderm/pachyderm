@@ -9,7 +9,7 @@
       "name": "images"
     }
   },
-  "output_branch": "dev",
+  "outputBranch": "dev",
   "transform": {
     "cmd": ["python3", "/edges.py"],
     "image": "pachyderm/opencv"

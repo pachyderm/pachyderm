@@ -10,7 +10,7 @@
           "repo": "stores",
           "branch": "master",
           "glob": "/STOREID(*).txt",
-          "group_by": "$1"
+          "groupBy": "$1"
         }
       },
       {
@@ -18,7 +18,7 @@
           "repo": "purchases",
           "branch": "master",
           "glob": "/*_STOREID(*).txt",
-          "group_by": "$1"
+          "groupBy": "$1"
         }
       },
       {
@@ -26,7 +26,7 @@
           "repo": "returns",
           "branch": "master",
           "glob": "/*_STOREID(*).txt",
-          "group_by": "$1"
+          "groupBy": "$1"
         }
       }
     ]

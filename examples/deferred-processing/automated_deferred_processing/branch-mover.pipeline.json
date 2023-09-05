@@ -19,7 +19,7 @@
     "image": "pachyderm/pachctl:1.11.0",
     "secrets": [{
       "name": "pachyderm-user-secret",
-      "env_var": "PACHYDERM_AUTH_TOKEN",
+      "envVar": "PACHYDERM_AUTH_TOKEN",
       "key": "auth_token"
     }]
   }

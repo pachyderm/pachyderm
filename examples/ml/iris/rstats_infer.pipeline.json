@@ -10,8 +10,8 @@
       "infer.R"
     ]
   },
-  "parallelism_spec": {
-    "constant": "1"
+  "parallelismSpec": {
+    "constant": 1
   },
   "input": {
     "cross": [

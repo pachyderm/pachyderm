@@ -17,7 +17,7 @@
     "secrets": [
       {
         "name": "mongosecret",
-        "mount_path": "/tmp/mongosecret"
+        "mountPath": "/tmp/mongosecret"
       }
     ]
   },

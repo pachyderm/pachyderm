@@ -10,8 +10,8 @@
           "repo": "stores",
           "branch": "master",
           "glob": "/STOREID(*).txt",
-          "join_on": "$1",
-          "outer_join": true
+          "joinOn": "$1",
+          "outerJoin": true
         }
       },
       {
@@ -19,8 +19,8 @@
           "repo": "returns",
           "branch": "master",
           "glob": "/*_STOREID(*).txt",
-          "join_on": "$1",
-          "outer_join": true
+          "joinOn": "$1",
+          "outerJoin": true
         }
       }
     ]

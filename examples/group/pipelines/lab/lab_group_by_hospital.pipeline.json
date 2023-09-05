@@ -10,7 +10,7 @@
           "repo": "labresults",
           "branch": "master",
           "glob": "/*-CLIA(*).txt",
-          "group_by": "$1"
+          "groupBy": "$1"
         }
       }
     ]

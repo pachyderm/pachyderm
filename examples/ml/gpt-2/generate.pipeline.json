@@ -13,7 +13,7 @@
       "glob": "/*"
     }
   },
-  "resource_limits": {
+  "resourceLimits": {
     "gpu": {
       "type": "nvidia.com/gpu",
       "number": 1
@@ -21,7 +21,7 @@
     "memory": "10G",
     "cpu": 1
   },
-  "resource_requests": {
+  "resourceRequests": {
     "memory": "10G",
     "cpu": 1
   },

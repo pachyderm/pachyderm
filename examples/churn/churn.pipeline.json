@@ -13,18 +13,18 @@
       "glob": "/*"
     }
   },
-  "resource_limits": {
+  "resourceLimits": {
     "memory": "256MB",
     "cpu": 1
   },
-  "resource_requests": {
+  "resourceRequests": {
     "memory": "256MB",
     "cpu": 1
   },
   "egress": {
-    "sql_database": {
+    "sqlDatabase": {
       "url": "snowflake://<username>@<account>/<database>/PUBLIC?warehouse=COMPUTE_WH",
-      "file_format": {
+      "fileFormat": {
         "type": "CSV"
       },
       "secret": {
