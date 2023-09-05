@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "cypress:ci": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true --spec 'cypress/e2e/unauthenticated/**/*' --record --parallel --group e2e",
-    "cypress:ci-auth": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true --spec 'cypress/e2e/authenticated/**/*' --record --group e2e-auth",
+    "cypress:ci-auth": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true --spec 'cypress/e2e/authenticated/**/*' --record --parallel --group e2e-auth",
     "cypress:ci-mock": "NODE_ENV=mock dotenv-flow -- cypress run --browser chrome --config retries=2,video=true scrollBehavior=false --spec 'cypress/e2e/mock/**/*' --record --group e2e-mock",
     "cypress:ci-build": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true,baseUrl=http://localhost:80 --spec 'cypress/e2e/build/**/*' --record --group e2e",
     "cypress:local": "NODE_ENV=development dotenv-flow -- cypress open --e2e --config '{\"e2e\": {\"specPattern\": \"cypress/e2e/unauthenticated/**/*\"}}'",
