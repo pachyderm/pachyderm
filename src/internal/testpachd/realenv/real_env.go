@@ -214,7 +214,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	w, err := pfsserver.NewWorker(pfsserver.WorkerEnv{
 		DB:          pfsEnv.DB,
 		ObjClient:   pfsEnv.ObjectClient,
-		TaskService: realEnv.ServiceEnv.GetTaskService(pfsEnv.EtcdPrefix),
+		TaskService: pfsEnv.TaskService,
 	}, pfsserver.WorkerConfig{
 		Storage: pfsEnv.StorageConfig,
 	})
