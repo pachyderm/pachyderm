@@ -1,0 +1,126 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/BytesRules",
+    "definitions": {
+        "BytesRules": {
+            "properties": {
+                "const": {
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "len": {
+                    "type": "integer",
+                    "description": "Len specifies that this field must be the specified number of bytes"
+                },
+                "min_len": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "minLen": {
+                    "type": "integer",
+                    "description": "MinLen specifies that this field must be the specified number of bytes at a minimum"
+                },
+                "max_len": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "maxLen": {
+                    "type": "integer",
+                    "description": "MaxLen specifies that this field must be the specified number of bytes at a maximum"
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Pattern specifes that this field must match against the specified regular expression (RE2 syntax). The included expression should elide any delimiters."
+                },
+                "prefix": {
+                    "type": "string",
+                    "description": "Prefix specifies that this field must have the specified bytes at the beginning of the string.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "suffix": {
+                    "type": "string",
+                    "description": "Suffix specifies that this field must have the specified bytes at the end of the string.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "contains": {
+                    "type": "string",
+                    "description": "Contains specifies that this field must have the specified bytes anywhere in the string.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "not_in": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "ip": {
+                    "type": "boolean",
+                    "description": "Ip specifies that the field must be a valid IP (v4 or v6) address in byte format"
+                },
+                "ipv4": {
+                    "type": "boolean",
+                    "description": "Ipv4 specifies that the field must be a valid IPv4 address in byte format"
+                },
+                "ipv6": {
+                    "type": "boolean",
+                    "description": "Ipv6 specifies that the field must be a valid IPv6 address in byte format"
+                },
+                "ignore_empty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                },
+                "ignoreEmpty": {
+                    "type": "boolean",
+                    "description": "IgnoreEmpty specifies that the validation rules of this field should be evaluated only if the field is not empty"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "ip"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv4"
+                    ]
+                },
+                {
+                    "required": [
+                        "ipv6"
+                    ]
+                }
+            ],
+            "title": "Bytes Rules",
+            "description": "BytesRules describe the constraints applied to `bytes` values"
+        }
+    }
+}

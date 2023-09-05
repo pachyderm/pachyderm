@@ -76,6 +76,9 @@
             "properties": {
                 "cluster_defaults": {
                     "type": "boolean"
+                },
+                "clusterDefaults": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false,
