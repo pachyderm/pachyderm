@@ -395,10 +395,10 @@ message CopyFile {
 
 message ModifyFileRequest {
   oneof body {
-    Commit set_commit = 1;
-    AddFile add_file = 2;
-    DeleteFile delete_file = 3;
-    CopyFile copy_file = 4;
+    Commit set_commit = 1 [(validate.rules).message.required = true];
+    AddFile add_file = 2 [(validate.rules).message.required = true];
+    DeleteFile delete_file = 3 [(validate.rules).message.required = true];
+    CopyFile copy_file = 4 [(validate.rules).message.required = true];
   }
 }
 

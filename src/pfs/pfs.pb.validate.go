@@ -6871,6 +6871,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+		if m.GetSetCommit() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "SetCommit",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(m.GetSetCommit()).(type) {
 			case interface{ ValidateAll() error }:
@@ -6905,6 +6916,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			err := ModifyFileRequestValidationError{
 				field:  "Body",
 				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if m.GetAddFile() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "AddFile",
+				reason: "value is required",
 			}
 			if !all {
 				return err
@@ -6953,6 +6975,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+		if m.GetDeleteFile() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "DeleteFile",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(m.GetDeleteFile()).(type) {
 			case interface{ ValidateAll() error }:
@@ -6987,6 +7020,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			err := ModifyFileRequestValidationError{
 				field:  "Body",
 				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if m.GetCopyFile() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "CopyFile",
+				reason: "value is required",
 			}
 			if !all {
 				return err
