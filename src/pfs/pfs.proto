@@ -389,7 +389,7 @@ message DeleteFile {
 message CopyFile {
   string dst = 1;
   string datum = 2;
-  File src = 3;
+  File src = 3 [(validate.rules).message.required = true];
   bool append = 4;
 }
 

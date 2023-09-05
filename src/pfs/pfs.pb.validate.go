@@ -6728,6 +6728,17 @@ func (m *CopyFile) validate(all bool) error {
 
 	// no validation rules for Datum
 
+	if m.GetSrc() == nil {
+		err := CopyFileValidationError{
+			field:  "Src",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetSrc()).(type) {
 		case interface{ ValidateAll() error }:
