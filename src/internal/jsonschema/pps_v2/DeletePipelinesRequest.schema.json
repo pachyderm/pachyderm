@@ -15,9 +15,6 @@
                 "force": {
                     "type": "boolean"
                 },
-                "keep_repo": {
-                    "type": "boolean"
-                },
                 "keepRepo": {
                     "type": "boolean"
                 },

@@ -7,9 +7,6 @@
                 "error": {
                     "type": "string"
                 },
-                "state_id": {
-                    "type": "string"
-                },
                 "stateId": {
                     "type": "string"
                 }

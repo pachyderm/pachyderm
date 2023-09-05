@@ -6,9 +6,15 @@
   "transform": {
     "cmd": ["sh"],
     "stdin": [
-        "mkdir /tmp/out",
-        "set -x", "FILES=/pfs/map/*/*", "for f in $FILES", "do", "out=`basename $f`", "cat $f >> /tmp/out/${out}", "done",
-        "find /tmp/out/ -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; echo `basename $count`; done"
+      "mkdir /tmp/out",
+      "set -x",
+      "FILES=/pfs/map/*/*",
+      "for f in $FILES",
+      "do",
+      "out=`basename $f`",
+      "cat $f >> /tmp/out/${out}",
+      "done",
+      "find /tmp/out/ -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; echo `basename $count`; done"
     ]
   },
   "input": {
@@ -18,4 +24,3 @@
     }
   }
 }
-

@@ -11,8 +11,8 @@
       "sed -i 's/out/checkpoint/g' /pfs/out/checkpoint"
     ]
   },
-  "parallelism_spec": {
-    "constant": "1"
+  "parallelismSpec": {
+    "constant": 1
   },
   "input": {
     "pfs": {
@@ -34,8 +34,8 @@
       "sed -i 's/out/model/g' /pfs/out/checkpoint"
     ]
   },
-  "parallelism_spec": {
-    "constant": "1"
+  "parallelismSpec": {
+    "constant": 1
   },
   "input": {
     "pfs": {

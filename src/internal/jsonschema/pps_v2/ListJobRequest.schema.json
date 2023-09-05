@@ -17,14 +17,6 @@
                     "additionalProperties": false,
                     "description": "nil means all pipelines"
                 },
-                "input_commit": {
-                    "items": {
-                        "$ref": "#/definitions/pfs_v2.Commit"
-                    },
-                    "additionalProperties": false,
-                    "type": "array",
-                    "description": "nil means all inputs"
-                },
                 "inputCommit": {
                     "items": {
                         "$ref": "#/definitions/pfs_v2.Commit"

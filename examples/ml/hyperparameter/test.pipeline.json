@@ -5,7 +5,7 @@
   "description": "A pipeline that scores each of the trained models.",
   "transform": {
     "image": "pachyderm/iris-evaluate",
-    "cmd": [ "/bin/ash" ],
+    "cmd": ["/bin/ash"],
     "stdin": [
       "for f in /pfs/model/*",
       "do",
@@ -18,8 +18,8 @@
       "done"
     ]
   },
-  "parallelism_spec": {
-    "constant": "1"
+  "parallelismSpec": {
+    "constant": 1
   },
   "input": {
     "cross": [

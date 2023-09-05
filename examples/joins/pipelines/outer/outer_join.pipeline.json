@@ -10,23 +10,23 @@
           "repo": "stores",
           "branch": "master",
           "glob": "/STOREID(*).txt",
-          "join_on": "$1",
-          "outer_join": true
+          "joinOn": "$1",
+          "outerJoin": true
         }
       },
-     {
-       "pfs": {
-         "repo": "returns",
-         "branch": "master",
-         "glob": "/*_STOREID(*).txt",
-         "join_on": "$1",
-         "outer_join": true
-       }
-     }
-   ]
- },
- "transform": {
-  "cmd": [ "python", "outer/main.py" ],
-  "image": "pachyderm/example-joins-inner-outer:2.1.0"
-}
+      {
+        "pfs": {
+          "repo": "returns",
+          "branch": "master",
+          "glob": "/*_STOREID(*).txt",
+          "joinOn": "$1",
+          "outerJoin": true
+        }
+      }
+    ]
+  },
+  "transform": {
+    "cmd": ["python", "outer/main.py"],
+    "image": "pachyderm/example-joins-inner-outer:2.1.0"
+  }
 }

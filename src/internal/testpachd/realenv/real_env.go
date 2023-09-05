@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	units "github.com/docker/go-units"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	testclient "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -25,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -121,6 +124,20 @@ func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 }
 
 func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...pachconfig.ConfigOption) *RealEnv {
+	// Log realEnv server messages to /tmp/pachyderm-real-env-<test>.log.  Logs persist after
+	// the run so you can debug the failure; rm -rf /tmp/pachdyerm-real-* to cleanup.  Client
+	// logs (i.e. code called from your test with the context you passed here) are untouched;
+	// they will appear in the t.Log log.
+	cfg := zap.NewProductionConfig()
+	cfg.Sampling = nil
+	cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
+	cfg.Level.SetLevel(zapcore.DebugLevel)
+	logger, err := cfg.Build()
+	require.NoError(t, err, "should be able to make a realenv logger")
+	ctx = pctx.Child(ctx, "", pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return logger.Core()
+	})))
+
 	mockEnv := testpachd.NewMockEnv(ctx, t, interceptor)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}

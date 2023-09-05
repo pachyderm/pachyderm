@@ -7,10 +7,6 @@
                 "url": {
                     "type": "string"
                 },
-                "file_format": {
-                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
-                    "additionalProperties": false
-                },
                 "fileFormat": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
                     "additionalProperties": false

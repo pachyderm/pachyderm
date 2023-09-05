@@ -8,15 +8,8 @@
                     "$ref": "#/definitions/pps_v2.Job",
                     "additionalProperties": false
                 },
-                "pipeline_version": {
-                    "type": "integer"
-                },
                 "pipelineVersion": {
                     "type": "integer"
-                },
-                "output_commit": {
-                    "$ref": "#/definitions/pfs_v2.Commit",
-                    "additionalProperties": false
                 },
                 "outputCommit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
@@ -26,33 +19,17 @@
                     "type": "integer",
                     "description": "Job restart count (e.g. due to datum failure)"
                 },
-                "data_processed": {
-                    "type": "integer",
-                    "description": "Counts of how many times we processed or skipped a datum"
-                },
                 "dataProcessed": {
                     "type": "integer",
                     "description": "Counts of how many times we processed or skipped a datum"
                 },
-                "data_skipped": {
-                    "type": "integer"
-                },
                 "dataSkipped": {
-                    "type": "integer"
-                },
-                "data_total": {
                     "type": "integer"
                 },
                 "dataTotal": {
                     "type": "integer"
                 },
-                "data_failed": {
-                    "type": "integer"
-                },
                 "dataFailed": {
-                    "type": "integer"
-                },
-                "data_recovered": {
                     "type": "integer"
                 },
                 "dataRecovered": {
@@ -98,9 +75,6 @@
                 "details": {
                     "$ref": "#/definitions/pps_v2.JobInfo.Details",
                     "additionalProperties": false
-                },
-                "auth_token": {
-                    "type": "string"
                 },
                 "authToken": {
                     "type": "string"
@@ -188,10 +162,6 @@
                 "url": {
                     "type": "string"
                 },
-                "file_format": {
-                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
-                    "additionalProperties": false
-                },
                 "fileFormat": {
                     "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress.FileFormat",
                     "additionalProperties": false
@@ -251,10 +221,6 @@
                     "type": "boolean",
                     "description": "All indicates that all conditions must be satisfied before the trigger happens, otherwise any conditions being satisfied will trigger it."
                 },
-                "rate_limit_spec": {
-                    "type": "string",
-                    "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
-                },
                 "rateLimitSpec": {
                     "type": "string",
                     "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
@@ -266,10 +232,6 @@
                 "commits": {
                     "type": "integer",
                     "description": "Triggers if there's been `commits` new commits added since the last trigger."
-                },
-                "cron_spec": {
-                    "type": "string",
-                    "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
                 },
                 "cronSpec": {
                     "type": "string",
@@ -324,17 +286,6 @@
                     ],
                     "description": "number, if nonzero, specifies that each datum set should contain `number` datums. Datum sets may contain fewer if the total number of datums don't divide evenly."
                 },
-                "size_bytes": {
-                    "oneOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
-                },
                 "sizeBytes": {
                     "oneOf": [
                         {
@@ -345,17 +296,6 @@
                         }
                     ],
                     "description": "size_bytes, if nonzero, specifies a target size for each datum set. Datum sets may be larger or smaller than size_bytes, but will usually be pretty close to size_bytes in size."
-                },
-                "per_worker": {
-                    "oneOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "description": "per_worker, if nonzero, specifies how many datum sets should be created for each worker. It can't be set with number or size_bytes."
                 },
                 "perWorker": {
                     "oneOf": [
@@ -412,28 +352,8 @@
                         }
                     ]
                 },
-                "object_storage": {
-                    "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
-                    "additionalProperties": false,
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {}
-                    ]
-                },
                 "objectStorage": {
                     "$ref": "#/definitions/pfs_v2.ObjectStorageEgress",
-                    "additionalProperties": false,
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {}
-                    ]
-                },
-                "sql_database": {
-                    "$ref": "#/definitions/pfs_v2.SQLDatabaseEgress",
                     "additionalProperties": false,
                     "oneOf": [
                         {
@@ -637,10 +557,6 @@
                     "$ref": "#/definitions/pps_v2.Transform",
                     "additionalProperties": false
                 },
-                "parallelism_spec": {
-                    "$ref": "#/definitions/pps_v2.ParallelismSpec",
-                    "additionalProperties": false
-                },
                 "parallelismSpec": {
                     "$ref": "#/definitions/pps_v2.ParallelismSpec",
                     "additionalProperties": false
@@ -657,13 +573,6 @@
                     "$ref": "#/definitions/pps_v2.Spout",
                     "additionalProperties": false
                 },
-                "worker_status": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.WorkerStatus"
-                    },
-                    "additionalProperties": false,
-                    "type": "array"
-                },
                 "workerStatus": {
                     "items": {
                         "$ref": "#/definitions/pps_v2.WorkerStatus"
@@ -671,23 +580,11 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
-                "resource_requests": {
-                    "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
-                },
                 "resourceRequests": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
                     "additionalProperties": false
                 },
-                "resource_limits": {
-                    "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
-                },
                 "resourceLimits": {
-                    "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
-                },
-                "sidecar_resource_limits": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
                     "additionalProperties": false
                 },
@@ -702,25 +599,11 @@
                 "salt": {
                     "type": "string"
                 },
-                "datum_set_spec": {
-                    "$ref": "#/definitions/pps_v2.DatumSetSpec",
-                    "additionalProperties": false
-                },
                 "datumSetSpec": {
                     "$ref": "#/definitions/pps_v2.DatumSetSpec",
                     "additionalProperties": false
                 },
-                "datum_timeout": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "datumTimeout": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
-                "job_timeout": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
@@ -730,35 +613,18 @@
                     "type": "string",
                     "format": "regex"
                 },
-                "datum_tries": {
-                    "type": "integer"
-                },
                 "datumTries": {
                     "type": "integer"
-                },
-                "scheduling_spec": {
-                    "$ref": "#/definitions/pps_v2.SchedulingSpec",
-                    "additionalProperties": false
                 },
                 "schedulingSpec": {
                     "$ref": "#/definitions/pps_v2.SchedulingSpec",
                     "additionalProperties": false
                 },
-                "pod_spec": {
-                    "type": "string"
-                },
                 "podSpec": {
-                    "type": "string"
-                },
-                "pod_patch": {
                     "type": "string"
                 },
                 "podPatch": {
                     "type": "string"
-                },
-                "sidecar_resource_requests": {
-                    "$ref": "#/definitions/pps_v2.ResourceSpec",
-                    "additionalProperties": false
                 },
                 "sidecarResourceRequests": {
                     "$ref": "#/definitions/pps_v2.ResourceSpec",
@@ -792,16 +658,6 @@
                     ]
                 },
                 "repo": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "string"
-                        }
-                    ]
-                },
-                "repo_type": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -851,16 +707,6 @@
                         }
                     ]
                 },
-                "join_on": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "string"
-                        }
-                    ]
-                },
                 "joinOn": {
                     "oneOf": [
                         {
@@ -871,16 +717,6 @@
                         }
                     ]
                 },
-                "outer_join": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "boolean"
-                        }
-                    ]
-                },
                 "outerJoin": {
                     "oneOf": [
                         {
@@ -888,16 +724,6 @@
                         },
                         {
                             "type": "boolean"
-                        }
-                    ]
-                },
-                "group_by": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "string"
                         }
                     ]
                 },
@@ -920,17 +746,6 @@
                             "type": "boolean"
                         }
                     ]
-                },
-                "empty_files": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "boolean"
-                        }
-                    ],
-                    "description": "EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks."
                 },
                 "emptyFiles": {
                     "oneOf": [
@@ -1018,17 +833,7 @@
         },
         "pps_v2.ProcessStats": {
             "properties": {
-                "download_time": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "downloadTime": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
-                "process_time": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
@@ -1038,23 +843,12 @@
                     "type": "string",
                     "format": "regex"
                 },
-                "upload_time": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "uploadTime": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
                 },
-                "download_bytes": {
-                    "type": "integer"
-                },
                 "downloadBytes": {
-                    "type": "integer"
-                },
-                "upload_bytes": {
                     "type": "integer"
                 },
                 "uploadBytes": {
@@ -1126,19 +920,6 @@
         },
         "pps_v2.SchedulingSpec": {
             "properties": {
-                "node_selector": {
-                    "additionalProperties": {
-                        "type": "string"
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "object"
-                        }
-                    ]
-                },
                 "nodeSelector": {
                     "additionalProperties": {
                         "type": "string"
@@ -1149,16 +930,6 @@
                         },
                         {
                             "type": "object"
-                        }
-                    ]
-                },
-                "priority_class_name": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "string"
                         }
                     ]
                 },
@@ -1194,13 +965,7 @@
                     "type": "string",
                     "description": "Key of the secret to load into env_var, this field only has meaning if EnvVar != \"\"."
                 },
-                "mount_path": {
-                    "type": "string"
-                },
                 "mountPath": {
-                    "type": "string"
-                },
-                "env_var": {
                     "type": "string"
                 },
                 "envVar": {
@@ -1213,13 +978,7 @@
         },
         "pps_v2.Service": {
             "properties": {
-                "internal_port": {
-                    "type": "integer"
-                },
                 "internalPort": {
-                    "type": "integer"
-                },
-                "external_port": {
                     "type": "integer"
                 },
                 "externalPort": {
@@ -1260,26 +1019,6 @@
                     ]
                 },
                 "cmd": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "null"
-                            },
-                            {
-                                "type": "string"
-                            }
-                        ]
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
-                "err_cmd": {
                     "items": {
                         "oneOf": [
                             {
@@ -1346,26 +1085,6 @@
                         }
                     ]
                 },
-                "image_pull_secrets": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "null"
-                            },
-                            {
-                                "type": "string"
-                            }
-                        ]
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
                 "imagePullSecrets": {
                     "items": {
                         "oneOf": [
@@ -1406,26 +1125,6 @@
                         }
                     ]
                 },
-                "err_stdin": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "null"
-                            },
-                            {
-                                "type": "string"
-                            }
-                        ]
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
                 "errStdin": {
                     "items": {
                         "oneOf": [
@@ -1434,26 +1133,6 @@
                             },
                             {
                                 "type": "string"
-                            }
-                        ]
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
-                "accept_return_code": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
                             }
                         ]
                     },
@@ -1506,16 +1185,6 @@
                         }
                     ]
                 },
-                "working_dir": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "string"
-                        }
-                    ]
-                },
                 "workingDir": {
                     "oneOf": [
                         {
@@ -1536,27 +1205,7 @@
                         }
                     ]
                 },
-                "memory_volume": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "boolean"
-                        }
-                    ]
-                },
                 "memoryVolume": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "boolean"
-                        }
-                    ]
-                },
-                "datum_batching": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -1590,21 +1239,11 @@
         },
         "pps_v2.WorkerStatus": {
             "properties": {
-                "worker_id": {
-                    "type": "string"
-                },
                 "workerId": {
-                    "type": "string"
-                },
-                "job_id": {
                     "type": "string"
                 },
                 "jobId": {
                     "type": "string"
-                },
-                "datum_status": {
-                    "$ref": "#/definitions/pps_v2.DatumStatus",
-                    "additionalProperties": false
                 },
                 "datumStatus": {
                     "$ref": "#/definitions/pps_v2.DatumStatus",

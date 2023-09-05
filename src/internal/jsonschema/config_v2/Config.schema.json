@@ -4,9 +4,6 @@
     "definitions": {
         "Config": {
             "properties": {
-                "user_id": {
-                    "type": "string"
-                },
                 "userId": {
                     "type": "string"
                 },
@@ -27,33 +24,17 @@
         },
         "config_v2.ConfigV1": {
             "properties": {
-                "pachd_address": {
-                    "type": "string",
-                    "description": "A host:port pointing pachd at a pachyderm cluster."
-                },
                 "pachdAddress": {
                     "type": "string",
                     "description": "A host:port pointing pachd at a pachyderm cluster."
-                },
-                "server_cas": {
-                    "type": "string",
-                    "description": "Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM"
                 },
                 "serverCas": {
                     "type": "string",
                     "description": "Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM"
                 },
-                "session_token": {
-                    "type": "string",
-                    "description": "A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized."
-                },
                 "sessionToken": {
                     "type": "string",
                     "description": "A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized."
-                },
-                "active_transaction": {
-                    "type": "string",
-                    "description": "The currently active transaction for batching together pachctl commands. This can be set or cleared via many of the `pachctl * transaction` commands. This is the ID of the transaction object stored in the pachyderm etcd."
                 },
                 "activeTransaction": {
                     "type": "string",
@@ -67,13 +48,7 @@
         },
         "config_v2.ConfigV2": {
             "properties": {
-                "active_context": {
-                    "type": "string"
-                },
                 "activeContext": {
-                    "type": "string"
-                },
-                "active_enterprise_context": {
                     "type": "string"
                 },
                 "activeEnterpriseContext": {
@@ -88,9 +63,6 @@
                 },
                 "metrics": {
                     "type": "boolean"
-                },
-                "max_shell_completions": {
-                    "type": "integer"
                 },
                 "maxShellCompletions": {
                     "type": "integer"
@@ -113,49 +85,25 @@
                     "type": "string",
                     "title": "Context Source"
                 },
-                "pachd_address": {
-                    "type": "string",
-                    "description": "The hostname or IP address pointing pachd at a pachyderm cluster."
-                },
                 "pachdAddress": {
                     "type": "string",
                     "description": "The hostname or IP address pointing pachd at a pachyderm cluster."
-                },
-                "server_cas": {
-                    "type": "string",
-                    "description": "Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM."
                 },
                 "serverCas": {
                     "type": "string",
                     "description": "Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM."
                 },
-                "session_token": {
-                    "type": "string",
-                    "description": "A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized."
-                },
                 "sessionToken": {
                     "type": "string",
                     "description": "A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized."
-                },
-                "active_transaction": {
-                    "type": "string",
-                    "description": "The currently active transaction for batching together pachctl commands. This can be set or cleared via many of the `pachctl * transaction` commands. This is the ID of the transaction object stored in the pachyderm etcd."
                 },
                 "activeTransaction": {
                     "type": "string",
                     "description": "The currently active transaction for batching together pachctl commands. This can be set or cleared via many of the `pachctl * transaction` commands. This is the ID of the transaction object stored in the pachyderm etcd."
                 },
-                "cluster_name": {
-                    "type": "string",
-                    "description": "The k8s cluster name - used to construct a k8s context."
-                },
                 "clusterName": {
                     "type": "string",
                     "description": "The k8s cluster name - used to construct a k8s context."
-                },
-                "auth_info": {
-                    "type": "string",
-                    "description": "The k8s auth info - used to construct a k8s context."
                 },
                 "authInfo": {
                     "type": "string",
@@ -165,13 +113,6 @@
                     "type": "string",
                     "description": "The k8s namespace - used to construct a k8s context."
                 },
-                "port_forwarders": {
-                    "additionalProperties": {
-                        "type": "integer"
-                    },
-                    "type": "object",
-                    "description": "A mapping of service -\u003e port number, when port forwarding is running for this context."
-                },
                 "portForwarders": {
                     "additionalProperties": {
                         "type": "integer"
@@ -179,17 +120,9 @@
                     "type": "object",
                     "description": "A mapping of service -\u003e port number, when port forwarding is running for this context."
                 },
-                "cluster_deployment_id": {
-                    "type": "string",
-                    "description": "A unique ID for the cluster deployment. At client initialization time, we ensure this is the same as what the cluster reports back, to prevent us from connecting to the wrong cluster."
-                },
                 "clusterDeploymentId": {
                     "type": "string",
                     "description": "A unique ID for the cluster deployment. At client initialization time, we ensure this is the same as what the cluster reports back, to prevent us from connecting to the wrong cluster."
-                },
-                "enterprise_server": {
-                    "type": "boolean",
-                    "description": "A boolean that records whether the context points at an enterprise server. If false, the context points at a stand-alone pachd."
                 },
                 "enterpriseServer": {
                     "type": "boolean",

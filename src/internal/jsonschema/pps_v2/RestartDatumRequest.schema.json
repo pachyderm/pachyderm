@@ -8,12 +8,6 @@
                     "$ref": "#/definitions/pps_v2.Job",
                     "additionalProperties": false
                 },
-                "data_filters": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
                 "dataFilters": {
                     "items": {
                         "type": "string"

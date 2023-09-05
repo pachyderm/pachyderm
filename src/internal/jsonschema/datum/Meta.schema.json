@@ -37,9 +37,6 @@
                 "index": {
                     "type": "integer"
                 },
-                "image_id": {
-                    "type": "string"
-                },
                 "imageId": {
                     "type": "string"
                 }
@@ -50,10 +47,6 @@
         },
         "common.Input": {
             "properties": {
-                "file_info": {
-                    "$ref": "#/definitions/pfs_v2.FileInfo",
-                    "additionalProperties": false
-                },
                 "fileInfo": {
                     "$ref": "#/definitions/pfs_v2.FileInfo",
                     "additionalProperties": false
@@ -61,20 +54,11 @@
                 "name": {
                     "type": "string"
                 },
-                "join_on": {
-                    "type": "string"
-                },
                 "joinOn": {
                     "type": "string"
                 },
-                "outer_join": {
-                    "type": "boolean"
-                },
                 "outerJoin": {
                     "type": "boolean"
-                },
-                "group_by": {
-                    "type": "string"
                 },
                 "groupBy": {
                     "type": "string"
@@ -84,9 +68,6 @@
                 },
                 "branch": {
                     "type": "string"
-                },
-                "empty_files": {
-                    "type": "boolean"
                 },
                 "emptyFiles": {
                     "type": "boolean"
@@ -157,15 +138,6 @@
                     "$ref": "#/definitions/pfs_v2.File",
                     "additionalProperties": false
                 },
-                "file_type": {
-                    "enum": [
-                        "RESERVED",
-                        "FILE",
-                        "DIR"
-                    ],
-                    "type": "string",
-                    "title": "File Type"
-                },
                 "fileType": {
                     "enum": [
                         "RESERVED",
@@ -178,9 +150,6 @@
                 "committed": {
                     "type": "string",
                     "format": "date-time"
-                },
-                "size_bytes": {
-                    "type": "integer"
                 },
                 "sizeBytes": {
                     "type": "integer"
@@ -253,17 +222,7 @@
         },
         "pps_v2.ProcessStats": {
             "properties": {
-                "download_time": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "downloadTime": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
-                "process_time": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
@@ -273,23 +232,12 @@
                     "type": "string",
                     "format": "regex"
                 },
-                "upload_time": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "uploadTime": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"
                 },
-                "download_bytes": {
-                    "type": "integer"
-                },
                 "downloadBytes": {
-                    "type": "integer"
-                },
-                "upload_bytes": {
                     "type": "integer"
                 },
                 "uploadBytes": {

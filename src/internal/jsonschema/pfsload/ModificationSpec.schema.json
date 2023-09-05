@@ -7,10 +7,6 @@
                 "count": {
                     "type": "integer"
                 },
-                "put_file": {
-                    "$ref": "#/definitions/pfsload.PutFileSpec",
-                    "additionalProperties": false
-                },
                 "putFile": {
                     "$ref": "#/definitions/pfsload.PutFileSpec",
                     "additionalProperties": false

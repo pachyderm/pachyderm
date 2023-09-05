@@ -7,10 +7,6 @@
                 "id": {
                     "type": "string"
                 },
-                "path_range": {
-                    "$ref": "#/definitions/pfsserver.PathRange",
-                    "additionalProperties": false
-                },
                 "pathRange": {
                     "$ref": "#/definitions/pfsserver.PathRange",
                     "additionalProperties": false

@@ -11,29 +11,15 @@
                 "salt": {
                     "type": "string"
                 },
-                "file_set_id": {
-                    "type": "string"
-                },
                 "fileSetId": {
                     "type": "string"
-                },
-                "base_meta_commit": {
-                    "$ref": "#/definitions/pfs_v2.Commit",
-                    "additionalProperties": false
                 },
                 "baseMetaCommit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
-                "no_skip": {
-                    "type": "boolean"
-                },
                 "noSkip": {
                     "type": "boolean"
-                },
-                "path_range": {
-                    "$ref": "#/definitions/pfs_v2.PathRange",
-                    "additionalProperties": false
                 },
                 "pathRange": {
                     "$ref": "#/definitions/pfs_v2.PathRange",

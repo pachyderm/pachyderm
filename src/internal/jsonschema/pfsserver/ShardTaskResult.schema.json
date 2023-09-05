@@ -4,13 +4,6 @@
     "definitions": {
         "ShardTaskResult": {
             "properties": {
-                "compact_tasks": {
-                    "items": {
-                        "$ref": "#/definitions/pfsserver.CompactTask"
-                    },
-                    "additionalProperties": false,
-                    "type": "array"
-                },
                 "compactTasks": {
                     "items": {
                         "$ref": "#/definitions/pfsserver.CompactTask"
@@ -30,10 +23,6 @@
                         "type": "string"
                     },
                     "type": "array"
-                },
-                "path_range": {
-                    "$ref": "#/definitions/pfsserver.PathRange",
-                    "additionalProperties": false
                 },
                 "pathRange": {
                     "$ref": "#/definitions/pfsserver.PathRange",

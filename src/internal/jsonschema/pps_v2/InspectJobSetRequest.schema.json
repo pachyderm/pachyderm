@@ -4,10 +4,6 @@
     "definitions": {
         "InspectJobSetRequest": {
             "properties": {
-                "job_set": {
-                    "$ref": "#/definitions/pps_v2.JobSet",
-                    "additionalProperties": false
-                },
                 "jobSet": {
                     "$ref": "#/definitions/pps_v2.JobSet",
                     "additionalProperties": false

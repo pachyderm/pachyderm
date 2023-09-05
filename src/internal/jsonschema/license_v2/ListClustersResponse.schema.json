@@ -27,27 +27,13 @@
                 "version": {
                     "type": "string"
                 },
-                "auth_enabled": {
-                    "type": "boolean"
-                },
                 "authEnabled": {
                     "type": "boolean"
-                },
-                "client_id": {
-                    "type": "string"
                 },
                 "clientId": {
                     "type": "string"
                 },
-                "last_heartbeat": {
-                    "type": "string",
-                    "format": "date-time"
-                },
                 "lastHeartbeat": {
-                    "type": "string",
-                    "format": "date-time"
-                },
-                "created_at": {
                     "type": "string",
                     "format": "date-time"
                 },

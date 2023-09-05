@@ -14,13 +14,15 @@
       "LD_LIBRARY_PATH": "/usr/lib/nvidia:/usr/local/cuda/lib64:/rootfs/usr/lib/x86_64-linux-gnu"
     }
   },
-  "resource_limits": {
+  "resourceLimits": {
     "memory": "4.0G",
     "cpu": 2,
-    "gpu": 1
+    "gpu": {
+      "number": 1
+    }
   },
-  "parallelism_spec": {
-    "constant": "1"
+  "parallelismSpec": {
+    "constant": 1
   },
   "input": {
     "pfs": {
@@ -42,8 +44,8 @@
       "sed -i 's/out/model/g' /pfs/out/checkpoint"
     ]
   },
-  "parallelism_spec": {
-    "constant": "1"
+  "parallelismSpec": {
+    "constant": 1
   },
   "input": {
     "pfs": {

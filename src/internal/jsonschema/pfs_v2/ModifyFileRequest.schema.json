@@ -4,32 +4,16 @@
     "definitions": {
         "ModifyFileRequest": {
             "properties": {
-                "set_commit": {
-                    "$ref": "#/definitions/pfs_v2.Commit",
-                    "additionalProperties": false
-                },
                 "setCommit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
-                    "additionalProperties": false
-                },
-                "add_file": {
-                    "$ref": "#/definitions/pfs_v2.AddFile",
                     "additionalProperties": false
                 },
                 "addFile": {
                     "$ref": "#/definitions/pfs_v2.AddFile",
                     "additionalProperties": false
                 },
-                "delete_file": {
-                    "$ref": "#/definitions/pfs_v2.DeleteFile",
-                    "additionalProperties": false
-                },
                 "deleteFile": {
                     "$ref": "#/definitions/pfs_v2.DeleteFile",
-                    "additionalProperties": false
-                },
-                "copy_file": {
-                    "$ref": "#/definitions/pfs_v2.CopyFile",
                     "additionalProperties": false
                 },
                 "copyFile": {

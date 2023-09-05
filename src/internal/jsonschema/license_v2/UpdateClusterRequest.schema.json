@@ -10,13 +10,7 @@
                 "address": {
                     "type": "string"
                 },
-                "user_address": {
-                    "type": "string"
-                },
                 "userAddress": {
-                    "type": "string"
-                },
-                "cluster_deployment_id": {
                     "type": "string"
                 },
                 "clusterDeploymentId": {

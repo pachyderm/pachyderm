@@ -4,13 +4,7 @@
     "definitions": {
         "RunLoadTestRequest": {
             "properties": {
-                "dag_spec": {
-                    "type": "string"
-                },
                 "dagSpec": {
-                    "type": "string"
-                },
-                "load_spec": {
                     "type": "string"
                 },
                 "loadSpec": {
@@ -22,13 +16,7 @@
                 "parallelism": {
                     "type": "integer"
                 },
-                "pod_patch": {
-                    "type": "string"
-                },
                 "podPatch": {
-                    "type": "string"
-                },
-                "state_id": {
                     "type": "string"
                 },
                 "stateId": {

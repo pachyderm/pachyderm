@@ -33,11 +33,6 @@
                     "title": "Taint Effect",
                     "description": "TaintEffect is an effect that can be matched by a toleration."
                 },
-                "toleration_seconds": {
-                    "additionalProperties": false,
-                    "type": "integer",
-                    "description": "toleration_seconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint.  If not set, tolerate the taint forever."
-                },
                 "tolerationSeconds": {
                     "additionalProperties": false,
                     "type": "integer",
