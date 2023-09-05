@@ -10674,7 +10674,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineAutoscaling_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := tu.UniqueString("autoscale_pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
@@ -10682,7 +10682,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-					"sleep 30",
+					"sleep 31",
 				},
 			},
 			Input:           client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
@@ -10693,7 +10693,10 @@ func TestPipelineAutoscaling(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-
+	p, err := c.PpsAPIClient.InspectPipeline(context.Background(), &pps.InspectPipelineRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline), Details: true})
+	require.NoError(t, err)
+	require.Equal(t, true, p.Details.Autoscaling)
+	t.Logf("DNJ TODO Inspected pipeline: %#v", p)
 	fileIndex := 0
 	commitNFiles := func(n int) {
 		commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
@@ -11148,30 +11151,30 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int
-	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
-		for {
-			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			replicas := int(scale.Spec.Replicas)
-			if replicas >= n {
-				enoughReplicas = true
-			}
-			if replicas > n {
-				if replicas > maxSeen {
-					maxSeen = replicas
-				}
-				tooManyReplicas = true
-			}
-			ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-			require.NoError(t, err)
-			if ci.Finished != nil {
-				return nil
-			}
-			time.Sleep(time.Second * 2)
+	require.NoErrorWithinTRetryConstant(t, 180*time.Second, func() error {
+		scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
-	})
+		replicas := int(scale.Spec.Replicas)
+		if replicas >= n {
+			enoughReplicas = true
+		}
+		if replicas > n {
+			if replicas > maxSeen {
+				maxSeen = replicas
+			}
+			tooManyReplicas = true
+		}
+		ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if ci.Finished == nil {
+			return errors.Errorf("Monitoring replica count. Expected: %v found: %v", n, replicas)
+		}
+		return nil
+	}, time.Second*2)
 	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
 	require.False(t, tooManyReplicas, "got too many replicas (%d), looking for: %d", maxSeen, n)
 }
