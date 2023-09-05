@@ -78,6 +78,7 @@ require (
 	github.com/uber/jaeger-client-go v2.28.0+incompatible
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
+	github.com/zeebo/blake3 v0.2.3
 	go.etcd.io/etcd/api/v3 v3.5.9
 	go.etcd.io/etcd/client/v3 v3.5.8
 	go.etcd.io/etcd/server/v3 v3.5.8
