@@ -208,7 +208,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 			createTask := func() error {
 				input, err := serializeGetFileURLTask(&GetFileURLTask{
 					URL:       URL,
-					File:      file,
+					Fileset:   fsID.HexString(),
 					PathRange: pathRange,
 				})
 				if err != nil {
