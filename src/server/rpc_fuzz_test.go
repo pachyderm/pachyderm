@@ -4,8 +4,6 @@ package server
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -28,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/pachyderm/pachyderm/v2/src/worker"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -121,24 +118,12 @@ func FuzzRPCs(f *testing.F) {
 			},
 		},
 	}))
+	ctx := pctx.Background("")
+	env := realenv.NewRealEnvWithIdentity(ctx, f, dockertestenv.NewTestDBConfig(f))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateAuthClient(f, env.PachClient, peerPort)
+
 	f.Fuzz(func(t *testing.T, a []byte) {
-		// TODO(jrockway): remove this when https://github.com/pachyderm/pachyderm/pull/9293
-		// is merged.
-		pid := os.Getpid()
-		cfg := zap.NewProductionConfig()
-		cfg.Sampling = nil
-		cfg.OutputPaths = []string{fmt.Sprintf("/tmp/fuzz.%v.log", pid)}
-		l, err := cfg.Build()
-		if err != nil {
-			t.Fatalf("logger: %v", err)
-		}
-		zap.ReplaceGlobals(l)
-
-		ctx := pctx.Background("")
-		env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
-		peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-		tu.ActivateAuthClient(t, env.PachClient, peerPort)
-
 		rangeRPCs(func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
 			name := string(sd.FullName()) + "." + string(md.Name())
 			t.Run(name, func(t *testing.T) {
