@@ -10,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 )
 
@@ -25,6 +26,10 @@ var _ Job = (*Download)(nil)
 
 func (d Download) String() string {
 	return fmt.Sprintf("<download %v=%q#%v>", d.Name, d.URL, d.Platform)
+}
+
+func (d Download) ID() uint64 {
+	return xxh3.HashString(d.Name + d.URL + d.WantDigest.String())
 }
 
 func (d Download) Inputs() []Reference { return nil }

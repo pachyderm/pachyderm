@@ -19,6 +19,7 @@ type runner struct {
 	artifacts     []Artifact
 	artifactCache map[Reference]Artifact
 	outputsToJobs map[Reference]Job
+	jobs          map[uint64]struct{}
 }
 
 type jobResult struct {
@@ -27,14 +28,23 @@ type jobResult struct {
 	Err       error
 }
 
-func newRunner() *runner {
-	return &runner{
+type RunnerOption struct {
+	Artifacts []Artifact
+}
+
+func newRunner(opts ...RunnerOption) *runner {
+	r := &runner{
 		Cache: &Cache{
 			Path: "/tmp/builder-cache/",
 		},
 		outputsToJobs: make(map[Reference]Job),
 		artifactCache: make(map[Reference]any),
+		jobs:          make(map[uint64]struct{}),
 	}
+	for _, opt := range opts {
+		r.artifacts = append(r.artifacts, opt.Artifacts...)
+	}
+	return r
 }
 
 func (r *runner) NewJobContext() *JobContext {
@@ -44,19 +54,22 @@ func (r *runner) NewJobContext() *JobContext {
 	}
 }
 
-// resolveJobInputs resolves the inputs for a job.
-func (r *runner) resolveJob(job Job) ([]Artifact, []Job, error) {
-	var inputs []Artifact
+// resolveInputs builds a plan for generating the desired inputs.  For each element in i, we add the
+// artifact to the artifacts slice if we have it, or nil if not, and add the job required to build
+// the artifact to job, or nil if we already have the artifact.  len(want) == len(artifacts) ==
+// len(jobs).
+func (r *runner) resolveInputs(want []Reference) ([]Artifact, []Job, error) {
+	var artifacts []Artifact
 	var jobs []Job
 	var inputErr error
-	for _, ref := range job.Inputs() {
+	for _, ref := range want {
 		var foundArtifact bool
 		for _, a := range r.artifacts {
 			if ok := ref.Match(a); ok && foundArtifact {
 				errors.JoinInto(&inputErr, fmt.Errorf("input %q matches multiple artifacts", ref))
 			} else if ok && !foundArtifact {
 				foundArtifact = true
-				inputs = append(inputs, a)
+				artifacts = append(artifacts, a)
 			}
 		}
 		if !foundArtifact {
@@ -74,15 +87,15 @@ func (r *runner) resolveJob(job Job) ([]Artifact, []Job, error) {
 			if foundJob == nil {
 				errors.JoinInto(&inputErr, fmt.Errorf("input %q matches no artifacts and is produced by no jobs", ref))
 			}
-			inputs = append(inputs, nil)
+			artifacts = append(artifacts, nil)
 		} else {
 			jobs = append(jobs, nil)
 		}
 	}
 	if inputErr != nil {
-		return inputs, jobs, errors.Wrapf(inputErr, "invalid input sequence %v", inputs)
+		return artifacts, jobs, errors.Wrapf(inputErr, "cannot resolve inputs; artifacts=%v jobs=%v", artifacts, jobs)
 	}
-	return inputs, jobs, nil
+	return artifacts, jobs, nil
 }
 
 func dedupJobs(jobs ...Job) []Job {
@@ -97,7 +110,10 @@ func dedupJobs(jobs ...Job) []Job {
 
 // AddJob adds a job to potentially run.
 func (r *runner) addJob(j Job) error {
-	inputs, jobs, err := r.resolveJob(j)
+	if _, ok := r.jobs[j.ID()]; ok {
+		return errors.Errorf("job %v already added (hash collision?)", j)
+	}
+	inputs, jobs, err := r.resolveInputs(j.Inputs())
 	if err != nil {
 		// This is not allowed; everything must resolve at the time the job is added.  This
 		// avoids cycles.
@@ -106,6 +122,7 @@ func (r *runner) addJob(j Job) error {
 	for _, o := range j.Outputs() {
 		r.outputsToJobs[o] = j
 	}
+	r.jobs[j.ID()] = struct{}{}
 	return nil
 }
 
@@ -148,6 +165,9 @@ func (logStepReceiver) Reportf(ctx context.Context, format string, args ...any) 
 func (logStepReceiver) Next(_ context.Context) {}
 
 func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s stepReceiver) error {
+	if _, _, err := r.resolveInputs(want); err != nil {
+		return errors.Wrap(err, "resolve arguments")
+	}
 	need := map[Reference]struct{}{}
 	for _, ref := range want {
 		need[ref] = struct{}{}
@@ -159,8 +179,8 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 		Cache:      r.Cache,
 		HTTPClient: http.DefaultClient,
 	}
-	runningJobs := make(map[Job]struct{})
-	waitingJobs := make(map[Job]struct{})
+	runningJobs := make(map[uint64]Job)
+	waitingJobs := make(map[uint64]Job)
 	resultCh := make(chan jobResult)
 
 	// Breadth-first search over the dependency graph.  We start with what we need, add jobs to
@@ -170,6 +190,12 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 		ctx, done := log.SpanContext(rctx, fmt.Sprintf("step.%d", i))
 		defer done(log.Errorp(&retErr))
 		var madeProgress bool
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 
 		// See what we have to start with.
 		for ref := range need {
@@ -181,24 +207,24 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 		}
 
 		// See which jobs we need to run in order to create the artifacts in "need".
-		needJobs := make(map[Job]struct{})
+		needJobs := make(map[uint64]Job)
 		for ref := range need {
 			for product, job := range r.outputsToJobs {
 				if ref.Match(product) {
-					needJobs[job] = struct{}{}
+					needJobs[job.ID()] = job
 				}
 			}
 		}
 
 		// See which jobs are possible to run given the current state of "have".
-		for job := range needJobs {
-			if _, ok := runningJobs[job]; ok {
+		for _, job := range needJobs {
+			if _, ok := runningJobs[job.ID()]; ok {
 				// It's already running.
 				continue
 			}
-			_, jobs, err := r.resolveJob(job)
+			_, jobs, err := r.resolveInputs(job.Inputs())
 			if err != nil {
-				return errors.Wrapf(err, "internal error: resolveJob(%v)", job)
+				return errors.Wrapf(err, "problem resolving inputs for job %v", job)
 			}
 			if len(dedupJobs(jobs...)) == 0 {
 				// We can run this job right now.  This job uses the root context;
@@ -206,21 +232,21 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 				if err := r.startJob(rctx, jc, job, runFn, resultCh); err != nil {
 					return errors.Wrapf(err, "problem starting job %v", job)
 				}
-				runningJobs[job] = struct{}{}
-				delete(waitingJobs, job)
+				runningJobs[job.ID()] = job
+				delete(waitingJobs, job.ID())
 				s.Reportf(ctx, "start job %v", job)
 				madeProgress = true
 				continue
 			}
 
-			if _, ok := waitingJobs[job]; ok {
+			if _, ok := waitingJobs[job.ID()]; ok {
 				continue
 			}
 
 			// The job isn't running, wasn't started, and isn't waiting to run,
 			for _, input := range job.Inputs() {
 				need[input] = struct{}{}
-				waitingJobs[job] = struct{}{}
+				waitingJobs[job.ID()] = job
 				s.Reportf(ctx, "discovered dependency on %v from %v", input, job)
 				madeProgress = true
 			}
@@ -228,7 +254,12 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 
 		// If we didn't do anything this iteration, wait for a job to return.
 		if !madeProgress {
-			s.Reportf(ctx, "wait for a job to finish; one of %v", maps.Keys(runningJobs))
+			running := maps.Values(runningJobs)
+			s.Reportf(ctx, "wait for a job to finish; one of %v", running)
+			if len(running) == 0 {
+				s.Reportf(ctx, "panic: deadlock; no jobs to wait for")
+				return errors.New("panic: deadlock")
+			}
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -237,7 +268,7 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 					return errors.Wrapf(err, "received error result from job %v", result.Job)
 				}
 				r.artifacts = append(r.artifacts, result.Artifacts...)
-				delete(runningJobs, result.Job)
+				delete(runningJobs, result.Job.ID())
 				s.Reportf(ctx, "job %v finished", result.Job)
 			}
 		}
@@ -291,7 +322,7 @@ func runFakeJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact)
 
 // runJob starts a job running, eventually sending validated results to doneCh.
 func (r *runner) startJob(ctx context.Context, jc *JobContext, job Job, runJob runJobFn, doneCh chan<- jobResult) error {
-	inputs, jobs, err := r.resolveJob(job)
+	inputs, jobs, err := r.resolveInputs(job.Inputs())
 	if err != nil {
 		return errors.Wrap(err, "unable to resolve job inputs")
 	}
@@ -331,11 +362,11 @@ func (r *runner) startJob(ctx context.Context, jc *JobContext, job Job, runJob r
 }
 
 // Plan returns a human-readable plan of what the job runner will do to build want.
-func Plan(ctx context.Context, jobs []Job, want []Reference) ([][]string, error) {
-	r := newRunner()
+func Plan(ctx context.Context, jobs []Job, want []Reference, opts ...RunnerOption) ([][]string, error) {
+	r := newRunner(opts...)
 	for _, job := range jobs {
 		if err := r.addJob(job); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "add job %v", job)
 		}
 	}
 	s := new(stringStepReceiver)
@@ -348,8 +379,8 @@ func Plan(ctx context.Context, jobs []Job, want []Reference) ([][]string, error)
 
 // Resolve, using the provided jobs, builds the objects requested in want and returns the built
 // artifacts (in the same order as want).
-func Resolve(ctx context.Context, jobs []Job, want []Reference) ([]Artifact, error) {
-	r := newRunner()
+func Resolve(ctx context.Context, jobs []Job, want []Reference, opts ...RunnerOption) ([]Artifact, error) {
+	r := newRunner(opts...)
 	for _, job := range jobs {
 		if err := r.addJob(job); err != nil {
 			return nil, errors.Wrapf(err, "add job %v", job)

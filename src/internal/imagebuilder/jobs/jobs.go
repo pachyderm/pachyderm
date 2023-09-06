@@ -11,6 +11,8 @@ type Artifact = any
 
 // Job is work to do.
 type Job interface {
+	// ID allows jobs to be inserted into a set.
+	ID() uint64
 	// Inputs are references to the inputs that Run desires.
 	Inputs() []Reference
 	// Outputs reference the objects produced by Run.  Every actual output must be referenced by

@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pachyderm/pachyderm/v2/src/internal/imagebuilder/jobs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -63,7 +64,19 @@ func main() {
 		},
 	}
 	for _, g := range goBuilds {
-		todo = append(todo, jobs.GenerateGoBinaryJobs(g)...)
+		binaries := jobs.GenerateGoBinaryJobs(g)
+		todo = append(todo, binaries...)
+		for _, bin := range binaries {
+			for _, l := range jobs.PlatformLayers(bin.Outputs()) {
+				todo = append(todo, l)
+				todo = append(todo, jobs.PlatformManifest{
+					Name:     jobs.Name(l.Input.Name),
+					Config:   jobs.Name("file:docker-config"),
+					Platform: l.Input.Platform,
+					Layers:   l.Outputs(),
+				})
+			}
+		}
 	}
 	todo = append(todo,
 		&jobs.TestJob{
@@ -85,23 +98,20 @@ func main() {
 			},
 		},
 	)
+	config, err := jobs.JSONFile("file:docker-config", "config.json", &v1.ImageConfig{})
+	if err != nil {
+		log.Exit(ctx, "create in-memory docker config")
+	}
+
 	want := []jobs.Reference{
 		jobs.Name("output"),
 		jobs.NameAndPlatform{
-			Name:     "go_binary:/home/jrockway/pach/pachyderm:./src/server/cmd/pachd",
-			Platform: "linux/amd64",
-		},
-		jobs.NameAndPlatform{
-			Name:     "go_binary:/home/jrockway/pach/pachyderm:./src/server/cmd/pachctl",
-			Platform: "linux/amd64",
-		},
-		jobs.NameAndPlatform{
-			Name:     "go_binary:/home/jrockway/pach/pachyderm:./src/server/cmd/worker",
+			Name:     "manifest:go_binary:/home/jrockway/pach/pachyderm:./src/server/cmd/pachd",
 			Platform: "linux/amd64",
 		},
 	}
 	fmt.Println("Plan:")
-	plan, err := jobs.Plan(ctx, todo, want)
+	plan, err := jobs.Plan(ctx, todo, want, jobs.RunnerOption{Artifacts: []jobs.Artifact{config}})
 	for i, paragraph := range plan {
 		fmt.Printf("step %d:\n", i)
 		for _, line := range paragraph {
@@ -111,12 +121,12 @@ func main() {
 	if err != nil {
 		log.Exit(ctx, "plan", zap.Error(err))
 	}
-	fmt.Println("Now running...")
-	outputs, err := jobs.Resolve(ctx, todo, want)
-	if err != nil {
-		log.Exit(ctx, "resolve", zap.Error(err))
-	}
-	for i, output := range outputs {
-		fmt.Printf("%#v -> %#v\n", want[i], output)
-	}
+	// fmt.Println("Now running...")
+	// outputs, err := jobs.Resolve(ctx, todo, want)
+	// if err != nil {
+	// 	log.Exit(ctx, "resolve", zap.Error(err))
+	// }
+	// for i, output := range outputs {
+	// 	fmt.Printf("%#v -> %#v\n", want[i], output)
+	// }
 }

@@ -3,6 +3,8 @@ package jobs
 import (
 	"errors"
 	"strings"
+
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // Platform is the OS/architecture that a particular artifact applies to; if we are only building an
@@ -66,11 +68,31 @@ func (p Platform) GOARCH() string {
 	return a
 }
 
-// GOARM returns the $GOARM environment variable for this platform.
-func (p Platform) GOARM() (value string, needed bool) {
+func (p Platform) Variant() (variant string, ok bool) {
 	a := p.Architecture()
 	if i := strings.Index(a, "arm32"); i > 0 {
 		return a[i:], true
 	}
-	return a, false
+	return "", false
+}
+
+// GOARM returns the $GOARM environment variable for this platform.
+func (p Platform) GOARM() (value string, needed bool) {
+	variant, ok := p.Variant()
+	if ok && len(variant) == 2 {
+		// Strip off the "v".
+		return variant[1:], true
+	}
+	return "", false
+}
+
+func (p Platform) OCIPlatform() *v1.Platform {
+	result := &v1.Platform{
+		Architecture: p.Architecture(),
+		OS:           p.OS(),
+	}
+	if v, ok := p.Variant(); ok {
+		result.Variant = v
+	}
+	return result
 }

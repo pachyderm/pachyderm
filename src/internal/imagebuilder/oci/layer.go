@@ -14,6 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
+const LayerMediaType = "application/vnd.oci.image.layer.v1.tar+zstd"
+
 type Layer struct {
 	// Path to the underlying file.
 	Underlying string
@@ -97,7 +99,7 @@ func NewLayerFromFS(f fs.FS) (layer *Layer, retErr error) {
 	return &Layer{
 		Underlying: outfh.Name(),
 		Descriptor: v1.Descriptor{
-			MediaType: "application/vnd.oci.image.layer.v1.tar+zstd",
+			MediaType: LayerMediaType,
 			Size:      int64(cw.n),
 		},
 	}, nil

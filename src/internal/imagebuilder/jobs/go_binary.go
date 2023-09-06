@@ -3,12 +3,14 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
 )
 
@@ -20,6 +22,10 @@ type GoBinary struct {
 
 func (g GoBinary) String() string {
 	return fmt.Sprintf("<go_binary cd %v; GOOS=%v GOARCH=%v go build %s>", g.Workdir, g.Platform.GOOS(), g.Platform.GOARCH(), g.Target)
+}
+
+func (g GoBinary) ID() uint64 {
+	return xxh3.HashString(g.Workdir + g.Target + string(g.Platform))
 }
 
 func (g GoBinary) Inputs() []Reference {
@@ -78,7 +84,11 @@ func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 
 type GoBinaryFile struct {
 	NameAndPlatform
-	File *File
+	*File
+}
+
+func (g GoBinaryFile) FS() fs.FS {
+	return g.File.FS()
 }
 
 func GenerateGoBinaryJobs(g GoBinary) []Job {
