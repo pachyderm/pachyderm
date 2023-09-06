@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+// GetBranch returns a branch by id.
 func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*Branch, error) {
 	branch := new(Branch)
 	if err := tx.GetContext(ctx, branch, `
@@ -33,6 +34,7 @@ func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*Branch, error
 	return branch, nil
 }
 
+// UpsertBranch creates a branch if it does not exist, or updates the head commit if it does.
 func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (BranchID, error) {
 	var query string
 	if branch.Repo.Name != "" && branch.Repo.Type != "" && branch.Repo.Project.Name != "" && branch.Head.CommitSetID != "" {

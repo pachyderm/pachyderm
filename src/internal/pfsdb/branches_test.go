@@ -88,13 +88,13 @@ func TestCreateAndGetBranch(t *testing.T) {
 			return err
 		}
 		if id != id2 {
-			return errors.Errorf("expected branch id to stay the same as %d, bot got %d", id, id2)
+			return errors.Errorf("expected branch id to be stable: %d != %d", id, id2)
 		}
-		gotBranch, err = pfsdb.GetBranch(cbCtx, tx, id)
+		gotBranch2, err := pfsdb.GetBranch(cbCtx, tx, id2)
 		if err != nil {
 			return err
 		}
-		if !cmp.Equal(expectedBranch, gotBranch, cmp.Comparer(compareBranches)) {
+		if !cmp.Equal(expectedBranch, gotBranch2, cmp.Comparer(compareBranches)) {
 			return errors.Errorf("expected branch %+v, got %+v", expectedBranch, gotBranch)
 		}
 		return nil
