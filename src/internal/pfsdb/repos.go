@@ -33,10 +33,6 @@ const (
 	noBranches = "{NULL}"
 )
 
-// RepoID is the row id for a repo entry in postgres.
-// A separate type is defined for safety so row ids must be explicitly cast for use in another table.
-type RepoID uint64
-
 // ErrRepoNotFound is returned by GetRepo() when a repo is not found in postgres.
 type ErrRepoNotFound struct {
 	Project string
