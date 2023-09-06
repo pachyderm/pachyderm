@@ -53,10 +53,7 @@ type ErrRepoNotFound struct {
 
 // Error satisfies the error interface.
 func (err ErrRepoNotFound) Error() string {
-	if id := err.ID; id != 0 {
-		return fmt.Sprintf("repo id=%d not found", id)
-	}
-	return fmt.Sprintf("repo %s/%s.%s not found", err.Project, err.Name, err.Type)
+	return fmt.Sprintf("repo (id=%d, project=%s, name=%s, type=%s) not found", err.ID, err.Project, err.Name, err.Type)
 }
 
 func (err ErrRepoNotFound) GRPCStatus() *status.Status {
@@ -65,25 +62,6 @@ func (err ErrRepoNotFound) GRPCStatus() *status.Status {
 
 func IsErrRepoNotFound(err error) bool {
 	return errors.As(err, &ErrRepoNotFound{})
-}
-
-// ErrRepoAlreadyExists is returned by CreateRepo() when a repo with the same name already exists in postgres.
-type ErrRepoAlreadyExists struct {
-	Project string
-	Name    string
-	Type    string
-}
-
-// Error satisfies the error interface.
-func (err ErrRepoAlreadyExists) Error() string {
-	if n, t := err.Name, err.Type; n != "" && t != "" {
-		return fmt.Sprintf("repo %s.%s already exists", n, t)
-	}
-	return "repo already exists"
-}
-
-func (err ErrRepoAlreadyExists) GRPCStatus() *status.Status {
-	return status.New(codes.AlreadyExists, err.Error())
 }
 
 func IsDuplicateKeyErr(err error) bool {
@@ -117,7 +95,7 @@ type RepoIterator struct {
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
 func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
 	if dst == nil {
-		return errors.Wrap(fmt.Errorf("repo is nil"), "get next repo")
+		return errors.New("repo is nil, get next repo")
 	}
 	var err error
 	if iter.index >= len(iter.repos) {
@@ -200,23 +178,6 @@ func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter
 		return nil, errors.Wrap(err, "could not get repo page")
 	}
 	return page, nil
-}
-
-// CreateRepo creates an entry in the pfs.repos table.
-func CreateRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
-	if repo.Repo.Type == "" {
-		return errors.New(fmt.Sprintf("repo.Type is empty: %+v", repo.Repo))
-	}
-	if repo.Repo.Project == nil {
-		return errors.New(fmt.Sprintf("repo.Project is empty: %+v", repo.Repo))
-	}
-	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
-		"VALUES ($1, $2::pfs.repo_type, (SELECT id from core.projects WHERE name=$3), $4);",
-		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description)
-	if err != nil && IsDuplicateKeyErr(err) { // a duplicate key implies that an entry for the repo already exists.
-		return ErrRepoAlreadyExists{Project: repo.Repo.Project.Name, Name: repo.Repo.Name, Type: repo.Repo.Type}
-	}
-	return errors.Wrap(err, "create repo")
 }
 
 // DeleteRepo deletes an entry in the pfs.repos table.
@@ -309,7 +270,7 @@ func getRepoFromRepoRow(row *Repo) (*pfs.RepoInfo, error) {
 
 func getBranchesFromRepoRow(row *Repo) ([]*pfs.Branch, error) {
 	if row == nil {
-		return nil, errors.Wrap(fmt.Errorf("repo row is nil"), "")
+		return nil, errors.New("repo row is nil")
 	}
 	branches := make([]*pfs.Branch, 0)
 	if row.Branches == noBranches {
@@ -331,44 +292,28 @@ func getBranchesFromRepoRow(row *Repo) ([]*pfs.Branch, error) {
 	return branches, nil
 }
 
-// UpsertRepo will attempt to insert a repo. If the repo already exists, it will update its description.
-func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) error {
+// UpsertRepo will attempt to insert a repo, and return its ID. If the repo already exists, it will update its description.
+func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) (RepoID, error) {
+	if repo.Repo.Name == "" {
+		return 0, errors.Errorf("repo name is required: %+v", repo.Repo)
+	}
 	if repo.Repo.Type == "" {
-		return errors.New(fmt.Sprintf("repo.Type is empty: %+v", repo.Repo))
+		return 0, errors.Errorf("repo type is required: %+v", repo.Repo)
 	}
 	if repo.Repo.Project == nil {
-		return errors.New(fmt.Sprintf("repo.Project is empty: %+v", repo.Repo))
+		return 0, errors.Errorf("project is required: %+v", repo.Repo)
 	}
-	_, err := tx.ExecContext(ctx, "INSERT INTO pfs.repos (name, type, project_id, description) "+
-		"VALUES ($1, $2, (SELECT id from core.projects where name=$3), $4) "+
-		"ON CONFLICT (name, type, project_id) DO UPDATE SET description=$5;",
-		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, repo.Description)
-	if err != nil {
-		return errors.Wrap(err, "upsert repo")
+	var repoID RepoID
+	if err := tx.QueryRowContext(ctx,
+		`
+		INSERT INTO pfs.repos (name, type, project_id, description)
+		VALUES ($1, $2, (SELECT id from core.projects where name=$3), $4)
+		ON CONFLICT (name, type, project_id) DO UPDATE SET description= EXCLUDED.description
+		RETURNING id
+		`,
+		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description,
+	).Scan(&repoID); err != nil {
+		return 0, errors.Wrap(err, "upsert repo")
 	}
-	return nil
-}
-
-// UpdateRepo overwrites an existing repo entry by RepoID.
-func UpdateRepo(ctx context.Context, tx *pachsql.Tx, id RepoID, repo *pfs.RepoInfo) error {
-	if repo.Repo.Type == "" {
-		return errors.New(fmt.Sprintf("repo.Type is empty: %+v", repo.Repo))
-	}
-	if repo.Repo.Project == nil {
-		return errors.New(fmt.Sprintf("repo.Project is empty: %+v", repo.Repo))
-	}
-	res, err := tx.ExecContext(ctx, "UPDATE pfs.repos SET name=$1, type=$2::pfs.repo_type, "+
-		"project_id=(SELECT id FROM core.projects WHERE name=$3), description=$4 WHERE id=$5;",
-		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, id)
-	if err != nil {
-		return errors.Wrap(err, "update repo")
-	}
-	numRows, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "get affected rows")
-	}
-	if numRows == 0 {
-		return ErrRepoNotFound{Project: repo.Repo.Project.Name, Name: repo.Repo.Name, Type: repo.Repo.Type}
-	}
-	return nil
+	return repoID, nil
 }

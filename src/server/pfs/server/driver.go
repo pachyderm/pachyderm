@@ -179,11 +179,13 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo %q", repo)
 			}
 		}
-		return errors.EnsureStack(pfsdb.CreateRepo(ctx, txnCtx.SqlTx, &pfs.RepoInfo{
+		if _, err := pfsdb.UpsertRepo(ctx, txnCtx.SqlTx, &pfs.RepoInfo{
 			Repo:        repo,
-			Created:     txnCtx.Timestamp,
 			Description: description,
-		}))
+		}); err != nil {
+			return errors.Wrapf(err, "could not create repo %q", repo)
+		}
+		return nil
 	}
 
 	// Existing repo case--just update the repo description.
@@ -209,7 +211,10 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		return errors.Wrapf(err, "could not update description of %q", repo)
 	}
 	existingRepoInfo.Description = description
-	return errors.EnsureStack(pfsdb.UpsertRepo(ctx, txnCtx.SqlTx, existingRepoInfo))
+	if _, err := pfsdb.UpsertRepo(ctx, txnCtx.SqlTx, existingRepoInfo); err != nil {
+		return errors.Wrapf(err, "could not update description of %q", repo)
+	}
+	return nil
 }
 
 func (d *driver) inspectRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
