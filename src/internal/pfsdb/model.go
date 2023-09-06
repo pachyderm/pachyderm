@@ -22,8 +22,10 @@ type CreatedAtUpdatedAt struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+// Repo is a row in the pfs.repos table.
 type Repo struct {
 	ID          RepoID         `db:"id"`
+	Project     coredb.Project `db:"project"`
 	Name        string         `db:"name"`
 	Type        string         `db:"type"`
 	Description string         `db:"description"`
@@ -43,6 +45,7 @@ func (repo *Repo) Pb() *pfs.Repo {
 	}
 }
 
+// Commit is a row in the pfs.commits table.
 type Commit struct {
 	ID          CommitID `db:"id"`
 	Repo        Repo     `db:"repo"`
@@ -57,6 +60,7 @@ func (commit *Commit) Pb() *pfs.Commit {
 	}
 }
 
+// Branch is a row in the pfs.branches table.
 type Branch struct {
 	ID   BranchID `db:"id"`
 	Head Commit   `db:"head"`
