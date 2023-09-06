@@ -225,6 +225,8 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
 
+	DROP INDEX IF EXISTS pfs.commit_provenance_from_id_idx;
+
 	ALTER TABLE pfs.commits
 		ADD COLUMN repo_id bigint REFERENCES pfs.repos(id),
 		ADD COLUMN origin pfs.commit_origin,
