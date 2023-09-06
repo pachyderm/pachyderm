@@ -92,7 +92,7 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
 
   const file = {
     name: 'montage.json',
-    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json',
+    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.pipeline.json',
   };
 
   return (

@@ -15,7 +15,7 @@ describe('Community Edition Banner', () => {
 
       cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
         cy.exec('pachctl create repo images').exec(
-          `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.json`,
+          `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.pipeline.json`,
         );
       });
 
