@@ -23,8 +23,8 @@ type CreatedAtUpdatedAt struct {
 }
 
 type Repo struct {
-	Project     coredb.Project `db:"project"`
 	ID          RepoID         `db:"id"`
+	Project     coredb.Project `db:"project"`
 	Name        string         `db:"name"`
 	Description string         `db:"description"`
 	Type        string         `db:"type"`
