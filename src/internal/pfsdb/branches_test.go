@@ -23,22 +23,11 @@ import (
 )
 
 func compareBranches(expected, got *pfsdb.Branch) bool {
-	if expected.Name != got.Name {
-		return false
-	}
-	if expected.Repo.Name != got.Repo.Name {
-		return false
-	}
-	if expected.Repo.Type != got.Repo.Type {
-		return false
-	}
-	if expected.Repo.Project.Name != got.Repo.Project.Name {
-		return false
-	}
-	if expected.Head.CommitSetID != got.Head.CommitSetID {
-		return false
-	}
-	return true
+	return expected.Name == got.Name &&
+		expected.Repo.Name == got.Repo.Name &&
+		expected.Repo.Type == got.Repo.Type &&
+		expected.Repo.Project.Name == got.Repo.Project.Name &&
+		expected.Head.CommitSetID == got.Head.CommitSetID
 }
 
 func TestCreateAndGetBranch(t *testing.T) {
