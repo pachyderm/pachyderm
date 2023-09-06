@@ -8,7 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -22,12 +21,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func compareBranches(expected, got *pfsdb.Branch) bool {
-	return expected.Name == got.Name &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name &&
-		expected.Head.CommitSetID == got.Head.CommitSetID
+func compareBranches(expected, got *pfs.BranchInfo) bool {
+	return expected.Branch.Name == got.Branch.Name &&
+		expected.Branch.Repo.Name == got.Branch.Repo.Name &&
+		expected.Branch.Repo.Type == got.Branch.Repo.Type &&
+		expected.Branch.Repo.Project.Name == got.Branch.Repo.Project.Name &&
+		expected.Head.Id == got.Head.Id
 }
 
 func TestCreateAndGetBranch(t *testing.T) {
@@ -60,16 +59,17 @@ func TestCreateAndGetBranch(t *testing.T) {
 			}
 		}
 
-		expectedBranch := &pfsdb.Branch{
-			Name: "master",
-			Repo: pfsdb.Repo{
-				Name:    repoInfo.Repo.Name,
-				Type:    repoInfo.Repo.Type,
-				Project: coredb.Project{Name: repoInfo.Repo.Project.Name},
-			},
-			Head: pfsdb.Commit{CommitSetID: commit1Info.Commit.Id},
+		branchInfo := &pfs.BranchInfo{
+			Branch: &pfs.Branch{
+				Name: "master",
+				Repo: &pfs.Repo{
+					Name:    repoInfo.Repo.Name,
+					Type:    repoInfo.Repo.Type,
+					Project: &pfs.Project{Name: repoInfo.Repo.Project.Name},
+				}},
+			Head: commit1Info.Commit,
 		}
-		id, err := pfsdb.UpsertBranch(cbCtx, tx, expectedBranch)
+		id, err := pfsdb.UpsertBranch(cbCtx, tx, branchInfo)
 		if err != nil {
 			return err
 		}
@@ -77,13 +77,13 @@ func TestCreateAndGetBranch(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !cmp.Equal(expectedBranch, gotBranch, cmp.Comparer(compareBranches)) {
-			return errors.Errorf("expected branch %+v, got %+v", expectedBranch, gotBranch)
+		if !cmp.Equal(branchInfo, gotBranch, cmp.Comparer(compareBranches)) {
+			return errors.Errorf("expected branch %+v, got %+v", branchInfo, gotBranch)
 		}
 
 		// Update branch to point to second commit
-		expectedBranch.Head.CommitSetID = commit2Info.Commit.Id
-		id2, err := pfsdb.UpsertBranch(cbCtx, tx, expectedBranch)
+		branchInfo.Head = commit2Info.Commit
+		id2, err := pfsdb.UpsertBranch(cbCtx, tx, branchInfo)
 		if err != nil {
 			return err
 		}
@@ -94,8 +94,8 @@ func TestCreateAndGetBranch(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !cmp.Equal(expectedBranch, gotBranch2, cmp.Comparer(compareBranches)) {
-			return errors.Errorf("expected branch %+v, got %+v", expectedBranch, gotBranch)
+		if !cmp.Equal(branchInfo, gotBranch2, cmp.Comparer(compareBranches)) {
+			return errors.Errorf("expected branch %+v, got %+v", branchInfo, gotBranch)
 		}
 		return nil
 	}))

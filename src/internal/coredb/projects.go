@@ -26,7 +26,7 @@ type Project struct {
 	Name string    `db:"name"`
 }
 
-func (project *Project) ProjectPb() *pfs.Project {
+func (project *Project) Pb() *pfs.Project {
 	return &pfs.Project{
 		Name: project.Name,
 	}

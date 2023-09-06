@@ -9,7 +9,7 @@ import (
 )
 
 // GetBranch returns a branch by id.
-func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*Branch, error) {
+func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
 	branch := new(Branch)
 	if err := tx.GetContext(ctx, branch, `
 		SELECT
@@ -31,30 +31,42 @@ func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*Branch, error
 	`, id); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	return branch, nil
+	return &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}, nil
 }
 
 // UpsertBranch creates a branch if it does not exist, or updates the head commit if it does.
-func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (BranchID, error) {
-	var query string
-	if branch.Repo.Name != "" && branch.Repo.Type != "" && branch.Repo.Project.Name != "" && branch.Head.CommitSetID != "" {
-		query = `
-			INSERT INTO pfs.branches(repo_id, name, head)
-			VALUES (
-				(SELECT repo.id FROM pfs.repos repo JOIN core.projects project ON repo.project_id = project.id WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3),
-				$4,
-				(SELECT int_id FROM pfs.commits WHERE commit_id = $5)
-			)
-			ON CONFLICT (repo_id, name) DO UPDATE SET head = EXCLUDED.head
-			RETURNING id
-		`
-	} else {
-		return 0, errors.Errorf("branch must have a repo name and head commit")
+func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInfo) (BranchID, error) {
+	if branchInfo.Branch.Repo.Name == "" {
+		return 0, errors.Errorf("repo name required")
+	}
+	if branchInfo.Branch.Repo.Type == "" {
+		return 0, errors.Errorf("repo type required")
+	}
+	if branchInfo.Branch.Repo.Project.Name == "" {
+		return 0, errors.Errorf("project name required")
+	}
+	if branchInfo.Head.Id == "" {
+		return 0, errors.Errorf("head commit required")
 	}
 
 	var branchID BranchID
-	head := &pfs.Commit{Repo: &pfs.Repo{Name: branch.Repo.Name, Type: branch.Repo.Type, Project: &pfs.Project{Name: branch.Repo.Project.Name}}, Id: branch.Head.CommitSetID}
-	if err := tx.QueryRowContext(ctx, query, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name, CommitKey(head)).Scan(&branchID); err != nil {
+	if err := tx.QueryRowContext(ctx,
+		`
+		INSERT INTO pfs.branches(repo_id, name, head)
+		VALUES (
+			(SELECT repo.id FROM pfs.repos repo JOIN core.projects project ON repo.project_id = project.id WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3),
+			$4,
+			(SELECT int_id FROM pfs.commits WHERE commit_id = $5)
+		)
+		ON CONFLICT (repo_id, name) DO UPDATE SET head = EXCLUDED.head
+		RETURNING id
+		`,
+		branchInfo.Branch.Repo.Project.Name,
+		branchInfo.Branch.Repo.Name,
+		branchInfo.Branch.Repo.Type,
+		branchInfo.Branch.Name,
+		CommitKey(branchInfo.Head),
+	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
 	return branchID, nil

@@ -31,11 +31,11 @@ type Repo struct {
 	CreatedAtUpdatedAt
 }
 
-func (repo *Repo) RepoPb() *pfs.Repo {
+func (repo *Repo) Pb() *pfs.Repo {
 	return &pfs.Repo{
 		Name:    repo.Name,
 		Type:    repo.Type,
-		Project: repo.Project.ProjectPb(),
+		Project: repo.Project.Pb(),
 	}
 }
 
@@ -46,10 +46,10 @@ type Commit struct {
 	CreatedAtUpdatedAt
 }
 
-func (commit *Commit) CommitPb() *pfs.Commit {
+func (commit *Commit) Pb() *pfs.Commit {
 	return &pfs.Commit{
 		Id:   commit.CommitSetID,
-		Repo: commit.Repo.RepoPb(),
+		Repo: commit.Repo.Pb(),
 	}
 }
 
@@ -61,9 +61,9 @@ type Branch struct {
 	CreatedAtUpdatedAt
 }
 
-func (branch *Branch) BranchPb() *pfs.Branch {
+func (branch *Branch) Pb() *pfs.Branch {
 	return &pfs.Branch{
 		Name: branch.Name,
-		Repo: branch.Repo.RepoPb(),
+		Repo: branch.Repo.Pb(),
 	}
 }
