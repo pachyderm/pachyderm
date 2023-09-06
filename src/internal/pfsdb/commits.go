@@ -238,7 +238,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	return nil
 }
 
-// validateCommitInfo returns an error if the commit is not valid and has a side-effect of instantiating the details
+// validateCommitInfo returns an error if the commit is not valid and has side effects of instantiating some fields
 // if they are nil.
 func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
 	if commitInfo.Commit == nil {
@@ -252,6 +252,9 @@ func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
 	}
 	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
 		commitInfo.Details = &pfs.CommitInfo_Details{}
+	}
+	if commitInfo.Commit.Branch == nil { // assume no branch means commit points to master.
+		commitInfo.Commit.Branch = &pfs.Branch{Name: "master", Repo: commitInfo.Commit.Repo}
 	}
 	switch commitInfo.Origin.Kind {
 	case pfs.OriginKind_ORIGIN_KIND_UNKNOWN, pfs.OriginKind_USER, pfs.OriginKind_AUTO, pfs.OriginKind_FSCK:
@@ -871,8 +874,7 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
-	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, project.name ORDER BY commit.int_id %s LIMIT $1 OFFSET $2;",
-		query, where, order), limit, offset); err != nil {
+	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, project.name ORDER BY commit.int_id %s LIMIT $1 OFFSET $2;", query, where, order), limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil

@@ -35,6 +35,12 @@ func Migrate(state migrations.State) migrations.State {
 			return nil
 		}).
 		Apply("Synthesize user and effective specs from their pipeline details", synthesizeSpecs, migrations.Squash).
+		Apply("Update pfs.commits table and create pfs.commit_ancestry", func(ctx context.Context, env migrations.Env) error {
+			if err := updateCommitsSchema(ctx, env.Tx); err != nil {
+				return errors.Wrap(err, "migrating commits")
+			}
+			return nil
+		}).
 		Apply("Migrate collections.commits to pfs.commits", func(ctx context.Context, env migrations.Env) error {
 			if err := migrateCommits(ctx, env.Tx); err != nil {
 				return errors.Wrap(err, "migrating commits")
