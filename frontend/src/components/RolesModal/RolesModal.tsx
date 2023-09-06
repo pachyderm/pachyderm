@@ -1,5 +1,4 @@
 import {ResourceType} from '@graphqlTypes';
-import classNames from 'classnames';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
@@ -89,6 +88,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
           Info
         </BrandedDocLink>
       }
+      flexBody
     >
       {!readOnly && (
         <AssignRolesForm
@@ -116,7 +116,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
           <HelpText>{readOnlyText}</HelpText>
         </Group>
       )}
-      <table>
+      <table className={styles.flexTable}>
         <thead className={styles.headerRow}>
           <tr>
             {principalFilterOpen && (
@@ -157,11 +157,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
             </th>
           </tr>
         </thead>
-        <tbody
-          className={classNames(styles.rolesTable, {
-            [styles.readOnly]: readOnly,
-          })}
-        >
+        <tbody className={styles.rolesTable}>
           {Object.keys(userTableRoles)?.map((principal) => {
             const availableRoles = mainResourceRoles
               .filter(

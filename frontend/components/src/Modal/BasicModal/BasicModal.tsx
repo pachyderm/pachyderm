@@ -20,6 +20,7 @@ type BasicModalProps = {
   loading?: boolean;
   updating?: boolean;
   disabled?: boolean;
+  flexBody?: boolean;
   className?: string;
   hideActions?: boolean;
   hideConfirm?: boolean;
@@ -44,6 +45,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
   loading = true,
   updating = false,
   disabled = false,
+  flexBody = false,
   className,
   hideActions = false,
   errorMessage = '',
@@ -75,7 +77,9 @@ const BasicModal: React.FC<BasicModalProps> = ({
         {headerContent}
       </Modal.Header>
 
-      <Modal.Body>{loading ? <LoadingDots /> : children}</Modal.Body>
+      <Modal.Body className={flexBody && styles.flex}>
+        {loading ? <LoadingDots /> : children}
+      </Modal.Body>
 
       {!hideActions && actionable ? (
         <Modal.Footer
