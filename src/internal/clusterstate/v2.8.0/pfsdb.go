@@ -298,7 +298,7 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 // Migrate commits from collections.commits to pfs.commits
-func migrateCommits(ctx context.Context, env migrations.Env) error {
+func migrateCommitSchema(ctx context.Context, env migrations.Env) error {
 	if err := alterCommitsTable(ctx, env.Tx); err != nil {
 		return err
 	}
