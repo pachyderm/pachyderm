@@ -395,7 +395,7 @@ const ConfigurationTaskComponent: React.FC<TaskComponentProps> = ({
 
   const fileMeta = {
     name: 'edges.json',
-    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json',
+    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.pipeline.json',
   };
 
   const fileContent = `{

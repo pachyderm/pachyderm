@@ -65,7 +65,7 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
 
   const file = {
     name: 'pipeline.json',
-    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json',
+    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.pipeline.json',
   };
 
   return (

@@ -83,7 +83,7 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
         // invalid image to trigger an error state
         .exec(`echo "gibberish" | pachctl put file images@master:badImage.png`)
         .exec(
-          `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.json`,
+          `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.pipeline.json`,
         )
         .exec(
           `echo '${JSON.stringify({
@@ -149,7 +149,7 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
         'pachctl put file images@master:liberty.png -f cypress/fixtures/liberty.png',
       )
       .exec(
-        `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.json`,
+        `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.pipeline.json`,
       );
   });
 });

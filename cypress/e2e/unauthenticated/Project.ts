@@ -20,7 +20,7 @@ describe('Project', () => {
   it('should enable the pipeline and repo deletion buttons when all downstream pipelines and repos are deleted', () => {
     cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
       cy.exec(
-        `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/montage.json`,
+        `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/montage.pipeline.json`,
       );
     });
 
