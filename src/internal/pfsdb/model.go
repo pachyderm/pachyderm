@@ -67,13 +67,3 @@ func (branch *Branch) BranchPb() *pfs.Branch {
 		Repo: branch.Repo.RepoPb(),
 	}
 }
-
-func (branch *Branch) BranchInfoPb() *pfs.BranchInfo {
-	return &pfs.BranchInfo{
-		Branch: &pfs.Branch{
-			Name: branch.Name,
-			Repo: branch.Repo.RepoPb(),
-		},
-		Head: branch.Head.CommitPb(),
-	}
-}
