@@ -225,19 +225,19 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
 
-	ALTER TABLE IF EXISTS pfs.commits
-		ADD COLUMN IF NOT EXISTS repo_id bigint REFERENCES pfs.repos(id),
-		ADD COLUMN IF NOT EXISTS origin pfs.commit_origin,
-		ADD COLUMN IF NOT EXISTS description text DEFAULT '',
-		ADD COLUMN IF NOT EXISTS start_time timestamptz,
-		ADD COLUMN IF NOT EXISTS finishing_time timestamptz,
-		ADD COLUMN IF NOT EXISTS finished_time timestamptz,
-		ADD COLUMN IF NOT EXISTS compacting_time bigint,
-		ADD COLUMN IF NOT EXISTS validating_time bigint,
-		ADD COLUMN IF NOT EXISTS error text,
-		ADD COLUMN IF NOT EXISTS size bigint,
-		ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
-		ADD COLUMN IF NOT EXISTS branch_id_str text;
+	ALTER TABLE pfs.commits
+		ADD COLUMN repo_id bigint REFERENCES pfs.repos(id),
+		ADD COLUMN origin pfs.commit_origin,
+		ADD COLUMN description text NOT NULL DEFAULT '',
+		ADD COLUMN start_time timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		ADD COLUMN finishing_time timestamptz,
+		ADD COLUMN finished_time timestamptz,
+		ADD COLUMN compacting_time bigint,
+		ADD COLUMN validating_time bigint,
+		ADD COLUMN error text,
+		ADD COLUMN size bigint,
+		ADD COLUMN updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
+		ADD COLUMN branch_id bigint;
 
 	CREATE TRIGGER set_updated_at
 		BEFORE UPDATE ON pfs.commits
@@ -252,13 +252,12 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 // commitAncestry is how we model the commit graph within a single repo.
 func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
-	CREATE TABLE IF NOT EXISTS pfs.commit_ancestry (
+	CREATE TABLE pfs.commit_ancestry (
 		from_id bigint REFERENCES pfs.commits(int_id),
 		to_id bigint REFERENCES pfs.commits(int_id),
 		PRIMARY KEY (from_id, to_id)
 	);
 	CREATE INDEX ON pfs.commit_ancestry (to_id, from_id);
-	CREATE INDEX ON pfs.commit_ancestry (to_id);
 	`
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return errors.Wrap(err, "creating commit_ancestry table")
@@ -269,7 +268,7 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 //nolint:unused //will use after table migration logic is implemented.
 func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
-	CREATE OR REPLACE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
+	CREATE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
 	DECLARE
 		row record;
 		payload text;
@@ -297,11 +296,11 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 // Migrate commits from collections.commits to pfs.commits
-func migrateCommits(ctx context.Context, tx *pachsql.Tx) error {
-	if err := alterCommitsTable(ctx, tx); err != nil {
+func migrateCommits(ctx context.Context, env migrations.Env) error {
+	if err := alterCommitsTable(ctx, env.Tx); err != nil {
 		return err
 	}
-	if err := createCommitAncestryTable(ctx, tx); err != nil {
+	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
 		return err
 	}
 	// todo(fahad): migrate commits
