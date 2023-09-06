@@ -48,7 +48,6 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	if branchInfo.Head.Id == "" {
 		return 0, errors.Errorf("head commit required")
 	}
-
 	var branchID BranchID
 	if err := tx.QueryRowContext(ctx,
 		`
