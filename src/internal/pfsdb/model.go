@@ -29,7 +29,6 @@ type Repo struct {
 	Name        string         `db:"name"`
 	Type        string         `db:"type"`
 	Description string         `db:"description"`
-	Project     coredb.Project `db:"project"`
 	CreatedAtUpdatedAt
 
 	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
