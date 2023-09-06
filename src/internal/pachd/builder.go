@@ -215,6 +215,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
 			b.loggingInterceptor.UnaryServerInterceptor,
+			validation.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			errorsmw.StreamServerInterceptor,
@@ -222,6 +223,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
 			b.loggingInterceptor.StreamServerInterceptor,
+			validation.StreamServerInterceptor,
 		),
 	)
 	return err
