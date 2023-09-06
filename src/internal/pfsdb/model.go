@@ -24,11 +24,15 @@ type CreatedAtUpdatedAt struct {
 
 type Repo struct {
 	ID          RepoID         `db:"id"`
-	Project     coredb.Project `db:"project"`
 	Name        string         `db:"name"`
-	Description string         `db:"description"`
 	Type        string         `db:"type"`
+	Description string         `db:"description"`
+	Project     coredb.Project `db:"project"`
 	CreatedAtUpdatedAt
+
+	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
+	// Each entry is prefixed with '//x' and entries are delimited by a ','
+	Branches string `db:"branches"`
 }
 
 func (repo *Repo) Pb() *pfs.Repo {

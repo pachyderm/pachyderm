@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,7 +14,6 @@ import (
 	"github.com/jackc/pgconn"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -26,10 +24,22 @@ const (
 	// ReposChannelName is used to watch events for the repos table.
 	ReposChannelName = "pfs_repos"
 
-	getRepoAndBranches = "SELECT repo.id, repo.name, repo.type, repo.project_id, " +
-		"repo.description, array_agg(branch.proto) AS branches, repo.created_at, repo.updated_at, project.name AS proj_name FROM pfs.repos repo " +
-		"JOIN core.projects project ON repo.project_id = project.id " +
-		"LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo "
+	getRepoAndBranches = `
+	SELECT
+		repo.id,
+		repo.name,
+		repo.type,
+		repo.description,
+		repo.project_id as "project.id",
+		project.name AS "project.name",
+		array_agg(branch.proto) AS branches,
+		repo.created_at,
+		repo.updated_at
+	FROM
+		pfs.repos repo
+			JOIN core.projects project ON repo.project_id = project.id
+			LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo
+	`
 	noBranches = "{NULL}"
 )
 
@@ -98,24 +108,10 @@ var _ stream.Iterator[RepoPair] = &RepoIterator{}
 type RepoIterator struct {
 	limit  int
 	offset int
-	repos  []repoRow
+	repos  []Repo
 	index  int
 	tx     *pachsql.Tx
 	filter RepoListFilter
-}
-
-type repoRow struct {
-	ID          RepoID           `db:"id"`
-	Name        string           `db:"name"`
-	ProjectID   coredb.ProjectID `db:"project_id"`
-	ProjectName string           `db:"proj_name"`
-	Description string           `db:"description"`
-	RepoType    string           `db:"type"`
-	CreatedAt   time.Time        `db:"created_at"`
-	UpdatedAt   time.Time        `db:"updated_at"`
-	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
-	// Each entry is prefixed with '//x' and entries are delimited by a ','
-	Branches string `db:"branches"`
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
@@ -178,8 +174,8 @@ func ListRepo(ctx context.Context, tx *pachsql.Tx, filter RepoListFilter) (*Repo
 	return iter, nil
 }
 
-func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter RepoListFilter) ([]repoRow, error) {
-	var page []repoRow
+func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter RepoListFilter) ([]Repo, error) {
+	var page []Repo
 	where := ""
 	conditions := make([]string, 0)
 	for key, vals := range filter {
@@ -248,20 +244,20 @@ func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoT
 	return row.ID, nil
 }
 
-func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*repoRow, error) {
-	row := &repoRow{}
+func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*Repo, error) {
+	repo := &Repo{}
 	if repoProject == "" {
-		repoProject = "default"
+		repoProject = pfs.DefaultProjectName
 	}
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) "+
-		"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(row)
+		"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(repo)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
 	}
-	return row, nil
+	return repo, nil
 }
 
 // todo(fahad): rewrite branch related code during the branches migration.
@@ -270,7 +266,7 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, err
 	if id == 0 {
 		return nil, errors.New("invalid id: 0")
 	}
-	row := &repoRow{}
+	row := &Repo{}
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name;", getRepoAndBranches), id).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -290,9 +286,9 @@ func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 	return getRepoFromRepoRow(row)
 }
 
-func getRepoFromRepoRow(row *repoRow) (*pfs.RepoInfo, error) {
+func getRepoFromRepoRow(row *Repo) (*pfs.RepoInfo, error) {
 	proj := &pfs.Project{
-		Name: row.ProjectName,
+		Name: row.Project.Name,
 	}
 	branches, err := getBranchesFromRepoRow(row)
 	if err != nil {
@@ -301,7 +297,7 @@ func getRepoFromRepoRow(row *repoRow) (*pfs.RepoInfo, error) {
 	repoInfo := &pfs.RepoInfo{
 		Repo: &pfs.Repo{
 			Name:    row.Name,
-			Type:    row.RepoType,
+			Type:    row.Type,
 			Project: proj,
 		},
 		Description: row.Description,
@@ -311,7 +307,7 @@ func getRepoFromRepoRow(row *repoRow) (*pfs.RepoInfo, error) {
 	return repoInfo, nil
 }
 
-func getBranchesFromRepoRow(row *repoRow) ([]*pfs.Branch, error) {
+func getBranchesFromRepoRow(row *Repo) ([]*pfs.Branch, error) {
 	if row == nil {
 		return nil, errors.Wrap(fmt.Errorf("repo row is nil"), "")
 	}

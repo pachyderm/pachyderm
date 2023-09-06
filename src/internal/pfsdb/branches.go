@@ -10,7 +10,7 @@ import (
 
 // GetBranch returns a branch by id.
 func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
-	branch := new(Branch)
+	branch := &Branch{}
 	if err := tx.GetContext(ctx, branch, `
 		SELECT
 			branch.name,

@@ -3,8 +3,9 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -28,7 +29,7 @@ const (
 )
 
 func testRepo(name, repoType string) *pfs.RepoInfo {
-	repo := &pfs.Repo{Name: name, Type: repoType, Project: &pfs.Project{Name: "default"}}
+	repo := &pfs.Repo{Name: name, Type: repoType, Project: &pfs.Project{Name: pfs.DefaultProjectName}}
 	return &pfs.RepoInfo{
 		Repo:        repo,
 		Description: testRepoDesc,
@@ -44,7 +45,7 @@ func TestCreateRepo(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create repo")
-		getInfo, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, testRepoType)
+		getInfo, err := pfsdb.GetRepoByName(cbCtx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
 		require.NoError(t, err, "should be able to get a repo")
 		require.Equal(t, createInfo.Repo.Name, getInfo.Repo.Name)
 		require.Equal(t, createInfo.Repo.Type, getInfo.Repo.Type)
@@ -55,7 +56,7 @@ func TestCreateRepo(t *testing.T) {
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.CreateRepo(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create repo again with same name")
-		require.True(t, errors.Is(pfsdb.ErrRepoAlreadyExists{Project: "default", Name: testRepoName, Type: testRepoType}, err))
+		require.True(t, errors.Is(pfsdb.ErrRepoAlreadyExists{Project: pfs.DefaultProjectName, Name: testRepoName, Type: testRepoType}, err))
 		fmt.Println("hello")
 		return nil
 	}), "double create should fail and result in rollback")
@@ -71,9 +72,9 @@ func TestDeleteRepo(t *testing.T) {
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create repo")
 		require.NoError(t, pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type), "should be able to delete repo")
-		_, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, "unknown")
+		_, err := pfsdb.GetRepoByName(cbCtx, tx, pfs.DefaultProjectName, testRepoName, "unknown")
 		require.YesError(t, err, "get repo should not find row")
-		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: "default", Name: testRepoName, Type: "unknown"}, err))
+		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: pfs.DefaultProjectName, Name: testRepoName, Type: "unknown"}, err))
 		err = pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type)
 		require.YesError(t, err, "double delete should be an error")
 		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: createInfo.Repo.Project.Name, Name: testRepoName, Type: createInfo.Repo.Type}, err))
@@ -201,7 +202,7 @@ func TestListReposFilter(t *testing.T) {
 		require.Equal(t, 3, i)
 		i = 0
 		filter[pfsdb.RepoTypes] = []string{testRepoType, "meta"}
-		filter[pfsdb.RepoProjects] = []string{"default", "random"}
+		filter[pfsdb.RepoProjects] = []string{pfs.DefaultProjectName, "random"}
 		iter, err = pfsdb.ListRepo(cbCtx, tx, filter)
 		seen := make(map[string]bool)
 		require.NoError(t, err, "should be able to list repos")
