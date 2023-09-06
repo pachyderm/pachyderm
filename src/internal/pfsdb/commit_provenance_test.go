@@ -1,6 +1,7 @@
 package pfsdb_test
 
 import (
+	"context"
 	"sort"
 	"testing"
 
@@ -22,7 +23,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, suite)
 	defer db.Close()
 	// setup schema
-	withTx(suite, db, func(tx *pachsql.Tx) {
+	withTx(suite, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 		_, err := tx.ExecContext(ctx, `CREATE SCHEMA collections`)
 		require.NoError(suite, err)
 		require.NoError(suite, col.SetupPostgresV0(ctx, tx))
@@ -47,7 +48,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 		// E <--------
 		td, cf := NewTestDAG(proj)
 		defer require.NoError(t, cf(db))
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			require.NoError(t, td.addRepo(tx, "A"))
 			require.NoError(t, td.addRepo(tx, "B", "A"))
 			require.NoError(t, td.addRepo(tx, "C", "B"))
@@ -63,7 +64,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 		//               /
 		// E@w <---------
 		var a, b, c, d, e *pfs.Commit
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			var err error
 			a, err = td.addCommitSet(tx, "v", "A")
 			require.NoError(t, err)
@@ -78,25 +79,25 @@ func TestCommitSetProvenance(suite *testing.T) {
 		})
 		// assert commit set provenance
 		// check y's commit set provenance
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(__ context.Context, tx *pachsql.Tx) {
 			yProv, err := pfsdb.CommitSetProvenance(tx, "y")
 			require.NoError(t, err)
 			checkCommitsEqual(t, []*pfs.Commit{a, b}, yProv)
 		})
 		// check y's commit set subvenance
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			ySubv, err := pfsdb.CommitSetSubvenance(tx, "y")
 			require.NoError(t, err)
 			checkCommitsEqual(t, []*pfs.Commit{}, ySubv)
 		})
 		// check z's commit set provenance
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			zProv, err := pfsdb.CommitSetProvenance(tx, "z")
 			require.NoError(t, err)
 			checkCommitsEqual(t, []*pfs.Commit{a, b, e}, zProv)
 		})
 		// check x's commit set subvenance
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			xSubv, err := pfsdb.CommitSetSubvenance(tx, "x")
 			require.NoError(t, err)
 			dAtW := client.NewCommit(proj, "D", "", "w")
@@ -112,17 +113,17 @@ func TestCommitSetProvenance(suite *testing.T) {
 		//           -----------  montage
 		td, cf := NewTestDAG(proj)
 		defer require.NoError(t, cf(db))
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			require.NoError(t, td.addRepo(tx, "images"))
 			require.NoError(t, td.addRepo(tx, "edges", "images"))
 			require.NoError(t, td.addRepo(tx, "montage", "images", "edges"))
 		})
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			var err error
 			_, err = td.addCommitSet(tx, "x", "images")
 			require.NoError(t, err)
 		})
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			var err error
 			xSubv, err := pfsdb.CommitSetSubvenance(tx, "x")
 			require.NoError(t, err)
@@ -222,10 +223,10 @@ func addCommitWrapper(tx *pachsql.Tx, c *pfs.Commit) error {
 	return pfsdb.AddCommit(tx, c)
 }
 
-func withTx(t *testing.T, db *pachsql.DB, f func(*pachsql.Tx)) {
-	tx, err := db.Beginx()
+func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {
+	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
-	f(tx)
+	f(ctx, tx)
 	require.NoError(t, tx.Commit())
 }
 

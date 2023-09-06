@@ -1,6 +1,7 @@
 package pfsdb_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -27,7 +28,7 @@ func TestCreateAndGetBranch(t *testing.T) {
 	db := newTestDB(t, ctx)
 	commitsCol := pfsdb.Commits(db, nil)
 
-	withTx(t, db, func(tx *pachsql.Tx) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		// Create repo, commit, and branch, then try to fetch that branch
 		repoInfo := testRepo(testRepoName, testRepoType)
 		_, err := pfsdb.UpsertRepo(ctx, tx, repoInfo)

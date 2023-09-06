@@ -56,7 +56,7 @@ func TestUpsertRepo(t *testing.T) {
 
 	expectedInfo := testRepo(testRepoName, testRepoType)
 	var repoID pfsdb.RepoID
-	withTx(t, db, func(tx *pachsql.Tx) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		var err error
 		repoID, err = pfsdb.UpsertRepo(ctx, tx, expectedInfo)
 		require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestUpsertRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, cmp.Equal(expectedInfo, getByNameInfo, cmp.Comparer(compareRepos)))
 	})
-	withTx(t, db, func(tx *pachsql.Tx) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		expectedInfo.Description = "new desc"
 		id, err := pfsdb.UpsertRepo(ctx, tx, expectedInfo)
 		require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestDeleteRepo(t *testing.T) {
 	db := newTestDB(t, ctx)
 
 	expectedInfo := testRepo(testRepoName, testRepoType)
-	withTx(t, db, func(tx *pachsql.Tx) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		id, err := pfsdb.UpsertRepo(ctx, tx, expectedInfo)
 		require.NoError(t, err)
 		require.NoError(t, pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type), "should be able to delete repo")
@@ -109,7 +109,7 @@ func TestGetRepo(t *testing.T) {
 		{Repo: createInfo.Repo, Name: "a"},
 		{Repo: createInfo.Repo, Name: "b"},
 	}
-	withTx(t, db, func(tx *pachsql.Tx) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		for _, branch := range createInfo.Branches {
 			commit := &pfs.Commit{Repo: createInfo.Repo, Branch: branch, Id: random.String(32)}
 			branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
@@ -131,7 +131,7 @@ func TestListRepos(t *testing.T) {
 	db := newTestDB(t, ctx)
 
 	branchesCol := pfsdb.Branches(db, nil)
-	withTx(t, db, func(tx *pachsql.Tx) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		size := 210
 		expectedInfos := make([]*pfs.RepoInfo, size)
 		for i := 0; i < size; i++ {
@@ -168,7 +168,7 @@ func TestListReposFilter(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
 
-	withTx(t, db, func(tx *pachsql.Tx) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		for _, repoName := range []string{"repoA", "repoB", "repoC"} {
 			for _, repoType := range []string{"user", "unknown", "meta"} {
 				createInfo := testRepo(repoName, repoType)
