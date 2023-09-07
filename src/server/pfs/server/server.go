@@ -63,3 +63,15 @@ func NewSidecarAPIServer(env Env) (pfsserver.APIServer, error) {
 	}
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
+
+// NewPachwAPIServer is used when running pachd in Pachw Mode.
+// In Pachw Mode, a pachd instance processes storage and URl related tasks via the task service.
+// TODO: remove this after load tests have been moved to Debug server.
+func NewPachwAPIServer(env Env) (pfsserver.APIServer, error) {
+	a, err := newAPIServer(env)
+	if err != nil {
+		return nil, err
+	}
+	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
+	return newValidatedAPIServer(a, env.AuthServer), nil
+}

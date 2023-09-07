@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -61,5 +62,5 @@ func (w *Worker) Run(ctx context.Context) error {
 		w.URLWorker(ctx)
 		return nil
 	})
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }

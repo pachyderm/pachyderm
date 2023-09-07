@@ -136,7 +136,7 @@ func (w *Worker) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 			if err := f.Content(ctx, w); err != nil {
 				return err
 			}
-			return w.Close()
+			return errors.EnsureStack(w.Close())
 		}, index.WithRange(&pathRange))
 	}); err != nil {
 		return nil, err

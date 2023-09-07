@@ -9,8 +9,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
@@ -26,25 +26,33 @@ func newPachwBuilder(config any) *pachwBuilder {
 	return &pachwBuilder{newBuilder(config, "pachyderm-pachd-pachw")}
 }
 
-func (b *pachwBuilder) registerPFSServer(ctx context.Context) error {
-	objClient, err := obj.NewClient(ctx, b.env.Config().StorageBackend, b.env.Config().StorageRoot)
+func (b *pachwBuilder) startPFSWorker(ctx context.Context) error {
+	env, err := PFSWorkerEnv(b.env)
 	if err != nil {
 		return err
-	}
-	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PFSEtcdPrefix)
-	env := pfs_server.WorkerEnv{
-		DB:          b.env.GetDBClient(),
-		ObjClient:   objClient,
-		TaskService: b.env.GetTaskService(etcdPrefix),
 	}
 	config := pfs_server.WorkerConfig{
 		Storage: b.env.Config().StorageConfiguration,
 	}
-	w, err := pfs_server.NewWorker(env, config)
+	w, err := pfs_server.NewWorker(*env, config)
 	if err != nil {
 		return err
 	}
-	go w.Run(ctx)
+	go w.Run(ctx) //nolint:errcheck
+	return nil
+}
+
+func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
+	env, err := PFSEnv(pachwb.env, pachwb.txnEnv)
+	if err != nil {
+		return err
+	}
+	apiServer, err := pfs_server.NewPachwAPIServer(*env)
+	if err != nil {
+		return err
+	}
+	pachwb.forGRPCServer(func(s *grpc.Server) { pfs.RegisterAPIServer(s, apiServer) })
+	pachwb.env.SetPfsServer(apiServer)
 	return nil
 }
 
@@ -112,6 +120,7 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initTransaction,
 		pachwb.internallyListen,
 		pachwb.resumeHealth,
+		pachwb.startPFSWorker,
 		pachwb.daemon.serve,
 	)
 }
