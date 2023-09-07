@@ -3,16 +3,12 @@ package pfsdb
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgconn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/jackc/pgconn"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -82,7 +78,7 @@ type RepoPair struct {
 // this dropped global variable instantiation forces the compiler to check whether RepoIterator implements stream.Iterator.
 var _ stream.Iterator[RepoPair] = &RepoIterator{}
 
-// RepoIterator batches a page of repoRow entries. Entries can be retrieved using iter.Next().
+// RepoIterator batches a page of Repo entries. Entries can be retrieved using iter.Next().
 type RepoIterator struct {
 	limit  int
 	offset int
@@ -110,7 +106,7 @@ func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
 		}
 	}
 	row := iter.repos[iter.index]
-	repo, err := getRepoFromRepoRow(&row)
+	repo, err := row.PbInfo()
 	if err != nil {
 		return errors.Wrap(err, "getting repoInfo from repo row")
 	}
@@ -198,27 +194,11 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repo
 }
 
 func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (RepoID, error) {
-	row, err := getRepoRowByName(ctx, tx, repoProject, repoName, repoType)
+	row, err := getRepoByName(ctx, tx, repoProject, repoName, repoType)
 	if err != nil {
-		return RepoID(0), err
+		return 0, err
 	}
 	return row.ID, nil
-}
-
-func getRepoRowByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*Repo, error) {
-	repo := &Repo{}
-	if repoProject == "" {
-		repoProject = pfs.DefaultProjectName
-	}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) "+
-		"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches), repoProject, repoName, repoType).StructScan(repo)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
-		}
-		return nil, errors.Wrap(err, "scanning repo row")
-	}
-	return repo, nil
 }
 
 // todo(fahad): rewrite branch related code during the branches migration.
@@ -227,69 +207,42 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, err
 	if id == 0 {
 		return nil, errors.New("invalid id: 0")
 	}
-	row := &Repo{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name;", getRepoAndBranches), id).StructScan(row)
+	repo := &Repo{}
+	err := tx.GetContext(ctx, repo, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name;", getRepoAndBranches), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrRepoNotFound{ID: id}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
 	}
-	return getRepoFromRepoRow(row)
+	return repo.PbInfo()
 }
 
 // GetRepoByName retrieves an entry from the pfs.repos table by project, repo name, and type.
 func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*pfs.RepoInfo, error) {
-	row, err := getRepoRowByName(ctx, tx, repoProject, repoName, repoType)
+	repo, err := getRepoByName(ctx, tx, repoProject, repoName, repoType)
 	if err != nil {
 		return nil, err
 	}
-	return getRepoFromRepoRow(row)
+	return repo.PbInfo()
 }
 
-func getRepoFromRepoRow(row *Repo) (*pfs.RepoInfo, error) {
-	proj := &pfs.Project{
-		Name: row.Project.Name,
+func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*Repo, error) {
+	if repoProject == "" {
+		repoProject = pfs.DefaultProjectName
 	}
-	branches, err := getBranchesFromRepoRow(row)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting branches from repo row")
-	}
-	repoInfo := &pfs.RepoInfo{
-		Repo: &pfs.Repo{
-			Name:    row.Name,
-			Type:    row.Type,
-			Project: proj,
-		},
-		Description: row.Description,
-		Branches:    branches,
-		Created:     timestamppb.New(row.CreatedAt),
-	}
-	return repoInfo, nil
-}
-
-func getBranchesFromRepoRow(row *Repo) ([]*pfs.Branch, error) {
-	if row == nil {
-		return nil, errors.New("repo row is nil")
-	}
-	branches := make([]*pfs.Branch, 0)
-	if row.Branches == noBranches {
-		return branches, nil
-	}
-	// after aggregation, braces, quotes, and leading hex prefixes need to be removed from the encoded branch strings.
-	for _, branchStr := range strings.Split(strings.Trim(row.Branches, "{}"), ",") {
-		branchHex := strings.Trim(strings.Trim(branchStr, "\""), "\\x")
-		decodedString, err := hex.DecodeString(branchHex)
-		if err != nil {
-			return nil, errors.Wrap(err, "branch not hex encoded")
+	repo := &Repo{}
+	if err := tx.GetContext(ctx, repo,
+		fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) "+
+			"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches),
+		repoProject, repoName, repoType,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
 		}
-		branchInfo := &pfs.BranchInfo{}
-		if err := proto.Unmarshal(decodedString, branchInfo); err != nil {
-			return nil, errors.Wrap(err, "error unmarshalling")
-		}
-		branches = append(branches, branchInfo.Branch)
+		return nil, errors.Wrap(err, "scanning repo row")
 	}
-	return branches, nil
+	return repo, nil
 }
 
 // UpsertRepo will attempt to insert a repo, and return its ID. If the repo already exists, it will update its description.

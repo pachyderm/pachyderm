@@ -23,12 +23,11 @@ func TestCommitSetProvenance(suite *testing.T) {
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, suite)
 	defer db.Close()
 	// setup schema
-	withTx(suite, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
+	withTx(suite, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		_, err := tx.ExecContext(ctx, `CREATE SCHEMA collections`)
 		require.NoError(suite, err)
 		require.NoError(suite, col.SetupPostgresV0(ctx, tx))
-		require.NoError(suite, col.SetupPostgresCollections(ctx, tx,
-			col.NewPostgresCollection("commits", db, nil, &pfs.CommitInfo{}, nil)))
+		require.NoError(suite, col.SetupPostgresCollections(ctx, tx, col.NewPostgresCollection("commits", db, nil, &pfs.CommitInfo{}, nil)))
 		_, err = tx.ExecContext(ctx, `CREATE SCHEMA pfs`)
 		require.NoError(suite, err)
 		require.NoError(suite, v2_6_0.SetupCommitProvenanceV0(ctx, tx))

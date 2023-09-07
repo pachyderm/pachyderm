@@ -53,7 +53,6 @@ func TestUpsertRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-
 	expectedInfo := testRepo(testRepoName, testRepoType)
 	var repoID pfsdb.RepoID
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
@@ -82,7 +81,6 @@ func TestDeleteRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-
 	expectedInfo := testRepo(testRepoName, testRepoType)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		id, err := pfsdb.UpsertRepo(ctx, tx, expectedInfo)
@@ -101,7 +99,6 @@ func TestGetRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-
 	branchesCol := pfsdb.Branches(db, nil)
 	createInfo := testRepo(testRepoName, testRepoType)
 	createInfo.Branches = []*pfs.Branch{
@@ -129,7 +126,6 @@ func TestListRepos(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-
 	branchesCol := pfsdb.Branches(db, nil)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		size := 210
@@ -167,7 +163,6 @@ func TestListReposFilter(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		for _, repoName := range []string{"repoA", "repoB", "repoC"} {
 			for _, repoType := range []string{"user", "unknown", "meta"} {
