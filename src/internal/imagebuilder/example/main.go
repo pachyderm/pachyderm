@@ -32,7 +32,7 @@ func main() {
 	todo := []jobs.Job{
 		&jobs.Download{
 			Name:     "dumb-init",
-			Platform: "linux/x86_64",
+			Platform: "linux/amd64",
 			URL:      "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64",
 			WantDigest: jobs.Digest{
 				Algorithm: "blake3",

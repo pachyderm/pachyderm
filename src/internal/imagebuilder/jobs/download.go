@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/zeebo/xxh3"
+	"go.starlark.net/starlark"
 	"go.uber.org/zap"
 )
 
@@ -98,6 +99,83 @@ func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 			},
 		},
 	}, nil
+}
+
+func (d *Download) Unpack(v starlark.Value) error {
+	dict, ok := v.(*starlark.Dict)
+	if !ok {
+		return errors.New("expected download dict")
+	}
+	v, ok, err := dict.Get(starlark.String("url"))
+	if !ok {
+		if err != nil {
+			return errors.Wrap(err, "url")
+		}
+		return errors.New("missing required url value")
+	}
+	d.URL = v.String()
+	v, ok, err = dict.Get(starlark.String("digest"))
+	if err != nil {
+		return errors.Wrap(err, "digest")
+	}
+	if !ok {
+		return nil
+	}
+	var digest Digest
+	if err := digest.UnmarshalText([]byte(v.String())); err != nil {
+		return errors.Wrap(err, "unmarshal digest")
+	}
+	d.WantDigest = digest
+	return nil
+}
+
+type downloadSet []Download
+
+func (x *downloadSet) Unpack(v starlark.Value) error {
+	dict, ok := v.(*starlark.Dict)
+	if !ok {
+		return errors.New("expected dict of platform -> downloads")
+	}
+	for _, k := range dict.Keys() {
+		v, ok, err := dict.Get(k)
+		if err != nil {
+			return errors.Wrapf(err, "args[%v]", k)
+		}
+		if !ok {
+			return errors.Errorf("args[%v]: not found?", k)
+		}
+		platform, ok := starlark.AsString(k)
+		if !ok {
+			return errors.Errorf("args[%v]: not a string?", k)
+		}
+		var d Download
+		d.Platform = Platform(platform)
+		if err := d.Unpack(v); err != nil {
+			return errors.Wrapf(err, "args[%v]: unpack", k)
+		}
+		*x = append(*x, d)
+	}
+	return nil
+}
+
+func (Download) NewFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) ([]Job, error) {
+	var name string
+	var byPlatform downloadSet
+	if len(args) > 0 {
+		return nil, errors.New("unexpected positional args")
+	}
+	if err := starlark.UnpackArgs(fn.Name(), args, kwargs,
+		"name", &name,
+		"by_platform?", &byPlatform,
+	); err != nil {
+		return nil, errors.Wrap(err, "unpack")
+	}
+	var result []Job
+	for _, j := range byPlatform {
+		j.Name = name
+		result = append(result, j)
+	}
+	return result, nil
 }
 
 type DownloadedFile struct {

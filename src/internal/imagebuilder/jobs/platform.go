@@ -8,12 +8,32 @@ import (
 )
 
 // Platform is the OS/architecture that a particular artifact applies to; if we are only building an
-// image for one platform, artifacts for other platforms don't get fetched or built.
+// image for one platform, artifacts for other platforms don't get fetched or built.  The format is
+// the same that Docker accepts, based lightly on $GOOS/$GOARCH.
 type Platform string
 
 // String implements fmt.Stringer.
 func (p Platform) String() string {
 	return string(p)
+}
+
+// Match implements Reference.
+func (p Platform) Match(target any) bool {
+	if x, ok := target.(WithPlatform); ok {
+		if p.GetPlatform() == x.GetPlatform() {
+			return true
+		} else if p.GetPlatform() == AllPlatforms {
+			return true
+		} else if AllPlatforms == x.GetPlatform() {
+			return true
+		}
+	}
+	return false
+}
+
+// GetPlatform implements WithPlatform.
+func (p Platform) GetPlatform() Platform {
+	return p
 }
 
 var ErrUnsupportedPlatform = errors.New("unsupported platform")

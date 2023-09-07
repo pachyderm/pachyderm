@@ -16,12 +16,13 @@ import (
 
 type GoBinary struct {
 	Workdir  string   // Where to invoke Go.
+	CGO      bool     // If true, enable cgo.
 	Target   string   // The "go build ..." target.
 	Platform Platform // The platform to build for.
 }
 
 func (g GoBinary) String() string {
-	return fmt.Sprintf("<go_binary cd %v; GOOS=%v GOARCH=%v go build %s>", g.Workdir, g.Platform.GOOS(), g.Platform.GOARCH(), g.Target)
+	return fmt.Sprintf("<go_binary cd %v; %v GOOS=%v GOARCH=%v go build %s>", g.Workdir, g.cgo(), g.Platform.GOOS(), g.Platform.GOARCH(), g.Target)
 }
 
 func (g GoBinary) ID() uint64 {
@@ -37,6 +38,13 @@ func (g GoBinary) output() NameAndPlatform {
 		Name:     "go_binary:" + g.Workdir + ":" + g.Target,
 		Platform: g.Platform,
 	}
+}
+
+func (g GoBinary) cgo() string {
+	if g.CGO {
+		return "CGO_ENABLED=1"
+	}
+	return "CGO_ENABLED=0"
 }
 
 func (g GoBinary) Outputs() []Reference {
@@ -59,6 +67,7 @@ func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 	cmd.Env = append(cmd.Env, "GOOS="+g.Platform.GOOS())
 	cmd.Env = append(cmd.Env, "GOPATH=/tmp/.gopath")
 	cmd.Env = append(cmd.Env, "GOCACHE=/tmp/.go-cache")
+	cmd.Env = append(cmd.Env, g.cgo())
 
 	execCtx, done := log.SpanContext(ctx, "go build", zap.Stringer("platform", g.Platform))
 	stdout, stderr := log.WriterAt(pctx.Child(execCtx, "stdout"), log.DebugLevel), log.WriterAt(pctx.Child(execCtx, "stderr"), log.InfoLevel)
