@@ -2055,7 +2055,8 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 			defer func() {
 				if err := recover(); err != nil {
 					stack := make([]byte, 16384)
-					runtime.Stack(stack, false)
+					n := runtime.Stack(stack, false)
+					stack = stack[:n]
 					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
 				}
 			}()
