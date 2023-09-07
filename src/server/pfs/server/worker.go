@@ -51,12 +51,10 @@ func (w *Worker) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	log.Info(ctx, "started worker")
 	defer log.Info(ctx, "exited worker")
-	// compactionWorker
 	eg.Go(func() error {
 		ctx := pctx.Child(ctx, "compactionWorker")
 		return compactionWorker(ctx, w.env.TaskService.NewSource(StorageTaskNamespace), w.storage.Filesets)
 	})
-	// urlWorker
 	eg.Go(func() error {
 		ctx := pctx.Child(ctx, "urlWorker")
 		w.URLWorker(ctx)

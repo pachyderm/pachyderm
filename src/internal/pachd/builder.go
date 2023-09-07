@@ -420,7 +420,12 @@ func (b *builder) startPFSWorker(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	go w.Run(ctx) //nolint:errcheck
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-worker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-worker", zap.Error(err))
+		}
+	}()
 	return nil
 }
 
