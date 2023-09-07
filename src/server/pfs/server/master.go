@@ -57,7 +57,7 @@ func NewMaster(env Env) (*Master, error) {
 
 func (m *Master) Run(ctx context.Context) error {
 	ctx = auth.AsInternalUser(ctx, "pfs-master")
-	return backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	return backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
 		trackerPeriod := time.Second * time.Duration(m.env.StorageConfig.StorageGCPeriod)
 		if trackerPeriod <= 0 {
