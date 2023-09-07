@@ -1,6 +1,11 @@
 package clusterstate
 
 import (
+	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"google.golang.org/protobuf/proto"
 	"sort"
 	"testing"
 
@@ -13,6 +18,27 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
+
+func listCommitCollections(ctx context.Context, t *testing.T, tx *pachsql.Tx) []*pfs.CommitInfo {
+	page := make([]v2_8_0.CommitCollectionQueryResult, 0)
+	collectionQuery := `SELECT commit.int_id, col.key, col.proto, col.updatedat, col.createdat
+		FROM pfs.commits commit JOIN collections.commits AS col ON commit.commit_id = col.key
+		ORDER BY commit.int_id`
+	require.NoError(t, tx.SelectContext(ctx, &page, collectionQuery))
+	infos := make([]*pfs.CommitInfo, 0)
+	for _, result := range page {
+		commitInfo := &pfs.CommitInfo{}
+		require.NoError(t, proto.Unmarshal(result.Pb, commitInfo))
+		if commitInfo.Details == nil {
+			commitInfo.Details = &pfs.CommitInfo_Details{}
+		}
+		if commitInfo.Commit.Branch == nil {
+			commitInfo.Commit.Branch = &pfs.Branch{Name: "master", Repo: commitInfo.Commit.Repo}
+		}
+		infos = append(infos, commitInfo)
+	}
+	return infos
+}
 
 func Test_v2_8_0_ClusterState(t *testing.T) {
 	ctx := pctx.TestContext(t)
@@ -82,4 +108,10 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	if diff := cmp.Diff(expectedTriggers, gotTriggers); diff != "" {
 		t.Errorf("triggers differ: (-want +got)\n%s", diff)
 	}
+
+	// Verify commits
+	require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+		listCommitCollections(ctx, t, tx)
+		return nil
+	}))
 }
