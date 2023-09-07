@@ -31,7 +31,20 @@ func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInf
 	`, id); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	return &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}, nil
+	directProv, err := GetDirectBranchProv(ctx, tx, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get direct branch provenance")
+	}
+	fullProv, err := GetBranchProv(ctx, tx, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get full branch provenance")
+	}
+	return &pfs.BranchInfo{
+		Branch:           branch.Pb(),
+		Head:             branch.Head.Pb(),
+		Provenance:       fullProv,
+		DirectProvenance: directProv,
+	}, nil
 }
 
 // UpsertBranch creates a branch if it does not exist, or updates the head commit if it does.
@@ -69,4 +82,94 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		return 0, errors.Wrap(err, "could not create branch")
 	}
 	return branchID, nil
+}
+
+func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (BranchID, error) {
+	var id BranchID
+	if err := tx.QueryRowContext(ctx, `
+		SELECT branch.id
+		FROM pfs.branches branch
+			JOIN pfs.repos repo ON branch.repo_id = repo.id
+			JOIN core.projects project ON repo.project_id = project.id
+		WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4
+	`, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name,
+	).Scan(&id); err != nil {
+		return 0, errors.Wrapf(err, "could not get id for branch %v", branch)
+	}
+	return id, nil
+}
+
+func GetDirectBranchProv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+	var branches []Branch
+	if err := tx.SelectContext(ctx, &branches, `
+		SELECT
+			branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+		FROM pfs.branch_provenance bp
+		    JOIN pfs.branches branch ON bp.to_id = branch.id
+			JOIN pfs.repos repo ON branch.repo_id = repo.id
+			JOIN core.projects project ON repo.project_id = project.id
+		WHERE bp.from_id = $1
+	`, id); err != nil {
+		return nil, errors.Wrap(err, "could not get direct branch provenance")
+	}
+	var branchPbs []*pfs.Branch
+	for _, branch := range branches {
+		branchPbs = append(branchPbs, branch.Pb())
+	}
+	return branchPbs, nil
+}
+
+func GetBranchProv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+	var branches []Branch
+	if err := tx.SelectContext(ctx, &branches, `
+		WITH RECURSIVE prov(from_id, to_id) AS (
+		    SELECT from_id, to_id
+		    FROM pfs.branch_provenance
+		    WHERE from_id = $1
+		  UNION ALL
+		    SELECT bp.from_id, bp.to_id
+		    FROM prov JOIN pfs.branch_provenance bp ON prov.to_id = bp.from_id
+		)
+		SELECT DISTINCT
+		    branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+		FROM pfs.branches branch
+		    JOIN prov ON branch.id = prov.to_id
+			JOIN pfs.repos repo ON branch.repo_id = repo.id
+		    JOIN core.projects project ON repo.project_id = project.id
+		WHERE branch.id != $1
+	`, id); err != nil {
+		return nil, errors.Wrap(err, "could not get branch provenance")
+	}
+	var branchPbs []*pfs.Branch
+	for _, branch := range branches {
+		branchPbs = append(branchPbs, branch.Pb())
+	}
+	return branchPbs, nil
+}
+
+func AddDirectBranchProv(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Branch) error {
+	fromID, err := GetBranchID(ctx, tx, from)
+	if err != nil {
+		return errors.Wrap(err, "could not get from_id")
+	}
+	toID, err := GetBranchID(ctx, tx, to)
+	if err != nil {
+		return errors.Wrap(err, "could not get to_id")
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO pfs.branch_provenance(from_id, to_id)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, fromID, toID); err != nil {
+		return errors.Wrap(err, "could not add branch provenance")
+	}
+	return nil
 }
