@@ -591,3 +591,25 @@ func TestMountDatumsBranchHeadFromOtherBranch(t *testing.T) {
 		require.Equal(t, commitInfo.Commit.Id, (*mountResp).Mounted[0].Commit)
 	})
 }
+
+func TestMountDatumsSpecifyingCommit(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
+	err := c.PutFile(commit, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprintf(
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'commit': '%s'}}}`,
+			pfs.DefaultProjectName, commitInfo.Commit.Id),
+		)
+		resp, err := put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+	})
+}

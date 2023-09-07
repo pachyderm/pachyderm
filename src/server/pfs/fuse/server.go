@@ -626,7 +626,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		datumInputsToMounts, err := sanitizeInputAndGetAlias(pipelineReq.Input, mm.Client)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		datums, err := mm.Client.ListDatumInputAll(pipelineReq.Input)
