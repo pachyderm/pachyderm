@@ -47,7 +47,7 @@ func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInf
 	}, nil
 }
 
-// UpsertBranch creates a branch if it does not exist, or updates the head commit if it does.
+// UpsertBranch creates a branch if it does not exist, or updates the head if the branch already exists.
 func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInfo) (BranchID, error) {
 	if branchInfo.Branch.Repo.Name == "" {
 		return 0, errors.Errorf("repo name required")
@@ -142,6 +142,38 @@ func GetBranchProv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Bra
 			project.name as "repo.project.name"
 		FROM pfs.branches branch
 		    JOIN prov ON branch.id = prov.to_id
+			JOIN pfs.repos repo ON branch.repo_id = repo.id
+		    JOIN core.projects project ON repo.project_id = project.id
+		WHERE branch.id != $1
+	`, id); err != nil {
+		return nil, errors.Wrap(err, "could not get branch provenance")
+	}
+	var branchPbs []*pfs.Branch
+	for _, branch := range branches {
+		branchPbs = append(branchPbs, branch.Pb())
+	}
+	return branchPbs, nil
+}
+
+func GetBranchSubv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+	var branches []Branch
+	if err := tx.SelectContext(ctx, &branches, `
+		WITH RECURSIVE subv(from_id, to_id) AS (
+		    SELECT from_id, to_id
+		    FROM pfs.branch_provenance
+		    WHERE to_id = $1
+		  UNION ALL
+		    SELECT bp.from_id, bp.to_id
+		    FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
+		)
+		SELECT DISTINCT
+		    branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+		FROM pfs.branches branch
+		    JOIN subv ON branch.id = subv.from_id
 			JOIN pfs.repos repo ON branch.repo_id = repo.id
 		    JOIN core.projects project ON repo.project_id = project.id
 		WHERE branch.id != $1
