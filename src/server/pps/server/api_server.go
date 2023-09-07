@@ -2767,7 +2767,7 @@ func (a *apiServer) InspectPipelineInTransaction(ctx context.Context, txnCtx *tx
 	// The pipeline pipelineName arrived in ancestry format; need to turn it into a simple pipelineName.
 	pipelineName, ancestors, err := ancestry.Parse(pipeline.Name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parse pipeline name")
 	}
 
 	if ancestors < 0 {
@@ -3177,22 +3177,24 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
 			if err := a.authorizePipelineOpInTransaction(ctx, txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
-				return err
+				return errors.Wrap(err, "authorize")
 			}
 
 			// Remove branch provenance to prevent new output and meta commits from being created
+			br := client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch)
 			if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+				Branch:     br,
 				Provenance: nil,
 			}); err != nil {
-				return errors.EnsureStack(err)
+				return errors.Wrapf(err, "clear provenance: create branch %v", br)
 			}
 			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
+				mbr := client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch)
 				if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+					Branch:     mbr,
 					Provenance: nil,
 				}); err != nil {
-					return errors.EnsureStack(err)
+					return errors.Wrapf(err, "clear provenance (meta): create branch %v")
 				}
 			}
 
@@ -3201,7 +3203,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 				newPipelineInfo.Stopped = true
 				return nil
 			}); err != nil {
-				return err
+				return errors.Wrapf(err, "update pipeline")
 			}
 		} else if !errutil.IsNotFoundError(err) || request.MustExist {
 			return err
@@ -3210,9 +3212,9 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		// Kill any remaining jobs
 		// if the pipeline output repo doesn't exist, we technically run this without authorization,
 		// but it's not clear what authorization means in that case, and those jobs are doomed, anyway
-		return a.stopAllJobsInPipeline(ctx, txnCtx, request.Pipeline, "all jobs killed because pipeline was stopped")
+		return errors.Wrap(a.stopAllJobsInPipeline(ctx, txnCtx, request.Pipeline, "all jobs killed because pipeline was stopped"), "stop all jobs")
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -3263,7 +3265,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(ctx, txnCtx, client.NewCommitSet(txnCtx.CommitSetID), false)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return errors.Wrapf(err, "inspect commitset %v", txnCtx.CommitSetID)
 	}
 	for _, commitInfo := range commitInfos {
 		// Skip alias commits and any commits which have already been finished
@@ -3277,10 +3279,10 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
 		if pipelineInfo, err = a.InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
-			if col.IsErrNotFound(err) {
+			if errutil.IsNotFoundError(err) {
 				continue
 			}
-			return err
+			return errors.Wrapf(err, "inspect pipeline %v", pps.RepoPipeline(commitInfo.Commit.Repo).String())
 		}
 		// Don't create jobs for spouts
 		if pipelineInfo.Type == pps.PipelineInfo_PIPELINE_TYPE_SPOUT {
@@ -3296,7 +3298,7 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it
 		} else if !col.IsErrNotFound(err) {
-			return errors.EnsureStack(err)
+			return errors.Wrapf(err, "read job %v", job.String())
 		}
 
 		token := ""
@@ -3304,7 +3306,7 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 			// If auth is active, generate an auth token for the job
 			token, err = a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineInfo.Pipeline)
 			if err != nil {
-				return errors.EnsureStack(err)
+				return errors.Wrapf(err, "get pipeline %v auth token", pipelineInfo.Pipeline.String())
 			}
 		}
 
@@ -3319,7 +3321,7 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 			Created:         timestamppb.Now(),
 		}
 		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
-			return err
+			return errors.Wrap(err, "update job state")
 		}
 	}
 	return nil

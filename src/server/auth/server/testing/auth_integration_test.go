@@ -191,7 +191,6 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
 func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) {
-	t.Helper()
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
 	// causes PPS to rotate all the pipeline tokens. This makes the RCs

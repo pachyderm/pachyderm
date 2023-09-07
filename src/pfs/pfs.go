@@ -60,6 +60,9 @@ func (p *Project) Key() string {
 }
 
 func (r *Repo) String() string {
+	if r == nil {
+		return "<nil>"
+	}
 	if r.Type == UserRepoType {
 		if projectName := r.Project.String(); projectName != "" {
 			return projectName + "/" + r.Name
@@ -99,7 +102,7 @@ func (c *Commit) NewFile(path string) *File {
 }
 
 func (c *Commit) String() string {
-	return c.Repo.String() + "@" + c.Id
+	return c.GetRepo().String() + "@" + c.GetId()
 }
 
 func (c *Commit) Key() string {
@@ -123,7 +126,7 @@ func (b *Branch) NewCommit(id string) *Commit {
 }
 
 func (b *Branch) String() string {
-	return b.Repo.String() + "@" + b.Name
+	return b.GetRepo().String() + "@" + b.GetName()
 }
 
 func (b *Branch) Key() string {

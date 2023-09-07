@@ -3,8 +3,10 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -22,13 +24,14 @@ import (
 )
 
 const (
-	testRepoName = "testRepoName"
-	testRepoType = "user"
-	testRepoDesc = "this is a test repo"
+	testProjectName = pfs.DefaultProjectName
+	testRepoName    = "testRepoName"
+	testRepoType    = "user"
+	testRepoDesc    = "this is a test repo"
 )
 
 func testRepo(name, repoType string) *pfs.RepoInfo {
-	repo := &pfs.Repo{Name: name, Type: repoType, Project: &pfs.Project{Name: "default"}}
+	repo := &pfs.Repo{Name: name, Type: repoType, Project: &pfs.Project{Name: testProjectName}}
 	return &pfs.RepoInfo{
 		Repo:        repo,
 		Description: testRepoDesc,
@@ -44,7 +47,7 @@ func TestCreateRepo(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create repo")
-		getInfo, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, testRepoType)
+		getInfo, err := pfsdb.GetRepoByName(cbCtx, tx, testProjectName, testRepoName, testRepoType)
 		require.NoError(t, err, "should be able to get a repo")
 		require.Equal(t, createInfo.Repo.Name, getInfo.Repo.Name)
 		require.Equal(t, createInfo.Repo.Type, getInfo.Repo.Type)
@@ -55,7 +58,7 @@ func TestCreateRepo(t *testing.T) {
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.CreateRepo(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create repo again with same name")
-		require.True(t, errors.Is(pfsdb.ErrRepoAlreadyExists{Project: "default", Name: testRepoName, Type: testRepoType}, err))
+		require.True(t, errors.Is(pfsdb.ErrRepoAlreadyExists{Project: testProjectName, Name: testRepoName, Type: testRepoType}, err))
 		fmt.Println("hello")
 		return nil
 	}), "double create should fail and result in rollback")
@@ -71,9 +74,9 @@ func TestDeleteRepo(t *testing.T) {
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateRepo(cbCtx, tx, createInfo), "should be able to create repo")
 		require.NoError(t, pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type), "should be able to delete repo")
-		_, err := pfsdb.GetRepoByName(cbCtx, tx, "default", testRepoName, "unknown")
+		_, err := pfsdb.GetRepoByName(cbCtx, tx, testProjectName, testRepoName, "unknown")
 		require.YesError(t, err, "get repo should not find row")
-		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: "default", Name: testRepoName, Type: "unknown"}, err))
+		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: testProjectName, Name: testRepoName, Type: "unknown"}, err))
 		err = pfsdb.DeleteRepo(cbCtx, tx, createInfo.Repo.Project.Name, createInfo.Repo.Name, createInfo.Repo.Type)
 		require.YesError(t, err, "double delete should be an error")
 		require.True(t, errors.Is(pfsdb.ErrRepoNotFound{Project: createInfo.Repo.Project.Name, Name: testRepoName, Type: createInfo.Repo.Type}, err))
@@ -201,7 +204,7 @@ func TestListReposFilter(t *testing.T) {
 		require.Equal(t, 3, i)
 		i = 0
 		filter[pfsdb.RepoTypes] = []string{testRepoType, "meta"}
-		filter[pfsdb.RepoProjects] = []string{"default", "random"}
+		filter[pfsdb.RepoProjects] = []string{testProjectName, "random"}
 		iter, err = pfsdb.ListRepo(cbCtx, tx, filter)
 		seen := make(map[string]bool)
 		require.NoError(t, err, "should be able to list repos")
@@ -252,4 +255,72 @@ func TestUpdateRepoByID(t *testing.T) {
 		require.NoError(t, pfsdb.UpdateRepo(cbCtx, tx, 1, repoInfo), "should be able to update repo")
 		return nil
 	}))
+}
+
+func TestRepoExistsByName(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewTestDB(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	testData := []struct {
+		name                            string
+		projectName, repoName, repoType string
+		wantErr                         error
+	}{
+		{
+			name:        "exists",
+			projectName: testProjectName,
+			repoName:    testRepoName,
+			repoType:    testRepoType,
+		},
+		{
+			name:        "wrong project",
+			projectName: "does-not-exist",
+			repoName:    testRepoName,
+			repoType:    testRepoType,
+			wantErr:     coredb.ErrProjectNotFound{},
+		},
+		{
+			name:        "wrong type",
+			projectName: testProjectName,
+			repoName:    testRepoName,
+			repoType:    pfs.SpecRepoType,
+			wantErr:     pfsdb.ErrRepoNotFound{},
+		},
+		{
+			name:        "wrong name",
+			projectName: testProjectName,
+			repoName:    "does-not-exist",
+			repoType:    testRepoType,
+			wantErr:     pfsdb.ErrRepoNotFound{},
+		},
+		{
+			name:     "empty",
+			repoType: testRepoType,
+			wantErr:  coredb.ErrProjectNotFound{},
+		},
+	}
+
+	repoInfo := testRepo(testRepoName, testRepoType)
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		return pfsdb.CreateRepo(cbCtx, tx, repoInfo)
+	}), "should be able to create a repo")
+
+	for _, test := range testData {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			require.NoError(t, dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+				err := pfsdb.RepoExistsByName(ctx, tx, test.projectName, test.repoName, test.repoType)
+				if err == nil && test.wantErr == nil {
+					return nil
+				}
+				if !errors.As(err, &test.wantErr) {
+					t.Errorf("error:\n  got: %#v\n want: %T", err, test.wantErr)
+				}
+				return nil
+			}))
+		})
+	}
 }
