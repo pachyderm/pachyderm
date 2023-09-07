@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -130,6 +131,9 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 }
 
 func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
+	log.Info(context.Background(), "DNJ TODO about to set total file set 1", zap.Any("commit", commit))
+	time.Sleep(time.Millisecond * 100) // DNJ TODO
+	log.Info(context.Background(), "DNJ TODO about to set total file set 2", zap.Any("commit", commit))
 	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.SetTotalFileSetTx(tx, commit, id)
 	})
@@ -236,7 +240,25 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
-	log.Info(context.Background(), "DNJ TODO try to set commit total", zap.Any("Pipeline", pfsdb.CommitKey(commit)), zap.Stack("Stack"))
+	log.Info(context.Background(), "DNJ TODO try before checking repo", zap.Any("commit", commit), zap.Stack("Stack"))
+	if rows, err := tx.Query(`SELECT DISTINCT name FROM pfs.repos 
+	WHERE pfs.repos.name = $1 AND pfs.repos.type = 'spec'
+	`, commit.Repo.Name); err != nil { // DNJ TODO - project id
+		log.Info(context.Background(), "DNJ TODO err finding not nil", zap.Any("commit", commit), zap.Error(err))
+		return errors.EnsureStack(err)
+	} else {
+		log.Info(context.Background(), "DNJ TODO no error checking for commit before set", zap.Any("commit", commit), zap.Any("row", rows))
+		if !rows.Next() {
+			log.Info(context.Background(), "DNJ TODO no error checking for commit before set, but got no rows", zap.Any("commit", commit), zap.Any("row", rows))
+			return nil
+		}
+		if err := rows.Err(); err != nil {
+			log.Info(context.Background(), "DNJ TODO no error checking for commit before set - error iterating on rows", zap.Any("commit", commit), zap.Any("row", rows), zap.Error(err))
+			return errors.EnsureStack(err)
+		}
+		rows.Close()
+	}
+	log.Info(context.Background(), "DNJ TODO try to set commit total", zap.Any("commit", commit), zap.Stack("Stack"))
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
 	VALUES ($1, $2)
 	ON CONFLICT (commit_id) DO UPDATE
