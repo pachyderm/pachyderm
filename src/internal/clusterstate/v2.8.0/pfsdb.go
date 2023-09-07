@@ -212,6 +212,102 @@ func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+// alterCommitsTable adds useful new columns to pfs.commits table.
+// Note that this is not the end all be all. We will need to make more changes after data has been migrated.
+// TODO
+//   - rename int_id to id? This will requires changing all references as well.
+//   - make repo_id not null
+//   - make origin not null
+//   - make updated_at not null and default to current timestamp
+//   - branch_id_str is a metadata reference to the branches table. Today this points to collections, but tomorrow it should
+//     point to pfs.branches. Once the PFS master watches branches, we will no longer need this column.
+func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
+
+	ALTER TABLE pfs.commits
+		ADD COLUMN repo_id bigint REFERENCES pfs.repos(id),
+		ADD COLUMN origin pfs.commit_origin,
+		ADD COLUMN description text NOT NULL DEFAULT '',
+		ADD COLUMN start_time timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		ADD COLUMN finishing_time timestamptz,
+		ADD COLUMN finished_time timestamptz,
+		ADD COLUMN compacting_time_s bigint,
+		ADD COLUMN validating_time_s bigint,
+		ADD COLUMN error text,
+		ADD COLUMN size bigint,
+		ADD COLUMN updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
+		ADD COLUMN branch_id bigint REFERENCES pfs.branches(id);
+
+	CREATE TRIGGER set_updated_at
+		BEFORE UPDATE ON pfs.commits
+		FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "altering commits table")
+	}
+	return nil
+}
+
+// commitAncestry is how we model the commit graph within a single repo.
+func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE TABLE pfs.commit_ancestry (
+		from_id bigint REFERENCES pfs.commits(int_id),
+		to_id bigint REFERENCES pfs.commits(int_id),
+		PRIMARY KEY (from_id, to_id)
+	);
+	CREATE INDEX ON pfs.commit_ancestry (to_id, from_id);
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "creating commit_ancestry table")
+	}
+	return nil
+}
+
+//nolint:unused //will use after table migration logic is implemented.
+func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
+	DECLARE
+		row record;
+		payload text;
+	BEGIN
+		IF TG_OP = 'DELETE' THEN
+			row := OLD;
+		ELSE
+			row := NEW;
+		END IF;
+		payload := TG_OP || ' ' || row.int_id::text;
+		PERFORM pg_notify('pfs_commits', payload);
+		PERFORM pg_notify('pfs_commits_repo_' || row.repo_id::text, payload);
+		return row;
+	END;
+	$$ LANGUAGE plpgsql;
+	CREATE TRIGGER notify
+		AFTER INSERT OR UPDATE OR DELETE ON pfs.commits
+		FOR EACH ROW EXECUTE PROCEDURE pfs.notify_commits();
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "creating notify trigger on pfs.commits")
+	}
+	return nil
+
+}
+
+// Migrate commits from collections.commits to pfs.commits
+func migrateCommitSchema(ctx context.Context, env migrations.Env) error {
+	if err := alterCommitsTable(ctx, env.Tx); err != nil {
+		return err
+	}
+	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
+		return err
+	}
+	// todo(fahad): migrate commits
+	// todo(fahad): call createNotifyCommitsTrigger() once migration is complete
+	return nil
+}
+
 func migrateBranches(ctx context.Context, env migrations.Env) error {
 	tx := env.Tx
 	if _, err := tx.ExecContext(ctx, `
@@ -323,6 +419,5 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 	`); err != nil {
 		return errors.Wrap(err, "creating set_updated_at trigger")
 	}
-
 	return nil
 }
