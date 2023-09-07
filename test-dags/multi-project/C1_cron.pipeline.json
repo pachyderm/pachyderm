@@ -12,7 +12,7 @@
   "input": {
     "cron": {
       "name": "tick",
-      "spec": "@every 1m"
+      "spec": "@every 10h"
     }
   }
 }
