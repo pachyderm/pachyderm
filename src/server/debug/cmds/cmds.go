@@ -36,7 +36,14 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile> <file>",
 		Short: "Collect a set of pprof profiles.",
-		Long:  "Collect a set of pprof profiles.",
+		Long:  "This command collects a set of pprof profiles. Options include heap, CPU, block, mutex, and goroutine profiles.",
+		Example: "\t- {{alias}} cpu cpu.tgz \n" +
+			"\t- {{alias}} heap heap.tgz \n" +
+			"\t- {{alias}} goroutine goroutine.tgz \n" +
+			"\t- {{alias}} goroutine --pachd goroutine.tgz \n" +
+			"\t- {{alias}} cpu --pachd -d 30s cpu.tgz \n" +
+			"\t- {{alias}} cpu --pipeline foo -d 30s foo-pipeline.tgz \n" +
+			"\t- {{alias}} cpu --worker foo-v1-r6pdq -d 30s worker.tgz \n",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -60,16 +67,20 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			})
 		}),
 	}
-	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
-	profile.Flags().BoolVar(&pachd, "pachd", false, "Only collect the profile from pachd.")
-	profile.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the profile from the worker pods for the given pipeline.")
-	profile.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the profile from the given worker pod.")
+	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Specify a duration for compiling a CPU profile.")
+	profile.Flags().BoolVar(&pachd, "pachd", false, "Collect only pachd's profile.")
+	profile.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Collect only a specific pipeline's profile from the worker pods.")
+	profile.Flags().StringVarP(&worker, "worker", "w", "", "Collect only the profile of a given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(profile, "debug profile"))
 
 	binary := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Collect a set of binaries.",
-		Long:  "Collect a set of binaries.",
+		Long:  "This command collects a set of binaries.",
+		Example: "\t- {{alias}} binaries.tgz \n" +
+			"\t- {{alias}} --pachd pachd-binary.tgz \n" +
+			"\t- {{alias}} --worker foo-v1-r6pdq foo-pod-binary.tgz \n" +
+			"\t- {{alias}} --pipeline foo foo-binary.tgz \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -85,15 +96,16 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			})
 		}),
 	}
-	binary.Flags().BoolVar(&pachd, "pachd", false, "Only collect the binary from pachd.")
-	binary.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the binary from the worker pods for the given pipeline.")
-	binary.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the binary from the given worker pod.")
+	binary.Flags().BoolVar(&pachd, "pachd", false, "Collect only pachd's binary.")
+	binary.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Collect only the binary from a given pipeline.")
+	binary.Flags().StringVarP(&worker, "worker", "w", "", "Collect only the binary from a given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(binary, "debug binary"))
 
 	dumpV2Template := &cobra.Command{
-		Use:   "{{alias}} <file>",
-		Short: "Collect a standard set of debugging information.",
-		Long:  "Collect a standard set of debugging information.",
+		Use:     "{{alias}} <file>",
+		Short:   "Print a yaml debugging template.",
+		Long:    "This command outputs a yaml template useful for debugging.",
+		Example: "\t- {{alias}} \n",
 		Run: cmdutil.Run(func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -116,9 +128,10 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 	var template string
 	dumpV2 := &cobra.Command{
-		Use:   "{{alias}} <file>",
-		Short: "Collect a standard set of debugging information.",
-		Long:  "Collect a standard set of debugging information.",
+		Use:     "{{alias}} <file>",
+		Short:   "Collect a standard set of debugging information.",
+		Long:    "This command collects a standard set of debugging information related to the version, database, source repos, helm, profiles, binaries, loki-logs, pipelines, describes, and logs.",
+		Example: "\t- {{alias}} dump.tgz \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
