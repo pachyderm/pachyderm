@@ -285,7 +285,6 @@ func (mm *MountManager) CommitRepo(name string) (Response, error) {
 func (mm *MountManager) UnmountAll() error {
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
-			//TODO: Add Commit field here once we support mounting specific commits
 			if _, err := mm.UnmountRepo(name); err != nil {
 				return err
 			}
@@ -1501,7 +1500,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:     m.Name,
-			File:     client.NewFile(m.Project, m.Repo, m.Branch, "", ""),
+			File:     client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, ""),
 			Subpaths: m.Files,
 			Write:    m.Mode == "rw",
 		}
@@ -1554,7 +1553,7 @@ func mountedState(m *MountStateMachine) StateFn {
 			// project, repo, and branch already associated with mount_name.
 			// It's essentially a safety check for when we get to the remounting
 			// case below.
-			if req.Project != m.Project || req.Repo != m.Repo || req.Branch != m.Branch {
+			if req.Project != m.Project || req.Repo != m.Repo || req.Branch != m.Branch || req.Commit != m.Commit {
 				m.responses <- Response{
 					Repo:       req.Repo,
 					Project:    req.Project,
