@@ -485,5 +485,5 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 }
 
 func (b *builder) newDebugServer() debugclient.DebugServer {
-	return debugserver.NewDebugServer(DebugEnv(b.env))
+	return debugserver.NewDebugServer(DebugEnv(b.env), false)
 }

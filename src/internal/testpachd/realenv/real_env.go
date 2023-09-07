@@ -265,10 +265,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	}
 
 	// Debug
-	realEnv.DebugServer = debugserver.NewDebugServer(debugserver.Env{
-		DB: ,
-		BackgroundContext: ctx,
-	}, false)
+	realEnv.DebugServer = debugserver.NewDebugServer(pachd.DebugEnv(realEnv.ServiceEnv), false)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
