@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -1293,22 +1292,21 @@ func (m *MountStateMachine) RefreshMountState() error {
 	if err != nil {
 		return err
 	}
+	m.LatestCommit = branchInfo.Head.Id
+
 	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
 	if err != nil {
 		return err
 	}
-	m.LatestCommit = commitInfos[0].Commit.Id
-
 	// reverse slice
 	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
 		commitInfos[i], commitInfos[j] = commitInfos[j], commitInfos[i]
 	}
-
-	// iterate over non-alias commits in branch, calculating how many commits behind LatestCommit ActualMountedCommit is
-	log.Info(pctx.TODO(), "mounting", zap.String("name", m.Name))
+	// iterate over commits in branch, calculating how many commits behind LatestCommit ActualMountedCommit is
+	log.Debug(pctx.TODO(), "calculating commits behind for mount", zap.String("name", m.Name))
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
-		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.Id), zap.String("actualMountedCommitID", m.ActualMountedCommit))
+		log.Debug(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.Id), zap.String("actualMountedCommitID", m.ActualMountedCommit))
 		if commitInfo.Commit.Id == m.ActualMountedCommit {
 			indexOfCurrentCommit = i
 			break
@@ -1494,8 +1492,7 @@ func mountingState(m *MountStateMachine) StateFn {
 	// _in all cases_
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
-	var err error
-	err = func() error {
+	func() {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
@@ -1505,28 +1502,11 @@ func mountingState(m *MountStateMachine) StateFn {
 			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
-
-		// Get the latest non-alias commit on branch
-		branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
-		if errutil.IsNotFoundError(err) {
-			m.manager.root.commits[m.Name] = ""
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 1)
-		if err != nil {
-			return err
-		}
-		m.manager.root.commits[m.Name] = commitInfos[0].Commit.Id
-		return nil
+		m.manager.root.commits[m.Name] = m.Commit
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
-	if err == nil {
-		err = m.manager.root.mkdirMountNames()
-	}
+	err := m.manager.root.mkdirMountNames()
 	m.responses <- Response{
 		MountState: m.MountState,
 		Error:      err,
