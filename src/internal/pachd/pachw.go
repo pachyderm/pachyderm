@@ -26,22 +26,6 @@ func newPachwBuilder(config any) *pachwBuilder {
 	return &pachwBuilder{newBuilder(config, "pachyderm-pachd-pachw")}
 }
 
-func (b *pachwBuilder) startPFSWorker(ctx context.Context) error {
-	env, err := PFSWorkerEnv(b.env)
-	if err != nil {
-		return err
-	}
-	config := pfs_server.WorkerConfig{
-		Storage: b.env.Config().StorageConfiguration,
-	}
-	w, err := pfs_server.NewWorker(*env, config)
-	if err != nil {
-		return err
-	}
-	go w.Run(ctx) //nolint:errcheck
-	return nil
-}
-
 func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
 	env, err := PFSEnv(pachwb.env, pachwb.txnEnv)
 	if err != nil {
