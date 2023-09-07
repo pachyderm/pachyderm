@@ -71,8 +71,6 @@ description: "Learn about the %s command"
 	return nil
 }
 
-//  replace any instance of "./" in the generated markdown files with no space ""
-
 func reformatMarkdownOutput(path string) error {
 	files, err := os.ReadDir(path)
 	if err != nil {
