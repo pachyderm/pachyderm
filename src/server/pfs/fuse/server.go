@@ -67,12 +67,6 @@ type CommitRequest struct {
 	Mount string `json:"mount"`
 }
 
-type DatumAliasKey struct {
-	Project string
-	Repo    string
-	Branch  string
-}
-
 type MountDatumResponse struct {
 	Id        string `json:"id"`
 	Idx       int    `json:"idx"`
@@ -116,10 +110,10 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 
-	Datums       []*pps.DatumInfo
-	DatumInput   *pps.Input
-	DatumAlias   map[DatumAliasKey]string
-	CurrDatumIdx int
+	Datums          []*pps.DatumInfo
+	DatumInput      *pps.Input
+	DatumInputAlias map[*pfs.Branch]string
+	CurrDatumIdx    int
 
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
@@ -595,7 +589,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.Datums = nil
 			mm.DatumInput = nil
 			mm.CurrDatumIdx = -1
-			mm.DatumAlias = nil
+			mm.DatumInputAlias = nil
 		}()
 
 		mountsList, err := mm.ListByMounts()
@@ -632,7 +626,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		datumAlias, err := sanitizeInputAndGetAlias(pipelineReq.Input)
+		datumInputAlias, err := sanitizeInputAndGetAlias(pipelineReq.Input, mm.Client)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -646,21 +640,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, "no datums match the given input spec", http.StatusBadRequest)
 			return
 		}
-
-		if err := mm.UnmountAll(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
-		mis := mm.datumToMounts(datums[0], datumAlias)
-		for _, mi := range mis {
-			if _, err := mm.MountRepo(mi); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-		createLocalOutDir(mm)
-
 		func() {
 			mm.mu.Lock()
 			defer mm.mu.Unlock()
@@ -668,8 +647,22 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.CurrDatumIdx = 0
 			mm.Datums = datums
 			mm.DatumInput = pipelineReq.Input
-			mm.DatumAlias = datumAlias
+			mm.DatumInputAlias = datumInputAlias
 		}()
+
+		if err := mm.UnmountAll(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
+		mis := mm.datumToMounts(datums[0])
+		for _, mi := range mis {
+			if _, err := mm.MountRepo(mi); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
 			Id:        datums[0].Datum.Id,
@@ -731,7 +724,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		mis := mm.datumToMounts(di, mm.DatumAlias)
+		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1151,12 +1144,13 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	return nil
 }
 
-func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, error) {
+// Visit each entry in the Input spec and set default values if unassigned
+func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[*pfs.Branch]string, error) {
 	if datumInput == nil {
 		return nil, errors.New("datum input is not specified")
 	}
 
-	datumAlias := map[DatumAliasKey]string{}
+	datumInputAlias := map[*pfs.Branch]string{} // Maps resulting files in datum to mount name
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			return nil
@@ -1164,6 +1158,9 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, 
 
 		if input.Pfs.Project == "" {
 			input.Pfs.Project = pfs.DefaultProjectName
+		}
+		if input.Pfs.Commit != "" {
+			return errors.New("cannot specify commit in Input")
 		}
 		if input.Pfs.Branch == "" {
 			input.Pfs.Branch = "master"
@@ -1174,50 +1171,52 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, 
 				input.Pfs.Name = input.Pfs.Name + "_" + input.Pfs.Branch
 			}
 		}
-		datumAlias[DatumAliasKey{
-			Project: input.Pfs.Project,
-			Repo:    input.Pfs.Repo,
-			Branch:  input.Pfs.Branch,
-		}] = input.Pfs.Name
+		// In the case a branch is created off another branch, listing datums returns files from
+		// the original branch a commit is on. We should index on that original branch instead.
+		bi, err := c.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
+		if err != nil {
+			return err
+		}
+		branch := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name)
+		datumInputAlias[branch] = input.Pfs.Name
 
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 
-	return datumAlias, nil
+	return datumInputAlias, nil
 }
 
-func (mm *MountManager) datumToMounts(d *pps.DatumInfo, datumAlias map[DatumAliasKey]string) []*MountInfo {
+func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 	mounts := map[string]*MountInfo{}
 	files := map[string]map[string]bool{}
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
-		// TODO: add commit here
-
-		name := datumAlias[DatumAliasKey{Project: project, Repo: repo, Branch: branch}]
+		commit := fi.File.Commit.Id
+		name := mm.DatumInputAlias[client.NewBranch(project, repo, branch)]
 
 		if _, ok := files[name]; !ok {
 			files[name] = map[string]bool{}
 		}
-		if mi, ok := mounts[name]; ok {
-			if _, ok := files[name][fi.File.Path]; !ok {
-				mi.Files = append(mi.Files, fi.File.Path)
-				mounts[name] = mi
-			}
-		} else {
-			mi := &MountInfo{
+		var mi *MountInfo
+		var ok bool
+		if mi, ok = mounts[name]; !ok {
+			mi = &MountInfo{
 				Name:    name,
 				Project: project,
 				Repo:    repo,
 				Branch:  branch,
+				Commit:  commit,
 				Files:   []string{fi.File.Path},
 				Mode:    "ro",
 			}
-			mounts[name] = mi
+		} else if _, ok = files[name][fi.File.Path]; !ok {
+			mi.Files = append(mi.Files, fi.File.Path)
 		}
+		mounts[name] = mi
 		files[name][fi.File.Path] = true
 	}
 
