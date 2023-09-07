@@ -31,19 +31,24 @@ func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInf
 	`, id); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	directProv, err := GetDirectBranchProv(ctx, tx, id)
+	directProv, err := GetDirectBranchProvenance(ctx, tx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get direct branch provenance")
 	}
-	fullProv, err := GetBranchProv(ctx, tx, id)
+	fullProv, err := GetBranchProvenance(ctx, tx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get full branch provenance")
+	}
+	fullSubv, err := GetBranchSubvenance(ctx, tx, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get full branch subvenance")
 	}
 	return &pfs.BranchInfo{
 		Branch:           branch.Pb(),
 		Head:             branch.Head.Pb(),
-		Provenance:       fullProv,
 		DirectProvenance: directProv,
+		Provenance:       fullProv,
+		Subvenance:       fullSubv,
 	}, nil
 }
 
@@ -99,7 +104,7 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (Branc
 	return id, nil
 }
 
-func GetDirectBranchProv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+func GetDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
 	if err := tx.SelectContext(ctx, &branches, `
 		SELECT
@@ -123,7 +128,7 @@ func GetDirectBranchProv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 	return branchPbs, nil
 }
 
-func GetBranchProv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+func GetBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
 	if err := tx.SelectContext(ctx, &branches, `
 		WITH RECURSIVE prov(from_id, to_id) AS (
@@ -155,7 +160,7 @@ func GetBranchProv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Bra
 	return branchPbs, nil
 }
 
-func GetBranchSubv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
 	if err := tx.SelectContext(ctx, &branches, `
 		WITH RECURSIVE subv(from_id, to_id) AS (
@@ -187,12 +192,12 @@ func GetBranchSubv(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Bra
 	return branchPbs, nil
 }
 
-func AddDirectBranchProv(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Branch) error {
+func AddDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from *pfs.Branch, to ...*pfs.Branch) error {
 	fromID, err := GetBranchID(ctx, tx, from)
 	if err != nil {
 		return errors.Wrap(err, "could not get from_id")
 	}
-	toID, err := GetBranchID(ctx, tx, to)
+	toID, err := GetBranchID(ctx, tx, to[0])
 	if err != nil {
 		return errors.Wrap(err, "could not get to_id")
 	}
