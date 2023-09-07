@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -189,7 +190,13 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			// Check if a mounted repo/branch was deleted to remove it from state.
-			if exists, _ := mm.verifyExistence(msm.Mode, msm.Project, msm.Repo, msm.Branch); !exists {
+			var exists bool
+			if msm.Mode == "ro" {
+				exists, _ = msm.MountInfo.verifyProjectRepoBranchCommitExist(mm.Client)
+			} else {
+				exists, _ = msm.MountInfo.verifyProjectRepoExist(mm.Client)
+			}
+			if !exists {
 				mm.unmountDeletedRepos(name)
 				continue
 			}
@@ -1075,45 +1082,33 @@ func hasRepoWrite(permissions []auth.Permission) bool {
 	return slices.Contains(permissions, auth.Permission_REPO_WRITE)
 }
 
-func (mm *MountManager) verifyProjectExists(project string) (bool, error) {
-	if _, err := mm.Client.InspectProject(project); err != nil {
+func (mi *MountInfo) verifyProjectExists(client *client.APIClient) (bool, error) {
+	if _, err := client.InspectProject(mi.Project); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (mm *MountManager) verifyProjectRepoExist(project, repo string) (bool, error) {
-	if _, err := mm.verifyProjectExists(project); err != nil {
+func (mi *MountInfo) verifyProjectRepoExist(client *client.APIClient) (bool, error) {
+	if _, err := mi.verifyProjectExists(client); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectRepo(project, repo); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch string) (bool, error) {
-	if _, err := mm.verifyProjectRepoExist(project, repo); err != nil {
-		return false, err
-	}
-	if _, err := mm.Client.InspectBranch(project, repo, branch); err != nil {
+	if _, err := client.InspectRepo(mi.Project, mi.Repo); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-// In read-only mode, a branch must exist to mount. In read-write mode, it
-// is not necessary for the branch to exist, as a new one
-func (mm *MountManager) verifyExistence(mode, project, repo, branch string) (bool, error) {
-	if mode == "ro" {
-		if exists, err := mm.verifyProjectRepoBranchExist(project, repo, branch); !exists {
-			return false, err
-		}
-	} else {
-		if exists, err := mm.verifyProjectRepoExist(project, repo); !exists {
-			return false, err
-		}
+func (mi *MountInfo) verifyProjectRepoBranchCommitExist(client *client.APIClient) (bool, error) {
+	if _, err := mi.verifyProjectRepoExist(client); err != nil {
+		return false, err
 	}
+	commitInfo, err := client.InspectCommit(mi.Project, mi.Repo, mi.Branch, mi.Commit)
+	if err != nil {
+		return false, err
+	}
+	mi.Branch = commitInfo.Commit.Branch.Name
+	mi.Commit = commitInfo.Commit.Id
 	return true, nil
 }
 
@@ -1128,23 +1123,31 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		if mi.Repo == "" {
 			return errors.Wrapf(errors.New("no repo specified"), "mount request %+v", mi)
 		}
-		if mi.Branch == "" {
-			mi.Branch = "master"
-		}
-		if mi.Commit != "" {
-			// TODO: case of same commit id on diff branches
-			return errors.Wrapf(errors.New("don't support mounting commits yet"), "mount request %+v", mi)
-		}
-		if mi.Mode == "" {
+		// In read-only mode, a commit or branch must exist to mount. In read-write mode, it
+		// is not necessary for the branch to exist, as it will be created.
+		if mi.Mode == "" || mi.Mode == "ro" {
 			mi.Mode = "ro"
-		} else if mi.Mode != "ro" && mi.Mode != "rw" {
+			if mi.Commit != "" && !uuid.IsUUIDWithoutDashes(mi.Commit) {
+				return errors.Wrapf(errors.New("invalid commit ID"), "mount request %+v", mi)
+			}
+			if mi.Branch == "" && mi.Commit == "" {
+				mi.Branch = "master"
+			}
+			if exists, err := mi.verifyProjectRepoBranchCommitExist(mm.Client); !exists {
+				return errors.Wrapf(err, "mount request %+v", mi)
+			}
+		} else if mi.Mode == "rw" {
+			if exists, err := mi.verifyProjectRepoExist(mm.Client); !exists {
+				return errors.Wrapf(err, "mount request %+v", mi)
+			}
+			if mi.Branch == "" {
+				mi.Branch = "master"
+			}
+			mi.Commit = "" // Disallow mounting a non-branch head commit in rw mode to respect commit provenance
+		} else {
 			return errors.Wrapf(errors.New("mount mode can only be 'ro' or 'rw'"), "mount request %+v", mi)
 		}
-		if exists, err := mm.verifyExistence(mi.Mode, mi.Project, mi.Repo, mi.Branch); !exists {
-			return errors.Wrapf(err, "mount request %+v", mi)
-		}
 	}
-
 	return nil
 }
 
