@@ -40,7 +40,7 @@ var ErrUnsupportedPlatform = errors.New("unsupported platform")
 
 var KnownPlatforms = []Platform{
 	"linux/amd64",
-	"linux/i386",
+	"linux/386",
 	"linux/arm64",
 	"linux/ppc64le",
 	"linux/s390x",
@@ -82,7 +82,7 @@ func (p Platform) GOOS() string {
 // GOARCH returns the $GOARCH environment variable for this platform.
 func (p Platform) GOARCH() string {
 	a := p.Architecture()
-	if a == "arm32" {
+	if strings.HasPrefix(a, "arm32") {
 		return "arm"
 	}
 	return a

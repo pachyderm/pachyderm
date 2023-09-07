@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/zeebo/xxh3"
+	"go.starlark.net/starlark"
 	"go.uber.org/zap"
 )
 
@@ -19,6 +20,27 @@ type GoBinary struct {
 	CGO      bool     // If true, enable cgo.
 	Target   string   // The "go build ..." target.
 	Platform Platform // The platform to build for.
+}
+
+func (GoBinary) NewFromStarlark(_ *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) ([]Job, error) {
+	if len(args) > 0 {
+		return nil, errors.New("unexpected positional args")
+	}
+	var workdir, target string
+	var cgo bool
+	if err := starlark.UnpackArgs(fn.Name(), args, kwargs, "target", &target, "workdir", &workdir, "cgo?", &cgo); err != nil {
+		return nil, errors.Wrap(err, "unpack args")
+	}
+	var result []Job
+	for _, p := range KnownPlatforms {
+		result = append(result, GoBinary{
+			Workdir:  workdir,
+			Target:   target,
+			CGO:      cgo,
+			Platform: p,
+		})
+	}
+	return result, nil
 }
 
 func (g GoBinary) String() string {
@@ -52,13 +74,16 @@ func (g GoBinary) Outputs() []Reference {
 }
 
 func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_ []Artifact, retErr error) {
+	execCtx, done := log.SpanContext(ctx, "go build", zap.Stringer("platform", g.Platform), zap.String("target", g.Target))
+	defer done(log.Errorp(&retErr))
+
 	fh, err := os.CreateTemp("", "go_binary-*")
 	if err != nil {
 		return nil, WrapRetryable(errors.Wrap(err, "create output file"))
 	}
 	defer errors.Close(&retErr, fh, "close output")
 
-	cmd := exec.CommandContext(ctx, "go", "build", "-v", "-o", fh.Name(), g.Target)
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", fh.Name(), g.Target)
 	cmd.Dir = g.Workdir
 	if arm, ok := g.Platform.GOARM(); ok {
 		cmd.Env = append(cmd.Env, "GOARM="+arm)
@@ -69,16 +94,13 @@ func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 	cmd.Env = append(cmd.Env, "GOCACHE=/tmp/.go-cache")
 	cmd.Env = append(cmd.Env, g.cgo())
 
-	execCtx, done := log.SpanContext(ctx, "go build", zap.Stringer("platform", g.Platform))
 	stdout, stderr := log.WriterAt(pctx.Child(execCtx, "stdout"), log.DebugLevel), log.WriterAt(pctx.Child(execCtx, "stderr"), log.InfoLevel)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	defer errors.Close(&retErr, stdout, "close stdout")
 	defer errors.Close(&retErr, stderr, "close stderr")
 
-	err = cmd.Run()
-	done(zap.Error(err))
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return nil, errors.Wrap(err, "go build")
 	}
 	return []Artifact{

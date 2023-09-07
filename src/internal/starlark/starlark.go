@@ -136,8 +136,8 @@ func run(rctx context.Context, path string, opts Options, f runFn) (starlark.Str
 		modules[module] = nil
 
 		// Since we're here, we want to read a file from disk and interpret it.
-		name := fmt.Sprintf("load(%v)", nameScript(thread, module))
-		ctx, done := log.SpanContext(GetContext(t), name)
+		name := nameScript(thread, module)
+		ctx, done := log.SpanContext(GetContext(t), "load("+name+")")
 		newThread := NewThread(name)
 		newThread.Load = load
 		newThread.SetLocal(goContextKey, ctx)
