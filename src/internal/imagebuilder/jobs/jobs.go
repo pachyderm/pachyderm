@@ -169,7 +169,7 @@ var globalRegistryMethods = map[string]*starlark.Builtin{
 		if err != nil {
 			return nil, err
 		}
-		return starlark.String(fmt.Sprintf("%v", result)), nil
+		return ourstar.ReflectList(result), nil
 	}),
 }
 
