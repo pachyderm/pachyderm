@@ -237,26 +237,7 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
-	log.Info(context.Background(), "DNJ TODO try before checking repo", zap.Any("commit", commit), zap.Stack("Stack"))
-	if rows, err := tx.Query(`SELECT name FROM pfs.repos AS r
-		WHERE r.project_id=(SELECT id FROM core.projects WHERE name=$1) AND r.name=$2 AND r.type = 'spec'`,
-		commit.GetRepo().GetProject().GetName(),
-		commit.GetRepo().GetName(),
-	); err != nil {
-		log.Info(context.Background(), "DNJ TODO err finding not nil", zap.Any("commit", commit), zap.Error(err))
-		return errors.EnsureStack(err)
-	} else {
-		log.Info(context.Background(), "DNJ TODO no error checking for commit before set", zap.Any("commit", commit), zap.Any("row", rows))
-		if !rows.Next() {
-			log.Info(context.Background(), "DNJ TODO no error checking for commit before set, but got no rows", zap.Any("commit", commit), zap.Any("row", rows))
-			return nil
-		}
-		if err := rows.Err(); err != nil {
-			log.Info(context.Background(), "DNJ TODO no error checking for commit before set - error iterating on rows", zap.Any("commit", commit), zap.Any("row", rows), zap.Error(err))
-			return errors.EnsureStack(err)
-		}
-		rows.Close()
-	}
+
 	log.Info(context.Background(), "DNJ TODO try to set commit total", zap.Any("commit", commit), zap.Stack("Stack"))
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
 	VALUES ($1, $2)
