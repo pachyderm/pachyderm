@@ -119,23 +119,53 @@ func buildRef(v starlark.Value) ([]Reference, error) {
 	return nil, errors.Errorf("cannot convert %v to a ref", v)
 }
 
+func refArgs(args starlark.Tuple, kwargs []starlark.Tuple) ([]Reference, error) {
+	if len(kwargs) > 0 {
+		return nil, errors.New("unexpected kwargs")
+	}
+	var refs []Reference
+	for i, arg := range args {
+		result, err := buildRef(arg)
+		if err != nil {
+			return nil, errors.Wrapf(err, "arg %d", i)
+		}
+		refs = append(refs, result...)
+	}
+	return refs, nil
+}
+
 var globalRegistryMethods = map[string]*starlark.Builtin{
 	"plan": starlark.NewBuiltin("plan", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		if len(kwargs) > 0 {
-			return nil, errors.New("unexpected kwargs")
-		}
-		var refs []Reference
-		for i, arg := range args {
-			result, err := buildRef(arg)
-			if err != nil {
-				return nil, errors.Wrapf(err, "arg %d", i)
-			}
-			refs = append(refs, result...)
+		refs, err := refArgs(args, kwargs)
+		if err != nil {
+			return nil, err
 		}
 		ctx := ourstar.GetContext(thread)
 		reg := GetRegistry(thread)
 
-		result, err := Plan(ctx, reg.Jobs, refs)
+		plan, err := Plan(ctx, reg.Jobs, refs)
+		if err != nil {
+			return nil, err
+		}
+		var result []starlark.Value
+		for _, paragraph := range plan {
+			var lines []starlark.Value
+			for _, line := range paragraph {
+				lines = append(lines, starlark.String(line))
+			}
+			result = append(result, starlark.NewList(lines))
+		}
+		return starlark.NewList(result), nil
+	}),
+	"resolve": starlark.NewBuiltin("resolve", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		refs, err := refArgs(args, kwargs)
+		if err != nil {
+			return nil, err
+		}
+		ctx := ourstar.GetContext(thread)
+		reg := GetRegistry(thread)
+
+		result, err := Resolve(ctx, reg.Jobs, refs)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +176,7 @@ var globalRegistryMethods = map[string]*starlark.Builtin{
 var _ starlark.Value = (*GlobalRegistry)(nil)
 var _ starlark.HasAttrs = (*GlobalRegistry)(nil)
 
-func (r *GlobalRegistry) String() string        { return "<registry>" }
+func (r *GlobalRegistry) String() string        { return "<global registry>" }
 func (r *GlobalRegistry) Type() string          { return "registry" }
 func (r *GlobalRegistry) Truth() starlark.Bool  { return true }
 func (r *GlobalRegistry) Hash() (uint32, error) { return 0, errors.New("registry is unhashable") }

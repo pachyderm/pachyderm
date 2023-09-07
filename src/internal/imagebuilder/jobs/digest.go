@@ -46,7 +46,10 @@ func (d *Digest) UnmarshalText(b []byte) error {
 	if d.Algorithm == "" {
 		d.Algorithm = "blake3"
 	}
-	d.Value = b[sep:]
+	d.Value = make([]byte, hex.DecodedLen(len(b[sep+1:])))
+	if _, err := hex.Decode(d.Value, b[sep+1:]); err != nil {
+		return err
+	}
 	return nil
 }
 

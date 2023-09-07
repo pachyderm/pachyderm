@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -139,22 +140,103 @@ func (r *runner) getArtifact(ref Reference) (Artifact, bool) {
 	return nil, false
 }
 
+type runJobFn = func(ctx context.Context, job Job, jc *JobContext, inputs []Artifact) ([]Artifact, error)
+
+func runRealJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact) ([]Artifact, error) {
+	var err error
+	for i := 0; i < 10; i++ {
+		var outputs []Artifact
+		outputs, err = job.Run(ctx, jc, inputs)
+		if err != nil {
+			if errors.Is(err, &Retryable{}) {
+				continue
+			}
+			s := "s"
+			if i == 0 {
+				s = ""
+			}
+			return nil, errors.Wrapf(err, "run failed after %d attempt%s", i+1, s)
+		}
+		return outputs, nil
+	}
+	return nil, errors.Wrap(err, "job failed after all retries")
+}
+
+func runFakeJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact) ([]Artifact, error) {
+	var out []Artifact
+	for _, o := range job.Outputs() {
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+// runJob starts a job running, eventually sending validated results to doneCh.
+func (r *runner) startJob(ctx context.Context, jc *JobContext, job Job, runJob runJobFn, doneCh chan<- jobResult) error {
+	inputs, jobs, err := r.resolveInputs(job.Inputs())
+	if err != nil {
+		return errors.Wrap(err, "unable to resolve job inputs")
+	}
+	if len(dedupJobs(jobs...)) != 0 {
+		return errors.New("job is not ready to run")
+	}
+	go func() {
+		do := func() ([]Artifact, error) {
+			outputs, err := runJob(ctx, job, jc, inputs)
+			if err != nil {
+				return nil, errors.Wrap(err, "job failed")
+			}
+			declaredOutputs := job.Outputs()
+			if got, want := len(outputs), len(declaredOutputs); got != want {
+				return nil, errors.Errorf("job %v produced wrong number of outputs; got %v (%v) want %v (%v)", job, got, outputs, want, declaredOutputs)
+			}
+			var outputErr error
+			for i, ref := range declaredOutputs {
+				if !ref.Match(outputs[i]) {
+					errors.JoinInto(&outputErr, fmt.Errorf("produced artifact %v (index %d) should match %q", outputs[i], i, ref))
+				}
+			}
+			if outputErr != nil {
+				return nil, errors.Wrapf(outputErr, "job %v produced invalid output %v", job, outputs)
+			}
+			return outputs, nil
+		}
+		outputs, err := do()
+		select {
+		case <-ctx.Done():
+			return
+		case doneCh <- jobResult{Job: job, Artifacts: outputs, Err: err}:
+		}
+	}()
+	return nil
+
+}
+
 type stepReceiver interface {
 	Reportf(ctx context.Context, format string, args ...any)
 	Next(ctx context.Context)
 }
 
-type stringStepReceiver struct {
-	cur    []string
-	result [][]string
+type PlanOutput [][]string
+
+func (p PlanOutput) String() string {
+	b := new(strings.Builder)
+	for i, paragraph := range p {
+		fmt.Fprintf(b, "step %d:\n", i)
+		for _, line := range paragraph {
+			fmt.Fprintf(b, "    %v\n", line)
+		}
+	}
+	return b.String()
 }
 
-func (s *stringStepReceiver) Reportf(_ context.Context, format string, args ...any) {
-	s.cur = append(s.cur, fmt.Sprintf(format, args...))
+func (p *PlanOutput) Reportf(_ context.Context, format string, args ...any) {
+	if len(*p) == 0 {
+		*p = append(*p, nil)
+	}
+	(*p)[len(*p)-1] = append((*p)[len(*p)-1], fmt.Sprintf(format, args...))
 }
-func (s *stringStepReceiver) Next(_ context.Context) {
-	s.result = append(s.result, s.cur)
-	s.cur = nil
+func (p *PlanOutput) Next(_ context.Context) {
+	*p = append(*p, nil)
 }
 
 type logStepReceiver struct{}
@@ -290,91 +372,16 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 
 }
 
-type runJobFn = func(ctx context.Context, job Job, jc *JobContext, inputs []Artifact) ([]Artifact, error)
-
-func runRealJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact) ([]Artifact, error) {
-	var err error
-	for i := 0; i < 10; i++ {
-		var outputs []Artifact
-		outputs, err = job.Run(ctx, jc, inputs)
-		if err != nil {
-			if errors.Is(err, &Retryable{}) {
-				continue
-			}
-			s := "s"
-			if i == 0 {
-				s = ""
-			}
-			return nil, errors.Wrapf(err, "run failed after %d attempt%s", i+1, s)
-		}
-		return outputs, nil
-	}
-	return nil, errors.Wrap(err, "job failed after all retries")
-}
-
-func runFakeJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact) ([]Artifact, error) {
-	var out []Artifact
-	for _, o := range job.Outputs() {
-		out = append(out, o)
-	}
-	return out, nil
-}
-
-// runJob starts a job running, eventually sending validated results to doneCh.
-func (r *runner) startJob(ctx context.Context, jc *JobContext, job Job, runJob runJobFn, doneCh chan<- jobResult) error {
-	inputs, jobs, err := r.resolveInputs(job.Inputs())
-	if err != nil {
-		return errors.Wrap(err, "unable to resolve job inputs")
-	}
-	if len(dedupJobs(jobs...)) != 0 {
-		return errors.New("job is not ready to run")
-	}
-	go func() {
-		do := func() ([]Artifact, error) {
-			outputs, err := runJob(ctx, job, jc, inputs)
-			if err != nil {
-				return nil, errors.Wrap(err, "job failed")
-			}
-			declaredOutputs := job.Outputs()
-			if got, want := len(outputs), len(declaredOutputs); got != want {
-				return nil, errors.Errorf("job %v produced wrong number of outputs; got %v (%v) want %v (%v)", job, got, outputs, want, declaredOutputs)
-			}
-			var outputErr error
-			for i, ref := range declaredOutputs {
-				if !ref.Match(outputs[i]) {
-					errors.JoinInto(&outputErr, fmt.Errorf("produced artifact %v (index %d) should match %q", outputs[i], i, ref))
-				}
-			}
-			if outputErr != nil {
-				return nil, errors.Wrapf(outputErr, "job %v produced invalid output %v", job, outputs)
-			}
-			return outputs, nil
-		}
-		outputs, err := do()
-		select {
-		case <-ctx.Done():
-			return
-		case doneCh <- jobResult{Job: job, Artifacts: outputs, Err: err}:
-		}
-	}()
-	return nil
-
-}
-
 // Plan returns a human-readable plan of what the job runner will do to build want.
-func Plan(ctx context.Context, jobs []Job, want []Reference, opts ...RunnerOption) ([][]string, error) {
+func Plan(ctx context.Context, jobs []Job, want []Reference, opts ...RunnerOption) (plan PlanOutput, _ error) {
 	r := newRunner(opts...)
 	for _, job := range jobs {
 		if err := r.addJob(job); err != nil {
 			return nil, errors.Wrapf(err, "add job %v", job)
 		}
 	}
-	s := new(stringStepReceiver)
-	err := r.run(ctx, want, runFakeJob, s)
-	if len(s.cur) != 0 {
-		s.Next(ctx)
-	}
-	return s.result, err
+	err := r.run(ctx, want, runFakeJob, &plan)
+	return plan, err
 }
 
 // Resolve, using the provided jobs, builds the objects requested in want and returns the built

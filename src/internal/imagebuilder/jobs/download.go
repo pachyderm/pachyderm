@@ -26,7 +26,7 @@ type Download struct {
 var _ Job = (*Download)(nil)
 
 func (d Download) String() string {
-	return fmt.Sprintf("<download %v=%q#%v>", d.Name, d.URL, d.Platform)
+	return fmt.Sprintf("<download %v={%s}#%v>", d.Name, d.URL, d.Platform)
 }
 
 func (d Download) ID() uint64 {
@@ -106,23 +106,28 @@ func (d *Download) Unpack(v starlark.Value) error {
 	if !ok {
 		return errors.New("expected download dict")
 	}
-	v, ok, err := dict.Get(starlark.String("url"))
+	uv, ok, err := dict.Get(starlark.String("url"))
 	if !ok {
 		if err != nil {
 			return errors.Wrap(err, "url")
 		}
 		return errors.New("missing required url value")
 	}
-	d.URL = v.String()
-	v, ok, err = dict.Get(starlark.String("digest"))
+	us, ok := starlark.AsString(uv)
+	if !ok {
+		return errors.Errorf("url value %v is not a string", uv)
+	}
+	d.URL = us
+	dv, ok, err := dict.Get(starlark.String("digest"))
 	if err != nil {
 		return errors.Wrap(err, "digest")
 	}
 	if !ok {
 		return nil
 	}
+	ds, ok := starlark.AsString(dv)
 	var digest Digest
-	if err := digest.UnmarshalText([]byte(v.String())); err != nil {
+	if err := digest.UnmarshalText([]byte(ds)); err != nil {
 		return errors.Wrap(err, "unmarshal digest")
 	}
 	d.WantDigest = digest

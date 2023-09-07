@@ -110,17 +110,12 @@ func main() {
 			Platform: "linux/amd64",
 		},
 	}
-	fmt.Println("Plan:")
 	plan, err := jobs.Plan(ctx, todo, want, jobs.RunnerOption{Artifacts: []jobs.Artifact{config}})
-	for i, paragraph := range plan {
-		fmt.Printf("step %d:\n", i)
-		for _, line := range paragraph {
-			fmt.Printf("    %v\n", line)
-		}
-	}
 	if err != nil {
 		log.Exit(ctx, "plan", zap.Error(err))
 	}
+	fmt.Printf("Plan:\n%s\n", plan)
+
 	// fmt.Println("Now running...")
 	// outputs, err := jobs.Resolve(ctx, todo, want)
 	// if err != nil {
