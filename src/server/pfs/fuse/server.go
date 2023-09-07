@@ -109,10 +109,10 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 
-	Datums          []*pps.DatumInfo
-	DatumInput      *pps.Input
-	DatumInputAlias map[*pfs.Branch]string
-	CurrDatumIdx    int
+	Datums              []*pps.DatumInfo
+	DatumInput          *pps.Input
+	DatumInputsToMounts map[string]string
+	CurrDatumIdx        int
 
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
@@ -587,7 +587,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.Datums = nil
 			mm.DatumInput = nil
 			mm.CurrDatumIdx = -1
-			mm.DatumInputAlias = nil
+			mm.DatumInputsToMounts = nil
 		}()
 
 		mountsList, err := mm.ListByMounts()
@@ -624,7 +624,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		datumInputAlias, err := sanitizeInputAndGetAlias(pipelineReq.Input, mm.Client)
+		datumInputsToMounts, err := sanitizeInputAndGetAlias(pipelineReq.Input, mm.Client)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -645,7 +645,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.CurrDatumIdx = 0
 			mm.Datums = datums
 			mm.DatumInput = pipelineReq.Input
-			mm.DatumInputAlias = datumInputAlias
+			mm.DatumInputsToMounts = datumInputsToMounts
 		}()
 
 		if err := mm.UnmountAll(); err != nil {
@@ -1143,12 +1143,12 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 // Visit each entry in the Input spec and set default values if unassigned
-func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[*pfs.Branch]string, error) {
+func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[string]string, error) {
 	if datumInput == nil {
 		return nil, errors.New("datum input is not specified")
 	}
 
-	datumInputAlias := map[*pfs.Branch]string{} // Maps resulting files in datum to mount name
+	datumInputsToMounts := map[string]string{} // Maps input to mount name
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			return nil
@@ -1175,15 +1175,15 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[*
 		if err != nil {
 			return err
 		}
-		branch := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name)
-		datumInputAlias[branch] = input.Pfs.Name
+		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
+		datumInputsToMounts[pfsInput] = input.Pfs.Name
 
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 
-	return datumInputAlias, nil
+	return datumInputsToMounts, nil
 }
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
@@ -1194,7 +1194,7 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-		name := mm.DatumInputAlias[client.NewBranch(project, repo, branch)]
+		name := mm.DatumInputsToMounts[client.NewBranch(project, repo, branch).String()]
 
 		if _, ok := files[name]; !ok {
 			files[name] = map[string]bool{}
