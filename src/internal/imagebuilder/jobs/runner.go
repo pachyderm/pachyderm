@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/httpclient"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
@@ -258,8 +259,12 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 	s.Next(rctx)
 
 	jc := &JobContext{
-		Cache:      r.Cache,
-		HTTPClient: http.DefaultClient,
+		Cache: r.Cache,
+		HTTPClient: &http.Client{
+			Transport: &httpclient.RoundTripper{
+				RoundTripper: http.DefaultTransport,
+			},
+		},
 	}
 	runningJobs := make(map[uint64]Job)
 	waitingJobs := make(map[uint64]Job)
