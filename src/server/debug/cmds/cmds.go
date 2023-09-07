@@ -102,10 +102,12 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(binary, "debug binary"))
 
 	dumpV2Template := &cobra.Command{
-		Use:     "{{alias}} <file>",
-		Short:   "Print a yaml debugging template.",
-		Long:    "This command outputs a customizable yaml template useful for debugging. This is often used by Customer Engineering to support your troubleshooting needs. ",
-		Example: "\t- {{alias}} \n",
+		Use:   "{{alias}} <file>",
+		Short: "Print a yaml debugging template.",
+		Long: "This command outputs a customizable yaml template useful for debugging. This is often used by Customer Engineering to support your troubleshooting needs. \n" +
+			"Use the modified template with the `debug dump` command (e.g., `pachctl debug dump --template debug-template.yaml out.tgz`) \n",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} > debug-template.yaml\n",
 		Run: cmdutil.Run(func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -132,7 +134,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short: "Collect a standard set of debugging information.",
 		Long:  "This command collects a standard set of debugging information related to the version, database, source repos, helm, profiles, binaries, loki-logs, pipelines, describes, and logs.",
 		Example: "\t- {{alias}} dump.tgz \n" +
-			"\t- {{alias}} template \n",
+			"\t- {{alias}} template \n" +
+			"\t- {{alias}} template -t template.yaml out.tgz\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
