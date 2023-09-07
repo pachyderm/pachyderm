@@ -11,8 +11,6 @@ import (
 )
 
 var Module = starlark.StringDict{
-	"download_file": jobs.MakeStarlarkCommand[jobs.Download]("download_file"),
-	"go_binary":     jobs.MakeStarlarkCommand[jobs.GoBinary]("go_binary"),
 	"path": starlark.NewBuiltin("path", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		if len(kwargs) > 0 {
 			return nil, errors.New("unexpected kwargs")
@@ -28,6 +26,9 @@ var Module = starlark.StringDict{
 		}
 		return starlark.String(result), nil
 	}),
+	"download_file": jobs.MakeStarlarkCommand[jobs.Download]("download_file"),
+	"go_binary":     jobs.MakeStarlarkCommand[jobs.GoBinary]("go_binary"),
+	"oci_layer":     jobs.MakeStarlarkCommand[jobs.FSLayer]("oci_layer"),
 }
 
 var DebugModule = starlark.StringDict{

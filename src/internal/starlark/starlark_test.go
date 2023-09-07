@@ -31,7 +31,7 @@ func TestLoad(t *testing.T) {
 			}
 
 			ctx := pctx.TestContext(t)
-			_, err := RunProgram(ctx, "testdata/"+test.file, nil)
+			_, err := RunProgram(ctx, "testdata/"+test.file, Options{})
 			if err != nil {
 				t.Log(err)
 				if test.wantErr {

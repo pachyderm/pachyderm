@@ -80,13 +80,17 @@ func MakeStarlarkCommand[T StarlarkCommand](name string) starlark.Value {
 }
 
 // The Registry stores every job registered in Starlark code.  This way, workflow authors do not
-// have to retain anything, they can just run a bunch of commands.
+// have to retain multiple return values; they only need to connect references together.  Then
+// later, they can use the references they held onto to run `registry.resolve(ref)` or similar.
+//
+// Go code should not use the registry.
 type Registry struct {
 	frozen bool
 	Jobs   []Job
 }
 
-// GlobalRegistry is a fake value so users can write "registry.<method>" in the debug shell.
+// GlobalRegistry is a fake value so users can write "registry.<method>" in the debug shell.  The
+// actual registry is retrieved from thread-local storage inside each method.
 type GlobalRegistry struct{}
 
 func buildRef(v starlark.Value) ([]Reference, error) {

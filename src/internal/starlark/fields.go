@@ -33,7 +33,7 @@ func Error(name string, err error) []zap.Field {
 	result := []zap.Field{zap.Error(err)}
 	eErr := new(starlark.EvalError)
 	if errors.As(err, &eErr) {
-		result = append(result, zap.Object("skylarkError", zapcore.ObjectMarshalerFunc(func(oe zapcore.ObjectEncoder) (retErr error) {
+		result = append(result, zap.Object("starlarkError", zapcore.ObjectMarshalerFunc(func(oe zapcore.ObjectEncoder) (retErr error) {
 			if eErr.Msg != err.Error() {
 				oe.AddString("msg", eErr.Msg)
 			}

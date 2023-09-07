@@ -57,7 +57,7 @@ func (g GoBinary) Inputs() []Reference {
 
 func (g GoBinary) output() NameAndPlatform {
 	return NameAndPlatform{
-		Name:     "go_binary:" + g.Workdir + ":" + g.Target,
+		Name:     "go_binary:" + g.Target + "@" + g.Workdir,
 		Platform: g.Platform,
 	}
 }
@@ -70,7 +70,7 @@ func (g GoBinary) cgo() string {
 }
 
 func (g GoBinary) Outputs() []Reference {
-	return []Reference{g.output()}
+	return []Reference{NameAndPlatformAndFS(g.output())}
 }
 
 func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_ []Artifact, retErr error) {

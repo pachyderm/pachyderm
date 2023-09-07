@@ -12,8 +12,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/imagebuilder/oci"
 	"github.com/zeebo/xxh3"
+	"go.starlark.net/starlark"
 )
 
+// Blob is something that can be pushed to an OCI registry.  For example, a "docker manifest" is a
+// blob containing the image config, and then a blob for each layer's descriptor, which refers to a
+// blob for the actual layer content (typically a tar.gz/tar.zst filesystem image).
 type Blob struct {
 	SHA256     [sha256.Size]byte
 	Underlying *File
@@ -23,6 +27,7 @@ func (b Blob) String() string {
 	return fmt.Sprintf("blob:sha256:%x", b.SHA256)
 }
 
+// NewBlobFromReader sets up a blob by reading an io.Reader.
 func NewBlobFromReader(r io.Reader) (_ Blob, retErr error) {
 	var keepFile bool
 	f, err := os.CreateTemp("", "blob-*")
@@ -56,30 +61,34 @@ func NewBlobFromReader(r io.Reader) (_ Blob, retErr error) {
 	}, nil
 }
 
+// Layer represents an image layer.
 type Layer struct {
 	NameAndPlatform
 	Content, Descriptor Blob
 }
 
-type DirectoryLayer struct {
-	Input NameAndPlatform
+var _ Reference = (*Layer)(nil)
+
+// FSLayer is a Job that builds a layer from an input with an FS() method.
+type FSLayer struct {
+	Input NameAndPlatformAndFS
 }
 
-var _ Job = (*DirectoryLayer)(nil)
+var _ Job = (*FSLayer)(nil)
 
-func (l DirectoryLayer) ID() uint64 {
+func (l FSLayer) ID() uint64 {
 	return xxh3.HashString(string(l.Input.Name) + string(l.Input.Platform))
 }
 
-func (l DirectoryLayer) String() string {
+func (l FSLayer) String() string {
 	return fmt.Sprintf("<oci layer from %v>", l.Input)
 }
 
-func (l DirectoryLayer) Inputs() []Reference {
+func (l FSLayer) Inputs() []Reference {
 	return []Reference{l.Input}
 }
 
-func (l DirectoryLayer) Outputs() []Reference {
+func (l FSLayer) Outputs() []Reference {
 	return []Reference{
 		Layer{
 			NameAndPlatform: NameAndPlatform{
@@ -90,7 +99,7 @@ func (l DirectoryLayer) Outputs() []Reference {
 	}
 }
 
-func (l DirectoryLayer) Run(ctx context.Context, jc *JobContext, in []Artifact) ([]Artifact, error) {
+func (l FSLayer) Run(ctx context.Context, jc *JobContext, in []Artifact) ([]Artifact, error) {
 	if len(in) != 1 {
 		return nil, errors.New("wrong number of inputs")
 	}
@@ -129,7 +138,30 @@ func (l DirectoryLayer) Run(ctx context.Context, jc *JobContext, in []Artifact) 
 	}, nil
 }
 
-func PlatformLayers(inputs []Reference) (result []DirectoryLayer) {
+// NewFromStarlark builds FSLayer jobs from input references.  Each input reference becomes its own
+// layer, and retains any platform specificity of the input.  Each argument can be a list of
+// references or an individual reference.
+func (FSLayer) NewFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) ([]Job, error) {
+	if len(kwargs) != 0 {
+		return nil, errors.New("unexpected kwargs")
+	}
+	var inputs []Reference
+	for i, arg := range args {
+		refs, err := UnpackReferences(arg)
+		if err != nil {
+			return nil, errors.Wrapf(err, "args[%v]", i)
+		}
+		inputs = append(inputs, refs...)
+	}
+	var result []Job
+	for _, layer := range PlatformLayers(inputs) {
+		result = append(result, layer)
+	}
+	return result, nil
+}
+
+// PlatformLayers creates a layer for each input.
+func PlatformLayers(inputs []Reference) (result []FSLayer) {
 	for _, ref := range inputs {
 		var (
 			name     string
@@ -138,11 +170,12 @@ func PlatformLayers(inputs []Reference) (result []DirectoryLayer) {
 		if x, ok := ref.(WithName); ok {
 			name = x.GetName()
 		}
+		platform = AllPlatforms
 		if x, ok := ref.(WithPlatform); ok {
 			platform = x.GetPlatform()
 		}
-		result = append(result, DirectoryLayer{
-			Input: NameAndPlatform{
+		result = append(result, FSLayer{
+			Input: NameAndPlatformAndFS{
 				Name:     name,
 				Platform: platform,
 			},

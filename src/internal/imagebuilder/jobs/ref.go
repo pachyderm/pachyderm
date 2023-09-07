@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"fmt"
+	"io/fs"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -13,6 +14,112 @@ type Reference interface{ Match(any) bool }
 type WithName interface{ GetName() string }
 type WithPlatform interface{ GetPlatform() Platform }
 type ConstrainableToPlatform interface{ ConstrainToPlatform(Platform) Reference }
+
+// Name references something by name.
+type Name string
+
+var _ Reference = Name("")
+var _ WithName = Name("")
+var _ ConstrainableToPlatform = Name("")
+
+func (me Name) GetName() string { return string(me) }
+
+func (me Name) Match(target any) bool {
+	if x, ok := target.(WithName); ok {
+		return me.GetName() == x.GetName()
+	}
+	return me == target
+}
+
+func (me Name) ConstrainToPlatform(p Platform) Reference {
+	return NameAndPlatform{
+		Name:     me.GetName(),
+		Platform: p,
+	}
+}
+
+func (me Name) String() string {
+	return me.GetName()
+}
+
+// NameAndPlatform references something by name and platform.
+type NameAndPlatform struct {
+	Name     string
+	Platform Platform
+}
+
+var _ Reference = (*NameAndPlatform)(nil)
+var _ WithName = (*NameAndPlatform)(nil)
+var _ WithPlatform = (*NameAndPlatform)(nil)
+
+func (me NameAndPlatform) GetName() string       { return me.Name }
+func (me NameAndPlatform) GetPlatform() Platform { return me.Platform }
+func (me NameAndPlatform) Match(target any) bool {
+	if me == target {
+		return true
+	}
+	if me.GetPlatform() == AllPlatforms {
+		return true
+	}
+	if x, ok := target.(WithName); !ok || me.GetName() != x.GetName() {
+		return false
+	}
+	if x, ok := target.(WithPlatform); !ok || (me.GetPlatform() != x.GetPlatform()) {
+		return false
+	}
+	return true
+}
+
+func (me NameAndPlatform) String() string {
+	return me.Name + "#" + string(me.Platform)
+}
+
+// NameAndPlatformAndFS references something with an FS() by name and platform.
+type NameAndPlatformAndFS NameAndPlatform
+
+var _ Reference = (*NameAndPlatformAndFS)(nil)
+var _ WithName = (*NameAndPlatformAndFS)(nil)
+var _ WithPlatform = (*NameAndPlatformAndFS)(nil)
+
+func (me NameAndPlatformAndFS) Match(target any) bool {
+	if _, ok := target.(WithFS); !ok {
+		return false
+	}
+	return NameAndPlatform(me).Match(target)
+}
+func (me NameAndPlatformAndFS) GetName() string       { return me.Name }
+func (me NameAndPlatformAndFS) GetPlatform() Platform { return me.Platform }
+func (me NameAndPlatformAndFS) FS() fs.FS             { return nil }
+
+func (me NameAndPlatformAndFS) String() string {
+	return me.Name + "#" + string(me.Platform) + "/FS"
+}
+
+// ParseRef parse a string into a reference.  The string is split into 2 parts at #, the stuff
+// before matches the name, and the stuff after matches the platform.  If either is empty, the
+// matcher does not match the part that's empty.  If both are empty, the matcher always matches.
+func ParseRef(x string) (Reference, error) {
+	parts := strings.SplitN(x, "#", 2)
+	var n, p string
+	switch {
+	case len(parts) == 2:
+		n, p = parts[0], parts[1]
+	case len(parts) == 1:
+		n = parts[0]
+	}
+	switch {
+	case n != "" && p != "":
+		return NameAndPlatform{
+			Name:     n,
+			Platform: Platform(p),
+		}, nil
+	case n == "" && p != "":
+		return Platform(p), nil
+	case n != "" && p == "":
+		return Name(n), nil
+	}
+	return nil, errors.New("empty matcher")
+}
 
 // ReferenceList is a list of references that behaves nicely in starlark.
 type ReferenceList []Reference
@@ -89,100 +196,82 @@ func (r ReferenceList) Iterate() starlark.Iterator {
 	return starlark.NewList(vs).Iterate()
 }
 
+// UnpackReferences unpacks refWrapper and ReferenceList values from Starlark into []Reference.
+func UnpackReferences(v starlark.Value) ([]Reference, error) {
+	switch x := v.(type) {
+	case refWrapper:
+		return []Reference{x.Reference}, nil
+	case starlark.Iterable: // Probably ReferenceList.
+		var result []Reference
+		iterator := x.Iterate()
+		var u starlark.Value
+		for iterator.Next(&u) {
+			refs, err := UnpackReferences(u)
+			if err != nil {
+				return nil, errors.Wrapf(err, "iterating %v -> %v", v, u)
+			}
+			result = append(result, refs...)
+		}
+		return result, nil
+	default:
+		return nil, errors.New("no unpacker")
+	}
+}
+
 // refWrapper wraps a Reference in a starlark.Value.
 type refWrapper struct {
 	Reference
 }
 
 var _ starlark.Value = (*refWrapper)(nil)
+var _ starlark.HasAttrs = (*refWrapper)(nil)
+
+// Don't allow wrapped values to be used as reference.
+func (refWrapper) Match()       {}
+func (refWrapper) GetName()     {}
+func (refWrapper) GetPlatform() {}
+func (refWrapper) FS()          {}
 
 func (refWrapper) Freeze()                {} // Always frozen.
 func (refWrapper) Hash() (uint32, error)  { return 0, errors.New("refWrapper is unhashable") }
 func (r refWrapper) Truth() starlark.Bool { return r.Reference != nil }
 func (r refWrapper) String() string       { return fmt.Sprint(r.Reference) }
-func (r refWrapper) Type() string         { return "reference" }
+func (r refWrapper) Type() string         { return fmt.Sprintf("reference %T", r.Reference) }
+func (r refWrapper) AttrNames() []string {
+	if r.Reference == nil {
+		return nil
+	}
+	var result []string
+	if _, ok := r.Reference.(WithName); ok {
+		result = append(result, "name")
+	}
+	if _, ok := r.Reference.(WithPlatform); ok {
+		result = append(result, "platform")
+	}
+	if _, ok := r.Reference.(WithPlatform); ok {
+		result = append(result, "fs")
+	}
+	return result
 
-// Name references something by name.
-type Name string
-
-var _ Reference = Name("")
-var _ WithName = Name("")
-var _ ConstrainableToPlatform = Name("")
-
-// NameAndPlatform references something by name and platform.
-type NameAndPlatform struct {
-	Name     string
-	Platform Platform
 }
-
-var _ Reference = (*NameAndPlatform)(nil)
-var _ WithName = (*NameAndPlatform)(nil)
-var _ WithPlatform = (*NameAndPlatform)(nil)
-
-func (me Name) GetName() string { return string(me) }
-
-func (me Name) Match(target any) bool {
-	if x, ok := target.(WithName); ok {
-		return me.GetName() == x.GetName()
+func (r refWrapper) Attr(field string) (starlark.Value, error) {
+	switch field {
+	case "name":
+		x, ok := r.Reference.(WithName)
+		if !ok {
+			return nil, errors.New("no name")
+		}
+		return starlark.String(x.GetName()), nil
+	case "platform":
+		x, ok := r.Reference.(WithPlatform)
+		if !ok {
+			return nil, errors.New("no platform")
+		}
+		return starlark.String(x.GetPlatform()), nil
+	case "fs":
+		_, ok := r.Reference.(WithFS)
+		return starlark.Bool(ok), nil
+	default:
+		return nil, errors.Errorf("unknown field %q", field)
 	}
-	return me == target
-}
-
-func (me Name) ConstrainToPlatform(p Platform) Reference {
-	return NameAndPlatform{
-		Name:     me.GetName(),
-		Platform: p,
-	}
-}
-
-func (me Name) String() string {
-	return me.GetName()
-}
-
-func (me NameAndPlatform) GetName() string       { return me.Name }
-func (me NameAndPlatform) GetPlatform() Platform { return me.Platform }
-func (me NameAndPlatform) Match(target any) bool {
-	if me == target {
-		return true
-	}
-	if me.GetPlatform() == AllPlatforms {
-		return true
-	}
-	if x, ok := target.(WithName); !ok || me.GetName() != x.GetName() {
-		return false
-	}
-	if x, ok := target.(WithPlatform); !ok || (me.GetPlatform() != x.GetPlatform()) {
-		return false
-	}
-	return true
-}
-
-func (me NameAndPlatform) String() string {
-	return me.Name + "#" + string(me.Platform)
-}
-
-// ParseRef parse a string into a reference.  The string is split into 2 parts at #, the stuff
-// before matches the name, and the stuff after matches the platform.  If either is empty, the
-// matcher does not match the part that's empty.  If both are empty, the matcher always matches.
-func ParseRef(x string) (Reference, error) {
-	parts := strings.SplitN(x, "#", 2)
-	var n, p string
-	switch {
-	case len(parts) == 2:
-		n, p = parts[0], parts[1]
-	case len(parts) == 1:
-		n = parts[0]
-	}
-	switch {
-	case n != "" && p != "":
-		return NameAndPlatform{
-			Name:     n,
-			Platform: Platform(p),
-		}, nil
-	case n == "" && p != "":
-		return Platform(p), nil
-	case n != "" && p == "":
-		return Name(n), nil
-	}
-	return nil, errors.New("empty matcher")
 }
