@@ -453,8 +453,7 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 			childrenIDs = append(childrenIDs, child.RowID)
 		}
 		if len(commitsNotFinished) > 0 {
-			//todo(fahad): return a typed error here.
-			return fmt.Errorf("commits not finished before deleting: %v", commitsNotFinished)
+			return errors.New(fmt.Sprintf("commits not finished before deleting: %v", commitsNotFinished))
 		}
 		if err := PutCommitAncestries(ctx, tx, parent.RowID, childrenIDs); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("repointing id=%d at %v", parent.RowID, childrenIDs))
@@ -573,8 +572,11 @@ func getCommitParentRow(ctx context.Context, tx *pachsql.Tx, childCommit CommitI
 func GetCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID) ([]*pfs.Commit, error) {
 	children := make([]*pfs.Commit, 0)
 	rows, err := tx.QueryxContext(ctx, fmt.Sprintf("%s WHERE ancestry.from_id=$1", getChildCommit), parentCommit)
-	if err != nil && err == sql.ErrNoRows {
-		return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+		}
+		return nil, errors.Wrap(err, "getting commit children")
 	}
 	for rows.Next() {
 		row := &commitRow{}
@@ -590,14 +592,17 @@ func GetCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitI
 	if len(children) == 0 { // QueryxContext does not return an error when the query returns 0 rows.
 		return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
 	}
-	return children, err
+	return children, nil
 }
 
 func getCommitChildrenRows(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID) ([]*commitRow, error) {
 	children := make([]*commitRow, 0)
 	rows, err := tx.QueryxContext(ctx, fmt.Sprintf("%s WHERE ancestry.from_id=$1", getChildCommit), parentCommit)
-	if err != nil && err == sql.ErrNoRows {
-		return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+		}
+		return nil, errors.Wrap(err, "getting commit children rows")
 	}
 	for rows.Next() {
 		row := &commitRow{}
@@ -609,7 +614,7 @@ func getCommitChildrenRows(ctx context.Context, tx *pachsql.Tx, parentCommit Com
 	if len(children) == 0 { // QueryxContext does not return an error when the query returns 0 rows.
 		return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
 	}
-	return children, err
+	return children, nil
 }
 
 func getCommitRelativeRows(ctx context.Context, tx *pachsql.Tx, commitID CommitID) (*commitRow, []*commitRow, error) {
@@ -673,7 +678,7 @@ func parseCommitFromRow(row *commitRow) (*pfs.Commit, error) {
 	}
 	parsedId := strings.Split(row.CommitID, "@")
 	if len(parsedId) != 2 {
-		return nil, fmt.Errorf("got invalid commit id from postgres: %s", row.CommitID)
+		return nil, errors.New(fmt.Sprintf("got invalid commit id from postgres: %s", row.CommitID))
 	}
 	commit := &pfs.Commit{
 		Repo: repo,

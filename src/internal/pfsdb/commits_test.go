@@ -3,6 +3,11 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -16,9 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"testing"
-	"time"
 )
 
 func TestCreateCommitWithParent(t *testing.T) {
@@ -153,7 +155,7 @@ func TestGetCommit(t *testing.T) {
 			getInfo, err := pfsdb.GetCommit(ctx, tx, 1)
 			require.NoError(t, err, "should be able to get commit with id=1")
 			commitsMatch(t, commitInfo, getInfo)
-			getInfo, err = pfsdb.GetCommit(ctx, tx, 0)
+			_, err = pfsdb.GetCommit(ctx, tx, 0)
 			require.YesError(t, err, "should not be able to get commit with id=0")
 			_, err = pfsdb.GetCommit(ctx, tx, 3)
 			require.YesError(t, err, "should not be able to get non-existent commit")
@@ -216,7 +218,7 @@ func TestDeleteCommitWithParent(t *testing.T) {
 			require.YesError(t, err, "commit should not exist")
 			require.True(t, errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)))
 			// confirm parent has no children.
-			children, err = pfsdb.GetCommitChildren(ctx, tx, parentID)
+			_, err = pfsdb.GetCommitChildren(ctx, tx, parentID)
 			require.YesError(t, err, "should not be able to get any children.")
 			require.Equal(t, pfsdb.ErrChildCommitNotFound{ParentRowID: parentID}, errors.Cause(err))
 			return nil
@@ -254,10 +256,10 @@ func TestDeleteCommitWithChildren(t *testing.T) {
 			require.YesError(t, err, "commit should not exist")
 			require.True(t, errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)))
 			// confirm children has no parent.
-			parent1, err = pfsdb.GetCommitParent(ctx, tx, childID)
+			_, err = pfsdb.GetCommitParent(ctx, tx, childID)
 			require.YesError(t, err, "parent of child 1 should not exist")
 			require.True(t, errors.Is(pfsdb.ErrParentCommitNotFound{ChildRowID: childID}, errors.Cause(err)))
-			parent2, err = pfsdb.GetCommitParent(ctx, tx, childID2)
+			_, err = pfsdb.GetCommitParent(ctx, tx, childID2)
 			require.YesError(t, err, "parent of child 2 should not exist")
 			require.True(t, errors.Is(pfsdb.ErrParentCommitNotFound{ChildRowID: childID2}, errors.Cause(err)))
 			return nil
