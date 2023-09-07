@@ -101,7 +101,7 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 		KubeClient:    env.GetKubeClient(),
 		Config:        *env.Config(),
 		TaskService:   env.GetTaskService("debug"),
-	}, false)
+	})
 	debugclient.RegisterDebugServer(server.Server, debugSrv)
 
 	// Put our IP address into etcd, so pachd can discover us

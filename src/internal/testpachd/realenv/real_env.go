@@ -15,6 +15,7 @@ import (
 	units "github.com/docker/go-units"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc"
 	testclient "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -134,7 +135,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	// they will appear in the t.Log log.
 	cfg := zap.NewProductionConfig()
 	cfg.Sampling = nil
-	cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
+	//cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
 	cfg.Level.SetLevel(zapcore.DebugLevel)
 	logger, err := cfg.Build()
 	require.NoError(t, err, "should be able to make a realenv logger")
@@ -265,7 +266,13 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	}
 
 	// Debug
-	realEnv.DebugServer = debugserver.NewDebugServer(pachd.DebugEnv(realEnv.ServiceEnv), false)
+	debugEnv := pachd.DebugEnv(realEnv.ServiceEnv)
+	realEnv.DebugServer = debugserver.NewDebugServer(debugEnv)
+	realEnv.PachClient.DebugClient = debug.NewDebugClient(grpcutil.NewTestClient(t, func(gs *grpc.Server) {
+		debug.RegisterDebugServer(gs, realEnv.DebugServer)
+	}))
+	debugWorker := debugserver.NewWorker(debugEnv)
+	go debugWorker.Run(ctx)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)

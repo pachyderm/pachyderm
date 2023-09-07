@@ -447,6 +447,17 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 	return nil
 }
 
+func (b *builder) startDebugWorker(ctx context.Context) error {
+	env := DebugEnv(b.env)
+	w := debugserver.NewWorker(env)
+	go func() {
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from debug worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
 // setupMemoryLimit sets GOMEMLIMIT.  If not already set through the environment, set GOMEMLIMIT to
 // the container memory request, or if not set, the container memory limit minus some accounting for
 // the runtime (100MiB).
@@ -485,5 +496,5 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 }
 
 func (b *builder) newDebugServer() debugclient.DebugServer {
-	return debugserver.NewDebugServer(DebugEnv(b.env), false)
+	return debugserver.NewDebugServer(DebugEnv(b.env))
 }
