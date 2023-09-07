@@ -1158,7 +1158,7 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[*
 			input.Pfs.Project = pfs.DefaultProjectName
 		}
 		if input.Pfs.Commit != "" {
-			return errors.New("cannot specify commit in Input")
+			return errors.New("cannot specify commit in mounting datums Input")
 		}
 		if input.Pfs.Branch == "" {
 			input.Pfs.Branch = "master"

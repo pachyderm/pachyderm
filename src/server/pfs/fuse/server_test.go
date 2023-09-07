@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package fuse
 
 import (
@@ -21,23 +19,6 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-/*
-
-Tests to write:
-
-- read only is read only
-- read write is read write
-- write, unmount, files have gone from local mount
-- write, unmount, remount, data comes back
-- simple mount under different name works
-- mount two versions of the same repo under different names works
-	- there is no cache interference between them
-- listing repos works and shows status
-- when a repo is deleted in pachyderm it shows up as missing
-- cp works (ff16dadac35bfd3f459d537fe68b788c8568db8a fixed it)
-
-*/
 
 func TestBasicServerSameNames(t *testing.T) {
 	ctx := pctx.TestContext(t)
@@ -1029,5 +1010,59 @@ func TestProjects(t *testing.T) {
 		require.Equal(t, projectData[0].Project.Name, pfs.DefaultProjectName)
 		require.Equal(t, projectData[1].Project.Name, projectName)
 		require.Equal(t, projectData[2].Project.Name, emptyProjectName)
+	})
+}
+
+func TestMountingCommit(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
+	err := env.PachClient.PutFile(commit, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, err)
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
+	err = env.PachClient.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Commit: commitInfo.Commit.Id,
+					Mode:   "ro",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "file1", filepath.Base(files[0].Name()))
+
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Commit: "badId",
+					Mode:   "ro",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err = put("_mount", b)
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
 	})
 }
