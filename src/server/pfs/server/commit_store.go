@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -132,8 +131,6 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 
 func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
 	log.Info(context.Background(), "DNJ TODO about to set total file set 1", zap.Any("commit", commit))
-	time.Sleep(time.Millisecond * 100) // DNJ TODO
-	log.Info(context.Background(), "DNJ TODO about to set total file set 2", zap.Any("commit", commit))
 	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.SetTotalFileSetTx(tx, commit, id)
 	})
@@ -241,9 +238,11 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 		return errors.EnsureStack(err)
 	}
 	log.Info(context.Background(), "DNJ TODO try before checking repo", zap.Any("commit", commit), zap.Stack("Stack"))
-	if rows, err := tx.Query(`SELECT DISTINCT name FROM pfs.repos 
-	WHERE pfs.repos.name = $1 AND pfs.repos.type = 'spec'
-	`, commit.Repo.Name); err != nil { // DNJ TODO - project id
+	if rows, err := tx.Query(`SELECT name FROM pfs.repos AS r
+		WHERE r.project_id=(SELECT id FROM core.projects WHERE name=$1) AND r.name=$2 AND r.type = 'spec'`,
+		commit.GetRepo().GetProject().GetName(),
+		commit.GetRepo().GetName(),
+	); err != nil {
 		log.Info(context.Background(), "DNJ TODO err finding not nil", zap.Any("commit", commit), zap.Error(err))
 		return errors.EnsureStack(err)
 	} else {
