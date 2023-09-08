@@ -1365,34 +1365,7 @@ func (m *GetFileURLTask) validate(all bool) error {
 
 	// no validation rules for URL
 
-	if all {
-		switch v := interface{}(m.GetFile()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, GetFileURLTaskValidationError{
-					field:  "File",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, GetFileURLTaskValidationError{
-					field:  "File",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetFile()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return GetFileURLTaskValidationError{
-				field:  "File",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Fileset
 
 	if all {
 		switch v := interface{}(m.GetPathRange()).(type) {
