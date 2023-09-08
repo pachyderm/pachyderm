@@ -37,7 +37,7 @@ func (rt *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx, done := log.SpanContext(req.Context(), "http client", zap.String("uri", req.URL.String()))
 	doneCh := make(chan string, 1)
 	go func() {
-		msg := "request ongoing"
+		msg := "request started"
 		for {
 			select {
 			case newMsg, ok := <-doneCh:
@@ -48,14 +48,15 @@ func (rt *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 			case <-time.After(5 * time.Second):
 			}
 			log.Debug(ctx, msg)
-
 		}
 	}()
 	res, err := rt.RoundTripper.RoundTrip(req)
 	if err != nil {
+		close(doneCh)
 		done(zap.Error(err))
 		return res, err
 	}
+	doneCh <- "headers done"
 	log.Debug(ctx, "http request finished", zap.String("status", res.Status), zap.Int("code", res.StatusCode))
 	res.Body = &bodyCloseReader{
 		ReadCloser: res.Body,
