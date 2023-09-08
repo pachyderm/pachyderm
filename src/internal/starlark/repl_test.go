@@ -14,6 +14,7 @@ func TestCompletion(t *testing.T) {
 	testData := []struct {
 		line string
 		want []string
+		skip bool
 	}{
 		{
 			line: "Fal",
@@ -82,10 +83,20 @@ func TestCompletion(t *testing.T) {
 			line: "[None, True, Fal",
 			want: []string{"se"},
 		},
+		{
+			line: "nested[0].cl",
+			want: []string{"ear"},
+			// To complete .clear here, we'd need to eval "nested[0]".  It would be a
+			// nice feature, though.
+			skip: true,
+		},
 	}
 
 	for _, test := range testData {
 		t.Run(test.line, func(t *testing.T) {
+			if test.skip {
+				t.Skip("skipped")
+			}
 			ctx := pctx.TestContext(t)
 			var th *starlark.Thread
 			var g starlark.StringDict

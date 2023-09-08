@@ -4,3 +4,5 @@ some_dict = {}
 
 def exciting_function(*args):
     pass
+
+nested = [dict()]
