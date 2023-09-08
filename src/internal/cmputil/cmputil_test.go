@@ -1,6 +1,7 @@
 package cmputil
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -51,4 +52,11 @@ func TestRegexpStrings(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWantErr(t *testing.T) {
+	WantErr(t, nil, false)
+	WantErr(t, nil, "")
+	WantErr(t, errors.New("blah"), true)
+	WantErr(t, errors.New("blah"), "/blah/")
 }
