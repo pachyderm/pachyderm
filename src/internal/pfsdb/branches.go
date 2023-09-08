@@ -89,6 +89,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	return branchID, nil
 }
 
+// GetBranchID returns the unique id of a branch.
 func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (BranchID, error) {
 	var id BranchID
 	if err := tx.QueryRowContext(ctx, `
@@ -104,6 +105,7 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (Branc
 	return id, nil
 }
 
+// GetDirectBranchProvenance returns the direct provenance of a branch, i.e. all branches that it directly depends on.
 func GetDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
 	if err := tx.SelectContext(ctx, &branches, `
@@ -128,6 +130,7 @@ func GetDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID)
 	return branchPbs, nil
 }
 
+// GetBranchProvenance returns the full provenance of a branch, i.e. all branches that it either directly or transitively depends on.
 func GetBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
 	if err := tx.SelectContext(ctx, &branches, `
@@ -160,6 +163,7 @@ func GetBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 	return branchPbs, nil
 }
 
+// GetBranchSubvenance returns the full subvenance of a branch, i.e. all branches that either directly or transitively depend on it.
 func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
 	if err := tx.SelectContext(ctx, &branches, `
@@ -192,12 +196,13 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 	return branchPbs, nil
 }
 
-func AddDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from *pfs.Branch, to ...*pfs.Branch) error {
+// AddBranchProvenance adds a provenance relationship between two branches.
+func AddDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Branch) error {
 	fromID, err := GetBranchID(ctx, tx, from)
 	if err != nil {
 		return errors.Wrap(err, "could not get from_id")
 	}
-	toID, err := GetBranchID(ctx, tx, to[0])
+	toID, err := GetBranchID(ctx, tx, to)
 	if err != nil {
 		return errors.Wrap(err, "could not get to_id")
 	}
