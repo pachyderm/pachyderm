@@ -67,6 +67,7 @@ func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInf
 }
 
 // UpsertBranch creates a branch if it does not exist, or updates the head if the branch already exists.
+// If direct provenance is specified, it will be used to update the branch's provenance relationships.
 func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInfo) (BranchID, error) {
 	if branchInfo.Branch.Repo.Name == "" {
 		return 0, errors.Errorf("repo name required")
@@ -106,8 +107,8 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		return 0, errors.Wrap(err, "could not get direct branch provenance")
 	}
 	// Add net new direct provenance relationships.
-	netNew := SliceDiff[string, *pfs.Branch](branchInfo.DirectProvenance, oldDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
-	for _, branch := range netNew {
+	toAdd := SliceDiff[string, *pfs.Branch](branchInfo.DirectProvenance, oldDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
+	for _, branch := range toAdd {
 		toID, err := GetBranchID(ctx, tx, branch)
 		if err != nil {
 			return 0, errors.Wrap(err, "could not get to_id")
@@ -117,8 +118,8 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		}
 	}
 	// Remove old direct provenance relationships that are no longer needed.
-	toDelete := SliceDiff[string, *pfs.Branch](oldDirectProv, branchInfo.DirectProvenance, func(branch *pfs.Branch) string { return branch.Key() })
-	for _, branch := range toDelete {
+	toRemove := SliceDiff[string, *pfs.Branch](oldDirectProv, branchInfo.DirectProvenance, func(branch *pfs.Branch) string { return branch.Key() })
+	for _, branch := range toRemove {
 		toID, err := GetBranchID(ctx, tx, branch)
 		if err != nil {
 			return 0, errors.Wrap(err, "could not get to_id")
