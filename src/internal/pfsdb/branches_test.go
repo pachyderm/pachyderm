@@ -112,10 +112,6 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 		branchAInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Name: "master", Repo: repoAInfo.Repo}, Head: commitAInfo.Commit}
 		branchBInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Name: "master", Repo: repoBInfo.Repo}, Head: commitBInfo.Commit}
 		branchCInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Name: "master", Repo: repoCInfo.Repo}, Head: commitCInfo.Commit}
-		for _, branchInfo := range []*pfs.BranchInfo{branchAInfo, branchBInfo, branchCInfo} {
-			_, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
-			require.NoError(t, err)
-		}
 		// Provenance info: A <- B <- C
 		branchAInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch, branchCInfo.Branch}
 		branchBInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
@@ -123,15 +119,24 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 		branchBInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
 		branchCInfo.DirectProvenance = []*pfs.Branch{branchBInfo.Branch}
 		branchCInfo.Provenance = []*pfs.Branch{branchBInfo.Branch, branchAInfo.Branch}
-		require.NoError(t, pfsdb.AddDirectBranchProvenance(ctx, tx, branchBInfo.Branch, branchAInfo.Branch))
-		require.NoError(t, pfsdb.AddDirectBranchProvenance(ctx, tx, branchCInfo.Branch, branchBInfo.Branch))
-		// Call GetBranchProvenance on each branch and verify
+		// Create all branches, and provenance relationships
+		allBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
 		for _, branchInfo := range []*pfs.BranchInfo{branchAInfo, branchBInfo, branchCInfo} {
-			branchID, err := pfsdb.GetBranchID(ctx, tx, branchInfo.Branch)
+			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo) // implicitly creates prov relationships
 			require.NoError(t, err)
-			gotBranchInfo, err := pfsdb.GetBranch(ctx, tx, branchID)
+			allBranches[id] = branchInfo
+		}
+		// Verify direct provenance, full provenance, and full subvenance relationships
+		for id, branchInfo := range allBranches {
+			gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
+			require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+			gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+			gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
 		}
 	})
 }
