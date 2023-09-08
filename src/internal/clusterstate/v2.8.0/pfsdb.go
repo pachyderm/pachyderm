@@ -145,12 +145,12 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 	return branches, edges, triggers, nil
 }
 
-func createPFSSchema(ctx context.Context, tx *pachsql.Tx) error {
+func createPFSSchema(ctx context.Context, env migrations.Env) error {
+	tx := env.Tx
 	// pfs schema already exists, but this SQL is idempotent
 	if _, err := tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS pfs;`); err != nil {
 		return errors.Wrap(err, "creating core schema")
 	}
-
 	return nil
 }
 
@@ -192,7 +192,11 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 // Migrate repos from collections.repos to pfs.repos
-func migrateRepos(ctx context.Context, tx *pachsql.Tx) error {
+func migrateRepos(ctx context.Context, env migrations.Env) error {
+	tx := env.Tx
+	if err := createReposTable(ctx, tx); err != nil {
+		return errors.Wrap(err, "creating pfs.repos table")
+	}
 	insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.repos(name, type, project_id, description, created_at, updated_at) VALUES ($1, $2, (select id from core.projects where name=$3), $4, $5, $6)`)
 	if err != nil {
 		return errors.Wrap(err, "preparing insert statement")
