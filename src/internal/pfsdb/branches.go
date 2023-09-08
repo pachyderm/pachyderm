@@ -8,6 +8,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+func SliceDiff[K comparable, V any](a []V, b []V, key func(V) K) []V {
+	m := make(map[K]bool)
+	for _, item := range b {
+		m[key(item)] = true
+	}
+	var result []V
+	for _, item := range a {
+		if !m[key(item)] {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
 // GetBranch returns a branch by id.
 func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
 	branch := &Branch{}
@@ -86,14 +100,31 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
-	// Add direct provenance relationships
-	for _, branch := range branchInfo.DirectProvenance {
+	// Compare current direct provenance to new direct provenance.
+	oldDirectProv, err := GetDirectBranchProvenance(ctx, tx, branchID)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not get direct branch provenance")
+	}
+	// Add net new direct provenance relationships.
+	netNew := SliceDiff[string, *pfs.Branch](branchInfo.DirectProvenance, oldDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
+	for _, branch := range netNew {
 		toID, err := GetBranchID(ctx, tx, branch)
 		if err != nil {
 			return 0, errors.Wrap(err, "could not get to_id")
 		}
-		if err := AddDirectBranchProvenance(ctx, tx, branchID, toID); err != nil {
+		if err := CreateDirectBranchProvenance(ctx, tx, branchID, toID); err != nil {
 			return 0, errors.Wrap(err, "could not add direct branch provenance")
+		}
+	}
+	// Remove old direct provenance relationships that are no longer needed.
+	toDelete := SliceDiff[string, *pfs.Branch](oldDirectProv, branchInfo.DirectProvenance, func(branch *pfs.Branch) string { return branch.Key() })
+	for _, branch := range toDelete {
+		toID, err := GetBranchID(ctx, tx, branch)
+		if err != nil {
+			return 0, errors.Wrap(err, "could not get to_id")
+		}
+		if err := DeleteDirectBranchProvenance(ctx, tx, branchID, toID); err != nil {
+			return 0, errors.Wrap(err, "could not delete direct branch provenance")
 		}
 	}
 	return branchID, nil
@@ -207,7 +238,7 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 }
 
 // AddBranchProvenance adds a provenance relationship between two branches.
-func AddDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
+func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO pfs.branch_provenance(from_id, to_id)
 		VALUES ($1, $2)
@@ -218,7 +249,7 @@ func AddDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to Bra
 	return nil
 }
 
-func AddDirectBranchProvenancePb(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Branch) error {
+func CreateDirectBranchProvenanceByName(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Branch) error {
 	fromID, err := GetBranchID(ctx, tx, from)
 	if err != nil {
 		return errors.Wrap(err, "could not get from_id")
@@ -227,5 +258,15 @@ func AddDirectBranchProvenancePb(ctx context.Context, tx *pachsql.Tx, from, to *
 	if err != nil {
 		return errors.Wrap(err, "could not get to_id")
 	}
-	return AddDirectBranchProvenance(ctx, tx, fromID, toID)
+	return CreateDirectBranchProvenance(ctx, tx, fromID, toID)
+}
+
+func DeleteDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM pfs.branch_provenance
+		WHERE from_id = $1 AND to_id = $2
+	`, from, to); err != nil {
+		return errors.Wrap(err, "could not delete branch provenance")
+	}
+	return nil
 }

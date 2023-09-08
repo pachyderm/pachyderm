@@ -138,5 +138,31 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
 		}
+		// Update provenance DAG to A <- B -> C, to test adding and deleting prov relationships
+		branchAInfo.DirectProvenance = nil
+		branchAInfo.Provenance = nil
+		branchAInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
+		branchBInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch, branchCInfo.Branch}
+		branchBInfo.Provenance = []*pfs.Branch{branchAInfo.Branch, branchCInfo.Branch}
+		branchBInfo.Subvenance = nil
+		branchCInfo.DirectProvenance = nil
+		branchCInfo.Provenance = nil
+		branchCInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
+		for id, branchInfo := range allBranches {
+			gotID, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			require.Equal(t, id, gotID, "UpsertBranch should keep id stable")
+		}
+		for id, branchInfo := range allBranches {
+			gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+			gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+			gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
+		}
 	})
 }
