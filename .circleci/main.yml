@@ -1664,6 +1664,7 @@ workflows:
   integration-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
+      - generate-unique-identifier
       - build-docker-images
       - build-docker-images:
           enableCoverage: true
@@ -1687,6 +1688,16 @@ workflows:
                 - S3_AUTH
                 - EXAMPLES
                 - CONNECTORS
+  generate-unique-identifier:
+    environment:
+      UNIQUE_ID: ""
+    steps:
+      - run:
+          name: Generate Unique Identifier
+          command: |
+            # Use the current timestamp to create a unique identifier
+            export UNIQUE_ID=$(date +%Y%m%d%H%M%S)
+            echo "Unique Identifier: $UNIQUE_ID"
   helm-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
