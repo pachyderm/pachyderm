@@ -1284,8 +1284,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 		m.Status = "branch does not contain any commits"
 		return nil
 	}
-
-	m.ActualMountedCommit = commit
+	m.Commit = commit
 
 	// Get the latest commit on the branch
 	branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
@@ -1502,7 +1501,9 @@ func mountingState(m *MountStateMachine) StateFn {
 			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
-		m.manager.root.commits[m.Name] = m.Commit
+		if m.Commit != "" {
+			m.manager.root.commits[m.Name] = m.Commit
+		}
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
