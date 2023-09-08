@@ -1,6 +1,7 @@
 package pfsdb
 
 import (
+	"database/sql"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -84,11 +85,26 @@ func parseBranches(branchInfos string) ([]*pfs.Branch, error) {
 	return branches, nil
 }
 
-// Commit is a row in the pfs.commits table.
 type Commit struct {
-	ID          CommitID `db:"id"`
-	Repo        Repo     `db:"repo"`
-	CommitSetID string   `db:"commit_set_id"`
+	RowID          CommitID      `db:"int_id"`
+	RepoID         RepoID        `db:"repo_id"`
+	CommitSetID    string        `db:"commit_set_id"`
+	CommitID       string        `db:"commit_id"`
+	BranchID       sql.NullInt64 `db:"branch_id"`
+	Origin         string        `db:"origin"`
+	Description    string        `db:"description"`
+	StartTime      time.Time     `db:"start_time"`
+	FinishingTime  time.Time     `db:"finishing_time"`
+	FinishedTime   time.Time     `db:"finished_time"`
+	CompactingTime int64         `db:"compacting_time_s"`
+	ValidatingTime int64         `db:"validating_time_s"`
+	Error          string        `db:"error"`
+	Size           int64         `db:"size"`
+	ParentCommit   *pfs.Commit   `db:"parent_commit"`
+	ChildCommits   []*pfs.Commit `db:"child_commits"`
+	// BranchName is used to derive the BranchID in commit related queries.
+	BranchName sql.NullString `db:"branch_name"`
+	Repo       Repo           `db:"repo"`
 	CreatedAtUpdatedAt
 }
 
