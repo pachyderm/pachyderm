@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	units "github.com/docker/go-units"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	testclient "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -24,6 +26,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -32,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
@@ -56,6 +61,7 @@ type RealEnv struct {
 	testpachd.MockEnv
 
 	ServiceEnv               serviceenv.ServiceEnv
+	AdminServer              adminapi.APIServer
 	AuthServer               authapi.APIServer
 	IdentityServer           identity.APIServer
 	EnterpriseServer         enterprise.APIServer
@@ -118,6 +124,20 @@ func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 }
 
 func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...pachconfig.ConfigOption) *RealEnv {
+	// Log realEnv server messages to /tmp/pachyderm-real-env-<test>.log.  Logs persist after
+	// the run so you can debug the failure; rm -rf /tmp/pachdyerm-real-* to cleanup.  Client
+	// logs (i.e. code called from your test with the context you passed here) are untouched;
+	// they will appear in the t.Log log.
+	cfg := zap.NewProductionConfig()
+	cfg.Sampling = nil
+	cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
+	cfg.Level.SetLevel(zapcore.DebugLevel)
+	logger, err := cfg.Build()
+	require.NoError(t, err, "should be able to make a realenv logger")
+	ctx = pctx.Child(ctx, "", pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return logger.Core()
+	})))
+
 	mockEnv := testpachd.NewMockEnv(ctx, t, interceptor)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
@@ -161,26 +181,31 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	require.NoError(t, err)
 
 	txnEnv := txnenv.New()
+
+	// ADMIN
+	adminEnv := pachd.AdminEnv(realEnv.ServiceEnv, false)
+	realEnv.AdminServer = adminapi.NewAPIServer(adminEnv)
+
 	// AUTH
-	authEnv := authserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	authEnv := pachd.AuthEnv(realEnv.ServiceEnv, txnEnv)
 	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
 
 	// ENTERPRISE
-	entEnv := enterpriseserver.EnvFromServiceEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
-	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, true)
+	entEnv := pachd.EnterpriseEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
+	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, enterpriseserver.Config{Heartbeat: true})
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetEnterpriseServer(realEnv.EnterpriseServer)
 	mockEnv.MockPachd.GetAuthServer = realEnv.ServiceEnv.AuthServer
 
 	// LICENSE
-	licenseEnv := licenseserver.EnvFromServiceEnv(realEnv.ServiceEnv)
+	licenseEnv := pachd.LicenseEnv(realEnv.ServiceEnv)
 	realEnv.LicenseServer, err = licenseserver.New(licenseEnv)
 	require.NoError(t, err)
 
 	// PFS
-	pfsEnv, err := pfsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	pfsEnv, err := pachd.PFSEnv(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 	pfsEnv.EtcdPrefix = ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
@@ -202,7 +227,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		realEnv.MockPPSTransactionServer = testpachd.NewMockPPSTransactionServer()
 		realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.Api)
 		realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
-			Use(func(txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
+			Use(func(ctx context.Context, txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 				return nil, col.ErrNotFound{
 					Type: "pipelines",
 					Key:  pipeline.String(),
@@ -212,7 +237,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		reporter := metrics.NewReporter(realEnv.ServiceEnv)
 		clientset := testclient.NewSimpleClientset()
 		realEnv.ServiceEnv.SetKubeClient(clientset)
-		ppsEnv := ppsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv, reporter)
+		ppsEnv := pachd.PPSEnv(realEnv.ServiceEnv, txnEnv, reporter)
 		realEnv.PPSServer, err = ppsserver.NewAPIServer(ppsEnv)
 		realEnv.ServiceEnv.SetPpsServer(realEnv.PPSServer)
 		require.NoError(t, err)
@@ -220,6 +245,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	}
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
+	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 	linkServers(&realEnv.MockPachd.Enterprise, realEnv.EnterpriseServer)
 	linkServers(&realEnv.MockPachd.License, realEnv.LicenseServer)

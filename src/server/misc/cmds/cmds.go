@@ -152,21 +152,9 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 					return err
 				}
 				defer c.Close()
-				info, err := c.InspectCluster()
-				if err != nil {
-					return errors.Wrap(err, "lookup cluster address")
-				}
-				host := info.GetProxyHost()
-				if host == "" {
-					return errors.New("server does not know its public hostname")
-				}
-				if info.GetProxyTls() {
-					u.Scheme = "https"
-				} else {
-					u.Scheme = "http"
-				}
-				u.Host = host
-				u.Path = "/archive/" + path + ".zip"
+
+				info, _ := c.ClusterInfo()
+				fmt.Println(info.GetWebResources().GetArchiveDownloadBaseUrl() + path + ".zip")
 				return nil
 			}
 			if err := getPrefix(); err != nil {
@@ -214,7 +202,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Short: "Runs the database migrations against the supplied database, then rolls them back.",
 		Long:  "Runs the database migrations against the supplied database, then rolls them back.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			ctx, c := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
+			ctx, c := signal.NotifyContext(ctx, signals.TerminationSignals...)
 			defer c()
 
 			dsn := args[0]
@@ -232,6 +220,26 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(testMigrations, "misc test-migrations"))
+
+	var grpcAddress string
+	var grpcTLS bool
+	var grpcHeaders []string
+	grpc := &cobra.Command{
+		Use:   "{{alias}} service.Method {msg}... ",
+		Short: "Call a gRPC method on the server.",
+		Long:  "Call a gRPC method on the server.  With no args; prints all available methods.  With 1 arg; reads messages to send as JSON lines from stdin.  With >1 arg, sends each JSON-encoded argument as a message.",
+		Run: cmdutil.Run(func(args []string) error {
+			return gRPCParams{
+				Address: grpcAddress,
+				TLS:     grpcTLS,
+				Headers: grpcHeaders,
+			}.Run(ctx, pachctlCfg, os.Stdout, args)
+		}),
+	}
+	grpc.PersistentFlags().StringVar(&grpcAddress, "address", "", "If set, don't use the pach client to connect, but manually dial the provided GRPC address instead; url must be in a form like dns:/// or passthrough:///, not http:// or grpc://.")
+	grpc.PersistentFlags().BoolVar(&grpcTLS, "tls", false, "If set along with --address, use TLS to connect to the server.  The certificate is NOT checked for validity.")
+	grpc.PersistentFlags().StringSliceVarP(&grpcHeaders, "header", "H", nil, "Key=Value metadata to add to the request; repeatable.")
+	commands = append(commands, cmdutil.CreateAlias(grpc, "misc grpc"))
 
 	misc := &cobra.Command{
 		Short:  "Miscellaneous utilities unrelated to Pachyderm itself.",

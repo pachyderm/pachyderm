@@ -35,6 +35,11 @@ func Error(ctx context.Context, msg string, fields ...Field) {
 	extractLogger(ctx).Error(msg, fields...)
 }
 
+// DPanic is a message that panics in development, but is only logged in production.
+func DPanic(ctx context.Context, msg string, fields ...Field) {
+	extractLogger(ctx).DPanic(msg, fields...)
+}
+
 // Exit logs a message, with fields, at level FATAL and then exits with status 1.  Level fatal is
 // only appropriate for use in interactive scripts.
 func Exit(ctx context.Context, msg string, fields ...Field) {

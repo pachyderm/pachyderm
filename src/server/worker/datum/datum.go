@@ -43,7 +43,7 @@ func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string
 	}
 	shouldCreateSet := shouldCreateSetFunc(setSpec)
 	var sets []*pfs.PathRange
-	if err := iterateMeta(pachClient, commit, basePathRange, func(path string, meta *Meta) error {
+	if err := iterateMeta(pachClient.Ctx(), pachClient.PfsAPIClient, commit, basePathRange, func(path string, meta *Meta) error {
 		if shouldCreateSet(meta) {
 			pathRange.Upper = path
 			sets = append(sets, pathRange)

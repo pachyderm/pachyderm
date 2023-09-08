@@ -27,7 +27,7 @@ func newPachwBuilder(config any) *pachwBuilder {
 }
 
 func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
-	env, err := pfs_server.EnvFromServiceEnv(pachwb.env, pachwb.txnEnv)
+	env, err := PFSEnv(pachwb.env, pachwb.txnEnv)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
 
 func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 	apiServer, err := authserver.NewAuthServer(
-		authserver.EnvFromServiceEnv(pachwb.env, pachwb.txnEnv),
+		AuthEnv(pachwb.env, pachwb.txnEnv),
 		false, !pachwb.daemon.criticalServersOnly, false,
 	)
 	if err != nil {
@@ -57,14 +57,16 @@ func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 }
 
 func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error {
-	pachwb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+	pachwb.enterpriseEnv = EnterpriseEnv(
 		pachwb.env,
 		path.Join(pachwb.env.Config().EtcdPrefix, pachwb.env.Config().EnterpriseEtcdPrefix),
 		pachwb.txnEnv,
 	)
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		pachwb.enterpriseEnv,
-		false,
+		eprsserver.Config{
+			Heartbeat: false,
+		},
 	)
 	if err != nil {
 		return err
