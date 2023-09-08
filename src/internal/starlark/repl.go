@@ -19,8 +19,8 @@ import (
 )
 
 func RunShell(ctx context.Context, path string, opts Options) error {
-	_, err := run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, module string, globals starlark.StringDict) (starlark.StringDict, error) {
-		if module != "" {
+	_, err := run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in string, module string, globals starlark.StringDict) (starlark.StringDict, error) {
+		if in != "" {
 			fmt.Printf("Running %v...", module)
 			result, err := starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
 			fmt.Println("done.")
@@ -47,17 +47,29 @@ func RunShell(ctx context.Context, path string, opts Options) error {
 		for {
 			signal.Reset(os.Interrupt) // This is rude, but oh well.
 			oneCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
+			thread.Uncancel()
 			thread.SetLocal(goContextKey, oneCtx)
+			go func() {
+				<-oneCtx.Done()
+				if err := context.Cause(oneCtx); err != nil {
+					thread.Cancel(err.Error())
+				} else {
+					thread.Cancel("no context error, but context is done")
+				}
+			}()
 			if err := rep(fileOpts, rl, thread, globals); err != nil {
 				if err == readline.ErrInterrupt {
 					fmt.Println(err)
 					stop()
+					<-oneCtx.Done()
 					continue
 				}
 				stop()
+				<-oneCtx.Done()
 				break
 			}
 			stop()
+			<-oneCtx.Done()
 		}
 		return nil, nil
 	})

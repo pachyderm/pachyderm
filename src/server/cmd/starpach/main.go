@@ -82,13 +82,19 @@ func main() {
 		starErr := new(starlark.EvalError)
 		if errors.As(err, &starErr) {
 			fmt.Fprintf(os.Stderr, "%v\n", starErr.Backtrace())
+			if goErr := starErr.Unwrap(); verbose && goErr != nil {
+				v := fmt.Sprintf("%+v", goErr)
+				if v != err.Error() {
+					fmt.Fprintf(os.Stderr, "%v\n", v)
+				}
+			}
 		} else {
 			fmt.Fprintf(os.Stderr, "%v\n", err.Error())
-		}
-		if verbose {
-			v := fmt.Sprintf("%+v", err)
-			if v != err.Error() {
-				fmt.Fprintf(os.Stderr, "%v\n", v)
+			if verbose {
+				v := fmt.Sprintf("%+v", err)
+				if v != err.Error() {
+					fmt.Fprintf(os.Stderr, "%v\n", v)
+				}
 			}
 		}
 	}

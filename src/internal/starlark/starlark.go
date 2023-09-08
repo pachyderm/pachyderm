@@ -10,6 +10,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	starjson "go.starlark.net/lib/json"
+	starmath "go.starlark.net/lib/math"
+	startime "go.starlark.net/lib/time"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
 	"go.uber.org/zap"
@@ -23,6 +26,12 @@ const (
 // Modules that are available in all starpach programs.  The convention here is that built-in
 // modules are named "module", while modules in files are named something like "module.star".
 var Modules = map[string]starlark.StringDict{}
+
+func init() {
+	starlark.Universe["json"] = starjson.Module
+	starlark.Universe["time"] = startime.Module
+	starlark.Universe["math"] = starmath.Module
+}
 
 func GetContext(t *starlark.Thread) context.Context {
 	x := t.Local(goContextKey)
@@ -72,12 +81,12 @@ type Options struct {
 	ThreadLocalVars map[string]any
 }
 
-type runFn func(fileOpts *syntax.FileOptions, thread *starlark.Thread, module string, globals starlark.StringDict) (starlark.StringDict, error)
+type runFn func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in string, module string, globals starlark.StringDict) (starlark.StringDict, error)
 
-func run(rctx context.Context, path string, opts Options, f runFn) (starlark.StringDict, error) {
+func run(rctx context.Context, in string, opts Options, f runFn) (starlark.StringDict, error) {
 	ctx, c := pctx.WithCancel(rctx)
 	defer c()
-	path = filepath.Clean(path)
+	path := filepath.Clean(in)
 	dir := filepath.Dir(path)
 	abs, err := filepath.Abs(dir)
 	if err != nil {
@@ -180,11 +189,11 @@ func run(rctx context.Context, path string, opts Options, f runFn) (starlark.Str
 		}
 
 	}()
-	return f(fileOpts, thread, path, vars)
+	return f(fileOpts, thread, in, path, vars)
 }
 
 func RunProgram(ctx context.Context, path string, opts Options) (starlark.StringDict, error) {
-	return run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, module string, globals starlark.StringDict) (starlark.StringDict, error) {
+	return run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, _ string, module string, globals starlark.StringDict) (starlark.StringDict, error) {
 		return starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
 	})
 }
