@@ -3,7 +3,6 @@ package starlark
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"go.starlark.net/repl"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
 	"go.uber.org/zap"
@@ -59,7 +57,7 @@ type loadResult struct {
 	err     error
 }
 
-func NewThread(name string) *starlark.Thread {
+func newThread(name string) *starlark.Thread {
 	return &starlark.Thread{
 		Name: name,
 		Print: func(t *starlark.Thread, msg string) {
@@ -86,7 +84,7 @@ func run(rctx context.Context, path string, opts Options, f runFn) (starlark.Str
 		return nil, errors.Wrapf(err, "find absolute location of starlark file %v", path)
 	}
 
-	thread := NewThread(filepath.Base(path))
+	thread := newThread(filepath.Base(path))
 	thread.SetLocal(goContextKey, ctx)
 	thread.SetLocal(scriptDirectoryKey, abs)
 
@@ -138,12 +136,12 @@ func run(rctx context.Context, path string, opts Options, f runFn) (starlark.Str
 		// Since we're here, we want to read a file from disk and interpret it.
 		name := nameScript(thread, module)
 		ctx, done := log.SpanContext(GetContext(t), "load("+name+")")
-		newThread := NewThread(name)
-		newThread.Load = load
-		newThread.SetLocal(goContextKey, ctx)
-		newThread.SetLocal(scriptDirectoryKey, dir)
+		localThread := newThread(name)
+		localThread.Load = load
+		localThread.SetLocal(goContextKey, ctx)
+		localThread.SetLocal(scriptDirectoryKey, dir)
 		for k, v := range opts.ThreadLocalVars {
-			newThread.SetLocal(k, v)
+			localThread.SetLocal(k, v)
 		}
 
 		log.Debug(ctx, "attempting to load module from disk")
@@ -157,7 +155,7 @@ func run(rctx context.Context, path string, opts Options, f runFn) (starlark.Str
 		for k, v := range vars {
 			threadVars[k] = v
 		}
-		globals, err := starlark.ExecFileOptions(fileOpts, newThread, name, data, threadVars)
+		globals, err := starlark.ExecFileOptions(fileOpts, localThread, name, data, threadVars)
 		modules[module] = &loadResult{
 			globals: globals,
 			err:     err,
@@ -189,24 +187,4 @@ func RunProgram(ctx context.Context, path string, opts Options) (starlark.String
 	return run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, module string, globals starlark.StringDict) (starlark.StringDict, error) {
 		return starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
 	})
-}
-
-func RunShell(ctx context.Context, path string, opts Options) error {
-	_, err := run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, module string, globals starlark.StringDict) (starlark.StringDict, error) {
-		if module != "" {
-			fmt.Printf("Running %v...", module)
-			result, err := starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
-			fmt.Println("done.")
-			if err != nil {
-				return nil, errors.Wrapf(err, "run %v", module)
-			}
-			globals = result
-		}
-		for k, v := range opts.REPLPredefined {
-			globals[k] = v
-		}
-		repl.REPLOptions(fileOpts, thread, globals)
-		return nil, nil
-	})
-	return err
 }
