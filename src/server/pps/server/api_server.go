@@ -45,7 +45,6 @@ import (
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -3106,27 +3105,7 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 		}
 
 	}
-	count := 0
-	err := backoff.RetryUntilCancel(ctx, func() error { // DNJ TODO
-		count++
-		for _, p := range ps {
-			log.Info(ctx, fmt.Sprintf("DNJ TODO about to wait for pipeline stopping attempt %v", count), zap.Any("Pipeline", p))
-			pipelineInfo, err := a.inspectPipeline(ctx, p, false)
-			if err != nil {
-				log.Info(ctx, "DNJ TODO wait for pipeline stopping err", zap.Any("Pipeline", p), zap.Error(err))
-				return err
-			}
-			log.Info(ctx, "DNJ TODO wait for pipeline stopping", zap.Any("Pipeline state", pipelineInfo))
-			if !pipelineInfo.Stopped || pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
-				return errors.Errorf("Pipeline can't be deleted while not stopped. %v", pipelineInfo)
-			}
-		}
-		return nil
-	}, backoff.NewExponentialBackOff(), backoff.NotifyContinue("Waitinging for pipeline stop before delete."))
-	log.Info(ctx, "DNJ TODO done with wait for pipeline stopping", zap.Any("Pipelines", ps))
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
+
 	log.Info(ctx, "DNJ TODO about to delete listed pipelines", zap.Any("Pipelines", ps))
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var rs []*pfs.Repo
