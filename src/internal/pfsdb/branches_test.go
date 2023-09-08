@@ -29,6 +29,16 @@ func compareBranch(expected, got *pfs.Branch) bool {
 		expected.Repo.Project.Name == got.Repo.Project.Name
 }
 
+func compareBranchOpts() []cmp.Option {
+	return []cmp.Option{
+		cmpopts.IgnoreUnexported(pfs.BranchInfo{}),
+		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
+		cmpopts.EquateEmpty(),
+		cmp.Comparer(compareBranch),
+		cmp.Comparer(compareHead),
+	}
+}
+
 func TestCreateAndGetBranch(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
@@ -62,7 +72,7 @@ func TestCreateAndGetBranch(t *testing.T) {
 		require.NoError(t, err)
 		gotBranch, err := pfsdb.GetBranch(ctx, tx, id)
 		require.NoError(t, err)
-		require.True(t, cmp.Equal(branchInfo, gotBranch, cmp.Comparer(compareHead)))
+		require.True(t, cmp.Equal(branchInfo, gotBranch, compareBranchOpts()...))
 
 		// Update branch to point to second commit
 		branchInfo.Head = commit2Info.Commit
@@ -71,7 +81,7 @@ func TestCreateAndGetBranch(t *testing.T) {
 		require.Equal(t, id, id2, "UpsertBranch should keep id stable")
 		gotBranch2, err := pfsdb.GetBranch(ctx, tx, id2)
 		require.NoError(t, err)
-		require.True(t, cmp.Equal(branchInfo, gotBranch2, cmp.Comparer(compareHead)))
+		require.True(t, cmp.Equal(branchInfo, gotBranch2, compareBranchOpts()...))
 	})
 }
 
@@ -121,13 +131,7 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchInfo, err := pfsdb.GetBranch(ctx, tx, branchID)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo,
-				cmpopts.IgnoreUnexported(pfs.BranchInfo{}),
-				cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
-				cmpopts.EquateEmpty(),
-				cmp.Comparer(compareBranch),
-				cmp.Comparer(compareHead)),
-			)
+			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
 		}
 	})
 }
