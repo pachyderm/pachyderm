@@ -1253,7 +1253,6 @@ type MountState struct {
 	Status     string `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state. written by fsm
 	Mountpoint string `json:"mountpoint"` // where on the filesystem it's mounted. written by fsm. can also be derived from {MountDir}/{Name}
 	// the following are used by the "refresh" button feature in the jupyter plugin
-	ActualMountedCommit  string `json:"actual_mounted_commit"`   // the actual commit that was mounted at mount time. written by fsm
 	LatestCommit         string `json:"latest_commit"`           // the latest available commit on the branch, last time RefreshMountState() was called. written by fsm
 	HowManyCommitsBehind int    `json:"how_many_commits_behind"` // how many commits are behind the latest commit on the branch. written by fsm
 }
@@ -1301,12 +1300,12 @@ func (m *MountStateMachine) RefreshMountState() error {
 	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
 		commitInfos[i], commitInfos[j] = commitInfos[j], commitInfos[i]
 	}
-	// iterate over commits in branch, calculating how many commits behind LatestCommit ActualMountedCommit is
+	// iterate over commits in branch, calculating how many commits behind LatestCommit Commit is
 	log.Debug(pctx.TODO(), "calculating commits behind for mount", zap.String("name", m.Name))
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
-		log.Debug(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.Id), zap.String("actualMountedCommitID", m.ActualMountedCommit))
-		if commitInfo.Commit.Id == m.ActualMountedCommit {
+		log.Debug(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.Id), zap.String("mountedCommitID", m.Commit))
+		if commitInfo.Commit.Id == m.Commit {
 			indexOfCurrentCommit = i
 			break
 		}
@@ -1342,7 +1341,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 		m.Status = fmt.Sprintf(
 			"%d commits behind latest; current = %s (%d'th), latest = %s (%d'th)",
 			m.HowManyCommitsBehind,
-			first8chars(m.ActualMountedCommit),
+			first8chars(m.Commit),
 			indexOfCurrentCommit,
 			first8chars(m.LatestCommit),
 			indexOfLatestCommit,
