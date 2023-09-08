@@ -26,9 +26,11 @@ var Module = starlark.StringDict{
 		}
 		return starlark.String(result), nil
 	}),
-	"download_file": jobs.MakeStarlarkCommand[jobs.Download]("download_file"),
-	"go_binary":     jobs.MakeStarlarkCommand[jobs.GoBinary]("go_binary"),
-	"oci_layer":     jobs.MakeStarlarkCommand[jobs.FSLayer]("oci_layer"),
+	"download_file":    jobs.MakeStarlarkCommand[jobs.Download]("download_file"),
+	"go_binary":        jobs.MakeStarlarkCommand[jobs.GoBinary]("go_binary"),
+	"oci_layer":        jobs.MakeStarlarkCommand[jobs.FSLayer]("oci_layer"),
+	"oci_image_config": starlark.NewBuiltin("oci_image_config", jobs.NewImageConfigFromStarlark),
+	"oci_manifest":     jobs.MakeStarlarkCommand[jobs.Manifest]("manifest"),
 }
 
 var DebugModule = starlark.StringDict{

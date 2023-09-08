@@ -69,7 +69,7 @@ func main() {
 		for _, bin := range binaries {
 			for _, l := range jobs.PlatformLayers(bin.Outputs()) {
 				todo = append(todo, l)
-				todo = append(todo, jobs.PlatformManifest{
+				todo = append(todo, jobs.Manifest{
 					Name:     jobs.Name(l.Input.Name),
 					Config:   jobs.Name("file:docker-config"),
 					Platform: l.Input.Platform,

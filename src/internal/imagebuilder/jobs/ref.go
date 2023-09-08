@@ -172,8 +172,13 @@ func (r ReferenceList) Get(v starlark.Value) (starlark.Value, bool, error) {
 	}
 	return nil, false, errors.Errorf("cannot map reference list with %v", v)
 }
-func (r ReferenceList) Len() int                   { return len(r) }
-func (r ReferenceList) Index(i int) starlark.Value { return refWrapper{Reference: r[i]} }
+func (r ReferenceList) Len() int { return len(r) }
+func (r ReferenceList) Index(i int) starlark.Value {
+	if i < len(r) {
+		return refWrapper{Reference: r[i]}
+	}
+	return starlark.None
+}
 
 // From Hacker's Delight, section 2.8.
 func signum64(x int64) int { return int(uint64(x>>63) | uint64(-x)>>63) }
@@ -204,6 +209,7 @@ func UnpackReferences(v starlark.Value) ([]Reference, error) {
 	case starlark.Iterable: // Probably ReferenceList.
 		var result []Reference
 		iterator := x.Iterate()
+		defer iterator.Done()
 		var u starlark.Value
 		for iterator.Next(&u) {
 			refs, err := UnpackReferences(u)

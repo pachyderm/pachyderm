@@ -1,4 +1,4 @@
-load("build", "download_file", "go_binary", "path")
+load("build", "download_file", "go_binary", "oci_image_config", "oci_layer", "oci_manifest", "path")
 
 dumb_init = download_file(
     name = "dumb-init",
@@ -14,6 +14,8 @@ dumb_init = download_file(
     },
 )
 
+dumb_init_layer = oci_layer(dumb_init)
+
 worker = go_binary(
     workdir = path(".."),
     target = "./src/server/cmd/worker",
@@ -22,4 +24,17 @@ worker = go_binary(
 worker_init = go_binary(
     workdir = path(".."),
     target = "./etc/worker",
+)
+
+worker_layer = oci_layer(worker)
+worker_init_layer = oci_layer(worker_init)
+
+worker_manifest = oci_manifest(
+    name = "worker",
+    layers = [dumb_init_layer, worker_init_layer, worker_layer],
+    config = oci_image_config(
+        user = 1000,
+        working_dir = "/app",
+        exposed_ports = set([1080]),
+    ),
 )

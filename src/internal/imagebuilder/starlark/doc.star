@@ -57,11 +57,25 @@ def go_binary(workdir: string, target: string, cgo: bool = False):
 
 def oci_layer(*inputs: ReferenceList):
     """
-    Packages a filesystem into a OCI ("docker") layer.  Layers retain the platform annotation of their
+    Packages a filesystem into an OCI ("docker") layer.  Layers retain the platform annotation of their
     parent FS.
 
     Args:
         inputs: A list of inputs.  Each input becomes a new layer.
     Returns:
         A ReferenceList.
+    """
+
+def oci_manifest(name: string, config: v1.ImageConfig, layers: iterable[ReferenceList]):
+    """
+    Bundles layers into a manifest; one manifest creation job is created for each platform that
+    appears in all of the layers.
+
+    Args:
+        name: A name for the manifest.
+        config: An ImageConfig; https://github.com/opencontainers/image-spec/blob/main/config.md.  Names
+            use snake_case instead of CamelCase.
+        layers: A iterable of reference lists; each element of the iterable becomes a layer.  Each
+            reference inside becomes a manifest for that platform.  Manifests are only generated for
+            platforms that have the same number of layers.
     """
