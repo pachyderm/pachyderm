@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
 
@@ -14,6 +15,16 @@ import (
 	"go.starlark.net/starlark"
 	"go.uber.org/zap"
 )
+
+// DownloadedFile is a file that has been downloaded.
+type DownloadedFile struct {
+	NameAndPlatform
+	File *File
+}
+
+func (f *DownloadedFile) FS() fs.FS {
+	return f.File.FS()
+}
 
 // A job that downloads a file.
 type Download struct {
@@ -37,7 +48,7 @@ func (d Download) Inputs() []Reference { return nil }
 
 func (d Download) Outputs() []Reference {
 	return []Reference{
-		NameAndPlatform{Name: "download:" + d.Name, Platform: d.Platform},
+		NameAndPlatformAndFS{Name: "download:" + d.Name, Platform: d.Platform},
 	}
 }
 
@@ -181,9 +192,4 @@ func (Download) NewFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, a
 		result = append(result, j)
 	}
 	return result, nil
-}
-
-type DownloadedFile struct {
-	NameAndPlatform
-	File *File
 }
