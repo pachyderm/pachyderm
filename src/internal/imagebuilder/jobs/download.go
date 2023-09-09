@@ -69,14 +69,8 @@ func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 		return nil, WrapRetryable(errors.Wrap(err, "do HTTP request"))
 	}
 	defer errors.Close(&retErr, res.Body, "close body")
-	if got, want := res.StatusCode, http.StatusOK; got != want {
-		log.Info(ctx, "request returned an unexpected status", zap.Int("code", got), zap.Any("header", res.Header))
-		err := errors.Errorf("unexpected HTTP status %s", res.Status)
-		if got == http.StatusTooManyRequests {
-			// Don't retry if we got Too Many Requests.
-			return nil, err
-		}
-		return nil, WrapRetryable(err)
+	if err := CheckHTTPStatus(res, http.StatusOK); err != nil {
+		return nil, errors.Wrap(err, "download not done")
 	}
 	out, err := jc.Cache.NewCacheableFile("download-" + url.PathEscape(d.URL))
 	if err != nil {

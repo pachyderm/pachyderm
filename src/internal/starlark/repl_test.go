@@ -100,7 +100,7 @@ func TestCompletion(t *testing.T) {
 			ctx := pctx.TestContext(t)
 			var th *starlark.Thread
 			var g starlark.StringDict
-			run(ctx, "testdata/completion.star", Options{}, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, module string, globals starlark.StringDict) (starlark.StringDict, error) {
+			run(ctx, "testdata/completion.star", Options{}, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, path string, module string, globals starlark.StringDict) (starlark.StringDict, error) {
 				th = thread
 				g = globals
 				r, err := starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)

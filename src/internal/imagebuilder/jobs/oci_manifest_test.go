@@ -10,11 +10,13 @@ import (
 )
 
 func TestManifestJobs(t *testing.T) {
-	cfg := v1.ImageConfig{User: "test"}
+	cfg := v1.Image{
+		Author: "example@example.com",
+	}
 	testData := []struct {
 		name    string
 		input   [][]Reference
-		want    []Manifest
+		want    []BuildManifest
 		wantErr string
 	}{
 		{
@@ -26,7 +28,7 @@ func TestManifestJobs(t *testing.T) {
 				{NameAndPlatform{"a", "linux/amd64"}, NameAndPlatform{"a", "linux/arm64"}},
 				{NameAndPlatform{"b", "linux/amd64"}, NameAndPlatform{"b", "linux/arm64"}},
 			},
-			want: []Manifest{
+			want: []BuildManifest{
 				{
 					NameAndPlatform: NameAndPlatform{
 						Name:     "test",
@@ -51,7 +53,7 @@ func TestManifestJobs(t *testing.T) {
 				{NameAndPlatform{"a", "linux/amd64"}},
 				{NameAndPlatform{"b", "linux/amd64"}, NameAndPlatform{"b", "linux/arm64"}},
 			},
-			want: []Manifest{
+			want: []BuildManifest{
 				{
 					NameAndPlatform: NameAndPlatform{
 						Name:     "test",
@@ -68,7 +70,7 @@ func TestManifestJobs(t *testing.T) {
 				{Name("a")},
 				{NameAndPlatform{"b", AllPlatforms}},
 			},
-			want: []Manifest{
+			want: []BuildManifest{
 				{
 					NameAndPlatform: NameAndPlatform{
 						Name:     "test",
@@ -83,7 +85,7 @@ func TestManifestJobs(t *testing.T) {
 
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := ManifestJobs("test", cfg, test.input)
+			got, err := BuildManifestJobs("test", cfg, test.input)
 			cont := cmputil.WantErr(t, err, test.wantErr)
 			if !cont {
 				return

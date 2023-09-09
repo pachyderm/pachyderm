@@ -143,12 +143,11 @@ func startPushSession(ctx context.Context, jc *JobContext, tag Tag) (_ *url.URL,
 		return nil, errors.Wrapf(err, "do request")
 	}
 	defer errors.Close(&retErr, res.Body, "close response body")
-
-	if got, want := res.StatusCode, http.StatusAccepted; got != want {
+	if err := CheckHTTPStatus(res, http.StatusAccepted); err != nil {
 		if dump, err := httputil.DumpResponse(res, true); err == nil {
 			log.Debug(ctx, "response body", zap.ByteString("dump", dump))
 		}
-		return nil, errors.Errorf("session not created; got status %v, want status %v", got, want)
+		return nil, errors.Wrap(err, "session not created")
 	}
 	location := res.Header.Get("location")
 	if location == "" {
@@ -187,8 +186,8 @@ func uploadBlob(ctx context.Context, jc *JobContext, location string, blob Blob)
 	}
 	defer errors.Close(&retErr, res.Body, "close upload body")
 
-	if got, want := res.StatusCode, http.StatusCreated; got != want {
-		return errors.Join(registryError(res), errors.Errorf("upload not accepted; got status %v, want status %v", got, want))
+	if err := CheckHTTPStatus(res, http.StatusCreated); err != nil {
+		return errors.Join(registryError(res), errors.Wrap(err, "blob upload not accepted"))
 	}
 	return nil
 }
@@ -255,10 +254,9 @@ func pushManifest(ctx context.Context, jc *JobContext, tag Tag, m v1.Manifest) (
 	}
 	defer errors.Close(&retErr, res.Body, "manifest upload body")
 
-	if got, want := res.StatusCode, http.StatusCreated; got != want {
-		return "", errors.Join(registryError(res), errors.Errorf("manifest not accepted; got status %v, want status %v", got, want))
+	if err := CheckHTTPStatus(res, http.StatusCreated); err != nil {
+		return "", errors.Join(registryError(res), errors.Wrap(err, "manifest not accepted"))
 	}
-
 	return res.Header.Get("location"), nil
 }
 
