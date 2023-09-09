@@ -31,6 +31,7 @@ var Module = starlark.StringDict{
 	"oci_layer":          jobs.MakeStarlarkCommand[jobs.FSLayer]("oci_layer"),
 	"oci_image_config":   starlark.NewBuiltin("oci_image_config", jobs.NewImageConfigFromStarlark),
 	"oci_image_manifest": jobs.MakeStarlarkCommand[jobs.BuildManifest]("oci_image_manifest"),
+	"push_all":           jobs.MakeStarlarkCommand[jobs.DoPush]("push_all"),
 }
 
 var DebugModule = starlark.StringDict{

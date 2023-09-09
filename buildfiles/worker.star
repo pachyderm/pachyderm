@@ -1,4 +1,4 @@
-load("build", "download_file", "go_binary", "oci_image_config", "oci_image_manifest", "oci_layer", "path")
+load("build", "download_file", "go_binary", "oci_image_config", "oci_image_manifest", "oci_layer", "path", "push_all")
 
 dumb_init = download_file(
     name = "dumb-init",
@@ -38,3 +38,5 @@ worker_manifest = oci_image_manifest(
         exposed_ports = set([1080]),
     ),
 )
+
+push_all()

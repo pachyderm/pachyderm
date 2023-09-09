@@ -70,6 +70,8 @@ func (l FSLayer) Run(ctx context.Context, jc *JobContext, in []Artifact) ([]Arti
 				Platform: l.Input.Platform,
 			},
 			ContentBlob: Blob{
+				Size:   layer.Descriptor.Size,
+				SHA256: layer.SHA256,
 				Underlying: &File{
 					Name: fmt.Sprintf("layer-content:blob:%s", layer.Descriptor.Digest.Hex()),
 					Path: layer.Underlying,

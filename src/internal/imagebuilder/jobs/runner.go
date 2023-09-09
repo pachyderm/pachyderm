@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/httpclient"
@@ -47,13 +48,6 @@ func newRunner(opts ...RunnerOption) *runner {
 		r.artifacts = append(r.artifacts, opt.Artifacts...)
 	}
 	return r
-}
-
-func (r *runner) NewJobContext() *JobContext {
-	return &JobContext{
-		Cache:      r.Cache,
-		HTTPClient: http.DefaultClient,
-	}
 }
 
 // resolveInputs builds a plan for generating the desired inputs.  For each element in i, we add the
@@ -268,7 +262,8 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 	s.Next(rctx)
 
 	jc := &JobContext{
-		Cache: r.Cache,
+		allowedPushPrefixes: []string{"http://localhost:"},
+		Cache:               r.Cache,
 		HTTPClient: &http.Client{
 			Transport: &httpclient.RoundTripper{
 				RoundTripper: http.DefaultTransport,
@@ -278,6 +273,7 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 	runningJobs := make(map[uint64]Job)
 	waitingJobs := make(map[uint64]Job)
 	resultCh := make(chan jobResult)
+	var completed, total int
 
 	// Breadth-first search over the dependency graph.  We start with what we need, add jobs to
 	// satisfy those dependencies, until `want` is produced.  After each iteration that doesn't
@@ -328,6 +324,7 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 				if err := r.startJob(rctx, jc, job, runFn, resultCh); err != nil {
 					return errors.Wrapf(err, "problem starting job %v", job)
 				}
+				total++
 				runningJobs[job.ID()] = job
 				delete(waitingJobs, job.ID())
 				s.Reportf(ctx, "start job %v", job)
@@ -351,7 +348,7 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 		// If we didn't do anything this iteration, wait for a job to return.
 		if !madeProgress {
 			running := maps.Values(runningJobs)
-			s.Reportf(ctx, "wait for a job to finish; %v running", len(running))
+			s.Reportf(ctx, "%v jobs in progress", len(running))
 			if len(running) == 0 {
 				s.Reportf(ctx, "panic: deadlock; no jobs to wait for")
 				return errors.New("panic: deadlock")
@@ -359,6 +356,12 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
+			case <-time.After(time.Second):
+				if len(running) == 1 {
+					log.Info(rctx, fmt.Sprintf("%v running, %v/%v done", running, completed, total))
+				} else {
+					log.Info(rctx, fmt.Sprintf("%v running, %v/%v done", len(running), completed, total))
+				}
 			case result := <-resultCh:
 				if err := result.Err; err != nil {
 					return errors.Wrapf(err, "received error result from job %v", result.Job)
@@ -366,6 +369,7 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 				r.artifacts = append(r.artifacts, result.Artifacts...)
 				delete(runningJobs, result.Job.ID())
 				s.Reportf(ctx, "job %v finished", result.Job)
+				completed++
 			}
 		}
 		s.Next(ctx)
@@ -382,6 +386,7 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 	if len(need) > 0 {
 		return errors.New("unresolved outputs after max iteration depth; probably a bug")
 	}
+	log.Info(rctx, fmt.Sprintf("%v/%v done", completed, total))
 	return nil
 
 }

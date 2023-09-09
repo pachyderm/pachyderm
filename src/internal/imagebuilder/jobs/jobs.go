@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -36,8 +37,18 @@ type StarlarkCommand interface {
 
 // JobContext is runtime information about the job system.
 type JobContext struct {
-	Cache      *Cache
-	HTTPClient *http.Client
+	allowedPushPrefixes []string
+	Cache               *Cache
+	HTTPClient          *http.Client
+}
+
+func (jc *JobContext) PushAllowed(path string) bool {
+	for _, p := range jc.allowedPushPrefixes {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // PrintJob prints out a dump of a job.
@@ -107,16 +118,18 @@ func buildRef(v starlark.Value) ([]Reference, error) {
 		result = append(result, x...)
 		return result, nil
 	}
-	if x, ok := v.(starlark.Indexable); ok {
-		n := x.Len()
-		for i := 0; i < n; i++ {
-			r, err := buildRef(x.Index(i))
-			if err != nil {
-				return nil, errors.Wrapf(err, "*starlark.List[%d]", i)
+	if _, ok := v.(starlark.String); !ok {
+		if x, ok := v.(starlark.Indexable); ok {
+			n := x.Len()
+			for i := 0; i < n; i++ {
+				r, err := buildRef(x.Index(i))
+				if err != nil {
+					return nil, errors.Wrapf(err, "*starlark.List[%d]", i)
+				}
+				result = append(result, r...)
 			}
-			result = append(result, r...)
+			return result, nil
 		}
-		return result, nil
 	}
 	if x, ok := starlark.AsString(v); ok {
 		r, err := ParseRef(x)

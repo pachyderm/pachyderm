@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
 	"github.com/opencontainers/go-digest"
@@ -27,6 +28,10 @@ func (b Blob) String() string {
 
 func (b Blob) Digest() digest.Digest {
 	return digest.NewDigestFromBytes(digest.SHA256, b.SHA256[:])
+}
+
+func (b Blob) Open() (fs.File, error) {
+	return os.Open(b.Underlying.Path)
 }
 
 // NewBlobFromReader sets up a blob by reading an io.Reader.
@@ -75,6 +80,7 @@ func NewJSONBlob(x any) (Blob, error) {
 	if err != nil {
 		return Blob{}, errors.Wrap(err, "marshal")
 	}
+	fmt.Printf("\n%s\n", js)
 	b, err := NewBlobFromReader(bytes.NewReader(js))
 	if err != nil {
 		return Blob{}, errors.Wrap(err, "blobify")

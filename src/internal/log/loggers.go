@@ -263,7 +263,7 @@ func InitBatchLogger(logFile string) func(err error) {
 			return
 		}
 		if logFile != "" {
-			zap.L().Debug(fmt.Sprintf("logfile retained at %v", logFile), zap.Error(err))
+			zap.L().Info(fmt.Sprintf("logfile retained at %v", logFile))
 		}
 		close()
 	}

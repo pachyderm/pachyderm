@@ -53,6 +53,10 @@ func (m BuildManifest) Outputs() []Reference {
 			Name:     fmt.Sprintf("manifest:%s", m.Name),
 			Platform: m.Platform,
 		},
+		NameAndPlatform{
+			Name:     fmt.Sprintf("pushable:manifest:%s", m.Name),
+			Platform: m.Platform,
+		},
 	}
 }
 
@@ -79,6 +83,19 @@ func (m BuildManifest) Run(ctx context.Context, jc *JobContext, inputs []Artifac
 	if err != nil {
 		return nil, errors.Wrap(err, "blobify config")
 	}
+	manifest := v1.Manifest{
+		Versioned: specs.Versioned{
+			SchemaVersion: 2, // Spec says this must be 2.
+		},
+		Config: v1.Descriptor{
+			MediaType: v1.MediaTypeImageConfig,
+			Platform:  m.Platform.OCIPlatform(),
+			Digest:    cb.Digest(),
+			Size:      cb.Size,
+		},
+		MediaType: v1.MediaTypeImageManifest,
+		Layers:    layers,
+	}
 	return []Artifact{
 		Manifest{
 			NameAndPlatform: NameAndPlatform{
@@ -87,19 +104,18 @@ func (m BuildManifest) Run(ctx context.Context, jc *JobContext, inputs []Artifac
 			},
 			LayerBlobs: layerBlobs,
 			ConfigBlob: cb,
-			Manifest: v1.Manifest{
-				Versioned: specs.Versioned{
-					SchemaVersion: 2, // Spec says this must be 2.
-				},
-				Config: v1.Descriptor{
-					MediaType: v1.MediaTypeImageConfig,
-					Platform:  m.Platform.OCIPlatform(),
-					Digest:    cb.Digest(),
-					Size:      cb.Size,
-				},
-				MediaType: v1.MediaTypeImageManifest,
-				Layers:    layers,
+			Manifest:   manifest,
+		},
+		PushRequest{
+			NameAndPlatform: NameAndPlatform{
+				Name:     fmt.Sprintf("pushable:manifest:%s", m.Name),
+				Platform: m.Platform,
 			},
+			Sequence: [][]Blob{
+				layerBlobs,
+				{cb},
+			},
+			Manifest: &manifest,
 		},
 	}, nil
 }

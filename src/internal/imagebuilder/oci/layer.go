@@ -108,8 +108,6 @@ func NewLayerFromFS(f fs.FS) (layer *Layer, retErr error) {
 	outputOK = true
 	return &Layer{
 		// SHA256 and DiffID added after closing output.
-		SHA256:     [32]byte(compsha.Sum(nil)),
-		DiffID:     [32]byte(uncompsha.Sum(nil)),
 		Underlying: outfh.Name(),
 		Descriptor: v1.Descriptor{
 			MediaType: LayerMediaType,
