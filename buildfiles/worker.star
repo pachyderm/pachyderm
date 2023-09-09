@@ -1,4 +1,4 @@
-load("build", "download_file", "go_binary", "oci_image_config", "oci_layer", "oci_manifest", "path")
+load("build", "download_file", "go_binary", "oci_image_config", "oci_image_manifest", "oci_layer", "path")
 
 dumb_init = download_file(
     name = "dumb-init",
@@ -29,7 +29,7 @@ worker_init = go_binary(
 worker_layer = oci_layer(worker)
 worker_init_layer = oci_layer(worker_init)
 
-worker_manifest = oci_manifest(
+worker_manifest = oci_image_manifest(
     name = "worker",
     layers = [dumb_init_layer, worker_init_layer, worker_layer],
     config = oci_image_config(

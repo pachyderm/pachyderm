@@ -107,6 +107,7 @@ func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 		&GoBinaryFile{
 			NameAndPlatform: g.output(),
 			File: &File{
+				Name: "go_binary",
 				Path: fh.Name(),
 			},
 		},

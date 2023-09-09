@@ -5,35 +5,49 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/zeebo/xxh3"
 	"go.starlark.net/starlark"
 )
 
-// Manifest is a job that assembles an OCI manifest:
-// https://github.com/opencontainers/image-spec/blob/main/manifest.md
+// Manifest is an OCI image manifest.
 type Manifest struct {
 	NameAndPlatform
-	Config v1.ImageConfig // https://github.com/opencontainers/image-spec/blob/main/config.md
-	Layers []Reference
+	LayerBlobs []Blob
+	ConfigBlob Blob
+	Manifest   v1.Manifest
 }
 
 func (m Manifest) String() string {
-	return fmt.Sprintf("<oci-manifest %v=%v%v#%v>", m.Name, imageConfigWrapper(m.Config).String(), m.Layers, m.Platform)
+	return fmt.Sprintf("<%v@%v>", m.NameAndPlatform, m.ConfigBlob.Digest())
 }
 
-func (m Manifest) ID() uint64 {
+// BuildManifest is a job that assembles an OCI manifest:
+// https://github.com/opencontainers/image-spec/blob/main/manifest.md
+type BuildManifest struct {
+	NameAndPlatform
+	Config v1.Image // https://github.com/opencontainers/image-spec/blob/main/config.md
+	Layers []Reference
+}
+
+func (m BuildManifest) String() string {
+	return fmt.Sprintf("<oci-manifest %v=%v%v#%v>", m.Name, imageWrapper(m.Config).String(), m.Layers, m.Platform)
+}
+
+func (m BuildManifest) ID() uint64 {
 	return xxh3.HashString(fmt.Sprint(m.Name, m.Config, m.Platform, m.Layers))
 }
 
-func (m Manifest) Inputs() []Reference {
+func (m BuildManifest) Inputs() []Reference {
 	var result []Reference
 	result = append(result, m.Layers...)
 	return result
 }
 
-func (m Manifest) Outputs() []Reference {
+func (m BuildManifest) Outputs() []Reference {
 	return []Reference{
 		NameAndPlatform{
 			Name:     fmt.Sprintf("manifest:%s", m.Name),
@@ -42,45 +56,78 @@ func (m Manifest) Outputs() []Reference {
 	}
 }
 
-func (m Manifest) Run(ctx context.Context, jc *JobContext, inputs []Artifact) ([]Artifact, error) {
-	return nil, nil
-}
+func (m BuildManifest) Run(ctx context.Context, jc *JobContext, inputs []Artifact) ([]Artifact, error) {
+	var layers []v1.Descriptor
+	var layerBlobs []Blob
+	var diffIDs []digest.Digest
 
-type imageConfigWrapper v1.ImageConfig
-
-var _ starlark.Value = (*imageConfigWrapper)(nil)
-
-func (imageConfigWrapper) Freeze() {} // Always frozen.
-func (imageConfigWrapper) Hash() (uint32, error) {
-	return 0, errors.New("v1.ImageConfig is unhashable")
-}
-func (w imageConfigWrapper) Truth() starlark.Bool { return true }
-func (w imageConfigWrapper) Type() string         { return "v1.ImageConfig" }
-func (w imageConfigWrapper) String() string {
-	js, err := json.Marshal(v1.ImageConfig(w))
+	var inErr error
+	for i, input := range inputs {
+		if x, ok := input.(Layer); ok {
+			layers = append(layers, x.Descriptor)
+			layerBlobs = append(layerBlobs, x.ContentBlob)
+			diffIDs = append(diffIDs, x.DiffID)
+		} else {
+			errors.JoinInto(&inErr, errors.Errorf("input %d must be a Layer, not %v", i, input))
+		}
+	}
+	if err := inErr; err != nil {
+		return nil, err
+	}
+	m.Config.RootFS.DiffIDs = diffIDs
+	cb, err := NewJSONBlob(m.Config)
 	if err != nil {
-		return fmt.Sprintf("%#v", v1.ImageConfig(w))
+		return nil, errors.Wrap(err, "blobify config")
+	}
+	return []Artifact{
+		Manifest{
+			NameAndPlatform: NameAndPlatform{
+				Name:     fmt.Sprintf("manifest:%s", m.Name),
+				Platform: m.Platform,
+			},
+			LayerBlobs: layerBlobs,
+			ConfigBlob: cb,
+			Manifest: v1.Manifest{
+				Versioned: specs.Versioned{
+					SchemaVersion: 2, // Spec says this must be 2.
+				},
+				Config: v1.Descriptor{
+					MediaType: v1.MediaTypeImageConfig,
+					Platform:  m.Platform.OCIPlatform(),
+					Digest:    cb.Digest(),
+					Size:      cb.Size,
+				},
+				MediaType: v1.MediaTypeImageManifest,
+				Layers:    layers,
+			},
+		},
+	}, nil
+}
+
+type imageWrapper v1.Image
+
+var _ starlark.Value = (*imageWrapper)(nil)
+
+func (imageWrapper) Freeze() {} // Always frozen.
+func (imageWrapper) Hash() (uint32, error) {
+	return 0, errors.New("v1.Image is unhashable")
+}
+func (w imageWrapper) Truth() starlark.Bool { return true }
+func (w imageWrapper) Type() string         { return "v1.ImageConfig" }
+func (w imageWrapper) String() string {
+	js, err := json.Marshal(v1.Image(w))
+	if err != nil {
+		return fmt.Sprintf("%#v", v1.Image(w))
 	}
 	return string(js)
 }
 
 // NewImageConfigFromStarlark builds a v1.ImageConfig from Starlark.
 func NewImageConfigFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	var workingDir string
-	var user, stopSignal starlark.Value
-	var exposedPorts, volumes *starlark.Set
-	var env, entrypoint, cmd *starlark.List
-	var labels map[string]string
 	if len(args) != 0 {
 		return nil, errors.New("unexpected positional args")
 	}
-	if err := starlark.UnpackArgs(fn.Name(), args, kwargs, "user?", &user, "exposed_ports?", &exposedPorts, "env?", &env, "entrypoint?", &entrypoint, "cmd?", &cmd, "volumes", &volumes, "working_dir", &workingDir, "labels", &labels, "stop_signal", &stopSignal); err != nil {
-		return nil, errors.Wrap(err, "unpack args")
-	}
-	return &imageConfigWrapper{
-		WorkingDir: workingDir,
-		Labels:     labels,
-	}, nil
+	return &imageWrapper{}, nil
 }
 
 // NewFromStarlark builds manifest jobs.
@@ -89,10 +136,10 @@ func NewImageConfigFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, a
 // The iterable should yield sets of references that become each layer.  They are shareded by
 // platform into a separate manifest job for each platform.  If there are a different number of
 // layers between platforms, an error is returned.
-func (Manifest) NewFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) ([]Job, error) {
+func (BuildManifest) NewFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) ([]Job, error) {
 	var name string
 	var layerIter starlark.Iterable
-	var config *imageConfigWrapper
+	var config *imageWrapper
 	if err := starlark.UnpackArgs("oci_manifest", args, kwargs, "name", &name, "layers", &layerIter, "config", &config); err != nil {
 		return nil, errors.Wrap(err, "unpack args")
 	}
@@ -112,7 +159,7 @@ func (Manifest) NewFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, a
 		}
 		layers = append(layers, refs)
 	}
-	manifests, err := ManifestJobs(name, v1.ImageConfig(*config), layers)
+	manifests, err := BuildManifestJobs(name, v1.Image(*config), layers)
 	if err != nil {
 		return nil, errors.Wrap(err, "create manifest jobs")
 	}
@@ -123,7 +170,7 @@ func (Manifest) NewFromStarlark(thread *starlark.Thread, fn *starlark.Builtin, a
 	return jobs, nil
 }
 
-func ManifestJobs(name string, config v1.ImageConfig, layers [][]Reference) ([]Manifest, error) {
+func BuildManifestJobs(name string, config v1.Image, layers [][]Reference) ([]BuildManifest, error) {
 	var allPlatformLayers []Reference
 	platformLayers := make(map[Platform][]Reference)
 
@@ -152,7 +199,7 @@ func ManifestJobs(name string, config v1.ImageConfig, layers [][]Reference) ([]M
 		if len(layers) == 0 {
 			return nil, nil
 		}
-		return []Manifest{
+		return []BuildManifest{
 			{
 				NameAndPlatform: NameAndPlatform{
 					Name:     name,
@@ -194,12 +241,12 @@ func ManifestJobs(name string, config v1.ImageConfig, layers [][]Reference) ([]M
 		n = max(n, len(layers))
 	}
 	// Build the manifests.
-	var result []Manifest
+	var result []BuildManifest
 	for p, layers := range platformLayers {
 		if len(layers) != n {
 			continue
 		}
-		result = append(result, Manifest{
+		result = append(result, BuildManifest{
 			NameAndPlatform: NameAndPlatform{
 				Name:     name,
 				Platform: p,

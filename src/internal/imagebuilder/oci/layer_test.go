@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/klauspost/compress/zstd"
+	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -40,35 +41,42 @@ func TestLayer(t *testing.T) {
 		}
 	})
 
-	sha, gotFS := readTarZst(t, layer.Underlying)
+	csha, ucsha, gotFS := readTarZst(t, layer.Underlying)
 	if diff := cmp.Diff(wantFS, gotFS); diff != "" {
 		t.Errorf("data (-want +got):\n%s", diff)
 	}
 
-	wantDescriptor := v1.Descriptor{
-		MediaType: "application/vnd.oci.image.layer.v1.tar+zstd",
-		Digest:    sha256Hex(sha),
-		Size:      142,
+	want := &Layer{
+		Underlying: layer.Underlying,
+		SHA256:     [32]byte(csha),
+		DiffID:     [32]byte(ucsha),
+		Descriptor: v1.Descriptor{
+			MediaType: "application/vnd.oci.image.layer.v1.tar+zstd",
+			Digest:    digest.NewDigestFromBytes(digest.SHA256, csha),
+			Size:      142,
+		},
 	}
-	if diff := cmp.Diff(wantDescriptor, layer.Descriptor); diff != "" {
-		t.Errorf("descriptor (-want +got):\n%s", diff)
+	if diff := cmp.Diff(want, layer); diff != "" {
+		t.Errorf("layer (-want +got):\n%s", diff)
 	}
 }
 
-func readTarZst(t *testing.T, underlying string) ([]byte, fstest.MapFS) {
+func readTarZst(t *testing.T, underlying string) ([]byte, []byte, fstest.MapFS) {
 	t.Helper()
 	result := make(fstest.MapFS)
 	infh, err := os.Open(underlying)
 	if err != nil {
 		t.Fatalf("open underlying tar.zst: %v", err)
 	}
-	sha := sha256.New()
-	tee := io.TeeReader(infh, sha)
-	zst, err := zstd.NewReader(tee)
+	csha := sha256.New()
+	ctee := io.TeeReader(infh, csha)
+	zst, err := zstd.NewReader(ctee)
 	if err != nil {
 		t.Fatalf("create zstd reader: %v", err)
 	}
-	tr := tar.NewReader(zst)
+	ucsha := sha256.New()
+	uctee := io.TeeReader(zst, ucsha)
+	tr := tar.NewReader(uctee)
 	for {
 		header, err := tr.Next()
 		if err != nil {
@@ -87,5 +95,5 @@ func readTarZst(t *testing.T, underlying string) ([]byte, fstest.MapFS) {
 		file.Mode = fs.FileMode(header.Mode)
 		file.Data = buf.Bytes()
 	}
-	return sha.Sum(nil), result
+	return csha.Sum(nil), ucsha.Sum(nil), result
 }

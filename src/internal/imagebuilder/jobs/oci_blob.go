@@ -1,11 +1,14 @@
 package jobs
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
@@ -14,11 +17,16 @@ import (
 // blob for the actual layer content (typically a tar.gz/tar.zst filesystem image).
 type Blob struct {
 	SHA256     [sha256.Size]byte
+	Size       int64
 	Underlying *File
 }
 
 func (b Blob) String() string {
 	return fmt.Sprintf("blob:sha256:%x", b.SHA256)
+}
+
+func (b Blob) Digest() digest.Digest {
+	return digest.NewDigestFromBytes(digest.SHA256, b.SHA256[:])
 }
 
 // NewBlobFromReader sets up a blob by reading an io.Reader.
@@ -36,7 +44,8 @@ func NewBlobFromReader(r io.Reader) (_ Blob, retErr error) {
 	}()
 	h := sha256.New()
 	mw := io.MultiWriter(f, h)
-	if _, err := io.Copy(mw, r); err != nil {
+	n, err := io.Copy(mw, r)
+	if err != nil {
 		return Blob{}, errors.Wrap(err, "write out blob")
 	}
 	keepFile = true
@@ -44,6 +53,7 @@ func NewBlobFromReader(r io.Reader) (_ Blob, retErr error) {
 	copy(sum[:], h.Sum(nil))
 	return Blob{
 		SHA256: sum,
+		Size:   n,
 		Underlying: &File{
 			Name: fmt.Sprintf("file:blob:%x", sum),
 			Path: f.Name(),
@@ -53,4 +63,21 @@ func NewBlobFromReader(r io.Reader) (_ Blob, retErr error) {
 			},
 		},
 	}, nil
+}
+
+func NewJSONBlob(x any) (Blob, error) {
+	// This should use "canonical JSON", but all of the libraries for that seem to be
+	// abandonware.  The idea is that every time you marshal the same Go object, you get the
+	// same bytes out.  That doesn't really matter to us.  The things that would be the same
+	// across releases (like config.json) aren't very big, so if we send a new blob with the
+	// same content as an existing blob, oh well.
+	js, err := json.Marshal(x)
+	if err != nil {
+		return Blob{}, errors.Wrap(err, "marshal")
+	}
+	b, err := NewBlobFromReader(bytes.NewReader(js))
+	if err != nil {
+		return Blob{}, errors.Wrap(err, "blobify")
+	}
+	return b, nil
 }

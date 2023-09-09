@@ -3,7 +3,10 @@ package cmds
 import (
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/imagebuilder/jobs"
 	ibstar "github.com/pachyderm/pachyderm/v2/src/internal/imagebuilder/starlark"
 	"github.com/pachyderm/pachyderm/v2/src/internal/starlark"
 	"github.com/spf13/cobra"
@@ -43,23 +46,70 @@ var shell = &cobra.Command{
 }
 
 var plan = &cobra.Command{
-	Use:   "plan <workflow.star>",
-	Short: "Show the steps necessary to run the build specified by the named starpach build file.",
-	Args:  cobra.MatchAll(cobra.ExactArgs(1), fileMustExist(0)),
+	Use:   "plan <workflow.star> ref [... refs]",
+	Short: "Show the steps necessary to produce the referenced artifacts using the provided workflow.",
+	Args:  cobra.MatchAll(cobra.MinimumNArgs(1), fileMustExist(0)),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		in := args[0]
 		ctx := cmd.Context()
-		out, err := starlark.RunProgram(ctx, in, starlark.Options{
+		if _, err := starlark.RunProgram(ctx, in, starlark.Options{
 			ThreadLocalVars: ibstar.ThreadLocals,
-		})
+		}); err != nil {
+			return errors.Wrap(err, "eval")
+		}
+		var refs []jobs.Reference
+		for i, x := range args[1:] {
+			ref, err := jobs.ParseRef(x)
+			if err != nil {
+				return errors.Wrapf(err, "parse ref[%d]", i)
+			}
+			refs = append(refs, ref)
+		}
+		js := ibstar.ThreadLocals[jobs.StarlarkRegistryKey].(*jobs.Registry)
+		plan, err := jobs.Plan(ctx, js.Jobs, refs)
+		if err != nil {
+			return errors.Wrap(err, "plan")
+		}
+		fmt.Println(plan.String())
+		return nil
+	},
+}
+
+var run = &cobra.Command{
+	Use:   "run <workflow.star> ref [... refs]",
+	Short: "Build the referenced artifacts using the provided workflow.",
+	Args:  cobra.MatchAll(cobra.MinimumNArgs(1), fileMustExist(0)),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		start := time.Now()
+		in := args[0]
+		ctx := cmd.Context()
+		if _, err := starlark.RunProgram(ctx, in, starlark.Options{
+			ThreadLocalVars: ibstar.ThreadLocals,
+		}); err != nil {
+			return errors.Wrap(err, "eval")
+		}
+		var refs []jobs.Reference
+		for i, x := range args[1:] {
+			ref, err := jobs.ParseRef(x)
+			if err != nil {
+				return errors.Wrapf(err, "parse ref[%d]", i)
+			}
+			refs = append(refs, ref)
+		}
+		js := ibstar.ThreadLocals[jobs.StarlarkRegistryKey].(*jobs.Registry)
+		got, err := jobs.Resolve(ctx, js.Jobs, refs)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%v", out)
+		fmt.Println("Resulting artifacts:")
+		for _, a := range got {
+			fmt.Printf("    %v\n", a)
+		}
+		fmt.Printf("Build finished in %v\n", time.Since(start).Round(time.Millisecond))
 		return nil
 	},
 }
 
 func init() {
-	Root.AddCommand(plan, shell)
+	Root.AddCommand(run, plan, shell)
 }

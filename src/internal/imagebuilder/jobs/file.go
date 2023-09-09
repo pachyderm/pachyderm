@@ -1,12 +1,9 @@
 package jobs
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
-	"testing/fstest"
-	"time"
 )
 
 // WithFS is something representend by a filesystem.
@@ -16,9 +13,10 @@ type WithFS interface {
 
 // File represents something on disk (including directories).
 type File struct {
-	Name   string
-	Path   string
-	Digest Digest
+	Name      string
+	Path      string
+	Directory bool
+	Digest    Digest
 }
 
 func (f *File) String() string {
@@ -29,31 +27,9 @@ func (f *File) String() string {
 }
 
 func (f *File) FS() fs.FS {
-	return os.DirFS(f.Path)
-}
-
-type MemFile struct {
-	Name
-	fs fs.FS
-}
-
-func (f *MemFile) FS() fs.FS {
-	return f.fs
-}
-
-func JSONFile(name Name, filename string, x any) (*MemFile, error) {
-	js, err := json.Marshal(x)
-	if err != nil {
-		return nil, err
+	if f.Directory {
+		return os.DirFS(f.Path)
+	} else {
+		return &FileFS{Name: f.Name, Path: f.Path, Mode: 0o666}
 	}
-	return &MemFile{
-		Name: name,
-		fs: fstest.MapFS{
-			filename: &fstest.MapFile{
-				Data:    js,
-				Mode:    0o600,
-				ModTime: time.Now(),
-			},
-		},
-	}, nil
 }

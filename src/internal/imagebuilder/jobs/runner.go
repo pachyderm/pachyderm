@@ -101,13 +101,13 @@ func (r *runner) resolveInputs(want []Reference) ([]Artifact, []Job, error) {
 }
 
 func dedupJobs(jobs ...Job) []Job {
-	result := make(map[Job]struct{})
+	result := make(map[uint64]Job)
 	for _, j := range jobs {
 		if j != nil {
-			result[j] = struct{}{}
+			result[j.ID()] = j
 		}
 	}
-	return maps.Keys(result)
+	return maps.Values(result)
 }
 
 // AddJob adds a job to potentially run.
@@ -228,6 +228,9 @@ type PlanOutput [][]string
 func (p PlanOutput) String() string {
 	b := new(strings.Builder)
 	for i, paragraph := range p {
+		if i == len(p)-1 && len(paragraph) == 0 {
+			break
+		}
 		fmt.Fprintf(b, "step %d:\n", i)
 		for _, line := range paragraph {
 			fmt.Fprintf(b, "    %v\n", line)
@@ -348,7 +351,7 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 		// If we didn't do anything this iteration, wait for a job to return.
 		if !madeProgress {
 			running := maps.Values(runningJobs)
-			s.Reportf(ctx, "wait for a job to finish; one of %v", running)
+			s.Reportf(ctx, "wait for a job to finish; %v running", len(running))
 			if len(running) == 0 {
 				s.Reportf(ctx, "panic: deadlock; no jobs to wait for")
 				return errors.New("panic: deadlock")
@@ -405,7 +408,7 @@ func Resolve(ctx context.Context, jobs []Job, want []Reference, opts ...RunnerOp
 		}
 	}
 	if err := r.run(ctx, want, runRealJob, logStepReceiver{}); err != nil {
-		return nil, errors.Wrap(err, "resolve")
+		return nil, errors.Wrap(err, "run")
 	}
 	var output []Artifact
 	for _, ref := range want {

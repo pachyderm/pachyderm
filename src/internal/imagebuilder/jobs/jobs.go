@@ -7,8 +7,10 @@ import (
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	ourstar "github.com/pachyderm/pachyderm/v2/src/internal/starlark"
 	"go.starlark.net/starlark"
+	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 )
 
@@ -64,6 +66,9 @@ func MakeStarlarkCommand[T StarlarkCommand](name string) starlark.Value {
 		js, err := job.NewFromStarlark(thread, fn, args, kwargs)
 		if err != nil {
 			return nil, err
+		}
+		for _, j := range js {
+			log.Debug(ourstar.GetContext(thread), "registered a new job via starlark", zap.Any("job", j))
 		}
 		var outputs ReferenceList
 		for _, j := range js {

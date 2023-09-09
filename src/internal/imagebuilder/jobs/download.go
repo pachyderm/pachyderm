@@ -70,7 +70,13 @@ func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 	}
 	defer errors.Close(&retErr, res.Body, "close body")
 	if got, want := res.StatusCode, http.StatusOK; got != want {
-		return nil, WrapRetryable(errors.Errorf("unexpected HTTP status %s", res.Status))
+		log.Info(ctx, "request returned an unexpected status", zap.Int("code", got), zap.Any("header", res.Header))
+		err := errors.Errorf("unexpected HTTP status %s", res.Status)
+		if got == http.StatusTooManyRequests {
+			// Don't retry if we got Too Many Requests.
+			return nil, err
+		}
+		return nil, WrapRetryable(err)
 	}
 	out, err := jc.Cache.NewCacheableFile("download-" + url.PathEscape(d.URL))
 	if err != nil {
@@ -102,6 +108,7 @@ func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 				Platform: d.Platform,
 			},
 			File: &File{
+				Name: "download:" + d.Name + ":tar.zstd",
 				Path: out.Path(),
 				Digest: Digest{
 					Algorithm: "blake3",

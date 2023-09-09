@@ -1,11 +1,11 @@
 package jobs
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 
+	"github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/imagebuilder/oci"
 	"github.com/zeebo/xxh3"
@@ -15,7 +15,9 @@ import (
 // Layer represents an image layer.
 type Layer struct {
 	NameAndPlatform
-	Content, Descriptor Blob
+	Descriptor  v1.Descriptor
+	ContentBlob Blob
+	DiffID      digest.Digest
 }
 
 var _ Reference = (*Layer)(nil)
@@ -41,11 +43,9 @@ func (l FSLayer) Inputs() []Reference {
 
 func (l FSLayer) Outputs() []Reference {
 	return []Reference{
-		Layer{
-			NameAndPlatform: NameAndPlatform{
-				Name:     "layer:" + l.Input.Name,
-				Platform: l.Input.Platform,
-			},
+		NameAndPlatform{
+			Name:     "layer:" + l.Input.Name,
+			Platform: l.Input.Platform,
 		},
 	}
 }
@@ -63,28 +63,24 @@ func (l FSLayer) Run(ctx context.Context, jc *JobContext, in []Artifact) ([]Arti
 		return nil, errors.Wrap(err, "build layer blob")
 	}
 	layer.Descriptor.Platform = l.Input.Platform.OCIPlatform()
-
-	js, err := json.Marshal(layer.Descriptor)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal layer descriptor")
-	}
-	db, err := NewBlobFromReader(bytes.NewReader(js))
-	if err != nil {
-		return nil, errors.Wrap(err, "blobify layer descriptor")
-	}
 	return []Artifact{
 		Layer{
 			NameAndPlatform: NameAndPlatform{
 				Name:     "layer:" + l.Input.Name,
 				Platform: l.Input.Platform,
 			},
-			Content: Blob{
+			ContentBlob: Blob{
 				Underlying: &File{
 					Name: fmt.Sprintf("layer-content:blob:%s", layer.Descriptor.Digest.Hex()),
 					Path: layer.Underlying,
+					Digest: Digest{
+						Algorithm: "sha256",
+						Value:     layer.SHA256[:],
+					},
 				},
 			},
-			Descriptor: db,
+			Descriptor: layer.Descriptor,
+			DiffID:     layer.DiffIDAsDigest(),
 		},
 	}, nil
 }

@@ -3,7 +3,6 @@ package oci
 import (
 	"archive/tar"
 	"crypto/sha256"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -21,6 +20,14 @@ type Layer struct {
 	Underlying string
 	// OCI Layer descriptor.
 	Descriptor v1.Descriptor
+	// Digest of the compressed archive.
+	SHA256 [sha256.Size]byte
+	// Digest of the uncompressed archive.
+	DiffID [sha256.Size]byte
+}
+
+func (l *Layer) DiffIDAsDigest() digest.Digest {
+	return digest.NewDigestFromBytes(digest.SHA256, l.DiffID[:])
 }
 
 type countWriter struct{ n int }
@@ -30,24 +37,23 @@ func (w *countWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func sha256Hex(b []byte) digest.Digest {
-	// The digest.Digest library is crazy.
-	return digest.Digest(fmt.Sprintf("sha256:%x", b))
-}
-
 func NewLayerFromFS(f fs.FS) (layer *Layer, retErr error) {
 	outfh, err := os.CreateTemp("", "layer-*.tar.zst")
 	if err != nil {
 		return nil, errors.Wrap(err, "create underlying file")
 	}
-	sha := sha256.New()
+	compsha := sha256.New()
+	uncompsha := sha256.New() // Nothing better than having to use the slowest hash TWICE.
 	cw := new(countWriter)
-	out := io.MultiWriter(outfh, sha, cw)
+	out := io.MultiWriter(outfh, compsha, cw)
 	var outputOK bool
 	defer func() {
 		if layer != nil {
+			d := compsha.Sum(nil)
+			copy(layer.SHA256[:], d)
+			copy(layer.DiffID[:], uncompsha.Sum(nil))
 			layer.Descriptor.Size = int64(cw.n)
-			layer.Descriptor.Digest = sha256Hex(sha.Sum(nil))
+			layer.Descriptor.Digest = digest.NewDigestFromBytes(digest.SHA256, d)
 		}
 		if !outputOK {
 			errors.JoinInto(&retErr, errors.Wrap(os.Remove(outfh.Name()), "remove partial output file"))
@@ -55,16 +61,18 @@ func NewLayerFromFS(f fs.FS) (layer *Layer, retErr error) {
 	}()
 	defer errors.Close(&retErr, outfh, "close underlying file")
 
-	zst, err := zstd.NewWriter(out, zstd.WithEncoderLevel(zstd.SpeedBestCompression))
+	// TODO: let a slower option be passesd in for release builds
+	zst, err := zstd.NewWriter(out, zstd.WithEncoderLevel(zstd.SpeedFastest))
 	if err != nil {
 		return nil, errors.Wrap(err, "create zstd writer")
 	}
 	defer errors.Close(&retErr, zst, "close zstd writer")
 
-	tw := tar.NewWriter(zst)
+	comp := io.MultiWriter(zst, uncompsha)
+	tw := tar.NewWriter(comp)
 	defer errors.Close(&retErr, tw, "close tar writer")
 
-	if err := fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) (walkErr error) {
 		if err != nil {
 			return err
 		}
@@ -75,7 +83,9 @@ func NewLayerFromFS(f fs.FS) (layer *Layer, retErr error) {
 		if err != nil {
 			return errors.Wrapf(err, "open input file %v", path)
 		}
-		info, err := fs.Stat(f, path)
+		defer errors.Close(&walkErr, infh, "close input file %v", infh)
+
+		info, err := infh.Stat()
 		if err != nil {
 			return errors.Wrapf(err, "stat %v", path)
 		}
@@ -97,10 +107,13 @@ func NewLayerFromFS(f fs.FS) (layer *Layer, retErr error) {
 
 	outputOK = true
 	return &Layer{
+		// SHA256 and DiffID added after closing output.
+		SHA256:     [32]byte(compsha.Sum(nil)),
+		DiffID:     [32]byte(uncompsha.Sum(nil)),
 		Underlying: outfh.Name(),
 		Descriptor: v1.Descriptor{
 			MediaType: LayerMediaType,
-			Size:      int64(cw.n),
+			// Size and Digest added after closing output.
 		},
 	}, nil
 }

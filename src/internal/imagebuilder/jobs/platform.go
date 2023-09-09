@@ -88,6 +88,7 @@ func (p Platform) GOARCH() string {
 	return a
 }
 
+// Variant returns the architecture variant, like "v6" for arm32v6.
 func (p Platform) Variant() (variant string, ok bool) {
 	a := p.Architecture()
 	if i := strings.Index(a, "arm32"); i > 0 {
@@ -96,7 +97,8 @@ func (p Platform) Variant() (variant string, ok bool) {
 	return "", false
 }
 
-// GOARM returns the $GOARM environment variable for this platform.
+// GOARM returns the $GOARM environment variable for this platform.  Note that this does not have
+// the "v".
 func (p Platform) GOARM() (value string, needed bool) {
 	variant, ok := p.Variant()
 	if ok && len(variant) == 2 {
@@ -106,7 +108,11 @@ func (p Platform) GOARM() (value string, needed bool) {
 	return "", false
 }
 
+// OCIPlatform fills in the Platform element of a Descriptor.
 func (p Platform) OCIPlatform() *v1.Platform {
+	if p == AllPlatforms {
+		return nil
+	}
 	result := &v1.Platform{
 		Architecture: p.Architecture(),
 		OS:           p.OS(),

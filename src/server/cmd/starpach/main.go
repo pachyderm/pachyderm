@@ -15,12 +15,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/spf13/cobra"
 	"go.starlark.net/starlark"
+	"go.uber.org/zap"
 )
 
 var (
 	verbose    bool
 	profile    bool
-	profileF   *os.File
+	gofh, stfh *os.File
 	logFile    string
 	endLogging func(error)
 	timeout    time.Duration
@@ -34,27 +35,45 @@ var (
 				log.SetLevel(log.DebugLevel)
 			}
 			endLogging = log.InitBatchLogger(logFile)
+
+			ctx, stopSignals := signal.NotifyContext(pctx.Background(""), os.Interrupt)
+			stop := func() { stopSignals() }
+			go func() {
+				<-ctx.Done()
+				stop()
+			}()
 			if timeout > 0 {
-				ctx, _ := context.WithTimeout(cmd.Context(), timeout)
-				cmd.SetContext(ctx)
+				var c func()
+				ctx, c = context.WithTimeout(cmd.Context(), timeout)
+				stop = func() { stopSignals(); c() }
 			}
+			cmd.SetContext(ctx)
 			if profile {
 				var err error
-				profileF, err = os.Create("/tmp/pprof.go.out")
+				gofh, err = os.Create(fmt.Sprintf("/tmp/pprof.%v.go.out", os.Getpid()))
 				if err != nil {
 					return errors.Wrap(err, "create file for cpu profile")
 				}
-				if err := pprof.StartCPUProfile(profileF); err != nil {
-					return errors.Wrap(err, "start cpu profile")
+				if err := pprof.StartCPUProfile(gofh); err != nil {
+					log.Info(ctx, "failed to start go profiler", zap.Error(err))
+				}
+				stfh, err = os.Create(fmt.Sprintf("/tmp/pprof.%v.starlark.out", os.Getpid()))
+				if err != nil {
+					return errors.Wrap(err, "create file for cpu profile")
+				}
+				if err := starlark.StartProfile(stfh); err != nil {
+					log.Info(ctx, "failed to start starlark profiler", zap.Error(err))
 				}
 			}
 			return nil
 		},
-		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			if profile {
+				defer errors.Close(&retErr, gofh, "close go profile")
+				defer errors.Close(&retErr, stfh, "close starlark profile")
 				pprof.StopCPUProfile()
-				if err := profileF.Close(); err != nil {
-					return errors.Wrap(err, "close cpu profile file")
+				if err := starlark.StopProfile(); err != nil {
+					return errors.Wrap(err, "stop starlark profiler")
 				}
 			}
 			return nil
@@ -71,13 +90,7 @@ func init() {
 }
 
 func main() {
-	// TODO: always log to a file; delete file if command exits 0.
-	ctx, stop := signal.NotifyContext(pctx.Background(""), os.Interrupt)
-	go func() {
-		<-ctx.Done()
-		stop()
-	}()
-	err := root.ExecuteContext(ctx)
+	err := root.ExecuteContext(pctx.Background(""))
 	if err != nil {
 		starErr := new(starlark.EvalError)
 		if errors.As(err, &starErr) {
