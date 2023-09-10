@@ -84,6 +84,8 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		return 0, errors.Errorf("head commit required")
 	}
 	var branchID BranchID
+	// TODO stop matching on pfs.commits.commit_id, because that will eventually be deprecated.
+	// Instead, construct the commit_id based on existing project, repo, and commit_set_id fields.
 	if err := tx.QueryRowContext(ctx,
 		`
 		INSERT INTO pfs.branches(repo_id, name, head)
