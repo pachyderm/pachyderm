@@ -262,6 +262,11 @@ func InitBatchLogger(logFile string) func(err error) {
 			}
 			return
 		}
+		// If we're exiting because of a context being canceled, give those goroutines a
+		// little time to do IO and notice that the context is dead.  That way, their final
+		// errors go to the log file and don't print an error about trying to write to the
+		// closed log file.  (Needed 800us in testing.)
+		time.Sleep(5 * time.Millisecond)
 		if logFile != "" {
 			zap.L().Info(fmt.Sprintf("logfile retained at %v", logFile))
 		}

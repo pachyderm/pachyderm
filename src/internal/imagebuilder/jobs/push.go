@@ -97,9 +97,14 @@ func (p DoPush) Run(ctx context.Context, jc *JobContext, inputs []Artifact) ([]A
 	var result []string
 	var pushErrs error
 	var manifestURL string
-	for _, preq := range reqs {
-		for _, seq := range preq.Sequence {
+	for _, req := range reqs {
+		for _, seq := range req.Sequence {
 			for _, blob := range seq {
+				select {
+				case <-ctx.Done():
+					continue
+				default:
+				}
 				if err := pushBlob(ctx, jc, p.Tag, blob); err != nil {
 					errors.JoinInto(&pushErrs, fmt.Errorf("push blob %v: %w", blob.Digest(), err))
 					continue
@@ -107,7 +112,12 @@ func (p DoPush) Run(ctx context.Context, jc *JobContext, inputs []Artifact) ([]A
 				result = append(result, string(blob.Digest()))
 			}
 		}
-		if m := preq.Manifest; m != nil {
+		if m := req.Manifest; m != nil {
+			select {
+			case <-ctx.Done():
+				continue
+			default:
+			}
 			var err error
 			manifestURL, err = pushManifest(ctx, jc, p.Tag, *m)
 			if err != nil {

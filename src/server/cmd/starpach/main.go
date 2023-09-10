@@ -46,7 +46,7 @@ var (
 			}()
 			if timeout > 0 {
 				var c func()
-				ctx, c = context.WithTimeout(cmd.Context(), timeout)
+				ctx, c = context.WithTimeout(ctx, timeout)
 				stop = func() { stopSignals(); c() }
 			}
 			cmd.SetContext(ctx)

@@ -150,6 +150,7 @@ func runRealJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact)
 					// Don't retry if the context is done.
 					return nil, errors.Join(context.Cause(ctx), err)
 				case <-time.After(retryable.Delay):
+					log.Debug(ctx, "retrying job")
 				}
 				continue
 			}
@@ -351,7 +352,11 @@ func (r *runner) run(rctx context.Context, want []Reference, runFn runJobFn, s s
 		// If we didn't do anything this iteration, wait for a job to return.
 		if !madeProgress {
 			running := maps.Values(runningJobs)
-			s.Reportf(ctx, "%v jobs in progress", len(running))
+			jobs := "jobs"
+			if len(running) == 1 {
+				jobs = "job"
+			}
+			s.Reportf(ctx, "%v %v in progress", len(running), jobs)
 			if len(running) == 0 {
 				s.Reportf(ctx, "panic: deadlock; no jobs to wait for")
 				return errors.New("panic: deadlock")
