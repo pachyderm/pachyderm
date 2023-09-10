@@ -53,7 +53,7 @@ func TestLayer(t *testing.T) {
 		Descriptor: v1.Descriptor{
 			MediaType: "application/vnd.oci.image.layer.v1.tar+zstd",
 			Digest:    digest.NewDigestFromBytes(digest.SHA256, csha),
-			Size:      142,
+			Size:      158,
 		},
 	}
 	if diff := cmp.Diff(want, layer); diff != "" {

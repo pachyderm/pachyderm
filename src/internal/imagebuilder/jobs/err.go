@@ -2,12 +2,15 @@ package jobs
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // Retryable is an error that indicates an operation is retryable.
-type Retryable struct{}
+type Retryable struct {
+	Delay time.Duration
+}
 
 func (*Retryable) Is(target error) bool {
 	_, ok := target.(*Retryable)
@@ -19,7 +22,7 @@ func WrapRetryable(err error) error {
 	if err == nil {
 		return nil
 	}
-	return errors.Join(err, &Retryable{})
+	return errors.Join(err, &Retryable{Delay: time.Second})
 }
 
 // CheckHTTPStatus checks that the response code in got equals want.  If not, an error is returned.

@@ -140,7 +140,7 @@ func startPushSession(ctx context.Context, jc *JobContext, tag Tag) (_ *url.URL,
 	}
 	res, err := jc.HTTPClient.Do(req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "do request")
+		return nil, WrapRetryable(errors.Wrapf(err, "do request"))
 	}
 	defer errors.Close(&retErr, res.Body, "close response body")
 	if err := CheckHTTPStatus(res, http.StatusAccepted); err != nil {
@@ -182,7 +182,7 @@ func uploadBlob(ctx context.Context, jc *JobContext, location string, blob Blob)
 	req.Header.Set("content-type", "application/octet-stream")
 	res, err := jc.HTTPClient.Do(req)
 	if err != nil {
-		return errors.Wrapf(err, "do upload request")
+		return WrapRetryable(errors.Wrapf(err, "do upload request"))
 	}
 	defer errors.Close(&retErr, res.Body, "close upload body")
 
@@ -250,7 +250,7 @@ func pushManifest(ctx context.Context, jc *JobContext, tag Tag, m v1.Manifest) (
 	req.Header.Set("content-type", v1.MediaTypeImageManifest)
 	res, err := jc.HTTPClient.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, "do upload request")
+		return "", WrapRetryable(errors.Wrapf(err, "do upload request"))
 	}
 	defer errors.Close(&retErr, res.Body, "manifest upload body")
 

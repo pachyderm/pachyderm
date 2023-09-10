@@ -51,14 +51,6 @@ func (f *FileFS) Open(x string) (fs.File, error) {
 	return nil, fs.ErrNotExist
 }
 
-func (f *FileFS) direntry() fs.DirEntry {
-	i := &fsFileInfo{
-		name: f.Name,
-		mode: f.Mode,
-	}
-	return fs.FileInfoToDirEntry(i)
-}
-
 type fsFileHandle struct {
 	io.Reader
 	fs       *FileFS
@@ -77,7 +69,7 @@ func (h *fsFileHandle) Close() error {
 
 func (h *fsFileHandle) Stat() (fs.FileInfo, error) {
 	if i := h.origInfo; i != nil {
-		return i, nil
+		return &fsFileInfo{name: h.fs.Name, mode: i.Mode(), size: i.Size()}, nil
 	}
 	return &fsFileInfo{name: h.fs.Name, mode: h.fs.Mode, size: int64(len(h.fs.Data))}, nil
 }
@@ -103,7 +95,15 @@ func (h *fsDirHandle) Stat() (fs.FileInfo, error) {
 	}, nil
 }
 func (h *fsDirHandle) ReadDir(n int) ([]fs.DirEntry, error) {
-	all := []fs.DirEntry{h.fs.direntry()}
+	fh, err := h.fs.Open(h.fs.Name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "open %v for stat", h.fs.Name)
+	}
+	info, err := fh.Stat()
+	if err != nil {
+		return nil, errors.Wrapf(err, "stat %v", h.fs.Name)
+	}
+	all := []fs.DirEntry{fs.FileInfoToDirEntry(info)}
 	switch {
 	case !h.returnedDir && n == -1:
 		h.returnedDir = true

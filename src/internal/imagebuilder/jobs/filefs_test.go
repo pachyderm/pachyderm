@@ -1,7 +1,6 @@
 package jobs
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 	"golang.org/x/exp/maps"
 )
 

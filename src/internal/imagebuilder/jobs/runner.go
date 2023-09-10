@@ -143,12 +143,13 @@ func runRealJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact)
 		var outputs []Artifact
 		outputs, err = job.Run(ctx, jc, inputs)
 		if err != nil {
-			if errors.Is(err, &Retryable{}) {
-				// Don't retry if the context is done.
+			retryable := &Retryable{}
+			if errors.As(err, &retryable) {
 				select {
 				case <-ctx.Done():
+					// Don't retry if the context is done.
 					return nil, errors.Join(context.Cause(ctx), err)
-				default:
+				case <-time.After(retryable.Delay):
 				}
 				continue
 			}
