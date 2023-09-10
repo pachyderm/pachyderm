@@ -8,6 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+// SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
+// TODO this can be moved to a more generic package.
 func SliceDiff[K comparable, V any](a []V, b []V, key func(V) K) []V {
 	m := make(map[K]bool)
 	for _, item := range b {
