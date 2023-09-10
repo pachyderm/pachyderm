@@ -80,7 +80,6 @@ func NewJSONBlob(x any) (Blob, error) {
 	if err != nil {
 		return Blob{}, errors.Wrap(err, "marshal")
 	}
-	fmt.Printf("\n%s\n", js)
 	b, err := NewBlobFromReader(bytes.NewReader(js))
 	if err != nil {
 		return Blob{}, errors.Wrap(err, "blobify")

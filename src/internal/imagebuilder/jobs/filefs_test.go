@@ -48,16 +48,6 @@ func TestFileFS(t *testing.T) {
 			if err := fstest.TestFS(test.fs, maps.Keys(test.want)...); err != nil {
 				t.Errorf("TestFS: %v", err)
 			}
-			{
-				find, err := fsutil.Find(test.fs)
-				if err != nil {
-					t.Fatal(err)
-				}
-				for _, r := range find {
-					fmt.Printf("%s\n", r)
-				}
-			}
-
 			got := make(map[string]string)
 			err := fs.WalkDir(test.fs, ".", func(path string, d fs.DirEntry, err error) error {
 				if err != nil {

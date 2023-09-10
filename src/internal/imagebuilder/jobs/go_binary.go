@@ -103,13 +103,14 @@ func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 	if err := cmd.Run(); err != nil {
 		return nil, errors.Wrap(err, "go build")
 	}
+	file := &File{
+		Name: "go_binary",
+		Path: fh.Name(),
+	}
 	return []Artifact{
 		&GoBinaryFile{
 			NameAndPlatform: g.output(),
-			File: &File{
-				Name: "go_binary",
-				Path: fh.Name(),
-			},
+			File:            file,
 		},
 	}, nil
 }

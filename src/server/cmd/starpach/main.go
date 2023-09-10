@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.starlark.net/starlark"
 	"go.uber.org/zap"
+
+	_ "github.com/pachyderm/pachyderm/v2/src/internal/fsutil/starlark"
 )
 
 var (

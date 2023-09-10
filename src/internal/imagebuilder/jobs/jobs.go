@@ -193,7 +193,29 @@ var globalRegistryMethods = map[string]starlark.Value{
 		}
 		return ourstar.ReflectList(result), nil
 	}),
-	"jobs": new(registryJobs),
+	"jobs": starlark.NewBuiltin("jobs", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		if len(args) > 0 {
+			return nil, errors.New("unexpected args")
+		}
+		if len(kwargs) > 0 {
+			return nil, errors.New("unexpected kwargs")
+		}
+		return ourstar.ReflectList(GetRegistry(thread).Jobs), nil
+	}),
+	"outputs": starlark.NewBuiltin("outputs", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		if len(args) > 0 {
+			return nil, errors.New("unexpected args")
+		}
+		if len(kwargs) > 0 {
+			return nil, errors.New("unexpected kwargs")
+		}
+		reg := GetRegistry(thread)
+		result, err := Outputs(reg.Jobs)
+		if err != nil {
+			return nil, errors.Wrap(err, "generate outputs")
+		}
+		return ReferenceList(result), nil
+	}),
 }
 
 var _ starlark.Value = (*GlobalRegistry)(nil)
@@ -215,16 +237,4 @@ func (r *GlobalRegistry) AttrNames() []string { return maps.Keys(globalRegistryM
 
 func GetRegistry(thread *starlark.Thread) *Registry {
 	return thread.Local(StarlarkRegistryKey).(*Registry) // let this panic
-}
-
-type registryJobs struct{}
-
-func (registryJobs) String() string        { return "<jobs>" }
-func (registryJobs) Type() string          { return "jobslist" }
-func (registryJobs) Name() string          { return "jobslist" }
-func (registryJobs) Truth() starlark.Bool  { return true }
-func (registryJobs) Hash() (uint32, error) { return 42, nil }
-func (registryJobs) Freeze()               {}
-func (registryJobs) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	return ourstar.ReflectList(GetRegistry(thread).Jobs), nil
 }

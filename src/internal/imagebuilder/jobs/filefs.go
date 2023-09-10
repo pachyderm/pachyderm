@@ -33,9 +33,14 @@ func (f *FileFS) Open(x string) (fs.File, error) {
 			if err != nil {
 				return nil, errors.Wrap(err, "open original disk file")
 			}
+			info, err := orig.Stat()
+			if err != nil {
+				return nil, errors.Wrap(err, "stat original disk file")
+			}
 			return &fsFileHandle{
-				Reader: orig,
-				fs:     f,
+				Reader:   orig,
+				fs:       f,
+				origInfo: info,
 			}, nil
 		}
 		return &fsFileHandle{
@@ -46,17 +51,18 @@ func (f *FileFS) Open(x string) (fs.File, error) {
 	return nil, fs.ErrNotExist
 }
 
-func (f *FileFS) info() *fsFileInfo {
-	return &fsFileInfo{
+func (f *FileFS) direntry() fs.DirEntry {
+	i := &fsFileInfo{
 		name: f.Name,
-		size: int64(len(f.Data)),
 		mode: f.Mode,
 	}
+	return fs.FileInfoToDirEntry(i)
 }
 
 type fsFileHandle struct {
 	io.Reader
-	fs *FileFS
+	fs       *FileFS
+	origInfo fs.FileInfo
 }
 
 var _ fs.File = (*fsFileHandle)(nil)
@@ -70,7 +76,10 @@ func (h *fsFileHandle) Close() error {
 }
 
 func (h *fsFileHandle) Stat() (fs.FileInfo, error) {
-	return h.fs.info(), nil
+	if i := h.origInfo; i != nil {
+		return i, nil
+	}
+	return &fsFileInfo{name: h.fs.Name, mode: h.fs.Mode, size: int64(len(h.fs.Data))}, nil
 }
 
 type fsDirHandle struct {
@@ -94,7 +103,7 @@ func (h *fsDirHandle) Stat() (fs.FileInfo, error) {
 	}, nil
 }
 func (h *fsDirHandle) ReadDir(n int) ([]fs.DirEntry, error) {
-	all := []fs.DirEntry{h.fs.info()}
+	all := []fs.DirEntry{h.fs.direntry()}
 	switch {
 	case !h.returnedDir && n == -1:
 		h.returnedDir = true
