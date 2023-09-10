@@ -83,7 +83,7 @@ func (g GoBinary) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 	}
 	defer errors.Close(&retErr, fh, "close output")
 
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", fh.Name(), g.Target)
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", fh.Name(), "-trimpath", g.Target)
 	cmd.Dir = g.Workdir
 	if arm, ok := g.Platform.GOARM(); ok {
 		cmd.Env = append(cmd.Env, "GOARM="+arm)
