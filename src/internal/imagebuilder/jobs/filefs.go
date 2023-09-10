@@ -29,7 +29,14 @@ func (f *FileFS) Open(x string) (fs.File, error) {
 		return &fsDirHandle{fs: f}, nil
 	case f.Name:
 		if f.Path != "" {
-			return os.Open(f.Path)
+			orig, err := os.Open(f.Path)
+			if err != nil {
+				return nil, errors.Wrap(err, "open original disk file")
+			}
+			return &fsFileHandle{
+				Reader: orig,
+				fs:     f,
+			}, nil
 		}
 		return &fsFileHandle{
 			Reader: bytes.NewReader(f.Data),
@@ -54,16 +61,24 @@ type fsFileHandle struct {
 
 var _ fs.File = (*fsFileHandle)(nil)
 
-func (*fsFileHandle) Close() error { return nil }
+func (h *fsFileHandle) Close() error {
+	if c, ok := h.Reader.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
+
+}
+
 func (h *fsFileHandle) Stat() (fs.FileInfo, error) {
 	return h.fs.info(), nil
 }
 
 type fsDirHandle struct {
-	name string
-	size int64
-	mode fs.FileMode
-	fs   *FileFS
+	name        string
+	size        int64
+	mode        fs.FileMode
+	fs          *FileFS
+	returnedDir bool
 }
 
 var _ fs.File = (*fsDirHandle)(nil)
@@ -79,10 +94,21 @@ func (h *fsDirHandle) Stat() (fs.FileInfo, error) {
 	}, nil
 }
 func (h *fsDirHandle) ReadDir(n int) ([]fs.DirEntry, error) {
-	if n == 0 {
+	all := []fs.DirEntry{h.fs.info()}
+	switch {
+	case !h.returnedDir && n == -1:
+		h.returnedDir = true
+		return all, nil
+	case h.returnedDir && n == -1:
+		return nil, nil
+	case !h.returnedDir && n > 0:
+		h.returnedDir = true
+		return all, io.EOF
+	case h.returnedDir && n > 0:
+		return nil, io.EOF
+	default:
 		return nil, fs.ErrInvalid
 	}
-	return []fs.DirEntry{h.fs.info()}, nil
 }
 
 type fsFileInfo struct {

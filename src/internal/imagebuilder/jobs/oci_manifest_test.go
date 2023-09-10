@@ -90,7 +90,7 @@ func TestManifestJobs(t *testing.T) {
 			if !cont {
 				return
 			}
-			sortManifests := func(a, b Manifest) bool {
+			sortManifests := func(a, b BuildManifest) bool {
 				return a.NameAndPlatform.String() < b.NameAndPlatform.String()
 			}
 			if diff := cmp.Diff(test.want, got, cmpopts.SortSlices(sortManifests), cmpopts.EquateEmpty()); diff != "" {

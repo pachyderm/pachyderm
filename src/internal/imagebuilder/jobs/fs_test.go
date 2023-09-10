@@ -1,14 +1,18 @@
 package jobs
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"io/fs"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
+	"golang.org/x/exp/maps"
 )
 
 func TestFileFS(t *testing.T) {
@@ -41,6 +45,19 @@ func TestFileFS(t *testing.T) {
 
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
+			if err := fstest.TestFS(test.fs, maps.Keys(test.want)...); err != nil {
+				t.Errorf("TestFS: %v", err)
+			}
+			{
+				find, err := fsutil.Find(test.fs)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, r := range find {
+					fmt.Printf("%s\n", r)
+				}
+			}
+
 			got := make(map[string]string)
 			err := fs.WalkDir(test.fs, ".", func(path string, d fs.DirEntry, err error) error {
 				if err != nil {

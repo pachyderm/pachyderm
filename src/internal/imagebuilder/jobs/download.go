@@ -93,7 +93,21 @@ func (d Download) Run(ctx context.Context, jc *JobContext, inputs []Artifact) (_
 		hv = h.Sum(nil)
 	}
 	if !bytes.Equal(hv, d.WantDigest.Value) {
-		return nil, errors.Errorf("Downloaded file failed integrity check:\n   got: %s:%x\n  want: %s:%x", d.WantDigest.Algorithm, hv, d.WantDigest.Algorithm, d.WantDigest.Value)
+		err := errors.Errorf("Downloaded file failed integrity check:\n   got: %s:%x\n  want: %s:%x", d.WantDigest.Algorithm, hv, d.WantDigest.Algorithm, d.WantDigest.Value)
+		// This is retryable because I've seen many CI jobs fail because garbage bytes are
+		// downloaded instead of the ones we want!  I assume that we get "200 OK This server
+		// is currently broken but it sent headers before determining that."  To be fair,
+		// src/internal/archiveserver does the same thing when the requests starts off
+		// successful but a read error occurs mid-download; the response will be successful,
+		// but it contains a file that indicates an error occurred.  Retrying the request in
+		// that case is the right thing to do, and I think it applies more generally.
+		if allZeros(d.WantDigest.Value) {
+			// Special case: the job doesn't have an exepcted digest, so someone is
+			// running this to figure out what the digest actually is.  This is not a
+			// great practice, but I'd do it.
+			return nil, err
+		}
+		return nil, WrapRetryable(err)
 	}
 	return []Artifact{
 		&DownloadedFile{

@@ -11,6 +11,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 )
 
 const LayerMediaType = "application/vnd.oci.image.layer.v1.tar+zstd"
@@ -89,11 +90,15 @@ func NewLayerFromFS(f fs.FS) (layer *Layer, retErr error) {
 		if err != nil {
 			return errors.Wrapf(err, "stat %v", path)
 		}
+		uid, _ := fsutil.FileUID(info)
+		gid, _ := fsutil.FileGID(info)
 		if err := tw.WriteHeader(&tar.Header{
 			Name:    path,
 			Size:    info.Size(),
 			Mode:    int64(info.Mode()),
 			ModTime: info.ModTime(),
+			Uid:     int(uid),
+			Gid:     int(gid),
 		}); err != nil {
 			return errors.Wrapf(err, "write tar header for %v", path)
 		}
