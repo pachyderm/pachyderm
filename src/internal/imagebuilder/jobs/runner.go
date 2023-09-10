@@ -174,7 +174,8 @@ func runFakeJob(ctx context.Context, job Job, jc *JobContext, inputs []Artifact)
 }
 
 // runJob starts a job running, eventually sending validated results to doneCh.
-func (r *runner) startJob(ctx context.Context, jc *JobContext, job Job, runJob runJobFn, doneCh chan<- jobResult) error {
+func (r *runner) startJob(rctx context.Context, jc *JobContext, job Job, runJob runJobFn, doneCh chan<- jobResult) error {
+	ctx, done := log.SpanContext(rctx, "runJob", zap.Uint64("jobid", job.ID()))
 	inputs, jobs, err := r.resolveInputs(job.Inputs())
 	if err != nil {
 		return errors.Wrap(err, "unable to resolve job inputs")
@@ -206,8 +207,10 @@ func (r *runner) startJob(ctx context.Context, jc *JobContext, job Job, runJob r
 		outputs, err := do()
 		select {
 		case <-ctx.Done():
+			done(zap.Error(context.Cause(ctx)))
 			return
 		case doneCh <- jobResult{Job: job, Artifacts: outputs, Err: err}:
+			done(zap.Error(err))
 		}
 	}()
 	return nil
