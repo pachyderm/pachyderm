@@ -54,8 +54,9 @@ func TestCreateAndGetBranch(t *testing.T) {
 		commit1Info := &pfs.CommitInfo{Commit: &pfs.Commit{Repo: repoInfo.Repo, Id: random.String(32)}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}}
 		commit2Info := &pfs.CommitInfo{Commit: &pfs.Commit{Repo: repoInfo.Repo, Id: random.String(32)}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}, ParentCommit: commit1Info.Commit}
 		for _, commitInfo := range []*pfs.CommitInfo{commit1Info, commit2Info} {
+			// Note that commitsCol implicity creates an entry in pfs.commits table via a PutHook
+			// TODO replace this with pfsdb.CreateCommit
 			require.NoError(t, commitsCol.ReadWrite(tx).Put(commitInfo.Commit, commitInfo))
-			require.NoError(t, pfsdb.AddCommit(tx, commitInfo.Commit))
 		}
 
 		branchInfo := &pfs.BranchInfo{
@@ -105,8 +106,9 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 		commitBInfo := &pfs.CommitInfo{Commit: &pfs.Commit{Repo: repoBInfo.Repo, Id: commitSetID}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}}
 		commitCInfo := &pfs.CommitInfo{Commit: &pfs.Commit{Repo: repoCInfo.Repo, Id: commitSetID}, Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO}}
 		for _, commitInfo := range []*pfs.CommitInfo{commitAInfo, commitBInfo, commitCInfo} {
+			// Note that commitsCol implicity creates an entry in pfs.commits table via a PutHook
+			// TODO replace this with pfsdb.CreateCommit
 			require.NoError(t, commitsCol.ReadWrite(tx).Put(commitInfo.Commit, commitInfo))
-			require.NoError(t, pfsdb.AddCommit(tx, commitInfo.Commit))
 		}
 		// Create 3 branches, one for each repo, pointing to the corresponding commit
 		branchAInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Name: "master", Repo: repoAInfo.Repo}, Head: commitAInfo.Commit}
