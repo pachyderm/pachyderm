@@ -215,8 +215,6 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
-		ChildCommits:   commitInfo.ChildCommits,
-		ParentCommit:   commitInfo.ParentCommit,
 	}
 	namedStmt, err := tx.PrepareNamedContext(ctx, createCommit)
 	if err != nil {
@@ -546,8 +544,6 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
-		ChildCommits:   commitInfo.ChildCommits,
-		ParentCommit:   commitInfo.ParentCommit,
 	}
 	query := updateCommit
 	_, err := tx.NamedExecContext(ctx, query, update)

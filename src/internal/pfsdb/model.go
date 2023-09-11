@@ -100,8 +100,6 @@ type Commit struct {
 	ValidatingTime int64         `db:"validating_time_s"`
 	Error          string        `db:"error"`
 	Size           int64         `db:"size"`
-	ParentCommit   *pfs.Commit   `db:"parent_commit"`
-	ChildCommits   []*pfs.Commit `db:"child_commits"`
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	Repo       Repo           `db:"repo"`
