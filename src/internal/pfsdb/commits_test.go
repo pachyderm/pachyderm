@@ -372,6 +372,30 @@ func TestUpdateCommitRemoveParent(t *testing.T) {
 	})
 }
 
+func TestUpdateCommitWithChildren(t *testing.T) {
+	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			childInfo := testCommit(ctx, t, tx, testRepoName)
+			_, err := pfsdb.CreateCommit(ctx, tx, childInfo)
+			require.NoError(t, err, "should be able to create child commit")
+			createBranch(ctx, t, tx, childInfo.Commit)
+			commitInfo := testCommit(ctx, t, tx, testRepoName)
+			commitInfo.ChildCommits = append(commitInfo.ChildCommits, childInfo.Commit)
+			id, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
+			require.NoError(t, err, "should be able to create commit")
+			childInfo2 := testCommit(ctx, t, tx, testRepoName)
+			_, err = pfsdb.CreateCommit(ctx, tx, childInfo2)
+			require.NoError(t, err, "should be able to create child commit 2")
+			commitInfo.Started = timestamppb.New(time.Now())
+			commitInfo.ChildCommits = append(commitInfo.ChildCommits, childInfo2.Commit)
+			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, id, commitInfo), "should be able to update commit")
+			getInfo, err := pfsdb.GetCommit(ctx, tx, id)
+			require.NoError(t, err, "should be able to get commit")
+			commitsMatch(t, getInfo, commitInfo)
+		})
+	})
+}
+
 func TestUpdateCommitRemoveChild(t *testing.T) {
 	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
@@ -557,8 +581,13 @@ func commitsMatch(t *testing.T, a, b *pfs.CommitInfo) {
 	}
 	require.Equal(t, len(a.ChildCommits), len(b.ChildCommits))
 	if len(a.ChildCommits) != 0 || len(b.ChildCommits) != 0 {
-		for i := range a.ChildCommits {
-			require.Equal(t, a.ChildCommits[i], b.ChildCommits[i])
+		childMap := make(map[string]*pfs.Commit)
+		for _, commit := range a.ChildCommits {
+			childMap[pfsdb.CommitKey(commit)] = commit
+		}
+		for _, commit := range b.ChildCommits {
+			require.Equal(t, commit.Id, childMap[pfsdb.CommitKey(commit)].Id)
+			require.Equal(t, commit.Repo.Name, childMap[pfsdb.CommitKey(commit)].Repo.Name)
 		}
 	}
 }
