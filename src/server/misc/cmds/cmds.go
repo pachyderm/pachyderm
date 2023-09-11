@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
@@ -263,9 +265,24 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 			}
 
 			// If at least one arg, figure out if we can decode it.
-			md, ok := all[args[0]]
-			if !ok {
-				return errors.Errorf("no known message %q", args[0])
+			// If the message type is "@", then we'll try every possible message
+			// below.  md will be nil. "@" was chosen for not needing to be
+			// escaped from shells.
+			var suppressErrors bool
+			var mds []protoreflect.MessageDescriptor
+			if args[0] != "@" {
+				md, ok := all[args[0]]
+				if !ok {
+					return errors.Errorf("no known message %q", args[0])
+				}
+				mds = append(mds, md)
+			} else {
+				suppressErrors = true
+				try := maps.Keys(all)
+				sort.Strings(try)
+				for _, name := range try {
+					mds = append(mds, all[name])
+				}
 			}
 
 			// If a second arg, don't read stdin.
@@ -280,6 +297,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 					return errors.Wrap(err, "read stdin")
 				}
 			}
+
 			// Decode the transport encoding.
 			raw, err := decodeBinfmt(input, decodeProtoFormat)
 			if err != nil {
@@ -287,36 +305,48 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 			}
 
 			// Decode the actual protobuf data.
-			m, err := decodeBinaryProto(md, raw)
-			if err != nil {
-				n := min(len(raw), 10)
-				dots := ""
-				if len(raw) > n {
-					dots = "..."
+			for _, md := range mds {
+				m, err := decodeBinaryProto(md, raw)
+				if err != nil {
+					if suppressErrors {
+						continue
+					}
+					n := min(len(raw), 10)
+					dots := ""
+					if len(raw) > n {
+						dots = "..."
+					}
+					return errors.Wrapf(err, "unmarshal binary %x%s", raw[:n], dots)
 				}
-				return errors.Wrapf(err, "unmarshal binary %x%s", raw[:n], dots)
+				// Print the message out as JSON.
+				mo := protojson.MarshalOptions{
+					Indent:    "  ",
+					Multiline: true,
+				}
+				if decodeCompact {
+					mo = protojson.MarshalOptions{}
+				}
+				js, err := mo.Marshal(m)
+				if err != nil {
+					// If we can't do JSON for some reason, we can at least do
+					// something.  And exit non-zero to not mess up scripts.
+					fmt.Fprintf(os.Stderr, "%s\n", m)
+					if suppressErrors {
+						continue
+					}
+					return errors.Wrap(err, "marshal to json")
+				}
+				if !suppressErrors || !bytes.Equal(js, []byte("{}")) {
+					if suppressErrors {
+						fmt.Printf("%s: ", md.FullName())
+					}
+					fmt.Printf("%s\n", js)
+				}
 			}
-
-			// Print the message out as JSON.
-			mo := protojson.MarshalOptions{
-				Indent:    "  ",
-				Multiline: true,
-			}
-			if decodeCompact {
-				mo = protojson.MarshalOptions{}
-			}
-			js, err := mo.Marshal(m)
-			if err != nil {
-				// If we can't do JSON for some reason, we can at least do
-				// something.  And exit non-zero to not mess up scripts.
-				fmt.Fprintf(os.Stderr, "%s\n", m)
-				return errors.Wrap(err, "marshal to json")
-			}
-			fmt.Printf("%s\n", js)
 			return nil
 		}),
 	}
-	decodeProto.PersistentFlags().StringVarP(&decodeProtoFormat, "format", "f", "hex", "The format of binary data to read; 'hex', 'base64', or 'raw'")
+	decodeProto.PersistentFlags().StringVarP(&decodeProtoFormat, "format", "f", "hex", "The format of binary data to read; 'go', 'hex', 'base64', or 'raw'")
 	decodeProto.PersistentFlags().BoolVarP(&decodeCompact, "compact", "c", false, "If true, print the output on a single line.")
 	commands = append(commands, cmdutil.CreateAlias(decodeProto, "misc decode-proto"))
 

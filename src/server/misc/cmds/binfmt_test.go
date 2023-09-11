@@ -56,6 +56,24 @@ func TestDecodeBinfmt(t *testing.T) {
 			want:  []byte("this is a test\n"),
 		},
 		{
+			name:  "go byte slice",
+			fmt:   "go",
+			input: []byte(`[]byte("\x01\x02")`),
+			want:  []byte{1, 2},
+		},
+		{
+			name:  "go string",
+			fmt:   "go",
+			input: []byte(`"\x01\x02"`),
+			want:  []byte{1, 2},
+		},
+		{
+			name:    "invalid go (number)",
+			fmt:     "go",
+			input:   []byte(`123`),
+			wantErr: true,
+		},
+		{
 			name:    "invalid base64",
 			fmt:     "base64",
 			input:   []byte("this is not base64"),

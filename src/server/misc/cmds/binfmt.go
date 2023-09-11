@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"strconv"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -56,6 +60,52 @@ func decodeBinfmt(input []byte, format string) ([]byte, error) {
 			return nil, errors.Wrap(err, "decode base64")
 		}
 		raw = raw[:n]
+	case "go":
+		// A go value, like []byte("\x01\x02").  These come from fuzz tests corpora.
+		fs := token.NewFileSet()
+		expr, err := parser.ParseExprFrom(fs, "(arg)", input, 0)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse expr")
+		}
+		switch x := expr.(type) {
+		case *ast.CallExpr:
+			if len(x.Args) != 1 {
+				return nil, errors.New("expected exactly 1 argument to call")
+			}
+			arg := x.Args[0]
+
+			arrayType, ok := x.Fun.(*ast.ArrayType)
+			if !ok {
+				return nil, errors.New("expected array constructor")
+			}
+			if arrayType.Len != nil {
+				return nil, errors.New("expected []byte or primitive type")
+			}
+			elt, ok := arrayType.Elt.(*ast.Ident)
+			if !ok || elt.Name != "byte" {
+				return nil, errors.New("expected []byte")
+			}
+			lit, ok := arg.(*ast.BasicLit)
+			if !ok || lit.Kind != token.STRING {
+				return nil, errors.New("string literal required for type []byte")
+			}
+			s, err := strconv.Unquote(lit.Value)
+			if err != nil {
+				return nil, errors.Wrap(err, "unquote")
+			}
+			return []byte(s), nil
+		case *ast.BasicLit:
+			if x.Kind != token.STRING {
+				return nil, errors.New("string literal required")
+			}
+			s, err := strconv.Unquote(x.Value)
+			if err != nil {
+				return nil, errors.Wrap(err, "unquote")
+			}
+			return []byte(s), nil
+		default:
+			return nil, errors.Errorf("unknown go expression %v", expr)
+		}
 	case "raw":
 		// Passthrough.
 		raw = input
