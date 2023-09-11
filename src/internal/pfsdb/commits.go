@@ -262,24 +262,6 @@ func CreateCommitParent(ctx context.Context, tx *pachsql.Tx, parentCommit *pfs.C
 	return nil
 }
 
-// CreateCommitChild inserts a single ancestry relationship where the parent is known and child must be derived.
-func CreateCommitChild(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID, childCommit *pfs.Commit) error {
-	ancestryQuery := `
-		INSERT INTO pfs.commit_ancestry
-		(parent, child)
-		VALUES ($1, (SELECT int_id FROM pfs.commits WHERE commit_id=$2))
-		ON CONFLICT DO NOTHING;
-	`
-	_, err := tx.ExecContext(ctx, ancestryQuery, parentCommit, CommitKey(childCommit))
-	if err != nil {
-		if IsChildCommitNotFound(err) {
-			return ErrChildCommitNotFound{ParentRowID: parentCommit}
-		}
-		return errors.Wrap(err, "putting commit child")
-	}
-	return nil
-}
-
 // CreateCommitAncestries inserts ancestry relationships where the ids of both parent and children are known.
 func CreateCommitAncestries(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID, childrenCommits []CommitID) error {
 	ancestryQueryTemplate := `
@@ -304,28 +286,6 @@ func CreateCommitAncestries(ctx context.Context, tx *pachsql.Tx, parentCommit Co
 			return ErrChildCommitNotFound{ParentRowID: parentCommit}
 		}
 		return errors.Wrap(err, "putting commit children")
-	}
-	return nil
-}
-
-// CreateCommitAncestryByCommitKeys inserts a single ancestry relationship where the ids of both parent and child need to be derived.
-func CreateCommitAncestryByCommitKeys(ctx context.Context, tx *pachsql.Tx, parentCommit, childCommit *pfs.Commit) error {
-	ancestryQuery := `
-		INSERT INTO pfs.commit_ancestry
-		(parent, child)
-		VALUES ((SELECT int_id FROM pfs.commits WHERE commit_id=$1), 
-		        (SELECT int_id FROM pfs.commits WHERE commit_id=$2))
-		ON CONFLICT DO NOTHING;
-	`
-	_, err := tx.ExecContext(ctx, ancestryQuery, CommitKey(parentCommit), CommitKey(childCommit))
-	if err != nil {
-		if IsChildCommitNotFound(err) {
-			return ErrChildCommitNotFound{ParentCommitID: CommitKey(parentCommit)}
-		}
-		if IsParentCommitNotFound(err) {
-			return ErrParentCommitNotFound{ChildCommitID: CommitKey(childCommit)}
-		}
-		return errors.Wrap(err, "putting commit")
 	}
 	return nil
 }

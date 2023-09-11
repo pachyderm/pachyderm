@@ -461,14 +461,14 @@ func TestListCommit(t *testing.T) {
 					commitInfo.ParentCommit = prevCommit.Commit
 				}
 				expectedInfos[i] = commitInfo
-				_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
+				commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 				require.NoError(t, err, "should be able to create commit")
 				createBranch(ctx, t, tx, commitInfo.Commit)
 				if i == 0 { // the first commit will be missing branch information, so we need to add it.
 					require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo))
 				}
 				if prevCommit != nil {
-					require.NoError(t, pfsdb.CreateCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
+					require.NoError(t, pfsdb.CreateCommitParent(ctx, tx, prevCommit.Commit, commitID))
 					expectedInfos[i-1].ChildCommits = append(expectedInfos[i-1].ChildCommits, commitInfo.Commit)
 				}
 				prevCommit = commitInfo
@@ -495,14 +495,14 @@ func TestListCommitRev(t *testing.T) {
 					commitInfo.ParentCommit = prevCommit.Commit
 				}
 				expectedInfos[i] = commitInfo
-				_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
+				commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 				require.NoError(t, err, "should be able to create commit")
 				createBranch(ctx, t, tx, commitInfo.Commit)
 				if i == size-1 { // the first commit will be missing branch information, so we need to add it.
 					require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo))
 				}
 				if prevCommit != nil {
-					require.NoError(t, pfsdb.CreateCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
+					require.NoError(t, pfsdb.CreateCommitParent(ctx, tx, prevCommit.Commit, commitID))
 					expectedInfos[i+1].ChildCommits = append(expectedInfos[i+1].ChildCommits, commitInfo.Commit)
 				}
 				prevCommit = commitInfo
