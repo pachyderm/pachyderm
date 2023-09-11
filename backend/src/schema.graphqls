@@ -862,6 +862,10 @@ input FileDownloadArgs {
   paths: [String!]!
 }
 
+type GetClusterDefaultsResp {
+  clusterDefaultsJson: String
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -902,6 +906,9 @@ type Query {
   getPermissions(args: GetPermissionsArgs!): GetPermissionsResp
   getRoles(args: GetRolesArgs!): GetRolesResp
   getAuthorize(args: GetAuthorizeArgs!): GetAuthorizeResp
+
+  # Cluster Defaults
+  getClusterDefaults: GetClusterDefaultsResp
 }
 
 type Subscription {
@@ -931,11 +938,43 @@ input FinishCommitArgs {
   projectId: String!
 }
 
+input CreatePipelineV2Args {
+  createPipelineRequestJson: String # a JSON-encoded CreatePipelineRequest
+  dryRun: Boolean
+  update: Boolean
+  reprocess: Boolean
+}
+
+type CreatePipelineV2Response {
+  effectiveCreatePipelineRequestJson: String
+}
+
+input SetClusterDefaultsArgs {
+  clusterDefaultsJson: String # a JSON-encoded CreatePipelineRequest with a top-level key of create_pipeline_request or createPipelineRequest
+  dryRun: Boolean
+  update: Boolean
+  reprocess: Boolean
+}
+
+type SetClusterDefaultsResp {
+  affectedPipelinesList: [PipelineObject]!
+}
+
+type PipelineObject {
+  name: String
+  project: ProjectObject
+}
+
+type ProjectObject {
+  name: String
+}
+
 type Mutation {
   exchangeCode(code: String!): Tokens!
   createRepo(args: CreateRepoArgs!): Repo!
   deleteRepo(args: DeleteRepoArgs!): Boolean
   createPipeline(args: CreatePipelineArgs!): Pipeline!
+  createPipelineV2(args: CreatePipelineV2Args!): CreatePipelineV2Response!
   deletePipeline(args: DeletePipelineArgs!): Boolean
   createProject(args: CreateProjectArgs!): Project!
   updateProject(args: UpdateProjectArgs!): Project!
@@ -948,4 +987,6 @@ type Mutation {
 
   # RBAC
   modifyRoles(args: ModifyRolesArgs!): Boolean!
+
+  setClusterDefaults(args: SetClusterDefaultsArgs!): SetClusterDefaultsResp!
 }

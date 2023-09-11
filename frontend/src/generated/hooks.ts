@@ -278,6 +278,56 @@ export type CreatePipelineMutationOptions = Apollo.BaseMutationOptions<
   Types.CreatePipelineMutation,
   Types.CreatePipelineMutationVariables
 >;
+export const CreatePipelineV2Document = gql`
+  mutation createPipelineV2($args: CreatePipelineV2Args!) {
+    createPipelineV2(args: $args) {
+      effectiveCreatePipelineRequestJson
+    }
+  }
+`;
+export type CreatePipelineV2MutationFn = Apollo.MutationFunction<
+  Types.CreatePipelineV2Mutation,
+  Types.CreatePipelineV2MutationVariables
+>;
+
+/**
+ * __useCreatePipelineV2Mutation__
+ *
+ * To run a mutation, you first call `useCreatePipelineV2Mutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreatePipelineV2Mutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createPipelineV2Mutation, { data, loading, error }] = useCreatePipelineV2Mutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useCreatePipelineV2Mutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.CreatePipelineV2Mutation,
+    Types.CreatePipelineV2MutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.CreatePipelineV2Mutation,
+    Types.CreatePipelineV2MutationVariables
+  >(CreatePipelineV2Document, options);
+}
+export type CreatePipelineV2MutationHookResult = ReturnType<
+  typeof useCreatePipelineV2Mutation
+>;
+export type CreatePipelineV2MutationResult =
+  Apollo.MutationResult<Types.CreatePipelineV2Mutation>;
+export type CreatePipelineV2MutationOptions = Apollo.BaseMutationOptions<
+  Types.CreatePipelineV2Mutation,
+  Types.CreatePipelineV2MutationVariables
+>;
 export const CreateProjectDocument = gql`
   mutation createProject($args: CreateProjectArgs!) {
     createProject(args: $args) {
@@ -776,6 +826,59 @@ export type PutFilesFromUrLsMutationOptions = Apollo.BaseMutationOptions<
   Types.PutFilesFromUrLsMutation,
   Types.PutFilesFromUrLsMutationVariables
 >;
+export const MutationDocument = gql`
+  mutation Mutation($args: SetClusterDefaultsArgs!) {
+    setClusterDefaults(args: $args) {
+      affectedPipelinesList {
+        name
+        project {
+          name
+        }
+      }
+    }
+  }
+`;
+export type MutationMutationFn = Apollo.MutationFunction<
+  Types.MutationMutation,
+  Types.MutationMutationVariables
+>;
+
+/**
+ * __useMutationMutation__
+ *
+ * To run a mutation, you first call `useMutationMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useMutationMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [mutationMutation, { data, loading, error }] = useMutationMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useMutationMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.MutationMutation,
+    Types.MutationMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.MutationMutation,
+    Types.MutationMutationVariables
+  >(MutationDocument, options);
+}
+export type MutationMutationHookResult = ReturnType<typeof useMutationMutation>;
+export type MutationMutationResult =
+  Apollo.MutationResult<Types.MutationMutation>;
+export type MutationMutationOptions = Apollo.BaseMutationOptions<
+  Types.MutationMutation,
+  Types.MutationMutationVariables
+>;
 export const StartCommitDocument = gql`
   mutation startCommit($args: StartCommitArgs!) {
     startCommit(args: $args) {
@@ -1172,6 +1275,63 @@ export type GetBranchesLazyQueryHookResult = ReturnType<
 export type GetBranchesQueryResult = Apollo.QueryResult<
   Types.GetBranchesQuery,
   Types.GetBranchesQueryVariables
+>;
+export const GetClusterDefaultsDocument = gql`
+  query GetClusterDefaults {
+    getClusterDefaults {
+      clusterDefaultsJson
+    }
+  }
+`;
+
+/**
+ * __useGetClusterDefaultsQuery__
+ *
+ * To run a query within a React component, call `useGetClusterDefaultsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetClusterDefaultsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetClusterDefaultsQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetClusterDefaultsQuery(
+  baseOptions?: Apollo.QueryHookOptions<
+    Types.GetClusterDefaultsQuery,
+    Types.GetClusterDefaultsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetClusterDefaultsQuery,
+    Types.GetClusterDefaultsQueryVariables
+  >(GetClusterDefaultsDocument, options);
+}
+export function useGetClusterDefaultsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetClusterDefaultsQuery,
+    Types.GetClusterDefaultsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetClusterDefaultsQuery,
+    Types.GetClusterDefaultsQueryVariables
+  >(GetClusterDefaultsDocument, options);
+}
+export type GetClusterDefaultsQueryHookResult = ReturnType<
+  typeof useGetClusterDefaultsQuery
+>;
+export type GetClusterDefaultsLazyQueryHookResult = ReturnType<
+  typeof useGetClusterDefaultsLazyQuery
+>;
+export type GetClusterDefaultsQueryResult = Apollo.QueryResult<
+  Types.GetClusterDefaultsQuery,
+  Types.GetClusterDefaultsQueryVariables
 >;
 export const CommitDiffDocument = gql`
   query commitDiff($args: CommitDiffQueryArgs!) {

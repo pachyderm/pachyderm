@@ -13,7 +13,9 @@
     "start:test": "NODE_ENV=mock DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:mock": "NODE_PATH=dist/ NODE_ENV=mock DOTENV_FLOW_PATH=../ MOCK_AUTH_PORT=30658 MOCK_GRPC_PORT=30650 nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/mock/index.ts",
     "mock-and-start": "NODE_ENV=mock npm run start:test & NODE_ENV=mock npm run start:mock",
-    "test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none npx dotenv-flow -p ../ -- npx jest --config jest.config.js --max-workers=6 --selectProjects unit mock-server",
+    "test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none npx dotenv-flow -p ../ -- npx jest --config jest.config.js --max-workers=6 --selectProjects mock-server network-mock-test",
+    "test:old-mock": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none npx dotenv-flow -p ../ -- npx jest --config jest.config.js --max-workers=6 --selectProjects unit mock-server",
+    "test:network-mock": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none npx dotenv-flow -p ../ -- npx jest --config jest.config.js --max-workers=6 --selectProjects network-mock-test",
     "integration-test": "NODE_ENV=test npx dotenv-flow -p ../ -- npx jest --config ./jest.config.js  --max-workers=1 --selectProjects integration-test"
   },
   "dependencies": {

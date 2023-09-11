@@ -146,6 +146,18 @@ export type CreatePipelineArgs = {
   update?: InputMaybe<Scalars['Boolean']>;
 };
 
+export type CreatePipelineV2Args = {
+  createPipelineRequestJson?: InputMaybe<Scalars['String']>;
+  dryRun?: InputMaybe<Scalars['Boolean']>;
+  reprocess?: InputMaybe<Scalars['Boolean']>;
+  update?: InputMaybe<Scalars['Boolean']>;
+};
+
+export type CreatePipelineV2Response = {
+  __typename?: 'CreatePipelineV2Response';
+  effectiveCreatePipelineRequestJson?: Maybe<Scalars['String']>;
+};
+
 export type CreateProjectArgs = {
   description?: InputMaybe<Scalars['String']>;
   name: Scalars['String'];
@@ -355,6 +367,11 @@ export type GetAuthorizeResp = {
   satisfiedList: Array<Permission>;
 };
 
+export type GetClusterDefaultsResp = {
+  __typename?: 'GetClusterDefaultsResp';
+  clusterDefaultsJson?: Maybe<Scalars['String']>;
+};
+
 export type GetPermissionsArgs = {
   resource: Resource;
 };
@@ -532,6 +549,7 @@ export type Mutation = {
   __typename?: 'Mutation';
   createBranch: Branch;
   createPipeline: Pipeline;
+  createPipelineV2: CreatePipelineV2Response;
   createProject: Project;
   createRepo: Repo;
   deleteFiles: Scalars['ID'];
@@ -542,6 +560,7 @@ export type Mutation = {
   finishCommit: Scalars['Boolean'];
   modifyRoles: Scalars['Boolean'];
   putFilesFromURLs: Array<Scalars['String']>;
+  setClusterDefaults: SetClusterDefaultsResp;
   startCommit: OpenCommit;
   updateProject: Project;
 };
@@ -552,6 +571,10 @@ export type MutationCreateBranchArgs = {
 
 export type MutationCreatePipelineArgs = {
   args: CreatePipelineArgs;
+};
+
+export type MutationCreatePipelineV2Args = {
+  args: CreatePipelineV2Args;
 };
 
 export type MutationCreateProjectArgs = {
@@ -592,6 +615,10 @@ export type MutationModifyRolesArgs = {
 
 export type MutationPutFilesFromUrLsArgs = {
   args: PutFilesFromUrLsArgs;
+};
+
+export type MutationSetClusterDefaultsArgs = {
+  args: SetClusterDefaultsArgs;
 };
 
 export type MutationStartCommitArgs = {
@@ -806,6 +833,12 @@ export type Pipeline = {
   version: Scalars['Int'];
 };
 
+export type PipelineObject = {
+  __typename?: 'PipelineObject';
+  name?: Maybe<Scalars['String']>;
+  project?: Maybe<ProjectObject>;
+};
+
 export type PipelineQueryArgs = {
   id: Scalars['ID'];
   projectId: Scalars['String'];
@@ -855,6 +888,11 @@ export type ProjectDetailsQueryArgs = {
   projectId: Scalars['String'];
 };
 
+export type ProjectObject = {
+  __typename?: 'ProjectObject';
+  name?: Maybe<Scalars['String']>;
+};
+
 export enum ProjectStatus {
   HEALTHY = 'HEALTHY',
   UNHEALTHY = 'UNHEALTHY',
@@ -887,6 +925,7 @@ export type Query = {
   files: PageableFile;
   findCommits: PageableFoundCommits;
   getAuthorize?: Maybe<GetAuthorizeResp>;
+  getClusterDefaults?: Maybe<GetClusterDefaultsResp>;
   getPermissions?: Maybe<GetPermissionsResp>;
   getRoles?: Maybe<GetRolesResp>;
   job: Job;
@@ -1107,6 +1146,18 @@ export type SearchResults = {
   jobSet?: Maybe<JobSet>;
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
+};
+
+export type SetClusterDefaultsArgs = {
+  clusterDefaultsJson?: InputMaybe<Scalars['String']>;
+  dryRun?: InputMaybe<Scalars['Boolean']>;
+  reprocess?: InputMaybe<Scalars['Boolean']>;
+  update?: InputMaybe<Scalars['Boolean']>;
+};
+
+export type SetClusterDefaultsResp = {
+  __typename?: 'SetClusterDefaultsResp';
+  affectedPipelinesList: Array<Maybe<PipelineObject>>;
 };
 
 export type StartCommitArgs = {
@@ -1335,6 +1386,8 @@ export type ResolversTypes = ResolversObject<{
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
+  CreatePipelineV2Args: CreatePipelineV2Args;
+  CreatePipelineV2Response: ResolverTypeWrapper<CreatePipelineV2Response>;
   CreateProjectArgs: CreateProjectArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
@@ -1365,6 +1418,7 @@ export type ResolversTypes = ResolversObject<{
   FoundCommit: ResolverTypeWrapper<FoundCommit>;
   GetAuthorizeArgs: GetAuthorizeArgs;
   GetAuthorizeResp: ResolverTypeWrapper<GetAuthorizeResp>;
+  GetClusterDefaultsResp: ResolverTypeWrapper<GetClusterDefaultsResp>;
   GetPermissionsArgs: GetPermissionsArgs;
   GetPermissionsResp: ResolverTypeWrapper<GetPermissionsResp>;
   GetRolesArgs: GetRolesArgs;
@@ -1407,6 +1461,7 @@ export type ResolversTypes = ResolversObject<{
   PageableLogs: ResolverTypeWrapper<PageableLogs>;
   Permission: Permission;
   Pipeline: ResolverTypeWrapper<Pipeline>;
+  PipelineObject: ResolverTypeWrapper<PipelineObject>;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
   PipelineType: PipelineType;
@@ -1414,6 +1469,7 @@ export type ResolversTypes = ResolversObject<{
   Project: ResolverTypeWrapper<Project>;
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
+  ProjectObject: ResolverTypeWrapper<ProjectObject>;
   ProjectStatus: ProjectStatus;
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: ResolverTypeWrapper<{}>;
@@ -1428,6 +1484,8 @@ export type ResolversTypes = ResolversObject<{
   SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: ResolverTypeWrapper<SearchResults>;
+  SetClusterDefaultsArgs: SetClusterDefaultsArgs;
+  SetClusterDefaultsResp: ResolverTypeWrapper<SetClusterDefaultsResp>;
   StartCommitArgs: StartCommitArgs;
   String: ResolverTypeWrapper<Scalars['String']>;
   Subscription: ResolverTypeWrapper<{}>;
@@ -1463,6 +1521,8 @@ export type ResolversParentTypes = ResolversObject<{
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
+  CreatePipelineV2Args: CreatePipelineV2Args;
+  CreatePipelineV2Response: CreatePipelineV2Response;
   CreateProjectArgs: CreateProjectArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
@@ -1488,6 +1548,7 @@ export type ResolversParentTypes = ResolversObject<{
   FoundCommit: FoundCommit;
   GetAuthorizeArgs: GetAuthorizeArgs;
   GetAuthorizeResp: GetAuthorizeResp;
+  GetClusterDefaultsResp: GetClusterDefaultsResp;
   GetPermissionsArgs: GetPermissionsArgs;
   GetPermissionsResp: GetPermissionsResp;
   GetRolesArgs: GetRolesArgs;
@@ -1524,11 +1585,13 @@ export type ResolversParentTypes = ResolversObject<{
   PageableJobSet: PageableJobSet;
   PageableLogs: PageableLogs;
   Pipeline: Pipeline;
+  PipelineObject: PipelineObject;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelinesQueryArgs: PipelinesQueryArgs;
   Project: Project;
   ProjectDetails: ProjectDetails;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
+  ProjectObject: ProjectObject;
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: {};
   Repo: Repo;
@@ -1541,6 +1604,8 @@ export type ResolversParentTypes = ResolversObject<{
   SchedulingSpec: SchedulingSpec;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: SearchResults;
+  SetClusterDefaultsArgs: SetClusterDefaultsArgs;
+  SetClusterDefaultsResp: SetClusterDefaultsResp;
   StartCommitArgs: StartCommitArgs;
   String: Scalars['String'];
   Subscription: {};
@@ -1639,6 +1704,18 @@ export type CommitResolvers<
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type CreatePipelineV2ResponseResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['CreatePipelineV2Response'] = ResolversParentTypes['CreatePipelineV2Response'],
+> = ResolversObject<{
+  effectiveCreatePipelineRequestJson?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1787,6 +1864,18 @@ export type GetAuthorizeRespResolvers<
   principal?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   satisfiedList?: Resolver<
     Array<ResolversTypes['Permission']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type GetClusterDefaultsRespResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['GetClusterDefaultsResp'] = ResolversParentTypes['GetClusterDefaultsResp'],
+> = ResolversObject<{
+  clusterDefaultsJson?: Resolver<
+    Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
@@ -1999,6 +2088,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreatePipelineArgs, 'args'>
   >;
+  createPipelineV2?: Resolver<
+    ResolversTypes['CreatePipelineV2Response'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreatePipelineV2Args, 'args'>
+  >;
   createProject?: Resolver<
     ResolversTypes['Project'],
     ParentType,
@@ -2058,6 +2153,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationPutFilesFromUrLsArgs, 'args'>
+  >;
+  setClusterDefaults?: Resolver<
+    ResolversTypes['SetClusterDefaultsResp'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationSetClusterDefaultsArgs, 'args'>
   >;
   startCommit?: Resolver<
     ResolversTypes['OpenCommit'],
@@ -2272,6 +2373,19 @@ export type PipelineResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PipelineObjectResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PipelineObject'] = ResolversParentTypes['PipelineObject'],
+> = ResolversObject<{
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  project?: Resolver<
+    Maybe<ResolversTypes['ProjectObject']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type ProjectResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project'],
@@ -2304,6 +2418,14 @@ export type ProjectDetailsResolvers<
   repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ProjectObjectResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['ProjectObject'] = ResolversParentTypes['ProjectObject'],
+> = ResolversObject<{
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2402,6 +2524,11 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryGetAuthorizeArgs, 'args'>
+  >;
+  getClusterDefaults?: Resolver<
+    Maybe<ResolversTypes['GetClusterDefaultsResp']>,
+    ParentType,
+    ContextType
   >;
   getPermissions?: Resolver<
     Maybe<ResolversTypes['GetPermissionsResp']>,
@@ -2602,6 +2729,18 @@ export type SearchResultsResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type SetClusterDefaultsRespResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['SetClusterDefaultsResp'] = ResolversParentTypes['SetClusterDefaultsResp'],
+> = ResolversObject<{
+  affectedPipelinesList?: Resolver<
+    Array<Maybe<ResolversTypes['PipelineObject']>>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type SubscriptionResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription'],
@@ -2751,6 +2890,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Branch?: BranchResolvers<ContextType>;
   BranchInfo?: BranchInfoResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
+  CreatePipelineV2Response?: CreatePipelineV2ResponseResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
   Datum?: DatumResolvers<ContextType>;
   Diff?: DiffResolvers<ContextType>;
@@ -2760,6 +2900,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
   FoundCommit?: FoundCommitResolvers<ContextType>;
   GetAuthorizeResp?: GetAuthorizeRespResolvers<ContextType>;
+  GetClusterDefaultsResp?: GetClusterDefaultsRespResolvers<ContextType>;
   GetPermissionsResp?: GetPermissionsRespResolvers<ContextType>;
   GetRolesResp?: GetRolesRespResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
@@ -2782,14 +2923,17 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   PageableJobSet?: PageableJobSetResolvers<ContextType>;
   PageableLogs?: PageableLogsResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
+  PipelineObject?: PipelineObjectResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
+  ProjectObject?: ProjectObjectResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
   RepoInfo?: RepoInfoResolvers<ContextType>;
   RolesList?: RolesListResolvers<ContextType>;
   SchedulingSpec?: SchedulingSpecResolvers<ContextType>;
   SearchResults?: SearchResultsResolvers<ContextType>;
+  SetClusterDefaultsResp?: SetClusterDefaultsRespResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
   Timestamp?: TimestampResolvers<ContextType>;
   Tokens?: TokensResolvers<ContextType>;
@@ -3004,6 +3148,18 @@ export type CreatePipelineMutation = {
   };
 };
 
+export type CreatePipelineV2MutationVariables = Exact<{
+  args: CreatePipelineV2Args;
+}>;
+
+export type CreatePipelineV2Mutation = {
+  __typename?: 'Mutation';
+  createPipelineV2: {
+    __typename?: 'CreatePipelineV2Response';
+    effectiveCreatePipelineRequestJson?: string | null;
+  };
+};
+
 export type CreateProjectMutationVariables = Exact<{
   args: CreateProjectArgs;
 }>;
@@ -3111,6 +3267,22 @@ export type PutFilesFromUrLsMutation = {
   putFilesFromURLs: Array<string>;
 };
 
+export type MutationMutationVariables = Exact<{
+  args: SetClusterDefaultsArgs;
+}>;
+
+export type MutationMutation = {
+  __typename?: 'Mutation';
+  setClusterDefaults: {
+    __typename?: 'SetClusterDefaultsResp';
+    affectedPipelinesList: Array<{
+      __typename?: 'PipelineObject';
+      name?: string | null;
+      project?: {__typename?: 'ProjectObject'; name?: string | null} | null;
+    } | null>;
+  };
+};
+
 export type StartCommitMutationVariables = Exact<{
   args: StartCommitArgs;
 }>;
@@ -3206,6 +3378,16 @@ export type GetBranchesQuery = {
       type?: string | null;
     } | null;
   } | null>;
+};
+
+export type GetClusterDefaultsQueryVariables = Exact<{[key: string]: never}>;
+
+export type GetClusterDefaultsQuery = {
+  __typename?: 'Query';
+  getClusterDefaults?: {
+    __typename?: 'GetClusterDefaultsResp';
+    clusterDefaultsJson?: string | null;
+  } | null;
 };
 
 export type CommitDiffQueryVariables = Exact<{
@@ -4262,6 +4444,29 @@ export const mockCreatePipelineMutation = (
  * @param resolver a function that accepts a captured request and may return a mocked response.
  * @see https://mswjs.io/docs/basics/response-resolver
  * @example
+ * mockCreatePipelineV2Mutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ createPipelineV2 })
+ *   )
+ * })
+ */
+export const mockCreatePipelineV2Mutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<CreatePipelineV2MutationVariables>,
+    GraphQLContext<CreatePipelineV2Mutation>,
+    any
+  >,
+) =>
+  graphql.mutation<CreatePipelineV2Mutation, CreatePipelineV2MutationVariables>(
+    'createPipelineV2',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
  * mockCreateProjectMutation((req, res, ctx) => {
  *   const { args } = req.variables;
  *   return res(
@@ -4492,6 +4697,29 @@ export const mockPutFilesFromUrLsMutation = (
  * @param resolver a function that accepts a captured request and may return a mocked response.
  * @see https://mswjs.io/docs/basics/response-resolver
  * @example
+ * mockMutationMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ setClusterDefaults })
+ *   )
+ * })
+ */
+export const mockMutationMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<MutationMutationVariables>,
+    GraphQLContext<MutationMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<MutationMutation, MutationMutationVariables>(
+    'Mutation',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
  * mockStartCommitMutation((req, res, ctx) => {
  *   const { args } = req.variables;
  *   return res(
@@ -4643,6 +4871,28 @@ export const mockGetBranchesQuery = (
 ) =>
   graphql.query<GetBranchesQuery, GetBranchesQueryVariables>(
     'getBranches',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetClusterDefaultsQuery((req, res, ctx) => {
+ *   return res(
+ *     ctx.data({ getClusterDefaults })
+ *   )
+ * })
+ */
+export const mockGetClusterDefaultsQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetClusterDefaultsQueryVariables>,
+    GraphQLContext<GetClusterDefaultsQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetClusterDefaultsQuery, GetClusterDefaultsQueryVariables>(
+    'GetClusterDefaults',
     resolver,
   );
 

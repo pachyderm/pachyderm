@@ -11,6 +11,8 @@ const atatPngFilePath = path.resolve(
   '../../../../../../../etc/testing/files/AT-AT.png',
 );
 
+jest.setTimeout(30_000);
+
 describe('ModifyFile', () => {
   afterAll(async () => {
     const pachClient = apiClientRequestWrapper();

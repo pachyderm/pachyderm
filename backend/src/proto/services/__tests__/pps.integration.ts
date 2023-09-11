@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+import {status} from '@grpc/grpc-js';
+
 import apiClientRequestWrapper from '../../client';
 import {
   DatumState,
@@ -40,6 +42,7 @@ describe('services/pps', () => {
       pipeline: {name},
       transform: transform.toObject(),
       input: input.toObject(),
+      dryRun: false,
     });
 
     const input2 = new Input();
@@ -50,6 +53,7 @@ describe('services/pps', () => {
       pipeline: {name: `${name}-2`},
       transform: transform.toObject(),
       input: input2.toObject(),
+      dryRun: false,
     });
 
     return {pachClient, inputRepoName};
@@ -270,11 +274,165 @@ describe('services/pps', () => {
         pipeline: {name: 'createPipeline2'},
         transform: transform.toObject(),
         input: input.toObject(),
+        dryRun: false,
       });
       const updatedPipelines = await pachClient.pps.listPipeline({
         projectIds: [],
       });
       expect(updatedPipelines).toHaveLength(3);
+    });
+  });
+
+  describe('createPipelineV2', () => {
+    it('should create a pipeline', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}}`;
+
+      await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson: `{"create_pipeline_request": {}}`,
+      });
+
+      const resp = await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        reprocess: false,
+        dryRun: false,
+        update: false,
+      });
+
+      expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
+        JSON.parse(
+          `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}, "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
+        ),
+      );
+
+      expect(await pachClient.pps.listPipeline({projectIds: []})).toHaveLength(
+        3,
+      );
+    });
+
+    it('updates an existing pipeline', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}}`;
+
+      await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson: `{"create_pipeline_request": {}}`,
+      });
+
+      await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        reprocess: false,
+        dryRun: false,
+        update: false,
+      });
+
+      const resp = await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        reprocess: false,
+        dryRun: false,
+        update: true,
+      });
+
+      expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
+        JSON.parse(
+          `{"update": true, "pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}, "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
+        ),
+      );
+
+      expect(await pachClient.pps.listPipeline({projectIds: []})).toHaveLength(
+        3,
+      );
+    });
+
+    it('trying to update without update field returns errors', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}}`;
+
+      await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson: `{"create_pipeline_request": {}}`,
+      });
+
+      await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        reprocess: false,
+        dryRun: false,
+        update: false,
+      });
+
+      await expect(
+        pachClient.pps.createPipelineV2({
+          createPipelineRequestJson: json,
+          reprocess: false,
+          dryRun: false,
+          update: false,
+        }),
+      ).rejects.toHaveProperty('code', status.ALREADY_EXISTS);
+    });
+
+    it('dryrun does not create a pipeline', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}}`;
+
+      await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson: `{"create_pipeline_request": {}}`,
+      });
+
+      const resp = await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        reprocess: false,
+        dryRun: true,
+        update: false,
+      });
+
+      expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
+        JSON.parse(
+          `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}, "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
+        ),
+      );
+
+      expect(await pachClient.pps.listPipeline({projectIds: []})).toHaveLength(
+        2,
+      );
+    });
+
+    it('bad input spec or no arguments gives an error', async () => {
+      const client = apiClientRequestWrapper();
+      const pps = client.pps;
+      const pfs = client.pfs;
+      await pps.deleteAll();
+      await pfs.deleteAll();
+
+      expect(await client.pps.listPipeline({projectIds: []})).toHaveLength(0);
+
+      await expect(
+        pps.createPipelineV2({
+          createPipelineRequestJson: `{"p": {"p": "p"}, "p": "p", "p": {}}`,
+        }),
+      ).rejects.toHaveProperty('code', status.INVALID_ARGUMENT);
+
+      await expect(pps.createPipelineV2({})).rejects.toHaveProperty(
+        'code',
+        status.INVALID_ARGUMENT,
+      );
     });
   });
 
@@ -309,6 +467,287 @@ describe('services/pps', () => {
         projectIds: [],
       });
       expect(updatedPipelines).toHaveLength(0);
+    });
+  });
+
+  describe('getClusterDefaults', () => {
+    it('should return cluster defaults', async () => {
+      const client = apiClientRequestWrapper();
+      const pps = client.pps;
+      const pfs = client.pfs;
+      await pps.deleteAll();
+      await pfs.deleteAll();
+
+      await pps.setClusterDefaults({
+        clusterDefaultsJson: `{"createPipelineRequest": {"resourceRequests":{"cpu":1, "memory":"256Mi", "disk":"1Gi"}, "sidecarResourceRequests":{"cpu":1, "memory":"256Mi", "disk":"1Gi"}}}`,
+      });
+
+      const resp = await pps.getClusterDefaults();
+
+      expect(JSON.parse(resp.clusterDefaultsJson)).toEqual(
+        expect.objectContaining(
+          JSON.parse(
+            '{"createPipelineRequest":{"resourceRequests":{"cpu":1, "memory":"256Mi", "disk":"1Gi"}, "sidecarResourceRequests":{"cpu":1, "memory":"256Mi", "disk":"1Gi"}}}',
+          ),
+        ),
+      );
+    });
+  });
+
+  describe('setClusterDefaults', () => {
+    it('should set empty cluster defaults', async () => {
+      const client = apiClientRequestWrapper();
+      const pps = client.pps;
+      const pfs = client.pfs;
+      await pps.deleteAll();
+      await pfs.deleteAll();
+
+      const resp = await pps.setClusterDefaults({
+        clusterDefaultsJson: '{}',
+        dryRun: false,
+        regenerate: false,
+        reprocess: true,
+      });
+
+      expect(resp).toEqual(
+        expect.objectContaining({
+          affectedPipelinesList: [],
+        }),
+      );
+
+      expect(await pps.getClusterDefaults()).toEqual(
+        expect.objectContaining({
+          clusterDefaultsJson: '{}',
+        }),
+      );
+    });
+    it('should set empty create_pipeline_request cluster defaults', async () => {
+      const client = apiClientRequestWrapper();
+      const pps = client.pps;
+      const pfs = client.pfs;
+      await pps.deleteAll();
+      await pfs.deleteAll();
+
+      const resp = await pps.setClusterDefaults({
+        clusterDefaultsJson: '{"create_pipeline_request": {}}',
+        dryRun: false,
+        regenerate: false,
+        reprocess: true,
+      });
+
+      expect(resp).toEqual(
+        expect.objectContaining({
+          affectedPipelinesList: [],
+        }),
+      );
+
+      expect(await pps.getClusterDefaults()).toEqual(
+        expect.objectContaining({
+          clusterDefaultsJson: '{"create_pipeline_request": {}}',
+        }),
+      );
+    });
+    it('should set cluster defaults', async () => {
+      const client = apiClientRequestWrapper();
+      const pps = client.pps;
+      const pfs = client.pfs;
+      await pps.deleteAll();
+      await pfs.deleteAll();
+
+      const resp = await pps.setClusterDefaults({
+        clusterDefaultsJson:
+          '{"create_pipeline_request": {"pipeline": {"project": {"name": "foobar"}}}}',
+        dryRun: false,
+        regenerate: false,
+        reprocess: true,
+      });
+
+      expect(resp).toEqual(
+        expect.objectContaining({
+          affectedPipelinesList: [],
+        }),
+      );
+
+      expect(await pps.getClusterDefaults()).toEqual(
+        expect.objectContaining({
+          clusterDefaultsJson:
+            '{"create_pipeline_request": {"pipeline": {"project": {"name": "foobar"}}}}',
+        }),
+      );
+    });
+    it('dry run does not affect the defaults', async () => {
+      const client = apiClientRequestWrapper();
+      const pps = client.pps;
+      const pfs = client.pfs;
+      await pps.deleteAll();
+      await pfs.deleteAll();
+
+      await pps.setClusterDefaults({
+        clusterDefaultsJson: '{}',
+        dryRun: false,
+        regenerate: false,
+        reprocess: true,
+      });
+
+      const resp = await pps.setClusterDefaults({
+        clusterDefaultsJson:
+          '{"create_pipeline_request": {"pipeline": {"project": {"name": "foobar"}}}}',
+        dryRun: true,
+        regenerate: false,
+        reprocess: true,
+      });
+
+      expect(resp).toEqual(
+        expect.objectContaining({
+          affectedPipelinesList: [],
+        }),
+      );
+
+      expect(await pps.getClusterDefaults()).toEqual(
+        expect.objectContaining({
+          clusterDefaultsJson: '{}',
+        }),
+      );
+    });
+    it('regenerate returns correct pipelines', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}}`;
+
+      await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+      });
+
+      const resp = await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson:
+          '{"create_pipeline_request": {"resourceRequests":{"cpu":1}}}',
+        dryRun: true,
+        regenerate: true,
+        reprocess: false,
+      });
+
+      resp.affectedPipelinesList.sort((a, b) => {
+        if (a.name < b.name) {
+          return -1;
+        }
+        if (a.name > b.name) {
+          return 1;
+        }
+        return 0;
+      });
+
+      expect(resp).toEqual(
+        expect.objectContaining({
+          affectedPipelinesList: [
+            {
+              name: 'createPipelineV2',
+              project: {
+                name: 'default',
+              },
+            },
+            {
+              name: 'createPipelineV2-2',
+              project: {
+                name: 'default',
+              },
+            },
+            {
+              name: 'test',
+              project: {
+                name: 'default',
+              },
+            },
+          ],
+        }),
+      );
+    });
+  });
+
+  describe('clusterDefaults and createPipelineV2', () => {
+    it('createPipelineV2 can add values', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson: '{}',
+        dryRun: false,
+        regenerate: false,
+        reprocess: false,
+      });
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}}`;
+
+      const resp = await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        dryRun: true,
+      });
+
+      expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
+        expect.objectContaining(JSON.parse(json)),
+      );
+    });
+    it('createPipelineV2 can overwrite a cluster default value', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson:
+          '{"create_pipeline_request": {"resourceRequests":{"cpu":1}}}',
+        dryRun: false,
+        regenerate: false,
+        reprocess: false,
+      });
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu": 2}}`;
+
+      const resp = await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        dryRun: true,
+      });
+
+      expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
+        expect.objectContaining(JSON.parse(json)),
+      );
+    });
+    it('createPipelineV2 can unset a cluster default value', async () => {
+      const {pachClient, inputRepoName} = await createSandBox(
+        'createPipelineV2',
+      );
+      const pipelines = await pachClient.pps.listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+
+      await pachClient.pps.setClusterDefaults({
+        clusterDefaultsJson:
+          '{"create_pipeline_request": {"resourceRequests":{"cpu":1}}}',
+        dryRun: false,
+        regenerate: false,
+        reprocess: false,
+      });
+
+      const json = `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu": null}}`;
+
+      const resp = await pachClient.pps.createPipelineV2({
+        createPipelineRequestJson: json,
+        dryRun: true,
+      });
+
+      expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
+        expect.objectContaining(
+          JSON.parse(
+            `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "input": {"pfs": {"project": "default","name": "${inputRepoName}","repo": "${inputRepoName}","repoType": "user","branch": "master","glob": "/*"}},"transform": {"image": "alpine","cmd": ["sh"],"stdin": ["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{}}`,
+          ),
+        ),
+      );
     });
   });
 });

@@ -4,6 +4,10 @@ import Logger from 'bunyan';
 import {pachydermClient} from '@dash-backend/proto';
 import {Account} from '@graphqlTypes';
 
+export type Nullable<T> = {
+  [P in keyof T]: T[P] | null;
+};
+
 export type PachClient = ReturnType<typeof pachydermClient>;
 
 export interface UnauthenticatedContext {

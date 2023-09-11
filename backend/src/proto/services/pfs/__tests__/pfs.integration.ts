@@ -12,6 +12,8 @@ const atatPngFilePath = path.resolve(
   '../../../../../../etc/testing/files/AT-AT.png',
 );
 
+jest.setTimeout(30_000);
+
 describe('services/pfs', () => {
   afterAll(async () => {
     const pachClient = apiClientRequestWrapper();

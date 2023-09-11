@@ -1,3 +1,4 @@
+import {type Nullable} from '@dash-backend/lib/types';
 import {ClientReadableStream} from '@grpc/grpc-js';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
@@ -66,6 +67,12 @@ import {
   Datum,
   Job,
   DeletePipelinesRequest,
+  CreatePipelineV2Request,
+  CreatePipelineV2Response,
+  GetClusterDefaultsResponse,
+  GetClusterDefaultsRequest,
+  SetClusterDefaultsRequest,
+  SetClusterDefaultsResponse,
 } from '../proto/pps/pps_pb';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
@@ -171,6 +178,65 @@ const ppsServiceRpcHandler = ({
   client = client ?? new APIClient(...grpcApiConstructorArgs());
 
   return {
+    createPipelineV2: (
+      args?: Nullable<Partial<CreatePipelineV2Request.AsObject>>,
+    ) => {
+      const req = new CreatePipelineV2Request();
+      args?.dryRun && req.setDryRun(args.dryRun);
+      args?.reprocess && req.setReprocess(args.reprocess);
+      args?.update && req.setUpdate(args.update);
+      args?.createPipelineRequestJson &&
+        req.setCreatePipelineRequestJson(args.createPipelineRequestJson);
+
+      return new Promise<CreatePipelineV2Response.AsObject>(
+        (resolve, reject) => {
+          client.createPipelineV2(req, credentialMetadata, (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res.toObject());
+          });
+        },
+      );
+    },
+    getClusterDefaults: () => {
+      const req = new GetClusterDefaultsRequest();
+      return new Promise<GetClusterDefaultsResponse.AsObject>(
+        (resolve, reject) => {
+          client.getClusterDefaults(req, credentialMetadata, (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res.toObject());
+          });
+        },
+      );
+    },
+    /**
+     * @param clusterDefaultsJson
+     * create_pipeline_request is the top level key
+     */
+    setClusterDefaults: (
+      args?: Nullable<Partial<SetClusterDefaultsRequest.AsObject>>,
+    ) => {
+      const req = new SetClusterDefaultsRequest();
+      args?.dryRun && req.setDryRun(args.dryRun);
+      args?.reprocess && req.setReprocess(args.reprocess);
+      args?.regenerate && req.setRegenerate(args.regenerate);
+      args?.clusterDefaultsJson &&
+        req.setClusterDefaultsJson(args.clusterDefaultsJson);
+
+      return new Promise<SetClusterDefaultsResponse.AsObject>(
+        (resolve, reject) => {
+          client.setClusterDefaults(req, credentialMetadata, (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res.toObject());
+          });
+        },
+      );
+    },
     // TODO: createPipeline should support projects
     createPipeline: (options: CreatePipelineRequestOptions) => {
       const request = new CreatePipelineRequest();

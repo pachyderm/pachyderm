@@ -6,10 +6,13 @@ interface PipelineResolver {
   Query: {
     pipeline: QueryResolvers['pipeline'];
     pipelines: QueryResolvers['pipelines'];
+    getClusterDefaults: QueryResolvers['getClusterDefaults'];
   };
   Mutation: {
     createPipeline: MutationResolvers['createPipeline'];
+    createPipelineV2: MutationResolvers['createPipelineV2'];
     deletePipeline: MutationResolvers['deletePipeline'];
+    setClusterDefaults: MutationResolvers['setClusterDefaults'];
   };
 }
 
@@ -52,6 +55,9 @@ const pipelineResolver: PipelineResolver = {
       return (await pachClient.pps.listPipeline({jq, projectIds})).map(
         (pipeline) => pipelineInfoToGQLPipeline(pipeline),
       );
+    },
+    getClusterDefaults: async (_field, _args, {pachClient}) => {
+      return await pachClient.pps.getClusterDefaults();
     },
   },
   Mutation: {
@@ -104,9 +110,15 @@ const pipelineResolver: PipelineResolver = {
       });
       return pipelineInfoToGQLPipeline(pipeline);
     },
+    createPipelineV2: async (_field, {args}, {pachClient}) => {
+      return await pachClient.pps.createPipelineV2(args);
+    },
     deletePipeline: async (_field, {args: {projectId, name}}, {pachClient}) => {
       await pachClient.pps.deletePipeline({projectId, pipeline: {name}});
       return true;
+    },
+    setClusterDefaults: async (_field, {args}, {pachClient}) => {
+      return await pachClient.pps.setClusterDefaults(args);
     },
   },
 };

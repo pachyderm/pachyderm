@@ -24,8 +24,17 @@ module.exports = {
     {
       displayName: 'mock-server',
       ...baseConfig,
-      testMatch: ['**/__tests__/**/*.test.ts'],
+      testMatch: [
+        '**/__tests__/**/*.test.ts',
+        '!**/__tests__/**/*.network-mock.test.ts',
+      ],
       setupFilesAfterEnv: ['./setupTests.ts'],
+    },
+    {
+      displayName: 'network-mock-test',
+      ...baseConfig,
+      testMatch: ['**/__tests__/**/*.network-mock.test.ts'],
+      setupFilesAfterEnv: ['./setupTestsNetworkMock.ts'],
     },
     {
       displayName: 'integration-test',
