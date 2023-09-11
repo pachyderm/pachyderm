@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -445,7 +444,7 @@ func TestListCommit(t *testing.T) {
 					require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo))
 				}
 				if prevCommit != nil {
-					require.NoError(t, pfsdb.PutCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
+					require.NoError(t, pfsdb.CreateCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
 					expectedInfos[i-1].ChildCommits = append(expectedInfos[i-1].ChildCommits, commitInfo.Commit)
 				}
 				prevCommit = commitInfo
@@ -479,7 +478,7 @@ func TestListCommitRev(t *testing.T) {
 					require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo))
 				}
 				if prevCommit != nil {
-					require.NoError(t, pfsdb.PutCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
+					require.NoError(t, pfsdb.CreateCommitAncestryByCommitKeys(ctx, tx, prevCommit.Commit, commitInfo.Commit))
 					expectedInfos[i+1].ChildCommits = append(expectedInfos[i+1].ChildCommits, commitInfo.Commit)
 				}
 				prevCommit = commitInfo
@@ -537,11 +536,7 @@ type commitTestCase func(context.Context, *testing.T, *pachsql.DB)
 
 func testCommitDataModelAPI(t *testing.T, testCase commitTestCase) {
 	ctx := pctx.TestContext(t)
-	db, err := dbutil.NewDB(dockertestenv.NewTestDBOptions(t)...)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, db.Close())
-	})
+	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.State_2_8_0_temp), "should be able to set up tables")
 	testCase(ctx, t, db)

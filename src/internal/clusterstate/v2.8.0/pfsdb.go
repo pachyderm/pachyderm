@@ -266,11 +266,11 @@ func alterCommitsTablePostDataMigration(ctx context.Context, env migrations.Env)
 func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TABLE pfs.commit_ancestry (
-		from_id bigint REFERENCES pfs.commits(int_id),
-		to_id bigint REFERENCES pfs.commits(int_id),
-		PRIMARY KEY (from_id, to_id)
+		parent bigint REFERENCES pfs.commits(int_id),
+		child bigint REFERENCES pfs.commits(int_id),
+		PRIMARY KEY (parent, child)
 	);
-	CREATE INDEX ON pfs.commit_ancestry (to_id, from_id);
+	CREATE INDEX ON pfs.commit_ancestry (child, parent);
 	`
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return errors.Wrap(err, "creating commit_ancestry table")
