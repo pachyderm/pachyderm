@@ -119,7 +119,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       GOPROXY: https://proxy.golang.org
-    parallelism: 10
+    parallelism: 8
     steps:
       - checkout
       - run:
@@ -236,7 +236,7 @@ jobs:
           file: /tmp/test-results/coverage.txt
       - collect-test-results
   static-checks:
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -623,10 +623,10 @@ jobs:
     parameters:
       num_executors:
         type: integer
-        default: 4
+        default: 2
       resource_class:
         type: string
-        default: 2xlarge
+        default: large
       arch:
         type: string
         default: amd64
@@ -1750,14 +1750,14 @@ workflows:
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
-          resource_class: 2xlarge # amd64
+          resource_class: xlarge # amd64
           arch: amd64
-          num_executors: 6
+          num_executors: 4
       - deploy-tests:
           name: arm64 deploy tests
-          resource_class: arm.2xlarge # arm64
+          resource_class: arm.xlarge # arm64
           arch: arm64
-          num_executors: 4
+          num_executors: 2
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
