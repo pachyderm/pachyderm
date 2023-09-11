@@ -18,5 +18,5 @@ func NewWorker(env Env) *Worker {
 }
 
 func (w *Worker) Run(ctx context.Context) error {
-	return pfsload.Worker(w.env.GetPachClient(pctx.Child(ctx, "pfsload")), w.env.TaskService) //nolint:errcheck
+	return pfsload.Worker(w.env.GetPachClient(pctx.Child(ctx, "pfsload")), w.env.TaskService)
 }
