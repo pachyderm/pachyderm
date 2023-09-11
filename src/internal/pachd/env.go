@@ -161,7 +161,7 @@ func DebugEnv(env serviceenv.ServiceEnv) debug_server.Env {
 		Name:          env.Config().PachdPodName,
 		DB:            env.GetDBClient(),
 		SidecarClient: nil,
-		KubeClient:    env.GetKubeClient(),
+		GetKubeClient: env.GetKubeClient,
 		GetLokiClient: env.GetLokiClient,
 		GetPachClient: env.GetPachClient,
 		TaskService:   env.GetTaskService(env.Config().EtcdPrefix),

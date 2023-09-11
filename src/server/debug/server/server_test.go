@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -432,69 +433,71 @@ metadata:
 	// secrets.
 	s := &debugServer{
 		env: Env{
-			KubeClient: fake.NewSimpleClientset(
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "secret",
-						Namespace: "default",
-					},
-					Data: map[string][]byte{
-						"super-secret": []byte("not helm"),
-					},
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "some-mistagged-secret",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+			GetKubeClient: func() kubernetes.Interface {
+				return fake.NewSimpleClientset(
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"super-secret": []byte("not helm"),
 						},
 					},
-					Data: map[string][]byte{
-						"release": []byte("pure junk"),
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v1.pachyderm.v9",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "some-mistagged-secret",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
 						},
-					},
-					Data: map[string][]byte{
-						"release": releaseBytes,
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v1.pachyderm.v10",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+						Data: map[string][]byte{
+							"release": []byte("pure junk"),
 						},
+						Type: "helm.sh/release.v1",
 					},
-					Data: map[string][]byte{
-						"release": releaseBytesCompressed,
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v2.pachyderm.v11",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v1.pachyderm.v9",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
 						},
+						Data: map[string][]byte{
+							"release": releaseBytes,
+						},
+						Type: "helm.sh/release.v1",
 					},
-					Data: map[string][]byte{
-						"release": []byte("some junk we don't understand"),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v1.pachyderm.v10",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
+						},
+						Data: map[string][]byte{
+							"release": releaseBytesCompressed,
+						},
+						Type: "helm.sh/release.v1",
 					},
-					Type: "helm.sh/release.v2",
-				},
-			),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v2.pachyderm.v11",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
+						},
+						Data: map[string][]byte{
+							"release": []byte("some junk we don't understand"),
+						},
+						Type: "helm.sh/release.v2",
+					},
+				)
+			},
 			Config: pachconfig.Configuration{
 				GlobalConfiguration: &pachconfig.GlobalConfiguration{
 					Namespace: "default",
