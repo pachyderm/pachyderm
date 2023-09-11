@@ -4,10 +4,6 @@
     "definitions": {
         "CommitSetInfo": {
             "properties": {
-                "commit_set": {
-                    "$ref": "#/definitions/pfs_v2.CommitSet",
-                    "additionalProperties": false
-                },
                 "commitSet": {
                     "$ref": "#/definitions/pfs_v2.CommitSet",
                     "additionalProperties": false
@@ -72,20 +68,9 @@
                     "type": "string",
                     "description": "description is a user-provided script describing this commit"
                 },
-                "parent_commit": {
-                    "$ref": "#/definitions/pfs_v2.Commit",
-                    "additionalProperties": false
-                },
                 "parentCommit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
-                },
-                "child_commits": {
-                    "items": {
-                        "$ref": "#/definitions/pfs_v2.Commit"
-                    },
-                    "additionalProperties": false,
-                    "type": "array"
                 },
                 "childCommits": {
                     "items": {
@@ -106,13 +91,6 @@
                     "type": "string",
                     "format": "date-time"
                 },
-                "direct_provenance": {
-                    "items": {
-                        "$ref": "#/definitions/pfs_v2.Commit"
-                    },
-                    "additionalProperties": false,
-                    "type": "array"
-                },
                 "directProvenance": {
                     "items": {
                         "$ref": "#/definitions/pfs_v2.Commit"
@@ -122,9 +100,6 @@
                 },
                 "error": {
                     "type": "string"
-                },
-                "size_bytes_upper_bound": {
-                    "type": "integer"
                 },
                 "sizeBytesUpperBound": {
                     "type": "integer"
@@ -141,23 +116,10 @@
         },
         "pfs_v2.CommitInfo.Details": {
             "properties": {
-                "size_bytes": {
-                    "type": "integer"
-                },
                 "sizeBytes": {
                     "type": "integer"
                 },
-                "compacting_time": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
                 "compactingTime": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "type": "string",
-                    "format": "regex"
-                },
-                "validating_time": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
                     "format": "regex"

@@ -4,16 +4,9 @@
     "definitions": {
         "CreatePipelineV2Request": {
             "properties": {
-                "create_pipeline_request_json": {
-                    "type": "string",
-                    "description": "a JSON-encoded CreatePipelineRequest"
-                },
                 "createPipelineRequestJson": {
                     "type": "string",
                     "description": "a JSON-encoded CreatePipelineRequest"
-                },
-                "dry_run": {
-                    "type": "boolean"
                 },
                 "dryRun": {
                     "type": "boolean"

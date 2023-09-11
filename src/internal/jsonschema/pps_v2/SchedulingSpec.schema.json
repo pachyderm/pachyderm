@@ -4,19 +4,6 @@
     "definitions": {
         "SchedulingSpec": {
             "properties": {
-                "node_selector": {
-                    "additionalProperties": {
-                        "type": "string"
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "object"
-                        }
-                    ]
-                },
                 "nodeSelector": {
                     "additionalProperties": {
                         "type": "string"
@@ -27,16 +14,6 @@
                         },
                         {
                             "type": "object"
-                        }
-                    ]
-                },
-                "priority_class_name": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "string"
                         }
                     ]
                 },

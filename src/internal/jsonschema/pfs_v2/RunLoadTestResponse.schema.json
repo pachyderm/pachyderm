@@ -22,9 +22,6 @@
                     "type": "string",
                     "format": "regex"
                 },
-                "state_id": {
-                    "type": "string"
-                },
                 "stateId": {
                     "type": "string"
                 }

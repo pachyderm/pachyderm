@@ -15,13 +15,7 @@
         },
         "pps_v2.Service": {
             "properties": {
-                "internal_port": {
-                    "type": "integer"
-                },
                 "internalPort": {
-                    "type": "integer"
-                },
-                "external_port": {
                     "type": "integer"
                 },
                 "externalPort": {

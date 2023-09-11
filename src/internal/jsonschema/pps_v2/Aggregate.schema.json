@@ -13,13 +13,7 @@
                 "stddev": {
                     "type": "number"
                 },
-                "fifth_percentile": {
-                    "type": "number"
-                },
                 "fifthPercentile": {
-                    "type": "number"
-                },
-                "ninety_fifth_percentile": {
                     "type": "number"
                 },
                 "ninetyFifthPercentile": {

@@ -4,10 +4,6 @@
     "definitions": {
         "AuthenticateResponse": {
             "properties": {
-                "pach_token": {
-                    "type": "string",
-                    "description": "pach_token authenticates the caller with Pachyderm (if you want to perform Pachyderm operations after auth has been activated as themselves, you must present this token along with your regular request)"
-                },
                 "pachToken": {
                     "type": "string",
                     "description": "pach_token authenticates the caller with Pachyderm (if you want to perform Pachyderm operations after auth has been activated as themselves, you must present this token along with your regular request)"

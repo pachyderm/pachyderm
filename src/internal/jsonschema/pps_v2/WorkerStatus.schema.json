@@ -4,21 +4,11 @@
     "definitions": {
         "WorkerStatus": {
             "properties": {
-                "worker_id": {
-                    "type": "string"
-                },
                 "workerId": {
-                    "type": "string"
-                },
-                "job_id": {
                     "type": "string"
                 },
                 "jobId": {
                     "type": "string"
-                },
-                "datum_status": {
-                    "$ref": "#/definitions/pps_v2.DatumStatus",
-                    "additionalProperties": false
                 },
                 "datumStatus": {
                     "$ref": "#/definitions/pps_v2.DatumStatus",

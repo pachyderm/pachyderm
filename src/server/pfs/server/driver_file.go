@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -63,7 +64,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 }
 
 func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
-	id, err := d.withUnorderedWriter(ctx, renewer, cb, opts...)
+	id, err := withUnorderedWriter(ctx, d.storage, renewer, cb, opts...)
 	if err != nil {
 		return err
 	}
@@ -81,7 +82,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	id, err := d.withUnorderedWriter(ctx, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
+	id, err := withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
 		parentID, err := d.getFileSet(ctx, commit)
 		if err != nil {
 			return nil, err
@@ -97,9 +98,9 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 	return errors.EnsureStack(d.commitStore.AddFileSet(ctx, commit, *id))
 }
 
-func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
+func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
 	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(ValidateFilename)}, opts...)
-	uw, err := d.storage.Filesets.NewUnorderedWriter(ctx, opts...)
+	uw, err := storage.Filesets.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -544,7 +545,7 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	var id *fileset.ID
 	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = d.withUnorderedWriter(ctx, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
+		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
 		return err
 	}); err != nil {
 		return nil, err

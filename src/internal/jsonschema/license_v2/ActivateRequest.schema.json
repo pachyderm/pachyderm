@@ -4,10 +4,6 @@
     "definitions": {
         "ActivateRequest": {
             "properties": {
-                "activation_code": {
-                    "type": "string",
-                    "description": "activation_code is a Pachyderm enterprise activation code. New users can obtain trial activation codes"
-                },
                 "activationCode": {
                     "type": "string",
                     "description": "activation_code is a Pachyderm enterprise activation code. New users can obtain trial activation codes"

@@ -4,9 +4,6 @@
     "definitions": {
         "ActivateRequest": {
             "properties": {
-                "license_server": {
-                    "type": "string"
-                },
                 "licenseServer": {
                     "type": "string"
                 },

@@ -7,9 +7,6 @@
                 "number": {
                     "type": "integer"
                 },
-                "size_bytes": {
-                    "type": "integer"
-                },
                 "sizeBytes": {
                     "type": "integer"
                 }

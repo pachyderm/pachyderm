@@ -8,9 +8,6 @@
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
-                "file_path": {
-                    "type": "string"
-                },
                 "filePath": {
                     "type": "string"
                 },

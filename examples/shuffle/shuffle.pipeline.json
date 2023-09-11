@@ -5,14 +5,14 @@
         "pfs": {
           "glob": "/*.jpeg",
           "repo": "fruits",
-          "empty_files": true
+          "emptyFiles": true
         }
       },
       {
         "pfs": {
           "glob": "/*.json",
           "repo": "pricing",
-          "empty_files": true
+          "emptyFiles": true
         }
       }
     ]

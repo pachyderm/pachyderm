@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -210,6 +211,19 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	pfsEnv.EtcdPrefix = ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
 	require.NoError(t, err)
+	w, err := pfsserver.NewWorker(pfsserver.WorkerEnv{
+		DB:          pfsEnv.DB,
+		ObjClient:   pfsEnv.ObjectClient,
+		TaskService: pfsEnv.TaskService,
+	}, pfsserver.WorkerConfig{
+		Storage: pfsEnv.StorageConfig,
+	})
+	require.NoError(t, err)
+	go func() {
+		if err := w.Run(pfsEnv.BackgroundContext); err != nil {
+			log.Error(ctx, "from worker", zap.Error(err))
+		}
+	}()
 	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
 
 	// TRANSACTION

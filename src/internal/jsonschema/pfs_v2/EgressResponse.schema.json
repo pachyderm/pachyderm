@@ -4,16 +4,8 @@
     "definitions": {
         "EgressResponse": {
             "properties": {
-                "object_storage": {
-                    "$ref": "#/definitions/pfs_v2.EgressResponse.ObjectStorageResult",
-                    "additionalProperties": false
-                },
                 "objectStorage": {
                     "$ref": "#/definitions/pfs_v2.EgressResponse.ObjectStorageResult",
-                    "additionalProperties": false
-                },
-                "sql_database": {
-                    "$ref": "#/definitions/pfs_v2.EgressResponse.SQLDatabaseResult",
                     "additionalProperties": false
                 },
                 "sqlDatabase": {
@@ -39,9 +31,6 @@
         },
         "pfs_v2.EgressResponse.ObjectStorageResult": {
             "properties": {
-                "bytes_written": {
-                    "type": "integer"
-                },
                 "bytesWritten": {
                     "type": "integer"
                 }
@@ -52,12 +41,6 @@
         },
         "pfs_v2.EgressResponse.SQLDatabaseResult": {
             "properties": {
-                "rows_written": {
-                    "additionalProperties": {
-                        "type": "integer"
-                    },
-                    "type": "object"
-                },
                 "rowsWritten": {
                     "additionalProperties": {
                         "type": "integer"

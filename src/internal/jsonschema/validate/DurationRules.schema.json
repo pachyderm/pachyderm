@@ -47,15 +47,6 @@
                     "description": "In specifies that this field must be equal to one of the specified values",
                     "format": "regex"
                 },
-                "not_in": {
-                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array",
-                    "description": "NotIn specifies that this field cannot be equal to one of the specified values",
-                    "format": "regex"
-                },
                 "notIn": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "items": {

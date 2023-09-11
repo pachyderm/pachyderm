@@ -34,26 +34,6 @@
                         }
                     ]
                 },
-                "err_cmd": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "null"
-                            },
-                            {
-                                "type": "string"
-                            }
-                        ]
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
                 "errCmd": {
                     "items": {
                         "oneOf": [
@@ -92,26 +72,6 @@
                         "$ref": "#/definitions/pps_v2.SecretMount"
                     },
                     "additionalProperties": false,
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
-                "image_pull_secrets": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "null"
-                            },
-                            {
-                                "type": "string"
-                            }
-                        ]
-                    },
                     "oneOf": [
                         {
                             "type": "null"
@@ -161,26 +121,6 @@
                         }
                     ]
                 },
-                "err_stdin": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "null"
-                            },
-                            {
-                                "type": "string"
-                            }
-                        ]
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
                 "errStdin": {
                     "items": {
                         "oneOf": [
@@ -189,26 +129,6 @@
                             },
                             {
                                 "type": "string"
-                            }
-                        ]
-                    },
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "array"
-                        }
-                    ]
-                },
-                "accept_return_code": {
-                    "items": {
-                        "oneOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
                             }
                         ]
                     },
@@ -261,16 +181,6 @@
                         }
                     ]
                 },
-                "working_dir": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "string"
-                        }
-                    ]
-                },
                 "workingDir": {
                     "oneOf": [
                         {
@@ -291,27 +201,7 @@
                         }
                     ]
                 },
-                "memory_volume": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "boolean"
-                        }
-                    ]
-                },
                 "memoryVolume": {
-                    "oneOf": [
-                        {
-                            "type": "null"
-                        },
-                        {
-                            "type": "boolean"
-                        }
-                    ]
-                },
-                "datum_batching": {
                     "oneOf": [
                         {
                             "type": "null"
@@ -353,13 +243,7 @@
                     "type": "string",
                     "description": "Key of the secret to load into env_var, this field only has meaning if EnvVar != \"\"."
                 },
-                "mount_path": {
-                    "type": "string"
-                },
                 "mountPath": {
-                    "type": "string"
-                },
-                "env_var": {
                     "type": "string"
                 },
                 "envVar": {

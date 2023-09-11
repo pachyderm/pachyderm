@@ -4,10 +4,6 @@
     "definitions": {
         "InspectCommitSetRequest": {
             "properties": {
-                "commit_set": {
-                    "$ref": "#/definitions/pfs_v2.CommitSet",
-                    "additionalProperties": false
-                },
                 "commitSet": {
                     "$ref": "#/definitions/pfs_v2.CommitSet",
                     "additionalProperties": false

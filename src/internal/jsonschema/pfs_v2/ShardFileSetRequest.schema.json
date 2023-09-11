@@ -4,9 +4,6 @@
     "definitions": {
         "ShardFileSetRequest": {
             "properties": {
-                "file_set_id": {
-                    "type": "string"
-                },
                 "fileSetId": {
                     "type": "string"
                 }

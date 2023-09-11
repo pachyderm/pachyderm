@@ -8,9 +8,6 @@
                     "$ref": "#/definitions/pfs_v2.Branch",
                     "additionalProperties": false
                 },
-                "pfs_state_id": {
-                    "type": "string"
-                },
                 "pfsStateId": {
                     "type": "string"
                 }

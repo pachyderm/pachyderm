@@ -18,19 +18,10 @@
                 "issuer": {
                     "type": "string"
                 },
-                "client_id": {
-                    "type": "string"
-                },
                 "clientId": {
                     "type": "string"
                 },
-                "client_secret": {
-                    "type": "string"
-                },
                 "clientSecret": {
-                    "type": "string"
-                },
-                "redirect_uri": {
                     "type": "string"
                 },
                 "redirectUri": {
@@ -42,23 +33,12 @@
                     },
                     "type": "array"
                 },
-                "require_email_verified": {
-                    "type": "boolean"
-                },
                 "requireEmailVerified": {
                     "type": "boolean"
-                },
-                "localhost_issuer": {
-                    "type": "boolean",
-                    "description": "localhost_issuer ignores the contents of the issuer claim and makes all OIDC requests to the embedded OIDC provider. This is necessary to support some network configurations like Minikube."
                 },
                 "localhostIssuer": {
                     "type": "boolean",
                     "description": "localhost_issuer ignores the contents of the issuer claim and makes all OIDC requests to the embedded OIDC provider. This is necessary to support some network configurations like Minikube."
-                },
-                "user_accessible_issuer_host": {
-                    "type": "string",
-                    "description": "user_accessible_issuer_host can be set to override the host used in the OAuth2 authorization URL in case the OIDC issuer isn't accessible outside the cluster. This requires a fully formed URL with scheme of either http or https. This is necessary to support some configurations like Minikube."
                 },
                 "userAccessibleIssuerHost": {
                     "type": "string",

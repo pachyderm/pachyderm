@@ -18,9 +18,6 @@
                     "$ref": "#/definitions/enterprise_v2.TokenInfo",
                     "additionalProperties": false
                 },
-                "activation_code": {
-                    "type": "string"
-                },
                 "activationCode": {
                     "type": "string"
                 }
