@@ -1,8 +1,8 @@
 import path from 'path';
 
 import react from '@vitejs/plugin-react';
-import analyze from 'rollup-plugin-analyzer';
 import copy from 'rollup-plugin-copy';
+import {visualizer} from 'rollup-plugin-visualizer';
 import {defineConfig} from 'vite';
 import {ViteEjsPlugin} from 'vite-plugin-ejs';
 import EnvironmentPlugin from 'vite-plugin-environment';
@@ -43,6 +43,13 @@ export default defineConfig({
   // comment this out if that isn't relevant for your project
   build: {
     outDir: 'build',
+    rollupOptions: {
+      output: {
+        assetFileNames: '[ext]/[name]-[hash][extname]',
+        chunkFileNames: 'js/[name]-[hash].js',
+        entryFileNames: 'js/[name]-[hash].js',
+      },
+    },
   },
   resolve: {
     alias: {
@@ -60,6 +67,8 @@ export default defineConfig({
       targets: [{src: 'oauth/**/*', dest: 'build/oauth'}],
       hook: 'writeBundle',
     }),
-    ...(process.env.ANALYZE ? [analyze()] : []),
+    ...(process.env.ANALYZE
+      ? [visualizer({filename: 'visualizer-stats.html'})]
+      : []),
   ],
 });

@@ -18,8 +18,8 @@ import {
 import ErrorBoundaryProvider from './providers/ErrorBoundaryProvider';
 import LoggedInProvider from './providers/LoggedInProvider';
 
-const Landing = lazy(() => import('@dash-frontend/views/Landing'));
-const Project = lazy(() => import('@dash-frontend/views/Project'));
+const Landing = lazy(() => import('@dash-frontend/views/Landing/Landing'));
+const Project = lazy(() => import('@dash-frontend/views/Project/Project'));
 
 const DashUI: React.FC = () => {
   return (

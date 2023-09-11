@@ -25,7 +25,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "load-setup": "node ./load-tests/projectSetup.js",
     "load-test:ci": "start-server-and-test start:e2e http-get://localhost:4000 load-test",
-    "load-test": "npm i --prefix ./load-tests && npm run build --prefix ./load-tests && NODE_ENV=development dotenv-flow -- k6 run ./load-tests/build/loadTest.bundle.js"
+    "load-test": "npm i --prefix ./load-tests && npm run build --prefix ./load-tests && NODE_ENV=development dotenv-flow -- k6 run ./load-tests/build/loadTest.bundle.js",
+    "size-limit": "size-limit",
+    "size-limit:install": "npm install && npm install --prefix ./backend && npm install --prefix ./frontend",
+    "size-limit:build": "npm run size-limit:install && npm run build --prefix ./frontend"
   },
   "keywords": [],
   "author": "",
@@ -40,6 +43,7 @@
     "@graphql-codegen/typescript-operations": "2.5.7",
     "@graphql-codegen/typescript-react-apollo": "3.3.7",
     "@graphql-codegen/typescript-resolvers": "2.7.8",
+    "@size-limit/file": "^9.0.0",
     "@testing-library/cypress": "^9.0.0",
     "cypress": "12.14.0",
     "cypress-wait-until": "1.7.2",
@@ -49,7 +53,25 @@
     "graphql": "16.6.0",
     "jsonrepair": "^3.2.0",
     "msw": "^1.2.4",
+    "size-limit": "^9.0.0",
     "start-server-and-test": "2.0.0",
     "typescript": "4.9.3"
-  }
+  },
+  "size-limit": [
+    {
+      "path": "frontend/build/**/index-*.js",
+      "name": "Entry"
+    },
+    {
+      "path": [
+        "frontend/build/**/*.js",
+        "!frontend/build/**/index-*.js"
+      ],
+      "name": "Chunks"
+    },
+    {
+      "path": "frontend/build/**/*.js",
+      "name": "Everything"
+    }
+  ]
 }
