@@ -408,6 +408,45 @@ func (b *builder) initPachwController(ctx context.Context) error {
 	return nil
 }
 
+func (b *builder) startPFSWorker(ctx context.Context) error {
+	env, err := PFSWorkerEnv(b.env)
+	if err != nil {
+		return err
+	}
+	config := pfs_server.WorkerConfig{
+		Storage: b.env.Config().StorageConfiguration,
+	}
+	w, err := pfs_server.NewWorker(*env, config)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-worker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startPFSMaster(ctx context.Context) error {
+	env, err := PFSEnv(b.env, b.txnEnv)
+	if err != nil {
+		return err
+	}
+	m, err := pfs_server.NewMaster(*env)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-master")
+		if err := m.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-master", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
 // setupMemoryLimit sets GOMEMLIMIT.  If not already set through the environment, set GOMEMLIMIT to
 // the container memory request, or if not set, the container memory limit minus some accounting for
 // the runtime (100MiB).
