@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -1288,6 +1289,11 @@ func (m *MountStateMachine) RefreshMountState() error {
 	// Get the latest commit on the branch
 	branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 	if err != nil {
+		// If we mounted a specific commit but the branch no longer exists,
+		// then how many commits we're behind on the branch is meaningless 
+		if errutil.IsNotFoundError(err) {
+			return nil
+		}
 		return err
 	}
 	m.LatestCommit = branchInfo.Head.Id
