@@ -116,13 +116,13 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
       TEST_RESULTS: /tmp/test-results
       GOPROXY: https://proxy.golang.org
-    parallelism: 10
+    parallelism: 8
     steps:
       - checkout
       - run:
@@ -1828,12 +1828,12 @@ workflows:
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
-          resource_class: large # amd64
+          resource_class: xlarge # amd64
           arch: amd64
           num_executors: 2
       - deploy-tests:
           name: arm64 deploy tests
-          resource_class: arm.large # arm64
+          resource_class: arm.xlarge # arm64
           arch: arm64
           num_executors: 2
   jupyter-extension:
