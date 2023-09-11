@@ -19,14 +19,14 @@ opencv:
 opencvauth:
 	# echo 64a6e99a5ca34d6e83229725bd637301 | pachctl auth use-auth-token
 	pachctl create repo images
-	pachctl create pipeline -f $(data_dir)/edges.pipeline.json # <- this pipeline is NOT schedulable
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json 
 	pachctl put file images@master -f Image.png
 	pachctl put file images@master -f liberty.jpg
 	pachctl put file images@master -f camera_lense_0.jpg
 	sleep 1
 	# pachctl auth set repo edges none pipeline:default/edges
 	# pachctl auth set repo edges none robot:pachrun
-	pachctl update pipeline -f $(data_dir)/edges-update.pipeline.json# <- this pipeline IS schedulable
+	pachctl update pipeline -f $(data_dir)/edges-update.pipeline.json 
 	# pachctl auth set repo edges none pach:root
 	# pachctl auth set repo edges none robot:daniel
 	# pachctl auth set repo edges repoReader,repoWriter robot:pachrun

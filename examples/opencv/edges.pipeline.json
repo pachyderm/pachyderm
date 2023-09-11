@@ -14,7 +14,7 @@
     "image": "pachyderm/opencv:1.0"
   },
   "resource_requests": {
-    "cpu": 100,
+    "cpu": 1,
     "memory": "1G"
   },
   "autoscaling": true,
