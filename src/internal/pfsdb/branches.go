@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	getBranchQuery = `
+	getBranchBaseQuery = `
 		SELECT
 			branch.id,
 			branch.name,
@@ -31,8 +31,8 @@ const (
 			JOIN core.projects project ON repo.project_id = project.id
 			JOIN pfs.commits commit ON branch.head = commit.int_id
 	`
-	getBranchByIDQuery   = getBranchQuery + ` WHERE branch.id = $1`
-	getBranchByNameQuery = getBranchQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
+	getBranchByIDQuery   = getBranchBaseQuery + ` WHERE branch.id = $1`
+	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
 )
 
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
