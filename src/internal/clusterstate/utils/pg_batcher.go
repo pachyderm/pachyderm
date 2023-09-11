@@ -28,11 +28,13 @@ and to allow for multiple columns in the WHERE clause. The functions have been w
 to make them easy to expand upon.
 */
 
+// row contains the values to be used for an insert/update of one row in Postgres.
 type row struct {
 	column_values []any // Contains the values to be inserted/updated for any given row
 	where_values  []any // Contains the values to be used in the WHERE clause
 }
 
+// postgresBatcher is an object to be used for caching rows of insert/update statements and sending them to Postgres in batches.
 type postgresBatcher struct {
 	tx         *pachsql.Tx // The transaction object
 	action     string      // One of the following: INSERT, UPDATE, DELETE (currently only UPDATE is implemented)
@@ -51,18 +53,18 @@ func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []s
 	// Validate the action; currently only UPDATE is supported
 	if !strings.EqualFold(action, "UPDATE") {
 		if !strings.EqualFold(action, "INSERT") && !strings.EqualFold(action, "DELETE") {
-			return errors.Errorf("%s is not a valid action.  Must be one of: INSERT, UPDATE, DELETE"), nil
+			return errors.Errorf("%s is not a valid action (must be one of: INSERT, UPDATE, DELETE)"), nil
 		} else {
-			return errors.Errorf("INSERT and DELETE are not currently implemented."), nil
+			return errors.Errorf("INSERT and DELETE are not currently implemented"), nil
 		}
 	}
 
 	// Validate that at least 1 column and no more than 1 w_column have been provided.
 	if len(columns) == 0 {
-		return errors.Errorf("At least one column must be provided; none were given."), nil
+		return errors.Errorf("at least one column must be provided; none were given"), nil
 	}
 	if len(w_columns) > 1 {
-		return errors.Errorf("Currently only 1 column may be used in the WHERE clause. %d were given.", len(w_columns)), nil
+		return errors.Errorf("currently only 1 column may be used in the WHERE clause, but %d were given", len(w_columns)), nil
 	}
 
 	// Array where each element corresponds to the set string for one column (ex: "col1 = x.col1")
@@ -91,15 +93,15 @@ func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []s
 	}
 }
 
-// The Add function adds a row of data to the batch.
+// Add adds a row of data to the batch.
 func (pb *postgresBatcher) Add(ctx context.Context, column_values []any, where_values []any) error {
 	// Make sure that the number of values to be set matches the number of columns
 	if len(column_values) != len(pb.columns) {
-		return errors.Errorf("Got %d values for columns; expected %d", len(column_values), len(pb.columns))
+		return errors.Errorf("got %d values for columns, but expected %d", len(column_values), len(pb.columns))
 	}
 	// Make sure that the number of WHERE clause values matches the number of columns used in the WHERE clause
 	if len(where_values) != len(pb.w_columns) {
-		return errors.Errorf("Got %d values for WHERE clause; expected %d", len(where_values), len(pb.w_columns))
+		return errors.Errorf("got %d values for WHERE clause, but expected %d", len(where_values), len(pb.w_columns))
 	}
 
 	// Append the row with its associated values
@@ -113,7 +115,7 @@ func (pb *postgresBatcher) Add(ctx context.Context, column_values []any, where_v
 	return pb.execute(ctx)
 }
 
-// Execute will compose the final query string from the rows in the batch and submit it to Postgres
+// execute will compose the final query string from the rows in the batch and submit it to Postgres.
 //
 // The final query will look something like the following:
 //
@@ -178,7 +180,7 @@ func (pb *postgresBatcher) execute(ctx context.Context) error {
 	return nil
 }
 
-// Finish is called at the end to ensure that the final batch is sent
+// Finish is called at the end to ensure that the final batch is sent.
 func (pb *postgresBatcher) Finish(ctx context.Context) error {
 	return pb.execute(ctx)
 }
