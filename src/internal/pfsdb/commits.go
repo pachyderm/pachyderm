@@ -187,9 +187,9 @@ type AncestryOpt struct {
 // CreateCommit creates an entry in the pfs.commits table. If the commit has a parent or children,
 // it will attempt to create entries in the pfs.commit_ancestry table unless options are provided to skip
 // ancestry creation.
-func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) error {
+func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
 	if err := validateCommitInfo(commitInfo); err != nil {
-		return err
+		return 0, err
 	}
 	opt := AncestryOpt{}
 	if len(opts) > 0 {
@@ -220,30 +220,30 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	}
 	namedStmt, err := tx.PrepareNamedContext(ctx, createCommit)
 	if err != nil {
-		return errors.Wrap(err, "prepare create commitInfo")
+		return 0, errors.Wrap(err, "prepare create commitInfo")
 	}
 	row := namedStmt.QueryRowxContext(ctx, insert)
 	if row.Err() != nil {
 		if IsDuplicateKeyErr(row.Err()) { // a duplicate key implies that an entry for the repo already exists.
-			return ErrCommitAlreadyExists{CommitID: CommitKey(commitInfo.Commit)}
+			return 0, ErrCommitAlreadyExists{CommitID: CommitKey(commitInfo.Commit)}
 		}
-		return errors.Wrap(row.Err(), "exec create commitInfo")
+		return 0, errors.Wrap(row.Err(), "exec create commitInfo")
 	}
 	lastInsertId := 0
 	if err := row.Scan(&lastInsertId); err != nil {
-		return errors.Wrap(err, "scanning id from create commitInfo")
+		return 0, errors.Wrap(err, "scanning id from create commitInfo")
 	}
 	if commitInfo.ParentCommit != nil && !opt.SkipParent {
 		if err := PutCommitParent(ctx, tx, commitInfo.ParentCommit, CommitID(lastInsertId)); err != nil {
-			return errors.Wrap(err, "linking parent")
+			return 0, errors.Wrap(err, "linking parent")
 		}
 	}
 	if len(commitInfo.ChildCommits) != 0 && !opt.SkipChildren {
 		if err := PutCommitChildren(ctx, tx, CommitID(lastInsertId), commitInfo.ChildCommits); err != nil {
-			return errors.Wrap(err, "linking children")
+			return 0, errors.Wrap(err, "linking children")
 		}
 	}
-	return nil
+	return CommitID(lastInsertId), nil
 }
 
 // validateCommitInfo returns an error if the commit is not valid and has side effects of instantiating details
@@ -666,15 +666,15 @@ func parseCommitFromRow(row *Commit) (*pfs.Commit, error) {
 
 // UpsertCommit will attempt to insert a commit and its ancestry relationships.
 // If the commit already exists, it will update its description.
-func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) error {
+func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
 	existingCommit, err := getCommitRowByCommitKey(ctx, tx, commitInfo.Commit)
 	if err != nil {
 		if errors.Is(ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
 			return CreateCommit(ctx, tx, commitInfo, opts...)
 		}
-		return errors.Wrap(err, "upserting commit")
+		return 0, errors.Wrap(err, "upserting commit")
 	}
-	return UpdateCommit(ctx, tx, existingCommit.RowID, commitInfo, opts...)
+	return existingCommit.RowID, UpdateCommit(ctx, tx, existingCommit.RowID, commitInfo, opts...)
 }
 
 // UpdateCommit overwrites an existing commit entry by CommitID as well as the corresponding ancestry entries.
