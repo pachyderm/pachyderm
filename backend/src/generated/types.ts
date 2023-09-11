@@ -647,9 +647,8 @@ export enum NodeState {
 export enum NodeType {
   CROSS_PROJECT_REPO = 'CROSS_PROJECT_REPO',
   EGRESS = 'EGRESS',
-  INPUT_REPO = 'INPUT_REPO',
-  OUTPUT_REPO = 'OUTPUT_REPO',
   PIPELINE = 'PIPELINE',
+  REPO = 'REPO',
 }
 
 export type OpenCommit = {
@@ -1248,9 +1247,17 @@ export type Vertex = {
   jobState?: Maybe<JobState>;
   name: Scalars['String'];
   nodeState?: Maybe<NodeState>;
-  parents: Array<Scalars['String']>;
+  parents: Array<VertexIdentifier>;
+  project: Scalars['String'];
   state?: Maybe<PipelineState>;
   type: NodeType;
+};
+
+export type VertexIdentifier = {
+  __typename?: 'VertexIdentifier';
+  id: Scalars['String'];
+  name: Scalars['String'];
+  project: Scalars['String'];
 };
 
 export type WorkspaceLogsArgs = {
@@ -1498,6 +1505,7 @@ export type ResolversTypes = ResolversObject<{
   Version: ResolverTypeWrapper<Version>;
   VersionInfo: ResolverTypeWrapper<VersionInfo>;
   Vertex: ResolverTypeWrapper<Vertex>;
+  VertexIdentifier: ResolverTypeWrapper<VertexIdentifier>;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
@@ -1618,6 +1626,7 @@ export type ResolversParentTypes = ResolversObject<{
   Version: Version;
   VersionInfo: VersionInfo;
   Vertex: Vertex;
+  VertexIdentifier: VertexIdentifier;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
@@ -2872,13 +2881,28 @@ export type VertexResolvers<
     ParentType,
     ContextType
   >;
-  parents?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  parents?: Resolver<
+    Array<ResolversTypes['VertexIdentifier']>,
+    ParentType,
+    ContextType
+  >;
+  project?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   state?: Resolver<
     Maybe<ResolversTypes['PipelineState']>,
     ParentType,
     ContextType
   >;
   type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type VertexIdentifierResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['VertexIdentifier'] = ResolversParentTypes['VertexIdentifier'],
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  project?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2941,6 +2965,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Version?: VersionResolvers<ContextType>;
   VersionInfo?: VersionInfoResolvers<ContextType>;
   Vertex?: VertexResolvers<ContextType>;
+  VertexIdentifier?: VertexIdentifierResolvers<ContextType>;
 }>;
 
 export type BranchFragmentFragment = {
@@ -3504,15 +3529,21 @@ export type GetDagQuery = {
   dag: Array<{
     __typename?: 'Vertex';
     id: string;
+    project: string;
     name: string;
     state?: PipelineState | null;
     nodeState?: NodeState | null;
     access: boolean;
-    parents: Array<string>;
     type: NodeType;
     jobState?: JobState | null;
     jobNodeState?: NodeState | null;
     createdAt?: number | null;
+    parents: Array<{
+      __typename?: 'VertexIdentifier';
+      id: string;
+      project: string;
+      name: string;
+    }>;
   }>;
 };
 
@@ -3525,15 +3556,21 @@ export type GetDagsSubscription = {
   dags: Array<{
     __typename?: 'Vertex';
     id: string;
+    project: string;
     name: string;
     state?: PipelineState | null;
     nodeState?: NodeState | null;
     access: boolean;
-    parents: Array<string>;
     type: NodeType;
     jobState?: JobState | null;
     jobNodeState?: NodeState | null;
     createdAt?: number | null;
+    parents: Array<{
+      __typename?: 'VertexIdentifier';
+      id: string;
+      project: string;
+      name: string;
+    }>;
   }>;
 };
 

@@ -1,7 +1,6 @@
-import keyBy from 'lodash/keyBy';
 import uniqBy from 'lodash/uniqBy';
 
-import {flattenPipelineInputObj} from '@dash-backend/lib/flattenPipelineInput';
+import flattenPipelineInput from '@dash-backend/lib/flattenPipelineInput';
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import {toGQLJobState} from '@dash-backend/lib/gqlEnumMappers';
 import {gqlJobStateToNodeState} from '@dash-backend/lib/nodeStateMappers';
@@ -10,7 +9,7 @@ import {PachClient} from '@dash-backend/lib/types';
 import {NodeType, Vertex} from '@graphqlTypes';
 
 import {convertPachydermTypesToVertex} from './convertPachydermTypesToVertex';
-import {postfixNameWithRepo} from './helpers';
+import {generateVertexId} from './helpers';
 
 // Creates a vertex list of pachyderm repos and pipelines
 export const getProjectDAG = async ({
@@ -57,63 +56,44 @@ export const getProjectGlobalIdDAG = async ({
     }),
   );
 
-  const pipelineMap = keyBy(
-    sortedJobSet.map((job) => job.job?.pipeline),
-    (p) => `${p?.project?.name || ''}_${p?.name}`,
-  );
-
   const vertices = sortedJobSet.reduce<Vertex[]>((acc, job) => {
     const inputs = job.details?.input
-      ? flattenPipelineInputObj(job.details.input).filter(
+      ? flattenPipelineInput(job.details.input).filter(
           (input) => input.project === projectId,
         )
       : [];
 
-    const inputRepoVertices: Vertex[] = inputs.map(({project, repo}) => ({
-      id: postfixNameWithRepo(`${project || ''}_${repo}`),
+    const inputRepoVertices: Vertex[] = inputs.map(({project, name}) => ({
+      id: generateVertexId(project, name),
+      project,
+      name,
       parents: [],
-      type: pipelineMap[`${project || ''}_${repo}`]
-        ? NodeType.OUTPUT_REPO
-        : NodeType.INPUT_REPO,
+      type: NodeType.REPO,
       state: null,
       jobState: null,
       nodeState: null,
       jobNodeState: null,
       access: true,
-      name: postfixNameWithRepo(repo),
     }));
 
     const pipelineVertex: Vertex = {
-      id: `${job.job?.pipeline?.project?.name || ''}_${
-        job.job?.pipeline?.name
-      }`,
-      parents: inputs.map(({project, repo}) => `${project || ''}_${repo}`),
+      id: generateVertexId(
+        job.job?.pipeline?.project?.name || '',
+        job.job?.pipeline?.name || '',
+      ),
+      project: job.job?.pipeline?.project?.name || '',
+      name: job.job?.pipeline?.name || '',
+      parents: inputs,
       type: NodeType.PIPELINE,
       access: true,
-      name: job.job?.pipeline?.name || '',
+      //TODO: Fix in ticket FRON-1103
       state: null,
       nodeState: null,
       jobState: toGQLJobState(job.state),
       jobNodeState: gqlJobStateToNodeState(toGQLJobState(job.state)),
     };
 
-    const outputRepoVertex: Vertex = {
-      parents: [
-        `${job.job?.pipeline?.project?.name || ''}_${job.job?.pipeline?.name}`,
-      ],
-      type: NodeType.OUTPUT_REPO,
-      access: true,
-      state: null,
-      jobState: null,
-      nodeState: null,
-      jobNodeState: null,
-      id: postfixNameWithRepo(
-        `${job.job?.pipeline?.project?.name || ''}_${job.job?.pipeline?.name}`,
-      ),
-      name: postfixNameWithRepo(job.job?.pipeline?.name),
-    };
-
-    return [...acc, ...inputRepoVertices, outputRepoVertex, pipelineVertex];
+    return [...acc, ...inputRepoVertices, pipelineVertex];
   }, []);
 
   return uniqBy(vertices, (v) => v.name);

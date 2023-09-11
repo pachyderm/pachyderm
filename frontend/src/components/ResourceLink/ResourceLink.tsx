@@ -34,22 +34,21 @@ export const RepoLink: React.FC<ResourceLinkProps> = ({
   ...rest
 }) => {
   const {projectId: projectIdFromURL} = useUrlState();
-  const nodeName = name.replace(/_repo$/, '');
   const path = repoRoute({
     projectId: projectId ?? projectIdFromURL,
-    repoId: nodeName,
+    repoId: name,
   });
 
   const repoText =
     projectId && projectId !== projectIdFromURL
-      ? `${nodeName} (Project ${projectId})`
-      : nodeName;
+      ? `${name} (Project ${projectId})`
+      : name;
 
   return (
     <Link
       data-testid="ResourceLink__repo"
       to={path}
-      aria-label={nodeName}
+      aria-label={name}
       className={styles.base}
     >
       <Icon small className={styles.nodeImage}>

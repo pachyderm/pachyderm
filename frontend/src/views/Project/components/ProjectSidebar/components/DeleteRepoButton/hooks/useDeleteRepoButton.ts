@@ -1,5 +1,5 @@
-import {Permission, ResourceType} from '@graphqlTypes';
-import {useState} from 'react';
+import {NodeType, Permission, ResourceType} from '@graphqlTypes';
+import {useState, useMemo} from 'react';
 
 import {useGetDagQuery} from '@dash-frontend/generated/hooks';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
@@ -19,11 +19,22 @@ const useDeleteRepoButton = () => {
     resource: {type: ResourceType.REPO, name: `${projectId}/${repo?.id}`},
   });
 
-  const canDelete =
-    dagData &&
-    !dagData?.dag?.some(({parents}) =>
-      parents.some((parent) => parent === `${projectId}_${repoId}`),
-    );
+  const canDelete = useMemo(
+    () =>
+      !dagData?.dag?.some(({parents, project, name, type}) => {
+        const isDescendant = parents.some(
+          ({project: parentProject, name: parentName}) =>
+            parentProject === projectId && parentName === repoId,
+        );
+        const isOutputRepo =
+          project === projectId &&
+          name === repoId &&
+          type === NodeType.PIPELINE;
+
+        return isDescendant || isOutputRepo;
+      }),
+    [projectId, repoId, dagData?.dag],
+  );
 
   const disableButton =
     repoLoading || dagLoading || !hasAuthDeleteRepo || !canDelete;

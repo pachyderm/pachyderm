@@ -45,6 +45,7 @@ export enum DagDirection {
 
 export type Node = {
   id: string;
+  project: string;
   name: string;
   type: NodeType;
   x: number;

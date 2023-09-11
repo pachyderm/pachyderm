@@ -128,7 +128,7 @@ const Node: React.FC<NodeProps> = ({
         state && [NodeState.IDLE, NodeState.SUCCESS].includes(state),
     });
 
-  if (node.type === NodeType.INPUT_REPO) {
+  if (node.type === NodeType.REPO) {
     return (
       <g
         role="button"

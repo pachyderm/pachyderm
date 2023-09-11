@@ -4,11 +4,16 @@ export const GET_DAG_QUERY = gql`
   query getDag($args: DagQueryArgs!) {
     dag(args: $args) {
       id
+      project
       name
+      parents {
+        id
+        project
+        name
+      }
       state
       nodeState
       access
-      parents
       type
       jobState
       jobNodeState

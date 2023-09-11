@@ -1572,11 +1572,16 @@ export const GetDagDocument = gql`
   query getDag($args: DagQueryArgs!) {
     dag(args: $args) {
       id
+      project
       name
+      parents {
+        id
+        project
+        name
+      }
       state
       nodeState
       access
-      parents
       type
       jobState
       jobNodeState
@@ -1635,11 +1640,16 @@ export const GetDagsDocument = gql`
   subscription getDags($args: DagQueryArgs!) {
     dags(args: $args) {
       id
+      project
       name
+      parents {
+        id
+        project
+        name
+      }
       state
       nodeState
       access
-      parents
       type
       jobState
       jobNodeState

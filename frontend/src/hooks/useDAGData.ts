@@ -29,7 +29,6 @@ export const useDAGData = ({
         nodeHeight,
         direction,
         setDagError,
-        false,
       );
       setDags(builtDags);
       setLoadingDags(false);

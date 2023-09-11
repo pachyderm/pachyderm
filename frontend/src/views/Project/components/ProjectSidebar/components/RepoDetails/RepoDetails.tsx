@@ -1,4 +1,5 @@
-import React from 'react';
+import objectHash from 'object-hash';
+import React, {useMemo} from 'react';
 import {Route, Switch} from 'react-router-dom';
 
 import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
@@ -50,6 +51,15 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     isOpen: rolesModalOpen,
   } = useModal(false);
 
+  const pipelineOutputs = useMemo(() => {
+    const repoNodeName = objectHash({
+      project: repo?.projectId,
+      name: repo?.name,
+    });
+
+    return pipelineOutputsMap[repoNodeName] || [];
+  }, [pipelineOutputsMap, repo?.name, repo?.projectId]);
+
   if (!currentRepoLoading && repoError) {
     return (
       <div className={styles.emptyRepoMessage}>
@@ -63,11 +73,6 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
       </div>
     );
   }
-  const repoNodeName = `${repo?.projectId}_${repo?.name}`;
-  const pipelineOutputs =
-    pipelineOutputsMap[`${repoNodeName}_repo`] ||
-    pipelineOutputsMap[repoNodeName] ||
-    [];
 
   return (
     <div className={styles.base} data-testid="RepoDetails__base">

@@ -34,31 +34,27 @@ const normalizeDAGData = async (
   // create elk edges
   const elkEdges: LinkInputData[] = [];
   for (const vertex of vertices) {
-    const uniqueParents = new Set(vertex.parents);
+    const parentStrings = vertex.parents.map(({id}) => {
+      return id;
+    });
+    const uniqueParents = new Set(parentStrings);
     uniqueParents.forEach((vertexParentName) => {
-      let parentName = vertexParentName;
-      if (vertex.type === NodeType.PIPELINE) {
-        parentName =
-          `${vertexParentName}_repo` in nodeIndexMap
-            ? `${vertexParentName}_repo`
-            : vertexParentName;
-      } else if (vertex.type === NodeType.EGRESS) {
-        parentName = parentName.replace(/_repo$/, '');
-      }
-
-      const parentIndex = nodeIndexMap[parentName];
+      const parentIndex = nodeIndexMap[vertexParentName];
       const parentVertex = vertices[parentIndex];
 
       // edge case: if pipeline has input repos that cannot be found, the link is not valid
       // it might be in another project
-      if (vertex.type === NodeType.PIPELINE && !(parentName in nodeIndexMap)) {
+      if (
+        vertex.type === NodeType.PIPELINE &&
+        !(vertexParentName in nodeIndexMap)
+      ) {
         return;
       }
 
       elkEdges.push({
         // hashing here for consistency
-        id: objectHash({node: vertex, parentName}),
-        sources: [parentName],
+        id: objectHash({node: vertex, vertexParentName}),
+        sources: [vertexParentName],
         targets: [vertex.id],
         state: parentVertex?.jobNodeState || undefined,
         sourceState: parentVertex?.nodeState || undefined,
@@ -72,6 +68,7 @@ const normalizeDAGData = async (
   // create elk children
   const elkChildren = vertices.map<NodeInputData>((node) => ({
     id: node.id,
+    project: node.project,
     name: node.name,
     type: node.type,
     state: node.state || undefined,
@@ -82,7 +79,7 @@ const normalizeDAGData = async (
     x: 0,
     y: 0,
     width: nodeWidth,
-    height: node.type === NodeType.INPUT_REPO ? NODE_INPUT_REPO : nodeHeight,
+    height: node.type === NodeType.REPO ? NODE_INPUT_REPO : nodeHeight,
   }));
 
   const horizontal = direction === DagDirection.RIGHT;
@@ -132,9 +129,10 @@ const normalizeDAGData = async (
   // convert elk children to graphql Node
   const nodes = elkChildren.map<Node>((node) => ({
     id: node.id,
+    project: node.project,
+    name: node.name,
     x: node.x || 0,
     y: node.y || 0,
-    name: node.name,
     type: node.type,
     state: node.state,
     jobState: node.jobState,
@@ -155,15 +153,12 @@ const buildDags = async (
   nodeHeight: number,
   direction = DagDirection.DOWN,
   setDagError: React.Dispatch<React.SetStateAction<string | undefined>>,
-  showOutputRepos: boolean,
 ) => {
   const verticesMap = keyBy(vertices, (v) => v.id);
   try {
     // TODO: Remove, temporary until UI is done.
     const filteredNodes = vertices.filter(
-      (n) =>
-        (showOutputRepos || n.type !== NodeType.OUTPUT_REPO) &&
-        n.type !== NodeType.CROSS_PROJECT_REPO,
+      (n) => n.type !== NodeType.CROSS_PROJECT_REPO,
     );
     const {nodes, links} = await normalizeDAGData(
       filteredNodes,
@@ -173,7 +168,7 @@ const buildDags = async (
     );
     const dags = disconnectedComponents(nodes, links).map((component) => {
       const componentRepos = component.nodes.filter(
-        (c) => c.type === NodeType.INPUT_REPO,
+        (c) => c.type === NodeType.REPO,
       );
 
       const id =

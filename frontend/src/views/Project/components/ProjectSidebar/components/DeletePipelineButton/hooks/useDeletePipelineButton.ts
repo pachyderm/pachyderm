@@ -1,4 +1,4 @@
-import {Permission, ResourceType} from '@graphqlTypes';
+import {NodeType, Permission, ResourceType} from '@graphqlTypes';
 import {useMemo, useState} from 'react';
 
 import {useGetDagQuery} from '@dash-frontend/generated/hooks';
@@ -21,8 +21,10 @@ const useDeletePipelineButton = () => {
       dagData &&
       !dagData?.dag?.some(
         ({parents, type}) =>
-          type === 'PIPELINE' &&
-          parents.some((parent) => parent === `${projectId}_${pipelineId}`),
+          type === NodeType.PIPELINE &&
+          parents.some(
+            ({project, name}) => project === projectId && name === pipelineId,
+          ),
       )
     );
   }, [pipelineId, dagData, projectId]);

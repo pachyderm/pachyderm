@@ -12,17 +12,17 @@ describe('Dag', () => {
 
   it('should render the entire dag', () => {
     cy.findByRole('button', {
-      name: 'GROUP_images repo',
+      name: 'GROUP_8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65 repo',
       timeout: 10000,
     }).should('exist');
 
     cy.findByRole('button', {
-      name: 'GROUP_edges pipeline',
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
       timeout: 10000,
     }).should('exist');
 
     cy.findByRole('button', {
-      name: 'GROUP_montage pipeline',
+      name: 'GROUP_52faf83dd0fff4b0d510f5326e2bf66e8b5a2ed6 pipeline',
       timeout: 10000,
     }).should('exist');
 
@@ -50,14 +50,14 @@ describe('Dag', () => {
     }).click();
 
     cy.findByRole('button', {
-      name: 'GROUP_images repo',
+      name: 'GROUP_8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65 repo',
       timeout: 10000,
     }).should('exist');
     cy.findByRole('button', {
-      name: 'GROUP_edges pipeline',
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
     }).should('exist');
     cy.findByRole('button', {
-      name: 'GROUP_montage pipeline',
+      name: 'GROUP_52faf83dd0fff4b0d510f5326e2bf66e8b5a2ed6 pipeline',
       timeout: 10000,
     }).should('not.exist');
 
@@ -67,7 +67,7 @@ describe('Dag', () => {
   it('should derive the correct selected repo from the url', () => {
     cy.visit('/lineage/default/repos/images');
     cy.findByRole('button', {
-      name: 'GROUP_images repo',
+      name: 'GROUP_8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65 repo',
       timeout: 10000,
     }).should('be.visible');
     cy.findByTestId('Title__name').should('have.text', 'images');
@@ -76,7 +76,7 @@ describe('Dag', () => {
   it('should derive the correct selected pipeline from the url', () => {
     cy.visit('/lineage/default/pipelines/edges');
     cy.findByRole('button', {
-      name: 'GROUP_edges pipeline',
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
       timeout: 10000,
     }).should('be.visible');
     cy.findByTestId('Title__name').should('have.text', 'edges');
@@ -84,7 +84,7 @@ describe('Dag', () => {
 
   it('should update the url correctly when selecting a repo', () => {
     cy.findByRole('button', {
-      name: 'GROUP_images repo',
+      name: 'GROUP_8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65 repo',
       timeout: 10000,
     }).click();
     cy.url().should('contain', '/lineage/default/repos/images');
@@ -92,7 +92,7 @@ describe('Dag', () => {
 
   it('should update the url correctly when selecting a pipeline', () => {
     cy.findByRole('button', {
-      name: 'GROUP_edges pipeline',
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
       timeout: 10000,
     }).click();
     cy.url().should('contain', '/lineage/default/pipelines/edges');
@@ -100,7 +100,7 @@ describe('Dag', () => {
 
   it('should update the url correctly when selecting an output repo', () => {
     cy.findByRole('button', {
-      name: 'GROUP_edges repo',
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 repo',
       timeout: 10000,
     }).click();
     cy.url().should('contain', '/lineage/default/repos/edges');
@@ -108,7 +108,7 @@ describe('Dag', () => {
 
   it('should update the url correctly when selecting a status icon', () => {
     cy.findByRole('button', {
-      name: 'GROUP_edges logs',
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 logs',
       timeout: 10000,
     }).click();
     cy.url().should(
@@ -119,7 +119,7 @@ describe('Dag', () => {
 
   it('should correctly reset the DAG when DAG nodes are deleted', () => {
     cy.findByRole('button', {
-      name: 'GROUP_montage pipeline',
+      name: 'GROUP_52faf83dd0fff4b0d510f5326e2bf66e8b5a2ed6 pipeline',
       timeout: 10000,
     }).click();
 

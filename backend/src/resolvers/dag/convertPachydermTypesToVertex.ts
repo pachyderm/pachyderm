@@ -14,33 +14,29 @@ import {
 import {RepoInfo, PipelineInfo} from '@dash-backend/proto';
 import {NodeType, Vertex} from '@graphqlTypes';
 
-import {egressNodeName, postfixNameWithRepo} from './helpers';
+import {egressNodeName, generateVertexId} from './helpers';
 
 const convertPachydermRepoToVertex = ({
   repo: r,
-  pipelineMap,
 }: {
   repo: RepoInfo.AsObject;
-  pipelineMap: Record<string, PipelineInfo.AsObject>;
-}): Vertex => ({
-  id: postfixNameWithRepo(`${r.repo?.project?.name || ''}_${r.repo?.name}`),
-  name: r.repo?.name || '',
-  type:
-    r.repo && pipelineMap[`${r.repo?.project?.name || ''}_${r.repo?.name}`]
-      ? NodeType.OUTPUT_REPO
-      : NodeType.INPUT_REPO,
-  state: null,
-  jobState: null,
-  nodeState: null,
-  jobNodeState: null,
-  access: hasRepoReadPermissions(r.authInfo?.permissionsList),
-  createdAt: r.created?.seconds,
-  // if there is a pipeline with the same name as our repo, it is our only parent
-  parents:
-    r.repo && pipelineMap[`${r.repo?.project?.name || ''}_${r.repo?.name}`]
-      ? [`${r.repo?.project?.name || ''}_${r.repo?.name}`]
-      : [],
-});
+}): Vertex => {
+  const project = r.repo?.project?.name || '';
+  const name = r.repo?.name || '';
+  return {
+    id: generateVertexId(project, name),
+    project,
+    name,
+    type: NodeType.REPO,
+    state: null,
+    jobState: null,
+    nodeState: null,
+    jobNodeState: null,
+    access: hasRepoReadPermissions(r.authInfo?.permissionsList),
+    createdAt: r.created?.seconds,
+    parents: [],
+  };
+};
 
 const convertPachydermPipelineToVertex = ({
   pipeline: p,
@@ -49,20 +45,22 @@ const convertPachydermPipelineToVertex = ({
   pipeline: PipelineInfo.AsObject;
   repoMap: Record<string, RepoInfo.AsObject>;
 }): Vertex[] => {
-  const pipelineName = `${p.pipeline?.project?.name || ''}_${p.pipeline?.name}`;
+  const project = p.pipeline?.project?.name || '';
+  const name = p.pipeline?.name || '';
+
   const state = toGQLPipelineState(p.state);
   const jobState = toGQLJobState(p.lastJobState);
 
   const pipelineNode = {
-    id: pipelineName,
-    name: p.pipeline?.name || '',
+    id: generateVertexId(project, name),
+    project,
+    name,
     type: NodeType.PIPELINE,
     state: state,
     nodeState: gqlPipelineStateToNodeState(state),
     access: p.pipeline
       ? hasRepoReadPermissions(
-          repoMap[`${p.pipeline?.project?.name || ''}_${p.pipeline?.name}`]
-            ?.authInfo?.permissionsList,
+          repoMap[`${project}.${name}`]?.authInfo?.permissionsList,
         )
       : false,
     jobState: jobState,
@@ -75,13 +73,23 @@ const convertPachydermPipelineToVertex = ({
 
   const egress = p.details?.egress;
   if (!egress || !egressNodeName(egress)) return vertices;
-
+  // Egress nodes are a visual representation of a pipeline setting that is
+  // unique to our DAG, so we want to append a identifier to the name to have it
+  // differ from the pipeline name.
+  const egressName = `${name}.egress`;
   const egressNode = {
-    id: `${p.pipeline?.project?.name || ''}_${p.pipeline?.name || ''}_egress`,
+    id: generateVertexId(project, egressName),
+    project,
     name: egressNodeName(egress) || '',
     type: NodeType.EGRESS,
     access: true,
-    parents: [postfixNameWithRepo(pipelineName)],
+    parents: [
+      {
+        id: generateVertexId(project, name),
+        project,
+        name,
+      },
+    ],
     state: null,
     jobState: null,
     nodeState: null,
@@ -93,19 +101,19 @@ const convertPachydermPipelineToVertex = ({
   return vertices;
 };
 
-const findCrossProjectProvenanceRepos = (
+export const findCrossProjectProvenanceRepos = (
   projectId: string,
   pipelines: Vertex[],
 ): Vertex[] => {
   const crossProjectProvenanceRepos: Vertex[] = [];
 
   pipelines.forEach((pipeline) => {
-    pipeline.parents.forEach((parent) => {
-      const [project, repo] = parent.split('_');
+    pipeline.parents.forEach(({project, name}) => {
       if (project !== projectId) {
         const vertex: Vertex = {
-          id: parent,
-          name: repo,
+          id: generateVertexId(project, name),
+          project,
+          name,
           state: null,
           nodeState: null,
           access: true,
@@ -130,15 +138,20 @@ export const convertPachydermTypesToVertex = (
 ) => {
   const pipelineMap = keyBy(
     pipelines,
-    (p) => `${p.pipeline?.project?.name || ''}_${p.pipeline?.name}`,
+    (p) => `${p.pipeline?.project?.name || ''}.${p.pipeline?.name}`,
   );
   const repoMap = keyBy(
     repos,
-    (r) => `${r.repo?.project?.name || ''}_${r.repo?.name}`,
+    (r) => `${r.repo?.project?.name || ''}.${r.repo?.name}`,
   );
 
-  const repoVertices = repos.map<Vertex>((repo) =>
-    convertPachydermRepoToVertex({repo, pipelineMap}),
+  //We want to filter out output repos as we do not render them in the DAG.
+  const filteredRepos = repos.filter(
+    (r) => !(r && pipelineMap[`${r.repo?.project?.name}.${r.repo?.name}`]),
+  );
+
+  const repoVertices = filteredRepos.map<Vertex>((repo) =>
+    convertPachydermRepoToVertex({repo}),
   );
   const pipelineVertices = flatMap(pipelines, (pipeline) =>
     convertPachydermPipelineToVertex({pipeline, repoMap}),

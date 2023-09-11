@@ -1,10 +1,9 @@
-import {DagQueryArgs, GetDagsSubscription, NodeType} from '@graphqlTypes';
+import {DagQueryArgs, GetDagsSubscription} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
 import {useHistory, useRouteMatch} from 'react-router';
 
 import {useGetDagsSubscription} from '@dash-frontend/generated/hooks';
 import buildDags from '@dash-frontend/lib/dag';
-import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
 import {Dag, DagDirection} from '@dash-frontend/lib/types';
 import {
   PROJECT_PATH,
@@ -67,11 +66,7 @@ export const useProjectDagsData = ({
       if (
         (repoId || pipelineId) &&
         !(subscriptionData.data?.dags || []).some((dag) => {
-          return (
-            (dag.type === NodeType.PIPELINE && dag.name === pipelineId) ||
-            (dag.type !== NodeType.PIPELINE &&
-              deriveRepoNameFromNode(dag) === repoId)
-          );
+          return dag.name === pipelineId || dag.name === repoId;
         })
       ) {
         // redirect if we were at a route that got deleted or filtered out
@@ -99,7 +94,6 @@ export const useProjectDagsData = ({
     nodeWidth,
     nodeHeight,
     direction,
-    projectMatch,
   }: buildAndSetDagsProps) => {
     setIsFirstCall(false);
     if (data?.dags) {
@@ -109,7 +103,6 @@ export const useProjectDagsData = ({
         nodeHeight,
         direction,
         setDagError,
-        projectMatch,
       );
       setDags(dags);
       setIsLoading(false);

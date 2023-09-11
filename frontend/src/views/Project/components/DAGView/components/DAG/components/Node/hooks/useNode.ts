@@ -1,4 +1,3 @@
-import {NodeType} from '@graphqlTypes';
 import {select} from 'd3-selection';
 import {useCallback, useEffect, useMemo} from 'react';
 import {useHistory} from 'react-router';
@@ -9,7 +8,6 @@ import {Node} from '@dash-frontend/lib/types';
 import useDAGRouteController from '@dash-frontend/views/Project/components/DAGView/hooks/useDAGRouteController';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
-import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
 const LABEL_WIDTH = NODE_WIDTH - 44;
 
@@ -27,16 +25,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
 
   const noAccess = !node.access;
 
-  const groupName = useMemo(() => {
-    let nodeName = deriveRepoNameFromNode(node);
-    // Need to have a string that works as a valid query selector.
-    // urls (and url-encoded urls) are not valid query selectors.
-    if (node.type === NodeType.EGRESS) {
-      nodeName = node.id;
-    }
-
-    return `GROUP_${nodeName}`;
-  }, [node]);
+  const groupName = useMemo(() => `GROUP_${node.id}`, [node]);
 
   const onClick = useCallback(
     (destination: 'pipeline' | 'repo' | 'logs' | 'status') => {
@@ -87,8 +76,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
 
     // create tspans
     const tspan = text.append('tspan');
-    const normalizedNodeName = deriveRepoNameFromNode(node);
-    const nameChars = normalizedNodeName.split('').reverse();
+    const nameChars = node.name.split('').reverse();
     const line: string[] = [];
     const tspanNode = tspan.node();
 
@@ -109,8 +97,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
     }
   }, [node, groupName, hideDetails]);
 
-  const repoSelected =
-    selectedRepo === deriveRepoNameFromNode(node) && !!repoPathMatch;
+  const repoSelected = selectedRepo === node.name && !!repoPathMatch;
 
   const pipelineSelected =
     selectedPipeline === node.name && !!pipelinePathMatch;

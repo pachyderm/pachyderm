@@ -265,19 +265,25 @@ type Job {
 
 enum NodeType {
   PIPELINE
-  OUTPUT_REPO
-  INPUT_REPO
+  REPO
   EGRESS
   CROSS_PROJECT_REPO
 }
 
+type VertexIdentifier {
+  id: String!
+  project: String!
+  name: String!
+}
+
 type Vertex {
   id: String!
+  project: String!
   name: String!
+  parents: [VertexIdentifier!]!
   state: PipelineState
   nodeState: NodeState
   access: Boolean!
-  parents: [String!]!
   type: NodeType!
   jobState: JobState
   jobNodeState: NodeState

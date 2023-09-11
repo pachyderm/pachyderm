@@ -578,7 +578,7 @@ reprocessSpec: until_success
       render(
         <Project
           pipelineOutputsMap={{
-            'Egress-Examples_edges': [
+            '72c5c060deb29d88c1779a4b57103255fb3e3ffa': [
               {
                 id: 'edges_output',
                 name: 'edges_output',
