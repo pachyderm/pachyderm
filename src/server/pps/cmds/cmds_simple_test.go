@@ -11,6 +11,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestFileIndicatorToReader(t *testing.T) {
@@ -96,18 +98,19 @@ func testReader(indicator string) error {
 	}
 	defer r.Close()
 
-	rr, err := ppsutil.NewPipelineManifestReader(r)
-	if err != nil {
-		return err
-	}
+	rr := ppsutil.NewSpecReader(r)
 
 	var i int
 	for {
-		p, err := rr.NextCreatePipelineRequest()
+		spec, err := rr.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return err
+		}
+		var p pps.CreatePipelineRequest
+		if err := protojson.Unmarshal([]byte(spec), &p); err != nil {
+			return errors.Wrap(err, "could not unmarshal CreatePipelineRequest")
 		}
 		if expected, got := uint64(1), p.ParallelismSpec.Constant; expected != got {
 			return errors.Errorf("parallelism spec constant: expected %d; got %d", expected, got)

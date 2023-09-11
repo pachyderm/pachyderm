@@ -15,31 +15,13 @@ import (
 )
 
 const (
-	reposCollectionName    = "repos"
 	branchesCollectionName = "branches"
 	commitsCollectionName  = "commits"
-	projectsCollectionName = "projects"
 )
 
-var ReposTypeIndex = &col.Index{
-	Name: "type",
-	Extract: func(val proto.Message) string {
-		return val.(*pfs.RepoInfo).Repo.Type
-	},
+func ProjectKey(project *pfs.Project) string {
+	return project.Name
 }
-
-func ReposNameKey(repo *pfs.Repo) string {
-	return repo.Project.Name + "/" + repo.Name
-}
-
-var ReposNameIndex = &col.Index{
-	Name: "name",
-	Extract: func(val proto.Message) string {
-		return ReposNameKey(val.(*pfs.RepoInfo).Repo)
-	},
-}
-
-var reposIndexes = []*col.Index{ReposNameIndex, ReposTypeIndex}
 
 func RepoKey(repo *pfs.Repo) string {
 	return repo.Project.Name + "/" + repo.Name + "." + repo.Type
@@ -61,31 +43,6 @@ func repoKeyCheck(key string) error {
 		return errors.Errorf("repo must have a specified type")
 	}
 	return nil
-}
-
-// Repos returns a collection of repos
-func Repos(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		reposCollectionName,
-		db,
-		listener,
-		&pfs.RepoInfo{},
-		reposIndexes,
-		col.WithKeyCheck(repoKeyCheck),
-		col.WithKeyGen(func(key interface{}) (string, error) {
-			if repo, ok := key.(*pfs.Repo); !ok {
-				return "", errors.New("key must be a repo")
-			} else {
-				return RepoKey(repo), nil
-			}
-		}),
-		col.WithNotFoundMessage(func(key interface{}) string {
-			return pfsserver.ErrRepoNotFound{Repo: key.(*pfs.Repo)}.Error()
-		}),
-		col.WithExistsMessage(func(key interface{}) string {
-			return pfsserver.ErrRepoExists{Repo: key.(*pfs.Repo)}.Error()
-		}),
-	)
 }
 
 var CommitsRepoIndex = &col.Index{
@@ -207,44 +164,4 @@ func Branches(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollect
 			return pfsserver.ErrBranchExists{Branch: key.(*pfs.Branch)}.Error()
 		}),
 	)
-}
-
-func ProjectKey(project *pfs.Project) string {
-	return project.Name
-}
-
-func Projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
-	return col.NewPostgresCollection(
-		projectsCollectionName,
-		db,
-		listener,
-		&pfs.ProjectInfo{},
-		nil,
-		col.WithKeyGen(func(key interface{}) (string, error) {
-			if project, ok := key.(*pfs.Project); !ok {
-				return "", errors.New("key must be a project")
-			} else {
-				return ProjectKey(project), nil
-			}
-		}),
-		col.WithNotFoundMessage(func(key interface{}) string {
-			return pfsserver.ErrProjectNotFound{Project: key.(*pfs.Project)}.Error()
-		}),
-		col.WithExistsMessage(func(key interface{}) string {
-			return pfsserver.ErrProjectExists{Project: key.(*pfs.Project)}.Error()
-		}),
-	)
-}
-
-// AllCollections returns a list of all the PFS collections for
-// postgres-initialization purposes. These collections are not usable for
-// querying.
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func CollectionsV0() []col.PostgresCollection {
-	return []col.PostgresCollection{
-		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes),
-		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes),
-		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes),
-	}
 }

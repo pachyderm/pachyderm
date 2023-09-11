@@ -1,0 +1,77 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListPipelineRequest",
+    "definitions": {
+        "ListPipelineRequest": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.Pipeline",
+                    "additionalProperties": false,
+                    "description": "If non-nil, only return info about a single pipeline, this is redundant with InspectPipeline unless history is non-zero."
+                },
+                "history": {
+                    "type": "integer",
+                    "description": "History indicates how many historical versions you want returned. Its semantics are: 0: Return the current version of the pipeline or pipelines. 1: Return the above and the next most recent version 2: etc.-1: Return all historical versions."
+                },
+                "details": {
+                    "type": "boolean",
+                    "description": "When true, return PipelineInfos with the details field, which requires loading the pipeline spec from PFS."
+                },
+                "jqFilter": {
+                    "type": "string",
+                    "description": "A jq program string for additional result filtering"
+                },
+                "commitSet": {
+                    "$ref": "#/definitions/pfs_v2.CommitSet",
+                    "additionalProperties": false,
+                    "description": "If non-nil, will return all the pipeline infos at this commit set"
+                },
+                "projects": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Project"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "Projects to filter on. Empty list means no filter, so return all pipelines."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List Pipeline Request"
+        },
+        "pfs_v2.CommitSet": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit Set"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pps_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        }
+    }
+}

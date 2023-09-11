@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -349,12 +348,6 @@ func TestCanonicalization(t *testing.T) {
 		// durations are special-cased
 		{`{"download_time": "1s"}`, &pps.ProcessStats{DownloadTime: durationpb.New(time.Second)}, `{"downloadTime": "1s"}`},
 	}
-	// have to use json.Number for numbers in order to preserve precision
-	unmarshal := func(s string, dest any) error {
-		d := json.NewDecoder(strings.NewReader(s))
-		d.UseNumber()
-		return d.Decode(dest) //nolint:wrapcheck
-	}
 	for i, c := range testCases {
 		var obj, canObj, result any
 		can, err := makeMessageCanonicalizer(c.prototype.ProtoReflect().Descriptor())
@@ -362,11 +355,11 @@ func TestCanonicalization(t *testing.T) {
 			t.Errorf("test case %d: couldn’t make canonicalizer for %T: %v", i, c.prototype, err)
 			continue
 		}
-		if err := unmarshal(c.value, &obj); err != nil {
+		if err := unmarshalJSON(c.value, &obj); err != nil {
 			t.Errorf("test case %d: couldn’t unmarshal value: %v", i, err)
 			continue
 		}
-		if err := unmarshal(c.result, &result); err != nil {
+		if err := unmarshalJSON(c.result, &result); err != nil {
 			t.Errorf("test case %d: couldn’t unmarshal result: %v", i, err)
 			continue
 		}

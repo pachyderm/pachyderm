@@ -897,6 +897,7 @@ func (x *DeletePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	enc.AddBool("all", x.All)
 	enc.AddBool("force", x.Force)
 	enc.AddBool("keep_repo", x.KeepRepo)
+	enc.AddBool("must_exist", x.MustExist)
 	return nil
 }
 
@@ -944,6 +945,7 @@ func (x *StopPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddBool("must_exist", x.MustExist)
 	return nil
 }
 

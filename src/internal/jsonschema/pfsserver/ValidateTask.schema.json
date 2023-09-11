@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ValidateTask",
+    "definitions": {
+        "ValidateTask": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "pathRange": {
+                    "$ref": "#/definitions/pfsserver.PathRange",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Validate Task"
+        },
+        "pfsserver.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range"
+        }
+    }
+}

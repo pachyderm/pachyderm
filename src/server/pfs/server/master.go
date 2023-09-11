@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
@@ -13,18 +14,22 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
@@ -78,7 +83,7 @@ func (d *driver) master(ctx context.Context) {
 			})
 		}
 		eg.Go(func() error {
-			return d.manageRepos(ctx)
+			return d.watchRepos(ctx)
 		})
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -87,76 +92,123 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) manageRepos(ctx context.Context) error {
+func (d *driver) watchRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	repos := make(map[string]context.CancelFunc)
+	repos := make(map[pfsdb.RepoID]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
 			cancel()
 		}
 	}()
-	return consistenthashing.WithRing(ctx, d.etcdClient, path.Join(d.prefix, masterLockPath, "ring"),
+	ringPrefix := path.Join(d.prefix, masterLockPath, "ring")
+	return consistenthashing.WithRing(ctx, d.etcdClient, ringPrefix,
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
-			err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
-				if ev.Type == watch.EventError {
-					return ev.Err
+			// Watch for repo events.
+			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, ringPrefix, pfsdb.ReposChannelName)
+			if err != nil {
+				return errors.Wrap(err, "new watcher")
+			}
+			defer watcher.Close()
+			// Get existing entries.
+			if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+				iter, err := pfsdb.ListRepo(cbCtx, tx, nil)
+				if err != nil {
+					return errors.Wrap(err, "create list repo iterator")
 				}
-				key := string(ev.Key)
-				lockPrefix := path.Join("repos", key)
-				if ev.Type == watch.EventDelete {
-					if cancel, ok := repos[key]; ok {
-						if err := ring.Unlock(lockPrefix); err != nil {
-							return err
-						}
-						cancel()
-						delete(repos, key)
+				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
+					lockPrefix := path.Join("repos", fmt.Sprintf("%d", repoPair.ID))
+					// cbCtx cannot be used here because it expires at the end of the callback and the
+					// goroutines spawned by manageRepo need to live until the main master routine is cancelled.
+					ctx, cancel := pctx.WithCancel(ctx)
+					repos[repoPair.ID] = cancel
+					go d.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
+					return nil
+				}), "for each repo")
+			}, dbutil.WithReadOnly()); err != nil {
+				return errors.Wrap(err, "list repos")
+			}
+			// Process new repo events.
+			return d.handleRepoEvents(ctx, ring, repos, watcher.Watch())
+		})
+}
+
+func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.Ring, repos map[pfsdb.RepoID]context.CancelFunc, watcherChan <-chan *postgres.Event) error {
+	for {
+		select {
+		case event, ok := <-watcherChan:
+			if !ok {
+				return errors.Wrap(fmt.Errorf("unexpected close on events channel"), "watch repo events")
+			}
+			if event.Err != nil {
+				log.Error(ctx, event.Err.Error())
+				continue
+			}
+			repoID := pfsdb.RepoID(event.Id)
+			lockPrefix := path.Join("repos", fmt.Sprintf("%d", event.Id))
+			if event.Type == postgres.EventDelete {
+				if cancel, ok := repos[repoID]; ok {
+					if err := ring.Unlock(lockPrefix); err != nil {
+						return err
 					}
-					return nil
+					cancel()
+					delete(repos, repoID)
 				}
-				if _, ok := repos[key]; ok {
-					return nil
-				}
-				ctx, cancel := pctx.WithCancel(ctx)
-				repos[key] = cancel
-				go func() {
-					backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
-						ctx, cancel := pctx.WithCancel(ctx)
-						defer cancel()
-						var err error
-						ctx, err = ring.Lock(ctx, lockPrefix)
-						if err != nil {
-							return errors.Wrap(err, "error locking repo lock")
-						}
-						defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
-						var eg errgroup.Group
-						eg.Go(func() error {
-							return backoff.RetryUntilCancel(ctx, func() error {
-								return d.manageBranches(ctx, key)
-							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-								log.Error(ctx, "error managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-								return nil
-							})
-						})
-						eg.Go(func() error {
-							return backoff.RetryUntilCancel(ctx, func() error {
-								return d.finishRepoCommits(ctx, key)
-							}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-								log.Error(ctx, "error finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-								return nil
-							})
-						})
-						return errors.EnsureStack(eg.Wait())
-					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-						log.Error(ctx, "error managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
-						return nil
-					})
-				}()
+				continue
+			}
+			if _, ok := repos[repoID]; ok {
+				continue // the master has already called manageRepo for this repo.
+			}
+			ctx, cancel := pctx.WithCancel(ctx)
+			repos[repoID] = cancel
+			var repo *pfs.RepoInfo
+			var err error
+			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+				repo, err = pfsdb.GetRepo(ctx, tx, repoID)
+				return errors.Wrap(err, "get repo from event id")
+			}, dbutil.WithReadOnly()); err != nil {
+				return errors.Wrap(err, "get repo")
+			}
+			go d.manageRepo(ctx, ring, repo, lockPrefix)
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repo *pfs.RepoInfo, lockPrefix string) {
+	key := pfsdb.RepoKey(repo.Repo)
+	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+		ctx, cancel := pctx.WithCancel(ctx)
+		defer cancel()
+		var err error
+		ctx, err = ring.Lock(ctx, lockPrefix)
+		if err != nil {
+			return errors.Wrap(err, "locking repo lock")
+		}
+		defer errors.Invoke1(&retErr, ring.Unlock, lockPrefix, "unlocking repo lock")
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return backoff.RetryUntilCancel(ctx, func() error {
+				return d.manageBranches(ctx, key)
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				log.Error(ctx, "managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
 			})
-			return errors.EnsureStack(err)
-		},
-	)
+		})
+		eg.Go(func() error {
+			return backoff.RetryUntilCancel(ctx, func() error {
+				return d.finishRepoCommits(ctx, key)
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				log.Error(ctx, "finishing repo commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+				return nil
+			})
+		})
+		return errors.EnsureStack(eg.Wait())
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		log.Error(ctx, "managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+		return nil
+	})
 }
 
 func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
@@ -245,7 +297,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 			return errors.EnsureStack(context.Cause(ctx))
 		}
 		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			trigBI, err := d.inspectBranchInTransaction(txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
+			trigBI, err := d.inspectBranchInTransaction(ctx, txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
 			if err != nil {
 				return err
 			}
@@ -397,7 +449,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 				txnCtx.FinishJob(commitInfo)
 			}
 			if commitInfo.Error == "" {
-				return d.triggerCommit(txnCtx, commitInfo)
+				return d.triggerCommit(ctx, txnCtx, commitInfo)
 			}
 			return nil
 		})

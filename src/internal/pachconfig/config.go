@@ -93,6 +93,8 @@ type GlobalConfiguration struct {
 	SidecarDefaultStorageRequest resource.Quantity `env:"SIDECAR_DEFAULT_STORAGE_REQUEST,default=1Gi"`
 }
 
+func (GlobalConfiguration) isPachConfig() {}
+
 // PostgresConfiguration configures postgres and pg-bouncer.
 type PostgresConfiguration struct {
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
@@ -119,6 +121,8 @@ type PachdFullConfiguration struct {
 	PachdSpecificConfiguration
 	EnterpriseSpecificConfiguration
 }
+
+func (PachdFullConfiguration) isPachConfig() {}
 
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
@@ -230,6 +234,8 @@ type PachdPreflightConfiguration struct {
 	PostgresConfiguration
 }
 
+func (PachdPreflightConfiguration) isPachConfig() {}
+
 // NewConfiguration creates a generic configuration from a specific type of configuration.
 func NewConfiguration(config any) *Configuration {
 	configuration := &Configuration{}
@@ -258,4 +264,14 @@ func NewConfiguration(config any) *Configuration {
 	default:
 		return nil
 	}
+}
+
+// TODO: remove
+// At the time of writing EmptyConfig is only used in pachctl-doc
+type EmptyConfig struct{}
+
+func (EmptyConfig) isPachConfig() {}
+
+type AnyConfig interface {
+	isPachConfig()
 }

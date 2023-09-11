@@ -8,19 +8,21 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"google.golang.org/protobuf/proto"
 )
 
 // TODO(acohen4): signature should accept a branch seperate from the commit
@@ -62,7 +64,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 }
 
 func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
-	id, err := d.withUnorderedWriter(ctx, renewer, cb, opts...)
+	id, err := withUnorderedWriter(ctx, d.storage, renewer, cb, opts...)
 	if err != nil {
 		return err
 	}
@@ -74,13 +76,13 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return d.finishCommit(txnCtx, commit, "", "", false)
+		return d.finishCommit(ctx, txnCtx, commit, "", "", false)
 	})
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	id, err := d.withUnorderedWriter(ctx, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
+	id, err := withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
 		parentID, err := d.getFileSet(ctx, commit)
 		if err != nil {
 			return nil, err
@@ -96,9 +98,9 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 	return errors.EnsureStack(d.commitStore.AddFileSet(ctx, commit, *id))
 }
 
-func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
+func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
 	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(ValidateFilename)}, opts...)
-	uw, err := d.storage.Filesets.NewUnorderedWriter(ctx, opts...)
+	uw, err := storage.Filesets.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +118,9 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 }
 
 func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
+	if commit.AccessRepo() == nil {
+		return nil, nil, errors.New("nil repo or branch.repo in commit")
+	}
 	if commit.AccessRepo().Name == fileSetsRepo {
 		fsid, err := fileset.ParseID(commit.Id)
 		if err != nil {
@@ -540,7 +545,7 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	var id *fileset.ID
 	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = d.withUnorderedWriter(ctx, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
+		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
 		return err
 	}); err != nil {
 		return nil, err
@@ -618,8 +623,8 @@ func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.Path
 	return pathRanges, nil
 }
 
-func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
-	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
+func (d *driver) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
+	commitInfo, err := d.resolveCommit(ctx, txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
 	}

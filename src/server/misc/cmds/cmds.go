@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
@@ -18,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
@@ -26,7 +28,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Cmds(ctx context.Context) []*cobra.Command {
+func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var d net.Dialer
@@ -136,11 +138,30 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		Short: "Generates the encoded part of an archive download URL.",
 		Long:  "Generates the encoded part of an archive download URL.",
 		Run: cmdutil.Run(func(args []string) error {
-			u, err := archiveserver.EncodeV1(args)
+			path, err := archiveserver.EncodeV1(args)
 			if err != nil {
 				return errors.Wrap(err, "encode")
 			}
-			fmt.Println(u)
+
+			u := &url.URL{}
+			getPrefix := func() error {
+				tctx, cancel := context.WithTimeout(ctx, time.Second)
+				defer cancel()
+				c, err := pachctlCfg.NewOnUserMachine(tctx, false)
+				if err != nil {
+					return err
+				}
+				defer c.Close()
+
+				info, _ := c.ClusterInfo()
+				fmt.Println(info.GetWebResources().GetArchiveDownloadBaseUrl() + path + ".zip")
+				return nil
+			}
+			if err := getPrefix(); err != nil {
+				fmt.Println(path)
+				return err
+			}
+			fmt.Println(u.String())
 			return nil
 		}),
 	}
@@ -181,7 +202,7 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		Short: "Runs the database migrations against the supplied database, then rolls them back.",
 		Long:  "Runs the database migrations against the supplied database, then rolls them back.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			ctx, c := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
+			ctx, c := signal.NotifyContext(ctx, signals.TerminationSignals...)
 			defer c()
 
 			dsn := args[0]
@@ -199,6 +220,26 @@ func Cmds(ctx context.Context) []*cobra.Command {
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(testMigrations, "misc test-migrations"))
+
+	var grpcAddress string
+	var grpcTLS bool
+	var grpcHeaders []string
+	grpc := &cobra.Command{
+		Use:   "{{alias}} service.Method {msg}... ",
+		Short: "Call a gRPC method on the server.",
+		Long:  "Call a gRPC method on the server.  With no args; prints all available methods.  With 1 arg; reads messages to send as JSON lines from stdin.  With >1 arg, sends each JSON-encoded argument as a message.",
+		Run: cmdutil.Run(func(args []string) error {
+			return gRPCParams{
+				Address: grpcAddress,
+				TLS:     grpcTLS,
+				Headers: grpcHeaders,
+			}.Run(ctx, pachctlCfg, os.Stdout, args)
+		}),
+	}
+	grpc.PersistentFlags().StringVar(&grpcAddress, "address", "", "If set, don't use the pach client to connect, but manually dial the provided GRPC address instead; url must be in a form like dns:/// or passthrough:///, not http:// or grpc://.")
+	grpc.PersistentFlags().BoolVar(&grpcTLS, "tls", false, "If set along with --address, use TLS to connect to the server.  The certificate is NOT checked for validity.")
+	grpc.PersistentFlags().StringSliceVarP(&grpcHeaders, "header", "H", nil, "Key=Value metadata to add to the request; repeatable.")
+	commands = append(commands, cmdutil.CreateAlias(grpc, "misc grpc"))
 
 	misc := &cobra.Command{
 		Short:  "Miscellaneous utilities unrelated to Pachyderm itself.",

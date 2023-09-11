@@ -1,0 +1,44 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/KeyTask",
+    "definitions": {
+        "KeyTask": {
+            "properties": {
+                "fileSetId": {
+                    "type": "string"
+                },
+                "pathRange": {
+                    "$ref": "#/definitions/pfs_v2.PathRange",
+                    "additionalProperties": false
+                },
+                "type": {
+                    "enum": [
+                        "JOIN",
+                        "GROUP"
+                    ],
+                    "type": "string",
+                    "title": "Type"
+                },
+                "authToken": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Key Task"
+        },
+        "pfs_v2.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range"
+        }
+    }
+}

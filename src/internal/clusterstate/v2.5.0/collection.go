@@ -14,10 +14,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/utils"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/utils"
 )
 
 type index struct {
@@ -277,10 +277,10 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	log.Info(ctx, fmt.Sprintf("Migrating %d records from collection.%s", len(vals), name))
 
 	var (
-		columns   []string  // An array containing the names of the columns being updated
-		w_columns []string  // An array containing the names of the columns used in the WHERE clause
+		columns   []string // An array containing the names of the columns being updated
+		w_columns []string // An array containing the names of the columns used in the WHERE clause
 	)
-	
+
 	// Get the columns associated with the table, and add them to the columns array
 	for key, pair := range vals {
 		params, err := col.getWriteParams(key, pair.val)
@@ -298,13 +298,13 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	// Define the columns that are used in the WHERE clause
 	w_columns = append(w_columns, "key")
 
-	// Create new batcher with a batch size of 1000	
+	// Create new batcher with a batch size of 1000
 	err, batcher := utils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, w_columns, 1000)
 	if err != nil {
 		return err
 	}
 
-	i:= 0
+	i := 0
 	for oldKey, pair := range vals {
 		if err := col.withKey(oldKey, func(oldKey string) error {
 			return col.withKey(pair.key, func(newKey string) error {
@@ -314,8 +314,8 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 				}
 
 				var (
-					col_values []any  // Array with this row's values for update
-					w_values   []any  // Array with the values for this row's WHERE clause
+					col_values []any // Array with this row's values for update
+					w_values   []any // Array with the values for this row's WHERE clause
 				)
 
 				// Loop through each of the columns, get the value for update, and append to col_values
@@ -328,7 +328,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 						col_values = append(col_values, params[k])
 					}
 				}
-				
+
 				// There's only one value for the WHERE cluase, which is the old key
 				w_values = append(w_values, oldKey)
 

@@ -178,7 +178,7 @@ func (a *apiServer) ActivateAuthEverywhere(ctx context.Context, scopes []Activat
 				}
 			case ActivationScopePPS:
 				log.Debug(ctx, "attempting to activate PPS auth")
-				if _, err := a.env.GetPpsServer().ActivateAuthInTransaction(txCtx, &pps.ActivateAuthRequest{}); err != nil {
+				if _, err := a.env.GetPpsServer().ActivateAuthInTransaction(ctx, txCtx, &pps.ActivateAuthRequest{}); err != nil {
 					return errors.Wrap(err, "activate auth for pps")
 				}
 			}

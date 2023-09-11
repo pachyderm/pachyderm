@@ -13,6 +13,8 @@ import "auth/auth.proto";
 
 import "task/task.proto";
 
+import "protoextensions/validate.proto";
+
 ////  PFS Data structures (stored in etcd)
 
 message Repo {
@@ -216,6 +218,12 @@ message DeleteReposRequest {
   bool all = 3;
 }
 
+// DeleteRepoResponse returns the repos that were deleted by a DeleteRepo call.
+message DeleteRepoResponse {
+  // The repos that were deleted, perhaps none.
+  bool deleted = 1;
+}
+
 message DeleteReposResponse {
   repeated Repo repos = 1;
 }
@@ -279,7 +287,7 @@ message SquashCommitSetRequest {
 }
 
 message DropCommitSetRequest {
-  CommitSet commit_set = 1;
+  CommitSet commit_set = 1 [(validate.rules).message.required = true];
 }
 
 message SubscribeCommitRequest {
@@ -306,7 +314,7 @@ message CreateBranchRequest {
 }
 
 message FindCommitsRequest {
-  Commit start = 1;
+  Commit start = 1 [(validate.rules).message.required = true];
   string file_path = 2;
   uint32 limit = 3; // a limit of 0 means there is no upper bound on the limit.
 }
@@ -340,7 +348,7 @@ message CreateProjectRequest {
 }
 
 message InspectProjectRequest {
-  Project project = 1;
+  Project project = 1 [(validate.rules).message.required = true];
 }
 
 message ListProjectRequest {}
@@ -381,16 +389,16 @@ message DeleteFile {
 message CopyFile {
   string dst = 1;
   string datum = 2;
-  File src = 3;
+  File src = 3 [(validate.rules).message.required = true];
   bool append = 4;
 }
 
 message ModifyFileRequest {
   oneof body {
-    Commit set_commit = 1;
-    AddFile add_file = 2;
-    DeleteFile delete_file = 3;
-    CopyFile copy_file = 4;
+    Commit set_commit = 1 [(validate.rules).message.required = true];
+    AddFile add_file = 2 [(validate.rules).message.required = true];
+    DeleteFile delete_file = 3 [(validate.rules).message.required = true];
+    CopyFile copy_file = 4 [(validate.rules).message.required = true];
   }
 }
 
@@ -621,7 +629,7 @@ service API {
   // ListRepo returns info about all repos.
   rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
-  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteRepo(DeleteRepoRequest) returns (DeleteRepoResponse) {}
   // DeleteRepos deletes more than one repo at once.  It attempts to
   // delete every repo matching the DeleteReposRequest.  When deleting
   // all repos matching a project, any repos not deletable by the

@@ -15,34 +15,34 @@ import (
 
 /* pg_batcher.go
 
-	This module implements a general purpose "batcher" for executing multiple SQL statements with a single 
-	Postgres call.  The intention is that this can be used by any migration code that needs to perform a
-	large number of SQL updates and wishes to do so in a more performant way.
+This module implements a general purpose "batcher" for executing multiple SQL statements with a single
+Postgres call.  The intention is that this can be used by any migration code that needs to perform a
+large number of SQL updates and wishes to do so in a more performant way.
 
-	Current limitations:
-	   - Only UPDATE statements are supported.
-	   - Only one column is supported in the WHERE clause.
+Current limitations:
+   - Only UPDATE statements are supported.
+   - Only one column is supported in the WHERE clause.
 
-	It is likely that we'll want to enhance this in the future to support INSERT and/or DELETE statements,
-	and to allow for multiple columns in the WHERE clause. The functions have been written with this in mind
-	to make them easy to expand upon.
+It is likely that we'll want to enhance this in the future to support INSERT and/or DELETE statements,
+and to allow for multiple columns in the WHERE clause. The functions have been written with this in mind
+to make them easy to expand upon.
 */
 
 type row struct {
 	column_values []any // Contains the values to be inserted/updated for any given row
-	where_values  []any  // Contains the values to be used in the WHERE clause
+	where_values  []any // Contains the values to be used in the WHERE clause
 }
 
 type postgresBatcher struct {
-	tx         *pachsql.Tx 	// The transaction object
-	action	   string 		// One of the following: INSERT, UPDATE, DELETE (currently only UPDATE is implemented)
-	table      string		// The name of the table 
-	columns    []string 	// The list of columns whose values will be set by the query
-	w_columns  []string 	// The list of columns used in the WHERE clause
-	set_string string 		// The SET clause for the query (ex: "col1 = x.col1, col2 = x.col2")
-	rows       []row  		// An array of row objects with values for insert/update/delete
-	max        int 			// The maximum number of rows per batch
-	batch_num  int 			// A count of the number of batches executed (for info logging only)
+	tx         *pachsql.Tx // The transaction object
+	action     string      // One of the following: INSERT, UPDATE, DELETE (currently only UPDATE is implemented)
+	table      string      // The name of the table
+	columns    []string    // The list of columns whose values will be set by the query
+	w_columns  []string    // The list of columns used in the WHERE clause
+	set_string string      // The SET clause for the query (ex: "col1 = x.col1, col2 = x.col2")
+	rows       []row       // An array of row objects with values for insert/update/delete
+	max        int         // The maximum number of rows per batch
+	batch_num  int         // A count of the number of batches executed (for info logging only)
 }
 
 // NewPostgresBatcher creates a new batcher.
@@ -82,7 +82,7 @@ func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []s
 	// Create and return the batcher object
 	return nil, &postgresBatcher{
 		tx:         tx,
-		action:	    action,
+		action:     action,
 		table:      table,
 		columns:    columns,
 		w_columns:  w_columns,
@@ -117,12 +117,11 @@ func (pb *postgresBatcher) Add(ctx context.Context, column_values []any, where_v
 //
 // The final query will look something like the following:
 //
-//    UPDATE collections.repos AS p
-//    SET key = x.key, proto = decode(x.proto, 'hex'), idx_Value = x.idx_Value
-//    FROM (VALUES (($1, $2, $3, $4), ($5, $6, $7, $8)))
-//    AS x (key, proto, idx_Value, key_where)
-//    WHERE p.key = x.key_where
-//
+//	UPDATE collections.repos AS p
+//	SET key = x.key, proto = decode(x.proto, 'hex'), idx_Value = x.idx_Value
+//	FROM (VALUES (($1, $2, $3, $4), ($5, $6, $7, $8)))
+//	AS x (key, proto, idx_Value, key_where)
+//	WHERE p.key = x.key_where
 func (pb *postgresBatcher) execute(ctx context.Context) error {
 	// If there's not anything to send, just return
 	if len(pb.rows) == 0 {
@@ -159,19 +158,19 @@ func (pb *postgresBatcher) execute(ctx context.Context) error {
 
 		// Join all of the placeholders for this row with commas separating them, enclose the result in parens,
 		// and append to the overall placeholders array
-		placeholders = append(placeholders, "(" + strings.Join(placeholder, ", ") + ")")
+		placeholders = append(placeholders, "("+strings.Join(placeholder, ", ")+")")
 	}
 
 	// Construct the query string
-	stmt :=       fmt.Sprintf(`UPDATE %s AS p `, pb.table)
-    stmt = stmt + fmt.Sprintf(`SET %s `, pb.set_string)
-    stmt = stmt + fmt.Sprintf(`FROM (VALUES %s) `, strings.Join(placeholders, ", "))
-    stmt = stmt + fmt.Sprintf(`AS x (%s, %s_where) `, strings.Join(pb.columns, ", "), pb.w_columns[0])
+	stmt := fmt.Sprintf(`UPDATE %s AS p `, pb.table)
+	stmt = stmt + fmt.Sprintf(`SET %s `, pb.set_string)
+	stmt = stmt + fmt.Sprintf(`FROM (VALUES %s) `, strings.Join(placeholders, ", "))
+	stmt = stmt + fmt.Sprintf(`AS x (%s, %s_where) `, strings.Join(pb.columns, ", "), pb.w_columns[0])
 
-    if (len(pb.w_columns) > 0) {
-    	stmt = stmt + fmt.Sprintf(`WHERE p.%s = x.%s_where `, pb.w_columns[0], pb.w_columns[0])
-    }
- 
+	if len(pb.w_columns) > 0 {
+		stmt = stmt + fmt.Sprintf(`WHERE p.%s = x.%s_where `, pb.w_columns[0], pb.w_columns[0])
+	}
+
 	if _, err := pb.tx.ExecContext(ctx, stmt, values...); err != nil {
 		return errors.Wrapf(err, "could not execute %s", stmt)
 	}
