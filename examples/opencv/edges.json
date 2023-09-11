@@ -7,10 +7,18 @@
     "pfs": {
       "glob": "/*",
       "repo": "images"
-    }
+    } 
   },
   "transform": {
     "cmd": [ "python3", "/edges.py" ],
     "image": "pachyderm/opencv:1.0"
+  },
+  "resource_requests": {
+    "cpu": 50,
+    "memory": "75G"
+  },
+  "autoscaling": true,
+  "parallelism_spec": {
+    "constant": 1
   }
 }

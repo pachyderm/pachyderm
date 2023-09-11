@@ -9,11 +9,47 @@ echo:
 	echo "$(data_dir)"
 
 opencv:
+	# pachctl create repo images
+	pachctl put file images@master -f Image.png
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json
+	# pachctl create pipeline -f $(data_dir)/montage.pipeline.json
+	# pachctl put file images@master -i $(data_dir)/images.txt
+	# pachctl put file images@master -i $(data_dir)/images2.txt
+
+opencvauth:
+	# echo 64a6e99a5ca34d6e83229725bd637301 | pachctl auth use-auth-token
 	pachctl create repo images
-	pachctl create pipeline -f $(data_dir)/edges.json
-	pachctl create pipeline -f $(data_dir)/montage.json
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json # <- this pipeline is NOT schedulable
+	pachctl put file images@master -f Image.png
+	pachctl put file images@master -f liberty.jpg
+	pachctl put file images@master -f camera_lense_0.jpg
+	sleep 1
+	# pachctl auth set repo edges none pipeline:default/edges
+	# pachctl auth set repo edges none robot:pachrun
+	pachctl update pipeline -f $(data_dir)/edges-update.pipeline.json# <- this pipeline IS schedulable
+	# pachctl auth set repo edges none pach:root
+	# pachctl auth set repo edges none robot:daniel
+	# pachctl auth set repo edges repoReader,repoWriter robot:pachrun
+	# pachctl update pipeline -f $(data_dir)/edges-update2.pipeline.json
+	# pachctl auth set repo edges repoReader,repoWriter robot:pachrun
+
+# Generates the following DAG for testing
+#    I-default	  I-staging
+#    |      \    /       | \
+#    | edges-u-default   |  edges-staging
+#    |       |           |       |
+#    montage-default     montage-staging
+opencv-union:
+	pachctl create project staging
+	pachctl create repo images
+	pachctl create repo images --project staging
+	pachctl create pipeline -f $(data_dir)/edges-union.pipeline.json
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json --project staging
+	pachctl create pipeline -f $(data_dir)/montage.pipeline.json
+	pachctl create pipeline -f $(data_dir)/montage.pipeline.json --project staging
 	pachctl put file images@master -i $(data_dir)/images.txt
-	pachctl put file images@master -i $(data_dir)/images2.txt
+	pachctl put file images@master -i $(data_dir)/images2.txt --project staging
+
 
 delete:
 	yes | pachctl delete all
