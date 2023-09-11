@@ -651,10 +651,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusInternalServerError)
 			return
 		}
-		if len(mm.Datums) == 0 {
-			http.Error(w, "spec produces zero datums; nothing to mount", http.StatusBadRequest)
-			return
-		}
 		func() {
 			mm.mu.Lock()
 			defer mm.mu.Unlock()
