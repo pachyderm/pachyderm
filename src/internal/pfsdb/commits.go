@@ -591,8 +591,7 @@ func getCommitRelatives(ctx context.Context, tx *pachsql.Tx, commitID CommitID) 
 
 func getCommitParentRow(ctx context.Context, tx *pachsql.Tx, childCommit CommitID) (*Commit, error) {
 	row := &Commit{}
-	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE ancestry.child=$1", getParentCommit), childCommit).StructScan(row)
-	if err != nil {
+	if err := tx.GetContext(ctx, row, fmt.Sprintf("%s WHERE ancestry.child=$1", getParentCommit), childCommit); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrParentCommitNotFound{ChildRowID: childCommit}
 		}
