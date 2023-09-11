@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/WebResource",
+    "definitions": {
+        "WebResource": {
+            "properties": {
+                "archiveDownloadBaseUrl": {
+                    "type": "string",
+                    "description": "The base URL of the archive server; append a filename to this.  Empty if the archive server is not exposed."
+                },
+                "createPipelineRequestJsonSchemaUrl": {
+                    "type": "string",
+                    "description": "Where to find the CreatePipelineRequest JSON schema; if this server is not accessible via a URL, then a link to Github is provided based on the baked-in version of the server."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Web Resource",
+            "description": "WebResource contains URL prefixes of common HTTP functions."
+        }
+    }
+}

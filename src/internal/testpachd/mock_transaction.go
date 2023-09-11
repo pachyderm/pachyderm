@@ -39,7 +39,7 @@ func (mock *mockNewJobFinisher) Use(cb newJobFinisherFunc) {
 	mock.handler = cb
 }
 
-type stopJobInTransactionFunc func(*txncontext.TransactionContext, *pps.StopJobRequest) error
+type stopJobInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.StopJobRequest) error
 
 type mockStopJobInTransaction struct {
 	handler stopJobInTransactionFunc
@@ -49,7 +49,7 @@ func (mock *mockStopJobInTransaction) Use(cb stopJobInTransactionFunc) {
 	mock.handler = cb
 }
 
-type updateJobStateInTransactionFunc func(*txncontext.TransactionContext, *pps.UpdateJobStateRequest) error
+type updateJobStateInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.UpdateJobStateRequest) error
 
 type mockUpdateJobStateInTransaction struct {
 	handler updateJobStateInTransactionFunc
@@ -69,7 +69,7 @@ func (mock *mockCreatePipelineInTransaction) Use(cb createPipelineInTransactionF
 	mock.handler = cb
 }
 
-type inspectPipelineInTransactionFunc func(*txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
+type inspectPipelineInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 
 type mockInspectPipelineInTransaction struct {
 	handler inspectPipelineInTransactionFunc
@@ -79,7 +79,7 @@ func (mock *mockInspectPipelineInTransaction) Use(cb inspectPipelineInTransactio
 	mock.handler = cb
 }
 
-type activateAuthInTransactionFunc func(*txncontext.TransactionContext, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
+type activateAuthInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
 type mockActivateAuthInTransaction struct {
 	handler activateAuthInTransactionFunc
@@ -110,8 +110,8 @@ type MockPPSTransactionServer struct {
 
 type MockPPSPropagater struct{}
 
-func (mpp *MockPPSPropagater) PropagateJobs() {}
-func (mpp *MockPPSPropagater) Run() error     { return nil }
+func (mpp *MockPPSPropagater) PropagateJobs()            {}
+func (mpp *MockPPSPropagater) Run(context.Context) error { return nil }
 
 func (api *ppsTransactionAPI) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PpsPropagater {
 	if api.mock.NewPropagater.handler != nil {
@@ -122,8 +122,8 @@ func (api *ppsTransactionAPI) NewPropagater(txnCtx *txncontext.TransactionContex
 
 type MockPPSJobStopper struct{}
 
-func (mpp *MockPPSJobStopper) StopJobs(*pfs.CommitSet) {}
-func (mpp *MockPPSJobStopper) Run() error              { return nil }
+func (mpp *MockPPSJobStopper) StopJobs(*pfs.CommitSet)   {}
+func (mpp *MockPPSJobStopper) Run(context.Context) error { return nil }
 
 func (api *ppsTransactionAPI) NewJobStopper(txnCtx *txncontext.TransactionContext) txncontext.PpsJobStopper {
 	if api.mock.NewJobStopper.handler != nil {
@@ -135,7 +135,7 @@ func (api *ppsTransactionAPI) NewJobStopper(txnCtx *txncontext.TransactionContex
 type MockPPSJobFinisher struct{}
 
 func (mpp *MockPPSJobFinisher) FinishJob(*pfs.CommitInfo) {}
-func (mpp *MockPPSJobFinisher) Run() error                { return nil }
+func (mpp *MockPPSJobFinisher) Run(context.Context) error { return nil }
 
 func (api *ppsTransactionAPI) NewJobFinisher(txnCtx *txncontext.TransactionContext) txncontext.PpsJobFinisher {
 	if api.mock.NewJobFinisher.handler != nil {
@@ -144,16 +144,16 @@ func (api *ppsTransactionAPI) NewJobFinisher(txnCtx *txncontext.TransactionConte
 	return &MockPPSJobFinisher{}
 }
 
-func (api *ppsTransactionAPI) StopJobInTransaction(txnCtx *txncontext.TransactionContext, req *pps.StopJobRequest) error {
+func (api *ppsTransactionAPI) StopJobInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.StopJobRequest) error {
 	if api.mock.StopJobInTransaction.handler != nil {
-		return api.mock.StopJobInTransaction.handler(txnCtx, req)
+		return api.mock.StopJobInTransaction.handler(ctx, txnCtx, req)
 	}
 	return errors.Errorf("unhandled pachd mock: pps.StopJobInTransaction")
 }
 
-func (api *ppsTransactionAPI) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionContext, req *pps.UpdateJobStateRequest) error {
+func (api *ppsTransactionAPI) UpdateJobStateInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.UpdateJobStateRequest) error {
 	if api.mock.UpdateJobStateInTransaction.handler != nil {
-		return api.mock.UpdateJobStateInTransaction.handler(txnCtx, req)
+		return api.mock.UpdateJobStateInTransaction.handler(ctx, txnCtx, req)
 	}
 	return errors.Errorf("unhandled pachd mock: pps.UpdateJobStateInTransaction")
 }
@@ -165,16 +165,16 @@ func (api *ppsTransactionAPI) CreatePipelineInTransaction(ctx context.Context, t
 	return errors.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
 }
 
-func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
+func (api *ppsTransactionAPI) InspectPipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 	if api.mock.InspectPipelineInTransaction.handler != nil {
-		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline)
+		return api.mock.InspectPipelineInTransaction.handler(ctx, txnCtx, pipeline)
 	}
 	return nil, errors.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
 }
 
-func (api *ppsTransactionAPI) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
+func (api *ppsTransactionAPI) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
 	if api.mock.ActivateAuthInTransaction.handler != nil {
-		return api.mock.ActivateAuthInTransaction.handler(txnCtx, req)
+		return api.mock.ActivateAuthInTransaction.handler(ctx, txnCtx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock: pps.AcivateAuthInTransaction")
 }

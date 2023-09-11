@@ -55,6 +55,10 @@ func (p *Project) String() string {
 	return p.GetName()
 }
 
+func (p *Project) Key() string {
+	return p.Name
+}
+
 func (r *Repo) String() string {
 	if r.Type == UserRepoType {
 		if projectName := r.Project.String(); projectName != "" {
@@ -66,6 +70,10 @@ func (r *Repo) String() string {
 		return projectName + "/" + r.Name + "." + r.Type
 	}
 	return r.Name + "." + r.Type
+}
+
+func (r *Repo) Key() string {
+	return r.Project.Key() + "/" + r.Name + "." + r.Type
 }
 
 func (r *Repo) NewBranch(name string) *Branch {
@@ -94,6 +102,10 @@ func (c *Commit) String() string {
 	return c.Repo.String() + "@" + c.Id
 }
 
+func (c *Commit) Key() string {
+	return c.Repo.Key() + "@" + c.Id
+}
+
 // TODO(provenance): there's a concern client code will unknowningly call GetRepo() when it shouldn't
 func (c *Commit) AccessRepo() *Repo {
 	if c.GetRepo() != nil {
@@ -112,6 +124,10 @@ func (b *Branch) NewCommit(id string) *Commit {
 
 func (b *Branch) String() string {
 	return b.Repo.String() + "@" + b.Name
+}
+
+func (b *Branch) Key() string {
+	return b.Repo.Key() + "@" + b.Name
 }
 
 // ValidateName returns an error if the project is nil or its name is an invalid

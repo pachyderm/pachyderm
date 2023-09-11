@@ -105,6 +105,10 @@ message DumpV2Request {
   repeated Pipeline pipelines = 2;
   bool input_repos = 3;
   google.protobuf.Duration timeout = 4;
+  message Defaults {
+    bool cluster_defaults = 1;
+  }
+  Defaults defaults = 5;
 }
 
 message DumpContent {

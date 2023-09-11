@@ -15,3 +15,11 @@ func IsUniqueViolation(err error) bool {
 	}
 	return false
 }
+
+func IsNotNullViolation(err error, columnName string) bool {
+	pgErr := &pgconn.PgError{}
+	if errors.As(err, pgErr) {
+		return pgErr.Code == pgerrcode.NotNullViolation && pgErr.ColumnName == columnName
+	}
+	return false
+}

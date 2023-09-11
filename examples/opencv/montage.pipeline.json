@@ -1,0 +1,26 @@
+{
+  "pipeline": {
+    "name": "montage"
+  },
+  "description": "A pipeline that combines images from the `images` and `edges` repositories into a montage.",
+  "input": {
+    "cross": [{
+      "pfs": {
+        "glob": "/",
+        "repo": "images"
+      }
+    }, {
+      "pfs": {
+        "glob": "/",
+        "repo": "edges"
+      }
+    }]
+  },
+  "transform": {
+    "cmd": ["sh"],
+    "image": "dpokidov/imagemagick:7.1.0-23",
+    "stdin": [
+      "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L /pfs/images /pfs/edges -type f | sort) /pfs/out/montage.png"
+    ]
+  }
+}

@@ -43,7 +43,7 @@ func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTi
 // to stdout.
 func PrintDetailedTransactionInfo(info *PrintableTransactionInfo) error {
 	template, err := template.New("TransactionInfo").Funcs(funcMap).Parse(
-		`ID: {{.Transaction.ID}}{{if .FullTimestamps}}
+		`ID: {{.Transaction.Id}}{{if .FullTimestamps}}
 Started: {{prettyTime .Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}
 Requests:

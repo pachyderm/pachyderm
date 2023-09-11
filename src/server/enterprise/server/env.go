@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
@@ -27,12 +26,10 @@ type Env struct {
 
 	AuthServer    auth.APIServer
 	GetPachClient func(context.Context) *client.APIClient
-	getKubeClient func() kube.Interface
+	GetKubeClient func() kube.Interface
+	Namespace     string
 
 	BackgroundContext context.Context
-	namespace         string
-	mode              PauseMode
-	unpausedMode      string
 	Config            pachconfig.Configuration
 }
 
@@ -45,43 +42,10 @@ const (
 	PausedMode
 )
 
-type Option func(Env) Env
-
-func WithUnpausedMode(mode string) Option {
-	return func(e Env) Env {
-		e.unpausedMode = mode
-		return e
-	}
-}
-
-func WithMode(mode PauseMode) Option {
-	return func(e Env) Env {
-		e.mode = mode
-		return e
-	}
-}
-
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv, options ...Option) *Env {
-	e := Env{
-		DB:       senv.GetDBClient(),
-		Listener: senv.GetPostgresListener(),
-		TxnEnv:   txEnv,
-
-		EtcdClient: senv.GetEtcdClient(),
-		EtcdPrefix: etcdPrefix,
-
-		AuthServer:    senv.AuthServer(),
-		GetPachClient: senv.GetPachClient,
-		getKubeClient: senv.GetKubeClient,
-
-		BackgroundContext: senv.Context(),
-		namespace:         senv.Config().Namespace,
-		Config:            *senv.Config(),
-	}
-	for _, o := range options {
-		e = o(e)
-	}
-	return &e
+type Config struct {
+	Heartbeat    bool
+	Mode         PauseMode
+	UnpausedMode string
 }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
@@ -137,6 +101,6 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 }
 
 // StopWorkers stops all workers
-func (env Env) StopWorkers(ctx context.Context) error {
-	return scaleDownWorkers(ctx, env.getKubeClient(), env.namespace)
+func StopWorkers(ctx context.Context, kc kube.Interface, namespace string) error {
+	return scaleDownWorkers(ctx, kc, namespace)
 }

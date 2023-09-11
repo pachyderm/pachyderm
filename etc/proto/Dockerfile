@@ -1,4 +1,4 @@
-ARG GOVERSION=golang:1.21.0
+ARG GOVERSION=golang:1.21.1
 FROM $GOVERSION
 
 LABEL maintainer="msteffen@pachyderm.io"
@@ -24,10 +24,16 @@ RUN date +%s >/last_run_time
 # Install gopatch.
 RUN go install github.com/uber-go/gopatch@${GOPATCH_VERSION}
 
-# Install protoc-gen-jsonschema
+# Install protoc-gen-jsonschema.
 RUN go install github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema@1.4.1
 
-# Build the bespoke Pachyderm codegen plugin
+# Install protoc-gen-validate.
+RUN go install github.com/envoyproxy/protoc-gen-validate@v1.0.2
+
+# Install protoc-gen-doc.
+RUN go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
+
+# Build the bespoke Pachyderm codegen plugin.
 COPY pachgen ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 RUN go mod init && go mod tidy && go build -o "${GOPATH}/bin/protoc-gen-pach"

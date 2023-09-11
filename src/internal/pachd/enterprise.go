@@ -26,14 +26,16 @@ type enterpriseBuilder struct {
 // TODO: refactor the four modes to have a cleaner license/enterprise server
 // abstraction.
 func (eb *enterpriseBuilder) registerEnterpriseServer(ctx context.Context) error {
-	eb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+	eb.enterpriseEnv = EnterpriseEnv(
 		eb.env,
 		path.Join(eb.env.Config().EtcdPrefix, eb.env.Config().EnterpriseEtcdPrefix),
 		eb.txnEnv,
 	)
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		eb.enterpriseEnv,
-		true,
+		eprsserver.Config{
+			Heartbeat: true,
+		},
 	)
 	if err != nil {
 		return err
