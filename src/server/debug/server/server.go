@@ -50,6 +50,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -318,6 +319,26 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
 			return s.collectDefaults(ctx, dfs.WithPrefix(defaultsPrefix), server, rp)
 		})
+	}
+	if ss := request.GetStarlarkScripts(); len(ss) > 0 {
+		rp := recordProgress(server, "starlark", len(ss))
+		for _, req := range ss {
+			ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
+				defer rp(ctx)
+				if t := req.GetTimeout(); t.AsDuration() > 0 {
+					var c context.CancelFunc
+					ctx, c = context.WithTimeout(ctx, t.AsDuration())
+					defer c()
+				}
+				env := debugstar.Env{
+					Kubernetes: s.env.KubeClient,
+				}
+				if err := env.RunStarlark(ctx, req.GetName(), req.GetScript(), dfs.WithPrefix("starlark/"+req.GetName())); err != nil {
+					return errors.Wrapf(err, "run starlark script %q", req.GetName())
+				}
+				return nil
+			})
+		}
 	}
 	return ts
 }

@@ -3010,6 +3010,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "starlark_scripts",
+              "description": "",
+              "label": "repeated",
+              "type": "Starlark",
+              "longType": "DumpV2Request.Starlark",
+              "fullType": "debug_v2.DumpV2Request.Starlark",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -3030,6 +3042,54 @@
               "type": "bool",
               "longType": "bool",
               "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Starlark",
+          "longName": "DumpV2Request.Starlark",
+          "fullName": "debug_v2.DumpV2Request.Starlark",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "script",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "timeout",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -9794,7 +9854,15 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "append",
@@ -11545,7 +11613,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "add_file",
@@ -11557,7 +11633,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "delete_file",
@@ -11569,7 +11653,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "copy_file",
@@ -11581,7 +11673,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "body",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             }
           ]
         },

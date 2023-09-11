@@ -86,7 +86,7 @@ message App {
   string name = 1;
   repeated Pod pods = 2;
   google.protobuf.Duration timeout = 3;
-  Pipeline pipeline = 4;  
+  Pipeline pipeline = 4;
 }
 
 message System {
@@ -94,7 +94,7 @@ message System {
   bool database = 2;
   bool version = 3;
   repeated App describes = 4;
-  repeated App logs = 5;  
+  repeated App logs = 5;
   repeated App loki_logs = 6;
   repeated App binaries = 7;
   repeated App profiles = 8;
@@ -109,6 +109,12 @@ message DumpV2Request {
     bool cluster_defaults = 1;
   }
   Defaults defaults = 5;
+  message Starlark {
+    string name = 1;
+    string script = 2;
+    google.protobuf.Duration timeout = 3;
+  }
+  repeated Starlark starlark_scripts = 6;
 }
 
 message DumpContent {

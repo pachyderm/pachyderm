@@ -197,3 +197,9 @@ func RunProgram(ctx context.Context, path string, opts Options) (starlark.String
 		return starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
 	})
 }
+
+func RunScript(ctx context.Context, name string, script string, opts Options) (starlark.StringDict, error) {
+	return run(ctx, name, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in, module string, globals starlark.StringDict) (starlark.StringDict, error) {
+		return starlark.ExecFileOptions(fileOpts, thread, name, script, globals)
+	})
+}

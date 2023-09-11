@@ -220,6 +220,13 @@ func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("input_repos", x.InputRepos)
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	enc.AddObject("defaults", x.Defaults)
+	starlark_scriptsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.StarlarkScripts {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("starlark_scripts", zapcore.ArrayMarshalerFunc(starlark_scriptsArrMarshaller))
 	return nil
 }
 
@@ -228,6 +235,16 @@ func (x *DumpV2Request_Defaults) MarshalLogObject(enc zapcore.ObjectEncoder) err
 		return nil
 	}
 	enc.AddBool("cluster_defaults", x.ClusterDefaults)
+	return nil
+}
+
+func (x *DumpV2Request_Starlark) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("name", x.Name)
+	enc.AddString("script", x.Script)
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	return nil
 }
 

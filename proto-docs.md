@@ -87,6 +87,7 @@
     - [DumpRequest](#debug_v2-DumpRequest)
     - [DumpV2Request](#debug_v2-DumpV2Request)
     - [DumpV2Request.Defaults](#debug_v2-DumpV2Request-Defaults)
+    - [DumpV2Request.Starlark](#debug_v2-DumpV2Request-Starlark)
     - [Filter](#debug_v2-Filter)
     - [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest)
     - [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse)
@@ -1825,6 +1826,7 @@ ResourceType represents the type of a Resource
 | input_repos | [bool](#bool) |  |  |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | defaults | [DumpV2Request.Defaults](#debug_v2-DumpV2Request-Defaults) |  |  |
+| starlark_scripts | [DumpV2Request.Starlark](#debug_v2-DumpV2Request-Starlark) | repeated |  |
 
 
 
@@ -1840,6 +1842,23 @@ ResourceType represents the type of a Resource
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | cluster_defaults | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="debug_v2-DumpV2Request-Starlark"></a>
+
+### DumpV2Request.Starlark
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| script | [string](#string) |  |  |
+| timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 
 
 

@@ -137,11 +137,19 @@ class DumpV2Request(betterproto.Message):
     input_repos: bool = betterproto.bool_field(3)
     timeout: timedelta = betterproto.message_field(4)
     defaults: "DumpV2RequestDefaults" = betterproto.message_field(5)
+    starlark_scripts: List["DumpV2RequestStarlark"] = betterproto.message_field(6)
 
 
 @dataclass(eq=False, repr=False)
 class DumpV2RequestDefaults(betterproto.Message):
     cluster_defaults: bool = betterproto.bool_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class DumpV2RequestStarlark(betterproto.Message):
+    name: str = betterproto.string_field(1)
+    script: str = betterproto.string_field(2)
+    timeout: timedelta = betterproto.message_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -262,9 +270,11 @@ class DebugStub:
         pipelines: Optional[List["Pipeline"]] = None,
         input_repos: bool = False,
         timeout: timedelta = None,
-        defaults: "DumpV2RequestDefaults" = None
+        defaults: "DumpV2RequestDefaults" = None,
+        starlark_scripts: Optional[List["DumpV2RequestStarlark"]] = None
     ) -> Iterator["DumpChunk"]:
         pipelines = pipelines or []
+        starlark_scripts = starlark_scripts or []
 
         request = DumpV2Request()
         if system is not None:
@@ -276,6 +286,8 @@ class DebugStub:
             request.timeout = timeout
         if defaults is not None:
             request.defaults = defaults
+        if starlark_scripts is not None:
+            request.starlark_scripts = starlark_scripts
 
         for response in self.__rpc_dump_v2(request):
             yield response
@@ -329,6 +341,7 @@ class DebugBase:
         input_repos: bool,
         timeout: timedelta,
         defaults: "DumpV2RequestDefaults",
+        starlark_scripts: Optional[List["DumpV2RequestStarlark"]],
         context: "grpc.ServicerContext",
     ) -> Iterator["DumpChunk"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

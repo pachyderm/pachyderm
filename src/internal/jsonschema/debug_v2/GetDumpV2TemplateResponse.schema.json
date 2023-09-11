@@ -63,6 +63,13 @@
                 "defaults": {
                     "$ref": "#/definitions/debug_v2.DumpV2Request.Defaults",
                     "additionalProperties": false
+                },
+                "starlarkScripts": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.DumpV2Request.Starlark"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
                 }
             },
             "additionalProperties": false,
@@ -78,6 +85,24 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Defaults"
+        },
+        "debug_v2.DumpV2Request.Starlark": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "script": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Starlark"
         },
         "debug_v2.Pipeline": {
             "properties": {

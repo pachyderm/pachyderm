@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -236,6 +240,38 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "adjust the grpc log level instead of the pachyderm log level")
 	log.Flags().BoolVarP(&recursivelySetLogLevel, "recursive", "r", true, "set the log level on all pachyderm pods; if false, only the pachd that handles this RPC")
 	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
+
+	var starlark = &cobra.Command{
+		Use:   "{{alias}} <script.star> <output.directory/>",
+		Short: "Run a starlark script locally and collect the result.",
+		Long:  "Run a starlark script locally and collect the result.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+			name := filepath.Base(args[0])
+			script, err := os.ReadFile(args[0])
+			if err != nil {
+				return errors.Wrap(err, "read script")
+			}
+
+			loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+			kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+			config, err := kubeConfig.ClientConfig()
+			if err != nil {
+				return errors.Wrap(err, "load k8s config from default files")
+			}
+			k8s, err := kubernetes.NewForConfig(config)
+			if err != nil {
+				return errors.Wrap(err, "new k8s clientset")
+			}
+			env := &debugstar.Env{
+				Kubernetes: k8s,
+			}
+			if err := env.RunStarlark(mainCtx, name, string(script), &debugstar.LocalDumpFS{Root: args[1]}); err != nil {
+				return errors.Wrap(err, "run")
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(starlark, "debug starlark"))
 
 	debug := &cobra.Command{
 		Short: "Debug commands for analyzing a running cluster.",
