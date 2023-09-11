@@ -252,7 +252,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	decodeProto := &cobra.Command{
 		Use:   "{{alias}} <message type> <message bytes>",
 		Short: "Decodes a protocol buffer message",
-		Long:  "Decodes the provided bytes as the named proto message type and prints the result as JSON.  Without the last arg, reads from stdin.",
+		Long:  "Decodes the provided bytes as the named proto message type and prints the result as JSON.  Without the last arg, reads from stdin.  If the message type is @, then try all message types and print any messages that result in non-empty JSON.",
 		Run: cmdutil.RunBoundedArgs(0, 2, func(args []string) error {
 			all := allProtoMessages()
 
