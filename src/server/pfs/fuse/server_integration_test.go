@@ -95,7 +95,7 @@ func TestMountDatum(t *testing.T) {
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/'}}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -104,6 +104,7 @@ func TestMountDatum(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 1, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo"))
 		require.NoError(t, err)
@@ -120,7 +121,7 @@ func TestMountDatum(t *testing.T) {
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*'}}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err = put("_mount_datums", bytes.NewReader(input))
+		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -129,6 +130,7 @@ func TestMountDatum(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo"))
 		require.NoError(t, err)
@@ -167,7 +169,7 @@ func TestCrossDatum(t *testing.T) {
 			{'pfs': {'glob': '/*', 'repo': 'repo2', 'branch': 'dev'}}]}}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -176,6 +178,7 @@ func TestCrossDatum(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
 		require.NoError(t, err)
@@ -217,7 +220,7 @@ func TestUnionDatum(t *testing.T) {
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}]}}}`,
 			pfs.DefaultProjectName, pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -226,6 +229,7 @@ func TestUnionDatum(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 3, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 	})
 }
 
@@ -257,7 +261,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}}]}}`,
 			pfs.DefaultProjectName, pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -266,6 +270,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 4, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err := os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
@@ -284,7 +289,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
 			pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName),
 		)
-		resp, err = put("_mount_datums", bytes.NewReader(input))
+		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -293,6 +298,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		_, err = os.ReadDir(filepath.Join(mountPoint, "out")) // Loads "out" folder
 		require.NoError(t, err)
@@ -323,7 +329,7 @@ func TestShowDatum(t *testing.T) {
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -333,12 +339,13 @@ func TestShowDatum(t *testing.T) {
 		require.NotEqual(t, "", mdr.Id)
 		datum1Id := mdr.Id
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo_dev"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
-		resp, err = put("_show_datum?idx=1", nil)
+		resp, err = put("datums/_next", nil)
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -346,8 +353,13 @@ func TestShowDatum(t *testing.T) {
 		require.Equal(t, 1, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
+		resp, err = put("datums/_next", nil)
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+
+		resp, err = put("datums/_prev", nil)
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -355,6 +367,11 @@ func TestShowDatum(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.Equal(t, datum1Id, mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
+
+		resp, err = put("datums/_prev", nil)
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
 	})
 }
 
@@ -379,12 +396,13 @@ func TestGetDatums(t *testing.T) {
 		dr := &DatumsResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
 		require.Equal(t, 0, dr.NumDatums)
+		require.Equal(t, true, dr.AllDatumsReceived)
 
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err = put("_mount_datums", bytes.NewReader(input))
+		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -394,6 +412,7 @@ func TestGetDatums(t *testing.T) {
 		require.NotEqual(t, "", mdr.Id)
 		datum1Id := mdr.Id
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo_dev"))
 		require.NoError(t, err)
@@ -409,9 +428,10 @@ func TestGetDatums(t *testing.T) {
 		require.Equal(t, "repo", dr.Input.Pfs.Repo)
 		require.Equal(t, "dev", dr.Input.Pfs.Branch)
 		require.Equal(t, "/*", dr.Input.Pfs.Glob)
-		require.Equal(t, 0, dr.CurrIdx)
+		require.Equal(t, 0, dr.Idx)
+		require.Equal(t, true, dr.AllDatumsReceived)
 
-		resp, err = put("_show_datum?idx=1", nil)
+		resp, err = put("datums/_next", nil)
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -419,6 +439,7 @@ func TestGetDatums(t *testing.T) {
 		require.Equal(t, 1, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		resp, err = get("datums")
 		require.NoError(t, err)
@@ -426,9 +447,10 @@ func TestGetDatums(t *testing.T) {
 
 		dr = &DatumsResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
-		require.Equal(t, 1, dr.CurrIdx)
+		require.Equal(t, 1, dr.Idx)
+		require.Equal(t, true, dr.AllDatumsReceived)
 
-		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
+		resp, err = put("datums/_prev", nil)
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -436,6 +458,7 @@ func TestGetDatums(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.Equal(t, datum1Id, mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 	})
 }
 
@@ -488,7 +511,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -497,6 +520,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 4, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
 		require.NoError(t, err)
@@ -510,7 +534,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
 			projectName, projectName),
 		)
-		resp, err = put("_mount_datums", bytes.NewReader(input))
+		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -519,6 +543,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
 		require.NoError(t, err)
@@ -530,7 +555,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
-		resp, err = put("_show_datum?idx=1", nil)
+		resp, err = put("datums/_next", nil)
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -538,9 +563,10 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		require.Equal(t, 1, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		input = []byte("{'input': {'pfs': {'project': 'invalid', 'repo': 'repo1', 'glob': '/*'}}}")
-		resp, err = put("_mount_datums", bytes.NewReader(input))
+		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 400, resp.StatusCode)
 	})
@@ -571,7 +597,7 @@ func TestMountDatumsBranchHeadFromOtherBranch(t *testing.T) {
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo1', 'glob': '/*', 'branch': 'copy'}}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -608,7 +634,7 @@ func TestMountDatumsSpecifyingCommit(t *testing.T) {
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'commit': '%s'}}}`,
 			pfs.DefaultProjectName, commitInfo.Commit.Id),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 400, resp.StatusCode)
 	})
