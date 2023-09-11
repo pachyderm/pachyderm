@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	_ "embed"
 	"time"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -86,63 +87,13 @@ func (a *debugServer) RunPFSLoadTestDefault(ctx context.Context, _ *emptypb.Empt
 	return resp, nil
 }
 
-var defaultLoadSpecs = []string{`
-count: 3
-modifications:
-  - count: 5
-    putFile:
-      count: 5
-      source: "random"
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      directory:
-        depth:
-          min: 0
-          max: 3
-        run: 3
-      sizes:
-        - min: 1000
-          max: 10000
-          prob: 30
-        - min: 10000
-          max: 100000
-          prob: 30
-        - min: 1000000
-          max: 10000000
-          prob: 30
-        - min: 10000000
-          max: 100000000
-          prob: 10
-`, `
-count: 3
-modifications:
-  - count: 5
-    putFile:
-      count: 10000
-      source: "random"
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      sizes:
-        - min: 100
-          max: 1000
-          prob: 100
-`, `
-count: 3
-modifications:
-  - count: 5
-    putFile:
-      count: 1
-      source: "random"
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      sizes:
-        - min: 10000000
-          max: 100000000
-          prob: 100
-`}
+var (
+	//go:embed load-test-0.yaml
+	loadSpec1 string
+	//go:embed load-test-1.yaml
+	loadSpec2 string
+	//go:embed load-test-2.yaml
+	loadSpec3 string
+
+	defaultLoadSpecs = []string{loadSpec1, loadSpec2, loadSpec3}
+)

@@ -19,6 +19,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
@@ -602,5 +603,11 @@ metadata:
 	// Check that we saw all the files we expected.
 	for f := range wantFiles {
 		t.Errorf("did not see expected file %v", f)
+	}
+}
+
+func TestLoadTestEmbed(t *testing.T) {
+	for _, s := range defaultLoadSpecs {
+		require.NotEqual(t, "", s)
 	}
 }
