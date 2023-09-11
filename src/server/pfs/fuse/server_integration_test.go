@@ -706,7 +706,7 @@ func TestMountDatumsPagination(t *testing.T) {
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, numDatumsPerPage, mdr.NumDatums)
-		require.Equal(t, false, mdr.AllDatumsReceived)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
 		// Cycle to last datum in page
 		for i := 0; i < numDatumsPerPage-1; i++ {
@@ -725,7 +725,7 @@ func TestMountDatumsPagination(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
 		require.Equal(t, numDatumsPerPage, dr.NumDatums)
 		require.Equal(t, numDatumsPerPage-1, dr.Idx)
-		require.Equal(t, true, dr.AllDatumsReceived)
+		require.Equal(t, false, dr.AllDatumsReceived)
 
 		input = []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
