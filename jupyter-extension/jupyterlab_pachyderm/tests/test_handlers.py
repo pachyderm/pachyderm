@@ -83,14 +83,13 @@ async def test_list_mounts(mock_client, jp_fetch):
                 "name":"mount1",
                 "repo":"repo1",
                 "branch":"master",
-                "commit":"",
+                "commit":"a1b2c3",
                 "files":None,
                 "glob":"",
                 "mode":"ro",
                 "state":"mounted",
                 "status":"unable to load current commit",
                 "mountpoint":"",
-                "actual_mounted_commit":"",
                 "latest_commit":"",
                 "how_many_commits_behind":0
             }
@@ -122,14 +121,13 @@ async def test_list_mounts(mock_client, jp_fetch):
                 "name":"mount1",
                 "repo":"repo1",
                 "branch":"master",
-                "commit":"",
+                "commit":"a1b2c3",
                 "files":None,
                 "glob":"",
                 "mode":"ro",
                 "state":"mounted",
                 "status":"unable to load current commit",
                 "mountpoint":"",
-                "actual_mounted_commit":"",
                 "latest_commit":"",
                 "how_many_commits_behind":0
             }
@@ -176,6 +174,7 @@ async def test_mount(mock_client, jp_fetch):
                 "name": "mount1",
                 "repo": "repo1",
                 "branch": "dev",
+                "commit": "a1b2c3",
                 "mode": "rw",
             }
         ]
@@ -186,14 +185,13 @@ async def test_mount(mock_client, jp_fetch):
                 "name":body["mounts"][0]["name"],
                 "repo":body["mounts"][0]["repo"],
                 "branch":body["mounts"][0]["branch"],
-                "commit":"",
+                "commit":body["mounts"][0]["commit"],
                 "files":None,
                 "glob":"",
                 "mode":body["mounts"][0]["mode"],
                 "state":"mounted",
                 "status":"unable to load current commit",
                 "mountpoint":"",
-                "actual_mounted_commit":"",
                 "latest_commit":"",
                 "how_many_commits_behind":0
             }
@@ -231,14 +229,13 @@ async def test_mount(mock_client, jp_fetch):
                 "name":body["mounts"][0]["name"],
                 "repo":body["mounts"][0]["repo"],
                 "branch":body["mounts"][0]["branch"],
-                "commit":"",
+                "commit":body["mounts"][0]["commit"],
                 "files":None,
                 "glob":"",
                 "mode":body["mounts"][0]["mode"],
                 "state":"mounted",
                 "status":"unable to load current commit",
                 "mountpoint":"",
-                "actual_mounted_commit":"",
                 "latest_commit":"",
                 "how_many_commits_behind":0
             }

@@ -49,13 +49,13 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	go a.driver.master(pctx.Child(env.BackgroundContext, "master"))
 	go func() {
 		pfsload.Worker(env.GetPachClient(pctx.Child(env.BackgroundContext, "pfsload")), env.TaskService) //nolint:errcheck
 	}()
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 
+// TODO: remove this after load tests have been moved to Debug Server
 func NewSidecarAPIServer(env Env) (pfsserver.APIServer, error) {
 	a, err := newAPIServer(env)
 	if err != nil {
