@@ -96,7 +96,7 @@ describe('mount plugin', () => {
         name: 'default_images',
         project: 'default',
         branch: 'master',
-        commit: 'null',
+        commit: '',
         repo: 'images',
         glob: '/*',
         mode: 'ro',
