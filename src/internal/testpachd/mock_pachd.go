@@ -3,8 +3,11 @@ package testpachd
 import (
 	"context"
 	"net"
+	"runtime"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -12,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -959,7 +963,7 @@ type activateAuthPFSFunc func(context.Context, *pfs.ActivateAuthRequest) (*pfs.A
 type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*emptypb.Empty, error)
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 type listRepoFunc func(*pfs.ListRepoRequest, pfs.API_ListRepoServer) error
-type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*emptypb.Empty, error)
+type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*pfs.DeleteRepoResponse, error)
 type deleteReposFunc func(context.Context, *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*emptypb.Empty, error)
@@ -1187,11 +1191,13 @@ func (api *pfsServerAPI) ListRepo(req *pfs.ListRepoRequest, srv pfs.API_ListRepo
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListRepo")
 }
-func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest) (*emptypb.Empty, error) {
+func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest) (*pfs.DeleteRepoResponse, error) {
 	if api.mock.DeleteRepo.handler != nil {
 		return api.mock.DeleteRepo.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
+	response := &pfs.DeleteRepoResponse{}
+	response.Deleted = false
+	return response, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
 }
 func (api *pfsServerAPI) DeleteRepos(ctx context.Context, req *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error) {
 	if api.mock.DeleteRepos.handler != nil {
@@ -2044,10 +2050,33 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnaryServerInterceptor,
+		validation.UnaryServerInterceptor,
+		func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
+			defer func() {
+				if err := recover(); err != nil {
+					stack := make([]byte, 16384)
+					n := runtime.Stack(stack, false)
+					stack = stack[:n]
+					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
+				}
+			}()
+			return handler(ctx, req)
+		},
 	}
 	streamOpts := []grpc.StreamServerInterceptor{
 		errorsmw.StreamServerInterceptor,
 		loggingInterceptor.StreamServerInterceptor,
+		validation.StreamServerInterceptor,
+		func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
+			defer func() {
+				if err := recover(); err != nil {
+					stack := make([]byte, 16384)
+					runtime.Stack(stack, false)
+					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
+				}
+			}()
+			return handler(srv, ss)
+		},
 	}
 	for _, opt := range options {
 		interceptor := opt(mock)

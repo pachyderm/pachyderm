@@ -1,0 +1,55 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/AggregateProcessStats",
+    "definitions": {
+        "AggregateProcessStats": {
+            "properties": {
+                "downloadTime": {
+                    "$ref": "#/definitions/pps_v2.Aggregate",
+                    "additionalProperties": false
+                },
+                "processTime": {
+                    "$ref": "#/definitions/pps_v2.Aggregate",
+                    "additionalProperties": false
+                },
+                "uploadTime": {
+                    "$ref": "#/definitions/pps_v2.Aggregate",
+                    "additionalProperties": false
+                },
+                "downloadBytes": {
+                    "$ref": "#/definitions/pps_v2.Aggregate",
+                    "additionalProperties": false
+                },
+                "uploadBytes": {
+                    "$ref": "#/definitions/pps_v2.Aggregate",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Aggregate Process Stats"
+        },
+        "pps_v2.Aggregate": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "mean": {
+                    "type": "number"
+                },
+                "stddev": {
+                    "type": "number"
+                },
+                "fifthPercentile": {
+                    "type": "number"
+                },
+                "ninetyFifthPercentile": {
+                    "type": "number"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Aggregate"
+        }
+    }
+}

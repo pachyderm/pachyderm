@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/weblinker"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 // Env is the set of dependencies required by an APIServer
@@ -21,14 +22,7 @@ type Env struct {
 	ClusterID string
 	Config    *pachconfig.Configuration
 	PFSServer pfs.APIServer
-}
-
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
-	return Env{
-		ClusterID: senv.ClusterID(),
-		Config:    senv.Config(),
-		PFSServer: senv.PfsServer(),
-	}
+	Paused    bool
 }
 
 // APIServer represents an APIServer
@@ -44,6 +38,11 @@ func NewAPIServer(env Env) APIServer {
 		host = pachd.ProxyHost
 		tls = pachd.ProxyTLS
 	}
+	l := &weblinker.Linker{
+		HTTPS:    tls,
+		HostPort: host,
+		Version:  version.Version,
+	}
 	return &apiServer{
 		clusterInfo: &admin.ClusterInfo{
 			Id:           env.ClusterID,
@@ -51,6 +50,11 @@ func NewAPIServer(env Env) APIServer {
 			WarningsOk:   true,
 			ProxyHost:    host,
 			ProxyTls:     tls,
+			Paused:       env.Paused,
+			WebResources: &admin.WebResource{
+				ArchiveDownloadBaseUrl:             l.ArchiveDownloadBaseURL(),
+				CreatePipelineRequestJsonSchemaUrl: l.CreatePipelineRequestJSONSchemaURL(),
+			},
 		},
 		pfsServer: env.PFSServer,
 	}
@@ -107,7 +111,9 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	}
 
 	if n := request.GetCurrentProject().GetName(); n != "" {
-		if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
+		if a.pfsServer == nil {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("PFS server not running; cannot check existence of project %s", request.GetCurrentProject()))
+		} else if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
 		}
 	}

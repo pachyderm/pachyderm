@@ -155,7 +155,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 		if err != nil {
 			return err
 		}
-		size, err = a.driver.repoSize(txnCtx, repoInfo)
+		size, err = a.driver.repoSize(ctx, txnCtx, repoInfo)
 		return err
 	}); err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoS
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *apiServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) (bool, error) {
 	return a.driver.deleteRepo(ctx, txnCtx, request.Repo, request.Force)
 }
 
@@ -214,17 +214,23 @@ func (a *apiServer) DeleteReposInTransaction(ctx context.Context, txnCtx *txncon
 }
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
-func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *emptypb.Empty, retErr error) {
+func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *pfs.DeleteRepoResponse, retErr error) {
 	request.GetRepo().EnsureProject()
 	if request.GetRepo() == nil {
 		return nil, status.Error(codes.InvalidArgument, "no repo specified")
 	}
+	result := &pfs.DeleteRepoResponse{}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.DeleteRepo(request))
+		repoDeleted, err := txn.DeleteRepo(request)
+		if err != nil {
+			return errors.Wrap(err, "delete repo")
+		}
+		result.Deleted = repoDeleted
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	return result, nil
 }
 
 // DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
@@ -266,9 +272,9 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *apiServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		return a.driver.finishCommit(txnCtx, request.Commit, request.Description, request.Error, request.Force)
+		return a.driver.finishCommit(ctx, txnCtx, request.Commit, request.Description, request.Error, request.Force)
 	})
 }
 
@@ -285,8 +291,8 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 // InspectCommitInTransaction is identical to InspectCommit (some features
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
-func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.driver.resolveCommit(txnCtx.SqlTx, request.Commit)
+func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+	return a.driver.resolveCommit(ctx, txnCtx.SqlTx, request.Commit)
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
@@ -305,8 +311,8 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 // InspectCommitSetInTransaction performs the same job as InspectCommitSet
 // without the option of blocking for commits to finish so that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) InspectCommitSetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
-	return a.driver.inspectCommitSetImmediateTx(txnCtx, commitset, includeAliases)
+func (a *apiServer) InspectCommitSetInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
+	return a.driver.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, includeAliases)
 }
 
 // InspectCommitSet implements the protobuf pfs.InspectCommitSet RPC
@@ -407,9 +413,9 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	return a.driver.inspectBranch(ctx, request.Branch)
 }
 
-func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
+func (a *apiServer) InspectBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
 	request.GetBranch().GetRepo().EnsureProject()
-	return a.driver.inspectBranchInTransaction(txnCtx, request.Branch)
+	return a.driver.inspectBranchInTransaction(ctx, txnCtx, request.Branch)
 }
 
 // ListBranch implements the protobuf pfs.ListBranch RPC
@@ -772,19 +778,19 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *emptypb.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.AddFileSetInTransaction(txnCtx, req)
+		return a.AddFileSetInTransaction(ctx, txnCtx, req)
 	}); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) AddFileSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
+func (a *apiServer) AddFileSetInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
 	fsid, err := fileset.ParseID(request.FileSetId)
 	if err != nil {
 		return err
 	}
-	if err := a.driver.addFileSet(txnCtx, request.Commit, *fsid); err != nil {
+	if err := a.driver.addFileSet(ctx, txnCtx, request.Commit, *fsid); err != nil {
 		return err
 	}
 	return nil

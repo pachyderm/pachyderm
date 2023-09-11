@@ -12,6 +12,7 @@ import "pfs/pfs.proto";
 
 import "task/task.proto";
 import "protoextensions/json-schema-options.proto";
+import "protoextensions/validate.proto";
 
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
@@ -486,7 +487,7 @@ message JobSet {
 }
 
 message InspectJobSetRequest {
-  JobSet job_set = 1;
+  JobSet job_set = 1 [(validate.rules).message.required = true];
   bool wait = 2; // When true, wait until all jobs in the set are finished
   bool details = 3;
 }
@@ -563,7 +564,7 @@ message StopJobRequest {
 }
 
 message UpdateJobStateRequest {
-  Job job = 1;
+  Job job = 1 [(validate.rules).message.required = true];
   JobState state = 2;
   string reason = 3;
   uint64 restart = 5;
@@ -751,7 +752,7 @@ message CreatePipelineV2Response {
 }
 
 message InspectPipelineRequest {
-  Pipeline pipeline = 1;
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
   // When true, return PipelineInfos with the details field, which requires
   // loading the pipeline spec from PFS.
   bool details = 2;
@@ -786,10 +787,12 @@ message ListPipelineRequest {
 // Delete a pipeline.  If the deprecated all member is true, then delete all
 // pipelines in the default project.
 message DeletePipelineRequest {
-  Pipeline pipeline = 1;
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
   bool all = 2 [deprecated = true]; // Deprecated.
   bool force = 3;
   bool keep_repo = 4;
+  // If true, an error will be returned if the pipeline doesn't exist.
+  bool must_exist = 5;
 }
 
 // Delete more than one pipeline.
@@ -814,6 +817,8 @@ message StartPipelineRequest {
 
 message StopPipelineRequest {
   Pipeline pipeline = 1;
+  // If true, an error will be returned if the pipeline doesn't exist.
+  bool must_exist = 2;
 }
 
 message RunPipelineRequest {
@@ -823,7 +828,7 @@ message RunPipelineRequest {
 }
 
 message RunCronRequest {
-  Pipeline pipeline = 1;
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
 }
 
 message CreateSecretRequest {
@@ -831,11 +836,11 @@ message CreateSecretRequest {
 }
 
 message DeleteSecretRequest {
-  Secret secret = 1;
+  Secret secret = 1 [(validate.rules).message.required = true];
 }
 
 message InspectSecretRequest {
-  Secret secret = 1;
+  Secret secret = 1 [(validate.rules).message.required = true];
 }
 
 message Secret {

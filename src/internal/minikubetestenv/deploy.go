@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -386,6 +387,48 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
+func formatSince(t *metav1.Time) string {
+	if t == nil {
+		return "∅"
+	}
+	return time.Since(t.Time).Round(time.Second).String()
+}
+
+func formatPodStatus(s v1.PodStatus) string {
+	return fmt.Sprintf("{phase:%v message:%v reason:%v nominatedNodeName:%v hostIP:%v podIP:%v startTime:%v conditions:%v containers:{init:%v epehmeral:%v normal:%v}}", s.Phase, s.Message, s.Reason, s.NominatedNodeName, s.HostIP, s.PodIP, formatSince(s.StartTime), formatPodConditions(s.Conditions), formatContainerStatuses(s.InitContainerStatuses), formatContainerStatuses(s.EphemeralContainerStatuses), formatContainerStatuses(s.ContainerStatuses))
+}
+
+func formatPodConditions(cs []v1.PodCondition) string {
+	var result []string
+	for _, c := range cs {
+		result = append(result, fmt.Sprintf("%v=%v@%v", c.Type, c.Status, formatSince(&c.LastTransitionTime)))
+	}
+	return "{" + strings.Join(result, " ") + "}"
+}
+
+func formatContainerStatuses(ss []v1.ContainerStatus) (result []string) {
+	for _, s := range ss {
+		started := "∅"
+		if s.Started != nil {
+			started = strconv.FormatBool(*s.Started)
+		}
+		var state string
+		switch {
+		case s.State.Waiting != nil:
+			x := s.State.Waiting
+			state = fmt.Sprintf("waiting{reason:%v message:%v}", x.Reason, x.Message)
+		case s.State.Running != nil:
+			x := s.State.Running
+			state = fmt.Sprintf("running{started:%v}", formatSince(&x.StartedAt))
+		case s.State.Terminated != nil:
+			x := s.State.Terminated
+			state = fmt.Sprintf("terminated{reason:%v message:%v started:%v finished:%v code:%v}", x.Reason, x.Message, formatSince(&x.StartedAt), formatSince(&x.FinishedAt), x.ExitCode)
+		}
+		result = append(result, fmt.Sprintf("{name:%v started:%v ready:%v state:%v}", s.Name, started, s.Ready, state))
+	}
+	return result
+}
+
 func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string, enterpriseServer bool) {
 	label := "app=pachd"
 	if enterpriseServer {
@@ -400,9 +443,9 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		var acceptablePachds []string
 		for _, p := range pachds.Items {
 			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready {
-				acceptablePachds = append(acceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
+				acceptablePachds = append(acceptablePachds, fmt.Sprintf("%v: image=%v status=%s", p.Name, p.Spec.Containers[0].Image, formatPodStatus(p.Status)))
 			} else {
-				unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
+				unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%s", p.Name, p.Spec.Containers[0].Image, formatPodStatus(p.Status)))
 			}
 		}
 		if len(acceptablePachds) > 0 && (len(unacceptablePachds) == 0) {

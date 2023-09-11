@@ -30,6 +30,12 @@ func TestRouting(t *testing.T) {
 			url:      "http://pachyderm.example.com/healthz",
 			wantCode: http.StatusOK,
 		},
+		{
+			name:     "CreatePipelineRequest JSON schema",
+			method:   "GET",
+			url:      "http://pachyderm.example.com/jsonschema/pps_v2/CreatePipelineRequest.schema.json",
+			wantCode: http.StatusOK,
+		},
 	}
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {

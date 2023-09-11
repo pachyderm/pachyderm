@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/pachyderm/pachyderm/v2/src/constants"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -969,13 +970,19 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer client.Close()
+			info, _ := client.ClusterInfo()
 
 			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}
 
-			f, err := os.CreateTemp("", args[0])
+			format := output
+			if format == "" {
+				format = "json"
+			}
+
+			f, err := os.CreateTemp("", fmt.Sprintf("%v-*.pipeline.%v", pipelineInfo.GetPipeline().GetName(), format))
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -990,9 +997,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err := decoder.Decode(&oldSpec); err != nil {
 				return errors.Wrapf(err, "could not decode old user spec %s", pipelineInfo.UserSpecJson)
 			}
+			oldSpec[constants.JSONSchemaKey] = info.GetWebResources().GetCreatePipelineRequestJsonSchemaUrl()
 			if err := cmdutil.Encoder(output, f).Encode(oldSpec); err != nil {
 				return errors.Wrapf(err, "could not encode old user spec %v", oldSpec)
 			}
+			delete(oldSpec, constants.JSONSchemaKey)
 
 			if editor == "" {
 				editor = os.Getenv("EDITOR")
@@ -1269,8 +1278,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return errors.Errorf("--allProjects only valid with --all")
 			}
 			req := &pps.DeletePipelineRequest{
-				Force:    force,
-				KeepRepo: keepRepo,
+				Force:     force,
+				KeepRepo:  keepRepo,
+				MustExist: true,
 			}
 			if len(args) > 0 {
 				req.Pipeline = pachdclient.NewPipeline(project, args[0])
@@ -1316,13 +1326,19 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			if err := client.StopPipeline(project, args[0]); err != nil {
-				return errors.Wrap(err, "error from StopProjectPipeline")
+			defer c.Close()
+			if _, err := c.PpsAPIClient.StopPipeline(
+				c.Ctx(),
+				&pps.StopPipelineRequest{
+					Pipeline:  pachdclient.NewPipeline(project, args[0]),
+					MustExist: true,
+				},
+			); err != nil {
+				return errors.Wrap(grpcutil.ScrubGRPC(err), "error from StopProjectPipeline")
 			}
 			return nil
 		}),
@@ -1594,7 +1610,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			defer client.Close()
 			if cluster {
-				resp, err := client.PpsAPIClient.GetClusterDefaults(mainCtx, &pps.GetClusterDefaultsRequest{})
+				resp, err := client.PpsAPIClient.GetClusterDefaults(client.Ctx(), &pps.GetClusterDefaultsRequest{})
 				if err != nil {
 					return errors.Wrap(err, "could not get cluster defaults")
 				}
@@ -1707,7 +1723,7 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	defer client.Close()
 
 	var resp *pps.SetClusterDefaultsResponse
-	if resp, err = client.PpsAPIClient.SetClusterDefaults(ctx, req); err != nil {
+	if resp, err = client.PpsAPIClient.SetClusterDefaults(client.Ctx(), req); err != nil {
 		return errors.Wrap(err, "could not set cluster defaults")
 	}
 	if req.Regenerate {

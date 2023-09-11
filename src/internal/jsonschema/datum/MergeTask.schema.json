@@ -1,0 +1,47 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/MergeTask",
+    "definitions": {
+        "MergeTask": {
+            "properties": {
+                "fileSetIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "pathRange": {
+                    "$ref": "#/definitions/pfs_v2.PathRange",
+                    "additionalProperties": false
+                },
+                "type": {
+                    "enum": [
+                        "JOIN",
+                        "GROUP"
+                    ],
+                    "type": "string",
+                    "title": "Type"
+                },
+                "authToken": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Merge Task"
+        },
+        "pfs_v2.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range"
+        }
+    }
+}
