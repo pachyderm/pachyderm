@@ -1290,7 +1290,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 	if err != nil {
 		// If we mounted a specific commit but the branch no longer exists,
-		// then how many commits we're behind on the branch is meaningless 
+		// then how many commits we're behind on the branch is meaningless
 		if errutil.IsNotFoundError(err) {
 			return nil
 		}
