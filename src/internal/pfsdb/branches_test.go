@@ -74,6 +74,9 @@ func TestCreateAndGetBranch(t *testing.T) {
 		gotBranch, err := pfsdb.GetBranch(ctx, tx, id)
 		require.NoError(t, err)
 		require.True(t, cmp.Equal(branchInfo, gotBranch, compareBranchOpts()...))
+		gotBranchByName, err := pfsdb.GetBranchByName(ctx, tx, branchInfo.Branch)
+		require.NoError(t, err)
+		require.True(t, cmp.Equal(branchInfo, gotBranchByName.PbInfo(), compareBranchOpts()...))
 
 		// Update branch to point to second commit
 		branchInfo.Head = commit2Info.Commit
@@ -114,12 +117,12 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 		branchAInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Name: "master", Repo: repoAInfo.Repo}, Head: commitAInfo.Commit}
 		branchBInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Name: "master", Repo: repoBInfo.Repo}, Head: commitBInfo.Commit}
 		branchCInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Name: "master", Repo: repoCInfo.Repo}, Head: commitCInfo.Commit}
-		// Provenance info: A <- B <- C
+		// Provenance info: A <- B <- C, and A <- C
 		branchAInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch, branchCInfo.Branch}
 		branchBInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
 		branchBInfo.Provenance = []*pfs.Branch{branchAInfo.Branch}
 		branchBInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
-		branchCInfo.DirectProvenance = []*pfs.Branch{branchBInfo.Branch}
+		branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch, branchBInfo.Branch}
 		branchCInfo.Provenance = []*pfs.Branch{branchBInfo.Branch, branchAInfo.Branch}
 		// Create all branches, and provenance relationships
 		allBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
