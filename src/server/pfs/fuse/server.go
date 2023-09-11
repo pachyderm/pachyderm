@@ -13,7 +13,6 @@ import (
 	pathpkg "path"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -112,7 +111,7 @@ type DatumState struct {
 	PaginationMarker    string
 	DatumInput          *pps.Input
 	DatumInputsToMounts map[string]string
-	CurrDatumIdx        int
+	DatumIdx            int
 	AllDatumsReceived   bool
 }
 
@@ -595,7 +594,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.Datums = nil
 			mm.PaginationMarker = ""
 			mm.DatumInput = nil
-			mm.CurrDatumIdx = -1
+			mm.DatumIdx = -1
 			mm.DatumInputsToMounts = nil
 			mm.AllDatumsReceived = false
 		}()
@@ -665,54 +664,31 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled) //nolint:errcheck
 	})
-	router.Methods("PUT").Path("/_show_datum").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").Path("/datums/_prev").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if mm.DatumInput != nil {
+		if len(mm.Datums) == 0 {
 			http.Error(w, "no datums mounted", http.StatusBadRequest)
 			return
 		}
-
-		vs := req.URL.Query()
-		idxStr := vs.Get("idx")
-		id := vs.Get("id")
-		if idxStr == "" && id == "" {
-			http.Error(w, "need to specify either datum idx or id", http.StatusBadRequest)
+		if mm.DatumIdx == 0 {
+			http.Error(w, "already at first datum", http.StatusBadRequest)
 			return
 		}
-		idx := 0
-		if idxStr != "" {
-			var err error
-			idx, err = strconv.Atoi(idxStr)
-			if err != nil {
-				http.Error(w, "used a non-integer for datum index", http.StatusBadRequest)
-				return
-			}
-		}
 
-		var di *pps.DatumInfo
-		if id != "" {
-			foundDatum := false
-			for idx, di = range mm.Datums {
-				if di.Datum.Id == id {
-					foundDatum = true
-					break
-				}
-			}
-			if !foundDatum {
-				http.Error(w, "specify a valid datum id", http.StatusBadRequest)
-				return
-			}
-		} else {
-			di = mm.Datums[idx]
-		}
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+			mm.DatumIdx--
+		}()
+		di := mm.Datums[mm.DatumIdx]
 		mis := datumToMounts(di, mm.DatumInputsToMounts)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
@@ -722,17 +698,64 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		createLocalOutDir(mm)
 
+		resp := MountDatumResponse{
+			Id:                di.Datum.Id,
+			Idx:               mm.DatumIdx,
+			NumDatums:         len(mm.Datums),
+			AllDatumsReceived: mm.AllDatumsReceived,
+		}
+		marshalled, err := jsonMarshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled) //nolint:errcheck
+	})
+	router.Methods("PUT").Path("/datums/_next").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+		if len(mm.Datums) == 0 {
+			http.Error(w, "no datums mounted", http.StatusBadRequest)
+			return
+		}
+		if !mm.AllDatumsReceived && mm.DatumIdx == len(mm.Datums)-1 {
+			if err := mm.getMoreDatums(); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		if mm.AllDatumsReceived && mm.DatumIdx == len(mm.Datums)-1 {
+			http.Error(w, "already at last datum", http.StatusBadRequest)
+			return
+		}
+
+		if err := mm.UnmountAll(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		func() {
 			mm.mu.Lock()
 			defer mm.mu.Unlock()
-
-			mm.CurrDatumIdx = idx
+			mm.DatumIdx++
 		}()
+		di := mm.Datums[mm.DatumIdx]
+		mis := datumToMounts(di, mm.DatumInputsToMounts)
+		for _, mi := range mis {
+			if _, err := mm.MountRepo(mi); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
-			Id:        di.Datum.Id,
-			Idx:       idx,
-			NumDatums: len(mm.Datums),
+			Id:                di.Datum.Id,
+			Idx:               mm.DatumIdx,
+			NumDatums:         len(mm.Datums),
+			AllDatumsReceived: mm.AllDatumsReceived,
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
@@ -1266,6 +1289,30 @@ func datumToMounts(d *pps.DatumInfo, datumInputsToMounts map[string]string) []*M
 		mis = append(mis, mi)
 	}
 	return mis
+}
+
+// Appends the next page of datums if they exist. Might discover we've already
+// received all datums.
+func (mm *MountManager) getMoreDatums() error {
+	datums, err := mm.GetNextXDatums(NumDatumsPerPage, mm.PaginationMarker)
+	if err != nil {
+		return err
+	}
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		if len(datums) == 0 {
+			// we already had all the datums
+			mm.AllDatumsReceived = true
+		} else {
+			mm.Datums = append(mm.Datums, datums...)
+			mm.PaginationMarker = datums[len(datums)-1].Datum.Id
+			if len(datums) < NumDatumsPerPage {
+				mm.AllDatumsReceived = true
+			}
+		}
+	}()
+	return nil
 }
 
 func removeOutDir(mm *MountManager) error {
