@@ -116,7 +116,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -240,7 +240,7 @@ jobs:
           file: /tmp/test-results/coverage.txt
       - collect-test-results
   static-checks:
-    resource_class: 2xlarge
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -628,10 +628,10 @@ jobs:
     parameters:
       num_executors:
         type: integer
-        default: 4
+        default: 2
       resource_class:
         type: string
-        default: 2xlarge
+        default: large
       arch:
         type: string
         default: amd64
@@ -1828,14 +1828,14 @@ workflows:
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
-          resource_class: 2xlarge # amd64
+          resource_class: large # amd64
           arch: amd64
-          num_executors: 6
+          num_executors: 2
       - deploy-tests:
           name: arm64 deploy tests
-          resource_class: arm.2xlarge # arm64
+          resource_class: arm.large # arm64
           arch: arm64
-          num_executors: 4
+          num_executors: 2
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
