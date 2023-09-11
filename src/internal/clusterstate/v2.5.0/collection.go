@@ -269,6 +269,11 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 		vals[oldKey] = pair{newKey, proto.Clone(newVal)}
 
 	}
+	if len(vals) == 0 {
+		log.Info(ctx, fmt.Sprintf("No records to migrate in collection.%s", len(vals), name))
+		return nil
+	}
+	
 	log.Info(ctx, fmt.Sprintf("Migrating %d records from collection.%s", len(vals), name))
 
 	var (
