@@ -36,10 +36,6 @@ const PipelineInfo: React.FC = () => {
         {capitalize(pipeline?.type)}
       </Description>
 
-      <Description term="Description" loading={loading}>
-        {pipeline?.description ? pipeline.description : 'N/A'}
-      </Description>
-
       {!isServiceOrSpout && (
         <>
           <Description term="Datum Timeout" loading={loading}>

@@ -18,12 +18,14 @@ import styles from './RuntimeStats.module.css';
 const RuntimeStats = ({
   loading,
   started,
+  created,
   totalRuntime,
   runtimeMetrics,
   previousJobId,
 }: {
   loading: boolean;
   started?: string;
+  created?: string;
   totalRuntime: string;
   runtimeMetrics: {
     label: string;
@@ -57,6 +59,18 @@ const RuntimeStats = ({
           </div>
         </>
       )}
+      {created && (
+        <div className={styles.metricSection}>
+          <Description
+            term="Created"
+            loading={loading}
+            className={styles.duration}
+            data-testid="RuntimeStats__created"
+          >
+            {started}
+          </Description>
+        </div>
+      )}
       {started && (
         <div className={styles.metricSection}>
           <Description
@@ -73,7 +87,6 @@ const RuntimeStats = ({
         <Description
           term="Runtime"
           loading={loading}
-          data-testid="RuntimeStats__duration"
           className={classNames(styles.duration, {
             [styles.runtime]: !loading,
           })}
@@ -91,21 +104,22 @@ const RuntimeStats = ({
             {[styles.closing]: runtimeDetailsClosing},
             styles.runtimeDetails,
           )}
-          data-testid="RuntimeStats__durationDetails"
         >
           {runtimeMetrics.map(({duration, bytes, label}) => (
             <div className={styles.runtimeDetail} key={label}>
               <div>
-                <div className={styles.duration}>{duration}</div>
+                <dd className={styles.duration} aria-labelledby={label}>
+                  {duration}
+                </dd>
                 {bytes ? (
                   <CaptionTextSmall className={styles.bytes}>
                     {formatBytes(bytes)}
                   </CaptionTextSmall>
                 ) : null}
               </div>
-              <div>
+              <dt id={label}>
                 <div className={styles.metricLabel}>{label}</div>
-              </div>
+              </dt>
             </div>
           ))}
         </div>

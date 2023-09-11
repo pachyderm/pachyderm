@@ -57,8 +57,7 @@ describe('ProjectSidebar', () => {
   });
 
   describe('PipelineDetails', () => {
-    it('should display pipeline details', async () => {
-      server.use(mockGetMontagePipeline());
+    it('should display top pipeline details', async () => {
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
 
       render(<Project />);
@@ -68,11 +67,148 @@ describe('ProjectSidebar', () => {
           name: 'montage',
         }),
       ).toBeInTheDocument();
+
+      expect(
+        screen.getByText(
+          /a pipeline that combines images from the `images` and `edges` repositories into a montage\./i,
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByRole('definition', {
+          name: /most recent job id/i,
+        }),
+      ).toHaveTextContent('5c1aa9bc87dd411ba5a1be0c80a3ebc2');
+    });
+
+    it('should display the job overview tab', async () => {
+      window.history.replaceState('', '', '/lineage/default/pipelines/montage');
+
+      render(<Project />);
+
+      const overviewTab = await screen.findByRole('tabpanel', {
+        name: /job overview/i,
+      });
+
+      expect(
+        within(overviewTab).getByRole('heading', {name: /success/i}),
+      ).toBeInTheDocument();
+
+      expect(
+        within(overviewTab).getByRole('link', {name: /inspect job/i}),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum',
+      );
+
+      const runtimeDropdown = within(overviewTab).getByRole('definition', {
+        name: /runtime/i,
+      });
+      expect(runtimeDropdown).toHaveTextContent('3 s');
+      await click(runtimeDropdown);
+
+      expect(
+        within(overviewTab).getByRole('definition', {
+          name: /setup/i,
+        }),
+      ).toHaveTextContent('N/A');
+
+      expect(
+        within(overviewTab).getByRole('definition', {
+          name: /download/i,
+        }),
+      ).toHaveTextContent('N/A');
+
+      expect(
+        within(overviewTab).getByRole('definition', {
+          name: /processing/i,
+        }),
+      ).toHaveTextContent('1 s');
+
+      expect(
+        within(overviewTab).getByRole('definition', {
+          name: /upload/i,
+        }),
+      ).toHaveTextContent('N/A');
+
+      expect(
+        within(overviewTab).getByRole('link', {name: /montage/i}),
+      ).toHaveAttribute('href', '/lineage/default/pipelines/montage');
+
+      expect(
+        within(overviewTab).getByRole('link', {
+          name: /5c1aa9bc87dd411ba5a1be0c80a3ebc2/i,
+        }),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/default/repos/montage/branch/master/commit/5c1aa9bc87dd411ba5a1be0c80a3ebc2/?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
+      );
+
+      expect(screen.getByText(/reprocessSpec/)).toBeInTheDocument();
+    });
+
+    it('should display the pipeline spec tab', async () => {
+      const spy = jest.spyOn(document, 'createElement');
+      window.history.replaceState('', '', '/lineage/default/pipelines/montage');
+
+      render(<Project />);
+
+      await click(await screen.findByRole('tab', {name: /spec/i}));
+
+      const specTab = screen.getByRole('tabpanel', {name: /spec/i});
+
+      expect(within(specTab).getByText(/reprocessSpec/)).toBeInTheDocument();
+
+      // gear icon button
+      await click(within(specTab).getByRole('button'));
+
+      await click(within(specTab).getByRole('menuitem', {name: 'Copy'}));
+      expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith(
+        `transform:
+  image: dpokidov/imagemagick:7.1.0-23
+  cmd:
+    - sh
+  stdin:
+    - >-
+      montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L
+      /pfs/images /pfs/edges -type f | sort) /pfs/out/montage.png
+input:
+  cross:
+    - pfs:
+        project: default
+        name: images
+        repo: images
+        repoType: user
+        branch: master
+        glob: /
+    - pfs:
+        project: default
+        name: edges
+        repo: edges
+        repoType: user
+        branch: master
+        glob: /
+reprocessSpec: until_success
+`,
+      );
+
+      await click(within(specTab).getByRole('button'));
+      await click(
+        within(specTab).getByRole('menuitem', {name: 'Download JSON'}),
+      );
+
+      // test that `useDownloadText` created an anchor tag
+      expect(spy).toHaveBeenLastCalledWith('a');
+
+      await click(within(specTab).getByRole('button'));
+      await click(
+        within(specTab).getByRole('menuitem', {name: 'Download YAML'}),
+      );
+
+      expect(spy).toHaveBeenLastCalledWith('a');
     });
 
     it('should display pipeline logs button', async () => {
-      server.use(mockGetMontagePipeline());
-      server.use(mockGetMontageJob_5C());
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
 
       render(<Project />);
@@ -96,7 +232,6 @@ describe('ProjectSidebar', () => {
     });
 
     it('should display datum logs link with filter applied', async () => {
-      server.use(mockGetMontageJob_5C());
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
       render(<Project />);
 
@@ -108,7 +243,6 @@ describe('ProjectSidebar', () => {
     });
 
     it('should disable the delete button when there are downstream pipelines', async () => {
-      server.use(mockGetMontagePipeline());
       server.use(mockGetLargerDag());
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
 
@@ -126,9 +260,6 @@ describe('ProjectSidebar', () => {
     });
 
     it('should enable the delete button when there are no downstream pipelines', async () => {
-      server.use(mockGetMontagePipeline());
-      server.use(mockGetDag());
-
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
 
       render(<Project />);
@@ -195,9 +326,6 @@ describe('ProjectSidebar', () => {
     });
 
     it('should allow users to open the roles modal', async () => {
-      server.use(mockGetMontagePipeline());
-      server.use(mockGetMontageJob_5C());
-      server.use(mockTrueGetAuthorize());
       server.use(mockRepoMontage());
 
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
@@ -218,7 +346,6 @@ describe('ProjectSidebar', () => {
 
     it('should default to the info tab for a service pipeline', async () => {
       server.use(mockGetServicePipeline());
-      server.use(mockGetMontageJob_5C());
 
       window.history.replaceState({}, '', '/lineage/default/pipelines/montage');
       render(<Project />);
@@ -268,9 +395,6 @@ describe('ProjectSidebar', () => {
           name: /running/i,
         }),
       ).toBeInTheDocument();
-      expect(
-        screen.queryByText('Most Recent Job Start'),
-      ).not.toBeInTheDocument();
       expect(screen.queryByText('Most Recent Job ID')).not.toBeInTheDocument();
     });
   });
@@ -278,10 +402,6 @@ describe('ProjectSidebar', () => {
   describe('repos', () => {
     beforeEach(() => {
       server.use(mockGetCommitA4());
-
-      server.use(mockRepoImages());
-
-      server.use(mockGetDag());
 
       server.use(
         mockCommitDiffQuery((req, res, ctx) =>

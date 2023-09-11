@@ -5,7 +5,6 @@ import Description from '@dash-frontend/components/Description';
 import InfoPanel from '@dash-frontend/components/InfoPanel';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import useCurrentOuptutRepoOfPipeline from '@dash-frontend/hooks/useCurrentOuptutRepoOfPipeline';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   SkeletonDisplayText,
   Tabs,
@@ -71,14 +70,6 @@ const PipelineDetails: React.FC = () => {
           )}
           {!isSpout && (
             <>
-              <Description
-                term="Most Recent Job Start"
-                loading={pipelineAndJobloading}
-              >
-                {lastJob?.createdAt
-                  ? getStandardDate(lastJob?.createdAt)
-                  : 'N/A'}
-              </Description>
               <Description
                 term="Most Recent Job ID"
                 loading={pipelineAndJobloading}

@@ -25,6 +25,10 @@ const useInfoPanel = () => {
     return job?.startedAt ? getStandardDate(job?.startedAt) : 'N/A';
   }, [job]);
 
+  const created = useMemo(() => {
+    return job?.createdAt ? getStandardDate(job?.createdAt) : 'N/A';
+  }, [job]);
+
   const totalRuntime = useMemo(() => {
     return job?.finishedAt && job?.startedAt
       ? formatDurationFromSeconds(job.finishedAt - job.startedAt)
@@ -175,6 +179,7 @@ const useInfoPanel = () => {
     jobDetails,
     jobLoading,
     started,
+    created,
     datumMetrics,
     runtimeMetrics,
     inputs,

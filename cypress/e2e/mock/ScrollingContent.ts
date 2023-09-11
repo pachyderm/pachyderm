@@ -95,7 +95,7 @@ describe(
         .children()
         .first()
         .children()
-        .should('have.length', 20);
+        .should('have.length', 18);
       cy.get(`[aria-labelledby="info"]`)
         .children()
         .first()

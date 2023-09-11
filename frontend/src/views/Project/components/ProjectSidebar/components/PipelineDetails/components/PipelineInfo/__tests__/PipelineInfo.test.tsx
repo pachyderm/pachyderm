@@ -47,9 +47,6 @@ describe('PipelineInfo', () => {
     expect(screen.getByLabelText('Pipeline Type')).toHaveTextContent(
       'Standard',
     );
-    expect(screen.getByLabelText('Description')).toHaveTextContent(
-      'A pipeline that combines images from the `images` and `edges` repositories into a montage.',
-    );
     expect(screen.getByLabelText('Datum Timeout')).toHaveTextContent('N/A');
     expect(screen.getByLabelText('Datum Tries')).toHaveTextContent('3');
     expect(screen.getByLabelText('Job Timeout')).toHaveTextContent('N/A');
