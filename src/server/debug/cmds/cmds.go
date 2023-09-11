@@ -36,7 +36,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile> <file>",
 		Short: "Collect a set of pprof profiles.",
-		Long:  "This command collects a set of pprof profiles. Options include heap, CPU, block, mutex, and goroutine profiles.",
+		Long:  "This command collects a set of pprof profiles. Options include heap (memory), CPU, block, mutex, and goroutine profiles.",
 		Example: "\t- {{alias}} cpu cpu.tgz \n" +
 			"\t- {{alias}} heap heap.tgz \n" +
 			"\t- {{alias}} goroutine goroutine.tgz \n" +
@@ -132,7 +132,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	dumpV2 := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
-		Long:  "This command collects a standard set of debugging information related to the version, database, source repos, helm, profiles, binaries, loki-logs, pipelines, describes, and logs.",
+		Long: "This command collects a standard set of debugging information related to the version, database, source repos, helm, profiles, binaries, loki-logs, pipelines, describes, and logs. \n \n" +
+			"You can customize this output by passing in a customized template (made from `pachctl debug dump template` via the `--template` flag.",
 		Example: "\t- {{alias}} dump.tgz \n" +
 			"\t- {{alias}} template \n" +
 			"\t- {{alias}} template -t template.yaml out.tgz\n",
@@ -194,10 +195,11 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 	var serverPort int
 	analyze := &cobra.Command{
-		Use:     "{{alias}} <file>",
-		Short:   "Start a local pachd server to analyze a debug dump.",
-		Long:    "This command starts a local pachd server to analyze a debug dump.",
-		Example: "\t- {{alias}} dump.tgz \n",
+		Use:   "{{alias}} <file>",
+		Short: "Start a local pachd server to analyze a debug dump.",
+		Long:  "This command starts a local pachd server to analyze a debug dump.",
+		Example: "\t- {{alias}} dump.tgz \n" +
+			"\t- {{alias}} dump.tgz --port 1650 \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			dump := shell.NewDumpServer(args[0], uint16(serverPort))
 			fmt.Println("listening on", dump.Address())
