@@ -51,36 +51,37 @@ func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
 	return result
 }
 
-// GetBranch returns a branch by id.
-func GetBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
+// GetBranchInfo returns a *pfs.BranchInfo by id.
+func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
 	branch := &Branch{}
 	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	branchInfo := branch.PbInfo()
-	var err error
-	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, tx, id)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get direct branch provenance")
-	}
-	branchInfo.Provenance, err = GetBranchProvenance(ctx, tx, id)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get full branch provenance")
-	}
-	branchInfo.Subvenance, err = GetBranchSubvenance(ctx, tx, id)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get full branch subvenance")
-	}
-	return branchInfo, nil
+	return fetchBranchInfoByBranch(ctx, tx, branch)
 }
 
-// GetBranchByName returns a branch by name.
-func GetBranchByName(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (*Branch, error) {
+// GetBranchInfoByName returns a *pfs.BranchInfo by name
+func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
 	row := &Branch{}
-	if err := tx.GetContext(ctx, row, getBranchByNameQuery, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name); err != nil {
-		return nil, errors.Wrapf(err, "could not get id for branch %v", branch)
+	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
+		return nil, errors.Wrap(err, "could not get branch")
 	}
-	return row, nil
+	return fetchBranchInfoByBranch(ctx, tx, row)
+}
+
+// GetBranchID returns the id of a branch given a set strings that uniquely identify a branch.
+func GetBranchID(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (BranchID, error) {
+	var id BranchID
+	if err := tx.GetContext(ctx, &id, `
+		SELECT branch.id
+		FROM pfs.branches branch
+			JOIN pfs.repos repo ON branch.repo_id = repo.id
+			JOIN core.projects project ON repo.project_id = project.id
+		WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4
+	`, project, repo, repoType, branch); err != nil {
+		return 0, errors.Wrapf(err, "could not get id for branch %v", branch)
+	}
+	return id, nil
 }
 
 // UpsertBranch creates a branch if it does not exist, or updates the head if the branch already exists.
@@ -130,11 +131,10 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	toAdd := SliceDiff[string, *pfs.Branch](newDirectProv, oldDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
 	toAddIDs := make([]BranchID, len(toAdd))
 	for i, branch := range toAdd {
-		branch, err := GetBranchByName(ctx, tx, branch)
+		toAddIDs[i], err = GetBranchID(ctx, tx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
 		if err != nil {
 			return 0, errors.Wrap(err, "could not get to_id")
 		}
-		toAddIDs[i] = branch.ID
 	}
 	if err := CreateDirectBranchProvenanceBatch(ctx, tx, branchID, toAddIDs); err != nil {
 		return 0, errors.Wrap(err, "could not create branch provenance")
@@ -143,11 +143,10 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	toRemove := SliceDiff[string, *pfs.Branch](oldDirectProv, newDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
 	toRemoveIDs := make([]BranchID, len(toRemove))
 	for i, branch := range toRemove {
-		branch, err := GetBranchByName(ctx, tx, branch)
+		toRemoveIDs[i], err = GetBranchID(ctx, tx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
 		if err != nil {
 			return 0, errors.Wrap(err, "could not get to_id")
 		}
-		toRemoveIDs[i] = branch.ID
 	}
 	if err := DeleteDirectBranchProvenanceBatch(ctx, tx, branchID, toRemoveIDs); err != nil {
 		return 0, errors.Wrap(err, "could not delete branch provenance")
@@ -246,10 +245,12 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 	return branchPbs, nil
 }
 
+// CreateBranchProvenance creates a provenance relationship between two branches.
 func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
 	return CreateDirectBranchProvenanceBatch(ctx, tx, from, []BranchID{to})
 }
 
+// CreateBranchProvenanceBatch creates provenance relationships between a branch and a set of other branches.
 func CreateDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from BranchID, tos []BranchID) error {
 	if len(tos) == 0 {
 		return nil
@@ -270,10 +271,12 @@ func CreateDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 	return nil
 }
 
+// DeleteBranchProvenance deletes a provenance relationship between two branches.
 func DeleteDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
 	return DeleteDirectBranchProvenanceBatch(ctx, tx, from, []BranchID{to})
 }
 
+// DeleteBranchProvenanceBatch deletes provenance relationships between a branch and a set of other branches.
 func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from BranchID, tos []BranchID) error {
 	if len(tos) == 0 {
 		return nil
@@ -289,4 +292,22 @@ func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 	query = fmt.Sprintf(query, strings.Join(values, ","))
 	_, err := tx.ExecContext(ctx, query, from)
 	return errors.Wrap(err, "could not delete branch provenance")
+}
+
+func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
+	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
+	var err error
+	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, tx, branch.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get direct branch provenance")
+	}
+	branchInfo.Provenance, err = GetBranchProvenance(ctx, tx, branch.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get full branch provenance")
+	}
+	branchInfo.Subvenance, err = GetBranchSubvenance(ctx, tx, branch.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get full branch subvenance")
+	}
+	return branchInfo, nil
 }

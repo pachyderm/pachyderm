@@ -71,19 +71,19 @@ func TestCreateAndGetBranch(t *testing.T) {
 		}
 		id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 		require.NoError(t, err)
-		gotBranch, err := pfsdb.GetBranch(ctx, tx, id)
+		gotBranch, err := pfsdb.GetBranchInfo(ctx, tx, id)
 		require.NoError(t, err)
 		require.True(t, cmp.Equal(branchInfo, gotBranch, compareBranchOpts()...))
-		gotBranchByName, err := pfsdb.GetBranchByName(ctx, tx, branchInfo.Branch)
+		gotBranchByName, err := pfsdb.GetBranchInfoByName(ctx, tx, branchInfo.Branch.Repo.Project.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Repo.Type, branchInfo.Branch.Name)
 		require.NoError(t, err)
-		require.True(t, cmp.Equal(branchInfo, gotBranchByName.PbInfo(), compareBranchOpts()...))
+		require.True(t, cmp.Equal(branchInfo, gotBranchByName, compareBranchOpts()...))
 
 		// Update branch to point to second commit
 		branchInfo.Head = commit2Info.Commit
 		id2, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 		require.NoError(t, err)
 		require.Equal(t, id, id2, "UpsertBranch should keep id stable")
-		gotBranch2, err := pfsdb.GetBranch(ctx, tx, id2)
+		gotBranch2, err := pfsdb.GetBranchInfo(ctx, tx, id2)
 		require.NoError(t, err)
 		require.True(t, cmp.Equal(branchInfo, gotBranch2, compareBranchOpts()...))
 	})

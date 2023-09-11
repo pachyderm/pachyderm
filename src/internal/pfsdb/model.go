@@ -114,10 +114,3 @@ func (branch *Branch) Pb() *pfs.Branch {
 		Repo: branch.Repo.Pb(),
 	}
 }
-
-func (branch *Branch) PbInfo() *pfs.BranchInfo {
-	return &pfs.BranchInfo{
-		Branch: branch.Pb(),
-		Head:   branch.Head.Pb(),
-	}
-}
