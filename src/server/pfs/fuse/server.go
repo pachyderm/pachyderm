@@ -41,6 +41,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
+const NumDatumsPerPage = 500 // The number of datums requested per ListDatum call
+
 type ServerOptions struct {
 	MountDir string
 	// Unmount is a channel that will be closed when the filesystem has been
@@ -68,9 +70,10 @@ type CommitRequest struct {
 }
 
 type MountDatumResponse struct {
-	Id        string `json:"id"`
-	Idx       int    `json:"idx"`
-	NumDatums int    `json:"num_datums"`
+	Id                string `json:"id"`
+	Idx               int    `json:"idx"`
+	NumDatums         int    `json:"num_datums"`
+	AllDatumsReceived bool   `json:"all_datums_received"`
 }
 
 type DatumsResponse struct {
@@ -104,17 +107,21 @@ type Response struct {
 	Error      error
 }
 
+type DatumState struct {
+	Datums              []*pps.DatumInfo
+	PaginationMarker    string
+	DatumInput          *pps.Input
+	DatumInputsToMounts map[string]string
+	CurrDatumIdx        int
+	AllDatumsReceived   bool
+}
+
 type MountManager struct {
 	Client *client.APIClient
 	// only put a value into the States map when we have a goroutine running for
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
-
-	Datums              []*pps.DatumInfo
-	DatumInput          *pps.Input
-	DatumInputsToMounts map[string]string
-	CurrDatumIdx        int
-
+	DatumState
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
 	root     *loopbackRoot
@@ -465,7 +472,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if len(mm.Datums) > 0 {
+		if mm.DatumInput != nil {
 			http.Error(w, "can't mount repos while in mounted datum mode", http.StatusBadRequest)
 			return
 		}
@@ -507,7 +514,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if len(mm.Datums) > 0 {
+		if mm.DatumInput != nil {
 			http.Error(w, "can't unmount repos while in mounted datum mode", http.StatusBadRequest)
 			return
 		}
@@ -586,9 +593,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			defer mm.mu.Unlock()
 
 			mm.Datums = nil
+			mm.PaginationMarker = ""
 			mm.DatumInput = nil
 			mm.CurrDatumIdx = -1
 			mm.DatumInputsToMounts = nil
+			mm.AllDatumsReceived = false
 		}()
 
 		mountsList, err := mm.ListByMounts()
@@ -625,36 +634,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		datumInputsToMounts, err := sanitizeInputAndGetAlias(pipelineReq.Input, mm.Client)
-		if err != nil {
+		if err := mm.GetDatums(pipelineReq.Input); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		datums, err := mm.Client.ListDatumInputAll(pipelineReq.Input)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if len(datums) == 0 {
-			http.Error(w, "no datums match the given input spec", http.StatusBadRequest)
-			return
-		}
-		func() {
-			mm.mu.Lock()
-			defer mm.mu.Unlock()
-
-			mm.CurrDatumIdx = 0
-			mm.Datums = datums
-			mm.DatumInput = pipelineReq.Input
-			mm.DatumInputsToMounts = datumInputsToMounts
-		}()
-
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
-		mis := mm.datumToMounts(datums[0])
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", mm.Datums[0].Datum.Id))
+		mis := datumToMounts(mm.Datums[0], mm.DatumInputsToMounts)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -664,9 +653,10 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
-			Id:        datums[0].Datum.Id,
+			Id:        mm.Datums[0].Datum.Id,
 			Idx:       0,
-			NumDatums: len(datums),
+			NumDatums: len(mm.Datums),
+			AllDatumsReceived: mm.AllDatumsReceived,
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
@@ -681,7 +671,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if len(mm.Datums) == 0 {
+		if mm.DatumInput != nil {
 			http.Error(w, "no datums mounted", http.StatusBadRequest)
 			return
 		}
@@ -723,7 +713,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		mis := mm.datumToMounts(di)
+		mis := datumToMounts(di, mm.DatumInputsToMounts)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1144,7 +1134,7 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 // Visit each entry in the Input spec and set default values if unassigned
-func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[string]string, error) {
+func (mm *MountManager) sanitizeInputAndCreateAliasMap(datumInput *pps.Input) (map[string]string, error) {
 	if datumInput == nil {
 		return nil, errors.New("datum input is not specified")
 	}
@@ -1172,7 +1162,7 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[s
 		}
 		// In the case a branch is created off another branch, listing datums returns files from
 		// the original branch a commit is on. We should index on that original branch instead.
-		bi, err := c.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
+		bi, err := mm.Client.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
 		if err != nil {
 			return err
 		}
@@ -1183,11 +1173,63 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[s
 	}); err != nil {
 		return nil, err
 	}
-
 	return datumInputsToMounts, nil
 }
 
-func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
+func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) ([]*pps.DatumInfo, error) {
+	req := &pps.ListDatumRequest{
+		Input:            mm.DatumInput,
+		Number:           int64(numDatums),
+		PaginationMarker: paginationMarker,
+	}
+
+	ctx, cf := context.WithCancel(mm.Client.Ctx())
+	defer cf()
+	client, err := mm.Client.PpsAPIClient.ListDatum(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	var dis []*pps.DatumInfo
+	for {
+		di, err := client.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return dis, nil
+			}
+			return nil, err
+		}
+		dis = append(dis, di)
+	}
+}
+
+func (mm *MountManager) GetDatums(datumInput *pps.Input) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	datumInputsToMounts, err := mm.sanitizeInputAndCreateAliasMap(datumInput)
+	if err != nil {
+		return err
+	}
+	datums, err := mm.GetNextXDatums(NumDatumsPerPage, "")
+	if err != nil {
+		return err
+	}
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		mm.Datums = append(mm.Datums, datums...)
+		mm.PaginationMarker = datums[len(datums)-1].Datum.Id
+		mm.DatumInput = datumInput
+		mm.DatumInputsToMounts = datumInputsToMounts
+		mm.CurrDatumIdx = 0
+		if len(datums) < NumDatumsPerPage {
+			mm.AllDatumsReceived = true
+		}
+	}()
+	return nil
+}
+
+func datumToMounts(d *pps.DatumInfo, datumInputsToMounts map[string]string) []*MountInfo {
 	mounts := map[string]*MountInfo{}
 	files := map[string]map[string]bool{}
 	for _, fi := range d.Data {
@@ -1195,7 +1237,7 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-		name := mm.DatumInputsToMounts[client.NewBranch(project, repo, branch).String()]
+		name := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
 
 		if _, ok := files[name]; !ok {
 			files[name] = map[string]bool{}
