@@ -76,9 +76,10 @@ type MountDatumResponse struct {
 }
 
 type DatumsResponse struct {
-	NumDatums int        `json:"num_datums"`
-	Input     *pps.Input `json:"input"`
-	CurrIdx   int        `json:"curr_idx"`
+	NumDatums         int        `json:"num_datums"`
+	Input             *pps.Input `json:"input"`
+	Idx               int        `json:"idx"`
+	AllDatumsReceived bool       `json:"all_datums_received"`
 }
 
 type MountInfo struct {
@@ -471,7 +472,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if mm.DatumInput != nil {
+		if len(mm.Datums) != 0 {
 			http.Error(w, "can't mount repos while in mounted datum mode", http.StatusBadRequest)
 			return
 		}
@@ -513,7 +514,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if mm.DatumInput != nil {
+		if len(mm.Datums) != 0 {
 			http.Error(w, "can't unmount repos while in mounted datum mode", http.StatusBadRequest)
 			return
 		}
@@ -611,7 +612,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled) //nolint:errcheck
 	})
-	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").Path("/datums/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
@@ -641,8 +642,14 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", mm.Datums[0].Datum.Id))
-		mis := datumToMounts(mm.Datums[0], mm.DatumInputsToMounts)
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+			mm.DatumIdx = 0
+		}()
+		di := mm.Datums[mm.DatumIdx]
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", di.Datum.Id))
+		mis := datumToMounts(di, mm.DatumInputsToMounts)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -652,9 +659,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
-			Id:        mm.Datums[0].Datum.Id,
-			Idx:       0,
-			NumDatums: len(mm.Datums),
+			Id:                di.Datum.Id,
+			Idx:               mm.DatumIdx,
+			NumDatums:         len(mm.Datums),
 			AllDatumsReceived: mm.AllDatumsReceived,
 		}
 		marshalled, err := jsonMarshal(resp)
@@ -771,16 +778,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		var resp DatumsResponse
-		if len(mm.Datums) == 0 {
-			resp = DatumsResponse{
-				NumDatums: 0,
-			}
-		} else {
-			resp = DatumsResponse{
-				NumDatums: len(mm.Datums),
-				Input:     mm.DatumInput,
-				CurrIdx:   mm.CurrDatumIdx,
+		resp := &DatumsResponse{}
+		if len(mm.Datums) != 0 {
+			resp = &DatumsResponse{
+				NumDatums:         len(mm.Datums),
+				Input:             mm.DatumInput,
+				Idx:               mm.DatumIdx,
+				AllDatumsReceived: mm.AllDatumsReceived,
 			}
 		}
 		marshalled, err := jsonMarshal(resp)
@@ -1233,18 +1237,24 @@ func (mm *MountManager) GetDatums(datumInput *pps.Input) (retErr error) {
 	if err != nil {
 		return err
 	}
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		mm.DatumInput = datumInput
+		mm.DatumInputsToMounts = datumInputsToMounts
+	}()
 	datums, err := mm.GetNextXDatums(NumDatumsPerPage, "")
 	if err != nil {
 		return err
 	}
+	if len(datums) == 0 {
+		return errors.New("no datums to mount")
+	}
 	func() {
 		mm.mu.Lock()
 		defer mm.mu.Unlock()
-		mm.Datums = append(mm.Datums, datums...)
+		mm.Datums = datums
 		mm.PaginationMarker = datums[len(datums)-1].Datum.Id
-		mm.DatumInput = datumInput
-		mm.DatumInputsToMounts = datumInputsToMounts
-		mm.CurrDatumIdx = 0
 		if len(datums) < NumDatumsPerPage {
 			mm.AllDatumsReceived = true
 		}
