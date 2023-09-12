@@ -1,0 +1,185 @@
+{
+   "admin": {
+      "access_log": [
+         {
+            "filter": {
+               "or_filter": {
+                  "filters": [
+                     {
+                        "or_filter": {
+                           "filters": [
+                              {
+                                 "status_code_filter": {
+                                    "comparison": {
+                                       "op": "le",
+                                       "value": {
+                                          "default_value": 199,
+                                          "runtime_key": "invalid.ignore_kubeprobe_response_code"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
+                                 "status_code_filter": {
+                                    "comparison": {
+                                       "op": "ge",
+                                       "value": {
+                                          "default_value": 300,
+                                          "runtime_key": "invalid.ignore_kubeprobe_response_code"
+                                       }
+                                    }
+                                 }
+                              }
+                           ]
+                        }
+                     },
+                     {
+                        "header_filter": {
+                           "header": {
+                              "invert_match": true,
+                              "name": "user-agent",
+                              "string_match": {
+                                 "prefix": "kube-probe/"
+                              }
+                           }
+                        }
+                     }
+                  ]
+               }
+            },
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+               "log_format": {
+                  "json_format": {
+                     "authority": "%REQ(authority)%",
+                     "connection_id": "%CONNECTION_ID%",
+                     "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                     "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                     "duration_ms": "%DURATION%",
+                     "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                     "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                     "message": "admin response",
+                     "method": "%REQ(:method)%",
+                     "pachctl_command": "%REQ(COMMAND):64%",
+                     "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                     "protocol": "%PROTOCOL%",
+                     "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                     "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                     "response_code": "%RESPONSE_CODE%",
+                     "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                     "response_flags": "%RESPONSE_FLAGS%",
+                     "route": "%ROUTE_NAME%",
+                     "rx_bytes": "%BYTES_RECEIVED%",
+                     "severity": "info",
+                     "stream_id": "%STREAM_ID%",
+                     "timestamp": "%START_TIME%",
+                     "tx_bytes": "%BYTES_SENT%",
+                     "upgrade": "%RESP(UPGRADE)%",
+                     "upstream": "%UPSTREAM_CLUSTER%",
+                     "upstream_host": "%UPSTREAM_HOST%",
+                     "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                     "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                     "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                     "user_agent": "%REQ(USER-AGENT)%",
+                     "x-request-id": "%REQ(X-REQUEST-ID)%",
+                     "xff": "%REQ(X-FORWARDED-FOR)%"
+                  },
+                  "omit_empty_values": true
+               }
+            }
+         }
+      ],
+      "address": {
+         "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 9901
+         }
+      }
+   },    
+  "static_resources": {
+    "listeners": [
+      {
+        "name": "original_dest_http",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 8080
+          }
+        },
+        "traffic_direction": "OUTBOUND",
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                  "stat_prefix": "http",
+                  "route_config": {
+                    "name": "default",
+                    "virtual_hosts": [
+                      {
+                        "name": "default",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "match": {
+                              "prefix": "/"
+                            },
+                            "route": {
+                              "cluster": "original_destination_cluster"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "original_dest_https",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 8443
+          }
+        },
+        "traffic_direction": "OUTBOUND",
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy",
+		  "cluster": "original_destination_cluster",  
+                  "stat_prefix": "https_passthrough"
+                }
+              }
+            ]
+          }
+        ]
+      }	
+    ],
+    "clusters": [
+      {
+        "name": "original_destination_cluster",
+        "type": "ORIGINAL_DST",
+        "original_dst_lb_config": {
+          "use_http_header": true
+        },
+        "connect_timeout": "6s",
+        "lb_policy": "CLUSTER_PROVIDED",
+        "dns_lookup_family": "V4_ONLY"
+      }
+    ]
+  },
+  "cluster_manager": {}
+}

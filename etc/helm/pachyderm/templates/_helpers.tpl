@@ -52,8 +52,6 @@ http
 {{- end -}}
 {{- end }}
 
-
-
 {{- define "pachyderm.issuerURI" -}}
 {{- if .Values.oidc.issuerURI -}}
 {{- if and .Values.proxy.enabled (not (hasSuffix "/dex" .Values.oidc.issuerURI)) -}}
@@ -65,7 +63,7 @@ http
 {{- else if and .Values.proxy.host .Values.proxy.enabled -}}
 {{- printf "%s://%s/dex" (include "pachyderm.hostproto" .) .Values.proxy.host -}}
 {{- else if .Values.proxy.enabled -}}
-http://pachd:30658/dex
+http://localhost/dex
 {{- else -}}
 {{- if eq .Values.pachd.service.type "NodePort" -}}
 http://pachd:1658

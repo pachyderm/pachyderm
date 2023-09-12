@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: pachyderm-proxy
+    suite: pachyderm
+    {{- if .Values.proxy.labels }}
+    {{- toYaml .Values.proxy.labels | nindent 6 }}
+    {{- end }}
+  {{- if .Values.proxy.annotations }}
+  annotations:
+    {{- toYaml .Values.proxy.annotations | nindent 8 }}
+  {{- end }}
+  name: pachyderm-sidecar-proxy-config
+data:
+  envoy-sidecar.json: |
+    {{- .Files.Get "envoy-sidecar-2.json" | nindent 4 }}

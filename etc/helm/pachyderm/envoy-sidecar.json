@@ -1,0 +1,78 @@
+{
+    "static_resources": {
+	"listeners": [
+	  {
+	    "name": "pass_through",
+	    "address": {
+		"socket_address": {
+		    "address": "0.0.0.0",
+		    "port_value": 8080	
+		}
+	    }
+	  },
+	  {
+	    "name": "http_proxy",
+	    "address": {
+		"socket_address": {
+		    "address": "0.0.0.0",
+		    "port_value": 8081
+		}
+	    }
+	  }
+	],
+	"clusters": [
+         {
+            "connect_timeout": "10s",
+            "dns_failure_refresh_rate": {
+               "base_interval": "0.05s",
+               "max_interval": "0.1s"
+            },
+            "dns_lookup_family": "V4_ONLY",
+            "dns_refresh_rate": "5s",
+            "health_checks": [
+               {
+                  "healthy_threshold": 1,
+                  "http_health_check": {
+                     "host": "localhost",
+                     "path": "/dex/.well-known/openid-configuration"
+                  },
+                  "interval": "30s",
+                  "no_traffic_healthy_interval": "10s",
+                  "no_traffic_interval": "10s",
+                  "timeout": "10s",
+                  "unhealthy_threshold": 2
+               }
+            ],
+            "lb_policy": "random",
+            "load_assignment": {
+               "cluster_name": "pachd-identity",
+               "endpoints": [
+                  {
+                     "lb_endpoints": [
+                        {
+                           "endpoint": {
+                              "address": {
+                                 "socket_address": {
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1658
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               ]
+            },
+            "name": "pachd-identity",
+            "type": "strict_dns",
+            "upstream_connection_options": {
+               "tcp_keepalive": { }
+            }
+        },
+	{
+
+	}
+      ]
+   }
+}
+    
