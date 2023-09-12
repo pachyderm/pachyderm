@@ -13,12 +13,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
-	"github.com/ghodss/yaml"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -27,14 +24,12 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
@@ -867,134 +862,6 @@ func (a *apiServer) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) 
 	}
 	return &emptypb.Empty{}, nil
 }
-
-// RunLoadTest implements the pfs.RunLoadTest RPC
-func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
-	pachClient := a.env.GetPachClient(ctx)
-	taskService := a.env.TaskService
-	var project string
-	repo := "load_test"
-	if req.Branch != nil {
-		project = req.Branch.Repo.Project.GetName()
-		repo = req.Branch.Repo.Name
-	}
-	if err := pachClient.CreateRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
-		return nil, err
-	}
-	branch := uuid.New()
-	if req.Branch != nil {
-		branch = req.Branch.Name
-	}
-	if err := pachClient.CreateBranch(project, repo, branch, "", "", nil); err != nil {
-		return nil, err
-	}
-	seed := time.Now().UTC().UnixNano()
-	if req.Seed > 0 {
-		seed = req.Seed
-	}
-	resp := &pfs.RunLoadTestResponse{
-		Spec:   req.Spec,
-		Branch: client.NewBranch(req.Branch.GetRepo().GetProject().GetName(), repo, branch),
-		Seed:   seed,
-	}
-	start := time.Now()
-	var err error
-	resp.StateId, err = a.runLoadTest(pachClient, taskService, resp.Branch, req.Spec, seed, req.StateId)
-	if err != nil {
-		resp.Error = err.Error()
-	}
-	resp.Duration = durationpb.New(time.Since(start))
-	return resp, nil
-}
-
-func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.Service, branch *pfs.Branch, specStr string, seed int64, stateID string) (string, error) {
-	jsonBytes, err := yaml.YAMLToJSON([]byte(specStr))
-	if err != nil {
-		return "", errors.EnsureStack(err)
-	}
-	spec := &pfsload.CommitSpec{}
-	if err := protojson.Unmarshal(jsonBytes, spec); err != nil {
-		return "", errors.Wrap(err, "unmarshal CommitSpec")
-	}
-	return pfsload.Commit(pachClient, taskService, branch, spec, seed, stateID)
-}
-
-func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *emptypb.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {
-	for _, spec := range defaultLoadSpecs {
-		var err error
-		resp, err = a.RunLoadTest(ctx, &pfs.RunLoadTestRequest{
-			Spec: spec,
-		})
-		if err != nil {
-			return nil, err
-		}
-		if resp.Error != "" {
-			return resp, nil
-		}
-	}
-	return resp, nil
-}
-
-var defaultLoadSpecs = []string{`
-count: 3
-modifications:
-  - count: 5
-    putFile:
-      count: 5
-      source: "random"
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      directory:
-        depth:
-          min: 0
-          max: 3
-        run: 3
-      sizes:
-        - min: 1000
-          max: 10000
-          prob: 30
-        - min: 10000
-          max: 100000
-          prob: 30
-        - min: 1000000
-          max: 10000000
-          prob: 30
-        - min: 10000000
-          max: 100000000
-          prob: 10
-`, `
-count: 3
-modifications:
-  - count: 5
-    putFile:
-      count: 10000
-      source: "random"
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      sizes:
-        - min: 100
-          max: 1000
-          prob: 100
-`, `
-count: 3
-modifications:
-  - count: 5
-    putFile:
-      count: 1
-      source: "random"
-validator: {}
-fileSources:
-  - name: "random"
-    random:
-      sizes:
-        - min: 10000000
-          max: 100000000
-          prob: 100
-`}
 
 func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pfs.API_ListTaskServer) error {
 	return task.List(server.Context(), a.env.TaskService, req, server.Send)
