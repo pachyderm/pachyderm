@@ -8267,7 +8267,7 @@ WellKnownRegex contain some well-known patterns.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | URL | [string](#string) |  |  |
-| file | [pfs_v2.File](#pfs_v2-File) |  |  |
+| Fileset | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
 
 

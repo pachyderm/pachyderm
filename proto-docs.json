@@ -22835,12 +22835,12 @@
               "defaultValue": ""
             },
             {
-              "name": "file",
+              "name": "Fileset",
               "description": "",
               "label": "",
-              "type": "File",
-              "longType": "pfs_v2.File",
-              "fullType": "pfs_v2.File",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
