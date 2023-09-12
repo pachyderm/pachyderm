@@ -3092,22 +3092,27 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
+
 	c, _ := minikubetestenv.AcquireCluster(t)
 	dataRepo := tu.UniqueString("TestUpdatePipelineWithInProgressCommitsAndStats_data")
+	c = tu.AuthenticatedPachClient(t, c, "pachtest")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-
 	pipeline := tu.UniqueString("pipeline")
 	createPipeline := func() {
 		_, err := c.PpsAPIClient.CreatePipeline(
-			context.Background(),
+			c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"sleep 1"},
 				},
-				Input:  client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-				Update: true,
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Autoscaling: true, // Autoscale for CORE-1972
+				Input:       client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+				Update:      true,
 			})
 		require.NoError(t, err)
 	}
@@ -3133,7 +3138,17 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(i), strings.NewReader("foo"), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 	}
-
+	// wait for jobs to start before updating
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("pipeline waiting to run, state: %s", pipelineInfo.State.String())
+		}
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*200)))
 	// Force the in progress commits to be finished.
 	createPipeline()
 	// Create a new job that should succeed (should not get blocked on an unfinished stats commit).
@@ -10696,7 +10711,6 @@ func TestPipelineAutoscaling(t *testing.T) {
 	p, err := c.PpsAPIClient.InspectPipeline(context.Background(), &pps.InspectPipelineRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline), Details: true})
 	require.NoError(t, err)
 	require.Equal(t, true, p.Details.Autoscaling)
-	t.Logf("DNJ TODO Inspected pipeline: %#v", p)
 	fileIndex := 0
 	commitNFiles := func(n int) {
 		commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
