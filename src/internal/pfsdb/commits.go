@@ -6,17 +6,14 @@ import (
 	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"strings"
-	"time"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strings"
 )
 
 const (
@@ -207,12 +204,12 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		},
 		BranchName:     sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true},
 		Origin:         commitInfo.Origin.Kind.String(),
-		StartTime:      sanitizeTimestamppb(commitInfo.Started),
-		FinishingTime:  sanitizeTimestamppb(commitInfo.Finishing),
-		FinishedTime:   sanitizeTimestamppb(commitInfo.Finished),
+		StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
+		FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
+		FinishedTime:   pbutil.SanitizeTimestampPb(commitInfo.Finished),
 		Description:    commitInfo.Description,
-		CompactingTime: durationpbToBigInt(commitInfo.Details.CompactingTime),
-		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
+		CompactingTime: pbutil.DurationPbToBigInt(commitInfo.Details.CompactingTime),
+		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 	}
@@ -496,12 +493,12 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		},
 		BranchName:     sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true},
 		Origin:         commitInfo.Origin.Kind.String(),
-		StartTime:      sanitizeTimestamppb(commitInfo.Started),
-		FinishingTime:  sanitizeTimestamppb(commitInfo.Finishing),
-		FinishedTime:   sanitizeTimestamppb(commitInfo.Finished),
+		StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
+		FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
+		FinishedTime:   pbutil.SanitizeTimestampPb(commitInfo.Finished),
 		Description:    commitInfo.Description,
-		CompactingTime: durationpbToBigInt(commitInfo.Details.CompactingTime),
-		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
+		CompactingTime: pbutil.DurationPbToBigInt(commitInfo.Details.CompactingTime),
+		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 	}
@@ -660,13 +657,13 @@ func parseCommitInfoFromRow(row *Commit) (*pfs.CommitInfo, error) {
 	commitInfo := &pfs.CommitInfo{
 		Commit:      commit,
 		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(row.Origin)])},
-		Started:     timeToTimestamppb(row.StartTime),
-		Finishing:   timeToTimestamppb(row.FinishingTime),
-		Finished:    timeToTimestamppb(row.FinishedTime),
+		Started:     pbutil.TimeToTimestamppb(row.StartTime),
+		Finishing:   pbutil.TimeToTimestamppb(row.FinishingTime),
+		Finished:    pbutil.TimeToTimestamppb(row.FinishedTime),
 		Description: row.Description,
 		Details: &pfs.CommitInfo_Details{
-			CompactingTime: bigIntToDurationpb(row.CompactingTime),
-			ValidatingTime: bigIntToDurationpb(row.ValidatingTime),
+			CompactingTime: pbutil.BigIntToDurationpb(row.CompactingTime),
+			ValidatingTime: pbutil.BigIntToDurationpb(row.ValidatingTime),
 			SizeBytes:      row.Size,
 		},
 	}
@@ -861,32 +858,4 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil
-}
-
-func sanitizeTimestamppb(timestamp *timestamppb.Timestamp) time.Time {
-	if timestamp != nil {
-		return timestamp.AsTime()
-	}
-	return time.Time{}
-}
-
-func durationpbToBigInt(duration *durationpb.Duration) int64 {
-	if duration != nil {
-		return duration.Seconds
-	}
-	return 0
-}
-
-func timeToTimestamppb(t time.Time) *timestamppb.Timestamp {
-	if t.IsZero() {
-		return nil
-	}
-	return timestamppb.New(t)
-}
-
-func bigIntToDurationpb(s int64) *durationpb.Duration {
-	if s == 0 {
-		return nil
-	}
-	return durationpb.New(time.Duration(s))
 }

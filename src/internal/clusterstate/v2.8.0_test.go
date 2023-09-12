@@ -1,6 +1,9 @@
 package clusterstate
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"sort"
 	"testing"
 
@@ -13,6 +16,32 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
+
+func commitsMatch(t *testing.T, a, b *pfs.CommitInfo) {
+	require.Equal(t, a.Commit.Repo.Name, b.Commit.Repo.Name)
+	require.Equal(t, a.Commit.Id, b.Commit.Id)
+	if a.Commit.Branch != nil || b.Commit.Branch != nil {
+		require.Equal(t, a.Commit.Branch.Name, b.Commit.Branch.Name)
+	}
+	require.Equal(t, a.Origin.Kind, b.Origin.Kind)
+	require.Equal(t, a.Description, b.Description)
+	require.Equal(t, a.Started.Seconds, b.Started.Seconds)
+	if a.ParentCommit != nil || b.ParentCommit != nil {
+		require.Equal(t, a.ParentCommit.Id, b.ParentCommit.Id)
+		require.Equal(t, a.ParentCommit.Repo.Name, b.ParentCommit.Repo.Name)
+	}
+	require.Equal(t, len(a.ChildCommits), len(b.ChildCommits))
+	if len(a.ChildCommits) != 0 || len(b.ChildCommits) != 0 {
+		childMap := make(map[string]*pfs.Commit)
+		for _, commit := range a.ChildCommits {
+			childMap[pfsdb.CommitKey(commit)] = commit
+		}
+		for _, commit := range b.ChildCommits {
+			require.Equal(t, commit.Id, childMap[pfsdb.CommitKey(commit)].Id)
+			require.Equal(t, commit.Repo.Name, childMap[pfsdb.CommitKey(commit)].Repo.Name)
+		}
+	}
+}
 
 func Test_v2_8_0_ClusterState(t *testing.T) {
 	ctx := pctx.TestContext(t)
@@ -28,6 +57,23 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	// Apply migrations up to and including 2.8.0
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_8_0))
 	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_8_0))
+
+	// Get all collections commits.
+	commitsCol, err := v2_8_0.ListCommitsFromCollection(ctx, db)
+	require.NoError(t, err, "should be able to list commits from collection")
+	// Get all pfs.commits.
+	iter, err := pfsdb.ListCommit(ctx, db, nil, false)
+	require.NoError(t, err, "should be able to list commits from pfs.commits")
+	commitCmp := make(map[string]*pfs.CommitInfo)
+	require.NoError(t, stream.ForEach[pfsdb.CommitPair](ctx, iter, func(commitPair pfsdb.CommitPair) error {
+		commitCmp[pfsdb.CommitKey(commitPair.CommitInfo.Commit)] = commitPair.CommitInfo
+		return nil
+	}))
+	// compare collections commits to pfs.commits.
+	require.Equal(t, len(commitsCol), len(commitCmp), "all rows should have been migrated")
+	for _, info := range commitsCol {
+		commitsMatch(t, info, commitCmp[pfsdb.CommitKey(info.Commit)])
+	}
 
 	// Get all existing data from collections.
 	// Note that we convert the proto object to a model that conforms better to our new relational schema,
