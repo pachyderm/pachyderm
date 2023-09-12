@@ -74,7 +74,6 @@ const (
 		SELECT 
     		commit.int_id, 
     		commit.commit_id, 
-    		commit.repo_id, 
     		commit.branch_id, 
     		commit.origin, 
     		commit.description, 
@@ -85,6 +84,7 @@ const (
     		commit.validating_time_s,
     		commit.error, 
     		commit.size, 
+    		commit.repo_id AS "repo.id", 
     		repo.name AS "repo.name",
     		repo.type AS "repo.type",
     		project.name AS "repo.project.name",
@@ -347,13 +347,13 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 			if child.FinishedTime.IsZero() {
 				commitsNotFinished = append(commitsNotFinished, child.CommitID)
 			}
-			childrenIDs = append(childrenIDs, child.RowID)
+			childrenIDs = append(childrenIDs, child.ID)
 		}
 		if len(commitsNotFinished) > 0 {
 			return errors.New(fmt.Sprintf("commits not finished before deleting: %v", commitsNotFinished))
 		}
-		if err := CreateCommitAncestries(ctx, tx, parent.RowID, childrenIDs); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("repointing id=%d at %v", parent.RowID, childrenIDs))
+		if err := CreateCommitAncestries(ctx, tx, parent.ID, childrenIDs); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("repointing id=%d at %v", parent.ID, childrenIDs))
 		}
 	}
 	// delete commit.
@@ -383,7 +383,7 @@ func GetCommitID(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (Commi
 	if err != nil {
 		return 0, errors.Wrap(err, "get commit by commit key")
 	}
-	return row.RowID, nil
+	return row.ID, nil
 }
 
 // GetCommit returns the commitInfo where int_id=id.
@@ -471,7 +471,7 @@ func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		}
 		return 0, errors.Wrap(err, "upserting commit")
 	}
-	return existingCommit.RowID, UpdateCommit(ctx, tx, existingCommit.RowID, commitInfo, opts...)
+	return existingCommit.ID, UpdateCommit(ctx, tx, existingCommit.ID, commitInfo, opts...)
 }
 
 // UpdateCommit overwrites an existing commit entry by CommitID as well as the corresponding ancestry entries.
@@ -484,7 +484,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		opt = opts[0]
 	}
 	update := Commit{
-		RowID:       id,
+		ID:          id,
 		CommitID:    CommitKey(commitInfo.Commit),
 		CommitSetID: commitInfo.Commit.Id,
 		Repo: Repo{
@@ -568,7 +568,7 @@ func getCommitInfoFromCommitRow(ctx context.Context, tx *pachsql.Tx, row *Commit
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit from row")
 	}
-	commitInfo.ParentCommit, commitInfo.ChildCommits, err = getCommitRelatives(ctx, tx, row.RowID)
+	commitInfo.ParentCommit, commitInfo.ChildCommits, err = getCommitRelatives(ctx, tx, row.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit relatives")
 	}
@@ -762,7 +762,7 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 			return err
 		}
 	}
-	id := iter.commits[iter.index].RowID
+	id := iter.commits[iter.index].ID
 	*dst = CommitPair{
 		CommitInfo: iter.commitInfos[id],
 		ID:         id,
@@ -795,7 +795,7 @@ func (iter *CommitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
 	}
 	*dst = CommitPair{
 		CommitInfo: commit,
-		ID:         row.RowID,
+		ID:         row.ID,
 	}
 	iter.index++
 	return nil
@@ -852,7 +852,7 @@ func (iter *CommitIterator) getCommitInfosForPageUntilCapacity(ctx context.Conte
 		if commit.ParentCommit != nil {
 			commitCount++
 		}
-		iter.commitInfos[row.RowID] = commit
+		iter.commitInfos[row.ID] = commit
 		if commitCount >= capacity {
 			iter.gottenInfos++
 			return nil
