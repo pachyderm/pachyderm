@@ -21,7 +21,7 @@ from .env import (
     HTTP_SCHEMA,
     DEFAULT_SCHEMA,
     DET_RESOURCES_TYPE,
-    SLURM_JOB
+    SLURM_JOB,
 )
 
 lock = locks.Lock()
@@ -50,7 +50,9 @@ class MountServerClient(MountInterface):
         # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
         if DET_RESOURCES_TYPE == SLURM_JOB:
-            get_logger().debug("Inferring non privileged container for launcher/MLDE...")
+            get_logger().debug(
+                "Inferring non privileged container for launcher/MLDE..."
+            )
             self.nopriv = 1
 
     async def _is_mount_server_running(self):
@@ -97,7 +99,8 @@ class MountServerClient(MountInterface):
 
                 mount_server_cmd = [
                     mount_server_path,
-                    "--mount-dir", self.mount_dir,
+                    "--mount-dir",
+                    self.mount_dir,
                 ]
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so create a new
@@ -114,9 +117,13 @@ class MountServerClient(MountInterface):
                     # jupyterlab-pachyderm in an unprivileged container, but
                     # where unshare is allowed, giving us a path to making FUSE
                     # work.
-                    get_logger().info("Preparing to run mount-server in new namespace, per NONPRIV_CONTAINER ({NONPRIV_CONTAINER}) or DET_RESOURCES_TYPE ({DET_RESOURCES_TYPE}).")
-                    relative_mount_dir = Path("/mnt") / Path(self.mount_dir).relative_to("/")
-                    subprocess.run(["mkdir","-p", relative_mount_dir])
+                    get_logger().info(
+                        "Preparing to run mount-server in new namespace, per NONPRIV_CONTAINER ({NONPRIV_CONTAINER}) or DET_RESOURCES_TYPE ({DET_RESOURCES_TYPE})."
+                    )
+                    relative_mount_dir = Path("/mnt") / Path(
+                        self.mount_dir
+                    ).relative_to("/")
+                    subprocess.run(["mkdir", "-p", relative_mount_dir])
                     mount_server_cmd = [
                         # What we're unsharing:
                         # -U: unshare the (U)ser table - new namespace will have
@@ -134,9 +141,11 @@ class MountServerClient(MountInterface):
                         #     ability to mount in the current namespace. The
                         #     mount in the new namespace will accessible from
                         #     the current namespace via symlink.
-                        "unshare", "-Ufirm",
+                        "unshare",
+                        "-Ufirm",
                         mount_server_path,
-                        "--mount-dir", relative_mount_dir,
+                        "--mount-dir",
+                        relative_mount_dir,
                         "--allow-other=false",
                     ]
 
@@ -146,8 +155,11 @@ class MountServerClient(MountInterface):
                 if MOUNT_SERVER_LOG_FILE is not None and MOUNT_SERVER_LOG_FILE:
                     mount_server_cmd += ["--log-file", MOUNT_SERVER_LOG_FILE]
 
-                get_logger().info("Starting mount-server: \"" +
-                    ' '.join(map(str,mount_server_cmd)) + "\"")
+                get_logger().info(
+                    'Starting mount-server: "'
+                    + " ".join(map(str, mount_server_cmd))
+                    + '"'
+                )
                 mount_process = subprocess.Popen(mount_server_cmd)
 
                 tries = 0
