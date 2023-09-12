@@ -179,17 +179,25 @@ class MountServerClient(MountInterface):
     async def mount_datums(self, body):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/_mount_datums",
+            f"{self.address}/datums/_mount",
             method="PUT",
             body=json.dumps(body),
         )
         return response.body
 
-    async def show_datum(self, slug):
+    async def next_datum(self):
         await self._ensure_mount_server()
-        slug = '&'.join(f"{k}={v}" for k,v in slug.items() if v is not None)
         response = await self.client.fetch(
-            f"{self.address}/_show_datum?{slug}",
+            f"{self.address}/datums/_next",
+            method="PUT",
+            body="{}",
+        )
+        return response.body
+
+    async def prev_datum(self):
+        await self._ensure_mount_server()
+        response = await self.client.fetch(
+            f"{self.address}/datums/_prev",
             method="PUT",
             body="{}",
         )

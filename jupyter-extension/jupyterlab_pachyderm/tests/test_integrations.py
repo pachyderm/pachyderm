@@ -285,7 +285,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
         }
     }
 
-    r = requests.put(f"{BASE_URL}/_mount_datums", data=json.dumps(input_spec))
+    r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
     assert r.status_code == 200
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
@@ -299,19 +299,13 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"]) in list(os.walk(PFS_MOUNT_DIR))[0][1]
     assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[2]]))))[0][2]) == 1
 
-    r = requests.put(f"{BASE_URL}/_show_datum", params={"idx": "2"})
+    r = requests.put(f"{BASE_URL}/datums/_next")
     assert r.status_code == 200
-    assert r.json()["idx"] == 2
+    assert r.json()["idx"] == 1
     assert r.json()["num_datums"] == 4
     assert r.json()["id"] != datum0_id
 
-    r = requests.put(
-        f"{BASE_URL}/_show_datum",
-        params={
-            "idx": "2",
-            "id": datum0_id,
-        },
-    )
+    r = requests.put(f"{BASE_URL}/datums/_prev")
     assert r.status_code == 200
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4

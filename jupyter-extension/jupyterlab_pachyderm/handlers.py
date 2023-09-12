@@ -142,27 +142,42 @@ class MountDatumsHandler(BaseHandler):
             get_logger().debug(f"Mount datums: {response}")
             self.finish(response)
         except Exception as e:
-            get_logger().error(f"Error mounting datums with input {body}", exc_info=True)
+            get_logger().error(
+                f"Error mounting datums with input {body}", exc_info=True
+            )
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error mounting datums with input {body}: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error mounting datums with input {body}: {e}.",
             )
 
 
-class ShowDatumHandler(BaseHandler):
+class DatumNextHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            slug = {
-                "idx": self.get_argument("idx", None),
-                "id": self.get_argument("id", None)
-            }
-            response = await self.mount_client.show_datum(slug)
-            get_logger().debug(f"Show datum: {response}")
+            response = await self.mount_client.next_datum()
+            get_logger().debug(f"Next datum: {response}")
             self.finish(response)
         except Exception as e:
-            get_logger().error(f"Error showing datum {slug}", exc_info=True)
+            get_logger().error(f"Error mounting next datum", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error showing datum {slug}: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error mounting next datum: {e}.",
+            )
+
+
+class DatumPrevHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            response = await self.mount_client.prev_datum()
+            get_logger().debug(f"Prev datum: {response}")
+            self.finish(response)
+        except Exception as e:
+            get_logger().error(f"Error mounting prev datum", exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=getattr(e, "code", 500),
+                reason=f"Error mounting prev datum: {e}.",
             )
 
 
@@ -332,10 +347,11 @@ def setup_handlers(web_app):
         ("/_unmount", UnmountHandler),
         ("/_commit", CommitHandler),
         ("/_unmount_all", UnmountAllHandler),
-        ("/_mount_datums", MountDatumsHandler),
-        (r"/_show_datum", ShowDatumHandler),
-        (r"/pfs%s" % path_regex, PFSHandler),
+        ("/datums/_mount", MountDatumsHandler),
+        ("/datums/_next", DatumNextHandler),
+        ("/datums/_prev", DatumPrevHandler),
         ("/datums", DatumsHandler),
+        (r"/pfs%s" % path_regex, PFSHandler),
         ("/config", ConfigHandler),
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),

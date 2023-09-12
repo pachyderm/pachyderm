@@ -393,27 +393,22 @@ async def test_unmount_all(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.MountDatumsHandler.mount_client", spec=MountInterface)
+@patch(
+    "jupyterlab_pachyderm.handlers.MountDatumsHandler.mount_client", spec=MountInterface
+)
 async def test_mount_datums(mock_client, jp_fetch):
-    body = {
-        "input": {
-            "pfs": {
-                "repo": "images",
-                "branch": "dev", 
-                "glob": "/*"
-            }
+    body = {"input": {"pfs": {"repo": "images", "branch": "dev", "glob": "/*"}}}
+    mock_client.mount_datums.return_value = json.dumps(
+        {
+            "id": "ad9329d",
+            "idx": 0,
+            "num_datums": 3,
+            "all_datums_received": True,
         }
-    }
-    mock_client.mount_datums.return_value = json.dumps({
-        "id": "ad9329d",
-        "idx": 0,
-        "num_datums": 3,
-    })
+    )
 
     r = await jp_fetch(
-        f"/{NAMESPACE}/{VERSION}/_mount_datums",
-        method="PUT",
-        body=json.dumps(body)
+        f"/{NAMESPACE}/{VERSION}/datums/_mount", method="PUT", body=json.dumps(body)
     )
     mock_client.mount_datums.assert_called_with(body)
 
@@ -421,46 +416,83 @@ async def test_mount_datums(mock_client, jp_fetch):
         "id": "ad9329d",
         "idx": 0,
         "num_datums": 3,
+        "all_datums_received": True,
     }
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.ShowDatumHandler.mount_client", spec=MountInterface)
-async def test_show_datum(mock_client, jp_fetch):
-    mock_client.show_datum.return_value = json.dumps({
-        "id": "jdkw9j23",
-        "idx": 2,
-        "num_datums": 3,
-    })
+@patch(
+    "jupyterlab_pachyderm.handlers.DatumNextHandler.mount_client", spec=MountInterface
+)
+async def test_next_datum(mock_client, jp_fetch):
+    mock_client.next_datum.return_value = json.dumps(
+        {
+            "id": "jdkw9j23",
+            "idx": 1,
+            "num_datums": 3,
+            "all_datums_received": True,
+        }
+    )
 
     r = await jp_fetch(
-        f"/{NAMESPACE}/{VERSION}/_show_datum",
+        f"/{NAMESPACE}/{VERSION}/datums/_next",
         method="PUT",
-        body=json.dumps({"idx": "2"})
     )
 
     assert json.loads(r.body) == {
         "id": "jdkw9j23",
-        "idx": 2,
+        "idx": 1,
         "num_datums": 3,
+        "all_datums_received": True,
+    }
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.DatumPrevHandler.mount_client", spec=MountInterface
+)
+async def test_prev_datum(mock_client, jp_fetch):
+    mock_client.prev_datum.return_value = json.dumps(
+        {
+            "id": "jdkw9j23",
+            "idx": 0,
+            "num_datums": 3,
+            "all_datums_received": True,
+        }
+    )
+
+    r = await jp_fetch(
+        f"/{NAMESPACE}/{VERSION}/datums/_prev",
+        method="PUT",
+    )
+
+    assert json.loads(r.body) == {
+        "id": "jdkw9j23",
+        "idx": 0,
+        "num_datums": 3,
+        "all_datums_received": True,
     }
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch("jupyterlab_pachyderm.handlers.DatumsHandler.mount_client", spec=MountInterface)
 async def test_get_datums(mock_client, jp_fetch):
-    mock_client.get_datums.return_value = json.dumps({
-        "input": {"pfs": {"repo": "repo", "branch": "dev", "glob": "/*"}},
-        "num_datums": 3,
-        "curr_idx": 2,
-    })
+    mock_client.get_datums.return_value = json.dumps(
+        {
+            "input": {"pfs": {"repo": "repo", "branch": "dev", "glob": "/*"}},
+            "num_datums": 3,
+            "idx": 2,
+            "all_datums_received": True,
+        }
+    )
 
     r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/datums")
 
     assert json.loads(r.body) == {
         "input": {"pfs": {"repo": "repo", "branch": "dev", "glob": "/*"}},
         "num_datums": 3,
-        "curr_idx": 2,
+        "idx": 2,
+        "all_datums_received": True,
     }
 
 
