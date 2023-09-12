@@ -179,7 +179,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	setActiveContext := &cobra.Command{
 		Use:     "{{alias}} <context>",
 		Short:   "Sets the currently active context.",
-		Long:    "This command sets the currently active context. This should be a combination of your `proxy.host` value and `proxy.server.http(s)Port number`. \n"+ 
+		Long:    "This command sets the currently active context. This should be a combination of your `proxy.host` value and `proxy.server.http(s)Port number`. \n" + 
 		"\t- To list all contexts, use `pachctl config list contexts`. \n" +
 		"\t- To view details, use `pachctl config get context <context>`. \n" +
 		"\t- To clean up your contexts, use `pachctl config delete context <context>`.",
