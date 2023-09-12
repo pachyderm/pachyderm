@@ -112,7 +112,6 @@ func TestCreatePipeline_defaults(t *testing.T) {
 }
 
 func TestCreatePipeline_regenerate(t *testing.T) {
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
