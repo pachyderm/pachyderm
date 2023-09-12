@@ -45,6 +45,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	mockIDPLogin(t, c)
 	// Test Upgrade
 	opts.CleanupAfter = false
+	t.Log("DO NOT MERGE")
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
