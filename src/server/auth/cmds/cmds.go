@@ -70,6 +70,9 @@ func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 		Short: "Activate Pachyderm's auth system",
 		Long: `
 Activate Pachyderm's auth system, and restrict access to existing data to the root user`[1:],
+		Example: "\t- {{alias}}" +
+			"\t- {{alias}} --enterprise" +
+			"\t- {{alias}} --enterprise --issuer http://pachd:30658/dex --redirect http://localhost/oauth/callback/?inline=true --client-id pachd --trusted-peers pachd",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
@@ -227,8 +230,8 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 Prompt the user to input a root token on stdin, rather than generating a random one.`[1:])
 	activate.PersistentFlags().BoolVar(&onlyActivate, "only-activate", false, "Activate auth without configuring the OIDC service")
 	activate.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Activate auth on the active enterprise context")
-	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://pachd:1658/", "The issuer for the OIDC service")
-	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost:30657/authorization-code/callback", "The redirect URL for the OIDC service")
+	activate.PersistentFlags().StringVar(&issuer, "issuer", "http://pachd:30658/dex", "The issuer for the OIDC service")
+	activate.PersistentFlags().StringVar(&redirect, "redirect", "http://localhost/oauth/callback/?inline=true", "The redirect URL for the OIDC service")
 	activate.PersistentFlags().StringVar(&clientId, "client-id", "pachd", "The client ID for this pachd")
 	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
 	activate.PersistentFlags().StringSliceVar(&scopes, "scopes", auth.DefaultOIDCScopes, "Comma-separated list of scopes to request")
