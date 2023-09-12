@@ -59,13 +59,14 @@ func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.C
 		Use:   "{{alias}} <address>",
 		Short: "Connect to a Pachyderm Cluster",
 		Long: "This command creates a Pachyderm context at the given address and sets it as active. It stores the pachd address, cluster deployment ID, and actively set project name. \n\n" +
-			"If the actively set project no longer exists, you may get an error that can be resolved by setting an existing project to the context. \n" +
+			"If the actively set project no longer exists due to deletion or hard restart / reinstall, you may get an error that can be resolved by setting an existing project (e.g., `default`) to the context. \n" +
 			"\t- To list all contexts, use `pachctl config list contexts`. \n" +
 			"\t- To view details, use `pachctl config get context <context>`. \n" +
 			"\t- To clean up your contexts, use `pachctl config delete context <context>`. \n" +
 			"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n" +
 			"\t- To set a different project as active, use `pachctl config update context --project foo`.",
-		Example: "{{alias}} localhost:80}}",
+		Example: "\t- {{alias}} localhost:80" +
+		"\t- {{alias}} localhost:80 --alias my-private-cluster",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			address := args[0]
 			cfg, err := config.Read(false, false)
@@ -99,7 +100,7 @@ func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.C
 		}),
 	}
 
-	connect.Flags().StringVar(&alias, "alias", "", "Alias for the context that is created")
+	connect.Flags().StringVar(&alias, "alias", "", "Set an alias for the context that is created.")
 
 	commands = append(commands, cmdutil.CreateAlias(connect, "connect"))
 	return commands
@@ -111,7 +112,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 	getMetrics := &cobra.Command{
 		Short:   "Gets whether metrics are enabled.",
-		Long:    "This command returns the status of metric enablement.",
+		Long:    "This command returns the status of metric enablement (`pachd.metrics.enabled`).",
 		Example: "{{alias}}}",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
@@ -178,11 +179,11 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	setActiveContext := &cobra.Command{
 		Use:     "{{alias}} <context>",
 		Short:   "Sets the currently active context.",
-		Long:    "This command sets the currently active context.\n"+ 
+		Long:    "This command sets the currently active context. This should be a combination of your `proxy.host` value and `proxy.server.http(s)Port number`. \n"+ 
 		"\t- To list all contexts, use `pachctl config list contexts`. \n" +
 		"\t- To view details, use `pachctl config get context <context>`. \n" +
 		"\t- To clean up your contexts, use `pachctl config delete context <context>`.",
-		Example: "{{alias}} foo",
+		Example: "{{alias}} grpc://localhost:80",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
@@ -200,7 +201,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 	getActiveEnterpriseContext := &cobra.Command{
 		Short: "Gets the currently active enterprise context.",
-		Long:  "This command returns the currently active enterprise context.",
+		Long:  "This command returns the currently active enterprise context for deployments using Enterprise Server.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
@@ -223,7 +224,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	setActiveEnterpriseContext := &cobra.Command{
 		Use:   "{{alias}} <context>",
 		Short: "Sets the currently active enterprise context.",
-		Long:  "This command sets the currently active enterprise context.",
+		Long:  "This command sets the currently active enterprise context for deployments using Enterprise Server.",
 		Example: "{{alias}} foo",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
