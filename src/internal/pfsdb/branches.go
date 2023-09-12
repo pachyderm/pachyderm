@@ -294,6 +294,16 @@ func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 	return errors.Wrap(err, "could not delete branch provenance")
 }
 
+type BranchInfoIterator struct {
+	branchInfos map[BranchID]*pfs.BranchInfo
+	db          *pachsql.DB
+	config      *ListResourceConfig
+}
+
+func NewBranchInfoIterator(ctx context.Context, db *pachsql.DB) (*BranchInfoIterator, error) {
+	return nil, nil
+}
+
 func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
 	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
 	var err error
