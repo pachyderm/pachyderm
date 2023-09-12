@@ -1863,9 +1863,9 @@ workflows:
           version: $CIRCLE_SHA1
   python-sdk:
     when:
-        or:
-          - << pipeline.parameters.run-python-sdk-jobs >>
-          - << pipeline.parameters.run-core-jobs >>
+      or:
+        - << pipeline.parameters.run-python-sdk-jobs >>
+        - << pipeline.parameters.run-core-jobs >>
     jobs:
       - test-python-sdk:
           requires:
@@ -1881,9 +1881,9 @@ workflows:
           version: $CIRCLE_SHA1
   label-studio:
     when:
-        or:
-          - << pipeline.parameters.run-label-studio-jobs >>
-          - << pipeline.parameters.run_load_tests >> # Eventually switch back to run-core-jobs
+      or:
+        - << pipeline.parameters.run-label-studio-jobs >>
+        - << pipeline.parameters.run_load_tests >> # Eventually switch back to run-core-jobs
     jobs:
       - test-label-studio:
           requires:
