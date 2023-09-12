@@ -223,8 +223,6 @@ func migrateRepos(ctx context.Context, env migrations.Env) error {
 //   - make repo_id not null
 //   - make origin not null
 //   - make updated_at not null and default to current timestamp
-//   - branch_id_str is a metadata reference to the branches table. Today this points to collections, but tomorrow it should
-//     point to pfs.branches. Once the PFS master watches branches, we will no longer need this column.
 func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
@@ -253,15 +251,26 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+func alterCommitsTablePostDataMigration(ctx context.Context, env migrations.Env) error {
+	query := `
+	ALTER TABLE pfs.commits
+	    DROP CONSTRAINT fk_col_commit;
+	`
+	if _, err := env.Tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "altering commits table")
+	}
+	return nil
+}
+
 // commitAncestry is how we model the commit graph within a single repo.
 func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TABLE pfs.commit_ancestry (
-		from_id bigint REFERENCES pfs.commits(int_id),
-		to_id bigint REFERENCES pfs.commits(int_id),
-		PRIMARY KEY (from_id, to_id)
+		parent bigint REFERENCES pfs.commits(int_id),
+		child bigint REFERENCES pfs.commits(int_id),
+		PRIMARY KEY (parent, child)
 	);
-	CREATE INDEX ON pfs.commit_ancestry (to_id, from_id);
+	CREATE INDEX ON pfs.commit_ancestry (child, parent);
 	`
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return errors.Wrap(err, "creating commit_ancestry table")
