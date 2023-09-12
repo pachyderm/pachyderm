@@ -472,7 +472,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if len(mm.Datums) != 0 {
+		if len(mm.Datums) > 0 {
 			http.Error(w, "can't mount repos while in mounted datum mode", http.StatusBadRequest)
 			return
 		}
@@ -514,7 +514,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		if len(mm.Datums) != 0 {
+		if len(mm.Datums) > 0 {
 			http.Error(w, "can't unmount repos while in mounted datum mode", http.StatusBadRequest)
 			return
 		}
