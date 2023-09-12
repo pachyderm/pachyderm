@@ -142,7 +142,6 @@ def test_list_mounts(pachyderm_resources, dev_server):
             "state",
             "status",
             "mountpoint",
-            "actual_mounted_commit",
             "latest_commit",
             "how_many_commits_behind",
         }
