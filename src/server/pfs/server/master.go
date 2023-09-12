@@ -38,16 +38,33 @@ const (
 	masterLockPath = "pfs-master-lock"
 )
 
-func (d *driver) master(ctx context.Context) {
+type Master struct {
+	env Env
+
+	driver *driver
+}
+
+func NewMaster(env Env) (*Master, error) {
+	d, err := newDriver(env)
+	if err != nil {
+		return nil, err
+	}
+	return &Master{
+		env:    env,
+		driver: d,
+	}, nil
+}
+
+func (m *Master) Run(ctx context.Context) error {
 	ctx = auth.AsInternalUser(ctx, "pfs-master")
-	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	return backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
-		trackerPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageGCPeriod)
+		trackerPeriod := time.Second * time.Duration(m.env.StorageConfig.StorageGCPeriod)
 		if trackerPeriod <= 0 {
 			log.Info(ctx, "Skipping Storage GC")
 		} else {
 			eg.Go(func() error {
-				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "storage-gc"))
+				lock := dlock.NewDLock(m.driver.etcdClient, path.Join(m.driver.prefix, masterLockPath, "storage-gc"))
 				log.Info(ctx, "Starting Storage GC", zap.Duration("period", trackerPeriod))
 				ctx, err := lock.Lock(ctx)
 				if err != nil {
@@ -58,16 +75,16 @@ func (d *driver) master(ctx context.Context) {
 						log.Error(ctx, "error unlocking in pfs master (storage gc)", zap.Error(err))
 					}
 				}()
-				gc := d.storage.Filesets.NewGC(trackerPeriod)
+				gc := m.driver.storage.Filesets.NewGC(trackerPeriod)
 				return gc.RunForever(pctx.Child(ctx, "storage-gc"))
 			})
 		}
-		chunkPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageChunkGCPeriod)
+		chunkPeriod := time.Second * time.Duration(m.env.StorageConfig.StorageChunkGCPeriod)
 		if chunkPeriod <= 0 {
 			log.Info(ctx, "Skipping Chunk Storage GC")
 		} else {
 			eg.Go(func() error {
-				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "chunk-gc"))
+				lock := dlock.NewDLock(m.driver.etcdClient, path.Join(m.driver.prefix, masterLockPath, "chunk-gc"))
 				log.Info(ctx, "Starting Chunk Storage GC", zap.Duration("period", chunkPeriod))
 				ctx, err := lock.Lock(ctx)
 				if err != nil {
@@ -78,12 +95,12 @@ func (d *driver) master(ctx context.Context) {
 						log.Error(ctx, "error unlocking in pfs master (chunk gc)", zap.Error(err))
 					}
 				}()
-				gc := chunk.NewGC(d.storage.Chunks, chunkPeriod)
+				gc := chunk.NewGC(m.driver.storage.Chunks, chunkPeriod)
 				return gc.RunForever(pctx.Child(ctx, "chunk-gc"))
 			})
 		}
 		eg.Go(func() error {
-			return d.watchRepos(ctx)
+			return m.watchRepos(ctx)
 		})
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -92,7 +109,7 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) watchRepos(ctx context.Context) error {
+func (m *Master) watchRepos(ctx context.Context) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	repos := make(map[pfsdb.RepoID]context.CancelFunc)
@@ -101,17 +118,17 @@ func (d *driver) watchRepos(ctx context.Context) error {
 			cancel()
 		}
 	}()
-	ringPrefix := path.Join(d.prefix, masterLockPath, "ring")
-	return consistenthashing.WithRing(ctx, d.etcdClient, ringPrefix,
+	ringPrefix := path.Join(m.driver.prefix, masterLockPath, "ring")
+	return consistenthashing.WithRing(ctx, m.driver.etcdClient, ringPrefix,
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			// Watch for repo events.
-			watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, ringPrefix, pfsdb.ReposChannelName)
+			watcher, err := postgres.NewWatcher(m.env.DB, m.driver.env.Listener, ringPrefix, pfsdb.ReposChannelName)
 			if err != nil {
 				return errors.Wrap(err, "new watcher")
 			}
 			defer watcher.Close()
 			// Get existing entries.
-			if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+			if err := dbutil.WithTx(ctx, m.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
 				iter, err := pfsdb.ListRepo(cbCtx, tx, nil)
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
@@ -122,14 +139,14 @@ func (d *driver) watchRepos(ctx context.Context) error {
 					// goroutines spawned by manageRepo need to live until the main master routine is cancelled.
 					ctx, cancel := pctx.WithCancel(ctx)
 					repos[repoPair.ID] = cancel
-					go d.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
+					go m.driver.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
 					return nil
 				}), "for each repo")
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "list repos")
 			}
 			// Process new repo events.
-			return d.handleRepoEvents(ctx, ring, repos, watcher.Watch())
+			return m.driver.handleRepoEvents(ctx, ring, repos, watcher.Watch())
 		})
 }
 

@@ -104,6 +104,7 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initTransaction,
 		pachwb.internallyListen,
 		pachwb.resumeHealth,
+		pachwb.startPFSWorker,
 		pachwb.daemon.serve,
 	)
 }

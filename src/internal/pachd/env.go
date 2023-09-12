@@ -119,6 +119,20 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 	}, nil
 }
 
+func PFSWorkerEnv(env serviceenv.ServiceEnv) (*pfs_server.WorkerEnv, error) {
+	ctx := env.Context()
+	objClient, err := obj.NewClient(ctx, env.Config().StorageBackend, env.Config().StorageRoot)
+	if err != nil {
+		return nil, err
+	}
+	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
+	return &pfs_server.WorkerEnv{
+		DB:          env.GetDBClient(),
+		ObjClient:   objClient,
+		TaskService: env.GetTaskService(etcdPrefix),
+	}, nil
+}
+
 func PPSEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) pps_server.Env {
 	etcdPrefix := path.Join(senv.Config().EtcdPrefix, senv.Config().PPSEtcdPrefix)
 	return pps_server.Env{
