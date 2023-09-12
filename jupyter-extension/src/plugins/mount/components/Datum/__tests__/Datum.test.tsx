@@ -36,6 +36,7 @@ describe('datum screen', () => {
           id: 'asdfaew34ri92jafiolwe',
           idx: 0,
           num_datums: 6,
+          all_datums_received: true,
         }),
       );
 
@@ -64,7 +65,7 @@ describe('datum screen', () => {
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
           2,
-          '_mount_datums',
+          'datums/_mount',
           'PUT',
           {input: {pfs: 'a'}},
         );
@@ -77,12 +78,13 @@ describe('datum screen', () => {
   });
 
   describe('cycle through datums', () => {
-    it('hitting datum cycler makes show datum call', async () => {
+    it('hitting datum cycler makes next datum call', async () => {
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
           id: 'asdfaew34ri92jafiolwe',
           idx: 0,
           num_datums: 6,
+          all_datums_received: false,
         }),
       );
 
@@ -110,6 +112,7 @@ describe('datum screen', () => {
           id: 'ilwe9nme9902ja039jf20snv',
           idx: 1,
           num_datums: 6,
+          all_datums_received: false,
         }),
       );
 
@@ -118,15 +121,15 @@ describe('datum screen', () => {
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
-          4,
-          '_show_datum?idx=1',
+          3,
+          'datums/_next',
           'PUT',
         );
       });
 
       getByTestId('Datum__cyclerLeft');
       getByTestId('Datum__cyclerRight');
-      expect(getByTestId('Datum__cycler')).toHaveTextContent('(2/6)');
+      expect(getByTestId('Datum__cycler')).toHaveTextContent('(2/6+)');
     });
   });
 
