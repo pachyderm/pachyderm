@@ -100,6 +100,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.externallyListen,
 		fb.resumeHealth,
 		fb.startPFSWorker,
+		fb.startPFSMaster,
 		fb.daemon.serve,
 	)
 }
