@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strings"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -764,7 +765,7 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 // This should hopefully prevent a library user from misconfiguring the filter.
 type CommitFields string
 
-var (
+const (
 	CommitSetIDs   = CommitFields("commit_set_id")
 	CommitOrigins  = CommitFields("origin")
 	CommitRepos    = CommitFields("repo_id")
