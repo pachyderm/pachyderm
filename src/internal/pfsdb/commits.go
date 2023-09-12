@@ -702,31 +702,20 @@ type CommitPair struct {
 	CommitInfo *pfs.CommitInfo
 }
 
-// these dropped global variable instantiations forces the compiler to check whether CommitIterator and CommitIteratorTx implements stream.Iterator.
+// this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.
 var _ stream.Iterator[CommitPair] = &CommitIterator{}
-var _ stream.Iterator[CommitPair] = &CommitIteratorTx{}
 
 // CommitIterator batches a page of Commit entries along with their parent and children. (id, entry) tuples can be retrieved using iter.Next().
 type CommitIterator struct {
-	*commitIterator
 	commitInfos map[CommitID]*pfs.CommitInfo
 	db          *pachsql.DB
 	gottenInfos int
-}
-
-// CommitIteratorTx is like CommitIterator but retrieves all pages within a single transaction.
-type CommitIteratorTx struct {
-	*commitIterator
-	tx *pachsql.Tx
-}
-
-type commitIterator struct {
-	rev     bool
-	limit   int
-	offset  int
-	commits []Commit
-	index   int
-	filter  CommitListFilter
+	rev         bool
+	limit       int
+	offset      int
+	commits     []Commit
+	index       int
+	filter      CommitListFilter
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
@@ -771,36 +760,6 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 	return nil
 }
 
-// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
-func (iter *CommitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
-	if dst == nil {
-		return errors.Wrap(fmt.Errorf("commit is nil"), "get next commit")
-	}
-	var err error
-	if iter.index >= len(iter.commits) {
-		iter.index = 0
-		iter.offset += iter.limit
-		iter.commits, err = listCommitPage(ctx, iter.tx, iter.limit, iter.offset, iter.filter, iter.rev)
-		if err != nil {
-			return errors.Wrap(err, "list commit page")
-		}
-		if len(iter.commits) == 0 {
-			return stream.EOS()
-		}
-	}
-	row := iter.commits[iter.index]
-	commit, err := getCommitInfoFromCommitRow(ctx, iter.tx, &row)
-	if err != nil {
-		return errors.Wrap(err, "getting commitInfo from commit row")
-	}
-	*dst = CommitPair{
-		CommitInfo: commit,
-		ID:         row.ID,
-	}
-	iter.index++
-	return nil
-}
-
 // CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
 // This should hopefully prevent a library user from misconfiguring the filter.
 type CommitFields string
@@ -820,22 +779,26 @@ type CommitListFilter map[CommitFields][]string
 // ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
 // It manages transactions on behalf of its user under the hood.
 func ListCommit(ctx context.Context, db *pachsql.DB, filter CommitListFilter, rev bool) (*CommitIterator, error) {
-	var commitIter *CommitIterator
+	var iter *CommitIterator
 	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		iter, err := newIterator(ctx, tx, filter, rev)
+		limit := 100
+		page, err := listCommitPage(ctx, tx, limit, 0, filter, rev)
 		if err != nil {
 			return errors.Wrap(err, "new commits iterator")
 		}
-		commitIter = &CommitIterator{
-			commitIterator: iter,
-			gottenInfos:    0,
+		iter = &CommitIterator{
+			rev:         rev,
+			commits:     page,
+			limit:       limit,
+			filter:      filter,
+			gottenInfos: 0,
+			db:          db,
 		}
-		commitIter.db = db
-		return commitIter.getCommitInfosForPageUntilCapacity(ctx, tx)
+		return iter.getCommitInfosForPageUntilCapacity(ctx, tx)
 	}); err != nil {
 		return nil, errors.Wrap(err, "list commits first page")
 	}
-	return commitIter, nil
+	return iter, nil
 }
 
 func (iter *CommitIterator) getCommitInfosForPageUntilCapacity(ctx context.Context, tx *pachsql.Tx) error {
@@ -859,30 +822,6 @@ func (iter *CommitIterator) getCommitInfosForPageUntilCapacity(ctx context.Conte
 		}
 	}
 	return nil
-}
-
-// ListCommitTx returns a CommitIteratorTx that exposes a Next() function for retrieving *pfs.CommitInfo references.
-func ListCommitTx(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, rev bool) (*CommitIteratorTx, error) {
-	iter, err := newIterator(ctx, tx, filter, rev)
-	if err != nil {
-		return nil, errors.Wrap(err, "list commits in transaction")
-	}
-	return &CommitIteratorTx{iter, tx}, nil
-}
-
-func newIterator(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, rev bool) (*commitIterator, error) {
-	limit := 100
-	page, err := listCommitPage(ctx, tx, limit, 0, filter, rev)
-	if err != nil {
-		return nil, errors.Wrap(err, "new commits iterator")
-	}
-	iter := &commitIterator{
-		rev:     rev,
-		commits: page,
-		limit:   limit,
-		filter:  filter,
-	}
-	return iter, nil
 }
 
 func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter CommitListFilter, rev bool) ([]Commit, error) {

@@ -473,9 +473,6 @@ func TestListCommit(t *testing.T) {
 				}
 				prevCommit = commitInfo
 			}
-			iter, err := pfsdb.ListCommitTx(ctx, tx, nil, false)
-			require.NoError(t, err, "should be able to list repos")
-			checkOutput(ctx, t, iter, expectedInfos)
 		})
 		iter, err := pfsdb.ListCommit(ctx, db, nil, false)
 		require.NoError(t, err, "should be able to list repos")
@@ -507,9 +504,6 @@ func TestListCommitRev(t *testing.T) {
 				}
 				prevCommit = commitInfo
 			}
-			iter, err := pfsdb.ListCommitTx(ctx, tx, nil, true)
-			require.NoError(t, err, "should be able to list repos")
-			checkOutput(ctx, t, iter, expectedInfos)
 		})
 		iter, err := pfsdb.ListCommit(ctx, db, nil, true)
 		require.NoError(t, err, "should be able to list repos")
@@ -545,10 +539,6 @@ func TestListCommitsFilter(t *testing.T) {
 				require.NoError(t, err, "should be able to create commit")
 				createBranch(ctx, t, tx, commitInfo.Commit)
 			}
-			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commits[0]))
-			iter, err := pfsdb.ListCommitTx(ctx, tx, filter, false)
-			require.NoError(t, err, "should be able to list repos")
-			checkOutput(ctx, t, iter, expectedInfos)
 		})
 		iter, err := pfsdb.ListCommit(ctx, db, filter, false)
 		require.NoError(t, err, "should be able to list repos")
