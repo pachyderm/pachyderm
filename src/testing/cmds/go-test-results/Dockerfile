@@ -1,4 +1,4 @@
-FROM golang:1.20.7-alpine
+FROM golang:1.21.1-alpine
 
 RUN go install github.com/jackc/tern/v2@latest
 
