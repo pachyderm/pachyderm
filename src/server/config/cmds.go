@@ -155,8 +155,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		"\t- To list all contexts, use `pachctl config list contexts`. \n" +
 		"\t- To view details, use `pachctl config get context <context>`. \n" +
 		"\t- To clean up your contexts, use `pachctl config delete context <context>`. \n" +
-		"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n" +
-		Example: "{{alias}}}",
+		"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n"
 		Run: cmdutil.Run(func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
