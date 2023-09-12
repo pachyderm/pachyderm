@@ -66,7 +66,7 @@ func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.C
 			"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n" +
 			"\t- To set a different project as active, use `pachctl config update context --project foo`.",
 		Example: "\t- {{alias}} localhost:80" +
-		"\t- {{alias}} localhost:80 --alias my-private-cluster",
+			"\t- {{alias}} localhost:80 --alias my-private-cluster",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			address := args[0]
 			cfg, err := config.Read(false, false)
@@ -150,12 +150,13 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(setMetrics, "config set metrics"))
 
 	getActiveContext := &cobra.Command{
-		Short:   "Gets the currently active context.",
-		Long:    "This command returns the currently active context. \n" + 
-		"\t- To list all contexts, use `pachctl config list contexts`. \n" +
-		"\t- To view details, use `pachctl config get context <context>`. \n" +
-		"\t- To clean up your contexts, use `pachctl config delete context <context>`. \n" +
-		"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n"
+		Short: "Gets the currently active context.",
+		Long: "This command returns the currently active context. \n" +
+			"\t- To list all contexts, use `pachctl config list contexts`. \n" +
+			"\t- To view details, use `pachctl config get context <context>`. \n" +
+			"\t- To clean up your contexts, use `pachctl config delete context <context>`. \n" +
+			"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n",
+		Example: "{{alias}}}",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
@@ -176,12 +177,12 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(getActiveContext, "config get active-context"))
 
 	setActiveContext := &cobra.Command{
-		Use:     "{{alias}} <context>",
-		Short:   "Sets the currently active context.",
-		Long:    "This command sets the currently active context. This should be a combination of your `proxy.host` value and `proxy.server.http(s)Port number`. \n" + 
-		"\t- To list all contexts, use `pachctl config list contexts`. \n" +
-		"\t- To view details, use `pachctl config get context <context>`. \n" +
-		"\t- To clean up your contexts, use `pachctl config delete context <context>`.",
+		Use:   "{{alias}} <context>",
+		Short: "Sets the currently active context.",
+		Long: "This command sets the currently active context. This should be a combination of your `proxy.host` value and `proxy.server.http(s)Port number`. \n" +
+			"\t- To list all contexts, use `pachctl config list contexts`. \n" +
+			"\t- To view details, use `pachctl config get context <context>`. \n" +
+			"\t- To clean up your contexts, use `pachctl config delete context <context>`.",
 		Example: "{{alias}} grpc://localhost:80",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
@@ -221,9 +222,9 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(getActiveEnterpriseContext, "config get active-enterprise-context"))
 
 	setActiveEnterpriseContext := &cobra.Command{
-		Use:   "{{alias}} <context>",
-		Short: "Sets the currently active enterprise context.",
-		Long:  "This command sets the currently active enterprise context for deployments using Enterprise Server.",
+		Use:     "{{alias}} <context>",
+		Short:   "Sets the currently active enterprise context.",
+		Long:    "This command sets the currently active enterprise context for deployments using Enterprise Server.",
 		Example: "{{alias}} foo",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
@@ -241,9 +242,9 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(setActiveEnterpriseContext, "config set active-enterprise-context"))
 
 	getContext := &cobra.Command{
-		Use:   "{{alias}} <context>",
-		Short: "Gets a context.",
-		Long:  "This command returns the config of a context by its name. This includes the pachd address, cluster deployment ID, and actively set project name.",
+		Use:     "{{alias}} <context>",
+		Short:   "Gets a context.",
+		Long:    "This command returns the config of a context by its name. This includes the pachd address, cluster deployment ID, and actively set project name.",
 		Example: "{{alias}} foo",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
@@ -272,8 +273,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} <context>",
 		Short: "Set a context.",
 		Long:  "This command sets a context config from a given name and a JSON configuration file on stdin",
-		Example: "\t- {{alias}} foo" + 
-		"\t- {{alias}} foo --overwrite",
+		Example: "\t- {{alias}} foo" +
+			"\t- {{alias}} foo --overwrite",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			name := args[0]
 
@@ -323,7 +324,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short: "Import a Kubernetes context as a Pachyderm context, and set the active Pachyderm context.",
 		Long:  "This command imports a Kubernetes context as a Pachyderm context. By default the current kubernetes context is used.",
 		Example: "\t- {{alias}} foo" +
-		"\t- {{alias}} foo --overwrite",
+			"\t- {{alias}} foo --overwrite",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			name := args[0]
 
@@ -390,15 +391,15 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	updateContext = &cobra.Command{
 		Use:   "{{alias}} [<context>]",
 		Short: "Updates a context.",
-		Long: "This command updates an existing context config from a given name (or the currently-active context, if no name is given).",
+		Long:  "This command updates an existing context config from a given name (or the currently-active context, if no name is given).",
 		Example: "\t- {{alias}} foo" +
-		"\t- {{alias}} foo --pachd-address localhost:30650" +
-		"\t- {{alias}} foo --cluster-name my-cluster" +
-		"\t- {{alias}} foo --auth-info my-auth-info" +
-		"\t- {{alias}} foo --server-cas /path/to/ca.crt" +
-		"\t- {{alias}} foo --namespace my-namespace" +
-		"\t- {{alias}} foo --project my-project" +
-		"\t- {{alias}} foo --remove-cluster-deployment-id",
+			"\t- {{alias}} foo --pachd-address localhost:30650" +
+			"\t- {{alias}} foo --cluster-name my-cluster" +
+			"\t- {{alias}} foo --auth-info my-auth-info" +
+			"\t- {{alias}} foo --server-cas /path/to/ca.crt" +
+			"\t- {{alias}} foo --namespace my-namespace" +
+			"\t- {{alias}} foo --project my-project" +
+			"\t- {{alias}} foo --remove-cluster-deployment-id",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
