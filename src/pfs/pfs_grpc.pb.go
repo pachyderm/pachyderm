@@ -22,55 +22,53 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	API_CreateRepo_FullMethodName         = "/pfs_v2.API/CreateRepo"
-	API_InspectRepo_FullMethodName        = "/pfs_v2.API/InspectRepo"
-	API_ListRepo_FullMethodName           = "/pfs_v2.API/ListRepo"
-	API_DeleteRepo_FullMethodName         = "/pfs_v2.API/DeleteRepo"
-	API_DeleteRepos_FullMethodName        = "/pfs_v2.API/DeleteRepos"
-	API_StartCommit_FullMethodName        = "/pfs_v2.API/StartCommit"
-	API_FinishCommit_FullMethodName       = "/pfs_v2.API/FinishCommit"
-	API_ClearCommit_FullMethodName        = "/pfs_v2.API/ClearCommit"
-	API_InspectCommit_FullMethodName      = "/pfs_v2.API/InspectCommit"
-	API_ListCommit_FullMethodName         = "/pfs_v2.API/ListCommit"
-	API_SubscribeCommit_FullMethodName    = "/pfs_v2.API/SubscribeCommit"
-	API_InspectCommitSet_FullMethodName   = "/pfs_v2.API/InspectCommitSet"
-	API_ListCommitSet_FullMethodName      = "/pfs_v2.API/ListCommitSet"
-	API_SquashCommitSet_FullMethodName    = "/pfs_v2.API/SquashCommitSet"
-	API_DropCommitSet_FullMethodName      = "/pfs_v2.API/DropCommitSet"
-	API_FindCommits_FullMethodName        = "/pfs_v2.API/FindCommits"
-	API_CreateBranch_FullMethodName       = "/pfs_v2.API/CreateBranch"
-	API_InspectBranch_FullMethodName      = "/pfs_v2.API/InspectBranch"
-	API_ListBranch_FullMethodName         = "/pfs_v2.API/ListBranch"
-	API_DeleteBranch_FullMethodName       = "/pfs_v2.API/DeleteBranch"
-	API_ModifyFile_FullMethodName         = "/pfs_v2.API/ModifyFile"
-	API_GetFile_FullMethodName            = "/pfs_v2.API/GetFile"
-	API_GetFileTAR_FullMethodName         = "/pfs_v2.API/GetFileTAR"
-	API_InspectFile_FullMethodName        = "/pfs_v2.API/InspectFile"
-	API_ListFile_FullMethodName           = "/pfs_v2.API/ListFile"
-	API_WalkFile_FullMethodName           = "/pfs_v2.API/WalkFile"
-	API_GlobFile_FullMethodName           = "/pfs_v2.API/GlobFile"
-	API_DiffFile_FullMethodName           = "/pfs_v2.API/DiffFile"
-	API_ActivateAuth_FullMethodName       = "/pfs_v2.API/ActivateAuth"
-	API_DeleteAll_FullMethodName          = "/pfs_v2.API/DeleteAll"
-	API_Fsck_FullMethodName               = "/pfs_v2.API/Fsck"
-	API_CreateFileSet_FullMethodName      = "/pfs_v2.API/CreateFileSet"
-	API_GetFileSet_FullMethodName         = "/pfs_v2.API/GetFileSet"
-	API_AddFileSet_FullMethodName         = "/pfs_v2.API/AddFileSet"
-	API_RenewFileSet_FullMethodName       = "/pfs_v2.API/RenewFileSet"
-	API_ComposeFileSet_FullMethodName     = "/pfs_v2.API/ComposeFileSet"
-	API_ShardFileSet_FullMethodName       = "/pfs_v2.API/ShardFileSet"
-	API_CheckStorage_FullMethodName       = "/pfs_v2.API/CheckStorage"
-	API_PutCache_FullMethodName           = "/pfs_v2.API/PutCache"
-	API_GetCache_FullMethodName           = "/pfs_v2.API/GetCache"
-	API_ClearCache_FullMethodName         = "/pfs_v2.API/ClearCache"
-	API_RunLoadTest_FullMethodName        = "/pfs_v2.API/RunLoadTest"
-	API_RunLoadTestDefault_FullMethodName = "/pfs_v2.API/RunLoadTestDefault"
-	API_ListTask_FullMethodName           = "/pfs_v2.API/ListTask"
-	API_Egress_FullMethodName             = "/pfs_v2.API/Egress"
-	API_CreateProject_FullMethodName      = "/pfs_v2.API/CreateProject"
-	API_InspectProject_FullMethodName     = "/pfs_v2.API/InspectProject"
-	API_ListProject_FullMethodName        = "/pfs_v2.API/ListProject"
-	API_DeleteProject_FullMethodName      = "/pfs_v2.API/DeleteProject"
+	API_CreateRepo_FullMethodName       = "/pfs_v2.API/CreateRepo"
+	API_InspectRepo_FullMethodName      = "/pfs_v2.API/InspectRepo"
+	API_ListRepo_FullMethodName         = "/pfs_v2.API/ListRepo"
+	API_DeleteRepo_FullMethodName       = "/pfs_v2.API/DeleteRepo"
+	API_DeleteRepos_FullMethodName      = "/pfs_v2.API/DeleteRepos"
+	API_StartCommit_FullMethodName      = "/pfs_v2.API/StartCommit"
+	API_FinishCommit_FullMethodName     = "/pfs_v2.API/FinishCommit"
+	API_ClearCommit_FullMethodName      = "/pfs_v2.API/ClearCommit"
+	API_InspectCommit_FullMethodName    = "/pfs_v2.API/InspectCommit"
+	API_ListCommit_FullMethodName       = "/pfs_v2.API/ListCommit"
+	API_SubscribeCommit_FullMethodName  = "/pfs_v2.API/SubscribeCommit"
+	API_InspectCommitSet_FullMethodName = "/pfs_v2.API/InspectCommitSet"
+	API_ListCommitSet_FullMethodName    = "/pfs_v2.API/ListCommitSet"
+	API_SquashCommitSet_FullMethodName  = "/pfs_v2.API/SquashCommitSet"
+	API_DropCommitSet_FullMethodName    = "/pfs_v2.API/DropCommitSet"
+	API_FindCommits_FullMethodName      = "/pfs_v2.API/FindCommits"
+	API_CreateBranch_FullMethodName     = "/pfs_v2.API/CreateBranch"
+	API_InspectBranch_FullMethodName    = "/pfs_v2.API/InspectBranch"
+	API_ListBranch_FullMethodName       = "/pfs_v2.API/ListBranch"
+	API_DeleteBranch_FullMethodName     = "/pfs_v2.API/DeleteBranch"
+	API_ModifyFile_FullMethodName       = "/pfs_v2.API/ModifyFile"
+	API_GetFile_FullMethodName          = "/pfs_v2.API/GetFile"
+	API_GetFileTAR_FullMethodName       = "/pfs_v2.API/GetFileTAR"
+	API_InspectFile_FullMethodName      = "/pfs_v2.API/InspectFile"
+	API_ListFile_FullMethodName         = "/pfs_v2.API/ListFile"
+	API_WalkFile_FullMethodName         = "/pfs_v2.API/WalkFile"
+	API_GlobFile_FullMethodName         = "/pfs_v2.API/GlobFile"
+	API_DiffFile_FullMethodName         = "/pfs_v2.API/DiffFile"
+	API_ActivateAuth_FullMethodName     = "/pfs_v2.API/ActivateAuth"
+	API_DeleteAll_FullMethodName        = "/pfs_v2.API/DeleteAll"
+	API_Fsck_FullMethodName             = "/pfs_v2.API/Fsck"
+	API_CreateFileSet_FullMethodName    = "/pfs_v2.API/CreateFileSet"
+	API_GetFileSet_FullMethodName       = "/pfs_v2.API/GetFileSet"
+	API_AddFileSet_FullMethodName       = "/pfs_v2.API/AddFileSet"
+	API_RenewFileSet_FullMethodName     = "/pfs_v2.API/RenewFileSet"
+	API_ComposeFileSet_FullMethodName   = "/pfs_v2.API/ComposeFileSet"
+	API_ShardFileSet_FullMethodName     = "/pfs_v2.API/ShardFileSet"
+	API_CheckStorage_FullMethodName     = "/pfs_v2.API/CheckStorage"
+	API_PutCache_FullMethodName         = "/pfs_v2.API/PutCache"
+	API_GetCache_FullMethodName         = "/pfs_v2.API/GetCache"
+	API_ClearCache_FullMethodName       = "/pfs_v2.API/ClearCache"
+	API_ListTask_FullMethodName         = "/pfs_v2.API/ListTask"
+	API_Egress_FullMethodName           = "/pfs_v2.API/Egress"
+	API_CreateProject_FullMethodName    = "/pfs_v2.API/CreateProject"
+	API_InspectProject_FullMethodName   = "/pfs_v2.API/InspectProject"
+	API_ListProject_FullMethodName      = "/pfs_v2.API/ListProject"
+	API_DeleteProject_FullMethodName    = "/pfs_v2.API/DeleteProject"
 )
 
 // APIClient is the client API for API service.
@@ -161,10 +159,6 @@ type APIClient interface {
 	PutCache(ctx context.Context, in *PutCacheRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetCache(ctx context.Context, in *GetCacheRequest, opts ...grpc.CallOption) (*GetCacheResponse, error)
 	ClearCache(ctx context.Context, in *ClearCacheRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// RunLoadTest runs a load test.
-	RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
-	// RunLoadTestDefault runs the default load tests.
-	RunLoadTestDefault(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
 	// ListTask lists PFS tasks
 	ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error)
 	// Egress writes data from a commit to an external system
@@ -929,24 +923,6 @@ func (c *aPIClient) ClearCache(ctx context.Context, in *ClearCacheRequest, opts 
 	return out, nil
 }
 
-func (c *aPIClient) RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opts ...grpc.CallOption) (*RunLoadTestResponse, error) {
-	out := new(RunLoadTestResponse)
-	err := c.cc.Invoke(ctx, API_RunLoadTest_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *aPIClient) RunLoadTestDefault(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error) {
-	out := new(RunLoadTestResponse)
-	err := c.cc.Invoke(ctx, API_RunLoadTestDefault_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *aPIClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error) {
 	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[16], API_ListTask_FullMethodName, opts...)
 	if err != nil {
@@ -1135,10 +1111,6 @@ type APIServer interface {
 	PutCache(context.Context, *PutCacheRequest) (*emptypb.Empty, error)
 	GetCache(context.Context, *GetCacheRequest) (*GetCacheResponse, error)
 	ClearCache(context.Context, *ClearCacheRequest) (*emptypb.Empty, error)
-	// RunLoadTest runs a load test.
-	RunLoadTest(context.Context, *RunLoadTestRequest) (*RunLoadTestResponse, error)
-	// RunLoadTestDefault runs the default load tests.
-	RunLoadTestDefault(context.Context, *emptypb.Empty) (*RunLoadTestResponse, error)
 	// ListTask lists PFS tasks
 	ListTask(*task.ListTaskRequest, API_ListTaskServer) error
 	// Egress writes data from a commit to an external system
@@ -1281,12 +1253,6 @@ func (UnimplementedAPIServer) GetCache(context.Context, *GetCacheRequest) (*GetC
 }
 func (UnimplementedAPIServer) ClearCache(context.Context, *ClearCacheRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClearCache not implemented")
-}
-func (UnimplementedAPIServer) RunLoadTest(context.Context, *RunLoadTestRequest) (*RunLoadTestResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RunLoadTest not implemented")
-}
-func (UnimplementedAPIServer) RunLoadTestDefault(context.Context, *emptypb.Empty) (*RunLoadTestResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RunLoadTestDefault not implemented")
 }
 func (UnimplementedAPIServer) ListTask(*task.ListTaskRequest, API_ListTaskServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListTask not implemented")
@@ -2115,42 +2081,6 @@ func _API_ClearCache_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_RunLoadTest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RunLoadTestRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(APIServer).RunLoadTest(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: API_RunLoadTest_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).RunLoadTest(ctx, req.(*RunLoadTestRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _API_RunLoadTestDefault_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(APIServer).RunLoadTestDefault(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: API_RunLoadTestDefault_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).RunLoadTestDefault(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _API_ListTask_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(task.ListTaskRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -2371,14 +2301,6 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ClearCache",
 			Handler:    _API_ClearCache_Handler,
-		},
-		{
-			MethodName: "RunLoadTest",
-			Handler:    _API_RunLoadTest_Handler,
-		},
-		{
-			MethodName: "RunLoadTestDefault",
-			Handler:    _API_RunLoadTestDefault_Handler,
 		},
 		{
 			MethodName: "Egress",

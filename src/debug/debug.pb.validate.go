@@ -2675,6 +2675,311 @@ var _ interface {
 	ErrorName() string
 } = DumpChunkValidationError{}
 
+// Validate checks the field values on RunPFSLoadTestRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RunPFSLoadTestRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RunPFSLoadTestRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RunPFSLoadTestRequestMultiError, or nil if none found.
+func (m *RunPFSLoadTestRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RunPFSLoadTestRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Spec
+
+	if all {
+		switch v := interface{}(m.GetBranch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RunPFSLoadTestRequestValidationError{
+					field:  "Branch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RunPFSLoadTestRequestValidationError{
+					field:  "Branch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBranch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RunPFSLoadTestRequestValidationError{
+				field:  "Branch",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for Seed
+
+	// no validation rules for StateId
+
+	if len(errors) > 0 {
+		return RunPFSLoadTestRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// RunPFSLoadTestRequestMultiError is an error wrapping multiple validation
+// errors returned by RunPFSLoadTestRequest.ValidateAll() if the designated
+// constraints aren't met.
+type RunPFSLoadTestRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RunPFSLoadTestRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RunPFSLoadTestRequestMultiError) AllErrors() []error { return m }
+
+// RunPFSLoadTestRequestValidationError is the validation error returned by
+// RunPFSLoadTestRequest.Validate if the designated constraints aren't met.
+type RunPFSLoadTestRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RunPFSLoadTestRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RunPFSLoadTestRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RunPFSLoadTestRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RunPFSLoadTestRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RunPFSLoadTestRequestValidationError) ErrorName() string {
+	return "RunPFSLoadTestRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RunPFSLoadTestRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRunPFSLoadTestRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RunPFSLoadTestRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RunPFSLoadTestRequestValidationError{}
+
+// Validate checks the field values on RunPFSLoadTestResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RunPFSLoadTestResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RunPFSLoadTestResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RunPFSLoadTestResponseMultiError, or nil if none found.
+func (m *RunPFSLoadTestResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RunPFSLoadTestResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Spec
+
+	if all {
+		switch v := interface{}(m.GetBranch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RunPFSLoadTestResponseValidationError{
+					field:  "Branch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RunPFSLoadTestResponseValidationError{
+					field:  "Branch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBranch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RunPFSLoadTestResponseValidationError{
+				field:  "Branch",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for Seed
+
+	// no validation rules for Error
+
+	if all {
+		switch v := interface{}(m.GetDuration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RunPFSLoadTestResponseValidationError{
+					field:  "Duration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RunPFSLoadTestResponseValidationError{
+					field:  "Duration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDuration()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RunPFSLoadTestResponseValidationError{
+				field:  "Duration",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for StateId
+
+	if len(errors) > 0 {
+		return RunPFSLoadTestResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// RunPFSLoadTestResponseMultiError is an error wrapping multiple validation
+// errors returned by RunPFSLoadTestResponse.ValidateAll() if the designated
+// constraints aren't met.
+type RunPFSLoadTestResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RunPFSLoadTestResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RunPFSLoadTestResponseMultiError) AllErrors() []error { return m }
+
+// RunPFSLoadTestResponseValidationError is the validation error returned by
+// RunPFSLoadTestResponse.Validate if the designated constraints aren't met.
+type RunPFSLoadTestResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RunPFSLoadTestResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RunPFSLoadTestResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RunPFSLoadTestResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RunPFSLoadTestResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RunPFSLoadTestResponseValidationError) ErrorName() string {
+	return "RunPFSLoadTestResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RunPFSLoadTestResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRunPFSLoadTestResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RunPFSLoadTestResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RunPFSLoadTestResponseValidationError{}
+
 // Validate checks the field values on DumpV2Request_Defaults with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
