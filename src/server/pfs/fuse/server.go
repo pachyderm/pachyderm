@@ -40,7 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-const NumDatumsPerPage = 1000 // The number of datums requested per ListDatum call
+const NumDatumsPerPage = 500 // The number of datums requested per ListDatum call
 
 type ServerOptions struct {
 	MountDir string
