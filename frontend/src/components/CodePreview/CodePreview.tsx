@@ -6,6 +6,7 @@ import classNames from 'classnames';
 import {EditorView, basicSetup} from 'codemirror';
 import React, {useEffect, useRef} from 'react';
 
+import {SupportedLanguage} from '@dash-frontend/lib/getFileDetails';
 import {LoadingDots} from '@pachyderm/components';
 
 import styles from './CodePreview.module.css';
@@ -18,7 +19,7 @@ type CodePreviewProps = {
   fullHeight?: boolean;
   hideGutter?: boolean;
   hideLineNumbers?: boolean;
-  language?: 'json' | 'markdown' | 'yaml' | 'text';
+  language?: SupportedLanguage;
   source?: string;
 };
 

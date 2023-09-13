@@ -1,9 +1,7 @@
 import {File} from '@graphqlTypes';
-import React, {useCallback} from 'react';
+import React from 'react';
 
-import CodePreview from '@dash-frontend/components/CodePreview';
 import Description from '@dash-frontend/components/Description';
-import EmptyState from '@dash-frontend/components/EmptyState';
 import {
   Button,
   DefaultDropdown,
@@ -11,23 +9,19 @@ import {
   Group,
   ArrowLeftSVG,
   BasicModal,
-  Switch,
 } from '@pachyderm/components';
 
 import useFileActions from '../../hooks/useFileActions';
 import useFileDelete from '../../hooks/useFileDelete';
 
-import CSVPreview from './components/CSVPreview';
-import IFramePreview from './components/IFramePreview';
-import MarkdownPreview from './components/MarkdownPreview';
-import WebPreview from './components/WebPreview';
+import FilePreviewContent from './components/FilePreviewContent';
 import styles from './FilePreview.module.css';
 
 type FilePreviewProps = {
   file: File;
 };
 
-const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
+const FilePreview = ({file}: FilePreviewProps) => {
   const {
     deleteModalOpen,
     openDeleteModal,
@@ -38,87 +32,14 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
   } = useFileDelete(file);
   const {
     fileName,
-    previewSupported,
-    viewSourceSupported,
     viewSource,
     toggleViewSource,
     onMenuSelect,
     iconItems,
-    fileMajorType,
     fileType,
     handleBackNav,
     branchId,
   } = useFileActions(file, openDeleteModal);
-
-  const getPreviewElement = useCallback(
-    (fileLink: string) => {
-      if (previewSupported) {
-        switch (fileMajorType) {
-          case 'image':
-            return (
-              <img
-                className={styles.preview}
-                src={fileLink}
-                alt={fileName}
-                data-testid="FilePreview__image"
-              />
-            );
-          case 'video':
-            return (
-              <video
-                controls
-                className={styles.preview}
-                src={fileLink}
-                data-testid="FilePreview__video"
-              />
-            );
-          case 'audio':
-            return (
-              <audio className={styles.preview} controls>
-                <source src={fileLink} data-testid="FilePreview__audio" />
-              </audio>
-            );
-        }
-        switch (fileType) {
-          case 'xml':
-            return (
-              <IFramePreview
-                downloadLink={fileLink}
-                fileName={fileName}
-                data-testid="FilePreview__xml"
-              />
-            );
-          case 'yml':
-          case 'yaml':
-            return <CodePreview downloadLink={fileLink} language="yaml" />;
-          case 'txt':
-          case 'jsonl':
-          case 'textpb':
-            return <CodePreview downloadLink={fileLink} language="text" />;
-          case 'html':
-          case 'htm':
-            return <WebPreview downloadLink={fileLink} fileName={fileName} />;
-          case 'json':
-            return <CodePreview downloadLink={fileLink} language="json" />;
-          case 'csv':
-          case 'tsv':
-          case 'tab':
-            return <CSVPreview downloadLink={fileLink} />;
-          case 'md':
-          case 'mkd':
-          case 'mdwn':
-          case 'mdown':
-          case 'markdown':
-            return viewSource ? (
-              <CodePreview downloadLink={fileLink} language="markdown" />
-            ) : (
-              <MarkdownPreview downloadLink={fileLink} />
-            );
-        }
-      }
-    },
-    [fileMajorType, fileName, fileType, previewSupported, viewSource],
-  );
 
   return (
     <div className={styles.base}>
@@ -166,27 +87,14 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
           </div>
         </Group>
       </div>
-      <div className={styles.actionBar}>
-        {viewSourceSupported ? (
-          <div className={styles.actionBarItem}>
-            <Switch onChange={toggleViewSource} />
-            <span className={styles.actionBarViewSourceText}>View Source</span>
-          </div>
-        ) : null}
-      </div>
-      {file.download && previewSupported ? (
-        getPreviewElement(file.download)
-      ) : (
-        <EmptyState
-          error
-          title="Unable to preview this file"
-          message={
-            !file.download
-              ? 'This file is too large to preview'
-              : 'This file format is not supported for file previews'
-          }
-        />
-      )}
+
+      <FilePreviewContent
+        download={file.download}
+        path={file.path}
+        viewSource={viewSource}
+        toggleViewSource={toggleViewSource}
+      />
+
       {deleteModalOpen && (
         <BasicModal
           show={deleteModalOpen}

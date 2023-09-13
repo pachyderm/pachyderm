@@ -1,7 +1,7 @@
 import {GRPC_MAX_MESSAGE_LENGTH} from '@dash-backend/lib/constants';
-import {useCallback, useEffect, useMemo, useReducer, useState} from 'react';
+import {useCallback, useEffect, useReducer, useState} from 'react';
 
-import getFileMajorType from '@dash-frontend/lib/getFileMajorType';
+import useFileDetails from '@dash-frontend/hooks/useFileDetails';
 import {ERROR_MESSAGE} from '@dash-frontend/views/FileUpload/lib/constants';
 
 import useCancelFile from './useCancelFile';
@@ -44,6 +44,7 @@ const useFileCard = ({
   uploadError,
 }: UseFileCardProps) => {
   const [controller, setController] = useState(new AbortController());
+  const {fileDetails} = useFileDetails(file.name);
 
   const initialState: UploadState = {
     loading: false,
@@ -76,13 +77,7 @@ const useFileCard = ({
     initialState,
   );
 
-  const fileType = useMemo(() => {
-    return (file?.name || '')
-      .slice((file?.name || '').lastIndexOf('.') + 1)
-      .toLowerCase();
-  }, [file?.name]);
-
-  const fileMajorType = getFileMajorType(fileType);
+  const fileMajorType = fileDetails.icon;
 
   const onCancel = useCallback(() => {
     if (!uploadError) handleFileCancel(index, state.success);

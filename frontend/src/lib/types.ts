@@ -19,14 +19,6 @@ export interface ConsoleRouteParams extends ProjectRouteParams {
   view?: string;
 }
 
-export type FileMajorType =
-  | 'document'
-  | 'image'
-  | 'video'
-  | 'audio'
-  | 'folder'
-  | 'unknown';
-
 export type FixedListRowProps = {
   index: number;
   style: CSSProperties;

@@ -1,0 +1,9 @@
+.media {
+  margin: 2rem;
+  text-align: center;
+  max-width: calc(100% - 4rem);
+  min-height: 10rem;
+  max-height: calc(
+    100vh - var(--header-height) - var(--subheader-height) - 8.25rem
+  );
+}

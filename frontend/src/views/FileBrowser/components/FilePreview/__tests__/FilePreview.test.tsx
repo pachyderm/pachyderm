@@ -31,60 +31,66 @@ describe('File Preview', () => {
   afterAll(() => server.close());
 
   describe('File Preview File Types', () => {
-    it.each(['md', 'mkd', 'mdown', 'markdown'])(
-      'should render a %s file',
-      async (ext) => {
-        const file = buildFile({
-          download: `/download/markdown.${ext}`,
-          path: `/markdown.${ext}`,
-          repoName: 'markdown',
-        });
+    it.each([
+      'markdn',
+      'markdown',
+      'md',
+      'mdown',
+      'mdwn',
+      'mkdn',
+      'mkdown',
+      'mkd',
+    ])('should render a %s file', async (ext) => {
+      const file = buildFile({
+        download: `/download/markdown.${ext}`,
+        path: `/markdown.${ext}`,
+        repoName: 'markdown',
+      });
 
-        server.use(
-          rest.get(`/download/markdown.${ext}`, (_req, res, ctx) => {
-            return res(
-              ctx.text(
-                '# H1\n## H2\n### H3\n---\n**labore et dolore magna aliqua**',
-              ),
-            );
-          }),
-        );
+      server.use(
+        rest.get(`/download/markdown.${ext}`, (_req, res, ctx) => {
+          return res(
+            ctx.text(
+              '# H1\n## H2\n### H3\n---\n**labore et dolore magna aliqua**',
+            ),
+          );
+        }),
+      );
 
-        window.history.replaceState(
-          {},
-          '',
-          `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-        );
+      window.history.replaceState(
+        {},
+        '',
+        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+      );
 
-        render(<FilePreview file={file} />);
+      render(<FilePreview file={file} />);
 
-        // Should render the markdown contents
-        expect(await screen.findByText('H1')).toBeInTheDocument();
-        expect(await screen.findByText('H2')).toBeInTheDocument();
-        expect(await screen.findByText('H3')).toBeInTheDocument();
-        expect(
-          await screen.findByText('labore et dolore magna aliqua'),
-        ).toBeInTheDocument();
+      // Should render the markdown contents
+      expect(await screen.findByText('H1')).toBeInTheDocument();
+      expect(await screen.findByText('H2')).toBeInTheDocument();
+      expect(await screen.findByText('H3')).toBeInTheDocument();
+      expect(
+        await screen.findByText('labore et dolore magna aliqua'),
+      ).toBeInTheDocument();
 
-        // Should not render markdown source
-        expect(screen.queryByText('#')).not.toBeInTheDocument();
-        expect(screen.queryByText('##')).not.toBeInTheDocument();
-        expect(screen.queryByText('###')).not.toBeInTheDocument();
-        expect(screen.queryByText('---')).not.toBeInTheDocument();
-        expect(screen.queryByText('**')).not.toBeInTheDocument();
+      // Should not render markdown source
+      expect(screen.queryByText('#')).not.toBeInTheDocument();
+      expect(screen.queryByText('##')).not.toBeInTheDocument();
+      expect(screen.queryByText('###')).not.toBeInTheDocument();
+      expect(screen.queryByText('---')).not.toBeInTheDocument();
+      expect(screen.queryByText('**')).not.toBeInTheDocument();
 
-        const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
+      const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
 
-        await click(viewSourceButton);
+      await click(viewSourceButton);
 
-        // Should render the markdown source
-        expect(await screen.findByText('#')).toBeInTheDocument();
-        expect(await screen.findByText('##')).toBeInTheDocument();
-        expect(await screen.findByText('###')).toBeInTheDocument();
-        expect(await screen.findByText('---')).toBeInTheDocument();
-        expect(await screen.findAllByText('**')).toHaveLength(2);
-      },
-    );
+      // Should render the markdown source
+      expect(await screen.findByText('#')).toBeInTheDocument();
+      expect(await screen.findByText('##')).toBeInTheDocument();
+      expect(await screen.findByText('###')).toBeInTheDocument();
+      expect(await screen.findByText('---')).toBeInTheDocument();
+      expect(await screen.findAllByText('**')).toHaveLength(2);
+    });
 
     it.each([
       {name: 'image', ext: 'png'},
@@ -107,10 +113,9 @@ describe('File Preview', () => {
 
       render(<FilePreview file={file} />);
 
-      expect(await screen.findByTestId(`FilePreview__${name}`)).toHaveAttribute(
-        'src',
-        file.download,
-      );
+      expect(
+        await screen.findByTestId(`FilePreviewContent__${name}`),
+      ).toHaveAttribute('src', file.download);
     });
 
     it.each(['yml', 'yaml'])('should render a %s file', async (ext) => {

@@ -17,15 +17,7 @@ const useFileActions = (
   includePreview = false,
 ) => {
   const [viewSource, setViewSource] = useState(false);
-  const {
-    copy,
-    fileName,
-    filePath,
-    previewSupported,
-    fileMajorType,
-    fileType,
-    viewSourceSupported,
-  } = useFileDisplay(file);
+  const {copy, fileName, filePath, fileType} = useFileDisplay(file);
   const browserHistory = useHistory();
   const {loading: repoLoading, repo} = useCurrentRepoWithLinkedPipeline();
   const {repoId, branchId, projectId, commitId} = useUrlState();
@@ -114,13 +106,10 @@ const useFileActions = (
   return {
     fileName,
     filePath,
-    previewSupported,
-    viewSourceSupported,
     viewSource,
     toggleViewSource,
     onMenuSelect,
     iconItems,
-    fileMajorType,
     fileType,
     branchId,
     handleBackNav,
