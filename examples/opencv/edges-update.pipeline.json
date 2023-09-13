@@ -10,11 +10,11 @@
     } 
   },
   "transform": {
-    "cmd": [ "python3", "/edges.py" ],
+    "cmd": ["python3", "/edges.py"],
     "image": "pachyderm/opencv:1.0"
   },
   "resource_requests": {
-    "cpu": 1,
+    "cpu": 0.5,
     "memory": "1G"
   },
   "autoscaling": true,
@@ -22,4 +22,3 @@
     "constant": 1
   }
 }
-

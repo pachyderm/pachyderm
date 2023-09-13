@@ -9,6 +9,7 @@ import (
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -41,7 +42,9 @@ func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pp
 			// monitorPipeline needs auth privileges to call subscribeCommit and
 			// inspectCommit
 			pachClient := pc.env.GetPachClient(ctx)
+			log.Info(ctx, "DNJ TODO start monitor token check", zap.Any("pipelineInfo", pipelineInfo), zap.Any("token", pipelineInfo.AuthToken))
 			pachClient.SetAuthToken(pipelineInfo.AuthToken)
+
 			pc.monitorPipeline(pachClient.Ctx(), pipelineInfo)
 		})
 }
@@ -111,7 +114,10 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			defer close(ciChan)
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
+				who, whoerr := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+				log.Info(ctx, "DNJ TODO about to monitor pipeline who am i", zap.Any("pipelineInfo", pipelineInfo), zap.Any("whoami", who), zap.Error(whoerr))
 				return pachClient.SubscribeCommit(client.NewRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+					log.Info(ctx, "DNJ TODO subscribing", zap.Any("pipelineInfo", pipelineInfo))
 					ciChan <- ci
 					return nil
 				})
@@ -119,7 +125,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipelineInfo.Pipeline.String()))
 		})
 		eg.Go(func() error {
-			return backoff.RetryNotify(func() error {
+			return backoff.RetryUntilCancel(ctx, func() error {
 				var (
 					oldCtx    = ctx
 					childSpan opentracing.Span
@@ -130,15 +136,19 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					tracing.FinishAnySpan(childSpan)
 				}()
 				// start span to capture & contextualize etcd state transition
+				log.Info(ctx, "DNJ TODO about to context swap", zap.Any("oldctx auth", pc.env.GetPachClient(oldCtx).AuthToken()))
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 					pc.env.EtcdClient, pipelineInfo.Pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
+
+				log.Info(ctx, "DNJ TODO after trace", zap.Any("oldctx auth", pc.env.GetPachClient(oldCtx).AuthToken()), zap.Any("new ctx auth", pc.env.GetPachClient(ctx).AuthToken()))
 				if err := pc.psDriver.TransitionState(ctx,
 					pipelineInfo.SpecCommit,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
 						pps.PipelineState_PIPELINE_CRASHING,
 					}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+					log.Info(ctx, "DNJ TODO after trace in state transition", zap.Any("oldctx auth", pc.env.GetPachClient(oldCtx).AuthToken()), zap.Any("new ctx auth", pc.env.GetPachClient(ctx).AuthToken()))
 					pte := &ppsutil.PipelineTransitionError{}
 					if errors.As(err, &pte) {
 						if pte.Current == pps.PipelineState_PIPELINE_PAUSED {
@@ -193,7 +203,9 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					running:
 						for {
 							pachClient := pc.env.GetPachClient(ctx)
-							if err := pc.blockStandby(pachClient, ci.Commit); err != nil {
+							log.Info(ctx, "DNJ TODO about to block token check", zap.Any("pipelineInfo", pipelineInfo), zap.Any("token", pipelineInfo.GetAuthToken()))
+							// pachClient.SetAuthToken(pipelineInfo.GetAuthToken())
+							if err := pc.blockStandby(pachClient, ci.Commit); err != nil && !errors.Is(err, auth.ErrBadToken) { // we just set token to pipeline token, so pipeline must be gone
 								return err
 							}
 
@@ -208,7 +220,10 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 									pc.env.EtcdClient, pipelineInfo.Pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.Id)
+							// case <-ctx.Done(): // DNJ TODO
+							// 	return errors.EnsureStack(context.Cause(ctx))
 							default:
+								log.Info(ctx, "DNJ TODO about break running", zap.Any("pipelineInfo", pipelineInfo), zap.Any("token", pipelineInfo.GetAuthToken()))
 								break running
 							}
 						}
@@ -245,7 +260,11 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 
 func (pc *pipelineController) blockStandby(pachClient *client.APIClient, commit *pfs.Commit) error {
 	ctx := pachClient.Ctx()
+	who, whoerr := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	log.Info(ctx, "DNJ TODO block standby before", zap.Any("commit", commit), zap.Any("token", pachClient.AuthToken()), zap.Any("who", who), zap.Error(whoerr))
 	if pc.env.PachwInSidecar {
+		who, whoerr := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+		log.Info(ctx, "DNJ TODO block standby pachw", zap.Any("commit", commit), zap.Any("who", who), zap.Error(whoerr))
 		if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 			Commit: commit,
 			Wait:   pfs.CommitState_FINISHED,
@@ -258,16 +277,22 @@ func (pc *pipelineController) blockStandby(pachClient *client.APIClient, commit 
 		})
 		return err
 	}
+	who, whoerr = pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	log.Info(ctx, "DNJ TODO block standby normal commit", zap.Any("commit", commit), zap.Any("who", who), zap.Error(whoerr))
 	if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 		Commit: commit,
 		Wait:   pfs.CommitState_FINISHING,
 	}); err != nil {
 		return err
 	}
+	who, whoerr = pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	log.Info(ctx, "DNJ TODO block standby before meta commit", zap.Any("commit", commit), zap.Any("who", who), zap.Error(whoerr))
 	_, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 		Commit: ppsutil.MetaCommit(commit),
 		Wait:   pfs.CommitState_FINISHING,
 	})
+	who, _ = pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	log.Info(ctx, "DNJ TODO block standby done", zap.Any("commit", commit), zap.Any("token", pachClient.AuthToken()), zap.Any("who", who), zap.Error(err))
 	return err
 }
 

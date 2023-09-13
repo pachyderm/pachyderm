@@ -12,8 +12,51 @@ opencv:
 	pachctl create repo images
 	pachctl create pipeline -f $(data_dir)/edges.json
 	pachctl create pipeline -f $(data_dir)/montage.json
-	pachctl put file images@master -i $(data_dir)/images.txt
-	pachctl put file images@master -i $(data_dir)/images2.txt
+	# # pachctl create repo images
+	# pachctl put file images@master -f Image.png
+	# pachctl create pipeline -f $(data_dir)/edges.pipeline.json
+	# # pachctl create pipeline -f $(data_dir)/montage.pipeline.json
+	# # pachctl put file images@master -i $(data_dir)/images.txt
+	# # pachctl put file images@master -i $(data_dir)/images2.txt
+
+opencvauth:
+	# echo 64a6e99a5ca34d6e83229725bd637301 | pachctl auth use-auth-token
+	pachctl create repo images
+	# sleep 10
+	pachctl put file images@master -f Image.png
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json
+	pachctl put file images@master -f liberty.jpg
+	pachctl put file images@master -f camera_lense_0.jpg
+	 
+	sleep 5
+	# pachctl stop pipeline edges
+	# pachctl subscribe commit edges@master
+	# pachctl auth set repo edges none pipeline:default/edges
+	# pachctl auth set repo edges none robot:pachrun
+	# pachctl delete pipeline edges
+	# sleep 20
+	# pachctl create pipeline -f $(data_dir)/edges-update.pipeline.json 
+	pachctl update pipeline -f $(data_dir)/edges-update.pipeline.json 
+	# pachctl start pipeline edges
+	# pachctl auth set repo edges none pach:root
+	# pachctl auth set repo edges none robot:daniel
+	# pachctl auth set repo edges repoReader,repoWriter robot:pachrun
+	# pachctl update pipeline -f $(data_dir)/edges-update2.pipeline.json
+	# pachctl auth set repo edges repoReader,repoWriter robot:pachrun
+
+opencvinputupdate:
+	pachctl create repo images
+	pachctl create repo images2
+	# sleep 10
+	pachctl put file images@master -f Image.png
+	pachctl put file images@master -f liberty.jpg
+	pachctl put file images@master -f camera_lense_0.jpg
+	pachctl create pipeline -f $(data_dir)/edges.pipeline.json
+	sleep 1
+	pachctl update pipeline -f $(data_dir)/edges-update-noinput.pipeline.json 
+	sleep 1
+	pachctl update pipeline -f $(data_dir)/edges-update-newinput.pipeline.json 
+
 
 
 # Generates the following DAG for testing
