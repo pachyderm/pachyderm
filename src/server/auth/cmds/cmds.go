@@ -525,7 +525,7 @@ func GetGroupsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comman
 		Long:  "This command returns the list of groups a user belongs to. If no user is specified, the current user's groups are listed.",
 		Example: "\t- {{alias}}" +
 			"\t- {{alias}} alan.watts@domain.com" +
-			"\t- {{alias}} alan.watts@domain.com --enterprise" +
+			"\t- {{alias}} alan.watts@domain.com --enterprise",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
