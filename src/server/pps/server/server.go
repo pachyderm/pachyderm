@@ -59,7 +59,6 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		log.Error(env.BackgroundContext, "Preflight checks are disabled. This is not recommended.")
 	}
 	go apiServer.master(env.BackgroundContext)
-	go apiServer.worker(env.BackgroundContext)
 	return apiServer, nil
 }
 
