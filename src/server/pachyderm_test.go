@@ -3131,7 +3131,7 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 	flushJob(1)
 
 	// Create multiple new commits.
-	numCommits := 5
+	numCommits := 15
 	for i := 1; i < numCommits; i++ {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
