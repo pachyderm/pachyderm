@@ -120,7 +120,6 @@ const JobsList: React.FC<JobsListProps> = ({
                   <Table.DataCell>
                     {job?.startedAt ? getStandardDate(job?.startedAt) : '-'}
                   </Table.DataCell>
-                  <Table.DataCell>{job?.id.slice(0, 6)}...</Table.DataCell>
                   <Table.DataCell>
                     {getJobRuntime(job.startedAt, job.finishedAt)}
                   </Table.DataCell>
