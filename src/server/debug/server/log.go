@@ -117,7 +117,7 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 	var enumerateErrs error
 	for app, port := range apps {
 		tctx, c := context.WithTimeout(ctx, 30*time.Second)
-		podList, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).List(
+		podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config.Namespace).List(
 			tctx,
 			metav1.ListOptions{
 				TypeMeta: metav1.TypeMeta{

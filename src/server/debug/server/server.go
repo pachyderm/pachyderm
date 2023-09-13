@@ -47,6 +47,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -67,8 +68,9 @@ type Env struct {
 	SidecarClient *client.APIClient
 	Name          string
 	GetLokiClient func() (*loki.Client, error)
-	KubeClient    kubernetes.Interface
+	GetKubeClient func() kubernetes.Interface
 	Config        pachconfig.Configuration
+	TaskService   task.Service
 
 	GetPachClient func(context.Context) *client.APIClient
 }
@@ -86,7 +88,7 @@ type debugServer struct {
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
 func NewDebugServer(env Env) debug.DebugServer {
-	return &debugServer{
+	s := &debugServer{
 		env:           env,
 		name:          env.Name,
 		sidecarClient: env.SidecarClient,
@@ -95,6 +97,7 @@ func NewDebugServer(env Env) debug.DebugServer {
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
 	}
+	return s
 }
 
 // the returned taskPath gets deleted by the caller after its contents are streamed, and is the location of any associated error file
@@ -146,7 +149,7 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 	defer end(log.Errorp(&retErr))
 	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
 	defer c()
-	pods, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).List(ctx, metav1.ListOptions{
+	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config.Namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
@@ -970,7 +973,7 @@ func (s *debugServer) collectPachdVersion(ctx context.Context, dfs DumpFS, pachC
 }
 
 func (s *debugServer) collectHelm(ctx context.Context, dfs DumpFS, server debug.Debug_DumpV2Server) error {
-	secrets, err := s.env.KubeClient.CoreV1().Secrets(s.env.Config.Namespace).List(ctx, metav1.ListOptions{
+	secrets, err := s.env.GetKubeClient().CoreV1().Secrets(s.env.Config.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "owner=helm",
 	})
 	if err != nil {
@@ -1003,7 +1006,7 @@ func (s *debugServer) collectDescribe(ctx context.Context, dfs DumpFS, app *debu
 			// memory if this runs forever but we return, but that's better than a debug
 			// dump that doesn't return.
 			pd := describe.PodDescriber{
-				Interface: s.env.KubeClient,
+				Interface: s.env.GetKubeClient(),
 			}
 			output, err := pd.Describe(s.env.Config.Namespace, pod.Name, describe.DescriberSettings{ShowEvents: true})
 			if err != nil {
@@ -1030,7 +1033,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.Ap
 	dir := filepath.Join(appDir(app), "pods", pod.Name, container)
 	if err := dfs.Write(filepath.Join(dir, "logs.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
-		stream, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container}).Stream(ctx)
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -1046,7 +1049,7 @@ func (s *debugServer) collectLogs(ctx context.Context, dfs DumpFS, app *debug.Ap
 	}
 	if err := dfs.Write(filepath.Join(dir, "logs-previous.txt"), func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod.Name), zap.String("container", container))(log.Errorp(&retErr))
-		stream, err := s.env.KubeClient.CoreV1().Pods(s.env.Config.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
