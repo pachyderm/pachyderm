@@ -69,7 +69,7 @@ func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
 		Long: "This command manually activates Pachyderm's auth system and restricts access to existing data to the root user. \n\n" +
-			"This method of activation is not recommended for production. Instead, configure from OIDC from Helm values file; auth will be activated automatically when an enterprise key/secret is provided.",
+			"This method of activation is not recommended for production. Instead, configure OIDC from Helm values file; auth will be activated automatically when an enterprise key/secret is provided.",
 		Example: "\t- {{alias}}" +
 			"\t- {{alias}} --supply-root-token" +
 			"\t- {{alias}} --enterprise" +
@@ -351,7 +351,7 @@ func LogoutCmd() *cobra.Command {
 		Short: "Log out of Pachyderm by deleting your local credential",
 		Long: "This command logs out of Pachyderm by deleting your local credential. Note that " +
 			"it's not necessary to log out before logging in with another account " +
-			"(simply run `pachctl auth login` twice) but 'logout' can be useful on " +
+			"(simply run `pachctl auth login` twice) but logout can be useful on " +
 			"shared workstations.",
 		Example: "\t- {{alias}}" +
 			"\t- {{alias}} --enterprise",
@@ -388,7 +388,7 @@ func WhoamiCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
-		Long:  "This command prints your Pachyderm identity.",
+		Long:  "This command prints your Pachyderm identity (e.g., `user:alan.watts@domain.com`) and session expiration.",
 		Run: cmdutil.Run(func([]string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
@@ -419,7 +419,7 @@ func GetRobotTokenCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 	getAuthToken := &cobra.Command{
 		Use:   "{{alias}} [username]",
 		Short: "Get an auth token for a robot user with the specified name.",
-		Long:  "This command returns an auth token for a robot user with the specified name.",
+		Long:  "This command returns an auth token for a robot user with the specified name. You can assign roles to a robot user with `pachctl auth <resource> set robot:<robot-name>.` ",
 		Example: "\t- {{alias}} my-robot" +
 			"\t- {{alias}} my-robot --ttl 1h" +
 			"\t- {{alias}} my-robot --quiet" +
@@ -456,11 +456,11 @@ func GetRobotTokenCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 	}
 	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
 		"set, only print the resulting token (if successful). This is useful for "+
-		"scripting, as the output can be piped to use-auth-token")
+		"scripting, as the output can be piped to use-auth-token.")
 	getAuthToken.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, the "+
 		"resulting auth token will have the given lifetime. If not set, the token does not expire."+
 		" This flag should be a golang duration (e.g. \"30s\" or \"1h2m3s\").")
-	getAuthToken.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get a robot token for the enterprise context")
+	getAuthToken.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get a robot token for the enterprise context.")
 	return cmdutil.CreateAlias(getAuthToken, "auth get-robot-token")
 }
 
@@ -511,9 +511,9 @@ func RevokeCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 			return nil
 		}),
 	}
-	revoke.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Revoke an auth token (or all auth tokens minted for one user) on the enterprise server")
-	revoke.PersistentFlags().StringVar(&token, "token", "", "Pachyderm auth token that should be revoked (one of --token or --user must be set)")
-	revoke.PersistentFlags().StringVar(&user, "user", "", "User whose Pachyderm auth tokens should be revoked (one of --token or --user must be set)")
+	revoke.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Revoke an auth token (or all auth tokens minted for one user) on the enterprise server.")
+	revoke.PersistentFlags().StringVar(&token, "token", "", "Pachyderm auth token that should be revoked (one of --token or --user must be set).")
+	revoke.PersistentFlags().StringVar(&user, "user", "", "User whose Pachyderm auth tokens should be revoked (one of --token or --user must be set).")
 	return cmdutil.CreateAlias(revoke, "auth revoke")
 }
 
@@ -523,6 +523,9 @@ func GetGroupsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comman
 		Use:   "{{alias}} [username]",
 		Short: "Get the list of groups a user belongs to",
 		Long:  "This command returns the list of groups a user belongs to. If no user is specified, the current user's groups are listed.",
+		Example: "\t- {{alias}}" +
+			"\t- {{alias}} alan.watts@domain.com" +
+			"\t- {{alias}} alan.watts@domain.com --enterprise" +
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
@@ -544,7 +547,7 @@ func GetGroupsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comman
 			return nil
 		}),
 	}
-	getGroups.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get group membership info from the enterprise server")
+	getGroups.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Get group membership info from the enterprise server.")
 	return cmdutil.CreateAlias(getGroups, "auth get-groups")
 }
 
@@ -566,7 +569,7 @@ func UseAuthTokenCmd() *cobra.Command {
 			return config.WritePachTokenToConfig(strings.TrimSpace(token), enterprise) // drop trailing newline
 		}),
 	}
-	useAuthToken.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Use the token for the enterprise context")
+	useAuthToken.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Use the token for the enterprise context.")
 	return cmdutil.CreateAlias(useAuthToken, "auth use-auth-token")
 }
 
@@ -576,10 +579,11 @@ func CheckRepoCmd(ctx context.Context, pachCtx *config.Context, pachctlCfg *pach
 	project := pachCtx.Project
 	check := &cobra.Command{
 		Use:   "{{alias}} <repo> [<user>]",
-		Short: "Check the permissions a user has on 'repo'",
-		Long:  "This command checks the permissions a user has on 'repo'",
-		Example: "\t- {{alias}} foo" +
-			"\t- {{alias}} foo bar",
+		Short: "Check the permissions a user has on a repo",
+		Long:  "This command checks the permissions a given subject (user, robot) has on a given repo.",
+		Example: "\t- {{alias}} foo user:alan.watts@domain.com" +
+			"\t- {{alias}} foo user:alan.watts@domain.com --project bar"
+			"\t- {{alias}} foo robot:my-robot",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			repoResource := client.NewRepo(project, args[0]).AuthResource()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
@@ -606,7 +610,7 @@ func CheckRepoCmd(ctx context.Context, pachCtx *config.Context, pachctlCfg *pach
 			return nil
 		}),
 	}
-	check.Flags().StringVar(&project, "project", project, "The project containing the repo.")
+	check.Flags().StringVar(&project, "project", project, "Define the project containing the repo.")
 	return cmdutil.CreateAliases(check, "auth check repo", "repos")
 }
 
@@ -677,6 +681,7 @@ func CheckProjectCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Com
 		Use:   "{{alias}} <project> [user]",
 		Short: "Check the permissions a user has on a project",
 		Long:  "This command checks the permissions a user has on a given project.",
+		Example: "\t- {{alias}} foo user:alan.watts@domain.com",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			project := client.NewProject(args[0]).AuthResource()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
