@@ -429,7 +429,7 @@ func protoToCommit(col commitCollection) (*Commit, error) {
 	}
 	return &Commit{
 		IntID:          col.IntID,
-		CommitID:       pfsdb.CommitKey(commitInfo.Commit),
+		CommitID:       commitInfo.Commit.Key(),
 		CommitSetID:    commitInfo.Commit.Id,
 		RepoName:       commitInfo.Commit.Repo.Name,
 		RepoType:       commitInfo.Commit.Repo.Type,
