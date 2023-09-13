@@ -582,8 +582,8 @@ func CheckRepoCmd(ctx context.Context, pachCtx *config.Context, pachctlCfg *pach
 		Short: "Check the permissions a user has on a repo",
 		Long:  "This command checks the permissions a given subject (user, robot) has on a given repo.",
 		Example: "\t- {{alias}} foo user:alan.watts@domain.com" +
-			"\t- {{alias}} foo user:alan.watts@domain.com --project bar"
-			"\t- {{alias}} foo robot:my-robot",
+			"\t- {{alias}} foo user:alan.watts@domain.com --project bar",
+		"\t- {{alias}} foo robot:my-robot",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			repoResource := client.NewRepo(project, args[0]).AuthResource()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
@@ -678,9 +678,9 @@ func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 // pachd to determine what permissions a user has on the project.
 func CheckProjectCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	check := &cobra.Command{
-		Use:   "{{alias}} <project> [user]",
-		Short: "Check the permissions a user has on a project",
-		Long:  "This command checks the permissions a user has on a given project.",
+		Use:     "{{alias}} <project> [user]",
+		Short:   "Check the permissions a user has on a project",
+		Long:    "This command checks the permissions a user has on a given project.",
 		Example: "\t- {{alias}} foo user:alan.watts@domain.com",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			project := client.NewProject(args[0]).AuthResource()
