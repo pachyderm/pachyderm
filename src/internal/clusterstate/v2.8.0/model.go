@@ -2,12 +2,23 @@ package v2_8_0
 
 import (
 	"database/sql"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"time"
 )
 
 type Commit struct {
-	IntID          uint64         `db:"int_id"`
+	IntID uint64 `db:"int_id"`
+	CommitInfo
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+	//The value of these fields are equivalent to pfsdb.CommitKey(commit *pfs.Commit)
+}
+
+type CommitAncestry struct {
+	ParentCommit string   `db:"parent_commit"`
+	ChildCommits []string `db:"child_commits"`
+}
+
+type CommitInfo struct {
 	CommitSetID    string         `db:"commit_set_id"`
 	CommitID       string         `db:"commit_id"`
 	RepoID         uint64         `db:"repo_id"`
@@ -25,10 +36,6 @@ type Commit struct {
 	ProjectName    string         `db:"proj_name"`
 	BranchID       sql.NullInt64  `db:"branch_id"`
 	BranchName     sql.NullString `db:"branch_name"`
-	ParentCommit   *pfs.Commit    `db:"parent_commit"`
-	ChildCommits   []*pfs.Commit  `db:"child_commits"`
-	CreatedAt      time.Time      `db:"created_at"`
-	UpdatedAt      time.Time      `db:"updated_at"`
 }
 
 type Repo struct {

@@ -192,6 +192,10 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
+	branchName := sql.NullString{String: "", Valid: false}
+	if commitInfo.Commit.Branch != nil {
+		branchName = sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true}
+	}
 	insert := Commit{
 		CommitID:    CommitKey(commitInfo.Commit),
 		CommitSetID: commitInfo.Commit.Id,
@@ -202,7 +206,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 				Name: commitInfo.Commit.Repo.Project.Name,
 			},
 		},
-		BranchName:     sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true},
+		BranchName:     branchName,
 		Origin:         commitInfo.Origin.Kind.String(),
 		StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
 		FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
@@ -480,6 +484,10 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
+	branchName := sql.NullString{String: "", Valid: false}
+	if commitInfo.Commit.Branch != nil {
+		branchName = sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true}
+	}
 	update := Commit{
 		ID:          id,
 		CommitID:    CommitKey(commitInfo.Commit),
@@ -491,7 +499,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 				Name: commitInfo.Commit.Repo.Project.Name,
 			},
 		},
-		BranchName:     sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true},
+		BranchName:     branchName,
 		Origin:         commitInfo.Origin.Kind.String(),
 		StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
 		FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
@@ -544,9 +552,6 @@ func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
 	}
 	if commitInfo.Origin == nil {
 		return ErrCommitMissingInfo{Field: "Origin"}
-	}
-	if commitInfo.Commit.Branch == nil {
-		return ErrCommitMissingInfo{Field: "Branch"}
 	}
 	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
 		commitInfo.Details = &pfs.CommitInfo_Details{}
