@@ -17,6 +17,10 @@
   stroke-linejoin: bevel;
 }
 
+.crossProject {
+  stroke-dasharray: 0.25rem;
+}
+
 .circle {
   fill: var(--success-green);
   /* this animation does not work in firefox */

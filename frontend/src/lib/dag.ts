@@ -2,16 +2,13 @@
 import {NodeType, Vertex, NodeState} from '@graphqlTypes';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import keyBy from 'lodash/keyBy';
-import minBy from 'lodash/minBy';
-import uniqueId from 'lodash/uniqueId';
 import objectHash from 'object-hash';
 
 import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
 
-import disconnectedComponents from './disconnectedComponents';
 import {LinkInputData, NodeInputData, Link, Node, DagDirection} from './types';
 
-const normalizeDAGData = async (
+const normalizeData = async (
   vertices: Vertex[],
   nodeWidth: number,
   nodeHeight: number,
@@ -116,14 +113,25 @@ const normalizeDAGData = async (
       labels: _labels,
       layoutOptions: _layoutOptions,
       ...rest
-    }) => ({
-      ...rest,
-      source: {id: sources[0], name: vertMap[sources[0]].name},
-      target: {id: targets[0], name: vertMap[targets[0]].name},
-      startPoint: sections?.[0].startPoint || {x: 0, y: 0},
-      endPoint: sections?.[0].endPoint || {x: 0, y: 0},
-      bendPoints: sections?.[0].bendPoints || [],
-    }),
+    }) => {
+      const sourceId = sources[0];
+      const targetId = targets[0];
+      const selection = sections?.[0] || {
+        startPoint: {x: 0, y: 0},
+        endPoint: {x: 0, y: 0},
+        bendPoints: [],
+      };
+
+      return {
+        ...rest,
+        source: {id: sourceId, name: vertMap[sourceId].name},
+        target: {id: targetId, name: vertMap[targetId].name},
+        startPoint: selection.startPoint,
+        endPoint: selection.endPoint,
+        bendPoints: selection.bendPoints || [],
+        isCrossProject: vertMap[sourceId].type === NodeType.CROSS_PROJECT_REPO,
+      };
+    },
   );
 
   // convert elk children to graphql Node
@@ -154,34 +162,8 @@ const buildDags = async (
   direction = DagDirection.DOWN,
   setDagError: React.Dispatch<React.SetStateAction<string | undefined>>,
 ) => {
-  const verticesMap = keyBy(vertices, (v) => v.id);
   try {
-    // TODO: Remove, temporary until UI is done.
-    const filteredNodes = vertices.filter(
-      (n) => n.type !== NodeType.CROSS_PROJECT_REPO,
-    );
-    const {nodes, links} = await normalizeDAGData(
-      filteredNodes,
-      nodeWidth,
-      nodeHeight,
-      direction,
-    );
-    const dags = disconnectedComponents(nodes, links).map((component) => {
-      const componentRepos = component.nodes.filter(
-        (c) => c.type === NodeType.REPO,
-      );
-
-      const id =
-        minBy(componentRepos, (r) => verticesMap[r.id]?.createdAt)?.id ||
-        uniqueId();
-
-      return {
-        id,
-        nodes: component.nodes,
-        links: component.links,
-      };
-    });
-    return dags;
+    return await normalizeData(vertices, nodeWidth, nodeHeight, direction);
   } catch (e) {
     console.error(e);
     setDagError(`Unable to construct DAG from repos and pipelines.`);

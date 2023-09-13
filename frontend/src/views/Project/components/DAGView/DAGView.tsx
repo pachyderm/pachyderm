@@ -9,7 +9,7 @@ import View from '@dash-frontend/components/View';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
-import {DagDirection, Dag} from '@dash-frontend/lib/types';
+import {DagDirection, Dags} from '@dash-frontend/lib/types';
 import GlobalFilter from '@dash-frontend/views/Project/components/DAGView/components/GlobalFilter';
 import {
   Tooltip,
@@ -48,7 +48,7 @@ const MARKERS = [
 ];
 
 type DAGViewProps = {
-  dags: Dag[] | undefined;
+  dags: Dags | undefined;
   loading: boolean;
   error: ApolloError | string | undefined;
 };
@@ -85,8 +85,8 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
   const {openModal, closeModal, isOpen} = useModal(false);
 
   const isResponsive = useBreakpoint(EXTRA_LARGE);
-  const noDags = dags?.length === 0;
-  const totalNodes = dags?.reduce((acc, val) => acc + val.nodes.length, 0) || 0;
+  const noDags = dags && dags.nodes.length === 0 && dags.links.length === 0;
+  const totalNodes = dags?.nodes.length || 0;
 
   const RotateSVGComponent = () => {
     return (
@@ -291,20 +291,13 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           </filter>
         </defs>
         <g id="Dags">
-          {dags?.map((dag) => {
-            return (
-              <DAG
-                data={dag}
-                key={dag.id}
-                id={dag.id}
-                dagsToShow={dags.length}
-                dagDirection={dagDirection}
-                rotateDag={rotateDag}
-                largeDagMode={totalNodes > LARGE_DAG_MIN}
-                forceFullRender={renderAndDownloadCanvas}
-              />
-            );
-          })}
+          <DAG
+            data={dags}
+            dagDirection={dagDirection}
+            rotateDag={rotateDag}
+            largeDagMode={totalNodes > LARGE_DAG_MIN}
+            forceFullRender={renderAndDownloadCanvas}
+          />
         </g>
       </svg>
       {isOpen && <CreateRepoModal show={isOpen} onHide={closeModal} />}

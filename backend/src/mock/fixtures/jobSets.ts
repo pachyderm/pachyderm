@@ -47,6 +47,10 @@ const customerTeam = {
   '23b9af7d5d4343219bc8e02ff4acd33a': jobs['Data-Cleaning-Process'],
 };
 
+const multiProjectPipelineA = {
+  '23b9af7d5d4343219bc8e02ff44cd55a': jobs['Multi-Project-Pipeline-A'],
+};
+
 const getLoadJobSets = (count: number) => {
   return [...new Array(count).keys()].reduce(
     (jobSets: Record<string, JobInfo[]>, index) => {
@@ -65,6 +69,8 @@ const jobSets: {[projectId: string]: {[id: string]: JobInfo[]}} = {
   'Egress-Examples': {},
   'Empty-Project': {},
   'Load-Project': getLoadJobSets(JOB_SETS),
+  'Multi-Project-Pipeline-A': multiProjectPipelineA,
+
   default: tutorial,
 };
 

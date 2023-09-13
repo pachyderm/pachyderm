@@ -1,14 +1,14 @@
 import {NodeType, Permission, ResourceType} from '@graphqlTypes';
 import {useMemo, useState} from 'react';
 
-import {useGetDagQuery} from '@dash-frontend/generated/hooks';
+import {useGetVerticesQuery} from '@dash-frontend/generated/hooks';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 
 const useDeletePipelineButton = () => {
   const {projectId, pipelineId} = useUrlState();
   const [modalOpen, setModalOpen] = useState(false);
-  const {data: dagData, loading: dagLoading} = useGetDagQuery({
+  const {data: verticesData, loading: verticesLoading} = useGetVerticesQuery({
     variables: {args: {projectId}},
   });
   const {isAuthorizedAction: hasAuthDeleteRepo} = useVerifiedAuthorization({
@@ -17,19 +17,16 @@ const useDeletePipelineButton = () => {
   });
 
   const canDelete = useMemo(() => {
-    return (
-      dagData &&
-      !dagData?.dag?.some(
-        ({parents, type}) =>
-          type === NodeType.PIPELINE &&
-          parents.some(
-            ({project, name}) => project === projectId && name === pipelineId,
-          ),
-      )
+    return !verticesData?.vertices?.some(
+      ({parents, type}) =>
+        type === NodeType.PIPELINE &&
+        parents.some(
+          ({project, name}) => project === projectId && name === pipelineId,
+        ),
     );
-  }, [pipelineId, dagData, projectId]);
+  }, [pipelineId, verticesData?.vertices, projectId]);
 
-  const disableButton = dagLoading || !hasAuthDeleteRepo || !canDelete;
+  const disableButton = verticesLoading || !hasAuthDeleteRepo || !canDelete;
 
   const tooltipText = () => {
     if (!hasAuthDeleteRepo)

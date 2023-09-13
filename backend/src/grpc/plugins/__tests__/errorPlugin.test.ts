@@ -1,4 +1,4 @@
-import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
+import {GET_VERTICES_QUERY} from '@dash-frontend/queries/GetVerticesQuery';
 
 import {executeQuery} from '@dash-backend/testHelpers';
 import {Vertex} from '@graphqlTypes';
@@ -6,7 +6,7 @@ import {Vertex} from '@graphqlTypes';
 describe('errorPlugin', () => {
   it('should transform token expiration errors into authenticated errors', async () => {
     const {data, errors = []} = await executeQuery<{data: Vertex}>(
-      GET_DAG_QUERY,
+      GET_VERTICES_QUERY,
       {
         args: {
           projectId: 'Solar-Panel-Data-Sorting',

@@ -1,7 +1,7 @@
 import {NodeType, Permission, ResourceType} from '@graphqlTypes';
 import {useState, useMemo} from 'react';
 
-import {useGetDagQuery} from '@dash-frontend/generated/hooks';
+import {useGetVerticesQuery} from '@dash-frontend/generated/hooks';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
@@ -10,7 +10,7 @@ const useDeleteRepoButton = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const {repoId, projectId} = useUrlState();
   const {repo, loading: repoLoading} = useCurrentRepo();
-  const {data: dagData, loading: dagLoading} = useGetDagQuery({
+  const {data: verticesData, loading: verticesLoading} = useGetVerticesQuery({
     variables: {args: {projectId}},
   });
 
@@ -21,7 +21,7 @@ const useDeleteRepoButton = () => {
 
   const canDelete = useMemo(
     () =>
-      !dagData?.dag?.some(({parents, project, name, type}) => {
+      !verticesData?.vertices?.some(({parents, project, name, type}) => {
         const isDescendant = parents.some(
           ({project: parentProject, name: parentName}) =>
             parentProject === projectId && parentName === repoId,
@@ -33,11 +33,11 @@ const useDeleteRepoButton = () => {
 
         return isDescendant || isOutputRepo;
       }),
-    [projectId, repoId, dagData?.dag],
+    [projectId, repoId, verticesData?.vertices],
   );
 
   const disableButton =
-    repoLoading || dagLoading || !hasAuthDeleteRepo || !canDelete;
+    repoLoading || verticesLoading || !hasAuthDeleteRepo || !canDelete;
 
   const tooltipText = () => {
     if (!hasAuthDeleteRepo)

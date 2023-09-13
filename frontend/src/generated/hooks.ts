@@ -1568,129 +1568,6 @@ export type GetCommitsQueryResult = Apollo.QueryResult<
   Types.GetCommitsQuery,
   Types.GetCommitsQueryVariables
 >;
-export const GetDagDocument = gql`
-  query getDag($args: DagQueryArgs!) {
-    dag(args: $args) {
-      id
-      project
-      name
-      parents {
-        id
-        project
-        name
-      }
-      state
-      nodeState
-      access
-      type
-      jobState
-      jobNodeState
-      createdAt
-    }
-  }
-`;
-
-/**
- * __useGetDagQuery__
- *
- * To run a query within a React component, call `useGetDagQuery` and pass it any options that fit your needs.
- * When your component renders, `useGetDagQuery` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = useGetDagQuery({
- *   variables: {
- *      args: // value for 'args'
- *   },
- * });
- */
-export function useGetDagQuery(
-  baseOptions: Apollo.QueryHookOptions<
-    Types.GetDagQuery,
-    Types.GetDagQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useQuery<Types.GetDagQuery, Types.GetDagQueryVariables>(
-    GetDagDocument,
-    options,
-  );
-}
-export function useGetDagLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<
-    Types.GetDagQuery,
-    Types.GetDagQueryVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useLazyQuery<Types.GetDagQuery, Types.GetDagQueryVariables>(
-    GetDagDocument,
-    options,
-  );
-}
-export type GetDagQueryHookResult = ReturnType<typeof useGetDagQuery>;
-export type GetDagLazyQueryHookResult = ReturnType<typeof useGetDagLazyQuery>;
-export type GetDagQueryResult = Apollo.QueryResult<
-  Types.GetDagQuery,
-  Types.GetDagQueryVariables
->;
-export const GetDagsDocument = gql`
-  subscription getDags($args: DagQueryArgs!) {
-    dags(args: $args) {
-      id
-      project
-      name
-      parents {
-        id
-        project
-        name
-      }
-      state
-      nodeState
-      access
-      type
-      jobState
-      jobNodeState
-      createdAt
-    }
-  }
-`;
-
-/**
- * __useGetDagsSubscription__
- *
- * To run a query within a React component, call `useGetDagsSubscription` and pass it any options that fit your needs.
- * When your component renders, `useGetDagsSubscription` returns an object from Apollo Client that contains loading, error, and data properties
- * you can use to render your UI.
- *
- * @param baseOptions options that will be passed into the subscription, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
- *
- * @example
- * const { data, loading, error } = useGetDagsSubscription({
- *   variables: {
- *      args: // value for 'args'
- *   },
- * });
- */
-export function useGetDagsSubscription(
-  baseOptions: Apollo.SubscriptionHookOptions<
-    Types.GetDagsSubscription,
-    Types.GetDagsSubscriptionVariables
-  >,
-) {
-  const options = {...defaultOptions, ...baseOptions};
-  return Apollo.useSubscription<
-    Types.GetDagsSubscription,
-    Types.GetDagsSubscriptionVariables
-  >(GetDagsDocument, options);
-}
-export type GetDagsSubscriptionHookResult = ReturnType<
-  typeof useGetDagsSubscription
->;
-export type GetDagsSubscriptionResult =
-  Apollo.SubscriptionResult<Types.GetDagsSubscription>;
 export const DatumDocument = gql`
   query datum($args: DatumQueryArgs!) {
     datum(args: $args) {
@@ -3585,3 +3462,128 @@ export type GetVersionInfoQueryResult = Apollo.QueryResult<
   Types.GetVersionInfoQuery,
   Types.GetVersionInfoQueryVariables
 >;
+export const GetVerticesDocument = gql`
+  query getVertices($args: VerticesQueryArgs!) {
+    vertices(args: $args) {
+      id
+      project
+      name
+      parents {
+        id
+        project
+        name
+      }
+      state
+      nodeState
+      access
+      type
+      jobState
+      jobNodeState
+      createdAt
+    }
+  }
+`;
+
+/**
+ * __useGetVerticesQuery__
+ *
+ * To run a query within a React component, call `useGetVerticesQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetVerticesQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetVerticesQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useGetVerticesQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.GetVerticesQuery,
+    Types.GetVerticesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetVerticesQuery,
+    Types.GetVerticesQueryVariables
+  >(GetVerticesDocument, options);
+}
+export function useGetVerticesLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetVerticesQuery,
+    Types.GetVerticesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetVerticesQuery,
+    Types.GetVerticesQueryVariables
+  >(GetVerticesDocument, options);
+}
+export type GetVerticesQueryHookResult = ReturnType<typeof useGetVerticesQuery>;
+export type GetVerticesLazyQueryHookResult = ReturnType<
+  typeof useGetVerticesLazyQuery
+>;
+export type GetVerticesQueryResult = Apollo.QueryResult<
+  Types.GetVerticesQuery,
+  Types.GetVerticesQueryVariables
+>;
+export const VerticesDocument = gql`
+  subscription vertices($args: VerticesQueryArgs!) {
+    vertices(args: $args) {
+      id
+      project
+      name
+      parents {
+        id
+        project
+        name
+      }
+      state
+      nodeState
+      access
+      type
+      jobState
+      jobNodeState
+      createdAt
+    }
+  }
+`;
+
+/**
+ * __useVerticesSubscription__
+ *
+ * To run a query within a React component, call `useVerticesSubscription` and pass it any options that fit your needs.
+ * When your component renders, `useVerticesSubscription` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the subscription, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useVerticesSubscription({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useVerticesSubscription(
+  baseOptions: Apollo.SubscriptionHookOptions<
+    Types.VerticesSubscription,
+    Types.VerticesSubscriptionVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useSubscription<
+    Types.VerticesSubscription,
+    Types.VerticesSubscriptionVariables
+  >(VerticesDocument, options);
+}
+export type VerticesSubscriptionHookResult = ReturnType<
+  typeof useVerticesSubscription
+>;
+export type VerticesSubscriptionResult =
+  Apollo.SubscriptionResult<Types.VerticesSubscription>;

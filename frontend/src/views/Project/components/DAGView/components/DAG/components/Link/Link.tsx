@@ -12,10 +12,14 @@ type LinkProps = {
 };
 
 const Link: React.FC<LinkProps> = ({link, dagDirection}) => {
-  const {d, transferring, pathRef} = useLink(link, dagDirection);
+  const {d, transferring, isCrossProject, pathRef} = useLink(
+    link,
+    dagDirection,
+  );
 
   const classes = classNames(styles.link, {
     [styles.transferring]: transferring,
+    [styles.crossProject]: isCrossProject,
   });
 
   return (

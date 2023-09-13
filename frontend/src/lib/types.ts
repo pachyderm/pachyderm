@@ -63,6 +63,7 @@ export type Link = {
   startPoint: PointCoordinates;
   endPoint: PointCoordinates;
   transferring: boolean;
+  isCrossProject: boolean;
 };
 
 export type PointCoordinates = {
@@ -70,16 +71,11 @@ export type PointCoordinates = {
   y: number;
 };
 
-export type Dag = {
+export type Dags = {
   nodes: Node[];
   links: Link[];
-  id: string;
 };
 
-export type DagNodes = {
-  id: string;
-  nodes: Node[];
-};
 export interface LinkInputData
   extends ElkExtendedEdge,
     Pick<Link, 'state' | 'targetState' | 'sourceState' | 'transferring'> {}

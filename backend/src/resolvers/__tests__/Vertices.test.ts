@@ -1,6 +1,6 @@
 import {ObservableSubscription} from '@apollo/client';
-import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
-import {GET_DAGS_QUERY} from '@dash-frontend/queries/GetDagsQuery';
+import {GET_VERTICES_QUERY} from '@dash-frontend/queries/GetVerticesQuery';
+import {GET_VERTICES_SUBSCRIPTION} from '@dash-frontend/queries/GetVerticesSubscription';
 
 import {
   createSubscriptionClients,
@@ -9,7 +9,7 @@ import {
 } from '@dash-backend/testHelpers';
 import {Vertex} from '@graphqlTypes';
 
-describe('Dag resolver', () => {
+describe('Vertices resolver', () => {
   let subscription: ObservableSubscription | null = null;
 
   afterAll(() => {
@@ -18,14 +18,17 @@ describe('Dag resolver', () => {
       subscription = null;
     }
   });
-  it('should resolve dag data', async () => {
-    const {data} = await executeQuery<{dag: Vertex[]}>(GET_DAG_QUERY, {
-      args: {
-        projectId: 'Solar-Panel-Data-Sorting',
+  it('should resolve vertices data', async () => {
+    const {data} = await executeQuery<{vertices: Vertex[]}>(
+      GET_VERTICES_QUERY,
+      {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+        },
       },
-    });
+    );
 
-    const vertices = data?.dag;
+    const vertices = data?.vertices;
     expect(vertices).toHaveLength(4);
     expect(vertices?.[0]).toEqual(
       expect.objectContaining({
@@ -119,17 +122,20 @@ describe('Dag resolver', () => {
   it('should correctly return access data to a given node', async () => {
     mockServer.setAccount('2');
 
-    const {data} = await executeQuery<{dag: Vertex[]}>(GET_DAG_QUERY, {
-      args: {
-        projectId: 'Solar-Panel-Data-Sorting',
+    const {data} = await executeQuery<{vertices: Vertex[]}>(
+      GET_VERTICES_QUERY,
+      {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+        },
       },
-    });
+    );
 
-    const imagesRepo = data?.dag.find(
+    const imagesRepo = data?.vertices.find(
       (vertex) => vertex.id === 'acb880d6f43bb784017bed136a1418072252cc9a',
     );
 
-    const montagePipeline = data?.dag.find(
+    const montagePipeline = data?.vertices.find(
       (vertex) => vertex.id === 'fe5ee514dd88c55a06181b12fdaf7b29e40982e9',
     );
 
@@ -137,10 +143,10 @@ describe('Dag resolver', () => {
     expect(montagePipeline?.access).toBe(false);
   });
 
-  it('should correctly filter sub-dag for jobsets', async () => {
+  it('should correctly filter vertices for jobsets', async () => {
     const {observable} = createSubscriptionClients<{
-      data: {dags: Vertex[]};
-    }>(GET_DAGS_QUERY, {
+      data: {vertices: Vertex[]};
+    }>(GET_VERTICES_SUBSCRIPTION, {
       args: {
         projectId: 'Solar-Panel-Data-Sorting',
         jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
@@ -149,8 +155,8 @@ describe('Dag resolver', () => {
 
     await new Promise<void>((resolve) => {
       subscription = observable.subscribe({
-        next: (data: {data: {dags: Vertex[]}}) => {
-          const vertices = data.data?.dags;
+        next: (data: {data: {vertices: Vertex[]}}) => {
+          const vertices = data.data?.vertices;
 
           expect(vertices).toHaveLength(3);
           expect(vertices?.[0]).toEqual(
@@ -217,14 +223,17 @@ describe('Dag resolver', () => {
     subscription?.unsubscribe();
   });
 
-  it('should add cross project nodes', async () => {
-    const {data} = await executeQuery<{dag: Vertex[]}>(GET_DAG_QUERY, {
-      args: {
-        projectId: 'Multi-Project-Pipeline-A',
+  it('should add cross project vertices', async () => {
+    const {data} = await executeQuery<{vertices: Vertex[]}>(
+      GET_VERTICES_QUERY,
+      {
+        args: {
+          projectId: 'Multi-Project-Pipeline-A',
+        },
       },
-    });
+    );
 
-    const vertices = data?.dag;
+    const vertices = data?.vertices;
     expect(vertices).toHaveLength(3);
     expect(vertices?.[0]).toEqual(
       expect.objectContaining({
@@ -281,5 +290,64 @@ describe('Dag resolver', () => {
         createdAt: null,
       }),
     );
+  });
+
+  it('should correctly filter vertices for jobsets with cross project vertices', async () => {
+    const {observable} = createSubscriptionClients<{
+      data: {vertices: Vertex[]};
+    }>(GET_VERTICES_SUBSCRIPTION, {
+      args: {
+        projectId: 'Multi-Project-Pipeline-A',
+        jobSetId: '23b9af7d5d4343219bc8e02ff44cd55a',
+      },
+    });
+
+    await new Promise<void>((resolve) => {
+      subscription = observable.subscribe({
+        next: (data: {data: {vertices: Vertex[]}}) => {
+          const vertices = data.data?.vertices;
+
+          expect(vertices).toHaveLength(2);
+
+          expect(vertices?.[0]).toEqual(
+            expect.objectContaining({
+              id: 'b198c3ed00295bad947fc8e68d68bf285c8fbf8a',
+              project: 'Multi-Project-Pipeline-B',
+              name: 'Node_1',
+              state: null,
+              nodeState: null,
+              access: true,
+              parents: [],
+              type: 'CROSS_PROJECT_REPO',
+              jobState: null,
+              jobNodeState: null,
+            }),
+          );
+          expect(vertices?.[1]).toEqual(
+            expect.objectContaining({
+              id: 'b82485a18fac187149a107b34be15c14da3b39a4',
+              project: 'Multi-Project-Pipeline-A',
+              name: 'Node_2',
+              state: null,
+              nodeState: null,
+              access: true,
+              parents: [
+                {
+                  id: 'b198c3ed00295bad947fc8e68d68bf285c8fbf8a',
+                  project: 'Multi-Project-Pipeline-B',
+                  name: 'Node_1',
+                },
+              ],
+              type: 'PIPELINE',
+              jobState: 'JOB_SUCCESS',
+              jobNodeState: 'SUCCESS',
+            }),
+          );
+
+          resolve();
+        },
+      });
+    });
+    subscription?.unsubscribe();
   });
 });

@@ -122,4 +122,10 @@ cross-montage:
 	-pachctl create pipeline -f ./cross-montage-pipelines/edges-a.pipeline.json
 	-pachctl create pipeline -f ./cross-montage-pipelines/edges-b.pipeline.json
 	-pachctl create pipeline -f ./cross-montage-pipelines/cross-montage.pipeline.json
-	
+
+setup-multi-project-edge-case:
+	-pachctl create project projectA_edge
+	-pachctl create project projectA
+	-pachctl create repo node --project projectA_edge
+	-pachctl create repo edge_node --project projectA
+	-echo '{"pipeline":{"name":"foo","project":{"name":"projectA_edge"}},"input":{"cross":[{"pfs": {"glob": "/","repo": "node","project": "projectA_edge"}},{"pfs": {"glob": "/","repo": "edge_node","project": "projectA"}}]},"transform": {"cmd": ["sh"], "stdin": ["sleep 0"]}}' | pachctl create pipeline

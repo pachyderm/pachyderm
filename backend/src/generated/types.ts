@@ -176,11 +176,6 @@ export type CronInput = {
   repo: Repo;
 };
 
-export type DagQueryArgs = {
-  jobSetId?: InputMaybe<Scalars['ID']>;
-  projectId: Scalars['ID'];
-};
-
 export type Datum = {
   __typename?: 'Datum';
   downloadBytes?: Maybe<Scalars['Float']>;
@@ -915,7 +910,6 @@ export type Query = {
   commitDiff?: Maybe<Diff>;
   commitSearch?: Maybe<Commit>;
   commits: PageableCommit;
-  dag: Array<Vertex>;
   datum: Datum;
   datumSearch?: Maybe<Datum>;
   datums: PageableDatum;
@@ -944,6 +938,7 @@ export type Query = {
   repos: Array<Maybe<Repo>>;
   searchResults: SearchResults;
   versionInfo: VersionInfo;
+  vertices: Array<Vertex>;
   workspaceLogs: Array<Maybe<Log>>;
 };
 
@@ -969,10 +964,6 @@ export type QueryCommitSearchArgs = {
 
 export type QueryCommitsArgs = {
   args: CommitsQueryArgs;
-};
-
-export type QueryDagArgs = {
-  args: DagQueryArgs;
 };
 
 export type QueryDatumArgs = {
@@ -1065,6 +1056,10 @@ export type QueryReposArgs = {
 
 export type QuerySearchResultsArgs = {
   args: SearchResultQueryArgs;
+};
+
+export type QueryVerticesArgs = {
+  args: VerticesQueryArgs;
 };
 
 export type QueryWorkspaceLogsArgs = {
@@ -1167,17 +1162,17 @@ export type StartCommitArgs = {
 
 export type Subscription = {
   __typename?: 'Subscription';
-  dags: Array<Vertex>;
   logs: Log;
+  vertices: Array<Vertex>;
   workspaceLogs: Log;
-};
-
-export type SubscriptionDagsArgs = {
-  args: DagQueryArgs;
 };
 
 export type SubscriptionLogsArgs = {
   args: LogsArgs;
+};
+
+export type SubscriptionVerticesArgs = {
+  args: VerticesQueryArgs;
 };
 
 export type SubscriptionWorkspaceLogsArgs = {
@@ -1258,6 +1253,11 @@ export type VertexIdentifier = {
   id: Scalars['String'];
   name: Scalars['String'];
   project: Scalars['String'];
+};
+
+export type VerticesQueryArgs = {
+  jobSetId?: InputMaybe<Scalars['ID']>;
+  projectId: Scalars['ID'];
 };
 
 export type WorkspaceLogsArgs = {
@@ -1398,7 +1398,6 @@ export type ResolversTypes = ResolversObject<{
   CreateProjectArgs: CreateProjectArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
-  DagQueryArgs: DagQueryArgs;
   Datum: ResolverTypeWrapper<Datum>;
   DatumFilter: DatumFilter;
   DatumQueryArgs: DatumQueryArgs;
@@ -1506,6 +1505,7 @@ export type ResolversTypes = ResolversObject<{
   VersionInfo: ResolverTypeWrapper<VersionInfo>;
   Vertex: ResolverTypeWrapper<Vertex>;
   VertexIdentifier: ResolverTypeWrapper<VertexIdentifier>;
+  VerticesQueryArgs: VerticesQueryArgs;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
@@ -1534,7 +1534,6 @@ export type ResolversParentTypes = ResolversObject<{
   CreateProjectArgs: CreateProjectArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
-  DagQueryArgs: DagQueryArgs;
   Datum: Datum;
   DatumQueryArgs: DatumQueryArgs;
   DatumsQueryArgs: DatumsQueryArgs;
@@ -1627,6 +1626,7 @@ export type ResolversParentTypes = ResolversObject<{
   VersionInfo: VersionInfo;
   Vertex: Vertex;
   VertexIdentifier: VertexIdentifier;
+  VerticesQueryArgs: VerticesQueryArgs;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
 
@@ -2481,12 +2481,6 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryCommitsArgs, 'args'>
   >;
-  dag?: Resolver<
-    Array<ResolversTypes['Vertex']>,
-    ParentType,
-    ContextType,
-    RequireFields<QueryDagArgs, 'args'>
-  >;
   datum?: Resolver<
     ResolversTypes['Datum'],
     ParentType,
@@ -2646,6 +2640,12 @@ export type QueryResolvers<
     ParentType,
     ContextType
   >;
+  vertices?: Resolver<
+    Array<ResolversTypes['Vertex']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryVerticesArgs, 'args'>
+  >;
   workspaceLogs?: Resolver<
     Array<Maybe<ResolversTypes['Log']>>,
     ParentType,
@@ -2754,19 +2754,19 @@ export type SubscriptionResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription'],
 > = ResolversObject<{
-  dags?: SubscriptionResolver<
-    Array<ResolversTypes['Vertex']>,
-    'dags',
-    ParentType,
-    ContextType,
-    RequireFields<SubscriptionDagsArgs, 'args'>
-  >;
   logs?: SubscriptionResolver<
     ResolversTypes['Log'],
     'logs',
     ParentType,
     ContextType,
     RequireFields<SubscriptionLogsArgs, 'args'>
+  >;
+  vertices?: SubscriptionResolver<
+    Array<ResolversTypes['Vertex']>,
+    'vertices',
+    ParentType,
+    ContextType,
+    RequireFields<SubscriptionVerticesArgs, 'args'>
   >;
   workspaceLogs?: SubscriptionResolver<
     ResolversTypes['Log'],
@@ -3518,60 +3518,6 @@ export type GetCommitsQuery = {
     }>;
     cursor?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
   };
-};
-
-export type GetDagQueryVariables = Exact<{
-  args: DagQueryArgs;
-}>;
-
-export type GetDagQuery = {
-  __typename?: 'Query';
-  dag: Array<{
-    __typename?: 'Vertex';
-    id: string;
-    project: string;
-    name: string;
-    state?: PipelineState | null;
-    nodeState?: NodeState | null;
-    access: boolean;
-    type: NodeType;
-    jobState?: JobState | null;
-    jobNodeState?: NodeState | null;
-    createdAt?: number | null;
-    parents: Array<{
-      __typename?: 'VertexIdentifier';
-      id: string;
-      project: string;
-      name: string;
-    }>;
-  }>;
-};
-
-export type GetDagsSubscriptionVariables = Exact<{
-  args: DagQueryArgs;
-}>;
-
-export type GetDagsSubscription = {
-  __typename?: 'Subscription';
-  dags: Array<{
-    __typename?: 'Vertex';
-    id: string;
-    project: string;
-    name: string;
-    state?: PipelineState | null;
-    nodeState?: NodeState | null;
-    access: boolean;
-    type: NodeType;
-    jobState?: JobState | null;
-    jobNodeState?: NodeState | null;
-    createdAt?: number | null;
-    parents: Array<{
-      __typename?: 'VertexIdentifier';
-      id: string;
-      project: string;
-      name: string;
-    }>;
-  }>;
 };
 
 export type DatumQueryVariables = Exact<{
@@ -4431,6 +4377,60 @@ export type GetVersionInfoQuery = {
   };
 };
 
+export type GetVerticesQueryVariables = Exact<{
+  args: VerticesQueryArgs;
+}>;
+
+export type GetVerticesQuery = {
+  __typename?: 'Query';
+  vertices: Array<{
+    __typename?: 'Vertex';
+    id: string;
+    project: string;
+    name: string;
+    state?: PipelineState | null;
+    nodeState?: NodeState | null;
+    access: boolean;
+    type: NodeType;
+    jobState?: JobState | null;
+    jobNodeState?: NodeState | null;
+    createdAt?: number | null;
+    parents: Array<{
+      __typename?: 'VertexIdentifier';
+      id: string;
+      project: string;
+      name: string;
+    }>;
+  }>;
+};
+
+export type VerticesSubscriptionVariables = Exact<{
+  args: VerticesQueryArgs;
+}>;
+
+export type VerticesSubscription = {
+  __typename?: 'Subscription';
+  vertices: Array<{
+    __typename?: 'Vertex';
+    id: string;
+    project: string;
+    name: string;
+    state?: PipelineState | null;
+    nodeState?: NodeState | null;
+    access: boolean;
+    type: NodeType;
+    jobState?: JobState | null;
+    jobNodeState?: NodeState | null;
+    createdAt?: number | null;
+    parents: Array<{
+      __typename?: 'VertexIdentifier';
+      id: string;
+      project: string;
+      name: string;
+    }>;
+  }>;
+};
+
 /**
  * @param resolver a function that accepts a captured request and may return a mocked response.
  * @see https://mswjs.io/docs/basics/response-resolver
@@ -5020,25 +5020,6 @@ export const mockGetCommitsQuery = (
     'getCommits',
     resolver,
   );
-
-/**
- * @param resolver a function that accepts a captured request and may return a mocked response.
- * @see https://mswjs.io/docs/basics/response-resolver
- * @example
- * mockGetDagQuery((req, res, ctx) => {
- *   const { args } = req.variables;
- *   return res(
- *     ctx.data({ dag })
- *   )
- * })
- */
-export const mockGetDagQuery = (
-  resolver: ResponseResolver<
-    GraphQLRequest<GetDagQueryVariables>,
-    GraphQLContext<GetDagQuery>,
-    any
-  >,
-) => graphql.query<GetDagQuery, GetDagQueryVariables>('getDag', resolver);
 
 /**
  * @param resolver a function that accepts a captured request and may return a mocked response.
@@ -5642,5 +5623,28 @@ export const mockGetVersionInfoQuery = (
 ) =>
   graphql.query<GetVersionInfoQuery, GetVersionInfoQueryVariables>(
     'getVersionInfo',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockGetVerticesQuery((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ vertices })
+ *   )
+ * })
+ */
+export const mockGetVerticesQuery = (
+  resolver: ResponseResolver<
+    GraphQLRequest<GetVerticesQueryVariables>,
+    GraphQLContext<GetVerticesQuery>,
+    any
+  >,
+) =>
+  graphql.query<GetVerticesQuery, GetVerticesQueryVariables>(
+    'getVertices',
     resolver,
   );

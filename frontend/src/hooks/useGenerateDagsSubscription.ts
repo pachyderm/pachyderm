@@ -1,10 +1,10 @@
-import {DagQueryArgs, GetDagsSubscription} from '@graphqlTypes';
+import {VerticesQueryArgs, VerticesSubscription} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
 import {useHistory, useRouteMatch} from 'react-router';
 
-import {useGetDagsSubscription} from '@dash-frontend/generated/hooks';
+import {useVerticesSubscription} from '@dash-frontend/generated/hooks';
 import buildDags from '@dash-frontend/lib/dag';
-import {Dag, DagDirection} from '@dash-frontend/lib/types';
+import {Dags, DagDirection} from '@dash-frontend/lib/types';
 import {
   PROJECT_PATH,
   PROJECT_PIPELINES_PATH,
@@ -18,7 +18,7 @@ import {
 
 import useUrlState from './useUrlState';
 
-interface useProjectDagsDataProps extends DagQueryArgs {
+interface useProjectDagsDataProps extends VerticesQueryArgs {
   nodeWidth: number;
   nodeHeight: number;
   direction?: DagDirection;
@@ -26,11 +26,11 @@ interface useProjectDagsDataProps extends DagQueryArgs {
 
 interface buildAndSetDagsProps
   extends Omit<useProjectDagsDataProps, 'projectId'> {
-  data?: GetDagsSubscription;
+  data?: VerticesSubscription;
   projectMatch: boolean;
 }
 
-export const useProjectDagsData = ({
+export const useGenerateDagsSubscription = ({
   jobSetId,
   projectId,
   nodeWidth,
@@ -45,8 +45,8 @@ export const useProjectDagsData = ({
   const [isFirstCall, setIsFirstCall] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [dagError, setDagError] = useState<string>();
-  const [prevData, setPrevData] = useState<GetDagsSubscription | undefined>();
-  const [dags, setDags] = useState<Dag[] | undefined>();
+  const [prevData, setPrevData] = useState<VerticesSubscription | undefined>();
+  const [dags, setDags] = useState<Dags | undefined>();
 
   useEffect(() => {
     setIsLoading(true);
@@ -60,13 +60,13 @@ export const useProjectDagsData = ({
     data = prevData,
     error,
     loading: isSubscribing,
-  } = useGetDagsSubscription({
+  } = useVerticesSubscription({
     variables: {args: {projectId, jobSetId}},
     onSubscriptionData: async ({client, subscriptionData}) => {
       if (
         (repoId || pipelineId) &&
-        !(subscriptionData.data?.dags || []).some((dag) => {
-          return dag.name === pipelineId || dag.name === repoId;
+        !(subscriptionData.data?.vertices || []).some(({name}) => {
+          return name === pipelineId || name === repoId;
         })
       ) {
         // redirect if we were at a route that got deleted or filtered out
@@ -96,9 +96,9 @@ export const useProjectDagsData = ({
     direction,
   }: buildAndSetDagsProps) => {
     setIsFirstCall(false);
-    if (data?.dags) {
+    if (data?.vertices) {
       const dags = await buildDags(
-        data?.dags,
+        data?.vertices,
         nodeWidth,
         nodeHeight,
         direction,

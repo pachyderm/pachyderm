@@ -1,8 +1,8 @@
 import {gql} from '@apollo/client';
 
-export const GET_DAGS_QUERY = gql`
-  subscription getDags($args: DagQueryArgs!) {
-    dags(args: $args) {
+export const GET_VERTICES_SUBSCRIPTION = gql`
+  subscription vertices($args: VerticesQueryArgs!) {
+    vertices(args: $args) {
       id
       project
       name

@@ -290,7 +290,7 @@ type Vertex {
   createdAt: Int
 }
 
-input DagQueryArgs {
+input VerticesQueryArgs {
   projectId: ID!
   jobSetId: ID
 }
@@ -884,7 +884,7 @@ type Query {
   jobs(args: JobsQueryArgs!): PageableJob!
   job(args: JobQueryArgs!): Job!
   jobsByPipeline(args: JobsByPipelineQueryArgs!): [Job!]!
-  dag(args: DagQueryArgs!): [Vertex!]!
+  vertices(args: VerticesQueryArgs!): [Vertex!]!
   files(args: FileQueryArgs!): PageableFile!
   fileDownload(args: FileDownloadArgs!): String!
   account: Account!
@@ -918,7 +918,7 @@ type Query {
 }
 
 type Subscription {
-  dags(args: DagQueryArgs!): [Vertex!]!
+  vertices(args: VerticesQueryArgs!): [Vertex!]!
   workspaceLogs(args: WorkspaceLogsArgs!): Log!
   logs(args: LogsArgs!): Log!
 }

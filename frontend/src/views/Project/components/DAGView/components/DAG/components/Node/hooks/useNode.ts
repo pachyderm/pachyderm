@@ -1,3 +1,4 @@
+import {NodeType} from '@graphqlTypes';
 import {select} from 'd3-selection';
 import {useCallback, useEffect, useMemo} from 'react';
 import {useHistory} from 'react-router';
@@ -7,9 +8,45 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Node} from '@dash-frontend/lib/types';
 import useDAGRouteController from '@dash-frontend/views/Project/components/DAGView/hooks/useDAGRouteController';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
-import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  lineageRoute,
+  pipelineRoute,
+  repoRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 const LABEL_WIDTH = NODE_WIDTH - 44;
+
+const setText = (selector: string, groupName: string, elementText: string) => {
+  const text = select<SVGGElement, Node>(
+    `#${groupName}`,
+  ).select<SVGTextElement>(selector);
+
+  // remove old tspans on node name change
+  text.selectAll<SVGTSpanElement, unknown>('tspan').remove();
+
+  // create tspans
+  const tspan = text.append('tspan');
+  const nameChars = elementText.split('').reverse();
+  const line: string[] = [];
+  const tspanNode = tspan.node();
+
+  const maxWidth = LABEL_WIDTH;
+
+  while (nameChars.length > 0) {
+    const char = nameChars.pop();
+    if (char) {
+      line.push(char);
+      tspan.text(line.join(''));
+
+      // If the width of the tspan exceeds maxWidth replace the last 3 characters with '...'
+      if (tspanNode && tspanNode.getComputedTextLength() > maxWidth) {
+        line.splice(line.length - 3, 3, '...');
+        tspan.text(line.join(''));
+        break;
+      }
+    }
+  }
+};
 
 const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   const {
@@ -28,7 +65,15 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   const groupName = useMemo(() => `GROUP_${node.id}`, [node]);
 
   const onClick = useCallback(
-    (destination: 'pipeline' | 'repo' | 'logs' | 'status') => {
+    (
+      destination:
+        | 'pipeline'
+        | 'repo'
+        | 'logs'
+        | 'status'
+        | 'connected_repo'
+        | 'connected_project',
+    ) => {
       if (noAccess) return;
       if (destination === 'logs') {
         return browserHistory.push(
@@ -44,6 +89,22 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
             projectId,
             pipelineId: node.name,
             tabId: 'info',
+          }),
+        );
+      }
+
+      if (destination === 'connected_project') {
+        return browserHistory.push(
+          lineageRoute({
+            projectId: node.project,
+          }),
+        );
+      }
+      if (destination === 'connected_repo') {
+        return browserHistory.push(
+          repoRoute({
+            projectId: node.project,
+            repoId: node.name,
           }),
         );
       }
@@ -67,33 +128,11 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   useEffect(() => {
     if (hideDetails) return;
 
-    const text = select<SVGGElement, Node>(
-      `#${groupName}`,
-    ).select<SVGTextElement>('.nodeLabel');
+    setText('.nodeLabel', groupName, node.name);
 
-    // remove old tspans on node name change
-    text.selectAll<SVGTSpanElement, unknown>('tspan').remove();
-
-    // create tspans
-    const tspan = text.append('tspan');
-    const nameChars = node.name.split('').reverse();
-    const line: string[] = [];
-    const tspanNode = tspan.node();
-
-    const maxWidth = LABEL_WIDTH;
-
-    while (nameChars.length > 0) {
-      const char = nameChars.pop();
-      if (char) {
-        line.push(char);
-        tspan.text(line.join(''));
-
-        if (tspanNode && tspanNode.getComputedTextLength() > maxWidth) {
-          line.splice(line.length - 3, 3, '...');
-          tspan.text(line.join(''));
-          break;
-        }
-      }
+    // This type of node has a second line of information we need to display.
+    if (node.type === NodeType.CROSS_PROJECT_REPO) {
+      setText('.nodeLabelProject', groupName, node.project);
     }
   }, [node, groupName, hideDetails]);
 

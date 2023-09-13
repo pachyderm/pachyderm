@@ -514,7 +514,10 @@ const multiProjectPipelineA = [
     created: {seconds: 1616533099, nanos: 100},
     started: {seconds: 1616533100, nanos: 100},
     finished: {seconds: 1616533103, nanos: 100},
-    job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'Node_2'}},
+    job: {
+      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+      pipeline: {name: 'Node_2', project: {name: 'Multi-Project-Pipeline-A'}},
+    },
     input: {
       pfs: {
         project: 'Multi-Project-Pipeline-B',

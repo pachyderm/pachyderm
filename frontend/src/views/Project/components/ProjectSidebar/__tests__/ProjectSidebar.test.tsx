@@ -22,7 +22,7 @@ import {
   mockRepoMontage,
   mockTrueGetAuthorize,
 } from '@dash-frontend/mocks';
-import {mockGetDag, mockGetLargerDag} from '@dash-frontend/mocks/dag';
+import {mockGetVertices, mockGet4Vertices} from '@dash-frontend/mocks/vertices';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
 import ProjectSidebar from '../ProjectSidebar';
@@ -36,7 +36,7 @@ describe('ProjectSidebar', () => {
 
   beforeEach(() => {
     server.resetHandlers();
-    server.use(mockGetDag());
+    server.use(mockGetVertices());
     server.use(mockGetMontagePipeline());
     server.use(mockGetMontageJob_5C());
     server.use(mockTrueGetAuthorize());
@@ -243,7 +243,7 @@ reprocessSpec: until_success
     });
 
     it('should disable the delete button when there are downstream pipelines', async () => {
-      server.use(mockGetLargerDag());
+      server.use(mockGet4Vertices());
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
 
       render(<Project />);
@@ -531,7 +531,7 @@ reprocessSpec: until_success
     });
 
     it('should disable the delete button when there are associated pipelines', async () => {
-      server.use(mockGetLargerDag());
+      server.use(mockGet4Vertices());
       window.history.replaceState('', '', '/lineage/default/repos/montage');
 
       render(<Project />);

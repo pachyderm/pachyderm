@@ -5,14 +5,17 @@ import {PachClient} from '@dash-backend/lib/types';
 import withSubscription from '@dash-backend/lib/withSubscription';
 import {QueryResolvers, SubscriptionResolvers, Vertex} from '@graphqlTypes';
 
-import {getProjectDAG, getProjectGlobalIdDAG} from './dag/createDag';
+import {
+  getProjectVertices,
+  getProjectGlobalIdVertices,
+} from './vertices/createVertices';
 
-interface DagResolver {
+interface VerticesResolver {
   Query: {
-    dag: QueryResolvers['dag'];
+    vertices: QueryResolvers['vertices'];
   };
   Subscription: {
-    dags: SubscriptionResolvers['dags'];
+    vertices: SubscriptionResolvers['vertices'];
   };
 }
 
@@ -32,7 +35,7 @@ const hashHasChanged = (data: Vertex[], prevDataHashRef: [string]) => {
   return true;
 };
 
-const dagSubscriptionResolver = async ({
+const verticesSubscriptionResolver = async ({
   projectId,
   jobSetId,
   pachClient,
@@ -46,13 +49,13 @@ const dagSubscriptionResolver = async ({
   let data: Vertex[] = [];
 
   if (jobSetId) {
-    data = await getProjectGlobalIdDAG({
+    data = await getProjectGlobalIdVertices({
       jobSetId,
       projectId,
       pachClient,
     });
   } else {
-    data = await getProjectDAG({
+    data = await getProjectVertices({
       projectId,
       pachClient,
     });
@@ -66,14 +69,14 @@ const dagSubscriptionResolver = async ({
   return data;
 };
 
-const dagResolver: DagResolver = {
+const verticesResolver: VerticesResolver = {
   Query: {
-    dag: async (_field, {args: {projectId}}, {pachClient}) => {
-      return await getProjectDAG({projectId, pachClient});
+    vertices: async (_field, {args: {projectId}}, {pachClient}) => {
+      return await getProjectVertices({projectId, pachClient});
     },
   },
   Subscription: {
-    dags: {
+    vertices: {
       subscribe: (_field, {args: {projectId, jobSetId}}, {pachClient}) => {
         const id = uniqueId();
         // prevDataHashRef is a string passed as a reference so that it can be mutated by sub-functions
@@ -82,11 +85,11 @@ const dagResolver: DagResolver = {
         return {
           [Symbol.asyncIterator]: () =>
             withSubscription<Vertex[]>({
-              triggerName: `${id}_DAGS_UPDATED${
+              triggerName: `${id}_VERTICES_UPDATED${
                 jobSetId ? `_JOB_${jobSetId}` : ''
               }`,
               resolver: () =>
-                dagSubscriptionResolver({
+                verticesSubscriptionResolver({
                   projectId,
                   jobSetId,
                   pachClient,
@@ -103,4 +106,4 @@ const dagResolver: DagResolver = {
   },
 };
 
-export default dagResolver;
+export default verticesResolver;

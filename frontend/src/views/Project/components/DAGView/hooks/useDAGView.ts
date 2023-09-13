@@ -1,7 +1,7 @@
 import {extent} from 'd3-array';
 import {select} from 'd3-selection';
 import {D3ZoomEvent, zoom as d3Zoom, zoomIdentity} from 'd3-zoom';
-import flatten from 'lodash/flatten';
+import objectHash from 'object-hash';
 import {
   useCallback,
   useEffect,
@@ -15,7 +15,7 @@ import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {DagDirection, Node, Dag} from '@dash-frontend/lib/types';
+import {DagDirection, Node, Dags} from '@dash-frontend/lib/types';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../../constants/nodeSizes';
 
@@ -72,7 +72,7 @@ const dagReducer = (state: DagState, action: DagAction): DagState => {
 export const useDAGView = (
   nodeWidth: number,
   nodeHeight: number,
-  dags: Dag[] | undefined,
+  dags: Dags | undefined,
   loading: boolean,
 ) => {
   const [svgSize, setSvgSize] = useState({
@@ -124,7 +124,7 @@ export const useDAGView = (
   }, [dagDirection, setDagDirectionSetting]);
 
   const graphExtents = useMemo(() => {
-    const nodes = flatten((dags || []).map((dag) => dag.nodes));
+    const nodes = dags?.nodes || [];
     const xExtent = extent(nodes, (n) => n.x);
     const yExtent = extent(nodes, (n) => n.y);
     const xMin = xExtent[0] || 0;
@@ -247,7 +247,10 @@ export const useDAGView = (
   useEffect(() => {
     if (!skipCenterOnSelect) {
       const centerNodeSelection = select<SVGGElement, Node>(
-        `#GROUP_${selectedNode}`,
+        `#GROUP_${objectHash({
+          project: currentProject?.id,
+          name: selectedNode,
+        })}`,
       );
 
       if (
@@ -289,11 +292,12 @@ export const useDAGView = (
     interacted,
     reset,
     skipCenterOnSelect,
+    currentProject?.id,
   ]);
 
   // reset interaction on empty canvas
   useEffect(() => {
-    if (dags && dags.length === 0) {
+    if (dags && dags.links.length === 0 && dags.nodes.length === 0) {
       dispatch({type: 'EMPTY'});
     }
   }, [dags]);

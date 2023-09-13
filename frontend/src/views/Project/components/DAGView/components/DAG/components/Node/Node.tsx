@@ -21,6 +21,7 @@ import {
   StatusCheckmarkSVG,
   SpinnerSVG,
   EgressSVG,
+  LinkSVG,
 } from '@pachyderm/components';
 
 import useNode from './hooks/useNode';
@@ -83,6 +84,11 @@ const textElementProps = {
   className: 'nodeLabel',
 };
 
+const textElementPropsProject = {
+  ...textElementProps,
+  className: 'nodeLabelProject',
+};
+
 const labelTextStyle = {
   fontSize: '12px',
   fontWeight: '400',
@@ -120,6 +126,12 @@ const Node: React.FC<NodeProps> = ({
   });
 
   const egressClasses = classNames(styles.node, styles.noShadow);
+
+  const crossProjectRepoClasses = classNames(
+    styles.node,
+    styles.noShadow,
+    styles.connectedBorder,
+  );
 
   const statusTextClasses = (state?: NodeState) =>
     classNames({
@@ -197,6 +209,114 @@ const Node: React.FC<NodeProps> = ({
               Egress
             </text>
             <text {...textElementProps} x={35} y={55} />
+          </>
+        )}
+      </g>
+    );
+  }
+
+  if (node.type === NodeType.CROSS_PROJECT_REPO) {
+    return (
+      <g
+        aria-label={`${groupName} cross project repo`}
+        id={groupName}
+        transform={`translate (${node.x}, ${node.y})`}
+      >
+        {/* Container rectangle */}
+        <rect
+          width={NODE_WIDTH}
+          height={NODE_HEIGHT}
+          rx={BORDER_RADIUS}
+          ry={BORDER_RADIUS}
+          className={classNames(crossProjectRepoClasses, {
+            [styles.crossProjectRepoSimplifiedBox]: showSimple,
+          })}
+        />
+
+        {/* Top border rectangle */}
+        <rect
+          width={BUTTON_WIDTH}
+          height={BUTTON_HEIGHT * 2}
+          className={classNames(styles.repoPipelineButtonsBorder, {
+            [styles.crossProjectRepoSimplifiedButton]: showSimple,
+          })}
+          rx={BORDER_RADIUS}
+          ry={BORDER_RADIUS}
+          x={BUTTON_MARGIN}
+          y={BUTTON_MARGIN}
+        />
+
+        {!hideDetails && (
+          <>
+            {/* Connected Project */}
+            <g
+              role="button"
+              aria-label={`${groupName} connected project`}
+              transform={`translate (${BUTTON_MARGIN}, ${BUTTON_MARGIN})`}
+              onClick={() => onClick('connected_project')}
+              className={pipelineClasses}
+            >
+              <rect
+                id="fullRoundedButton"
+                className={styles.roundedButton}
+                width={BUTTON_WIDTH}
+                height={BUTTON_HEIGHT * 2}
+                rx={3}
+                ry={3}
+              />
+              <text
+                style={labelTextStyle}
+                className={styles.subLabel}
+                x={BUTTON_MARGIN * 2}
+                y={BUTTON_HEIGHT - 6}
+              >
+                Connected Project
+              </text>
+              <g transform="scale(0.75)">
+                <LinkSVG x={12} y={BUTTON_HEIGHT * 2 - 18} />
+              </g>
+              {/* project name gets injected here from the class on textElementPropsProject */}
+              <text
+                {...textElementPropsProject}
+                x={30}
+                y={BUTTON_HEIGHT * 2 - 22}
+              />
+            </g>
+
+            {/* Connected Repo */}
+            <g
+              role="button"
+              aria-label={`${groupName} connected repo`}
+              id="connectedRepoGroup"
+              data-testid={`Connected__Repo-${node.id}`}
+              transform={`translate (${BUTTON_MARGIN}, ${
+                BUTTON_MARGIN * 2.5 + BUTTON_HEIGHT * 2
+              })`}
+              onClick={() => onClick('connected_repo')}
+              className={statusClasses}
+            >
+              <rect
+                width={BUTTON_WIDTH}
+                height={STATUS_BUTTON_HEIGHT}
+                rx={3}
+                ry={3}
+                className={styles.statusRect}
+              />
+              <text
+                style={labelTextStyle}
+                className={styles.subLabel}
+                x={BUTTON_MARGIN * 2}
+                y={18}
+              >
+                Connecting Repo
+              </text>
+
+              {/* repo name gets injected here from the class on textElementProps */}
+              <text x={31} y={35} {...textElementProps} />
+              <g transform="scale(0.75)">
+                <RepoSVG x={(BUTTON_MARGIN * 2 + 2) / 0.75} y={35} />
+              </g>
+            </g>
           </>
         )}
       </g>

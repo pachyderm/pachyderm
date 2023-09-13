@@ -3,7 +3,7 @@ import {
   NodeState,
   NodeType,
   PipelineState,
-  mockGetDagQuery,
+  mockGetVerticesQuery,
 } from '@graphqlTypes';
 import objectHash from 'object-hash';
 
@@ -79,11 +79,11 @@ const DEFAULT_MONTAGE_PIPELINE = {
   __typename: 'Vertex' as const,
 };
 
-export const mockGetDag = () =>
-  mockGetDagQuery((_req, res, ctx) => {
+export const mockGetVertices = () =>
+  mockGetVerticesQuery((_req, res, ctx) => {
     return res(
       ctx.data({
-        dag: [
+        vertices: [
           DEFAULT_INPUT_REPO,
           DEFAULT_MONTAGE_REPO,
           DEFAULT_MONTAGE_PIPELINE,
@@ -120,11 +120,11 @@ const DEFAULT_DOWNSTREAM_PIPELINE = {
   __typename: 'Vertex' as const,
 };
 
-export const mockGetLargerDag = () =>
-  mockGetDagQuery((_req, res, ctx) => {
+export const mockGet4Vertices = () =>
+  mockGetVerticesQuery((_req, res, ctx) => {
     return res(
       ctx.data({
-        dag: [
+        vertices: [
           DEFAULT_INPUT_REPO,
           DEFAULT_MONTAGE_REPO,
           DEFAULT_MONTAGE_PIPELINE,

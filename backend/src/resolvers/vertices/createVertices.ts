@@ -12,7 +12,7 @@ import {convertPachydermTypesToVertex} from './convertPachydermTypesToVertex';
 import {generateVertexId} from './helpers';
 
 // Creates a vertex list of pachyderm repos and pipelines
-export const getProjectDAG = async ({
+export const getProjectVertices = async ({
   projectId,
   pachClient,
 }: {
@@ -28,7 +28,7 @@ export const getProjectDAG = async ({
 };
 
 // Creates a vertex list of pachyderm repos and pipelines composed only of Global ID items
-export const getProjectGlobalIdDAG = async ({
+export const getProjectGlobalIdVertices = async ({
   jobSetId,
   projectId,
   pachClient,
@@ -58,9 +58,7 @@ export const getProjectGlobalIdDAG = async ({
 
   const vertices = sortedJobSet.reduce<Vertex[]>((acc, job) => {
     const inputs = job.details?.input
-      ? flattenPipelineInput(job.details.input).filter(
-          (input) => input.project === projectId,
-        )
+      ? flattenPipelineInput(job.details.input)
       : [];
 
     const inputRepoVertices: Vertex[] = inputs.map(({project, name}) => ({
@@ -68,7 +66,7 @@ export const getProjectGlobalIdDAG = async ({
       project,
       name,
       parents: [],
-      type: NodeType.REPO,
+      type: projectId !== project ? NodeType.CROSS_PROJECT_REPO : NodeType.REPO,
       state: null,
       jobState: null,
       nodeState: null,
@@ -96,5 +94,5 @@ export const getProjectGlobalIdDAG = async ({
     return [...acc, ...inputRepoVertices, pipelineVertex];
   }, []);
 
-  return uniqBy(vertices, (v) => v.name);
+  return uniqBy(vertices, (v) => v.id);
 };

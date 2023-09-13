@@ -138,3 +138,14 @@ rect.node.detailedError {
   stroke-width: 0;
   opacity: 0.3;
 }
+
+.crossProjectRepoSimplifiedBox.node {
+  fill: var(--pachyderm-green);
+  stroke-width: 0;
+  opacity: 0.3;
+}
+
+.crossProjectRepoSimplifiedButton {
+  fill: var(--white);
+  stroke-width: 0;
+}
