@@ -155,6 +155,7 @@ func TestCreatePipeline_regenerate(t *testing.T) {
 		EOF
 		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .details.resource_requests.disk | match 187Mi
 		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .details.resource_requests.memory | match null
+		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .details.resource_requests.cpu | match null
 		# the raw format currently marshals to snake case
 		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .details.datum_tries | match 17
 		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .details.autoscaling | match null
