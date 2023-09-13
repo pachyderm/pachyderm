@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
@@ -70,8 +71,16 @@ func (c *QueryBuilder[T]) Query() string {
 	return query
 }
 
+type ModelType interface {
+	Repo | Commit | Branch
+}
+
+type FieldType interface {
+	CommitField | BranchField
+}
+
 // T is any db struct we use to deserialize rows into.
-type pageIterator[T any, U any] struct {
+type pageIterator[T ModelType, U any] struct {
 	db            *pachsql.DB
 	baseQuery     string
 	limit, offset uint64
@@ -79,7 +88,7 @@ type pageIterator[T any, U any] struct {
 	pageIndex     int
 }
 
-func newPageIterator[T any, U any, S CommitField | BranchField](ctx context.Context, db *pachsql.DB, config *QueryBuilder[S]) (pageIterator[T, U], error) {
+func newPageIterator[T ModelType, U any, S FieldType](ctx context.Context, db *pachsql.DB, config *QueryBuilder[S]) (pageIterator[T, U], error) {
 	iter := pageIterator[T, U]{
 		db:        db,
 		baseQuery: config.Query(),
@@ -97,7 +106,7 @@ func (i *pageIterator[T, U]) next(ctx context.Context, tansformer func(context.C
 		// open a transaction and get the next page of results
 		if err := dbutil.WithTx(ctx, i.db, func(ctx context.Context, tx *pachsql.Tx) error {
 			if err := tx.SelectContext(ctx, &rows, query); err != nil {
-				return err
+				return errors.Wrap(err, "getting page")
 			}
 			for _, row := range rows {
 				row := row
