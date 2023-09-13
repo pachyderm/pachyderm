@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 type (
@@ -79,6 +80,10 @@ type FieldType interface {
 	CommitField | BranchField
 }
 
+type ProtoType interface {
+	pfs.CommitInfo | pfs.BranchInfo
+}
+
 // T is any db struct we use to deserialize rows into.
 type pageIterator[T ModelType, U any] struct {
 	db            *pachsql.DB
@@ -88,7 +93,7 @@ type pageIterator[T ModelType, U any] struct {
 	pageIndex     int
 }
 
-func newPageIterator[T ModelType, U any, S FieldType](ctx context.Context, db *pachsql.DB, config *QueryBuilder[S]) (pageIterator[T, U], error) {
+func newPageIterator[T ModelType, U ProtoType, S FieldType](ctx context.Context, db *pachsql.DB, config QueryBuilder[S]) (pageIterator[T, U], error) {
 	iter := pageIterator[T, U]{
 		db:        db,
 		baseQuery: config.Query(),

@@ -66,15 +66,7 @@ const (
 	BranchFieldRepoName BranchField = "repo.name"
 )
 
-func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb *QueryBuilder[BranchField]) (*BranchIterator, error) {
-	// qb := &QueryBuilder[BranchField]{
-	// 	BaseQuery:  getBranchBaseQuery,
-	// 	AndFilters: nil,
-	// 	OrderBy:    nil,
-	// 	GroupBy:    nil,
-	// 	Limit:      pageSize,
-	// 	Offset:     0,
-	// }
+func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[BranchField]) (*BranchIterator, error) {
 	qb.baseQuery = getBranchBaseQuery
 	paginator, err := newPageIterator[Branch, pfs.BranchInfo](ctx, db, qb)
 	if err != nil {

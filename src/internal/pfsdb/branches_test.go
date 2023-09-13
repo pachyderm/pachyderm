@@ -175,7 +175,7 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 
 	// Test listing branches
 	// TODO move this to a separate test
-	qb := &pfsdb.QueryBuilder[pfsdb.BranchField]{
+	qb := pfsdb.QueryBuilder[pfsdb.BranchField]{
 		AndFilters: []pfsdb.Filter[pfsdb.BranchField]{
 			{Field: pfsdb.BranchFieldRepoName, Expression: pfsdb.Equal, Value: `'A'`},
 			{Field: pfsdb.BranchFieldName, Expression: pfsdb.Equal, Value: `'master'`},
