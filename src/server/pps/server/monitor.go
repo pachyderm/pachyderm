@@ -9,6 +9,7 @@ import (
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
@@ -193,7 +194,8 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					running:
 						for {
 							pachClient := pc.env.GetPachClient(ctx)
-							if err := pc.blockStandby(pachClient, ci.Commit); err != nil {
+							pachClient.SetAuthToken(pipelineInfo.GetAuthToken())                                                // set auth token so we are certain we have the up to date token
+							if err := pc.blockStandby(pachClient, ci.Commit); err != nil && !errors.Is(err, auth.ErrBadToken) { // we just set token to pipeline token, but pipeline could be deleted during the block, causing a bad auth token error
 								return err
 							}
 
