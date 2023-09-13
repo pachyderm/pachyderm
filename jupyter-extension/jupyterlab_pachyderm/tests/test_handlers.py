@@ -437,6 +437,7 @@ async def test_next_datum(mock_client, jp_fetch):
     r = await jp_fetch(
         f"/{NAMESPACE}/{VERSION}/datums/_next",
         method="PUT",
+        body="{}"
     )
 
     assert json.loads(r.body) == {
@@ -464,6 +465,7 @@ async def test_prev_datum(mock_client, jp_fetch):
     r = await jp_fetch(
         f"/{NAMESPACE}/{VERSION}/datums/_prev",
         method="PUT",
+        body="{}"
     )
 
     assert json.loads(r.body) == {

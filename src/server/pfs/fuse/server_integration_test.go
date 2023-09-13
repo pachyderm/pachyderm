@@ -397,7 +397,7 @@ func TestGetDatums(t *testing.T) {
 		dr := &DatumsResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
 		require.Equal(t, 0, dr.NumDatums)
-		require.Equal(t, true, dr.AllDatumsReceived)
+		require.Equal(t, false, dr.AllDatumsReceived)
 
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}`,
