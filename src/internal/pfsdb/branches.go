@@ -51,6 +51,49 @@ func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
 	return result
 }
 
+type BranchIterator struct {
+	paginator pageIterator[Branch, pfs.BranchInfo]
+}
+type BranchPair struct {
+	ID   BranchID
+	Info *pfs.BranchInfo
+}
+
+type BranchField string
+
+const (
+	BranchFieldName     BranchField = "branch.name"
+	BranchFieldRepoName BranchField = "repo.name"
+)
+
+func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb *QueryBuilder[BranchField]) (*BranchIterator, error) {
+	// qb := &QueryBuilder[BranchField]{
+	// 	BaseQuery:  getBranchBaseQuery,
+	// 	AndFilters: nil,
+	// 	OrderBy:    nil,
+	// 	GroupBy:    nil,
+	// 	Limit:      pageSize,
+	// 	Offset:     0,
+	// }
+	qb.baseQuery = getBranchBaseQuery
+	paginator, err := newPageIterator[Branch, pfs.BranchInfo](ctx, db, qb)
+	if err != nil {
+		return nil, err
+	}
+	return &BranchIterator{paginator: paginator}, nil
+}
+
+func (i *BranchIterator) Next(ctx context.Context, dst *BranchPair) (err error) {
+	if dst == nil {
+		return errors.Errorf("dst BranchInfo cannot be nil")
+	}
+	dst.Info, err = i.paginator.next(ctx, func(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
+		dst.ID = branch.ID
+		return fetchBranchInfoByBranch(ctx, tx, branch)
+	})
+	return
+}
+
 // GetBranchInfo returns a *pfs.BranchInfo by id.
 func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
 	branch := &Branch{}
@@ -294,17 +337,10 @@ func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 	return errors.Wrap(err, "could not delete branch provenance")
 }
 
-type BranchInfoIterator struct {
-	branchInfos map[BranchID]*pfs.BranchInfo
-	db          *pachsql.DB
-	config      *ListResourceConfig
-}
-
-func NewBranchInfoIterator(ctx context.Context, db *pachsql.DB) (*BranchInfoIterator, error) {
-	return nil, nil
-}
-
 func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
+	if branch == nil {
+		return nil, errors.Errorf("branch cannot be nil")
+	}
 	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
 	var err error
 	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, tx, branch.ID)

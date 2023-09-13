@@ -2,6 +2,7 @@ package pfsdb_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -11,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -170,4 +172,21 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 			require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
 		}
 	})
+
+	// Test listing branches
+	// TODO move this to a separate test
+	qb := &pfsdb.QueryBuilder[pfsdb.BranchField]{
+		AndFilters: []pfsdb.Filter[pfsdb.BranchField]{
+			{Field: pfsdb.BranchFieldRepoName, Expression: pfsdb.Equal, Value: `'A'`},
+			{Field: pfsdb.BranchFieldName, Expression: pfsdb.Equal, Value: `'master'`},
+		},
+		Limit:  2,
+		Offset: 0,
+	}
+	branchIterator, err := pfsdb.NewBranchIterator(ctx, db, qb)
+	require.NoError(t, err)
+	require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+		fmt.Println("qqq", branchPair)
+		return nil
+	}))
 }

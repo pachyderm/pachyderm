@@ -761,21 +761,21 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 	return nil
 }
 
-// CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
+// CommitField is used in the ListCommitFilter and defines specific field names for type safety.
 // This should hopefully prevent a library user from misconfiguring the filter.
-type CommitFields string
+type CommitField string
 
 const (
-	CommitSetIDs   = CommitFields("commit_set_id")
-	CommitOrigins  = CommitFields("origin")
-	CommitRepos    = CommitFields("repo_id")
-	CommitBranches = CommitFields("branch_id")
-	CommitProjects = CommitFields("project_id")
+	CommitSetIDs   = CommitField("commit_set_id")
+	CommitOrigins  = CommitField("origin")
+	CommitRepos    = CommitField("repo_id")
+	CommitBranches = CommitField("branch_id")
+	CommitProjects = CommitField("project_id")
 )
 
 // CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
 // where commit.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND commit.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
-type CommitListFilter map[CommitFields][]string
+type CommitListFilter map[CommitField][]string
 
 // ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
 // It manages transactions on behalf of its user under the hood.
