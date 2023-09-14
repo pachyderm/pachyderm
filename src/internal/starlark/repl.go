@@ -183,7 +183,7 @@ func rep(opts *syntax.FileOptions, rl *readline.Instance, thread *starlark.Threa
 			if err == io.EOF {
 				eof = true
 			}
-			return nil, err //nolint:errcheck
+			return nil, err //nolint:wrapcheck
 		}
 		return []byte(line + "\n"), nil
 	}

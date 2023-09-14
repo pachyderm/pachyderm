@@ -100,7 +100,7 @@ func FileMustExist(i int) cobra.PositionalArgs {
 			return nil
 		}
 		if _, err := os.Stat(args[i]); err != nil {
-			return err
+			return errors.Wrap(err, "stat")
 		}
 		return nil
 	}

@@ -209,7 +209,11 @@ func Run(rctx context.Context, in string, opts Options, f RunFn) (starlark.Strin
 // RunProgram runs an on-disk Starlark script located at path.
 func RunProgram(ctx context.Context, path string, opts Options) (starlark.StringDict, error) {
 	return Run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, _ string, module string, globals starlark.StringDict) (starlark.StringDict, error) {
-		return starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
+		result, err := starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
+		if err != nil {
+			return result, errors.Wrapf(err, "exec starlark file %v", module)
+		}
+		return result, nil
 	})
 }
 
@@ -218,6 +222,11 @@ func RunScript(ctx context.Context, name string, script string, opts Options) (s
 	return Run(ctx, name, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in, module string, globals starlark.StringDict) (starlark.StringDict, error) {
 		// If the implementation looks confusing, ExecFileOptions is "generic" in that the
 		// "src" argument can be a string or []byte with program text.
-		return starlark.ExecFileOptions(fileOpts, thread, name, script, globals)
+		result, err := starlark.ExecFileOptions(fileOpts, thread, name, script, globals)
+		if err != nil {
+			return result, errors.Wrap(err, "exec starlark script")
+		}
+		return result, nil
+
 	})
 }

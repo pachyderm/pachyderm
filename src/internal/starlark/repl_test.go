@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
@@ -107,7 +108,7 @@ func TestCompletion(t *testing.T) {
 				for k, v := range r {
 					g[k] = v
 				}
-				return r, err
+				return r, errors.Wrap(err, "ExecFileOptions")
 			}); err != nil {
 				t.Fatalf("compile example file: %v", err)
 			}

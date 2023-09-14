@@ -157,9 +157,12 @@ func value(v reflect.Value) starlark.Value {
 		d := starlark.NewDict(v.Len())
 		iter := v.MapRange()
 		for iter.Next() {
-			k := Value(iter.Key().Interface())
-			v := Value(iter.Value().Interface())
-			d.SetKey(k, v)
+			kk := Value(iter.Key().Interface())
+			vv := Value(iter.Value().Interface())
+			if err := d.SetKey(kk, vv); err != nil {
+				// Unexpected; we can't handle it, so just do nothing.
+				return &Reflect{Any: v.Interface}
+			}
 		}
 		return d
 	}
