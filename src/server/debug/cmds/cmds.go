@@ -133,7 +133,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
 		Long: "This command collects a standard set of debugging information related to the version, database, source repos, helm, profiles, binaries, loki-logs, pipelines, describes, and logs. \n \n" +
-			"You can customize this output by passing in a customized template (made from `pachctl debug dump template` via the `--template` flag.",
+			"You can customize this output by passing in a customized template (made from `pachctl debug template` via the `--template` flag.",
 		Example: "\t- {{alias}} dump.tgz \n" +
 			"\t- {{alias}} -t template.yaml out.tgz\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
