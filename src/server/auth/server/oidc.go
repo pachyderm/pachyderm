@@ -85,32 +85,23 @@ func half(state string) string {
 // structs that we would normally need to instantiate multiple times
 type oidcConfig struct {
 	*auth.OIDCConfig
-	oidcProvider      *oidc.Provider
-	oauthConfig       oauth2.Config
-	rewriteClient     *http.Client
-	userAccessAddress string
+	oidcProvider  *oidc.Provider
+	oauthConfig   oauth2.Config
+	rewriteClient *http.Client
 }
 
 func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, error) {
 	var rewriteClient *http.Client
 	var err error
-	if config.LocalhostIssuer {
-		rewriteClient, err = LocalhostRewriteClient(config.Issuer)
-		if err != nil {
-			return nil, err
-		}
-		ctx = oidc.ClientContext(ctx, rewriteClient)
-	}
 	oidcProvider, err := oidc.NewProvider(ctx, config.Issuer)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
 	return &oidcConfig{
-		OIDCConfig:        config,
-		oidcProvider:      oidcProvider,
-		rewriteClient:     rewriteClient,
-		userAccessAddress: config.UserAccessibleIssuerHost,
+		OIDCConfig:    config,
+		oidcProvider:  oidcProvider,
+		rewriteClient: rewriteClient,
 		oauthConfig: oauth2.Config{
 			ClientID:     config.ClientId,
 			ClientSecret: config.ClientSecret,
@@ -162,21 +153,6 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 	authURL := config.oauthConfig.AuthCodeURL(state,
 		oauth2.SetAuthURLParam("response_type", "code"),
 		oauth2.SetAuthURLParam("nonce", nonce))
-
-	if config.userAccessAddress != "" {
-		rewriteURL, err := url.Parse(authURL)
-		if err != nil {
-			return "", "", errors.Wrap(err, "could not parse Auth URL for Localhost Issuer rewrite")
-		}
-
-		userURL, err := url.Parse(config.userAccessAddress)
-		if err != nil {
-			return "", "", errors.Wrap(err, "could not parse User Accessible Oauth Issuer URL")
-		}
-		rewriteURL.Host = userURL.Host
-		rewriteURL.Scheme = userURL.Scheme
-		authURL = rewriteURL.String()
-	}
 	return authURL, state, nil
 }
 

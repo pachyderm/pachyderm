@@ -28,12 +28,11 @@ const DexMockConnectorEmail = `kilgore@kilgore.trout`
 func OIDCOIDCConfig(host, issuerPort, redirectPort string, local bool) *auth.OIDCConfig {
 
 	return &auth.OIDCConfig{
-		Issuer:          "http://" + host + ":" + issuerPort + "/dex",
-		ClientId:        "pachyderm",
-		ClientSecret:    "notsecret",
-		RedirectUri:     "http://" + host + ":" + redirectPort + "/authorization-code/callback",
-		LocalhostIssuer: local,
-		Scopes:          auth.DefaultOIDCScopes,
+		Issuer:       "http://" + host + ":" + issuerPort + "/dex",
+		ClientId:     "pachyderm",
+		ClientSecret: "notsecret",
+		RedirectUri:  "http://" + host + ":" + redirectPort + "/authorization-code/callback",
+		Scopes:       auth.DefaultOIDCScopes,
 	}
 }
 

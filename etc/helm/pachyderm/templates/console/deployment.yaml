@@ -38,6 +38,54 @@ spec:
       {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
+      - name: envoy
+        command:
+          - envoy
+        args:
+          - -c
+          - /etc/envoy/envoy-sidecar.json
+          - --service-node
+          - $(MY_POD_NAME)
+          - --service-zone
+          - $(MY_NODE_NAME)
+          - --service-cluster
+          - pachyderm-envoy
+        env:
+          - name: MY_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        image: "{{ .Values.global.image.registry }}{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
+        imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
+        ports:
+          - name: admin-port
+            containerPort: 9901
+          - name: http-port
+            containerPort: 8080
+          - name: https-port
+            containerPort: 8443
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 9901
+        livenessProbe:
+          httpGet:
+            path: /server_info
+            port: 9901
+        {{- if .Values.proxy.resources }}
+        resources: {{ toYaml .Values.proxy.resources | nindent 12 }}
+        {{- end }}
+        volumeMounts:
+          - name: envoy-config
+            mountPath: /etc/envoy
+          # {{- if .Values.proxy.tls.enabled }}
+          # - name: tls
+          #   mountPath: /tls
+          # {{- end }}                
       - image: "{{ .Values.global.image.registry }}{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
         imagePullPolicy: {{ .Values.console.image.pullPolicy }}
         name: console
@@ -164,4 +212,7 @@ spec:
           - key: tls.crt
             path: root.crt
       {{- end }}
+      - name: envoy-config
+        configMap:
+          name: pachyderm-sidecar-proxy-config      
 {{ end -}}

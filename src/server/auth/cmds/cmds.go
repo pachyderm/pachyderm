@@ -161,12 +161,11 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
-						Issuer:          issuer,
-						ClientId:        clientId,
-						ClientSecret:    oidcClient.Client.Secret,
-						RedirectUri:     redirect,
-						LocalhostIssuer: true,
-						Scopes:          scopes,
+						Issuer:       issuer,
+						ClientId:     clientId,
+						ClientSecret: oidcClient.Client.Secret,
+						RedirectUri:  redirect,
+						Scopes:       scopes,
 					}}); err != nil {
 					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
 					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
@@ -202,12 +201,11 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 
 				if _, err := c.SetConfiguration(c.Ctx(),
 					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
-						Issuer:          idCfg.Config.Issuer,
-						ClientId:        clientId,
-						ClientSecret:    oidcClient.Client.Secret,
-						RedirectUri:     redirect,
-						LocalhostIssuer: false,
-						Scopes:          scopes,
+						Issuer:       idCfg.Config.Issuer,
+						ClientId:     clientId,
+						ClientSecret: oidcClient.Client.Secret,
+						RedirectUri:  redirect,
+						Scopes:       scopes,
 					}}); err != nil {
 					err = errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd.")
 					_, deleteErr := c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: oidcClient.Client.Id})
