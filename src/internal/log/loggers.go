@@ -254,7 +254,7 @@ func InitBatchLogger(logFile string) func(err error) {
 				zap.S().Infof("logfile retained at %v", logFile)
 			}
 			close()
-			if !keepLog {
+			if !keepLog && logFile != "" {
 				if err := os.Remove(logFile); err != nil {
 					// The logger is gone at this point, so... we can't log the error.
 					fmt.Fprintf(os.Stderr, "unable to delete unwanted logfile at %v: %v", logFile, err)
