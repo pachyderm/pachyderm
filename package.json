@@ -64,8 +64,15 @@
     },
     {
       "path": [
+        "frontend/build/**/vendor-xl-*.js"
+      ],
+      "name": "Vendor XL"
+    },
+    {
+      "path": [
         "frontend/build/**/*.js",
-        "!frontend/build/**/index-*.js"
+        "!frontend/build/**/index-*.js",
+        "!frontend/build/**/vendor-xl-*.js"
       ],
       "name": "Chunks"
     },

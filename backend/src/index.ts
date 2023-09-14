@@ -4,6 +4,7 @@ import path from 'path';
 
 import Analytics from '@rudderstack/rudder-sdk-node';
 import * as Sentry from '@sentry/node';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import {renderFile} from 'ejs';
 import express, {Express, urlencoded, json} from 'express';
@@ -35,6 +36,7 @@ const attachWebServer = (app: Express) => {
       return env;
     }, {});
 
+  app.use(compression());
   app.set('views', FE_BUILD_DIRECTORY);
   app.set('view options', {delimiter: '?'});
   app.engine('html', renderFile);

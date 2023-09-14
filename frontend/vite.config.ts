@@ -13,6 +13,22 @@ const NODE_ENV = process.env.NODE_ENV;
 
 const isProd = NODE_ENV === 'production' || NODE_ENV === 'staging';
 
+const LARGE_DEPS = [
+  '@codemirror',
+  '@floating-ui',
+  '@sentry',
+  'chart.js',
+  'date-fns',
+  'elkjs',
+  'highlight.js',
+  'hammer.js',
+  'js-yaml',
+  'micromark',
+  'react-markdown',
+  'react-window',
+  'rudder-sdk-js',
+];
+
 const env = Object.keys(process.env)
   .filter((key) => key.startsWith('REACT_APP') || key === 'NODE_ENV')
   .reduce(
@@ -48,6 +64,17 @@ export default defineConfig({
         assetFileNames: '[ext]/[name]-[hash][extname]',
         chunkFileNames: 'js/[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
+
+        // Separate large deps into their own chunks
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            for (const dep of LARGE_DEPS) {
+              if (id.includes(dep)) {
+                return `vendor-xl-${dep.replace(/\W/g, '')}`;
+              }
+            }
+          }
+        },
       },
     },
   },
