@@ -582,24 +582,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-
+		// Reset DatumState in case datums were mounted
+		mm.resetDatumState()
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		func() {
-			mm.mu.Lock()
-			defer mm.mu.Unlock()
-
-			mm.Datums = nil
-			mm.PaginationMarker = ""
-			mm.DatumInput = nil
-			mm.DatumIdx = -1
-			mm.DatumInputsToMounts = nil
-			mm.AllDatumsReceived = false
-		}()
-
 		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -618,7 +606,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-
+		// Reset DatumState in case datums were mounted
+		mm.resetDatumState()
+		if err := mm.UnmountAll(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		defer req.Body.Close()
 		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
@@ -636,10 +629,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		if err := mm.GetDatums(pipelineReq.Input); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if err := mm.UnmountAll(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		func() {
@@ -1323,6 +1312,17 @@ func (mm *MountManager) getMoreDatums() error {
 		}
 	}()
 	return nil
+}
+
+func (mm *MountManager) resetDatumState() {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	mm.Datums = nil
+	mm.PaginationMarker = ""
+	mm.DatumInput = nil
+	mm.DatumIdx = -1
+	mm.DatumInputsToMounts = nil
+	mm.AllDatumsReceived = false
 }
 
 func removeOutDir(mm *MountManager) error {
