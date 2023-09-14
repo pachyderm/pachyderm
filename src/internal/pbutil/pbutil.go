@@ -98,17 +98,17 @@ func NewReadWriter(rw io.ReadWriter) ReadWriter {
 }
 
 func SanitizeTimestampPb(timestamp *timestamppb.Timestamp) time.Time {
-	if timestamp != nil {
-		return timestamp.AsTime()
+	if timestamp == nil {
+		return time.Time{}
 	}
-	return time.Time{}
+	return timestamp.AsTime()
 }
 
 func DurationPbToBigInt(duration *durationpb.Duration) int64 {
-	if duration != nil {
-		return duration.Seconds
+	if duration == nil {
+		return 0
 	}
-	return 0
+	return duration.Seconds
 }
 
 func TimeToTimestamppb(t time.Time) *timestamppb.Timestamp {

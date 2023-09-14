@@ -1,6 +1,7 @@
 package clusterstate
 
 import (
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"sort"
@@ -16,15 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
-
-func sortCommits(commitInfos []v2_8_0.CommitInfo) {
-	sort.Slice(commitInfos, func(i, j int) bool {
-		if commitInfos[i].CommitID == commitInfos[j].CommitID {
-			return commitInfos[i].RepoID < commitInfos[j].RepoID
-		}
-		return commitInfos[i].CommitID < commitInfos[j].CommitID
-	})
-}
 
 func Test_v2_8_0_ClusterState(t *testing.T) {
 	ctx := pctx.TestContext(t)
@@ -44,7 +36,6 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	// Get all collections commits.
 	expectedCommits, expectedAncestries, err := v2_8_0.ListCommitsFromCollection(ctx, db)
 	require.NoError(t, err, "should be able to list commits from collection")
-	sortCommits(expectedCommits)
 
 	// Get all pfs.commits.
 	gotAncestries := make(map[string]string)
@@ -63,15 +54,16 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 		gotCommits = append(gotCommits, commit.CommitInfo)
 		return nil
 	}))
-	sortCommits(gotCommits)
 
 	// compare collections commits to pfs.commits.
 	require.Equal(t, len(expectedCommits), len(gotCommits), "all rows should have been migrated")
-	if diff := cmp.Diff(gotCommits, expectedCommits); diff != "" {
+	if diff := cmp.Diff(expectedCommits, gotCommits,
+		cmpopts.SortSlices(func(a, b v2_8_0.CommitInfo) bool { return a.CommitID < b.CommitID })); diff != "" {
 		t.Errorf("commits differ: (-want +got)\n%s", diff)
 	}
 	require.Equal(t, len(expectedAncestries), len(gotAncestries), "all ancestries should have been migrated")
-	if diff := cmp.Diff(gotAncestries, expectedAncestries); diff != "" {
+	if diff := cmp.Diff(expectedAncestries, gotAncestries,
+		cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
 		t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
 	}
 

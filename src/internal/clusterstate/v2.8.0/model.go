@@ -10,7 +10,6 @@ type Commit struct {
 	CommitInfo
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
-	//The value of these fields are equivalent to pfsdb.CommitKey(commit *pfs.Commit)
 }
 
 type CommitAncestry struct {

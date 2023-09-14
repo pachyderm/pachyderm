@@ -336,11 +336,14 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 
 }
 
-func migrateCommitSchema(ctx context.Context, env migrations.Env) error {
+func migrateCommits(ctx context.Context, env migrations.Env) error {
 	if err := alterCommitsTable(ctx, env.Tx); err != nil {
 		return err
 	}
 	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
+		return err
+	}
+	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
 		return err
 	}
 	return nil
@@ -351,36 +354,35 @@ type commitCollection struct {
 	IntID uint64 `db:"int_id"`
 }
 
-func migrateCommitsFromCollections(ctx context.Context, env migrations.Env) error {
+func migrateCommitsFromCollections(ctx context.Context, tx *pachsql.Tx) error {
 	count := struct {
 		Collections uint64 `db:"col_count"`
 		Commits     uint64 `db:"commits_count"`
 	}{}
-	if err := env.Tx.GetContext(ctx, &count, `SELECT count(commit.int_id) AS commits_count, count(col.key) 
+	if err := tx.GetContext(ctx, &count, `SELECT count(commit.int_id) AS commits_count, count(col.key) 
     	AS col_count FROM pfs.commits commit LEFT JOIN collections.commits col on commit.commit_id = col.key;`); err != nil {
 		return errors.Wrap(err, "counting rows in collections.commits")
 	}
 	if count.Collections != count.Commits {
-		return errors.New(fmt.Sprintf("collections.commits has %d rows while pfs.commits has %d rows",
-			count.Collections, count.Commits))
+		return errors.Errorf("collections.commits has %d rows while pfs.commits has %d rows", count.Collections, count.Commits)
 	}
 	if count.Collections == 0 {
 		return nil
 	}
-	pageSize := uint64(100)
+	pageSize := uint64(1000)
 	totalPages := count.Collections / pageSize
 	if pageSize%count.Collections > 0 {
 		totalPages++
 	}
 	for i := uint64(0); i < totalPages; i++ {
 		var page []commitCollection
-		if err := env.Tx.SelectContext(ctx, &page, fmt.Sprintf(`
+		if err := tx.SelectContext(ctx, &page, fmt.Sprintf(`
 		SELECT commit.int_id, col.key, col.proto, col.updatedat, col.createdat
 		FROM pfs.commits commit JOIN collections.commits AS col ON commit.commit_id = col.key
 		ORDER BY commit.int_id ASC LIMIT %d OFFSET %d`, pageSize, i*pageSize)); err != nil {
 			return errors.Wrap(err, "could not read table")
 		}
-		if err := migratePage(ctx, env.Tx, page); err != nil {
+		if err := migratePage(ctx, tx, page); err != nil {
 			return err
 		}
 	}
@@ -455,7 +457,6 @@ func InfoToCommit(commitInfo *pfs.CommitInfo, id uint64, createdAt, updatedAt ti
 	if commitInfo.Commit.Branch != nil && commitInfo.Commit.Branch.Name != "" {
 		branchName = sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true}
 	}
-
 	return &Commit{
 		IntID: id,
 		CommitInfo: CommitInfo{
