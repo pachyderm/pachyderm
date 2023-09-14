@@ -14,4 +14,4 @@ metadata:
   name: pachyderm-sidecar-proxy-config
 data:
   envoy-sidecar.json: |
-    {{- .Files.Get "envoy-sidecar-2.json" | nindent 4 }}
+    {{- .Files.Get "envoy-sidecar.json" | nindent 4 }}

@@ -93,6 +93,13 @@ type oidcConfig struct {
 func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, error) {
 	var rewriteClient *http.Client
 	var err error
+	if config.LocalhostIssuer {
+		rewriteClient, err = LocalhostRewriteClient(config.Issuer)
+		if err != nil {
+			return nil, err
+		}
+		ctx = oidc.ClientContext(ctx, rewriteClient)
+	}
 	oidcProvider, err := oidc.NewProvider(ctx, config.Issuer)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
