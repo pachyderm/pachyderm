@@ -59,4 +59,20 @@ var (
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
+
+	// This is a less chatty console encoder.
+	minimalConsoleEncoder = zapcore.EncoderConfig{
+		TimeKey:          zapcore.OmitKey,
+		LevelKey:         "L",
+		NameKey:          "N",
+		CallerKey:        "C",
+		FunctionKey:      zapcore.OmitKey,
+		MessageKey:       "M",
+		StacktraceKey:    "S",
+		LineEnding:       zapcore.DefaultLineEnding,
+		EncodeLevel:      zapcore.CapitalLevelEncoder,
+		EncodeDuration:   zapcore.StringDurationEncoder,
+		EncodeCaller:     zapcore.ShortCallerEncoder,
+		ConsoleSeparator: " ",
+	}
 )

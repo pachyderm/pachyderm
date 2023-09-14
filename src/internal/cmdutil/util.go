@@ -9,6 +9,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -88,5 +89,19 @@ func InteractiveConfirm() (bool, error) {
 func PrintStdinReminder() {
 	if fd := os.Stdin.Fd(); isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd) {
 		fmt.Fprintln(os.Stderr, "Reading from stdin.")
+	}
+}
+
+// FileMustExist is an argument that can be passed to cobra.Command.Args to ensure that the argument
+// at index i is a file that exists.
+func FileMustExist(i int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if i >= len(args) {
+			return nil
+		}
+		if _, err := os.Stat(args[i]); err != nil {
+			return err
+		}
+		return nil
 	}
 }
