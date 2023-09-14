@@ -177,13 +177,11 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 	// TODO move this to a separate test
 	qb := pfsdb.QueryBuilder[pfsdb.BranchField]{
 		AndFilters: []pfsdb.Filter[pfsdb.BranchField]{
-			{Field: pfsdb.BranchFieldRepoName, Expression: pfsdb.Equal, Value: `'A'`},
-			{Field: pfsdb.BranchFieldName, Expression: pfsdb.Equal, Value: `'master'`},
+			{Field: pfsdb.BranchFieldRepoName, Op: pfsdb.ValueIn, Values: []any{"A", "C"}},
+			{Field: pfsdb.BranchFieldName, Op: pfsdb.Equal, Value: "master"},
 		},
-		Limit:  2,
-		Offset: 0,
 	}
-	branchIterator, err := pfsdb.NewBranchIterator(ctx, db, qb)
+	branchIterator, err := pfsdb.NewBranchIterator(ctx, db, qb, 2)
 	require.NoError(t, err)
 	require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
 		fmt.Println("qqq", branchPair)

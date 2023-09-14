@@ -62,13 +62,16 @@ type BranchPair struct {
 type BranchField string
 
 const (
-	BranchFieldName     BranchField = "branch.name"
-	BranchFieldRepoName BranchField = "repo.name"
+	BranchFieldID          BranchField = "branch.id"
+	BranchFieldName        BranchField = "branch.name"
+	BranchFieldRepoName    BranchField = "repo.name"
+	BranchFieldRepoType    BranchField = "repo.type"
+	BranchFieldProjectName BranchField = "project.name"
 )
 
-func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[BranchField]) (*BranchIterator, error) {
+func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[BranchField], pageSize uint64) (*BranchIterator, error) {
 	qb.baseQuery = getBranchBaseQuery
-	paginator, err := newPageIterator[Branch, pfs.BranchInfo](ctx, db, qb)
+	paginator, err := newPageIterator[Branch, pfs.BranchInfo](ctx, db, qb, pageSize, 0 /* offset */)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +91,16 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchPair) (err error) 
 
 // GetBranchInfo returns a *pfs.BranchInfo by id.
 func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
+	qb := QueryBuilder[BranchField]{
+		baseQuery:  getBranchBaseQuery,
+		AndFilters: AndFilters[BranchField]{{Field: BranchFieldID, Op: Equal, Value: id}},
+	}
+	query, err := qb.Build()
+	if err != nil {
+		return nil, err
+	}
 	branch := &Branch{}
-	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
+	if err := tx.GetContext(ctx, branch, query, id); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, branch)
@@ -97,8 +108,21 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 
 // GetBranchInfoByName returns a *pfs.BranchInfo by name
 func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
+	qb := QueryBuilder[BranchField]{
+		baseQuery: getBranchBaseQuery,
+		AndFilters: AndFilters[BranchField]{
+			{Field: BranchFieldProjectName, Op: Equal, Value: project},
+			{Field: BranchFieldRepoName, Op: Equal, Value: repo},
+			{Field: BranchFieldRepoType, Op: Equal, Value: repoType},
+			{Field: BranchFieldName, Op: Equal, Value: branch},
+		},
+	}
+	query, err := qb.Build()
+	if err != nil {
+		return nil, err
+	}
 	row := &Branch{}
-	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
+	if err := tx.GetContext(ctx, row, query, project, repo, repoType, branch); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, row)
