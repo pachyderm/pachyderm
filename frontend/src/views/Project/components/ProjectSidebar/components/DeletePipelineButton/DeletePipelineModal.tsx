@@ -18,7 +18,7 @@ const DeletePipelineButton: React.FC<{
       }}
       headerContent="Are you sure you want to delete this Pipeline?"
       actionable
-      small
+      mode="Small"
       confirmText="Delete"
       onConfirm={onDelete}
       updating={updating}

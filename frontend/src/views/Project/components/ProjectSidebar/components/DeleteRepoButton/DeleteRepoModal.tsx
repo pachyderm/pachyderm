@@ -18,7 +18,7 @@ const DeleteRepoModal: React.FC<{
       }}
       headerContent="Are you sure you want to delete this Repo?"
       actionable
-      small
+      mode="Small"
       confirmText="Delete"
       onConfirm={onDelete}
       updating={updating}

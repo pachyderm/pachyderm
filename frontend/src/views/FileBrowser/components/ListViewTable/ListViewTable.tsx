@@ -113,7 +113,7 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
           onHide={closeModal}
           headerContent={`Are you sure you want to delete the selected items from ${repoId}@${branchId}?`}
           actionable
-          small
+          mode="Small"
           confirmText="Delete"
           onConfirm={deleteFiles}
           loading={deleteLoading}

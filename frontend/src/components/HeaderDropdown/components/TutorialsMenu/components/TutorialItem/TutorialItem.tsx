@@ -119,7 +119,7 @@ const TutorialItem: React.FC<TutorialItemProps> = ({
           actionable
           loading={deleteLoading}
           errorMessage={deleteError}
-          small
+          mode="Small"
           onHide={() => {
             closeConfirmationModal();
             setStickTutorialsMenu(false);

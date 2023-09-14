@@ -82,6 +82,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
       errorMessage={error?.message || modifyRolesError?.message}
       actionable
       hideConfirm
+      mode="Long"
       cancelText="Done"
       footerContent={
         <BrandedDocLink pathWithoutDomain="/set-up/authorization/">

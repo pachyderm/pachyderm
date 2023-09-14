@@ -101,7 +101,7 @@ const FilePreview = ({file}: FilePreviewProps) => {
           onHide={closeModal}
           headerContent="Are you sure you want to delete this File?"
           actionable
-          small
+          mode="Small"
           confirmText="Delete"
           onConfirm={deleteFile}
           loading={loading}

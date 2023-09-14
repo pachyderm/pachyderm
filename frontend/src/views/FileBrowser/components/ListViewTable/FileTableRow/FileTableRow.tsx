@@ -68,7 +68,7 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
           onHide={closeModal}
           headerContent="Are you sure you want to delete this File?"
           actionable
-          small
+          mode="Small"
           confirmText="Delete"
           onConfirm={deleteFile}
           loading={loading}

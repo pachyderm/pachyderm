@@ -22,6 +22,7 @@
 }
 
 .modalDialogDefault,
+.modalDialogLong,
 .modalDialogSmall {
   top: 0;
   max-width: 38.25rem;
@@ -48,6 +49,7 @@
 }
 
 .modalContentDefault,
+.modalContentLong,
 .modalContentSmall {
   border-radius: 3px;
   box-shadow: 0 0.125rem 1rem 0 rgba(0, 0, 0, 0.3);
@@ -61,6 +63,10 @@
   pointer-events: auto;
   background-clip: padding-box;
   outline: none;
+}
+
+.modalContentLong {
+  height: 50rem;
 }
 
 .modalContentSmall {

@@ -10,12 +10,19 @@ import {CloseSVG} from './../../../Svg';
 import useTrapFocus from './hooks/useTrapFocus';
 import styles from './Modal.module.css';
 
+export type ModalModes =
+  | 'Small'
+  | 'Default'
+  | 'Long'
+  | 'FullPage'
+  | 'FullPagePanel';
+
 type ModalProps = {
   show: boolean;
   onHide?: () => void;
   onShow?: () => void;
   className?: string;
-  mode?: 'Small' | 'Default' | 'FullPage' | 'FullPagePanel';
+  mode?: ModalModes;
   children?: React.ReactNode;
   noCloseButton?: boolean;
 };

@@ -3,6 +3,8 @@ import React from 'react';
 
 import {LoadingDots} from '@pachyderm/components';
 
+import {ModalModes} from '../components/Modal/Modal';
+
 import {Modal} from './../../Modal';
 import styles from './BasicModal.module.css';
 
@@ -26,7 +28,7 @@ type BasicModalProps = {
   hideConfirm?: boolean;
   errorMessage?: string;
   successMessage?: string;
-  small?: boolean;
+  mode?: ModalModes;
   cancelText?: string;
   footerContent?: JSX.Element;
 };
@@ -51,7 +53,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
   errorMessage = '',
   successMessage = '',
   hideConfirm = false,
-  small = false,
+  mode = 'Default',
   cancelText,
   footerContent,
 }) => {
@@ -65,7 +67,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
       onHide={onHide}
       onShow={onShow}
       className={className}
-      mode={small ? 'Small' : 'Default'}
+      mode={mode}
     >
       {modalStatus ? (
         <Modal.Status status={modalStatus}>
@@ -73,7 +75,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
         </Modal.Status>
       ) : null}
 
-      <Modal.Header small={small} withStatus={!!modalStatus}>
+      <Modal.Header small={mode === 'Small'} withStatus={!!modalStatus}>
         {headerContent}
       </Modal.Header>
 

@@ -34,7 +34,7 @@ export const Default = () => {
         onHide={closeModal}
         headerContent="Non Actionable Modal"
         loading={false}
-        small={true}
+        mode="Small"
       >
         The default Modal is meant for Modals that provide information or
         instructions but to not require actions from the user. Users are able to
@@ -96,7 +96,7 @@ export const Actionable = () => {
         onConfirm={() => setSuccess(true)}
         confirmText="Confirm"
         loading={false}
-        small={true}
+        mode="Small"
       >
         The actionable modal is for modals that require input or actions from
         the user. When the action is completed by clicking onConfirm, success
@@ -117,7 +117,7 @@ export const NoConfirm = () => {
         onHide={closeModal}
         headerContent="Actionable Modal without confirm button"
         loading={false}
-        small={true}
+        mode="Small"
         actionable
         hideConfirm
         footerContent={

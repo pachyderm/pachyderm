@@ -61,7 +61,7 @@ const DAGError: React.FC<DAGErrorProps> = ({error}) => {
             <h4>{dagBuildError ? ' Lineage Error' : ' Connection Error'}</h4>
           </span>
         }
-        small
+        mode="Small"
         loading={false}
         onHide={closeErrorModal}
       >
