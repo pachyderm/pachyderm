@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -22,13 +23,13 @@ import (
 )
 
 var (
-	verbose    bool
-	profile    bool
-	gofh, stfh *os.File
-	logFile    string
-	endLogging func(error)
-	timeout    time.Duration
-	root       = &cobra.Command{
+	verbose                bool        // If true, print more.
+	profile                bool        // If true, collect profiles.
+	goProfile, starProfile io.Closer   // Closers for profilers, if profiling.
+	logFile                string      // Log to a custom file.
+	endLogging             func(error) //
+	timeout                time.Duration
+	root                   = &cobra.Command{
 		Use:           os.Args[0],
 		Short:         "Invoke various tools that make working on Pachyderm easier.",
 		SilenceUsage:  true, // This avoids usage on errors.
@@ -52,28 +53,29 @@ var (
 			}
 			cmd.SetContext(ctx)
 			if profile {
-				var err error
-				gofh, err = os.Create(fmt.Sprintf("/tmp/pprof.%v.go.out", os.Getpid()))
+				gf, err := os.Create(fmt.Sprintf("/tmp/pprof.%v.go.out", os.Getpid()))
 				if err != nil {
 					return errors.Wrap(err, "create file for cpu profile")
 				}
-				if err := pprof.StartCPUProfile(gofh); err != nil {
+				goProfile = gf
+				if err := pprof.StartCPUProfile(gf); err != nil {
 					log.Info(ctx, "failed to start go profiler", zap.Error(err))
 				}
-				stfh, err = os.Create(fmt.Sprintf("/tmp/pprof.%v.starlark.out", os.Getpid()))
+				sf, err := os.Create(fmt.Sprintf("/tmp/pprof.%v.starlark.out", os.Getpid()))
 				if err != nil {
 					return errors.Wrap(err, "create file for cpu profile")
 				}
-				if err := starlark.StartProfile(stfh); err != nil {
+				if err := starlark.StartProfile(sf); err != nil {
 					log.Info(ctx, "failed to start starlark profiler", zap.Error(err))
 				}
+				starProfile = sf
 			}
 			return nil
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			if profile {
-				defer errors.Close(&retErr, gofh, "close go profile")
-				defer errors.Close(&retErr, stfh, "close starlark profile")
+				defer errors.Close(&retErr, goProfile, "close go profile")
+				defer errors.Close(&retErr, starProfile, "close starlark profile")
 				pprof.StopCPUProfile()
 				if err := starlark.StopProfile(); err != nil {
 					return errors.Wrap(err, "stop starlark profiler")
