@@ -287,7 +287,13 @@ describe('File Preview', () => {
 
       server.use(
         rest.get(`/download/index.py`, (_req, res, ctx) => {
-          return res(ctx.text('x = 1\nif x == 1:\n\tprint(x)'));
+          return res(
+            ctx.text(`
+x = 1
+if x == 1:
+  print(x)
+          `),
+          );
         }),
       );
 
@@ -311,7 +317,54 @@ describe('File Preview', () => {
       ).toBeInTheDocument();
       expect(
         await screen.findByText((_content, element) => {
-          return element?.textContent === '\tprint(x)';
+          return element?.textContent === '  print(x)';
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('should render a javascript file', async () => {
+      const file = buildFile({
+        download: '/download/index.tsx',
+        path: 'index.tsx',
+        repoName: 'tsx',
+      });
+
+      server.use(
+        rest.get(`/download/index.tsx`, (_req, res, ctx) => {
+          return res(
+            ctx.text(`
+import React from 'react';
+
+type HeaderProps = {
+  text: string;
+};
+
+const Header = ({text}: HeaderProps) => {
+  return <h1>{text}</h1>;
+};
+
+export default Header;
+          `),
+          );
+        }),
+      );
+
+      window.history.replaceState(
+        {},
+        '',
+        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+      );
+
+      render(<FilePreview file={file} />);
+
+      expect(
+        await screen.findByText((_content, element) => {
+          return element?.textContent === `import React from 'react';`;
+        }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText((_content, element) => {
+          return element?.textContent === '  return <h1>{text}</h1>;';
         }),
       ).toBeInTheDocument();
     });

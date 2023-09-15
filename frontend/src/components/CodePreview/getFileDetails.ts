@@ -1,3 +1,4 @@
+import {javascript} from '@codemirror/lang-javascript';
 import {json} from '@codemirror/lang-json';
 import {markdown} from '@codemirror/lang-markdown';
 import {python} from '@codemirror/lang-python';
@@ -18,7 +19,12 @@ export type SupportedRenderer =
   | 'video'
   | 'unknown';
 
-export type SupportedLanguagePlugins = 'markdown' | 'yaml' | 'json' | 'python';
+export type SupportedLanguagePlugins =
+  | 'markdown'
+  | 'yaml'
+  | 'json'
+  | 'python'
+  | 'javascript';
 
 export type SupportedFileIcons =
   | 'document'
@@ -51,6 +57,7 @@ export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
   yaml,
   json,
   python,
+  javascript: () => javascript({jsx: true, typescript: true}),
 });
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
@@ -115,6 +122,15 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     supportsPreview: true,
     supportsViewSource: false,
     extensions: ['.py'],
+  },
+
+  javascript: {
+    renderer: 'code',
+    language: 'javascript',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.cjs', '.mjs'],
   },
 
   text: {
