@@ -1,7 +1,9 @@
+import {html} from '@codemirror/lang-html';
 import {javascript} from '@codemirror/lang-javascript';
 import {json} from '@codemirror/lang-json';
 import {markdown} from '@codemirror/lang-markdown';
 import {python} from '@codemirror/lang-python';
+import {xml} from '@codemirror/lang-xml';
 import {LanguageSupport} from '@codemirror/language';
 
 import parsePath from '@dash-frontend/lib/parsePath';
@@ -24,7 +26,9 @@ export type SupportedLanguagePlugins =
   | 'yaml'
   | 'json'
   | 'python'
-  | 'javascript';
+  | 'javascript'
+  | 'html'
+  | 'xml';
 
 export type SupportedFileIcons =
   | 'document'
@@ -58,6 +62,8 @@ export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
   json,
   python,
   javascript: () => javascript({jsx: true, typescript: true}),
+  html,
+  xml,
 });
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
@@ -81,7 +87,7 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
 
   html: {
     renderer: 'web',
-    language: 'text', // TODO: add HTML CodeMirror plugin
+    language: 'html',
     icon: 'document',
     supportsPreview: true,
     supportsViewSource: true,
@@ -90,7 +96,7 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
 
   xml: {
     renderer: 'iframe',
-    language: 'text', // TODO: add XML CodeMirror plugin
+    language: 'xml',
     icon: 'document',
     supportsPreview: true,
     supportsViewSource: true,
@@ -178,7 +184,7 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
 
   svg: {
     renderer: 'image',
-    language: 'text', // TODO: add an XML CodeMirror plugin
+    language: 'xml',
     icon: 'image',
     supportsPreview: true,
     supportsViewSource: true,

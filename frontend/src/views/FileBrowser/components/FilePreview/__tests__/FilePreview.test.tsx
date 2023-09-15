@@ -96,7 +96,6 @@ describe('File Preview', () => {
       {name: 'image', ext: 'png'},
       {name: 'video', ext: 'mp4'},
       {name: 'audio', ext: 'mp3'},
-      {name: 'xml', ext: 'xml'},
     ])('should render a $name file', async ({name, ext}) => {
       const fileName = `${name}.${ext}`;
       const file = buildFile({
@@ -179,7 +178,7 @@ describe('File Preview', () => {
 
       server.use(
         rest.get(`/download/index.${ext}`, (_req, res, ctx) => {
-          return res(ctx.text(`<html>helloworld</html>`));
+          return res(ctx.text(`<!DOCTYPE html>\n<html>helloworld</html>`));
         }),
       );
 
@@ -194,6 +193,93 @@ describe('File Preview', () => {
       expect(await screen.findByTestId('WebPreview__iframe')).toContainHTML(
         '<html>helloworld</html>',
       );
+
+      const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
+
+      await click(viewSourceButton);
+
+      // Should render the html source
+      expect(await screen.findByText('<!DOCTYPE html>')).toBeInTheDocument();
+    });
+
+    it('should render an xml file', async () => {
+      const file = buildFile({
+        download: `/download/index.xml`,
+        path: `/index.xml`,
+        repoName: 'xml',
+      });
+
+      server.use(
+        rest.get(`/download/index.xml`, (_req, res, ctx) => {
+          return res(
+            ctx.text(`
+<note>
+  <to>Aerith</to>
+  <from>Cloud</from>
+  <body volume="loud">Look behind you!</body>
+</note>
+          `),
+          );
+        }),
+      );
+
+      window.history.replaceState(
+        {},
+        '',
+        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+      );
+
+      render(<FilePreview file={file} />);
+
+      expect(
+        await screen.findByTestId(`FilePreviewContent__xml`),
+      ).toHaveAttribute('src', file.download);
+
+      const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
+
+      await click(viewSourceButton);
+
+      // Should render the xml source
+      expect(await screen.findByText('volume')).toBeInTheDocument();
+    });
+
+    it('should render an svg file', async () => {
+      const file = buildFile({
+        download: `/download/circle.svg`,
+        path: `/index.svg`,
+        repoName: 'svg',
+      });
+
+      server.use(
+        rest.get(`/download/circle.svg`, (_req, res, ctx) => {
+          return res(
+            ctx.text(`
+<svg height="100" width="100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <circle cx="50" cy="50" r="40" fill="black" />
+</svg>
+          `),
+          );
+        }),
+      );
+
+      window.history.replaceState(
+        {},
+        '',
+        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+      );
+
+      render(<FilePreview file={file} />);
+
+      expect(
+        await screen.findByTestId(`FilePreviewContent__image`),
+      ).toHaveAttribute('src', file.download);
+
+      const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
+
+      await click(viewSourceButton);
+
+      // // Should render the xml source
+      expect(await screen.findByText('fill')).toBeInTheDocument();
     });
 
     it('should render a json file', async () => {

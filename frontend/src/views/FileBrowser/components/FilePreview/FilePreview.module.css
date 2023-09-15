@@ -40,17 +40,3 @@
     100vh - var(--header-height) - var(--subheader-height) - 8.25rem
   );
 }
-
-.actionBar {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-}
-
-.actionBarItem {
-  display: flex;
-}
-
-.actionBarViewSourceText {
-  margin-left: 0.5rem;
-}
