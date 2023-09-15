@@ -52,7 +52,7 @@ func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
 }
 
 type BranchIterator struct {
-	paginator pageIterator[Branch, pfs.BranchInfo]
+	paginator pageIterator[Branch, BranchPair]
 }
 type BranchPair struct {
 	ID   BranchID
@@ -71,7 +71,14 @@ const (
 
 func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[BranchField], pageSize uint64) (*BranchIterator, error) {
 	qb.baseQuery = getBranchBaseQuery
-	paginator, err := newPageIterator[Branch, pfs.BranchInfo](ctx, db, qb, pageSize, 0 /* offset */)
+	transform := transformFn[Branch, BranchPair](func(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*BranchPair, error) {
+		branchInfo, err := fetchBranchInfoByBranch(ctx, tx, branch)
+		if err != nil {
+			return nil, err
+		}
+		return &BranchPair{ID: branch.ID, Info: branchInfo}, nil
+	})
+	paginator, err := newPageIterator[Branch, BranchPair](ctx, db, qb, transform, pageSize, 0 /* offset */)
 	if err != nil {
 		return nil, err
 	}
@@ -82,10 +89,12 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchPair) (err error) 
 	if dst == nil {
 		return errors.Errorf("dst BranchInfo cannot be nil")
 	}
-	dst.Info, err = i.paginator.next(ctx, func(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
-		dst.ID = branch.ID
-		return fetchBranchInfoByBranch(ctx, tx, branch)
-	})
+	branchPair, err := i.paginator.next(ctx)
+	if err != nil {
+		return err
+	}
+	dst.ID = branchPair.ID
+	dst.Info = branchPair.Info
 	return
 }
 

@@ -2,7 +2,6 @@ package pfsdb_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -68,7 +68,7 @@ func newCommitInfo(repo *pfs.Repo, id string, parent *pfs.Commit) *pfs.CommitInf
 		Commit: &pfs.Commit{
 			Repo:   repo,
 			Id:     id,
-			Branch: &pfs.Branch{Name: "master"},
+			Branch: &pfs.Branch{},
 		},
 		Description:  "test commit",
 		ParentCommit: parent,
@@ -110,14 +110,6 @@ func createCommitPair(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitI
 	require.NoError(t, err)
 	return &pfsdb.CommitPair{ID: commitID, CommitInfo: commitInfo}
 }
-
-// func createBranchPair(t *testing.T, ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInfo) *pfsdb.BranchPair {
-// 	t.Helper()
-// 	createCommitPair(t, ctx, tx, newCommitInfo(branchInfo.Branch.Repo, branchInfo.Head.Id, nil))
-// 	branchID, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
-// 	require.NoError(t, err)
-// 	return &pfsdb.BranchPair{ID: branchID, BranchInfo: branchInfo}
-// }
 
 func TestCreateAndGetBranch(t *testing.T) {
 	t.Parallel()
@@ -219,20 +211,44 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 				require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
 			}
 		})
+	})
+}
 
-		// Test listing branches
-		// TODO move this to a separate test
-		qb := pfsdb.QueryBuilder[pfsdb.BranchField]{
-			AndFilters: []pfsdb.Filter[pfsdb.BranchField]{
-				{Field: pfsdb.BranchFieldRepoName, Op: pfsdb.ValueIn, Values: []any{"A", "C"}},
-				{Field: pfsdb.BranchFieldName, Op: pfsdb.Equal, Value: "master"},
-			},
-		}
-		branchIterator, err := pfsdb.NewBranchIterator(ctx, db, qb, 2)
+func TestBranchIterator(t *testing.T) {
+	t.Parallel()
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		var branchIDs []pfsdb.BranchID
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			// Create 2^8-1=255 branches
+			headCommitInfo := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
+			rootBranchInfo := newBranchInfo(headCommitInfo.Commit.Repo, "master", headCommitInfo.Commit, nil, nil, nil)
+			currentLevel := []*pfs.BranchInfo{rootBranchInfo}
+			for i := 0; i < 8; i++ {
+				var newLevel []*pfs.BranchInfo
+				for _, parent := range currentLevel {
+					// create a commit and branch pair
+					createCommitPair(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
+					id, err := pfsdb.UpsertBranch(ctx, tx, parent)
+					require.NoError(t, err)
+					branchIDs = append(branchIDs, id)
+					// Create 2 child for each branch in the current level
+					for j := 0; j < 2; j++ {
+						head := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
+						child := newBranchInfo(head.Commit.Repo, "master", head.Commit, []*pfs.Branch{parent.Branch} /* directProv */, nil, nil)
+						newLevel = append(newLevel, child)
+					}
+				}
+				currentLevel = newLevel
+			}
+		})
+		// List all branches
+		branchIterator, err := pfsdb.NewBranchIterator(ctx, db, pfsdb.QueryBuilder[pfsdb.BranchField]{}, 10)
 		require.NoError(t, err)
-		require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
-			fmt.Println("qqq", branchPair)
+		var gotBranchIDs []pfsdb.BranchID
+		stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+			gotBranchIDs = append(gotBranchIDs, branchPair.ID)
 			return nil
-		}))
+		})
+		require.ElementsEqual(t, branchIDs, gotBranchIDs)
 	})
 }

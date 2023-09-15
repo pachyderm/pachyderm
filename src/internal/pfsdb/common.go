@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 type (
@@ -39,8 +38,8 @@ type FieldType interface {
 	CommitField | BranchField
 }
 
-type ProtoType interface {
-	pfs.CommitInfo | pfs.BranchInfo
+type PairType interface {
+	CommitPair | BranchPair
 }
 type Filter[T CommitField | BranchField] struct {
 	Field  T
@@ -108,16 +107,22 @@ func (c *QueryBuilder[T]) Build() (string, error) {
 	return query, nil
 }
 
-type pageIterator[T ModelType, U any] struct {
+type transformFn[T ModelType, U PairType] func(context.Context, *pachsql.Tx, *T) (*U, error)
+
+// T is the type used to deserialize rows from the database
+// U is the type the type returned by the iterator
+// Typically the user supplies the transform function, which converts T to U
+type pageIterator[T ModelType, U PairType] struct {
 	db            *pachsql.DB
 	baseQuery     string
 	queryParams   []any
 	limit, offset uint64
 	page          []*U
 	pageIndex     int
+	transform     transformFn[T, U] // converts T to U, and is called for each item in the page
 }
 
-func newPageIterator[T ModelType, U ProtoType, S FieldType](ctx context.Context, db *pachsql.DB, qb QueryBuilder[S], limit, offset uint64) (pageIterator[T, U], error) {
+func newPageIterator[T ModelType, U PairType, S FieldType](ctx context.Context, db *pachsql.DB, qb QueryBuilder[S], transform transformFn[T, U], limit, offset uint64) (pageIterator[T, U], error) {
 	baseQuery, err := qb.Build()
 	if err != nil {
 		return pageIterator[T, U]{}, err
@@ -128,38 +133,46 @@ func newPageIterator[T ModelType, U ProtoType, S FieldType](ctx context.Context,
 		queryParams: qb.queryParams,
 		limit:       limit,
 		offset:      offset,
+		transform:   transform,
 	}
 	return iter, nil
 }
 
-func (i *pageIterator[T, U]) next(ctx context.Context, tansformer func(context.Context, *pachsql.Tx, *T) (*U, error)) (*U, error) {
-	if i.pageIndex >= len(i.page) {
-		query := i.baseQuery + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
+func (i *pageIterator[T, U]) nextPage(ctx context.Context) error {
+	query := i.baseQuery + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
+	var page []*U
+	// open a transaction and get the next page of results
+	if err := dbutil.WithTx(ctx, i.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		var rows []T
-		var rowsConverted []*U
-		// open a transaction and get the next page of results
-		if err := dbutil.WithTx(ctx, i.db, func(ctx context.Context, tx *pachsql.Tx) error {
-			if err := tx.SelectContext(ctx, &rows, query, i.queryParams...); err != nil {
-				return errors.Wrap(err, "getting page")
+		if err := tx.SelectContext(ctx, &rows, query, i.queryParams...); err != nil {
+			return errors.Wrap(err, "getting page")
+		}
+		for _, row := range rows {
+			row := row
+			x, err := i.transform(ctx, tx, &row)
+			if err != nil {
+				return err
 			}
-			for _, row := range rows {
-				row := row
-				x, err := tansformer(ctx, tx, &row)
-				if err != nil {
-					return err
-				}
-				rowsConverted = append(rowsConverted, x)
-			}
-			return nil
-		}); err != nil {
+			page = append(page, x)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if len(page) == 0 {
+		return stream.EOS()
+	}
+	i.page = page
+	i.pageIndex = 0
+	i.offset += i.limit
+	return nil
+}
+
+func (i *pageIterator[T, U]) next(ctx context.Context) (*U, error) {
+	if i.pageIndex >= len(i.page) {
+		if err := i.nextPage(ctx); err != nil {
 			return nil, err
 		}
-		if len(rowsConverted) == 0 {
-			return nil, stream.EOS()
-		}
-		i.page = rowsConverted
-		i.pageIndex = 0
-		i.offset += i.limit
 	}
 	item := i.page[i.pageIndex]
 	i.pageIndex++
