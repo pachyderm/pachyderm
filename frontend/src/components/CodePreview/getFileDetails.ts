@@ -1,3 +1,4 @@
+import {css} from '@codemirror/lang-css';
 import {html} from '@codemirror/lang-html';
 import {javascript} from '@codemirror/lang-javascript';
 import {json} from '@codemirror/lang-json';
@@ -28,7 +29,8 @@ export type SupportedLanguagePlugins =
   | 'python'
   | 'javascript'
   | 'html'
-  | 'xml';
+  | 'xml'
+  | 'css';
 
 export type SupportedFileIcons =
   | 'document'
@@ -64,6 +66,7 @@ export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
   javascript: () => javascript({jsx: true, typescript: true}),
   html,
   xml,
+  css,
 });
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
@@ -137,6 +140,15 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     supportsPreview: true,
     supportsViewSource: false,
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.cjs', '.mjs'],
+  },
+
+  css: {
+    renderer: 'code',
+    language: 'css',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.css'],
   },
 
   text: {

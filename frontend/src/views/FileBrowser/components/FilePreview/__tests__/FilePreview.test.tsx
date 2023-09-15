@@ -278,8 +278,40 @@ describe('File Preview', () => {
 
       await click(viewSourceButton);
 
-      // // Should render the xml source
+      // Should render the xml source
       expect(await screen.findByText('fill')).toBeInTheDocument();
+    });
+
+    it('should render a css file', async () => {
+      const file = buildFile({
+        download: '/download/index.css',
+        path: 'index.css',
+        repoName: 'css',
+      });
+
+      server.use(
+        rest.get(`/download/index.css`, (_req, res, ctx) => {
+          return res(
+            ctx.text(`
+.codePreview {
+  border: solid 1px var(--grey);
+  margin: 2rem auto;
+  max-width: 1000px;
+}
+          `),
+          );
+        }),
+      );
+
+      window.history.replaceState(
+        {},
+        '',
+        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+      );
+
+      render(<FilePreview file={file} />);
+
+      expect(await screen.findByText('codePreview')).toBeInTheDocument();
     });
 
     it('should render a json file', async () => {
