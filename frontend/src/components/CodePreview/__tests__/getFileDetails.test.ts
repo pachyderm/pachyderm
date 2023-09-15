@@ -10,7 +10,6 @@ describe('lib/getFileDetails', () => {
     const fileDetails = FILE_TYPE_MAP.unknown;
 
     expect(fileDetails.extensions).toHaveLength(0);
-
     expect(getFileDetails('path/to/file.zip')).toMatchObject(fileDetails);
   });
 
@@ -52,6 +51,27 @@ describe('lib/getFileDetails', () => {
       const fileDetails = FILE_EXTENSION_MAP[extension];
 
       expect(fileDetails.extensions).toContain(extension);
+    });
+
+    expect.assertions(numExtensions);
+  });
+
+  it('should never repeat an extension', () => {
+    const extensions: {[key: string]: number} = {};
+    const numExtensions = Object.keys(FILE_EXTENSION_MAP).length;
+
+    Object.keys(FILE_TYPE_MAP).forEach((subtype) => {
+      const fileDetails = FILE_TYPE_MAP[subtype];
+
+      fileDetails.extensions.forEach((extension) => {
+        extensions[extension] = extensions[extension]
+          ? extensions[extension] + 1
+          : 1;
+      });
+    });
+
+    Object.keys(extensions).forEach((extension) => {
+      expect(extensions[extension]).toBe(1);
     });
 
     expect.assertions(numExtensions);

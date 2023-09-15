@@ -278,6 +278,44 @@ describe('File Preview', () => {
       expect(await screen.findByText('"2"')).toBeInTheDocument();
     });
 
+    it('should render a python file', async () => {
+      const file = buildFile({
+        download: '/download/index.py',
+        path: 'index.py',
+        repoName: 'py',
+      });
+
+      server.use(
+        rest.get(`/download/index.py`, (_req, res, ctx) => {
+          return res(ctx.text('x = 1\nif x == 1:\n\tprint(x)'));
+        }),
+      );
+
+      window.history.replaceState(
+        {},
+        '',
+        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+      );
+
+      render(<FilePreview file={file} />);
+
+      expect(
+        await screen.findByText((_content, element) => {
+          return element?.textContent === 'x = 1';
+        }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText((_content, element) => {
+          return element?.textContent === 'if x == 1:';
+        }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText((_content, element) => {
+          return element?.textContent === '\tprint(x)';
+        }),
+      ).toBeInTheDocument();
+    });
+
     it('should render a message when the file type cannot be rendered', async () => {
       const file = buildFile({
         download: '/download/data.unsupported',

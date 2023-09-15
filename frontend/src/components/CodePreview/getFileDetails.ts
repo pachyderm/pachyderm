@@ -1,4 +1,11 @@
-import parsePath from './parsePath';
+import {json} from '@codemirror/lang-json';
+import {markdown} from '@codemirror/lang-markdown';
+import {python} from '@codemirror/lang-python';
+import {LanguageSupport} from '@codemirror/language';
+
+import parsePath from '@dash-frontend/lib/parsePath';
+
+import yaml from './extensions/yaml';
 
 export type SupportedRenderer =
   | 'code'
@@ -11,12 +18,9 @@ export type SupportedRenderer =
   | 'video'
   | 'unknown';
 
-export type SupportedLanguage = 'markdown' | 'yaml' | 'json' | 'text';
+export type SupportedLanguagePlugins = 'markdown' | 'yaml' | 'json' | 'python';
 
-type FileType = string;
-type FileExtension = string;
-
-export type FileIconType =
+export type SupportedFileIcons =
   | 'document'
   | 'image'
   | 'video'
@@ -24,9 +28,14 @@ export type FileIconType =
   | 'folder'
   | 'unknown';
 
+export type SupportedLanguage = SupportedLanguagePlugins | 'text';
+
+type FileType = string;
+type FileExtension = string;
+
 type FileInfo = {
   extensions: FileExtension[];
-  icon: FileIconType;
+  icon: SupportedFileIcons;
   renderer: SupportedRenderer;
   language?: SupportedLanguage;
   supportsPreview: boolean;
@@ -35,6 +44,14 @@ type FileInfo = {
 
 type FileTypeMap = Record<FileType, FileInfo>;
 type FileExtensionMap = Record<FileExtension, FileInfo>;
+type FilePluginMap = Record<SupportedLanguagePlugins, () => LanguageSupport>;
+
+export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
+  markdown,
+  yaml,
+  json,
+  python,
+});
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
   markdown: {
@@ -89,6 +106,15 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     supportsPreview: true,
     supportsViewSource: false,
     extensions: ['.json', '.jsonl'],
+  },
+
+  python: {
+    renderer: 'code',
+    language: 'python',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.py'],
   },
 
   text: {
@@ -243,4 +269,12 @@ export const getFileDetails = (filePath: string) => {
   const extension = parsePath(filePath).ext;
 
   return FILE_EXTENSION_MAP[extension] || FILE_TYPE_MAP.unknown;
+};
+
+export const getFileLanguagePlugin = (language?: SupportedLanguage) => {
+  if (!language || language === 'text') {
+    return;
+  }
+
+  return FILE_PLUGIN_MAP[language];
 };

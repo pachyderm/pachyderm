@@ -1,9 +1,10 @@
 import {File} from '@graphqlTypes';
 import React from 'react';
 
-import CodePreview from '@dash-frontend/components/CodePreview';
+import CodePreview, {
+  useFileDetails,
+} from '@dash-frontend/components/CodePreview';
 import EmptyState from '@dash-frontend/components/EmptyState';
-import useFileDetails from '@dash-frontend/hooks/useFileDetails';
 import {Switch} from '@pachyderm/components';
 
 import CSVPreview from '../CSVPreview';

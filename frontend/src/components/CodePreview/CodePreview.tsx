@@ -1,16 +1,13 @@
-import {json} from '@codemirror/lang-json';
-import {markdown} from '@codemirror/lang-markdown';
 import {EditorState} from '@codemirror/state';
 import {githubLight} from '@uiw/codemirror-theme-github';
 import classNames from 'classnames';
 import {EditorView, basicSetup} from 'codemirror';
 import React, {useEffect, useRef} from 'react';
 
-import {SupportedLanguage} from '@dash-frontend/lib/getFileDetails';
 import {LoadingDots} from '@pachyderm/components';
 
 import styles from './CodePreview.module.css';
-import yaml from './extensions/yaml';
+import {SupportedLanguage, getFileLanguagePlugin} from './getFileDetails';
 import useCodePreview from './hooks/useCodePreview';
 
 type CodePreviewProps = {
@@ -46,13 +43,10 @@ const CodePreview: React.FC<CodePreviewProps> = ({
     }
 
     const extensions = [basicSetup, githubLight, EditorState.readOnly.of(true)];
+    const languagePlugin = getFileLanguagePlugin(language);
 
-    if (language === 'json') {
-      extensions.push(json());
-    } else if (language === 'markdown') {
-      extensions.push(markdown());
-    } else if (language === 'yaml') {
-      extensions.push(yaml());
+    if (languagePlugin) {
+      extensions.push(languagePlugin());
     }
 
     editorViewRef.current = new EditorView({

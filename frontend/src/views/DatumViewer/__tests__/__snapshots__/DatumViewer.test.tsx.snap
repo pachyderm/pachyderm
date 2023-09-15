@@ -350,7 +350,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
             data-language="json"
             role="textbox"
             spellcheck="false"
-            style="tab-size: 4"
+            style="tab-size: 4;"
             translate="no"
           >
             <div

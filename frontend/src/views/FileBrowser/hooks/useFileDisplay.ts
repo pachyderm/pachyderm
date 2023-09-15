@@ -1,7 +1,7 @@
 import {File, FileType} from '@graphqlTypes';
 import {useMemo} from 'react';
 
-import useFileDetails from '@dash-frontend/hooks/useFileDetails';
+import {useFileDetails} from '@dash-frontend/components/CodePreview';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useClipboardCopy} from '@pachyderm/components';

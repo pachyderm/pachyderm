@@ -1,6 +1,6 @@
 import React, {HTMLAttributes} from 'react';
 
-import {FileIconType} from '@dash-frontend/lib/getFileDetails';
+import {SupportedFileIcons} from '@dash-frontend/components/CodePreview/getFileDetails';
 import {
   FileAudioSVG,
   FileFolderSVG,
@@ -13,7 +13,7 @@ import {
 import styles from './FileIcon.module.css';
 
 interface FileIconProps extends HTMLAttributes<HTMLDivElement> {
-  fileType: FileIconType;
+  fileType: SupportedFileIcons;
 }
 
 const fileIcons = {

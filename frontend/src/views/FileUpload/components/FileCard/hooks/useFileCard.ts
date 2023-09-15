@@ -1,7 +1,7 @@
 import {GRPC_MAX_MESSAGE_LENGTH} from '@dash-backend/lib/constants';
 import {useCallback, useEffect, useReducer, useState} from 'react';
 
-import useFileDetails from '@dash-frontend/hooks/useFileDetails';
+import {useFileDetails} from '@dash-frontend/components/CodePreview';
 import {ERROR_MESSAGE} from '@dash-frontend/views/FileUpload/lib/constants';
 
 import useCancelFile from './useCancelFile';
