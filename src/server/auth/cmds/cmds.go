@@ -245,9 +245,7 @@ func DeactivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comma
 	var enterprise bool
 	deactivate := &cobra.Command{
 		Short: "Delete all ACLs, tokens, admins, IDP integrations and OIDC clients, and deactivate Pachyderm auth",
-		Long: "This command deactivates Pachyderm's auth and identity systems, which will delete ALL auth " +
-			"tokens, ACLs and admins, IDP integrations and OIDC clients, and expose all data " +
-			"in the cluster to any user with cluster access. Use with caution.",
+		Long:  "This command deactivates Pachyderm's auth and identity systems, which exposes data to everyone on the network. Use with caution. ",
 		Example: "\t- {{alias}}" +
 			"\t- {{alias}} --enterprise",
 		Run: cmdutil.Run(func(args []string) error {
