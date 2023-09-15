@@ -1,3 +1,4 @@
+import {cpp} from '@codemirror/lang-cpp';
 import {css} from '@codemirror/lang-css';
 import {html} from '@codemirror/lang-html';
 import {javascript} from '@codemirror/lang-javascript';
@@ -30,7 +31,8 @@ export type SupportedLanguagePlugins =
   | 'javascript'
   | 'html'
   | 'xml'
-  | 'css';
+  | 'css'
+  | 'cpp';
 
 export type SupportedFileIcons =
   | 'document'
@@ -67,6 +69,7 @@ export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
   html,
   xml,
   css,
+  cpp,
 });
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
@@ -140,6 +143,15 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     supportsPreview: true,
     supportsViewSource: false,
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.cjs', '.mjs'],
+  },
+
+  cpp: {
+    renderer: 'code',
+    language: 'cpp',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.c', '.cpp'],
   },
 
   css: {

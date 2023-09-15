@@ -314,6 +314,43 @@ describe('File Preview', () => {
       expect(await screen.findByText('codePreview')).toBeInTheDocument();
     });
 
+    it('should render a c file', async () => {
+      const file = buildFile({
+        download: '/download/hello.cpp',
+        path: 'hello.cpp',
+        repoName: 'cpp',
+      });
+
+      server.use(
+        rest.get(`/download/hello.cpp`, (_req, res, ctx) => {
+          return res(
+            ctx.text(`
+#include <iostream>
+
+int main() {
+    std::cout << "Hello World!";
+    return 0;
+}
+          `),
+          );
+        }),
+      );
+
+      window.history.replaceState(
+        {},
+        '',
+        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+      );
+
+      render(<FilePreview file={file} />);
+
+      expect(
+        await screen.findByText((_content, element) => {
+          return element?.textContent === '#include <iostream>';
+        }),
+      ).toBeInTheDocument();
+    });
+
     it('should render a json file', async () => {
       const file = buildFile({
         download: '/download/data.json',
