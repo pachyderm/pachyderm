@@ -88,13 +88,13 @@ type Options struct {
 	ThreadLocalVars map[string]any
 }
 
-// RunFn is a function that can run a Starlark program in a thread.  in is the string passed to Run,
+// RunFunc is a function that can run a Starlark program in a thread.  in is the string passed to Run,
 // module is the canonical module name for that code, if applicable.
-type RunFn func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in string, module string, globals starlark.StringDict) (starlark.StringDict, error)
+type RunFunc func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in string, module string, globals starlark.StringDict) (starlark.StringDict, error)
 
-// Run runs the provided RunFn.  The input "in" is not run here, and only serves as a base path for
-// resolving module loads.
-func Run(rctx context.Context, in string, opts Options, f RunFn) (starlark.StringDict, error) {
+// Run runs the provided RunFunc.  The input "in" is not run here, and only serves as a base path
+// for resolving module loads.
+func Run(rctx context.Context, in string, opts Options, f RunFunc) (starlark.StringDict, error) {
 	ctx, c := pctx.WithCancel(rctx)
 	defer c()
 	path := filepath.Clean(in)
