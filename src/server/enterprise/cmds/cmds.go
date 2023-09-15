@@ -32,7 +32,7 @@ func DeactivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comma
 	deactivate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Deactivate the enterprise service",
-		Long:  "Deactivate the enterprise service",
+		Long:  "This command deactivates the enterprise service. Note that authentication will be disabled and all repos will be publicly accessible.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
@@ -59,7 +59,11 @@ func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 	register := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Register the cluster with an enterprise license server",
-		Long:  "Register the cluster with an enterprise license server",
+		Long:  "This command registers a given cluster with an enterprise license server. Enterprise servers also handle IdP authentication for the clusters registered to it.",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} --id my-cluster-id \n" +
+			"\t- {{alias}} --id my-cluster-id --pachd-address <pachd-ip>:650 \n" +
+			"\t- {{alias}} --id my-cluster-id --pachd-enterprise-server-address <pach-enterprise-IP>:650 \n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
@@ -135,11 +139,11 @@ func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 			return nil
 		}),
 	}
-	register.PersistentFlags().StringVar(&id, "id", "", "the id for this cluster")
-	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "the address for the enterprise server to reach this pachd")
-	register.PersistentFlags().StringVar(&pachdUsrAddr, "pachd-user-address", "", "the address for a user to reach this pachd")
-	register.PersistentFlags().StringVar(&enterpriseAddr, "enterprise-server-address", "", "the address for the pachd to reach the enterprise server")
-	register.PersistentFlags().StringVar(&clusterId, "cluster-deployment-id", "", "the deployment id of the cluster being registered")
+	register.PersistentFlags().StringVar(&id, "id", "", "Set the ID for this cluster.")
+	register.PersistentFlags().StringVar(&pachdAddr, "pachd-address", "", "Set the address for the enterprise server to reach this pachd.")
+	register.PersistentFlags().StringVar(&pachdUsrAddr, "pachd-user-address", "", "Set the address for a user to reach this pachd.")
+	register.PersistentFlags().StringVar(&enterpriseAddr, "enterprise-server-address", "", "Set the address for the pachd to reach the enterprise server.")
+	register.PersistentFlags().StringVar(&clusterId, "cluster-deployment-id", "", "Set the deployment id of the cluster being registered.")
 
 	return cmdutil.CreateAlias(register, "enterprise register")
 }
@@ -151,10 +155,8 @@ func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var isEnterprise bool
 	getState := &cobra.Command{
-		Short: "Check whether the Pachyderm cluster has enterprise features " +
-			"activated",
-		Long: "Check whether the Pachyderm cluster has enterprise features " +
-			"activated",
+		Short: "Check whether the Pachyderm cluster has an active enterprise license.",
+		Long:  "This command checks whether the Pachyderm cluster has an active enterprise license; If so, it also returns the expiration date of the license.",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
@@ -182,7 +184,7 @@ func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 func SyncContextsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	syncContexts := &cobra.Command{
 		Short: "Pull all available Pachyderm Cluster contexts into your pachctl config",
-		Long:  "Pull all available Pachyderm Cluster contexts into your pachctl config",
+		Long:  "This command pulls all available Pachyderm Cluster contexts into your pachctl config",
 		Run: cmdutil.Run(func(args []string) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
@@ -235,7 +237,8 @@ func HeartbeatCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comman
 	var isEnterprise bool
 	heartbeat := &cobra.Command{
 		Short: "Sync the enterprise state with the license server immediately.",
-		Long:  "Sync the enterprise state with the license server immediately.",
+		Long: "This command syncs the enterprise state with the license server immediately. \n\n" +
+			"This means that if there is an active enterprise license associated with the enterprise server, the cluster will also have access to enterprise features.",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
@@ -257,7 +260,7 @@ func HeartbeatCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comman
 func PauseCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	pause := &cobra.Command{
 		Short: "Pause the cluster.",
-		Long:  "Pause the cluster.",
+		Long:  "This command pauses the cluster.",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -278,7 +281,7 @@ func PauseCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 func UnpauseCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	unpause := &cobra.Command{
 		Short: "Unpause the cluster.",
-		Long:  "Unpause the cluster.",
+		Long:  "This command unpauses the cluster.",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -300,7 +303,7 @@ func UnpauseCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command 
 func PauseStatusCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	pauseStatus := &cobra.Command{
 		Short: "Get the pause status of the cluster.",
-		Long:  "Get the pause the cluster: normal, partially-paused or paused.",
+		Long:  "This command returns the pause the cluster: normal, partially-paused or paused.",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
