@@ -13,6 +13,8 @@ import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import FilePreviewComponent from '../';
 
+import files from './files';
+
 describe('File Preview', () => {
   const server = setupServer();
   const FilePreview = withContextProviders<typeof FilePreviewComponent>(
@@ -31,29 +33,17 @@ describe('File Preview', () => {
   afterAll(() => server.close());
 
   describe('File Preview File Types', () => {
-    it.each([
-      'markdn',
-      'markdown',
-      'md',
-      'mdown',
-      'mdwn',
-      'mkdn',
-      'mkdown',
-      'mkd',
-    ])('should render a %s file', async (ext) => {
+    const renderFilePreview = (ext: string, contents = '') => {
+      const fileName = `file.${ext}`;
       const file = buildFile({
-        download: `/download/markdown.${ext}`,
-        path: `/markdown.${ext}`,
-        repoName: 'markdown',
+        download: `/download/${fileName}`,
+        path: `/${fileName}`,
+        repoName: 'file',
       });
 
       server.use(
-        rest.get(`/download/markdown.${ext}`, (_req, res, ctx) => {
-          return res(
-            ctx.text(
-              '# H1\n## H2\n### H3\n---\n**labore et dolore magna aliqua**',
-            ),
-          );
+        rest.get(`/download/${fileName}`, (_req, res, ctx) => {
+          return res(ctx.text(contents));
         }),
       );
 
@@ -64,6 +54,19 @@ describe('File Preview', () => {
       );
 
       render(<FilePreview file={file} />);
+    };
+
+    it.each([
+      'markdn',
+      'markdown',
+      'md',
+      'mdown',
+      'mdwn',
+      'mkdn',
+      'mkdown',
+      'mkd',
+    ])('should render a %s file', async (ext) => {
+      renderFilePreview(ext, files.markdown);
 
       // Should render the markdown contents
       expect(await screen.findByText('H1')).toBeInTheDocument();
@@ -97,46 +100,15 @@ describe('File Preview', () => {
       {name: 'video', ext: 'mp4'},
       {name: 'audio', ext: 'mp3'},
     ])('should render a $name file', async ({name, ext}) => {
-      const fileName = `${name}.${ext}`;
-      const file = buildFile({
-        download: `/download/${fileName}`,
-        path: `/${fileName}`,
-        repoName: name,
-      });
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview(ext, '');
 
       expect(
         await screen.findByTestId(`FilePreviewContent__${name}`),
-      ).toHaveAttribute('src', file.download);
+      ).toHaveAttribute('src', `/download/file.${ext}`);
     });
 
     it.each(['yml', 'yaml'])('should render a %s file', async (ext) => {
-      const file = buildFile({
-        download: `/download/data.${ext}`,
-        path: `/data.${ext}`,
-        repoName: 'yaml',
-      });
-
-      server.use(
-        rest.get(`/download/data.${ext}`, (_req, res, ctx) => {
-          return res(ctx.text('hello: world\n'));
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview(ext, files.yaml);
 
       expect(await screen.findByText('hello')).toBeInTheDocument();
       expect(await screen.findByText('world')).toBeInTheDocument();
@@ -145,53 +117,17 @@ describe('File Preview', () => {
     it.each(['txt', 'jsonl', 'textpb'])(
       'should render a %s file',
       async (ext) => {
-        const file = buildFile({
-          download: `/download/data.${ext}`,
-          path: `/data.${ext}`,
-          repoName: ext,
-        });
-
-        server.use(
-          rest.get(`/download/data.${ext}`, (_req, res, ctx) => {
-            return res(ctx.text(`mock ${ext}\n`));
-          }),
-        );
-
-        window.history.replaceState(
-          {},
-          '',
-          `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-        );
-
-        render(<FilePreview file={file} />);
+        renderFilePreview(ext, `mock ${ext}\n`);
 
         expect(await screen.findByText(`mock ${ext}`)).toBeInTheDocument();
       },
     );
 
     it.each(['htm', 'html'])('should render an %s file', async (ext) => {
-      const file = buildFile({
-        download: `/download/index.${ext}`,
-        path: `/index.${ext}`,
-        repoName: ext,
-      });
-
-      server.use(
-        rest.get(`/download/index.${ext}`, (_req, res, ctx) => {
-          return res(ctx.text(`<!DOCTYPE html>\n<html>helloworld</html>`));
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview(ext, files.html);
 
       expect(await screen.findByTestId('WebPreview__iframe')).toContainHTML(
-        '<html>helloworld</html>',
+        '<html><body>hello world</body></html>',
       );
 
       const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
@@ -203,37 +139,11 @@ describe('File Preview', () => {
     });
 
     it('should render an xml file', async () => {
-      const file = buildFile({
-        download: `/download/index.xml`,
-        path: `/index.xml`,
-        repoName: 'xml',
-      });
-
-      server.use(
-        rest.get(`/download/index.xml`, (_req, res, ctx) => {
-          return res(
-            ctx.text(`
-<note>
-  <to>Aerith</to>
-  <from>Cloud</from>
-  <body volume="loud">Look behind you!</body>
-</note>
-          `),
-          );
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview('xml', files.xml);
 
       expect(
         await screen.findByTestId(`FilePreviewContent__xml`),
-      ).toHaveAttribute('src', file.download);
+      ).toHaveAttribute('src', '/download/file.xml');
 
       const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
 
@@ -244,35 +154,11 @@ describe('File Preview', () => {
     });
 
     it('should render an svg file', async () => {
-      const file = buildFile({
-        download: `/download/circle.svg`,
-        path: `/index.svg`,
-        repoName: 'svg',
-      });
-
-      server.use(
-        rest.get(`/download/circle.svg`, (_req, res, ctx) => {
-          return res(
-            ctx.text(`
-<svg height="100" width="100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-  <circle cx="50" cy="50" r="40" fill="black" />
-</svg>
-          `),
-          );
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview('svg', files.svg);
 
       expect(
         await screen.findByTestId(`FilePreviewContent__image`),
-      ).toHaveAttribute('src', file.download);
+      ).toHaveAttribute('src', '/download/file.svg');
 
       const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
 
@@ -283,94 +169,49 @@ describe('File Preview', () => {
     });
 
     it('should render a css file', async () => {
-      const file = buildFile({
-        download: '/download/index.css',
-        path: 'index.css',
-        repoName: 'css',
-      });
-
-      server.use(
-        rest.get(`/download/index.css`, (_req, res, ctx) => {
-          return res(
-            ctx.text(`
-.codePreview {
-  border: solid 1px var(--grey);
-  margin: 2rem auto;
-  max-width: 1000px;
-}
-          `),
-          );
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview('css', files.css);
 
       expect(await screen.findByText('codePreview')).toBeInTheDocument();
     });
 
     it('should render a c file', async () => {
-      const file = buildFile({
-        download: '/download/hello.cpp',
-        path: 'hello.cpp',
-        repoName: 'cpp',
-      });
+      renderFilePreview('c', files.c);
 
-      server.use(
-        rest.get(`/download/hello.cpp`, (_req, res, ctx) => {
-          return res(
-            ctx.text(`
-#include <iostream>
+      expect(await screen.findByText('<stdio.h>')).toBeInTheDocument();
+    });
 
-int main() {
-    std::cout << "Hello World!";
-    return 0;
-}
-          `),
-          );
-        }),
-      );
+    it('should render a cpp file', async () => {
+      renderFilePreview('cpp', files.cpp);
 
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
+      expect(await screen.findByText('<iostream>')).toBeInTheDocument();
+    });
 
-      render(<FilePreview file={file} />);
+    it('should render a java file', async () => {
+      renderFilePreview('java', files.java);
 
-      expect(
-        await screen.findByText((_content, element) => {
-          return element?.textContent === '#include <iostream>';
-        }),
-      ).toBeInTheDocument();
+      expect(await screen.findByText('System')).toBeInTheDocument();
+    });
+
+    it('should render a php file', async () => {
+      renderFilePreview('php', files.php);
+
+      expect(await screen.findByText('echo')).toBeInTheDocument();
+    });
+
+    it('should render a rust file', async () => {
+      renderFilePreview('rs', files.rs);
+
+      expect(await screen.findByText('main')).toBeInTheDocument();
+    });
+
+    it('should render an sql file', async () => {
+      renderFilePreview('sql', files.sql);
+
+      expect(await screen.findByText('CREATE')).toBeInTheDocument();
     });
 
     it('should render a json file', async () => {
-      const file = buildFile({
-        download: '/download/data.json',
-        path: 'data.json',
-        repoName: 'json',
-      });
-
-      server.use(
-        rest.get(`/download/data.json`, (_req, res, ctx) => {
-          return res(ctx.text(JSON.stringify({hello: 'world'})));
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview('json', files.json);
 
       expect(await screen.findByText('"hello"')).toBeInTheDocument();
       expect(await screen.findByText(':')).toBeInTheDocument();
@@ -378,25 +219,7 @@ int main() {
     });
 
     it('should render a csv file', async () => {
-      const file = buildFile({
-        download: '/download/data.csv',
-        path: 'data.csv',
-        repoName: 'csv',
-      });
-
-      server.use(
-        rest.get(`/download/data.csv`, (_req, res, ctx) => {
-          return res(ctx.text('hello,world\n1,2\n'));
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview('csv', files.csv);
 
       expect(await screen.findByText('Separator: comma')).toBeInTheDocument();
       expect(await screen.findByText('hello')).toBeInTheDocument();
@@ -406,25 +229,7 @@ int main() {
     });
 
     it.each(['tsv', 'tab'])('should render a %s file', async (ext) => {
-      const file = buildFile({
-        download: `/download/data.${ext}`,
-        path: `/data.${ext}`,
-        repoName: ext,
-      });
-
-      server.use(
-        rest.get(`/download/data.${ext}`, (_req, res, ctx) => {
-          return res(ctx.text(`hello\tworld\n1\t2\n`));
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
+      renderFilePreview(ext, files.tsv);
 
       expect(await screen.findByText('Separator: tab')).toBeInTheDocument();
       expect(await screen.findByText('hello')).toBeInTheDocument();
@@ -434,94 +239,15 @@ int main() {
     });
 
     it('should render a python file', async () => {
-      const file = buildFile({
-        download: '/download/index.py',
-        path: 'index.py',
-        repoName: 'py',
-      });
+      renderFilePreview('py', files.python);
 
-      server.use(
-        rest.get(`/download/index.py`, (_req, res, ctx) => {
-          return res(
-            ctx.text(`
-x = 1
-if x == 1:
-  print(x)
-          `),
-          );
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
-
-      expect(
-        await screen.findByText((_content, element) => {
-          return element?.textContent === 'x = 1';
-        }),
-      ).toBeInTheDocument();
-      expect(
-        await screen.findByText((_content, element) => {
-          return element?.textContent === 'if x == 1:';
-        }),
-      ).toBeInTheDocument();
-      expect(
-        await screen.findByText((_content, element) => {
-          return element?.textContent === '  print(x)';
-        }),
-      ).toBeInTheDocument();
+      expect(await screen.findByText('print')).toBeInTheDocument();
     });
 
     it('should render a javascript file', async () => {
-      const file = buildFile({
-        download: '/download/index.tsx',
-        path: 'index.tsx',
-        repoName: 'tsx',
-      });
+      renderFilePreview('tsx', files.javascript);
 
-      server.use(
-        rest.get(`/download/index.tsx`, (_req, res, ctx) => {
-          return res(
-            ctx.text(`
-import React from 'react';
-
-type HeaderProps = {
-  text: string;
-};
-
-const Header = ({text}: HeaderProps) => {
-  return <h1>{text}</h1>;
-};
-
-export default Header;
-          `),
-          );
-        }),
-      );
-
-      window.history.replaceState(
-        {},
-        '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
-      );
-
-      render(<FilePreview file={file} />);
-
-      expect(
-        await screen.findByText((_content, element) => {
-          return element?.textContent === `import React from 'react';`;
-        }),
-      ).toBeInTheDocument();
-      expect(
-        await screen.findByText((_content, element) => {
-          return element?.textContent === '  return <h1>{text}</h1>;';
-        }),
-      ).toBeInTheDocument();
+      expect(await screen.findByText('React')).toBeInTheDocument();
     });
 
     it('should render a message when the file type cannot be rendered', async () => {

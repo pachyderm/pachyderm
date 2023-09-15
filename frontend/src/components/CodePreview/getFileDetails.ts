@@ -1,10 +1,14 @@
 import {cpp} from '@codemirror/lang-cpp';
 import {css} from '@codemirror/lang-css';
 import {html} from '@codemirror/lang-html';
+import {java} from '@codemirror/lang-java';
 import {javascript} from '@codemirror/lang-javascript';
 import {json} from '@codemirror/lang-json';
 import {markdown} from '@codemirror/lang-markdown';
+import {php} from '@codemirror/lang-php';
 import {python} from '@codemirror/lang-python';
+import {rust} from '@codemirror/lang-rust';
+import {sql} from '@codemirror/lang-sql';
 import {xml} from '@codemirror/lang-xml';
 import {LanguageSupport} from '@codemirror/language';
 
@@ -32,7 +36,11 @@ export type SupportedLanguagePlugins =
   | 'html'
   | 'xml'
   | 'css'
-  | 'cpp';
+  | 'cpp'
+  | 'java'
+  | 'php'
+  | 'rust'
+  | 'sql';
 
 export type SupportedFileIcons =
   | 'document'
@@ -70,6 +78,10 @@ export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
   xml,
   css,
   cpp,
+  java,
+  php,
+  rust,
+  sql,
 });
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
@@ -152,6 +164,42 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     supportsPreview: true,
     supportsViewSource: false,
     extensions: ['.c', '.cpp'],
+  },
+
+  java: {
+    renderer: 'code',
+    language: 'java',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.java'],
+  },
+
+  php: {
+    renderer: 'code',
+    language: 'php',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.php'],
+  },
+
+  rust: {
+    renderer: 'code',
+    language: 'rust',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.rs'],
+  },
+
+  sql: {
+    renderer: 'code',
+    language: 'sql',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.sql'],
   },
 
   css: {
