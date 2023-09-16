@@ -17,7 +17,10 @@ import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
 
-from .. import pps as _pps__
+from .. import (
+    pfs as _pfs__,
+    pps as _pps__,
+)
 
 
 if TYPE_CHECKING:
@@ -162,6 +165,24 @@ class DumpChunk(betterproto.Message):
     progress: "DumpProgress" = betterproto.message_field(2, group="chunk")
 
 
+@dataclass(eq=False, repr=False)
+class RunPfsLoadTestRequest(betterproto.Message):
+    spec: str = betterproto.string_field(1)
+    branch: "_pfs__.Branch" = betterproto.message_field(2)
+    seed: int = betterproto.int64_field(3)
+    state_id: str = betterproto.string_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class RunPfsLoadTestResponse(betterproto.Message):
+    spec: str = betterproto.string_field(1)
+    branch: "_pfs__.Branch" = betterproto.message_field(2)
+    seed: int = betterproto.int64_field(3)
+    error: str = betterproto.string_field(4)
+    duration: timedelta = betterproto.message_field(5)
+    state_id: str = betterproto.string_field(6)
+
+
 class DebugStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_profile = channel.unary_stream(
@@ -193,6 +214,16 @@ class DebugStub:
             "/debug_v2.Debug/DumpV2",
             request_serializer=DumpV2Request.SerializeToString,
             response_deserializer=DumpChunk.FromString,
+        )
+        self.__rpc_run_pfs_load_test = channel.unary_unary(
+            "/debug_v2.Debug/RunPFSLoadTest",
+            request_serializer=RunPfsLoadTestRequest.SerializeToString,
+            response_deserializer=RunPfsLoadTestResponse.FromString,
+        )
+        self.__rpc_run_pfs_load_test_default = channel.unary_unary(
+            "/debug_v2.Debug/RunPFSLoadTestDefault",
+            request_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
+            response_deserializer=RunPfsLoadTestResponse.FromString,
         )
 
     def profile(
@@ -280,6 +311,28 @@ class DebugStub:
         for response in self.__rpc_dump_v2(request):
             yield response
 
+    def run_pfs_load_test(
+        self,
+        *,
+        spec: str = "",
+        branch: "_pfs__.Branch" = None,
+        seed: int = 0,
+        state_id: str = ""
+    ) -> "RunPfsLoadTestResponse":
+        request = RunPfsLoadTestRequest()
+        request.spec = spec
+        if branch is not None:
+            request.branch = branch
+        request.seed = seed
+        request.state_id = state_id
+
+        return self.__rpc_run_pfs_load_test(request)
+
+    def run_pfs_load_test_default(self) -> "RunPfsLoadTestResponse":
+        request = betterproto_lib_google_protobuf.Empty()
+
+        return self.__rpc_run_pfs_load_test_default(request)
+
 
 class DebugBase:
     def profile(
@@ -335,6 +388,25 @@ class DebugBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def run_pfs_load_test(
+        self,
+        spec: str,
+        branch: "_pfs__.Branch",
+        seed: int,
+        state_id: str,
+        context: "grpc.ServicerContext",
+    ) -> "RunPfsLoadTestResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def run_pfs_load_test_default(
+        self, context: "grpc.ServicerContext"
+    ) -> "RunPfsLoadTestResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "debug_v2.Debug"
 
     @property
@@ -369,5 +441,15 @@ class DebugBase:
                 self.dump_v2,
                 request_deserializer=DumpV2Request.FromString,
                 response_serializer=DumpV2Request.SerializeToString,
+            ),
+            "RunPFSLoadTest": grpc.unary_unary_rpc_method_handler(
+                self.run_pfs_load_test,
+                request_deserializer=RunPfsLoadTestRequest.FromString,
+                response_serializer=RunPfsLoadTestRequest.SerializeToString,
+            ),
+            "RunPFSLoadTestDefault": grpc.unary_unary_rpc_method_handler(
+                self.run_pfs_load_test_default,
+                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
             ),
         }

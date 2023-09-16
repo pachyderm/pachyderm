@@ -98,8 +98,9 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 		GetLokiClient: env.GetLokiClient,
 		Name:          env.Config().PodName,
 		GetPachClient: pachClient.WithCtx,
-		KubeClient:    env.GetKubeClient(),
+		GetKubeClient: env.GetKubeClient,
 		Config:        *env.Config(),
+		TaskService:   env.GetTaskService("debug"),
 	})
 	debugclient.RegisterDebugServer(server.Server, debugSrv)
 

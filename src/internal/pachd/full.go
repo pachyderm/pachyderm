@@ -101,6 +101,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.resumeHealth,
 		fb.startPFSWorker,
 		fb.startPFSMaster,
+		fb.startDebugWorker,
 		fb.daemon.serve,
 	)
 }
