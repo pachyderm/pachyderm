@@ -37,6 +37,7 @@ func compareBranchOpts() []cmp.Option {
 	return []cmp.Option{
 		cmpopts.IgnoreUnexported(pfs.BranchInfo{}),
 		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
+		cmpopts.SortMaps(func(a, b pfsdb.BranchID) bool { return a < b }),
 		cmpopts.EquateEmpty(),
 		cmp.Comparer(compareBranch),
 		cmp.Comparer(compareHead),
@@ -217,7 +218,7 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 func TestBranchIterator(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
-		var branchIDs []pfsdb.BranchID
+		allBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// Create 2^8-1=255 branches
 			headCommitInfo := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
@@ -230,7 +231,7 @@ func TestBranchIterator(t *testing.T) {
 					createCommitPair(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
 					id, err := pfsdb.UpsertBranch(ctx, tx, parent)
 					require.NoError(t, err)
-					branchIDs = append(branchIDs, id)
+					allBranches[id] = parent
 					// Create 2 child for each branch in the current level
 					for j := 0; j < 2; j++ {
 						head := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
@@ -244,11 +245,28 @@ func TestBranchIterator(t *testing.T) {
 		// List all branches
 		branchIterator, err := pfsdb.NewBranchIterator(ctx, db, pfsdb.QueryBuilder[pfsdb.BranchField]{}, 10)
 		require.NoError(t, err)
-		var gotBranchIDs []pfsdb.BranchID
-		stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
-			gotBranchIDs = append(gotBranchIDs, branchPair.ID)
+		gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
+		require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+			gotAllBranches[branchPair.ID] = branchPair.BranchInfo
+			require.Equal(t, allBranches[branchPair.ID].Branch.Key(), branchPair.BranchInfo.Branch.Key())
+			require.Equal(t, allBranches[branchPair.ID].Head.Key(), branchPair.BranchInfo.Head.Key())
 			return nil
-		})
-		require.ElementsEqual(t, branchIDs, gotBranchIDs)
+		}))
+		// Filter on a set of repos
+		expectedRepoNames := []string{allBranches[1].Branch.Repo.Name, allBranches[42].Branch.Repo.Name, allBranches[255].Branch.Repo.Name}
+		qb := pfsdb.QueryBuilder[pfsdb.BranchField]{
+			AndFilters: pfsdb.AndFilters[pfsdb.BranchField]{
+				{Field: pfsdb.BranchFieldRepoName, Op: pfsdb.ValueIn, Value: expectedRepoNames},
+			},
+		}
+		branchIterator, err = pfsdb.NewBranchIterator(ctx, db, qb, 10)
+		require.NoError(t, err)
+		var gotRepoNames []string
+		require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+			gotRepoNames = append(gotRepoNames, branchPair.BranchInfo.Branch.Repo.Name)
+			return nil
+		}))
+		require.Equal(t, len(expectedRepoNames), len(gotRepoNames))
+		require.ElementsEqual(t, expectedRepoNames, gotRepoNames)
 	})
 }

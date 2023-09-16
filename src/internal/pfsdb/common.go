@@ -44,19 +44,22 @@ type PairType interface {
 type Filter[T CommitField | BranchField] struct {
 	Field  T
 	Value  any
-	Values []any // for ValueIn expressions, is there a better way?
+	values []any
 	Op     FilterOperator
 }
 
 func (f *Filter[T]) String() (formatted string, err error) {
 	formatted = fmt.Sprintf(string(f.Op), f.Field)
 	if f.Op == ValueIn {
-		formatted, f.Values, err = sqlx.In(formatted, f.Values) // Thank god for this!
+		formatted, f.values, err = sqlx.In(formatted, f.Value) // Thank god for this!
+		if err != nil {
+			return "", errors.Wrapf(err, "expanding %s", formatted)
+		}
 	}
 	return
 }
 
-type AndFilters[T FieldType] []Filter[T]
+type AndFilters[T FieldType] []*Filter[T]
 
 func (f AndFilters[T]) String() (string, error) {
 	var parts []string
@@ -88,7 +91,8 @@ func (c *QueryBuilder[T]) Build() (string, error) {
 	}
 	for _, filter := range c.AndFilters {
 		if filter.Op == ValueIn {
-			c.queryParams = append(c.queryParams, filter.Values...)
+			// filter.values is set by Filter.String()
+			c.queryParams = append(c.queryParams, filter.values...)
 		} else {
 			c.queryParams = append(c.queryParams, filter.Value)
 		}

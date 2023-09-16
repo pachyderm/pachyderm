@@ -31,8 +31,6 @@ const (
 			JOIN core.projects project ON repo.project_id = project.id
 			JOIN pfs.commits commit ON branch.head = commit.int_id
 	`
-	getBranchByIDQuery   = getBranchBaseQuery + ` WHERE branch.id = $1`
-	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
 )
 
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
@@ -55,8 +53,8 @@ type BranchIterator struct {
 	paginator pageIterator[Branch, BranchPair]
 }
 type BranchPair struct {
-	ID   BranchID
-	Info *pfs.BranchInfo
+	ID         BranchID
+	BranchInfo *pfs.BranchInfo
 }
 
 type BranchField string
@@ -76,7 +74,7 @@ func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[Bran
 		if err != nil {
 			return nil, err
 		}
-		return &BranchPair{ID: branch.ID, Info: branchInfo}, nil
+		return &BranchPair{ID: branch.ID, BranchInfo: branchInfo}, nil
 	})
 	paginator, err := newPageIterator[Branch, BranchPair](ctx, db, qb, transform, pageSize, 0 /* offset */)
 	if err != nil {
@@ -94,7 +92,7 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchPair) (err error) 
 		return err
 	}
 	dst.ID = branchPair.ID
-	dst.Info = branchPair.Info
+	dst.BranchInfo = branchPair.BranchInfo
 	return
 }
 
