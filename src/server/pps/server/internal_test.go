@@ -239,6 +239,7 @@ func BenchmarkMakeEffectiveSpec(b *testing.B) {
 				if _, _, err := makeEffectiveSpec(defaults, spec); err != nil {
 					b.Error(err)
 				}
+		// merge each spec into each default
 
 			}
 		}
