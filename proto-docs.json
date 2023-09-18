@@ -2953,7 +2953,7 @@
           "fields": [
             {
               "name": "system",
-              "description": "",
+              "description": "Which system-level information to include in the debug dump.",
               "label": "",
               "type": "System",
               "longType": "System",
@@ -2965,7 +2965,7 @@
             },
             {
               "name": "pipelines",
-              "description": "",
+              "description": "Which pipelines to fetch information about and include in the debug dump.",
               "label": "repeated",
               "type": "Pipeline",
               "longType": "Pipeline",
@@ -2977,7 +2977,7 @@
             },
             {
               "name": "input_repos",
-              "description": "",
+              "description": "If true, fetch information about non-output repos.",
               "label": "",
               "type": "bool",
               "longType": "bool",
@@ -2989,7 +2989,7 @@
             },
             {
               "name": "timeout",
-              "description": "",
+              "description": "How long to run the dump for.",
               "label": "",
               "type": "Duration",
               "longType": "google.protobuf.Duration",
@@ -3001,11 +3001,23 @@
             },
             {
               "name": "defaults",
-              "description": "",
+              "description": "Which defaults to include in the debug dump.",
               "label": "",
               "type": "Defaults",
               "longType": "DumpV2Request.Defaults",
               "fullType": "debug_v2.DumpV2Request.Defaults",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "starlark_scripts",
+              "description": "A list of Starlark scripts to run.",
+              "label": "repeated",
+              "type": "Starlark",
+              "longType": "Starlark",
+              "fullType": "debug_v2.Starlark",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -3025,7 +3037,7 @@
           "fields": [
             {
               "name": "cluster_defaults",
-              "description": "",
+              "description": "If true, include the cluster defaults.",
               "label": "",
               "type": "bool",
               "longType": "bool",
@@ -3531,6 +3543,90 @@
               "name": "errored_pods",
               "description": "",
               "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Starlark",
+          "longName": "Starlark",
+          "fullName": "debug_v2.Starlark",
+          "description": "Starlark controls the running of a Starlark script.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "builtin",
+              "description": "One built into the pachd binary.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "source",
+              "defaultValue": ""
+            },
+            {
+              "name": "script",
+              "description": "Or a script supplied in this request.",
+              "label": "",
+              "type": "StarlarkScript",
+              "longType": "StarlarkScript",
+              "fullType": "debug_v2.StarlarkScript",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "source",
+              "defaultValue": ""
+            },
+            {
+              "name": "timeout",
+              "description": "How long to allow the script to run for.  If unset, defaults to 1 minute.",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "StarlarkScript",
+          "longName": "StarlarkScript",
+          "fullName": "debug_v2.StarlarkScript",
+          "description": "StarlarkScript is a Starlark script.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "The name of the script; used for debug messages and to control where the output goes.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "program_text",
+              "description": "The text of the \"debugdump\" peronality Starlark program.",
+              "label": "",
               "type": "string",
               "longType": "string",
               "fullType": "string",

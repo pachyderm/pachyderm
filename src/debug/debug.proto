@@ -88,7 +88,7 @@ message App {
   string name = 1;
   repeated Pod pods = 2;
   google.protobuf.Duration timeout = 3;
-  Pipeline pipeline = 4;  
+  Pipeline pipeline = 4;
 }
 
 message System {
@@ -96,21 +96,50 @@ message System {
   bool database = 2;
   bool version = 3;
   repeated App describes = 4;
-  repeated App logs = 5;  
+  repeated App logs = 5;
   repeated App loki_logs = 6;
   repeated App binaries = 7;
   repeated App profiles = 8;
 }
 
+// StarlarkScript is a Starlark script.
+message StarlarkScript {
+  // The name of the script; used for debug messages and to control where the output goes.
+  string name = 1;
+  // The text of the "debugdump" peronality Starlark program.
+  string program_text = 2;
+}
+
+// Starlark controls the running of a Starlark script.
+message Starlark {
+  // Where to load the program from.
+  oneof source {
+    // One built into the pachd binary.
+    string builtin = 1;
+    // Or a script supplied in this request.
+    StarlarkScript script = 2;
+  }
+  // How long to allow the script to run for.  If unset, defaults to 1 minute.
+  google.protobuf.Duration timeout = 3;
+}
+
 message DumpV2Request {
+  // Which system-level information to include in the debug dump.
   System system = 1;
+  // Which pipelines to fetch information about and include in the debug dump.
   repeated Pipeline pipelines = 2;
+  // If true, fetch information about non-output repos.
   bool input_repos = 3;
+  // How long to run the dump for.
   google.protobuf.Duration timeout = 4;
   message Defaults {
+    // If true, include the cluster defaults.
     bool cluster_defaults = 1;
   }
+  // Which defaults to include in the debug dump.
   Defaults defaults = 5;
+  // A list of Starlark scripts to run.
+  repeated Starlark starlark_scripts = 6;
 }
 
 message DumpContent {

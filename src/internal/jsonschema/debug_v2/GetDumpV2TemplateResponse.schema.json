@@ -43,26 +43,39 @@
             "properties": {
                 "system": {
                     "$ref": "#/definitions/debug_v2.System",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Which system-level information to include in the debug dump."
                 },
                 "pipelines": {
                     "items": {
                         "$ref": "#/definitions/debug_v2.Pipeline"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "type": "array",
+                    "description": "Which pipelines to fetch information about and include in the debug dump."
                 },
                 "inputRepos": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "If true, fetch information about non-output repos."
                 },
                 "timeout": {
                     "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
                     "type": "string",
+                    "description": "How long to run the dump for.",
                     "format": "regex"
                 },
                 "defaults": {
                     "$ref": "#/definitions/debug_v2.DumpV2Request.Defaults",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Which defaults to include in the debug dump."
+                },
+                "starlarkScripts": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.Starlark"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "A list of Starlark scripts to run."
                 }
             },
             "additionalProperties": false,
@@ -72,7 +85,8 @@
         "debug_v2.DumpV2Request.Defaults": {
             "properties": {
                 "clusterDefaults": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "If true, include the cluster defaults."
                 }
             },
             "additionalProperties": false,
@@ -110,6 +124,57 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Pod"
+        },
+        "debug_v2.Starlark": {
+            "properties": {
+                "builtin": {
+                    "type": "string",
+                    "description": "One built into the pachd binary."
+                },
+                "script": {
+                    "$ref": "#/definitions/debug_v2.StarlarkScript",
+                    "additionalProperties": false,
+                    "description": "Or a script supplied in this request."
+                },
+                "timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "How long to allow the script to run for.  If unset, defaults to 1 minute.",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "builtin"
+                    ]
+                },
+                {
+                    "required": [
+                        "script"
+                    ]
+                }
+            ],
+            "title": "Starlark",
+            "description": "Starlark controls the running of a Starlark script."
+        },
+        "debug_v2.StarlarkScript": {
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The name of the script; used for debug messages and to control where the output goes."
+                },
+                "programText": {
+                    "type": "string",
+                    "description": "The text of the \"debugdump\" peronality Starlark program."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Starlark Script",
+            "description": "StarlarkScript is a Starlark script."
         },
         "debug_v2.System": {
             "properties": {

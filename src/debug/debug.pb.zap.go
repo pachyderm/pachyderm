@@ -205,6 +205,25 @@ func (x *System) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *StarlarkScript) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("name", x.Name)
+	enc.AddString("program_text", x.ProgramText)
+	return nil
+}
+
+func (x *Starlark) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("builtin", x.GetBuiltin())
+	enc.AddObject("script", x.GetScript())
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
+	return nil
+}
+
 func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -220,6 +239,13 @@ func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("input_repos", x.InputRepos)
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	enc.AddObject("defaults", x.Defaults)
+	starlark_scriptsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.StarlarkScripts {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("starlark_scripts", zapcore.ArrayMarshalerFunc(starlark_scriptsArrMarshaller))
 	return nil
 }
 
