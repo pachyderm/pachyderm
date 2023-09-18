@@ -313,6 +313,11 @@ describe('File Preview', () => {
           'This file format is not supported for file previews',
         ),
       ).toBeInTheDocument();
+
+      const viewRawLink = await screen.findByText('View Raw');
+
+      expect(viewRawLink).toHaveAttribute('href', '/download/data.unsupported');
+      expect(viewRawLink).toHaveAttribute('target', '_blank');
     });
 
     it('should render a message when the file is too large to be rendered', async () => {

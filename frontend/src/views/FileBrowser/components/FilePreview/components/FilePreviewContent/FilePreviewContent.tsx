@@ -5,7 +5,7 @@ import CodePreview, {
   useFileDetails,
 } from '@dash-frontend/components/CodePreview';
 import EmptyState from '@dash-frontend/components/EmptyState';
-import {Switch} from '@pachyderm/components';
+import {Link, Switch} from '@pachyderm/components';
 
 import CSVPreview from '../CSVPreview';
 import IFramePreview from '../IFramePreview';
@@ -46,13 +46,19 @@ const FilePreviewRenderer = ({
   }
 
   if (!fileDetails.supportsPreview) {
-    // TODO: Add a download link when we don't support file previews
     return (
-      <EmptyState
-        error
-        title="Unable to preview this file"
-        message="This file format is not supported for file previews"
-      />
+      <>
+        <EmptyState
+          error
+          title="Unable to preview this file"
+          message="This file format is not supported for file previews"
+        />
+        {download && (
+          <Link className={styles.viewRaw} href={download} target="_blank">
+            View Raw
+          </Link>
+        )}
+      </>
     );
   }
 
