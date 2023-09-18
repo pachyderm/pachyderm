@@ -54,13 +54,13 @@ func TestNewMessageFilterFunc(t *testing.T) {
 
 func BenchmarkMakeEffectiveSpec(b *testing.B) {
 	var (
-		defaults = []string{
-			`{}`,
-			`{"createPipelineRequest":{}}`,
-			`{"createPipelineRequest":{"autoscaling": true}}`,
-			`{"create_pipeline_request":{"datum_tries": 6}}`,
-			`{"createPipelineRequest":{"autoscaling": false, "datumTries": 6}}`,
-			`{"createPipelineRequest":{
+		defaults = map[string]string{
+			"empty defaults":                      `{}`,
+			"empty default createPipelineRequest": `{"createPipelineRequest":{}}`,
+			"default autoscaling":                 `{"createPipelineRequest":{"autoscaling": true}}`,
+			"default datum_tries":                 `{"create_pipeline_request":{"datum_tries": 6}}`,
+			"default autoscaling and datumTries":  `{"createPipelineRequest":{"autoscaling": false, "datumTries": 6}}`,
+			"default resource requests and limits": `{"createPipelineRequest":{
 				"resource_requests": {
 					"cpu": "1",
 					"disk": "187Mi"
@@ -71,8 +71,33 @@ func BenchmarkMakeEffectiveSpec(b *testing.B) {
 				}
 			}}`,
 		}
-		specs = []string{
-			`{
+		specs = map[string]string{
+			"empty spec": `{}`,
+			"simple spec": `{
+    "pipeline": {
+	"name": "simple"
+    },
+    "input": {
+	"pfs": {
+	    "glob": "/*",
+	    "repo": "input"
+	}
+    },
+    "parallelism_spec": {
+	"constant": 1
+    },
+    "transform": {
+	"cmd": [ "/bin/bash" ],
+	"stdin": [
+	    "cp /pfs/input/* /pfs/out"
+	]
+    },
+    "resourceRequests": {
+	"cpu": null,
+	"disk": "256Mi"
+    }
+}`,
+			"complex spec": `{
   "pipeline": {
     "name": "yz63tb0lsrttr1o5vi6hnv"
   },
@@ -151,7 +176,7 @@ func BenchmarkMakeEffectiveSpec(b *testing.B) {
   },
   "autoscaling": true
 }`,
-			`{
+			"complex spec 2": `{
   "pipeline": {
     "name": "iki30apxti994kpi1wnsko"
   },
@@ -232,16 +257,19 @@ func BenchmarkMakeEffectiveSpec(b *testing.B) {
 }`,
 		}
 	)
-	for i := 0; i < b.N; i++ {
-		// merge each spec with each other spec, and vice-versa; O(len(specs))
-		for _, defaults := range defaults {
-			for _, spec := range specs {
-				if _, _, err := makeEffectiveSpec(defaults, spec); err != nil {
-					b.Error(err)
-				}
-		// merge each spec into each default
+	// merge each spec into each default
+	for name, defaults := range defaults {
+		b.Run(name, func(b *testing.B) {
+			for name, spec := range specs {
+				b.Run(name, func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						if _, _, err := makeEffectiveSpec(defaults, spec); err != nil {
+							b.Error(err)
+						}
 
+					}
+				})
 			}
-		}
+		})
 	}
 }
