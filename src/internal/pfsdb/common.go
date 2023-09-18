@@ -25,8 +25,13 @@ const (
 const (
 	// Note that we use `?` as the placeholder for bindvar, but postgres uses $1, $2, etc.
 	// We solve this by rebinding the query before executing it using sqlx.Rebind.
-	Equal   FilterOperator = "%s = ?"
-	ValueIn FilterOperator = "%s in (?)"
+	Equal              FilterOperator = "%s = ?"
+	GreaterThan        FilterOperator = "%s > ?"
+	GreaterThanOrEqual FilterOperator = "%s >= ?"
+	LessThan           FilterOperator = "%s < ?"
+	LessThanOrEqual    FilterOperator = "%s <= ?"
+	NotEqual           FilterOperator = "%s <> ?"
+	ValueIn            FilterOperator = "%s in (?)"
 )
 
 type (
