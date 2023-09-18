@@ -67,7 +67,7 @@ const (
 	BranchFieldProjectName BranchField = "project.name"
 )
 
-func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[BranchField], pageSize uint64) (*BranchIterator, error) {
+func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, qb QueryBuilder[BranchField], startPage, pageSize uint64) (*BranchIterator, error) {
 	qb.baseQuery = getBranchBaseQuery
 	if qb.OrderBy == nil {
 		qb.OrderBy = &OrderBy[BranchField]{Fields: []BranchField{BranchFieldID}, SortOrder: SortAscend}
@@ -79,7 +79,7 @@ func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[Bran
 		}
 		return &BranchPair{ID: branch.ID, BranchInfo: branchInfo}, nil
 	})
-	paginator, err := newPageIterator[Branch, BranchPair](ctx, db, qb, transform, pageSize, 0 /* offset */)
+	paginator, err := newPageIterator[Branch, BranchPair](ctx, tx, qb, transform, startPage, pageSize)
 	if err != nil {
 		return nil, err
 	}

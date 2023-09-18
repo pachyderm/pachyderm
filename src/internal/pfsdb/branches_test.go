@@ -242,31 +242,33 @@ func TestBranchIterator(t *testing.T) {
 				currentLevel = newLevel
 			}
 		})
-		// List all branches
-		branchIterator, err := pfsdb.NewBranchIterator(ctx, db, pfsdb.QueryBuilder[pfsdb.BranchField]{}, 10)
-		require.NoError(t, err)
-		gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
-		require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
-			gotAllBranches[branchPair.ID] = branchPair.BranchInfo
-			require.Equal(t, allBranches[branchPair.ID].Branch.Key(), branchPair.BranchInfo.Branch.Key())
-			require.Equal(t, allBranches[branchPair.ID].Head.Key(), branchPair.BranchInfo.Head.Key())
-			return nil
-		}))
-		// Filter on a set of repos
-		expectedRepoNames := []string{allBranches[1].Branch.Repo.Name, allBranches[42].Branch.Repo.Name, allBranches[255].Branch.Repo.Name}
-		qb := pfsdb.QueryBuilder[pfsdb.BranchField]{
-			AndFilters: pfsdb.AndFilters[pfsdb.BranchField]{
-				{Field: pfsdb.BranchFieldRepoName, Op: pfsdb.ValueIn, Value: expectedRepoNames},
-			},
-		}
-		branchIterator, err = pfsdb.NewBranchIterator(ctx, db, qb, 10)
-		require.NoError(t, err)
-		var gotRepoNames []string
-		require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
-			gotRepoNames = append(gotRepoNames, branchPair.BranchInfo.Branch.Repo.Name)
-			return nil
-		}))
-		require.Equal(t, len(expectedRepoNames), len(gotRepoNames))
-		require.ElementsEqual(t, expectedRepoNames, gotRepoNames)
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			// List all branches
+			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, pfsdb.QueryBuilder[pfsdb.BranchField]{}, 0 /* startPage */, 10 /* pageSize */)
+			require.NoError(t, err)
+			gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
+			require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+				gotAllBranches[branchPair.ID] = branchPair.BranchInfo
+				require.Equal(t, allBranches[branchPair.ID].Branch.Key(), branchPair.BranchInfo.Branch.Key())
+				require.Equal(t, allBranches[branchPair.ID].Head.Key(), branchPair.BranchInfo.Head.Key())
+				return nil
+			}))
+			// Filter on a set of repos
+			expectedRepoNames := []string{allBranches[1].Branch.Repo.Name, allBranches[42].Branch.Repo.Name, allBranches[255].Branch.Repo.Name}
+			qb := pfsdb.QueryBuilder[pfsdb.BranchField]{
+				AndFilters: pfsdb.AndFilters[pfsdb.BranchField]{
+					{Field: pfsdb.BranchFieldRepoName, Op: pfsdb.ValueIn, Value: expectedRepoNames},
+				},
+			}
+			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, qb, 0 /* startPage */, 10 /* pageSize */)
+			require.NoError(t, err)
+			var gotRepoNames []string
+			require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+				gotRepoNames = append(gotRepoNames, branchPair.BranchInfo.Branch.Repo.Name)
+				return nil
+			}))
+			require.Equal(t, len(expectedRepoNames), len(gotRepoNames))
+			require.ElementsEqual(t, expectedRepoNames, gotRepoNames)
+		})
 	})
 }

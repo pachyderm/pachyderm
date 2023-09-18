@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -95,7 +94,7 @@ type QueryBuilder[T FieldType] struct {
 	AndFilters AndFilters[T]
 	GroupBy    string
 	OrderBy    *OrderBy[T]
-	// Limit, Offset uint64
+	// TODO, should QueryBuilder deal with Limit and Offset?
 }
 
 func (c *QueryBuilder[T]) Build() (string, error) {
@@ -132,7 +131,7 @@ type transformFn[T ModelType, U PairType] func(context.Context, *pachsql.Tx, *T)
 // U is the type the type returned by the iterator
 // Typically the user supplies the transform function, which converts T to U
 type pageIterator[T ModelType, U PairType] struct {
-	db            *pachsql.DB
+	tx            *pachsql.Tx
 	baseQuery     string
 	queryParams   []any
 	limit, offset uint64
@@ -141,16 +140,17 @@ type pageIterator[T ModelType, U PairType] struct {
 	transform     transformFn[T, U] // converts T to U, and is called for each item in the page
 }
 
-func newPageIterator[T ModelType, U PairType, S FieldType](ctx context.Context, db *pachsql.DB, qb QueryBuilder[S], transform transformFn[T, U], limit, offset uint64) (pageIterator[T, U], error) {
+func newPageIterator[T ModelType, U PairType, S FieldType](ctx context.Context, tx *pachsql.Tx, qb QueryBuilder[S], transform transformFn[T, U], startPage, pageSize uint64) (pageIterator[T, U], error) {
 	baseQuery, err := qb.Build()
 	if err != nil {
 		return pageIterator[T, U]{}, err
 	}
+	offset := startPage * pageSize
 	iter := pageIterator[T, U]{
-		db:          db,
+		tx:          tx,
 		baseQuery:   baseQuery,
 		queryParams: qb.queryParams,
-		limit:       limit,
+		limit:       pageSize,
 		offset:      offset,
 		transform:   transform,
 	}
@@ -161,22 +161,17 @@ func (i *pageIterator[T, U]) nextPage(ctx context.Context) error {
 	query := i.baseQuery + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
 	var page []*U
 	// open a transaction and get the next page of results
-	if err := dbutil.WithTx(ctx, i.db, func(ctx context.Context, tx *pachsql.Tx) error {
-		var rows []T
-		if err := tx.SelectContext(ctx, &rows, query, i.queryParams...); err != nil {
-			return errors.Wrap(err, "getting page")
+	var rows []T
+	if err := i.tx.SelectContext(ctx, &rows, query, i.queryParams...); err != nil {
+		return errors.Wrap(err, "getting page")
+	}
+	for _, row := range rows {
+		row := row
+		x, err := i.transform(ctx, i.tx, &row)
+		if err != nil {
+			return err
 		}
-		for _, row := range rows {
-			row := row
-			x, err := i.transform(ctx, tx, &row)
-			if err != nil {
-				return err
-			}
-			page = append(page, x)
-		}
-		return nil
-	}); err != nil {
-		return err
+		page = append(page, x)
 	}
 	if len(page) == 0 {
 		return stream.EOS()
