@@ -121,7 +121,7 @@ http://localhost:30657/authorization-code/callback
 {{- end }}
 
 {{- define "pachyderm.pachdPeerAddress" -}}
-pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
+pachd-peer.{{ .Release.Namespace }}.svc:30653
 {{- end }}
 
 {{- define "pachyderm.localhostIssuer" -}}
