@@ -132,9 +132,9 @@ func (c *QueryBuilder[T]) Build() (string, error) {
 
 type transformFn[T ModelType, U PairType] func(context.Context, *pachsql.Tx, *T) (*U, error)
 
-// T is the type used to deserialize rows from the database
-// U is the type the type returned by the iterator
-// Typically the user supplies the transform function, which converts T to U
+// T is the type used to deserialize rows from the database.
+// U is the type returned by the iterator.
+// The caller supplies the transform function, which converts T to U.
 type pageIterator[T ModelType, U PairType] struct {
 	tx            *pachsql.Tx
 	baseQuery     string
