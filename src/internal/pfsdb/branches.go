@@ -69,6 +69,9 @@ const (
 
 func NewBranchIterator(ctx context.Context, db *pachsql.DB, qb QueryBuilder[BranchField], pageSize uint64) (*BranchIterator, error) {
 	qb.baseQuery = getBranchBaseQuery
+	if qb.OrderBy == nil {
+		qb.OrderBy = &OrderBy[BranchField]{Fields: []BranchField{BranchFieldID}, SortOrder: SortAscend}
+	}
 	transform := transformFn[Branch, BranchPair](func(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*BranchPair, error) {
 		branchInfo, err := fetchBranchInfoByBranch(ctx, tx, branch)
 		if err != nil {

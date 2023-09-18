@@ -30,25 +30,20 @@ const (
 	ValueIn FilterOperator = "%s in (?)"
 )
 
-type ModelType interface {
-	Repo | Commit | Branch
-}
+type (
+	ModelType interface{ Repo | Commit | Branch }
+	FieldType interface{ CommitField | BranchField }
+	PairType  interface{ CommitPair | BranchPair }
+)
 
-type FieldType interface {
-	CommitField | BranchField
-}
-
-type PairType interface {
-	CommitPair | BranchPair
-}
-type Filter[T CommitField | BranchField] struct {
+type Filter[T FieldType] struct {
 	Field  T
 	Value  any
 	values []any
 	Op     FilterOperator
 }
 
-func (f *Filter[T]) String() (formatted string, err error) {
+func (f *Filter[T]) QueryString() (formatted string, err error) {
 	formatted = fmt.Sprintf(string(f.Op), f.Field)
 	if f.Op == ValueIn {
 		formatted, f.values, err = sqlx.In(formatted, f.Value) // Thank god for this!
@@ -61,10 +56,10 @@ func (f *Filter[T]) String() (formatted string, err error) {
 
 type AndFilters[T FieldType] []*Filter[T]
 
-func (f AndFilters[T]) String() (string, error) {
+func (f AndFilters[T]) QueryString() (string, error) {
 	var parts []string
 	for _, filter := range f {
-		part, err := filter.String()
+		part, err := filter.QueryString()
 		if err != nil {
 			return "", err
 		}
@@ -73,39 +68,59 @@ func (f AndFilters[T]) String() (string, error) {
 	return strings.Join(parts, " AND "), nil
 }
 
+type OrderBy[T FieldType] struct {
+	Fields    []T
+	SortOrder SortOrder
+}
+
+func (o *OrderBy[T]) QueryString() string {
+	var parts []string
+	for _, field := range o.Fields {
+		parts = append(parts, string(field))
+	}
+	var order string
+	switch o.SortOrder {
+	case SortAscend:
+		order = "ASC"
+	case SortDescend:
+		order = "DESC"
+	}
+	return strings.Join(parts, ", ") + " " + order
+}
+
 type QueryBuilder[T FieldType] struct {
 	baseQuery   string
 	queryParams []any
 
 	AndFilters AndFilters[T]
 	GroupBy    string
-	OrderBy    string
+	OrderBy    *OrderBy[T]
 	// Limit, Offset uint64
 }
 
 func (c *QueryBuilder[T]) Build() (string, error) {
 	query := c.baseQuery
-	condition, err := c.AndFilters.String()
+	condition, err := c.AndFilters.QueryString()
 	if err != nil {
 		return "", err
 	}
-	for _, filter := range c.AndFilters {
-		if filter.Op == ValueIn {
-			// filter.values is set by Filter.String()
-			c.queryParams = append(c.queryParams, filter.values...)
-		} else {
-			c.queryParams = append(c.queryParams, filter.Value)
-		}
-	}
 	if condition != "" {
+		for _, filter := range c.AndFilters {
+			if filter.Op == ValueIn {
+				// filter.values is set by Filter.String()
+				c.queryParams = append(c.queryParams, filter.values...)
+			} else {
+				c.queryParams = append(c.queryParams, filter.Value)
+			}
+		}
 		query += "\nWHERE " + condition
 	}
-	// TODO implement GROUP BY and ORDER BY in a type safe way
+	// TODO implement GROUP BY
 	if c.GroupBy != "" {
 		query += "\nGROUP BY " + c.GroupBy
 	}
-	if c.OrderBy != "" {
-		query += "\nORDER BY " + c.OrderBy
+	if c.OrderBy != nil {
+		query += "\nORDER BY " + c.OrderBy.QueryString()
 	}
 	query = sqlx.Rebind(sqlx.DOLLAR, query)
 	return query, nil
