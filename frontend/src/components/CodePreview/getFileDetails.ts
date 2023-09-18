@@ -14,7 +14,7 @@ import {LanguageSupport} from '@codemirror/language';
 
 import parsePath from '@dash-frontend/lib/parsePath';
 
-import yaml from './extensions/yaml';
+import {docker, go, julia, r, ruby, shell, yaml} from './extensions/legacy';
 
 export type SupportedRenderer =
   | 'code'
@@ -40,7 +40,13 @@ export type SupportedLanguagePlugins =
   | 'java'
   | 'php'
   | 'rust'
-  | 'sql';
+  | 'sql'
+  | 'go'
+  | 'shell'
+  | 'r'
+  | 'julia'
+  | 'ruby'
+  | 'docker';
 
 export type SupportedFileIcons =
   | 'document'
@@ -82,6 +88,12 @@ export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
   php,
   rust,
   sql,
+  go,
+  shell,
+  r,
+  julia,
+  ruby,
+  docker,
 });
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
@@ -200,6 +212,60 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     supportsPreview: true,
     supportsViewSource: false,
     extensions: ['.sql'],
+  },
+
+  go: {
+    renderer: 'code',
+    language: 'go',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.go'],
+  },
+
+  shell: {
+    renderer: 'code',
+    language: 'shell',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.sh'],
+  },
+
+  r: {
+    renderer: 'code',
+    language: 'r',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.r'],
+  },
+
+  julia: {
+    renderer: 'code',
+    language: 'julia',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.jl'],
+  },
+
+  ruby: {
+    renderer: 'code',
+    language: 'ruby',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.rb'],
+  },
+
+  docker: {
+    renderer: 'code',
+    language: 'docker',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['Dockerfile'],
   },
 
   css: {
@@ -360,7 +426,8 @@ export const parseFilePath = (filePath: string) => {
 };
 
 export const getFileDetails = (filePath: string) => {
-  const extension = parsePath(filePath).ext;
+  const parsedPath = parsePath(filePath);
+  const extension = parsedPath.ext || parsedPath.name;
 
   return FILE_EXTENSION_MAP[extension] || FILE_TYPE_MAP.unknown;
 };

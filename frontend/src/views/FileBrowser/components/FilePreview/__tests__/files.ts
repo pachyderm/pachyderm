@@ -23,13 +23,32 @@ int main() {
 }
   `,
   csv: `hello,world\n1,2\n`,
+  docker: `
+ARG DOCKER_TAG=\${DOCKER_TAG:-local}
+ENV REACT_APP_RELEASE_VERSION=\${DOCKER_TAG:-local}
+
+WORKDIR /usr/src/app
+
+COPY --from=0 /usr /usr
+# Start the server
+CMD ["npm", "start", "--prefix", "./backend"]
+EXPOSE 4000
+`,
+  go: `
+package main
+
+import "fmt"
+
+func main() {
+  fmt.Println("hello world")
+}
+`,
   java: `
 class HelloWorld {
   public static void main(String[] args) {
       System.out.println("Hello, World!");
   }
 }
-
 `,
   javascript: `
 import React from 'react';
@@ -48,6 +67,10 @@ export default Header;
 {
   "hello": "world"
 }
+  `,
+  julia: `
+s1 = "Hello World!"
+println(s1)
   `,
   html: `
 <!DOCTYPE html>
@@ -80,12 +103,42 @@ x = 1
 if x == 1:
   print(x)
   `,
+  r: `
+# Print Hello World
+message <- "Hello, World!"
+print(message)
+`,
+  ruby: `
+=begin
+Weird multi-line
+comments in here
+=end
+
+puts 'Hello, world!'
+
+`,
   rs: `
 fn main() {
   // Print text to the console.
   println!("Hello World!");
 }
   `,
+  shell: `
+#!/bin/bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+COMPONENT_LIBARY_CHANGED=$(git diff --name-status HEAD~1...HEAD frontend/components)
+
+if [ "$COMPONENT_LIBARY_CHANGED" ]; then
+    cd frontend
+    npm ci
+    npm run storybook:publish
+else
+    echo 'Skipped storybook upload'
+fi
+`,
   sql: `
 CREATE TABLE helloworld (phrase TEXT);
 INSERT INTO helloworld VALUES ("Hello, World!");

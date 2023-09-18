@@ -33,8 +33,12 @@ describe('File Preview', () => {
   afterAll(() => server.close());
 
   describe('File Preview File Types', () => {
-    const renderFilePreview = (ext: string, contents = '') => {
-      const fileName = `file.${ext}`;
+    const renderFilePreview = (
+      ext: string,
+      contents = '',
+      fullFileName = '',
+    ) => {
+      const fileName = fullFileName || `file.${ext}`;
       const file = buildFile({
         download: `/download/${fileName}`,
         path: `/${fileName}`,
@@ -248,6 +252,42 @@ describe('File Preview', () => {
       renderFilePreview('tsx', files.javascript);
 
       expect(await screen.findByText('React')).toBeInTheDocument();
+    });
+
+    it('should render a go file', async () => {
+      renderFilePreview('go', files.go);
+
+      expect(await screen.findByText('Println')).toBeInTheDocument();
+    });
+
+    it('should render a shell file', async () => {
+      renderFilePreview('sh', files.shell);
+
+      expect(await screen.findByText('#!/bin/bash')).toBeInTheDocument();
+    });
+
+    it('should render an r file', async () => {
+      renderFilePreview('r', files.r);
+
+      expect(await screen.findByText('print')).toBeInTheDocument();
+    });
+
+    it('should render a julia file', async () => {
+      renderFilePreview('jl', files.julia);
+
+      expect(await screen.findByText('println')).toBeInTheDocument();
+    });
+
+    it('should render a ruby file', async () => {
+      renderFilePreview('rb', files.ruby);
+
+      expect(await screen.findByText('puts')).toBeInTheDocument();
+    });
+
+    it('should render a Dockerfile', async () => {
+      renderFilePreview('', files.docker, 'Dockerfile');
+
+      expect(await screen.findByText('EXPOSE')).toBeInTheDocument();
     });
 
     it('should render a message when the file type cannot be rendered', async () => {
