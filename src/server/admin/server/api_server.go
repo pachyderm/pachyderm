@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -114,7 +115,9 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 		if a.pfsServer == nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("PFS server not running; cannot check existence of project %s", request.GetCurrentProject()))
 		} else if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
-			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
+			if !(auth.IsErrNotSignedIn(err) || auth.IsErrBadToken(err) || auth.IsErrExpiredToken(err) || auth.IsErrNoMetadata(err)) {
+				response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
+			}
 		}
 	}
 	return response, nil
