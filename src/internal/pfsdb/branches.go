@@ -31,6 +31,8 @@ const (
 			JOIN core.projects project ON repo.project_id = project.id
 			JOIN pfs.commits commit ON branch.head = commit.int_id
 	`
+	getBranchByIDQuery   = getBranchBaseQuery + ` WHERE branch.id = $1`
+	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
 )
 
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
@@ -50,11 +52,12 @@ func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
 }
 
 type BranchIterator struct {
-	paginator pageIterator[Branch, BranchPair]
+	paginator pageIterator[Branch]
+	tx        *pachsql.Tx
 }
-type BranchPair struct {
-	ID         BranchID
-	BranchInfo *pfs.BranchInfo
+type BranchWithID struct {
+	ID BranchID
+	*pfs.BranchInfo
 }
 
 type BranchField string
@@ -67,50 +70,61 @@ const (
 	BranchFieldProjectName BranchField = "project.name"
 )
 
-func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, qb QueryBuilder[BranchField], startPage, pageSize uint64) (*BranchIterator, error) {
-	qb.baseQuery = getBranchBaseQuery
-	if qb.OrderBy == nil {
-		qb.OrderBy = &OrderBy[BranchField]{Fields: []BranchField{BranchFieldID}, SortOrder: SortAscend}
+func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, project, repo, repoType string) (*BranchIterator, error) {
+	// transform := transformFn[Branch, BranchWithID](func(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*BranchWithID, error) {
+	// 	branchInfo, err := fetchBranchInfoByBranch(ctx, tx, branch)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	return &BranchWithID{ID: branch.ID, BranchInfo: branchInfo}, nil
+	// })
+	query := getBranchBaseQuery
+	var conditions []string
+	var values []any
+	if project != "" {
+		conditions = append(conditions, "project.name = $1")
+		values = append(values, project)
 	}
-	transform := transformFn[Branch, BranchPair](func(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*BranchPair, error) {
-		branchInfo, err := fetchBranchInfoByBranch(ctx, tx, branch)
-		if err != nil {
-			return nil, err
-		}
-		return &BranchPair{ID: branch.ID, BranchInfo: branchInfo}, nil
-	})
-	paginator, err := newPageIterator[Branch, BranchPair](ctx, tx, qb, transform, startPage, pageSize)
-	if err != nil {
-		return nil, err
+	if repo != "" {
+		conditions = append(conditions, "repo.name = $2")
+		values = append(values, repo)
 	}
-	return &BranchIterator{paginator: paginator}, nil
+	if repoType != "" {
+		conditions = append(conditions, "repo.type = $3")
+		values = append(values, repoType)
+	}
+
+	if len(conditions) > 0 {
+		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
+	}
+	query += "\nORDER BY branch.id ASC"
+	return &BranchIterator{
+		paginator: newPageIterator[Branch](ctx, tx, query, values, startPage, pageSize),
+		tx:        tx,
+	}, nil
 }
 
-func (i *BranchIterator) Next(ctx context.Context, dst *BranchPair) (err error) {
+func (i *BranchIterator) Next(ctx context.Context, dst *BranchWithID) error {
 	if dst == nil {
 		return errors.Errorf("dst BranchInfo cannot be nil")
 	}
-	branchPair, err := i.paginator.next(ctx)
+	branch, err := i.paginator.next(ctx, i.tx)
 	if err != nil {
 		return err
 	}
-	dst.ID = branchPair.ID
-	dst.BranchInfo = branchPair.BranchInfo
-	return
+	branchInfo, err := fetchBranchInfoByBranch(ctx, i.tx, branch)
+	if err != nil {
+		return err
+	}
+	dst.ID = branch.ID
+	dst.BranchInfo = branchInfo
+	return nil
 }
 
 // GetBranchInfo returns a *pfs.BranchInfo by id.
 func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
-	qb := QueryBuilder[BranchField]{
-		baseQuery:  getBranchBaseQuery,
-		AndFilters: AndFilters[BranchField]{{Field: BranchFieldID, Op: Equal, Value: id}},
-	}
-	query, err := qb.Build()
-	if err != nil {
-		return nil, err
-	}
 	branch := &Branch{}
-	if err := tx.GetContext(ctx, branch, query, id); err != nil {
+	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, branch)
@@ -118,21 +132,8 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 
 // GetBranchInfoByName returns a *pfs.BranchInfo by name
 func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
-	qb := QueryBuilder[BranchField]{
-		baseQuery: getBranchBaseQuery,
-		AndFilters: AndFilters[BranchField]{
-			{Field: BranchFieldProjectName, Op: Equal, Value: project},
-			{Field: BranchFieldRepoName, Op: Equal, Value: repo},
-			{Field: BranchFieldRepoType, Op: Equal, Value: repoType},
-			{Field: BranchFieldName, Op: Equal, Value: branch},
-		},
-	}
-	query, err := qb.Build()
-	if err != nil {
-		return nil, err
-	}
 	row := &Branch{}
-	if err := tx.GetContext(ctx, row, query, project, repo, repoType, branch); err != nil {
+	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, row)

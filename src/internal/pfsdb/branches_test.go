@@ -244,26 +244,21 @@ func TestBranchIterator(t *testing.T) {
 		})
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// List all branches
-			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, pfsdb.QueryBuilder[pfsdb.BranchField]{}, 0 /* startPage */, 10 /* pageSize */)
+			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, "", "", "")
 			require.NoError(t, err)
 			gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
-			require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+			require.NoError(t, stream.ForEach[pfsdb.BranchWithID](ctx, branchIterator, func(branchPair pfsdb.BranchWithID) error {
 				gotAllBranches[branchPair.ID] = branchPair.BranchInfo
 				require.Equal(t, allBranches[branchPair.ID].Branch.Key(), branchPair.BranchInfo.Branch.Key())
 				require.Equal(t, allBranches[branchPair.ID].Head.Key(), branchPair.BranchInfo.Head.Key())
 				return nil
 			}))
 			// Filter on a set of repos
-			expectedRepoNames := []string{allBranches[1].Branch.Repo.Name, allBranches[42].Branch.Repo.Name, allBranches[255].Branch.Repo.Name}
-			qb := pfsdb.QueryBuilder[pfsdb.BranchField]{
-				AndFilters: pfsdb.AndFilters[pfsdb.BranchField]{
-					{Field: pfsdb.BranchFieldRepoName, Op: pfsdb.ValueIn, Value: expectedRepoNames},
-				},
-			}
-			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, qb, 0 /* startPage */, 10 /* pageSize */)
+			expectedRepoNames := []string{allBranches[1].Branch.Repo.Name}
+			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, allBranches[1].Branch.Repo.Project.Name, allBranches[1].Branch.Repo.Name, allBranches[1].Branch.Repo.Type)
 			require.NoError(t, err)
 			var gotRepoNames []string
-			require.NoError(t, stream.ForEach[pfsdb.BranchPair](ctx, branchIterator, func(branchPair pfsdb.BranchPair) error {
+			require.NoError(t, stream.ForEach[pfsdb.BranchWithID](ctx, branchIterator, func(branchPair pfsdb.BranchWithID) error {
 				gotRepoNames = append(gotRepoNames, branchPair.BranchInfo.Branch.Repo.Name)
 				return nil
 			}))

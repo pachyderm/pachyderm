@@ -37,7 +37,7 @@ const (
 type (
 	ModelType interface{ Repo | Commit | Branch }
 	FieldType interface{ CommitField | BranchField }
-	PairType  interface{ CommitPair | BranchPair }
+	PairType  interface{ CommitPair | BranchWithID }
 )
 
 type Filter[T FieldType] struct {
@@ -92,108 +92,54 @@ func (o *OrderBy[T]) QueryString() string {
 	return strings.Join(parts, ", ") + " " + order
 }
 
-type QueryBuilder[T FieldType] struct {
-	baseQuery   string
-	queryParams []any
-
-	AndFilters AndFilters[T]
-	GroupBy    string
-	OrderBy    *OrderBy[T]
-	// TODO, should QueryBuilder deal with Limit and Offset?
-}
-
-func (c *QueryBuilder[T]) Build() (string, error) {
-	query := c.baseQuery
-	condition, err := c.AndFilters.QueryString()
-	if err != nil {
-		return "", err
-	}
-	if condition != "" {
-		for _, filter := range c.AndFilters {
-			if filter.Op == ValueIn {
-				// filter.values is set by Filter.String()
-				c.queryParams = append(c.queryParams, filter.values...)
-			} else {
-				c.queryParams = append(c.queryParams, filter.Value)
-			}
-		}
-		query += "\nWHERE " + condition
-	}
-	// TODO implement GROUP BY
-	if c.GroupBy != "" {
-		query += "\nGROUP BY " + c.GroupBy
-	}
-	if c.OrderBy != nil {
-		query += "\nORDER BY " + c.OrderBy.QueryString()
-	}
-	query = sqlx.Rebind(sqlx.DOLLAR, query)
-	return query, nil
-}
-
-type transformFn[T ModelType, U PairType] func(context.Context, *pachsql.Tx, *T) (*U, error)
-
 // T is the type used to deserialize rows from the database.
 // U is the type returned by the iterator.
 // The caller supplies the transform function, which converts T to U.
-type pageIterator[T ModelType, U PairType] struct {
-	tx            *pachsql.Tx
-	baseQuery     string
-	queryParams   []any
+type pageIterator[T ModelType] struct {
+	query         string
+	values        []any
 	limit, offset uint64
-	page          []*U
-	pageIndex     int
-	transform     transformFn[T, U] // converts T to U, and is called for each item in the page
+	page          []T
+	pageIdx       int
+	// transform     transformFn[T, U] // converts T to U, and is called for each item in the page
 }
 
-func newPageIterator[T ModelType, U PairType, S FieldType](ctx context.Context, tx *pachsql.Tx, qb QueryBuilder[S], transform transformFn[T, U], startPage, pageSize uint64) (pageIterator[T, U], error) {
-	baseQuery, err := qb.Build()
-	if err != nil {
-		return pageIterator[T, U]{}, err
+func newPageIterator[T ModelType](ctx context.Context, tx *pachsql.Tx, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
+	return pageIterator[T]{
+		query:  query,
+		values: values,
+		limit:  pageSize,
+		offset: startPage * pageSize,
 	}
-	offset := startPage * pageSize
-	iter := pageIterator[T, U]{
-		tx:          tx,
-		baseQuery:   baseQuery,
-		queryParams: qb.queryParams,
-		limit:       pageSize,
-		offset:      offset,
-		transform:   transform,
-	}
-	return iter, nil
 }
 
-func (i *pageIterator[T, U]) nextPage(ctx context.Context) error {
-	query := i.baseQuery + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
-	var page []*U
+func (i *pageIterator[T]) nextPage(ctx context.Context, tx *pachsql.Tx) (err error) {
+	var page []T
+	query := i.query + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
 	// open a transaction and get the next page of results
-	var rows []T
-	if err := i.tx.SelectContext(ctx, &rows, query, i.queryParams...); err != nil {
+	if err := tx.SelectContext(ctx, &page, query, i.values...); err != nil {
 		return errors.Wrap(err, "getting page")
-	}
-	for _, row := range rows {
-		row := row
-		x, err := i.transform(ctx, i.tx, &row)
-		if err != nil {
-			return err
-		}
-		page = append(page, x)
 	}
 	if len(page) == 0 {
 		return stream.EOS()
 	}
 	i.page = page
-	i.pageIndex = 0
+	i.pageIdx = 0
 	i.offset += i.limit
 	return nil
 }
 
-func (i *pageIterator[T, U]) next(ctx context.Context) (*U, error) {
-	if i.pageIndex >= len(i.page) {
-		if err := i.nextPage(ctx); err != nil {
+func (i *pageIterator[T]) hasNext() bool {
+	return i.pageIdx < len(i.page)
+}
+
+func (i *pageIterator[T]) next(ctx context.Context, tx *pachsql.Tx) (*T, error) {
+	if !i.hasNext() {
+		if err := i.nextPage(ctx, tx); err != nil {
 			return nil, err
 		}
 	}
-	item := i.page[i.pageIndex]
-	i.pageIndex++
-	return item, nil
+	t := i.page[i.pageIdx]
+	i.pageIdx++
+	return &t, nil
 }
