@@ -405,7 +405,9 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 		if pi.Details.Autoscaling && pi.State == pps.PipelineState_PIPELINE_STARTING {
 			return pps.PipelineState_PIPELINE_STANDBY, sideEffects, "", nil
 		}
-		sideEffects = append(sideEffects, PipelineMonitorSideEffect(sideEffectToggle_DOWN))
+		if pi.State == pps.PipelineState_PIPELINE_RESTARTING { // the conditional isn't necessary but provides clearer semantics
+			sideEffects = append(sideEffects, PipelineMonitorSideEffect(sideEffectToggle_DOWN))
+		}
 		return pps.PipelineState_PIPELINE_RUNNING, sideEffects, "", nil
 	}
 	if rc == nil {
