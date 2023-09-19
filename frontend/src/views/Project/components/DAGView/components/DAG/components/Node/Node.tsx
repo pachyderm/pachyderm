@@ -302,19 +302,11 @@ const Node: React.FC<NodeProps> = ({
                 ry={3}
                 className={styles.statusRect}
               />
-              <text
-                style={labelTextStyle}
-                className={styles.subLabel}
-                x={BUTTON_MARGIN * 2}
-                y={18}
-              >
-                Connecting Repo
-              </text>
 
               {/* repo name gets injected here from the class on textElementProps */}
-              <text x={31} y={35} {...textElementProps} />
+              <text x={31} y={24} {...textElementProps} />
               <g transform="scale(0.75)">
-                <RepoSVG x={(BUTTON_MARGIN * 2 + 2) / 0.75} y={35} />
+                <RepoSVG x={(BUTTON_MARGIN * 2 + 2) / 0.75} y={21} />
               </g>
             </g>
           </>
