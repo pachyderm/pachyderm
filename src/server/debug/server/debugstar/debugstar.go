@@ -258,11 +258,6 @@ func (e *Env) RunStarlark(rctx context.Context, name string, script string) (ret
 	if _, err := ourstar.RunScript(ctx, name, script, e.Options()); err != nil {
 		return errors.Wrap(err, "RunScript")
 	}
-	if c, ok := e.FS.(io.Closer); ok {
-		if err := c.Close(); err != nil {
-			return errors.Wrap(err, "finalize dump")
-		}
-	}
 	return nil
 }
 

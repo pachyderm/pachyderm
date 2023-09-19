@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -190,6 +191,59 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	}
 	dumpV2.Flags().StringVarP(&template, "template", "t", "", "Download a template to customize the output of the debug dump operation.")
 	commands = append(commands, cmdutil.CreateAlias(dumpV2, "debug dump"))
+
+	localDump := &cobra.Command{
+		Use:     "{{alias}} <template>",
+		Short:   "Collect debugging information without connecting to a Pachyderm server.",
+		Long:    "This command collects debugging information based on a special template provided by Pachyderm Support.\n\nIt works in cases where Pachyderm isn't already installed.",
+		Example: "\t- {{alias}} template.yaml \n",
+		Args:    cobra.MatchAll(cobra.ExactArgs(1), cmdutil.FileMustExist(0)),
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			bytes, err := os.ReadFile(args[0])
+			if err != nil {
+				return errors.Wrap(err, "read template file")
+			}
+			template := new(debug.DumpV2Request)
+			if err := serde.Decode(bytes, template); err != nil {
+				return errors.Wrap(err, "unmarshal template")
+			}
+			fs := new(debugstar.LocalDumpFS)
+			env := debugstar.Env{FS: fs}
+			defer errors.Close(&retErr, fs, "finalize archive")
+			var errs error
+			for _, s := range template.GetStarlarkScripts() {
+				var name, program string
+				switch s.GetSource().(type) {
+				case *debug.Starlark_Builtin:
+					name = s.GetBuiltin()
+					var ok bool
+					program, ok = debugstar.BuiltinScripts[name]
+					if !ok {
+						errors.JoinInto(&errs, errors.Errorf("built-in script %q not available", name))
+						continue
+					}
+				case *debug.Starlark_Script:
+					name = s.GetScript().GetName()
+					program = s.GetScript().GetProgramText()
+				}
+				if err := env.RunStarlark(mainCtx, name, program); err != nil {
+					errors.JoinInto(&errs, errors.Wrapf(err, "run script %q", name))
+				}
+			}
+			if err := errs; err != nil {
+				if err := fs.Write("local-errors.txt", func(w io.Writer) error {
+					fmt.Fprintf(w, "%+v\n", err)
+					return nil
+				}); err != nil {
+					fmt.Fprintf(os.Stderr, "Some errors occurred and could not be included in the dump. The dump may still be usable.\n%v\n%+v\n", err, errs)
+				}
+			}
+			fmt.Fprintf(os.Stderr, "Debug file available at:\n")
+			fmt.Fprintf(os.Stdout, "%v\n", fs.Name())
+			return nil
+		},
+	}
+	commands = append(commands, cmdutil.CreateAlias(localDump, "debug local"))
 
 	var serverPort int
 	analyze := &cobra.Command{
