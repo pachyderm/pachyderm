@@ -55,20 +55,10 @@ type BranchIterator struct {
 	paginator pageIterator[Branch]
 	tx        *pachsql.Tx
 }
-type BranchWithID struct {
+type BranchInfoWithID struct {
 	ID BranchID
 	*pfs.BranchInfo
 }
-
-type BranchField string
-
-const (
-	BranchFieldID          BranchField = "branch.id"
-	BranchFieldName        BranchField = "branch.name"
-	BranchFieldRepoName    BranchField = "repo.name"
-	BranchFieldRepoType    BranchField = "repo.type"
-	BranchFieldProjectName BranchField = "project.name"
-)
 
 func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, project, repo, repoType string, sortOrder sortOrder) (*BranchIterator, error) {
 	var conditions []string
@@ -96,7 +86,7 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 	}, nil
 }
 
-func (i *BranchIterator) Next(ctx context.Context, dst *BranchWithID) error {
+func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error {
 	if dst == nil {
 		return errors.Errorf("dst BranchInfo cannot be nil")
 	}

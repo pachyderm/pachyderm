@@ -271,7 +271,7 @@ func TestBranchIterator(t *testing.T) {
 			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, "", "", "", pfsdb.SortAscend)
 			require.NoError(t, err)
 			gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
-			require.NoError(t, stream.ForEach[pfsdb.BranchWithID](ctx, branchIterator, func(branchPair pfsdb.BranchWithID) error {
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchPair pfsdb.BranchInfoWithID) error {
 				gotAllBranches[branchPair.ID] = branchPair.BranchInfo
 				require.Equal(t, allBranches[branchPair.ID].Branch.Key(), branchPair.BranchInfo.Branch.Key())
 				require.Equal(t, allBranches[branchPair.ID].Head.Key(), branchPair.BranchInfo.Head.Key())
@@ -282,7 +282,7 @@ func TestBranchIterator(t *testing.T) {
 			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, allBranches[1].Branch.Repo.Project.Name, allBranches[1].Branch.Repo.Name, allBranches[1].Branch.Repo.Type, pfsdb.SortAscend)
 			require.NoError(t, err)
 			var gotRepoNames []string
-			require.NoError(t, stream.ForEach[pfsdb.BranchWithID](ctx, branchIterator, func(branchPair pfsdb.BranchWithID) error {
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchPair pfsdb.BranchInfoWithID) error {
 				gotRepoNames = append(gotRepoNames, branchPair.BranchInfo.Branch.Repo.Name)
 				return nil
 			}))
