@@ -70,7 +70,7 @@ const (
 	BranchFieldProjectName BranchField = "project.name"
 )
 
-func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, project, repo, repoType string) (*BranchIterator, error) {
+func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, project, repo, repoType string, sortOrder sortOrder) (*BranchIterator, error) {
 	var conditions []string
 	var values []any
 	if project != "" {
@@ -89,7 +89,7 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 	if len(conditions) > 0 {
 		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
 	}
-	query += "\nORDER BY branch.id ASC"
+	query += "\nORDER BY branch.id " + string(sortOrder)
 	return &BranchIterator{
 		paginator: newPageIterator[Branch](ctx, tx, query, values, startPage, pageSize),
 		tx:        tx,

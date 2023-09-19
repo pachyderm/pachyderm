@@ -244,7 +244,7 @@ func TestBranchIterator(t *testing.T) {
 		})
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// List all branches
-			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, "", "", "")
+			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, "", "", "", pfsdb.SortAscend)
 			require.NoError(t, err)
 			gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
 			require.NoError(t, stream.ForEach[pfsdb.BranchWithID](ctx, branchIterator, func(branchPair pfsdb.BranchWithID) error {
@@ -255,7 +255,7 @@ func TestBranchIterator(t *testing.T) {
 			}))
 			// Filter on a set of repos
 			expectedRepoNames := []string{allBranches[1].Branch.Repo.Name}
-			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, allBranches[1].Branch.Repo.Project.Name, allBranches[1].Branch.Repo.Name, allBranches[1].Branch.Repo.Type)
+			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, allBranches[1].Branch.Repo.Project.Name, allBranches[1].Branch.Repo.Name, allBranches[1].Branch.Repo.Type, pfsdb.SortAscend)
 			require.NoError(t, err)
 			var gotRepoNames []string
 			require.NoError(t, stream.ForEach[pfsdb.BranchWithID](ctx, branchIterator, func(branchPair pfsdb.BranchWithID) error {
