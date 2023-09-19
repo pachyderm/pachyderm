@@ -206,6 +206,14 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	return branchID, nil
 }
 
+// DeleteBranch deletes a branch.
+func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branches WHERE id = $1`, id); err != nil {
+		return errors.Wrapf(err, "could not delete branch %d", id)
+	}
+	return nil
+}
+
 // GetDirectBranchProvenance returns the direct provenance of a branch, i.e. all branches that it directly depends on.
 func GetDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch

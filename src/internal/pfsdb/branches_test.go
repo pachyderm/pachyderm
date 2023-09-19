@@ -291,3 +291,24 @@ func TestBranchIterator(t *testing.T) {
 		})
 	})
 }
+
+func TestDeleteBranch(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
+			commitPair1 := createCommitPair(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+			branchInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "master",
+				},
+				Head: commitPair1.CommitInfo.Commit,
+			}
+			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, id))
+			_, err = pfsdb.GetBranchInfo(ctx, tx, id)
+			require.YesError(t, err)
+		})
+	})
+}
