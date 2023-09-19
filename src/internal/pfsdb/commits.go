@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"strings"
+	"time"
 )
 
 const (
@@ -407,7 +408,7 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 	return commitInfo, err
 }
 
-func GetCommitPairByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*CommitPair, error) {
+func GetCommitPairByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*CommitWithID, error) {
 	row, err := getCommitRowByCommitKey(ctx, tx, commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit by commit key")
@@ -416,7 +417,7 @@ func GetCommitPairByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.C
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit info from row")
 	}
-	return &CommitPair{
+	return &CommitWithID{
 		CommitInfo: commitInfo,
 		ID:         row.ID,
 	}, nil
@@ -709,44 +710,50 @@ func parseCommitFromRow(row *Commit) (*pfs.Commit, error) {
 	return commit, nil
 }
 
-// CommitPair is an (id, commitInfo) tuple returned by the commit iterator.
-type CommitPair struct {
+// CommitWithID is an (id, commitInfo) tuple returned by the commit iterator.
+type CommitWithID struct {
 	ID         CommitID
 	CommitInfo *pfs.CommitInfo
+	Revision   int
 }
 
 // this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.
-var _ stream.Iterator[CommitPair] = &CommitIterator{}
+var _ stream.Iterator[CommitWithID] = &CommitIterator{}
 
 // CommitIterator batches a page of Commit entries along with their parent and children. (id, entry) tuples can be retrieved using iter.Next().
 type CommitIterator struct {
-	commitInfos map[CommitID]*pfs.CommitInfo
-	db          *pachsql.DB
-	gottenInfos int
-	rev         bool
-	limit       int
-	offset      int
-	commits     []Commit
-	index       int
-	filter      CommitListFilter
+	commitInfos   map[CommitID]*pfs.CommitInfo
+	db            *pachsql.DB
+	gottenInfos   int
+	reverse       bool
+	revision      bool
+	limit         int
+	offset        int
+	lastTimestamp time.Time
+	currRevision  int
+	commits       []Commit
+	index         int
+	filter        CommitListFilter
 }
 
 type commitIteratorTx struct {
-	commitInfos map[CommitID]*pfs.CommitInfo
-	tx          *pachsql.Tx
-	reverse     bool
-	revision    bool
-	limit       int
-	offset      int
-	commits     []Commit
-	index       int
-	filter      CommitListFilter
+	commitInfos   map[CommitID]*pfs.CommitInfo
+	tx            *pachsql.Tx
+	reverse       bool
+	revision      bool
+	limit         int
+	offset        int
+	lastTimestamp time.Time
+	currRevision  int
+	commits       []Commit
+	index         int
+	filter        CommitListFilter
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
 // The iterator prefetches the parents and children of the buffered commits until it hits an internal
 // capacity.
-func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
+func (iter *CommitIterator) Next(ctx context.Context, dst *CommitWithID) error {
 	if dst == nil {
 		return errors.Wrap(fmt.Errorf("commit is nil"), "get next commit")
 	}
@@ -756,7 +763,7 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 		iter.index = 0
 		iter.offset += iter.limit
 		if err := dbutil.WithTx(ctx, iter.db, func(ctx context.Context, tx *pachsql.Tx) error {
-			iter.commits, err = listCommitPage(ctx, tx, iter.limit, iter.offset, iter.filter, iter.rev, false)
+			iter.commits, err = listCommitPage(ctx, tx, iter.limit, iter.offset, iter.filter, iter.reverse, false)
 			if err != nil {
 				return errors.Wrap(err, "list commit page")
 			}
@@ -776,10 +783,15 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 			return err
 		}
 	}
+	if iter.revision && iter.commits[iter.index].CreatedAt.After(iter.lastTimestamp) {
+		iter.currRevision++
+		iter.lastTimestamp = iter.commits[iter.index].CreatedAt
+	}
 	id := iter.commits[iter.index].ID
-	*dst = CommitPair{
+	*dst = CommitWithID{
 		CommitInfo: iter.commitInfos[id],
 		ID:         id,
+		Revision:   iter.currRevision,
 	}
 	iter.index++
 	return nil
@@ -803,16 +815,17 @@ type CommitListFilter map[commitFields][]string
 
 // ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
 // It manages transactions on behalf of its user under the hood.
-func ListCommit(ctx context.Context, db *pachsql.DB, filter CommitListFilter, rev bool) (*CommitIterator, error) {
+func ListCommit(ctx context.Context, db *pachsql.DB, filter CommitListFilter, reverse, revision bool) (*CommitIterator, error) {
 	var iter *CommitIterator
 	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 		limit := 100
-		page, err := listCommitPage(ctx, tx, limit, 0, filter, rev)
+		page, err := listCommitPage(ctx, tx, limit, 0, filter, reverse, revision)
 		if err != nil {
 			return errors.Wrap(err, "new commits iterator")
 		}
 		iter = &CommitIterator{
-			rev:         rev,
+			reverse: reverse,
+
 			commits:     page,
 			limit:       limit,
 			filter:      filter,
@@ -844,7 +857,7 @@ func listCommitTx(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, 
 	return iter, nil
 }
 
-func (iter *commitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
+func (iter *commitIteratorTx) Next(ctx context.Context, dst *CommitWithID) error {
 	if dst == nil {
 		return errors.Wrap(fmt.Errorf("commit is nil"), "get next commit")
 	}
@@ -860,14 +873,19 @@ func (iter *commitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
 			return stream.EOS()
 		}
 	}
+	if iter.revision && iter.commits[iter.index].CreatedAt.After(iter.lastTimestamp) {
+		iter.currRevision++
+		iter.lastTimestamp = iter.commits[iter.index].CreatedAt
+	}
 	row := iter.commits[iter.index]
 	commit, err := getCommitInfoFromCommitRow(ctx, iter.tx, &row)
 	if err != nil {
 		return errors.Wrap(err, "getting commitInfo from commit row")
 	}
-	*dst = CommitPair{
+	*dst = CommitWithID{
 		CommitInfo: commit,
 		ID:         row.ID,
+		Revision:   iter.currRevision,
 	}
 	iter.index++
 	return nil
@@ -887,7 +905,7 @@ func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter CommitList
 		return nil, errors.Wrap(err, "create iterator for listCommitTx")
 	}
 	var commits []*pfs.CommitInfo
-	if err := stream.ForEach[CommitPair](ctx, iter, func(commitPair CommitPair) error {
+	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitPair CommitWithID) error {
 		commits = append(commits, commitPair.CommitInfo)
 		return nil
 	}); err != nil {

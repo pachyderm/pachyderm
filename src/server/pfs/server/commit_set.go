@@ -132,7 +132,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	if err != nil {
 		return errors.Wrap(err, "list commit set")
 	}
-	err = stream.ForEach[pfsdb.CommitPair](ctx, iter, func(commitPair pfsdb.CommitPair) error {
+	err = stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitPair pfsdb.CommitWithID) error {
 		commitInfo := commitPair.CommitInfo
 		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil

@@ -42,7 +42,7 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	iter, err := pfsdb.ListCommit(ctx, db, nil, false)
 	require.NoError(t, err, "should be able to list commits from pfs.commits")
 	var gotCommits []v2_8_0.CommitInfo
-	require.NoError(t, stream.ForEach[pfsdb.CommitPair](ctx, iter, func(commitPair pfsdb.CommitPair) error {
+	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitPair pfsdb.CommitWithID) error {
 		commit := v2_8_0.InfoToCommit(commitPair.CommitInfo, uint64(commitPair.ID), time.Time{}, time.Time{})
 		ancestry := v2_8_0.InfoToCommitAncestry(commitPair.CommitInfo)
 		if ancestry.ParentCommit != "" {

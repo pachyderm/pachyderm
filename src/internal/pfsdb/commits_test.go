@@ -455,9 +455,9 @@ func TestUpsertCommit(t *testing.T) {
 	})
 }
 
-func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.CommitPair], expectedInfos []*pfs.CommitInfo) {
+func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.CommitWithID], expectedInfos []*pfs.CommitInfo) {
 	i := 0
-	require.NoError(t, stream.ForEach[pfsdb.CommitPair](ctx, iter, func(commitPair pfsdb.CommitPair) error {
+	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitPair pfsdb.CommitWithID) error {
 		commitsMatch(t, expectedInfos[i], commitPair.CommitInfo)
 		i++
 		return nil

@@ -1358,7 +1358,7 @@ func (d *driver) listCommit(
 		}
 		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		listCallback := func(key string, createRev int64) error {
+		listCallback := func(createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -1370,8 +1370,8 @@ func (d *driver) listCommit(
 			}
 			if passesCommitOriginFilter(ci, all, originKind) {
 				if startTime != nil {
-					createdAt := time.Unix(int64(ci.Started.GetSeconds()), int64(ci.Started.GetNanos())).UTC()
-					fromTime := time.Unix(int64(startTime.GetSeconds()), int64(startTime.GetNanos())).UTC()
+					createdAt := time.Unix(ci.Started.GetSeconds(), int64(ci.Started.GetNanos())).UTC()
+					fromTime := time.Unix(startTime.GetSeconds(), int64(startTime.GetNanos())).UTC()
 					if !reverse && createdAt.Before(fromTime) || reverse && createdAt.After(fromTime) {
 						cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
 					}
@@ -1390,6 +1390,14 @@ func (d *driver) listCommit(
 		}
 
 		if repo.Name == "" {
+			iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil, reverse, true)
+			if err != nil {
+				return errors.Wrap(err, "list commit")
+			}
+			stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(t pfsdb.CommitWithID) error {
+				return listCallback()
+			})
+
 			if err := d.commits.ReadOnly(ctx).ListRev(ci, opts, listCallback); err != nil { //todo(fahad): implement ListRev
 				return errors.EnsureStack(err)
 			}
