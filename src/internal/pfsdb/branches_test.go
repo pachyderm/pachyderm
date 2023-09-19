@@ -78,19 +78,6 @@ func newCommitInfo(repo *pfs.Repo, id string, parent *pfs.Commit) *pfs.CommitInf
 	}
 }
 
-func newBranchInfo(repo *pfs.Repo, name string, head *pfs.Commit, directProv, fullProv, fullSubv []*pfs.Branch) *pfs.BranchInfo {
-	return &pfs.BranchInfo{
-		Branch: &pfs.Branch{
-			Repo: repo,
-			Name: name,
-		},
-		Head:             head,
-		DirectProvenance: directProv,
-		Provenance:       fullProv,
-		Subvenance:       fullSubv,
-	}
-}
-
 func createProject(t *testing.T, ctx context.Context, tx *pachsql.Tx, projectInfo *pfs.ProjectInfo) {
 	t.Helper()
 	require.NoError(t, coredb.UpsertProject(ctx, tx, projectInfo))
@@ -118,7 +105,13 @@ func TestCreateAndGetBranch(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
 			commitPair1 := createCommitPair(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
-			branchInfo := newBranchInfo(repoInfo.Repo, "master", commitPair1.CommitInfo.Commit, nil, nil, nil)
+			branchInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "master",
+				},
+				Head: commitPair1.CommitInfo.Commit,
+			}
 			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
 			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, id)
@@ -156,9 +149,27 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 				createCommitPair(t, ctx, tx, commitInfo)
 			}
 			// Create 3 branches, one for each repo, pointing to the corresponding commit
-			branchAInfo := newBranchInfo(repoAInfo.Repo, "master", commitAInfo.Commit, nil, nil, nil)
-			branchBInfo := newBranchInfo(repoBInfo.Repo, "master", commitBInfo.Commit, nil, nil, nil)
-			branchCInfo := newBranchInfo(repoCInfo.Repo, "master", commitCInfo.Commit, nil, nil, nil)
+			branchAInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoAInfo.Repo,
+					Name: "master",
+				},
+				Head: commitAInfo.Commit,
+			}
+			branchBInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoBInfo.Repo,
+					Name: "master",
+				},
+				Head: commitBInfo.Commit,
+			}
+			branchCInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoCInfo.Repo,
+					Name: "master",
+				},
+				Head: commitCInfo.Commit,
+			}
 			// Provenance info: A <- B <- C, and A <- C
 			branchAInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch, branchCInfo.Branch}
 			branchBInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
@@ -222,7 +233,14 @@ func TestBranchIterator(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// Create 2^8-1=255 branches
 			headCommitInfo := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
-			rootBranchInfo := newBranchInfo(headCommitInfo.Commit.Repo, "master", headCommitInfo.Commit, nil, nil, nil)
+			rootBranchInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: headCommitInfo.Commit.Repo,
+					Name: "master",
+				},
+				Head: headCommitInfo.Commit,
+			}
+
 			currentLevel := []*pfs.BranchInfo{rootBranchInfo}
 			for i := 0; i < 8; i++ {
 				var newLevel []*pfs.BranchInfo
@@ -235,7 +253,13 @@ func TestBranchIterator(t *testing.T) {
 					// Create 2 child for each branch in the current level
 					for j := 0; j < 2; j++ {
 						head := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
-						child := newBranchInfo(head.Commit.Repo, "master", head.Commit, []*pfs.Branch{parent.Branch} /* directProv */, nil, nil)
+						child := &pfs.BranchInfo{
+							Branch: &pfs.Branch{
+								Repo: head.Commit.Repo,
+								Name: "master",
+							},
+							Head: head.Commit,
+						}
 						newLevel = append(newLevel, child)
 					}
 				}
