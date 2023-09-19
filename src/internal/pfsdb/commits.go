@@ -4,18 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"strings"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -194,10 +195,6 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
-	branchName := sql.NullString{String: "", Valid: false}
-	if commitInfo.Commit.Branch != nil {
-		branchName = sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true}
-	}
 	insert := Commit{
 		CommitID:    CommitKey(commitInfo.Commit),
 		CommitSetID: commitInfo.Commit.Id,
@@ -208,14 +205,14 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 				Name: commitInfo.Commit.Repo.Project.Name,
 			},
 		},
-		BranchName:     branchName,
+		BranchName:     sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true},
 		Origin:         commitInfo.Origin.Kind.String(),
-		StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
-		FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
-		FinishedTime:   pbutil.SanitizeTimestampPb(commitInfo.Finished),
+		StartTime:      sanitizeTimestamppb(commitInfo.Started),
+		FinishingTime:  sanitizeTimestamppb(commitInfo.Finishing),
+		FinishedTime:   sanitizeTimestamppb(commitInfo.Finished),
 		Description:    commitInfo.Description,
-		CompactingTime: pbutil.DurationPbToBigInt(commitInfo.Details.CompactingTime),
-		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
+		CompactingTime: durationpbToBigInt(commitInfo.Details.CompactingTime),
+		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 	}
@@ -486,10 +483,6 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
-	branchName := sql.NullString{String: "", Valid: false}
-	if commitInfo.Commit.Branch != nil {
-		branchName = sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true}
-	}
 	update := Commit{
 		ID:          id,
 		CommitID:    CommitKey(commitInfo.Commit),
@@ -501,14 +494,14 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 				Name: commitInfo.Commit.Repo.Project.Name,
 			},
 		},
-		BranchName:     branchName,
+		BranchName:     sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true},
 		Origin:         commitInfo.Origin.Kind.String(),
-		StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
-		FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
-		FinishedTime:   pbutil.SanitizeTimestampPb(commitInfo.Finished),
+		StartTime:      sanitizeTimestamppb(commitInfo.Started),
+		FinishingTime:  sanitizeTimestamppb(commitInfo.Finishing),
+		FinishedTime:   sanitizeTimestamppb(commitInfo.Finished),
 		Description:    commitInfo.Description,
-		CompactingTime: pbutil.DurationPbToBigInt(commitInfo.Details.CompactingTime),
-		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
+		CompactingTime: durationpbToBigInt(commitInfo.Details.CompactingTime),
+		ValidatingTime: durationpbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 	}
@@ -554,6 +547,9 @@ func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
 	}
 	if commitInfo.Origin == nil {
 		return ErrCommitMissingInfo{Field: "Origin"}
+	}
+	if commitInfo.Commit.Branch == nil {
+		return ErrCommitMissingInfo{Field: "Branch"}
 	}
 	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
 		commitInfo.Details = &pfs.CommitInfo_Details{}
@@ -664,13 +660,13 @@ func parseCommitInfoFromRow(row *Commit) (*pfs.CommitInfo, error) {
 	commitInfo := &pfs.CommitInfo{
 		Commit:      commit,
 		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(row.Origin)])},
-		Started:     pbutil.TimeToTimestamppb(row.StartTime),
-		Finishing:   pbutil.TimeToTimestamppb(row.FinishingTime),
-		Finished:    pbutil.TimeToTimestamppb(row.FinishedTime),
+		Started:     timeToTimestamppb(row.StartTime),
+		Finishing:   timeToTimestamppb(row.FinishingTime),
+		Finished:    timeToTimestamppb(row.FinishedTime),
 		Description: row.Description,
 		Details: &pfs.CommitInfo_Details{
-			CompactingTime: pbutil.BigIntToDurationpb(row.CompactingTime),
-			ValidatingTime: pbutil.BigIntToDurationpb(row.ValidatingTime),
+			CompactingTime: bigIntToDurationpb(row.CompactingTime),
+			ValidatingTime: bigIntToDurationpb(row.ValidatingTime),
 			SizeBytes:      row.Size,
 		},
 	}
@@ -764,21 +760,21 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 	return nil
 }
 
-// CommitField is used in the ListCommitFilter and defines specific field names for type safety.
+// CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
 // This should hopefully prevent a library user from misconfiguring the filter.
-type CommitField string
+type CommitFields string
 
-const (
-	CommitSetIDs   = CommitField("commit_set_id")
-	CommitOrigins  = CommitField("origin")
-	CommitRepos    = CommitField("repo_id")
-	CommitBranches = CommitField("branch_id")
-	CommitProjects = CommitField("project_id")
+var (
+	CommitSetIDs   = CommitFields("commit_set_id")
+	CommitOrigins  = CommitFields("origin")
+	CommitRepos    = CommitFields("repo_id")
+	CommitBranches = CommitFields("branch_id")
+	CommitProjects = CommitFields("project_id")
 )
 
 // CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
 // where commit.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND commit.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
-type CommitListFilter map[CommitField][]string
+type CommitListFilter map[CommitFields][]string
 
 // ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
 // It manages transactions on behalf of its user under the hood.
@@ -865,4 +861,32 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil
+}
+
+func sanitizeTimestamppb(timestamp *timestamppb.Timestamp) time.Time {
+	if timestamp != nil {
+		return timestamp.AsTime()
+	}
+	return time.Time{}
+}
+
+func durationpbToBigInt(duration *durationpb.Duration) int64 {
+	if duration != nil {
+		return duration.Seconds
+	}
+	return 0
+}
+
+func timeToTimestamppb(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
+}
+
+func bigIntToDurationpb(s int64) *durationpb.Duration {
+	if s == 0 {
+		return nil
+	}
+	return durationpb.New(time.Duration(s))
 }
