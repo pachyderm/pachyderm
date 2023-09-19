@@ -169,6 +169,22 @@ func TestGetCommit(t *testing.T) {
 	})
 }
 
+func TestGetCommitPair(t *testing.T) {
+	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			commitInfo := testCommit(ctx, t, tx, testRepoName)
+			commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
+			require.NoError(t, err, "should be able to create commit")
+			createBranch(ctx, t, tx, commitInfo.Commit)
+			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, commitID, commitInfo)) // add branch fields once they exist
+			getPair, err := pfsdb.GetCommitPairByCommitKey(ctx, tx, commitInfo.Commit)
+			require.NoError(t, err, "should be able to get commit with id=1")
+			commitsMatch(t, commitInfo, getPair.CommitInfo)
+			require.Equal(t, commitID, getPair.ID)
+		})
+	})
+}
+
 func TestDeleteCommitWithNoRelatives(t *testing.T) {
 	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {

@@ -56,9 +56,9 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, nil
 		}
 		// Check if the trigger should fire based on the new head commit.
-		oldHead := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
-			return nil, errors.EnsureStack(err)
+		oldHead, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, bi.Head)
+		if err != nil {
+			return nil, errors.Wrap(err, "trigger commit")
 		}
 		triggered, err := d.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
 		if err != nil {

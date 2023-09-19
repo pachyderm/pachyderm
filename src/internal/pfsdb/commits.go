@@ -407,8 +407,7 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 	return commitInfo, err
 }
 
-// GetCommitByCommitKey is like GetCommit but derives the int_id on behalf of the caller.
-func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+func GetCommitPairByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*CommitPair, error) {
 	row, err := getCommitRowByCommitKey(ctx, tx, commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit by commit key")
@@ -417,7 +416,16 @@ func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commi
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit info from row")
 	}
-	return commitInfo, err
+	return &CommitPair{
+		CommitInfo: commitInfo,
+		ID:         row.ID,
+	}, nil
+}
+
+// GetCommitByCommitKey is like GetCommit but derives the int_id on behalf of the caller.
+func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	pair, err := GetCommitPairByCommitKey(ctx, tx, commit)
+	return pair.CommitInfo, err
 }
 
 // GetCommitParent uses the pfs.commit_ancestry and pfs.commits tables to retrieve a commit given an int_id of

@@ -770,7 +770,7 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 	return nil
 }
 
-// Set child.ParentCommit (if 'parent' has been determined) and write child to parent's ChildCommits
+// Set child.ParentCommit (if 'parent' has been determined).
 func (d *driver) linkParent(ctx context.Context, txnCtx *txncontext.TransactionContext, child *pfs.CommitInfo, parent *pfs.Commit, needsFinishedParent bool) error {
 	if parent == nil {
 		return nil
@@ -786,10 +786,8 @@ func (d *driver) linkParent(ctx context.Context, txnCtx *txncontext.TransactionC
 	if needsFinishedParent && parentCommitInfo.Finishing == nil {
 		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
 	}
-	child.ParentCommit = parentCommitInfo.Commit
-	parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, child.Commit)
-	return errors.Wrapf(d.commits.ReadWrite(txnCtx.SqlTx).Put(parentCommitInfo.Commit, parentCommitInfo),
-		"could not resolve parent commit %s", parent)
+	child.ParentCommit = parent
+	return nil
 }
 
 // creates a new commit, and adds both commit ancestry, and commit provenance pointers
@@ -811,8 +809,9 @@ func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionCo
 		}
 		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, branchInfo.Head)
 	}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommitInfo.Commit, newCommitInfo); err != nil {
-		if col.IsErrExists(err) {
+	commitID, err := pfsdb.CreateCommit(ctx, txnCtx.SqlTx, newCommitInfo)
+	if err != nil {
+		if errors.Is(pfsdb.ErrCommitAlreadyExists{CommitID: newCommitInfo.Commit.Key()}, errors.Cause(err)) {
 			return errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: newCommitInfo.Commit})
 		}
 		return errors.EnsureStack(err)
@@ -821,6 +820,9 @@ func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionCo
 		if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommitInfo.Commit, p); err != nil {
 			return err
 		}
+	}
+	if parent != nil {
+		return errors.Wrap(pfsdb.CreateCommitParent(ctx, txnCtx.SqlTx, parent, commitID), "add commit")
 	}
 	return nil
 }
@@ -918,6 +920,7 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	commitInfo.Finishing = txnCtx.Timestamp
 	commitInfo.Error = commitError
+
 	return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Put(commitInfo.Commit, commitInfo))
 }
 
@@ -1030,15 +1033,12 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 			return errors.Wrapf(err, "put branch %q with head %q", pfsdb.BranchKey(bi.Branch), pfsdb.CommitKey(bi.Head))
 		}
 		// create open 'commit'.
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil {
+		commitID, err := pfsdb.CreateCommit(ctx, txnCtx.SqlTx, newCommitInfo)
+		if err != nil {
 			return errors.Wrapf(err, "create new commit %q", pfsdb.CommitKey(newCommit))
 		}
 		if newCommitInfo.ParentCommit != nil {
-			parentCommitInfo := &pfs.CommitInfo{}
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(newCommitInfo.ParentCommit, parentCommitInfo, func() error {
-				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
-				return nil
-			}); err != nil {
+			if err := pfsdb.CreateCommitParent(ctx, txnCtx.SqlTx, newCommitInfo.ParentCommit, commitID); err != nil {
 				return errors.Wrapf(err, "update parent commit %q with child %q", pfsdb.CommitKey(newCommitInfo.ParentCommit), pfsdb.CommitKey(newCommit))
 			}
 		}
@@ -1168,20 +1168,21 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 		}
 		commit.Id = branchInfo.Head.Id
 	}
-	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
-		if col.IsErrNotFound(err) {
+	commitInfo, err := pfsdb.GetCommitByCommitKey(ctx, sqlTx, commit)
+	if err != nil {
+		if errors.Is(pfsdb.ErrCommitNotFound{CommitID: commit.Key()}, errors.Cause(err)) {
 			// try to resolve to alias if not found
 			resolvedCommit, err := pfsdb.ResolveCommitProvenance(sqlTx, userCommit.Repo, commit.Id)
 			if err != nil {
 				return nil, err
 			}
 			commit.Id = resolvedCommit.Id
-			if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
+			commitInfo, err = pfsdb.GetCommitByCommitKey(ctx, sqlTx, commit)
+			if err != nil {
 				return nil, errors.EnsureStack(err)
 			}
 		} else {
-			return nil, errors.EnsureStack(err)
+			return nil, errors.Wrap(err, "resolve commit")
 		}
 	}
 	// Traverse commits' parents until you've reached the right ancestor
@@ -1190,8 +1191,10 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 			if commitInfo.ParentCommit == nil {
 				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
-			if err := d.commits.ReadWrite(sqlTx).Get(commitInfo.ParentCommit, commitInfo); err != nil {
-				if col.IsErrNotFound(err) {
+			parentKey := commitInfo.ParentCommit.Key()
+			commitInfo, err = pfsdb.GetCommitByCommitKey(ctx, sqlTx, commitInfo.ParentCommit)
+			if err != nil {
+				if errors.Is(pfsdb.ErrCommitNotFound{CommitID: parentKey}, errors.Cause(err)) {
 					if i == 0 {
 						return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 					}
@@ -1201,17 +1204,18 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 			}
 		}
 	} else {
-		cis := make([]pfs.CommitInfo, ancestryLength*-1)
+		cis := make([]*pfs.CommitInfo, ancestryLength*-1)
 		for i := 0; ; i++ {
 			if commit == nil {
 				if i >= len(cis) {
-					commitInfo = &cis[i%len(cis)]
+					commitInfo = cis[i%len(cis)]
 					break
 				}
 				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
-			if err := d.commits.ReadWrite(sqlTx).Get(commit, &cis[i%len(cis)]); err != nil {
-				if col.IsErrNotFound(err) {
+			cis[i&len(cis)], err = pfsdb.GetCommitByCommitKey(ctx, sqlTx, commit)
+			if err != nil {
+				if errors.Is(pfsdb.ErrCommitNotFound{CommitID: commit.Key()}, errors.Cause(err)) {
 					if i == 0 {
 						return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 					}
@@ -1389,7 +1393,7 @@ func (d *driver) listCommit(
 		}
 
 		if repo.Name == "" {
-			if err := d.commits.ReadOnly(ctx).ListRev(ci, opts, listCallback); err != nil {
+			if err := d.commits.ReadOnly(ctx).ListRev(ci, opts, listCallback); err != nil { //todo(fahad): implement ListRev
 				return errors.EnsureStack(err)
 			}
 		} else {
@@ -1408,9 +1412,13 @@ func (d *driver) listCommit(
 		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.Id != from.Id) {
-			commitInfo := &pfs.CommitInfo{}
-			if err := d.commits.ReadOnly(ctx).Get(cursor, commitInfo); err != nil {
-				return errors.EnsureStack(err)
+			var commitInfo *pfs.CommitInfo
+			var err error
+			if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+				commitInfo, err = pfsdb.GetCommitByCommitKey(ctx, tx, cursor)
+				return err
+			}); err != nil {
+				return errors.Wrap(err, "list commit")
 			}
 			if passesCommitOriginFilter(commitInfo, all, originKind) {
 				var err error
