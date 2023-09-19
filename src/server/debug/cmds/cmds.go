@@ -118,11 +118,10 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			bytes, err := serde.EncodeYAML(r.Request)
-			if err != nil {
+			e := serde.NewYAMLEncoder(os.Stdout)
+			if err := e.EncodeProto(r.Request); err != nil {
 				return err
 			}
-			fmt.Println(string(bytes))
 			return nil
 		}),
 	}
