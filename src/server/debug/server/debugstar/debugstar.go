@@ -144,6 +144,9 @@ func (fs *InteractiveDumpFS) Write(filename string, f func(w io.Writer) error) (
 		fs.Base = dest
 	}
 	fullname := filepath.Join(fs.Base, filename)
+	if err := os.MkdirAll(filepath.Dir(fullname), 0o755); err != nil {
+		return errors.Wrapf(err, "create parent directory for file %v", fullname)
+	}
 	fh, err := os.Create(fullname)
 	if err != nil {
 		return errors.Wrapf(err, "create file %v", fullname)

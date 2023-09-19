@@ -52,6 +52,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -126,7 +127,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 		}
 	}
 	var scripts []*debug.Starlark
-	for _, name := range maps.Keys(builtinScripts) {
+	for _, name := range maps.Keys(debugstar.BuiltinScripts) {
 		scripts = append(scripts, &debug.Starlark{
 			Source: &debug.Starlark_Builtin{
 				Builtin: name,
@@ -333,9 +334,10 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 			return s.collectDefaults(ctx, dfs.WithPrefix(defaultsPrefix), server, rp)
 		})
 	}
-	if ss := request.GetStarlarkScripts(); len(ss) > 0 {
-		for _, s := range ss {
-			ts = append(ts, s.makeStarlarkScriptTask(ss))
+	if sls := request.GetStarlarkScripts(); len(sls) > 0 {
+		rp := recordProgress(server, "starlark", len(sls))
+		for _, sl := range sls {
+			ts = append(ts, s.makeStarlarkScriptTask(sl, rp))
 		}
 	}
 	return ts
@@ -1523,6 +1525,36 @@ func (s *debugServer) collectDefaults(ctx context.Context, dfs DumpFS, server de
 	return nil
 }
 
-func (s *debugServer) makeStarlarkScriptTask(st *debug.Starlark) taskFunc {
+func (s *debugServer) makeStarlarkScriptTask(st *debug.Starlark, rp incProgressFunc) taskFunc {
+	var name, script string
+	switch st.GetSource().(type) {
+	case *debug.Starlark_Builtin:
+		name = st.GetBuiltin()
+		var ok bool
+		script, ok = debugstar.BuiltinScripts[name]
+		if !ok {
+			return func(ctx context.Context, dfs DumpFS) error {
+				return errors.Errorf("no builtin script %q", name)
+			}
+		}
+	case *debug.Starlark_Script:
+		name = st.GetScript().GetName()
+		script = st.GetScript().GetProgramText()
+	}
+	return func(rctx context.Context, dfs DumpFS) error {
+		defer rp(rctx) // report progress even if timeout is exceeded
 
+		timeout := time.Minute
+		if t := st.GetTimeout().AsDuration(); t > 0 {
+			timeout = t
+		}
+		ctx, c := context.WithTimeout(rctx, timeout)
+		defer c()
+
+		env := debugstar.Env{FS: dfs.WithPrefix(name)}
+		if err := env.RunStarlark(ctx, name, script); err != nil {
+			return errors.Wrapf(err, "starlark script %q", name)
+		}
+		return nil
+	}
 }
