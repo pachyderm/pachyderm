@@ -1,6 +1,7 @@
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join, ensure_async
+from pachyderm_sdk import Client
 import tornado
 import traceback
 
@@ -8,6 +9,7 @@ from .env import PFS_MOUNT_DIR
 from .filemanager import PFSContentsManager
 from .log import get_logger
 from .pachyderm import MountInterface
+from .pfs_manager import PFSManager
 from .mount_server_client import MountServerClient
 from .pps_client import PPSClient
 
@@ -323,6 +325,13 @@ def setup_handlers(web_app):
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
     web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR)
     web_app.settings["pachyderm_pps_client"] = PPSClient()
+
+    # uncomment below to use the pachyderm sdk based file manager
+    # client = Client(
+    #     host="host.docker.internal",
+    #     port=30650
+    # )
+    # web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
 
     _handlers = [
         ("/repos", ReposHandler),
