@@ -256,7 +256,7 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
 
 	ALTER TABLE pfs.commits
-		ADD COLUMN repo_id bigint REFERENCES pfs.repos(id),
+		ADD COLUMN repo_id bigint REFERENCES pfs.repos(id) ON DELETE CASCADE,
 		ADD COLUMN origin pfs.commit_origin,
 		ADD COLUMN description text NOT NULL DEFAULT '',
 		ADD COLUMN start_time timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -267,7 +267,7 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN error text,
 		ADD COLUMN size bigint,
 		ADD COLUMN updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
-		ADD COLUMN branch_id bigint REFERENCES pfs.branches(id);
+		ADD COLUMN branch_id bigint REFERENCES pfs.branches(id) ON DELETE CASCADE;
 
 	CREATE TRIGGER set_updated_at
 		BEFORE UPDATE ON pfs.commits
@@ -294,8 +294,8 @@ func alterCommitsTablePostDataMigration(ctx context.Context, env migrations.Env)
 func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TABLE pfs.commit_ancestry (
-		parent bigint REFERENCES pfs.commits(int_id),
-		child bigint REFERENCES pfs.commits(int_id),
+		parent bigint REFERENCES pfs.commits(int_id) ON DELETE CASCADE,
+		child bigint REFERENCES pfs.commits(int_id) ON DELETE CASCADE,
 		PRIMARY KEY (parent, child)
 	);
 	CREATE INDEX ON pfs.commit_ancestry (child, parent);
@@ -513,7 +513,7 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			id bigserial PRIMARY KEY,
 			name text NOT NULL,
 			head bigint REFERENCES pfs.commits(int_id) NOT NULL,
-			repo_id bigint REFERENCES pfs.repos(id) NOT NULL,
+			repo_id bigint REFERENCES pfs.repos(id) ON DELETE CASCADE NOT NULL,
 			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			UNIQUE (repo_id, name)

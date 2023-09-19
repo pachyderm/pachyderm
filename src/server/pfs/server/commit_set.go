@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -33,12 +32,9 @@ func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncon
 			cis = append(cis, ci)
 		}
 	}
-	ci := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitSet.Id, ci, col.DefaultOptions(), func(string) error {
-		cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
-		return nil
-	}); err != nil {
-		return nil, err
+	cis, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitSetIDs: []string{commitSet.Id}}, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "inspect commit set immediate")
 	}
 	return TopologicalSort(cis), nil
 }
@@ -241,10 +237,6 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
 func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, ci *pfs.CommitInfo) error {
-	// make sure all children are finished, so we don't lose data
-	if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, ci.Commit); err != nil {
-		return errors.EnsureStack(err)
-	}
 	// Delete the commit's filesets
 	if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
 		return errors.EnsureStack(err)
@@ -283,7 +275,10 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 				return errors.Wrapf(err, "error updating branch %s", bi.Branch)
 			}
 		}
-
+	}
+	// delete commit.
+	if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, ci.Commit); err != nil {
+		return errors.EnsureStack(err)
 	}
 	return nil
 }

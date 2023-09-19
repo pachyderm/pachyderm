@@ -425,7 +425,10 @@ func GetCommitPairByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.C
 // GetCommitByCommitKey is like GetCommit but derives the int_id on behalf of the caller.
 func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	pair, err := GetCommitPairByCommitKey(ctx, tx, commit)
-	return pair.CommitInfo, err
+	if err != nil {
+		return nil, err
+	}
+	return pair.CommitInfo, nil
 }
 
 // GetCommitParent uses the pfs.commit_ancestry and pfs.commits tables to retrieve a commit given an int_id of
@@ -728,6 +731,18 @@ type CommitIterator struct {
 	filter      CommitListFilter
 }
 
+type commitIteratorTx struct {
+	commitInfos map[CommitID]*pfs.CommitInfo
+	tx          *pachsql.Tx
+	reverse     bool
+	revision    bool
+	limit       int
+	offset      int
+	commits     []Commit
+	index       int
+	filter      CommitListFilter
+}
+
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
 // The iterator prefetches the parents and children of the buffered commits until it hits an internal
 // capacity.
@@ -741,7 +756,7 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 		iter.index = 0
 		iter.offset += iter.limit
 		if err := dbutil.WithTx(ctx, iter.db, func(ctx context.Context, tx *pachsql.Tx) error {
-			iter.commits, err = listCommitPage(ctx, tx, iter.limit, iter.offset, iter.filter, iter.rev)
+			iter.commits, err = listCommitPage(ctx, tx, iter.limit, iter.offset, iter.filter, iter.rev, false)
 			if err != nil {
 				return errors.Wrap(err, "list commit page")
 			}
@@ -770,21 +785,21 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
 	return nil
 }
 
-// CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
+// commitFields is used in the ListCommitFilter and defines specific field names for type safety.
 // This should hopefully prevent a library user from misconfiguring the filter.
-type CommitFields string
+type commitFields string
 
 var (
-	CommitSetIDs   = CommitFields("commit_set_id")
-	CommitOrigins  = CommitFields("origin")
-	CommitRepos    = CommitFields("repo_id")
-	CommitBranches = CommitFields("branch_id")
-	CommitProjects = CommitFields("project_id")
+	CommitSetIDs   = commitFields("commit_set_id")
+	CommitOrigins  = commitFields("origin")
+	CommitRepos    = commitFields("repo_id")
+	CommitBranches = commitFields("branch_id")
+	CommitProjects = commitFields("project_id")
 )
 
 // CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
 // where commit.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND commit.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
-type CommitListFilter map[CommitFields][]string
+type CommitListFilter map[commitFields][]string
 
 // ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
 // It manages transactions on behalf of its user under the hood.
@@ -811,6 +826,76 @@ func ListCommit(ctx context.Context, db *pachsql.DB, filter CommitListFilter, re
 	return iter, nil
 }
 
+func listCommitTx(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, reverse, revision bool) (*commitIteratorTx, error) {
+	var iter *commitIteratorTx
+	limit := 100
+	page, err := listCommitPage(ctx, tx, limit, 0, filter, reverse, revision)
+	if err != nil {
+		return nil, errors.Wrap(err, "list commit tx")
+	}
+	iter = &commitIteratorTx{
+		revision: revision,
+		reverse:  reverse,
+		commits:  page,
+		limit:    limit,
+		filter:   filter,
+		tx:       tx,
+	}
+	return iter, nil
+}
+
+func (iter *commitIteratorTx) Next(ctx context.Context, dst *CommitPair) error {
+	if dst == nil {
+		return errors.Wrap(fmt.Errorf("commit is nil"), "get next commit")
+	}
+	var err error
+	if iter.index >= len(iter.commits) {
+		iter.index = 0
+		iter.offset += iter.limit
+		iter.commits, err = listCommitPage(ctx, iter.tx, iter.limit, iter.offset, iter.filter, iter.reverse, iter.revision)
+		if err != nil {
+			return errors.Wrap(err, "list commit page")
+		}
+		if len(iter.commits) == 0 {
+			return stream.EOS()
+		}
+	}
+	row := iter.commits[iter.index]
+	commit, err := getCommitInfoFromCommitRow(ctx, iter.tx, &row)
+	if err != nil {
+		return errors.Wrap(err, "getting commitInfo from commit row")
+	}
+	*dst = CommitPair{
+		CommitInfo: commit,
+		ID:         row.ID,
+	}
+	iter.index++
+	return nil
+}
+
+func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, reverse, revision bool) ([]*pfs.CommitInfo, error) {
+	if len(filter) == 0 {
+		return nil, errors.Errorf("filter cannot be empty")
+	}
+	for key, val := range filter {
+		if len(val) == 0 {
+			return nil, errors.Errorf("filter values for key %q cannot be empty", key)
+		}
+	}
+	iter, err := listCommitTx(ctx, tx, filter, reverse, revision)
+	if err != nil {
+		return nil, errors.Wrap(err, "create iterator for listCommitTx")
+	}
+	var commits []*pfs.CommitInfo
+	if err := stream.ForEach[CommitPair](ctx, iter, func(commitPair CommitPair) error {
+		commits = append(commits, commitPair.CommitInfo)
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "list index")
+	}
+	return commits, nil
+}
+
 func (iter *CommitIterator) getCommitInfosForPageUntilCapacity(ctx context.Context, tx *pachsql.Tx) error {
 	capacity := 500
 	commitCount := 0
@@ -834,13 +919,17 @@ func (iter *CommitIterator) getCommitInfosForPageUntilCapacity(ctx context.Conte
 	return nil
 }
 
-func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter CommitListFilter, rev bool) ([]Commit, error) {
+func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter CommitListFilter, reverse, revision bool) ([]Commit, error) {
 	var page []Commit
 	where := ""
 	conditions := make([]string, 0)
 	query := getCommit
 	order := "ASC"
-	if rev {
+	revisionTimestamp := ""
+	if revision {
+		revisionTimestamp = "commit.created_at, "
+	}
+	if reverse {
 		order = "DESC"
 	}
 	for key, vals := range filter {
@@ -867,7 +956,7 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	}
 	if err := tx.SelectContext(ctx, &page,
 		fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, branch.name, project.name "+
-			"ORDER BY commit.int_id %s LIMIT $1 OFFSET $2;", query, where, order), limit, offset); err != nil {
+			"ORDER BY %s commit.int_id %s LIMIT $1 OFFSET $2;", query, where, revisionTimestamp, order), limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil

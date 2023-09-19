@@ -443,15 +443,11 @@ func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.Transa
 // all of the repo's branches are deleted using d.deleteBranches()
 func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) error {
 	// make a list of all the commits
-	commitInfos := make(map[string]*pfs.CommitInfo)
-	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-		commitInfos[commitInfo.Commit.Id] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-		return nil
-	}); err != nil {
-		return errors.EnsureStack(err)
+	commitInfos, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(ri.Repo)}}, false)
+	if err != nil {
+		return errors.Wrap(err, "delete repo info")
 	}
-	// and then delete them
+	// and then delete their file sets.
 	for _, ci := range commitInfos {
 		if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
 			return errors.EnsureStack(err)
@@ -465,6 +461,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 		return errors.EnsureStack(err)
 	}
 	// Similarly with commits
+	// todo(fahad): write delete
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
 		return errors.EnsureStack(err)
 	}
