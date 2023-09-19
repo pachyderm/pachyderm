@@ -71,14 +71,6 @@ const (
 )
 
 func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, project, repo, repoType string) (*BranchIterator, error) {
-	// transform := transformFn[Branch, BranchWithID](func(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*BranchWithID, error) {
-	// 	branchInfo, err := fetchBranchInfoByBranch(ctx, tx, branch)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return &BranchWithID{ID: branch.ID, BranchInfo: branchInfo}, nil
-	// })
-	query := getBranchBaseQuery
 	var conditions []string
 	var values []any
 	if project != "" {
@@ -93,7 +85,7 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 		conditions = append(conditions, "repo.type = $3")
 		values = append(values, repoType)
 	}
-
+	query := getBranchBaseQuery
 	if len(conditions) > 0 {
 		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
 	}

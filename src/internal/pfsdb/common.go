@@ -50,7 +50,7 @@ type Filter[T FieldType] struct {
 func (f *Filter[T]) QueryString() (formatted string, err error) {
 	formatted = fmt.Sprintf(string(f.Op), f.Field)
 	if f.Op == ValueIn {
-		formatted, f.values, err = sqlx.In(formatted, f.Value) // Thank god for this!
+		formatted, f.values, err = sqlx.In(formatted, f.Value)
 		if err != nil {
 			return "", errors.Wrapf(err, "expanding %s", formatted)
 		}
