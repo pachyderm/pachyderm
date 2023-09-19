@@ -466,7 +466,7 @@ func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.C
 }
 
 func TestListCommit(t *testing.T) {
-	size := 3
+	size := 330
 	expectedInfos := make([]*pfs.CommitInfo, size)
 	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
@@ -490,7 +490,7 @@ func TestListCommit(t *testing.T) {
 				prevCommit = commitInfo
 			}
 		})
-		iter, err := pfsdb.ListCommit(ctx, db, nil, false)
+		iter, err := pfsdb.ListCommit(ctx, db, nil, false, false)
 		require.NoError(t, err, "should be able to list repos")
 		checkOutput(ctx, t, iter, expectedInfos)
 	})
@@ -521,7 +521,7 @@ func TestListCommitRev(t *testing.T) {
 				prevCommit = commitInfo
 			}
 		})
-		iter, err := pfsdb.ListCommit(ctx, db, nil, true)
+		iter, err := pfsdb.ListCommit(ctx, db, nil, true, false)
 		require.NoError(t, err, "should be able to list repos")
 		checkOutput(ctx, t, iter, expectedInfos)
 	})
@@ -556,7 +556,7 @@ func TestListCommitsFilter(t *testing.T) {
 				createBranch(ctx, t, tx, commitInfo.Commit)
 			}
 		})
-		iter, err := pfsdb.ListCommit(ctx, db, filter, false)
+		iter, err := pfsdb.ListCommit(ctx, db, filter, false, false)
 		require.NoError(t, err, "should be able to list repos")
 		checkOutput(ctx, t, iter, expectedInfos)
 	})
@@ -590,7 +590,7 @@ func TestListCommitsTxFilter(t *testing.T) {
 				require.NoError(t, err, "should be able to create commit")
 				createBranch(ctx, t, tx, commitInfo.Commit)
 			}
-			gotInfos, err := pfsdb.ListCommitTxByFilter(ctx, tx, filter, false)
+			gotInfos, err := pfsdb.ListCommitTxByFilter(ctx, tx, filter, false, false)
 			require.NoError(t, err, "should be able to list repos")
 			for i, _ := range gotInfos {
 				commitsMatch(t, expectedInfos[i], gotInfos[i])

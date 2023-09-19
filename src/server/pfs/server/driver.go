@@ -443,7 +443,7 @@ func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.Transa
 // all of the repo's branches are deleted using d.deleteBranches()
 func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) error {
 	// make a list of all the commits
-	commitInfos, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(ri.Repo)}}, false)
+	commitInfos, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(ri.Repo)}}, false, false)
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
@@ -1388,25 +1388,19 @@ func (d *driver) listCommit(
 		if reverse {
 			opts.Order = col.SortAscend
 		}
-
-		if repo.Name == "" {
-			iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil, reverse, true)
-			if err != nil {
-				return errors.Wrap(err, "list commit")
-			}
-			stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(t pfsdb.CommitWithID) error {
-				return listCallback()
-			})
-
-			if err := d.commits.ReadOnly(ctx).ListRev(ci, opts, listCallback); err != nil { //todo(fahad): implement ListRev
-				return errors.EnsureStack(err)
-			}
-		} else {
-			if err := d.commits.ReadOnly(ctx).GetRevByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), ci, opts, listCallback); err != nil {
-				return errors.EnsureStack(err)
-			}
+		var filter pfsdb.CommitListFilter
+		if repo.Name != "" {
+			filter = pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(repo)}}
 		}
-
+		iter, err := pfsdb.ListCommit(ctx, d.env.DB, filter, reverse, true)
+		if err != nil {
+			return errors.Wrap(err, "list commit")
+		}
+		if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+			return listCallback(int64(commitWithID.Revision))
+		}); err != nil {
+			return errors.Wrap(err, "list commit")
+		}
 		// Call sendCis one last time to send whatever's pending in 'cis'
 		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err

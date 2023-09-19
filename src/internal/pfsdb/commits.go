@@ -82,6 +82,8 @@ const (
     		commit.validating_time_s,
     		commit.error, 
     		commit.size, 
+    		commit.created_at,
+    		commit.updated_at,
     		commit.repo_id AS "repo.id", 
     		repo.name AS "repo.name",
     		repo.type AS "repo.type",
@@ -784,8 +786,8 @@ func (iter *CommitIterator) Next(ctx context.Context, dst *CommitWithID) error {
 		}
 	}
 	if iter.revision && iter.commits[iter.index].CreatedAt.After(iter.lastTimestamp) {
-		iter.currRevision++
 		iter.lastTimestamp = iter.commits[iter.index].CreatedAt
+		iter.currRevision++
 	}
 	id := iter.commits[iter.index].ID
 	*dst = CommitWithID{
@@ -824,13 +826,14 @@ func ListCommit(ctx context.Context, db *pachsql.DB, filter CommitListFilter, re
 			return errors.Wrap(err, "new commits iterator")
 		}
 		iter = &CommitIterator{
-			reverse: reverse,
-
-			commits:     page,
-			limit:       limit,
-			filter:      filter,
-			gottenInfos: 0,
-			db:          db,
+			currRevision: -1,
+			revision:     revision,
+			reverse:      reverse,
+			commits:      page,
+			limit:        limit,
+			filter:       filter,
+			gottenInfos:  0,
+			db:           db,
 		}
 		return iter.getCommitInfosForPageUntilCapacity(ctx, tx)
 	}); err != nil {
@@ -847,12 +850,13 @@ func listCommitTx(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, 
 		return nil, errors.Wrap(err, "list commit tx")
 	}
 	iter = &commitIteratorTx{
-		revision: revision,
-		reverse:  reverse,
-		commits:  page,
-		limit:    limit,
-		filter:   filter,
-		tx:       tx,
+		currRevision: -1,
+		revision:     revision,
+		reverse:      reverse,
+		commits:      page,
+		limit:        limit,
+		filter:       filter,
+		tx:           tx,
 	}
 	return iter, nil
 }

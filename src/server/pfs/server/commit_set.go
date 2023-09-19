@@ -32,7 +32,7 @@ func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncon
 			cis = append(cis, ci)
 		}
 	}
-	cis, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitSetIDs: []string{commitSet.Id}}, false)
+	cis, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitSetIDs: []string{commitSet.Id}}, false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "inspect commit set immediate")
 	}
@@ -128,7 +128,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil, false)
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil, false, false)
 	if err != nil {
 		return errors.Wrap(err, "list commit set")
 	}
