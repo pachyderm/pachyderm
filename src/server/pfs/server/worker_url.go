@@ -16,16 +16,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 const (
 	URLTaskNamespace = "url"
 )
 
-func (d *driver) URLWorker(ctx context.Context) {
+func (w *Worker) URLWorker(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pfs-url-worker")
-	taskSource := d.env.TaskService.NewSource(URLTaskNamespace)
+	taskSource := w.env.TaskService.NewSource(URLTaskNamespace)
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
@@ -34,13 +34,13 @@ func (d *driver) URLWorker(ctx context.Context) {
 				if err != nil {
 					return nil, err
 				}
-				return d.processPutFileURLTask(ctx, putFileURLTask)
+				return w.processPutFileURLTask(ctx, putFileURLTask)
 			case input.MessageIs(&GetFileURLTask{}):
 				getFileURLTask, err := deserializeGetFileURLTask(input)
 				if err != nil {
 					return nil, err
 				}
-				return d.processGetFileURLTask(ctx, getFileURLTask)
+				return w.processGetFileURLTask(ctx, getFileURLTask)
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in URL worker", input.TypeUrl)
 			}
@@ -52,7 +52,7 @@ func (d *driver) URLWorker(ctx context.Context) {
 	})
 }
 
-func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *anypb.Any, retErr error) {
+func (w *Worker) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *anypb.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -65,8 +65,8 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	prefix := strings.TrimPrefix(url.Object, "/")
 	result := &PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
-		return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
+		return w.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+			id, err := withUnorderedWriter(ctx, w.storage, renewer, func(uw *fileset.UnorderedWriter) error {
 				startOffset := task.StartOffset
 				length := int64(-1) // -1 means to read until end of file.
 				for i, path := range task.Paths {
@@ -101,11 +101,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	return serializePutFileURLTaskResult(result)
 }
 
-func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (_ *anypb.Any, retErr error) {
-	src, err := d.getFile(ctx, task.File, task.PathRange)
-	if err != nil {
-		return nil, err
-	}
+func (w *Worker) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (_ *anypb.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -120,18 +116,28 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	defer errors.Close(&retErr, bucket, "close bucket")
 
 	if err := log.LogStep(ctx, "getFileURLTask", func(ctx context.Context) error {
-		err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
-			if fi.FileType != pfs.FileType_FILE {
-				return nil
-			}
-			w, err := bucket.NewWriter(ctx, strings.TrimLeft(fi.File.Path, "/"), nil)
+		fsid, err := fileset.ParseID(task.Fileset)
+		if err != nil {
+			return err
+		}
+		fs, err := w.storage.Filesets.Open(ctx, []fileset.ID{*fsid})
+		if err != nil {
+			return err
+		}
+		pathRange := index.PathRange{
+			Lower: task.PathRange.Lower,
+			Upper: task.PathRange.Upper,
+		}
+		return fs.Iterate(ctx, func(f fileset.File) error {
+			w, err := bucket.NewWriter(ctx, strings.TrimLeft(f.Index().Path, "/"), nil)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			defer errors.Close(&retErr, w, "close writer for bucket %s", url.Bucket)
-			return errors.EnsureStack(file.Content(ctx, w))
-		})
-		return errors.EnsureStack(err)
+			if err := f.Content(ctx, w); err != nil {
+				return err
+			}
+			return errors.EnsureStack(w.Close())
+		}, index.WithRange(&pathRange))
 	}); err != nil {
 		return nil, err
 	}

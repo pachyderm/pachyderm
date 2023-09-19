@@ -1,8 +1,12 @@
 package clusterstate
 
 import (
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -28,6 +32,40 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	// Apply migrations up to and including 2.8.0
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_8_0))
 	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_8_0))
+
+	// Get all collections commits.
+	expectedCommits, expectedAncestries, err := v2_8_0.ListCommitsFromCollection(ctx, db)
+	require.NoError(t, err, "should be able to list commits from collection")
+
+	// Get all pfs.commits.
+	gotAncestries := make(map[string]string)
+	iter, err := pfsdb.ListCommit(ctx, db, nil, false)
+	require.NoError(t, err, "should be able to list commits from pfs.commits")
+	var gotCommits []v2_8_0.CommitInfo
+	require.NoError(t, stream.ForEach[pfsdb.CommitPair](ctx, iter, func(commitPair pfsdb.CommitPair) error {
+		commit := v2_8_0.InfoToCommit(commitPair.CommitInfo, uint64(commitPair.ID), time.Time{}, time.Time{})
+		ancestry := v2_8_0.InfoToCommitAncestry(commitPair.CommitInfo)
+		if ancestry.ParentCommit != "" {
+			gotAncestries[commitPair.CommitInfo.Commit.Key()] = ancestry.ParentCommit
+		}
+		for _, child := range ancestry.ChildCommits {
+			gotAncestries[child] = commitPair.CommitInfo.Commit.Key()
+		}
+		gotCommits = append(gotCommits, commit.CommitInfo)
+		return nil
+	}))
+
+	// compare collections commits to pfs.commits.
+	require.Equal(t, len(expectedCommits), len(gotCommits), "all rows should have been migrated")
+	if diff := cmp.Diff(expectedCommits, gotCommits,
+		cmpopts.SortSlices(func(a, b v2_8_0.CommitInfo) bool { return a.CommitID < b.CommitID })); diff != "" {
+		t.Errorf("commits differ: (-want +got)\n%s", diff)
+	}
+	require.Equal(t, len(expectedAncestries), len(gotAncestries), "all ancestries should have been migrated")
+	if diff := cmp.Diff(expectedAncestries, gotAncestries,
+		cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
+		t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
+	}
 
 	// Get all existing data from collections.
 	// Note that we convert the proto object to a model that conforms better to our new relational schema,

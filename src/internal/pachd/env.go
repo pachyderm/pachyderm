@@ -111,11 +111,24 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 
 		AuthServer:           env.AuthServer(),
 		GetPipelineInspector: func() pfs_server.PipelineInspector { return env.PpsServer() },
-		GetPachClient:        env.GetPachClient,
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
 		StorageConfig:     env.Config().StorageConfiguration,
 		PachwInSidecar:    env.Config().PachwInSidecars,
+	}, nil
+}
+
+func PFSWorkerEnv(env serviceenv.ServiceEnv) (*pfs_server.WorkerEnv, error) {
+	ctx := env.Context()
+	objClient, err := obj.NewClient(ctx, env.Config().StorageBackend, env.Config().StorageRoot)
+	if err != nil {
+		return nil, err
+	}
+	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
+	return &pfs_server.WorkerEnv{
+		DB:          env.GetDBClient(),
+		ObjClient:   objClient,
+		TaskService: env.GetTaskService(etcdPrefix),
 	}, nil
 }
 
@@ -148,8 +161,9 @@ func DebugEnv(env serviceenv.ServiceEnv) debug_server.Env {
 		Name:          env.Config().PachdPodName,
 		DB:            env.GetDBClient(),
 		SidecarClient: nil,
-		KubeClient:    env.GetKubeClient(),
+		GetKubeClient: env.GetKubeClient,
 		GetLokiClient: env.GetLokiClient,
 		GetPachClient: env.GetPachClient,
+		TaskService:   env.GetTaskService(env.Config().EtcdPrefix),
 	}
 }

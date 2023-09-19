@@ -15,13 +15,16 @@ import (
 	units "github.com/docker/go-units"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc"
 	testclient "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -39,6 +42,7 @@ import (
 	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
@@ -68,6 +72,7 @@ type RealEnv struct {
 	LicenseServer            license.APIServer
 	PPSServer                ppsapi.APIServer
 	PFSServer                pfsapi.APIServer
+	DebugServer              debug.DebugServer
 	TransactionServer        txnserver.APIServer
 	VersionServer            pb.APIServer
 	ProxyServer              proxy.APIServer
@@ -210,7 +215,23 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	pfsEnv.EtcdPrefix = ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
 	require.NoError(t, err)
+	w, err := pfsserver.NewWorker(pfsserver.WorkerEnv{
+		DB:          pfsEnv.DB,
+		ObjClient:   pfsEnv.ObjectClient,
+		TaskService: pfsEnv.TaskService,
+	}, pfsserver.WorkerConfig{
+		Storage: pfsEnv.StorageConfig,
+	})
+	require.NoError(t, err)
+	go func() {
+		if err := w.Run(pfsEnv.BackgroundContext); err != nil {
+			log.Error(ctx, "from worker", zap.Error(err))
+		}
+	}()
 	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
+	pfsMaster, err := pfsserver.NewMaster(*pfsEnv)
+	require.NoError(t, err)
+	go pfsMaster.Run(ctx) //nolint:errcheck
 
 	// TRANSACTION
 	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
@@ -243,6 +264,15 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		require.NoError(t, err)
 		linkServers(&realEnv.MockPachd.PPS, realEnv.PPSServer)
 	}
+
+	// Debug
+	debugEnv := pachd.DebugEnv(realEnv.ServiceEnv)
+	realEnv.DebugServer = debugserver.NewDebugServer(debugEnv)
+	realEnv.PachClient.DebugClient = debug.NewDebugClient(grpcutil.NewTestClient(t, func(gs *grpc.Server) {
+		debug.RegisterDebugServer(gs, realEnv.DebugServer)
+	}))
+	debugWorker := debugserver.NewWorker(debugEnv)
+	go debugWorker.Run(ctx) //nolint:errcheck
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
