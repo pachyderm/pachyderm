@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
@@ -124,6 +125,15 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 			pachApps = append(pachApps, app)
 		}
 	}
+	var scripts []*debug.Starlark
+	for _, name := range maps.Keys(builtinScripts) {
+		scripts = append(scripts, &debug.Starlark{
+			Source: &debug.Starlark_Builtin{
+				Builtin: name,
+			},
+			Timeout: durationpb.New(time.Minute),
+		})
+	}
 	return &debug.GetDumpV2TemplateResponse{
 		Request: &debug.DumpV2Request{
 			System: &debug.System{
@@ -140,6 +150,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 			Defaults: &debug.DumpV2Request_Defaults{
 				ClusterDefaults: true,
 			},
+			StarlarkScripts: scripts,
 		},
 	}, nil
 }
@@ -321,6 +332,11 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
 			return s.collectDefaults(ctx, dfs.WithPrefix(defaultsPrefix), server, rp)
 		})
+	}
+	if ss := request.GetStarlarkScripts(); len(ss) > 0 {
+		for _, s := range ss {
+			ts = append(ts, s.makeStarlarkScriptTask(ss))
+		}
 	}
 	return ts
 }
@@ -1505,4 +1521,8 @@ func (s *debugServer) collectDefaults(ctx context.Context, dfs DumpFS, server de
 		return errors.Wrap(err, "write cluster-defaults.json")
 	}
 	return nil
+}
+
+func (s *debugServer) makeStarlarkScriptTask(st *debug.Starlark) taskFunc {
+
 }

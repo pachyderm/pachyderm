@@ -20,6 +20,9 @@ import (
 	"go.starlark.net/starlark"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
+
+	// Starlark modules.
+	_ "github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 )
 
 var (
