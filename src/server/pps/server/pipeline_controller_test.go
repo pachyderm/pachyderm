@@ -534,6 +534,7 @@ func TestEvaluate(t *testing.T) {
 			state: pps.PipelineState_PIPELINE_RUNNING,
 			sideEffects: []sideEffect{
 				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
 			},
 		},
 		pps.PipelineState_PIPELINE_FAILURE: {
