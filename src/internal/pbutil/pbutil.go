@@ -2,7 +2,10 @@ package pbutil
 
 import (
 	"encoding/binary"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
+	"time"
 	"unsafe"
 
 	"google.golang.org/protobuf/proto"
@@ -92,4 +95,32 @@ func NewWriter(w io.Writer) Writer {
 // NewReadWriter returns a new ReadWriter with rw as both its source and its sink.
 func NewReadWriter(rw io.ReadWriter) ReadWriter {
 	return &readWriter{r: rw, w: rw}
+}
+
+func SanitizeTimestampPb(timestamp *timestamppb.Timestamp) time.Time {
+	if timestamp == nil {
+		return time.Time{}
+	}
+	return timestamp.AsTime()
+}
+
+func DurationPbToBigInt(duration *durationpb.Duration) int64 {
+	if duration == nil {
+		return 0
+	}
+	return duration.Seconds
+}
+
+func TimeToTimestamppb(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
+}
+
+func BigIntToDurationpb(s int64) *durationpb.Duration {
+	if s == 0 {
+		return nil
+	}
+	return durationpb.New(time.Duration(s))
 }
