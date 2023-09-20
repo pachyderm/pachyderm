@@ -1523,7 +1523,7 @@ func (d *driver) subscribeCommit(
 	// while waiting for the commit state - if the watch channel fills up, it will
 	// error out.
 	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener,
-		path.Join(d.prefix, "finishRepoCommits", pfsdb.RepoKey(repo)), pfsdb.CommitsRepoChannelName+pfsdb.RepoKey(repo))
+		path.Join(d.prefix, "subscribeCommit", pfsdb.RepoKey(repo)), pfsdb.CommitsRepoChannelName+pfsdb.RepoKey(repo))
 	if err != nil {
 		return errors.Wrap(err, "new watcher")
 	}
