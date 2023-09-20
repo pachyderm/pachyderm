@@ -132,7 +132,8 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, b
 			JOIN core.projects project ON repo.project_id = project.id
 		WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4
 	`, project, repo, repoType, branch); err != nil {
-		return 0, errors.Wrapf(err, "could not get id for branch %v", branch)
+		branch := &pfs.Branch{Repo: &pfs.Repo{Project: &pfs.Project{Name: project}, Name: repo, Type: repoType}, Name: branch}
+		return 0, errors.Wrapf(err, "could not get id for branch %s", branch.Key())
 	}
 	return id, nil
 }
@@ -204,11 +205,11 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	if err := DeleteDirectBranchProvenanceBatch(ctx, tx, branchID, toRemoveIDs); err != nil {
 		return 0, errors.Wrap(err, "could not delete branch provenance")
 	}
-	// Triggers
+	// Create or update this branch's trigger.
 	if branchInfo.Trigger != nil {
 		toBranchID, err := GetBranchID(ctx, tx, branchInfo.Branch.Repo.Project.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Repo.Type, branchInfo.Trigger.Branch)
 		if err != nil {
-			return 0, errors.Wrap(err, "could not get to_id")
+			return 0, errors.Wrap(err, "could not get to_branch_id for creating branch trigger")
 		}
 		if err := UpsertBranchTrigger(ctx, tx, branchID, toBranchID, branchInfo.Trigger); err != nil {
 			return 0, errors.Wrap(err, "could not create branch trigger")
