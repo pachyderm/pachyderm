@@ -387,6 +387,7 @@ func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.
 		WHERE trigger.from_branch_id = $1
 	`, from).Scan(&branchName, &cronSpec, &rateLimitSpec, &size, &numCommits, &all); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			// Branches don't need to have triggers
 			return nil, nil
 		}
 		return nil, errors.Wrap(err, "could not get branch trigger")
