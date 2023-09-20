@@ -306,7 +306,6 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
-//nolint:unused //will use after table migration logic is implemented.
 func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
