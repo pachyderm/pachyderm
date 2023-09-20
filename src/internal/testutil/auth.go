@@ -7,11 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -22,10 +24,8 @@ const (
 	RootToken = "iamroot"
 )
 
-func TSProtoOrDie(t testing.TB, ts time.Time) *types.Timestamp {
-	proto, err := types.TimestampProto(ts)
-	require.NoError(t, err)
-	return proto
+func TSProtoOrDie(t testing.TB, ts time.Time) *timestamppb.Timestamp {
+	return timestamppb.New(ts)
 }
 
 func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string) {
@@ -42,7 +42,7 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string)
 	require.NoError(tb, config.WritePachTokenToConfig(RootToken, false))
 
 	// Activate auth for PPS
-	client = client.WithCtx(context.Background())
+	client = client.WithCtx(pctx.Background("activateAuthHelper"))
 	client.SetAuthToken(RootToken)
 	_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
 	require.NoError(tb, err)
@@ -64,8 +64,15 @@ func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *cli
 	if subject == auth.RootUser {
 		return rootClient
 	}
-	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
-	require.NoError(tb, err)
+	var token *auth.GetRobotTokenResponse
+	var err error
+	require.NoErrorWithinTRetryConstant(tb, 2*time.Minute, func() error {
+		token, err = rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: subject})
+		if err != nil {
+			return errors.Wrap(err, "get robot token request")
+		}
+		return nil
+	}, 5*time.Second, "authenticating pach client")
 	client := UnauthenticatedPachClient(tb, c)
 	client.SetAuthToken(token.Token)
 	return client

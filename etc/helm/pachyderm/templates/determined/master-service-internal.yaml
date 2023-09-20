@@ -1,0 +1,18 @@
+{{- if .Values.determined.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: determined-master-service-internal-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: determined-master-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - port: 8082
+    targetPort: {{- include "determined.masterPort" . | indent 1 }}
+    protocol: TCP
+  type: ClusterIP
+  selector:
+    app: determined-master-{{ .Release.Name }}
+{{- end }}

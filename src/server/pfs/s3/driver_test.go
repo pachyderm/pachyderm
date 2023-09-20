@@ -11,7 +11,7 @@ func TestBucketNameToCommit(t *testing.T) {
 	// pattern: [commitID.][branch.]repoName[.projectName]
 	var cases = map[string]*pfs.Commit{
 		"testLOPed701519c9c4": {
-			ID: "",
+			Id: "",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -24,7 +24,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"master.testLOPed701519c9c4": {
-			ID: "",
+			Id: "",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -37,7 +37,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"notmaster.testLOPed701519c9c4": {
-			ID: "",
+			Id: "",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
 				Repo: &pfs.Repo{
@@ -50,7 +50,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"master.testLOPed701519c9c4.default": {
-			ID: "",
+			Id: "",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -63,7 +63,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"notmaster.testLOPed701519c9c4.default": {
-			ID: "",
+			Id: "",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
 				Repo: &pfs.Repo{
@@ -76,7 +76,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"master.testLOPed701519c9c4.proj": {
-			ID: "",
+			Id: "",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -89,7 +89,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"notmaster.testLOPed701519c9c4.proj": {
-			ID: "",
+			Id: "",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
 				Repo: &pfs.Repo{
@@ -102,7 +102,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"8b234298216044d4accaf3f472175a54.testLOPed701519c9c4": {
-			ID: "8b234298216044d4accaf3f472175a54",
+			Id: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -115,7 +115,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"8b234298216044d4accaf3f472175a54.master.testLOPed701519c9c4": {
-			ID: "8b234298216044d4accaf3f472175a54",
+			Id: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -128,7 +128,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"8b234298216044d4accaf3f472175a54.notmaster.testLOPed701519c9c4": {
-			ID: "8b234298216044d4accaf3f472175a54",
+			Id: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
 				Repo: &pfs.Repo{
@@ -141,7 +141,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"8b234298216044d4accaf3f472175a54.master.testLOPed701519c9c4.default": {
-			ID: "8b234298216044d4accaf3f472175a54",
+			Id: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -154,7 +154,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"8b234298216044d4accaf3f472175a54.notmaster.testLOPed701519c9c4.default": {
-			ID: "8b234298216044d4accaf3f472175a54",
+			Id: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
 				Repo: &pfs.Repo{
@@ -167,7 +167,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"8b234298216044d4accaf3f472175a54.master.testLOPed701519c9c4.proj": {
-			ID: "8b234298216044d4accaf3f472175a54",
+			Id: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "master",
 				Repo: &pfs.Repo{
@@ -180,7 +180,7 @@ func TestBucketNameToCommit(t *testing.T) {
 			},
 		},
 		"8b234298216044d4accaf3f472175a54.notmaster.testLOPed701519c9c4.proj": {
-			ID: "8b234298216044d4accaf3f472175a54",
+			Id: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
 				Repo: &pfs.Repo{
@@ -198,8 +198,8 @@ func TestBucketNameToCommit(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		if c.ID != cc.ID {
-			t.Errorf("%s: mismatched commit IDs: %s ≠ %s", b, c.ID, cc.ID)
+		if c.Id != cc.Id {
+			t.Errorf("%s: mismatched commit IDs: %s ≠ %s", b, c.Id, cc.Id)
 		}
 		if c.Branch.Name != cc.Branch.Name {
 			t.Errorf("%s: mismatched branch names: %s ≠ %s", b, c.Branch.Name, cc.Branch.Name)

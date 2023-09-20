@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -17,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
@@ -34,10 +33,10 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
 
-	tu.DoOAuthExchange(t, testClient, testClient, loginInfo.LoginURL)
+	tu.DoOAuthExchange(t, testClient, testClient, loginInfo.LoginUrl)
 	// Check that pachd recorded the response from the redirect
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
-		&auth.AuthenticateRequest{OIDCState: loginInfo.State})
+		&auth.AuthenticateRequest{OidcState: loginInfo.State})
 	require.NoError(t, err)
 	testClient.SetAuthToken(authResp.PachToken)
 
@@ -88,12 +87,12 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
 
-	tu.DoOAuthExchange(t, testClient, testClient, loginInfo.LoginURL)
+	tu.DoOAuthExchange(t, testClient, testClient, loginInfo.LoginUrl)
 
 	// Expire Enterprise License
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	// set Enterprise Token value to have expired
-	ts := &types.Timestamp{Seconds: time.Now().Unix() - 100}
+	ts := &timestamppb.Timestamp{Seconds: time.Now().Unix() - 100}
 	resp, err := adminClient.License.Activate(adminClient.Ctx(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
@@ -108,7 +107,7 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 
 	// Verify failure to authenticate with the OIDC Login Info
 	_, err = testClient.Authenticate(testClient.Ctx(),
-		&auth.AuthenticateRequest{OIDCState: loginInfo.State})
+		&auth.AuthenticateRequest{OidcState: loginInfo.State})
 	require.YesError(t, err)
 	require.Matches(t, "Pachyderm Enterprise is not active", err.Error())
 
@@ -124,7 +123,7 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 
 	// try to authenticate again
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
-		&auth.AuthenticateRequest{OIDCState: loginInfo.State})
+		&auth.AuthenticateRequest{OidcState: loginInfo.State})
 	require.NoError(t, err)
 	testClient.SetAuthToken(authResp.PachToken)
 

@@ -9,7 +9,7 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -51,7 +51,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 		fmt.Fprintf(w, "%s.%s\t", repoInfo.Repo.Name, repoInfo.Repo.Type)
 	}
 	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
+		fmt.Fprintf(w, "%s\t", pretty.Timestamp(repoInfo.Created))
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
 	}
@@ -86,7 +86,7 @@ func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .FullTimestamps}}
-Created: {{.Created}}{{else}}
+Created: {{prettyTime .Created}}{{else}}
 Created: {{prettyAgo .Created}}{{end}}{{if .Details}}
 Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{end}}{{if .AuthInfo}}
 Roles: {{ .AuthInfo.Roles | commafy }}
@@ -99,12 +99,15 @@ Permissions: {{ .AuthInfo.Permissions | commafy }}{{end}}
 }
 
 func printTrigger(trigger *pfs.Trigger) string {
-	var conds []string
 	if trigger.CronSpec != "" {
-		conds = append(conds, fmt.Sprintf("Cron(%s)", trigger.CronSpec))
+		return fmt.Sprintf("%s on Cron(%s)", trigger.Branch, trigger.CronSpec)
 	}
-	if trigger.Size_ != "" {
-		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size_))
+	var conds []string
+	if trigger.RateLimitSpec != "" {
+		conds = append(conds, fmt.Sprintf("Rate Limit(%s)", trigger.RateLimitSpec))
+	}
+	if trigger.Size != "" {
+		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size))
 	}
 	if trigger.Commits != 0 {
 		conds = append(conds, fmt.Sprintf("Commits(%d)", trigger.Commits))
@@ -122,7 +125,7 @@ func printTrigger(trigger *pfs.Trigger) string {
 func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintf(w, "%s\t", branchInfo.Branch.Name)
 	if branchInfo.Head != nil {
-		fmt.Fprintf(w, "%s\t", branchInfo.Head.ID)
+		fmt.Fprintf(w, "%s\t", branchInfo.Head.Id)
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
@@ -168,8 +171,8 @@ func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo, currentProject 
 func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
 		`Name: {{.Branch.Repo.Name}}@{{.Branch.Name}}{{if .Head}}
-Head Commit: {{ .Head.Branch.Repo.Name}}@{{.Head.ID}} {{end}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Repo.Name}}@{{.Name}} {{end}} {{end}}{{if .Trigger}}
+Head Commit: {{ .Head.Branch.Repo.Name}}@{{.Head.Id}} {{end}}{{if .Provenance}}
+Provenance: {{range .Provenance}}{{.Repo.Name}}@{{.Name}} {{end}}{{end}}{{if .Trigger}}
 Trigger: {{printTrigger .Trigger}} {{end}}
 `)
 	if err != nil {
@@ -186,7 +189,7 @@ func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
 Description: {{ .Description}}
 {{- end -}}
 {{- if .CreatedAt }}
-Created at: {{ .CreatedAt }}
+Created at: {{ prettyTime .CreatedAt }}
 {{- end -}}
 {{- if .AuthInfo }}
 Roles: {{.AuthInfo.Roles | commafy}}
@@ -209,12 +212,12 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		fmt.Fprintf(w, "%s.%s\t", commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Repo.Type)
 	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Id)
 	if commitInfo.Finished == nil {
 		fmt.Fprintf(w, "-\t")
 	} else {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", commitInfo.Finished.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(commitInfo.Finished))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
 		}
@@ -234,8 +237,8 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	// Aggregate some data to print from the jobs in the jobset
 	success := 0
 	failure := 0
-	var created *types.Timestamp
-	var modified *types.Timestamp
+	var created *timestamppb.Timestamp
+	var modified *timestamppb.Timestamp
 	for _, commitInfo := range commitSetInfo.Commits {
 		if commitInfo.Finished != nil {
 			if commitInfo.Error != "" {
@@ -249,21 +252,21 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 			created = commitInfo.Started
 			modified = commitInfo.Started
 		} else {
-			if commitInfo.Started.Compare(created) < 0 {
+			if commitInfo.Started.AsTime().Before(created.AsTime()) {
 				created = commitInfo.Started
 			}
-			if commitInfo.Started.Compare(modified) > 0 {
+			if commitInfo.Started.AsTime().After(modified.AsTime()) {
 				modified = commitInfo.Started
 			}
 		}
 	}
 
-	fmt.Fprintf(w, "%s\t", commitSetInfo.CommitSet.ID)
+	fmt.Fprintf(w, "%s\t", commitSetInfo.CommitSet.Id)
 	fmt.Fprintf(w, "%d\t", len(commitSetInfo.Commits))
 	fmt.Fprintf(w, "%s\t", pretty.ProgressBar(8, success, len(commitSetInfo.Commits)-success-failure, failure))
 	if created != nil {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", created.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(created))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(created))
 		}
@@ -272,7 +275,7 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 	}
 	if modified != nil {
 		if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", modified.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(modified))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(modified))
 		}
@@ -288,7 +291,7 @@ func PrintFindCommits(client pfs.API_FindCommitsClient) error {
 	return grpcutil.ForEach[*pfs.FindCommitsResponse](client, func(x *pfs.FindCommitsResponse) error {
 		switch x.Result.(type) {
 		case *pfs.FindCommitsResponse_FoundCommit:
-			if _, err := writer.Write([]byte(x.GetFoundCommit().ID)); err != nil {
+			if _, err := writer.Write([]byte(x.GetFoundCommit().Id)); err != nil {
 				return errors.EnsureStack(err)
 			}
 			if _, err := writer.Write([]byte("\n")); err != nil {
@@ -310,7 +313,7 @@ func PrintFindCommits(client pfs.API_FindCommitsClient) error {
 			if err := writer.Flush(); err != nil {
 				return errors.EnsureStack(err)
 			}
-			if _, err := fmt.Fprintf(os.Stdout, "LAST SEARCHED COMMIT\n%s\n", x.GetLastSearchedCommit().ID); err != nil {
+			if _, err := fmt.Fprintf(os.Stdout, "LAST SEARCHED COMMIT\n%s\n", x.GetLastSearchedCommit().Id); err != nil {
 				return errors.EnsureStack(err)
 			}
 			return errors.EnsureStack(writer.Flush())
@@ -336,13 +339,13 @@ func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(w io.Writer, commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		`Commit: {{.Commit.Branch.Repo.Name}}@{{.Commit.ID}}
+		`Commit: {{.Commit.Branch.Repo.Name}}@{{.Commit.Id}}
 Original Branch: {{.Commit.Branch.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
-Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
-Started: {{.Started}}{{else}}
+Parent: {{.ParentCommit.Id}}{{end}}{{if .FullTimestamps}}
+Started: {{prettyTime .Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
-Finished: {{.Finished}}{{else}}
+Finished: {{prettyTime .Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}{{if .Details}}
 Size: {{prettySize .Details.SizeBytes}}{{end}}
 `)
@@ -357,7 +360,7 @@ Size: {{prettySize .Details.SizeBytes}}{{end}}
 // If fast is true and file size is 0, display "-" instead
 func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withCommit bool) {
 	if withCommit {
-		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
+		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.Id)
 	}
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE {
@@ -369,7 +372,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 		if fileInfo.Committed == nil {
 			fmt.Fprintf(w, "-\t")
 		} else if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
+			fmt.Fprintf(w, "%s\t", pretty.Timestamp(fileInfo.Committed))
 		} else {
 			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 		}
@@ -412,6 +415,7 @@ func fileType(fileType pfs.FileType) string {
 var funcMap = template.FuncMap{
 	"prettyAgo":    pretty.Ago,
 	"prettySize":   pretty.Size,
+	"prettyTime":   pretty.Timestamp,
 	"fileType":     fileType,
 	"printTrigger": printTrigger,
 	"commafy":      pretty.Commafy,
@@ -420,7 +424,7 @@ var funcMap = template.FuncMap{
 // CompactPrintCommit renders 'c' as a compact string, e.g.
 // "myrepo@123abc:/my/file"
 func CompactPrintCommit(c *pfs.Commit) string {
-	return fmt.Sprintf("%s@%s", c.Branch.Repo, c.ID)
+	return fmt.Sprintf("%s@%s", c.Branch.Repo, c.Id)
 }
 
 // CompactPrintCommitSafe is similar to CompactPrintCommit but accepts 'nil'
@@ -435,5 +439,5 @@ func CompactPrintCommitSafe(c *pfs.Commit) string {
 // CompactPrintFile renders 'f' as a compact string, e.g.
 // "myrepo@master:/my/file"
 func CompactPrintFile(f *pfs.File) string {
-	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo, f.Commit.ID, f.Path)
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo, f.Commit.Id, f.Path)
 }

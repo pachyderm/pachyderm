@@ -21,7 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-var valueOverrides map[string]string
+var valueOverrides map[string]string = make(map[string]string)
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
@@ -31,7 +31,9 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		AuthUser:   auth.RootUser,
 		Enterprise: true,
 		PortOffset: portOffset,
+		Determined: true,
 	}
+	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
@@ -42,11 +44,12 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	// Test Upgrade
-	opts.CleanupAfter = true
+	opts.CleanupAfter = false
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
-	opts.ValueOverrides = map[string]string{"pachd.rootToken": token}
+	opts.ValueOverrides = valueOverrides
+	opts.ValueOverrides["pachd.rootToken"] = token
 	// add config file with trusted peers & new clients
 	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
 	// apply upgrade
@@ -65,7 +68,10 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	resp, err := c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "pachd"})
 	require.NoError(t, err)
 	require.EqualOneOf(t, resp.Client.TrustedPeers, "example-app")
+	require.EqualOneOf(t, resp.Client.TrustedPeers, "determined-local")
 	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
+	require.NoError(t, err)
+	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "determined-local"})
 	require.NoError(t, err)
 }
 
@@ -74,6 +80,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	minikubetestenv.PutNamespace(t, "enterprise")
+	valueOverrides["pachd.replicas"] = "2"
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
@@ -99,23 +106,22 @@ func TestEnterpriseServerMember(t *testing.T) {
 	c.SetAuthToken("")
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
-	require.True(t, strings.Contains(loginInfo.LoginURL, ":31658"))
+	require.True(t, strings.Contains(loginInfo.LoginUrl, ":31658"))
 	mockIDPLogin(t, c)
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
 		// login using mock IDP admin
-		hc := &http.Client{}
+		hc := &http.Client{Timeout: 15 * time.Second}
 		c.SetAuthToken("")
 		loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		state := loginInfo.State
-
 		// Get the initial URL from the grpc, which should point to the dex login page
-		getResp, err := hc.Get(loginInfo.LoginURL)
+		getResp, err := hc.Get(loginInfo.LoginUrl)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -133,7 +139,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 			return errors.EnsureStack(err)
 		}
 		defer postResp.Body.Close()
-		if got, want := http.StatusOK, getResp.StatusCode; got != want {
+		if got, want := http.StatusOK, postResp.StatusCode; got != want {
 			testutil.LogHttpResponse(t, postResp, "mock login post")
 			return errors.Errorf("POST to perform mock login got: %v, want: %v", got, want)
 		}
@@ -146,7 +152,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 			return errors.Errorf("response body from mock IDP login form got: %v, want: %v", postBody, want)
 		}
 
-		authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
+		authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OidcState: state})
 		if err != nil {
 			return errors.EnsureStack(err)
 		}

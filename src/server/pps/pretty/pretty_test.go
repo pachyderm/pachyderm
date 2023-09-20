@@ -21,7 +21,7 @@ func TestJobEgressTarget(t *testing.T) {
 		}
 		ji = &ppsclient.JobInfo{
 			Job: &ppsclient.Job{
-				ID: "foo",
+				Id: "foo",
 				Pipeline: &ppsclient.Pipeline{
 					Name:    "bar",
 					Project: &pfsclient.Project{Name: pfsclient.DefaultProjectName},
@@ -62,7 +62,7 @@ func TestJobEgressURL(t *testing.T) {
 		}
 		ji = &ppsclient.JobInfo{
 			Job: &ppsclient.Job{
-				ID: "foo",
+				Id: "foo",
 				Pipeline: &ppsclient.Pipeline{
 					Name:    "bar",
 					Project: &pfsclient.Project{Name: pfsclient.DefaultProjectName},
@@ -105,7 +105,7 @@ func TestJobStarted(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			jobInfo := &ppsclient.JobInfo{
 				Job: &ppsclient.Job{
-					ID: "foo",
+					Id: "foo",
 					Pipeline: &ppsclient.Pipeline{
 						Project: &pfsclient.Project{Name: pfsclient.DefaultProjectName},
 						Name:    "Bar",

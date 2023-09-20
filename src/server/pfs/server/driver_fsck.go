@@ -7,15 +7,17 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
+
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -317,6 +319,35 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 	return nil
 }
 
+func (d *driver) listReferencedCommits(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
+	cs := make(map[string]*pfs.Commit)
+	var ids []string
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
+	}
+	ids = make([]string, 0)
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
+	}
+	return cs, nil
+}
+
+func fsckDanglingCommits(ris map[string]*pfs.RepoInfo, cs map[string]*pfs.Commit) []*pfs.Commit {
+	var danglingCommits []*pfs.Commit
+	for _, c := range cs {
+		if _, ok := ris[pfsdb.RepoKey(c.Repo)]; !ok {
+			danglingCommits = append(danglingCommits, c)
+		}
+	}
+	return danglingCommits
+}
+
 // fsck verifies that pfs satisfies the following invariants:
 // 1. Branch provenance is transitive
 // 2. Head commit provenance has heads of branch's branch provenance
@@ -330,44 +361,68 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	// collect all the info for the branches and commits in pfs
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
-	newCommitInfos := make(map[string]*pfs.CommitInfo)
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), func(string) error {
-		commitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repoInfo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-			commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-			return nil
-		}); err != nil {
-			return errors.EnsureStack(err)
+	repoInfos := make(map[string]*pfs.RepoInfo)
+	referencedCommits := make(map[string]*pfs.Commit)
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		repoIter, err := pfsdb.ListRepo(ctx, tx, nil)
+		if err != nil {
+			return errors.Wrap(err, "list repo iterator")
 		}
-		branchInfo := &pfs.BranchInfo{}
-		err := d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repoInfo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
-			branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+		return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
+			repoInfos[pfsdb.RepoKey(repoPair.RepoInfo.Repo)] = repoPair.RepoInfo
 			return nil
-		})
-		return errors.EnsureStack(err)
-	}); err != nil {
-		return errors.EnsureStack(err)
+		}), "for each repo")
+	}, dbutil.WithReadOnly()); err != nil {
+		return errors.Wrap(err, "fsck: repos")
 	}
-
+	for _, repo := range repoInfos {
+		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+			commitInfo := &pfs.CommitInfo{}
+			if err := d.commits.ReadWrite(tx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
+				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "get commits by commits repo index")
+			}
+			branchInfo := &pfs.BranchInfo{}
+			err := d.branches.ReadWrite(tx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
+				branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+				return nil
+			})
+			return errors.Wrap(err, "get commits by branch repo index")
+		}, dbutil.WithReadOnly()); err != nil {
+			return errors.Wrap(err, "for each repo")
+		}
+	}
 	if err := fsckBranches(branchInfos, commitInfos, onError); err != nil {
-		return err
+		return errors.Wrap(err, "branches")
 	}
-
 	if err := fsckCommits(commitInfos, onError); err != nil {
+		return errors.Wrap(err, "commits")
+	}
+	var err error
+	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		referencedCommits, err = d.listReferencedCommits(tx)
+		return errors.Wrap(err, "list referenced commits")
+	}, dbutil.WithReadOnly()); err != nil {
 		return err
 	}
-
-	// TODO(global ids): is there any verification we can do for commitsets?
-
+	dangCs := fsckDanglingCommits(repoInfos, referencedCommits)
+	if !fix && len(dangCs) > 0 {
+		var keys []string
+		for _, dc := range dangCs {
+			keys = append(keys, pfsdb.CommitKey(dc))
+		}
+		return errors.Errorf("commits with dangling references: %v", keys)
+	}
 	if fix {
-		return dbutil.WithTx(ctx, d.env.DB, func(sqlTx *pachsql.Tx) error {
-			for _, ci := range newCommitInfos {
-				// We've observed users getting ErrExists from this create,
-				// which doesn't make a lot of sense, but we insulate against
-				// it anyways so it doesn't prevent the command from working.
-				if err := d.commits.ReadWrite(sqlTx).Create(ci.Commit, ci); err != nil && !col.IsErrExists(err) {
-					return errors.EnsureStack(err)
+		return dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+			for _, dc := range dangCs {
+				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
+					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", pfsdb.CommitKey(dc))
+				}
+				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
+					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", pfsdb.CommitKey(dc))
 				}
 			}
 			return nil
@@ -423,15 +478,15 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		return err
 	}
 	// now merge with the meta commit to look for extra datums in the output commit
-	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
+	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
 		if err := r.Add(ctx, *id); err != nil {
 			return err
 		}
-		datumsFS, err := d.storage.Open(ctx, []fileset.ID{*id})
+		datumsFS, err := d.storage.Filesets.Open(ctx, []fileset.ID{*id})
 		if err != nil {
 			return err
 		}
-		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit))
+		_, metaFS, err := d.openCommit(ctx, pfsutil.MetaCommit(outputCommit))
 		if err != nil {
 			return err
 		}

@@ -3,19 +3,18 @@ package pfsload
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func Modification(env *Env, commit *pfs.Commit, spec *ModificationSpec) error {
 	taskDoer := env.TaskDoer()
 	client := env.Client()
 	eg, ctx := errgroup.WithContext(client.Ctx())
-	inputChan := make(chan *types.Any)
+	inputChan := make(chan *anypb.Any)
 	eg.Go(func() error {
 		defer close(inputChan)
 		for i := 0; i < int(spec.Count); i++ {
@@ -40,7 +39,7 @@ func Modification(env *Env, commit *pfs.Commit, spec *ModificationSpec) error {
 		return errors.EnsureStack(taskDoer.Do(
 			ctx,
 			inputChan,
-			func(_ int64, output *types.Any, err error) error {
+			func(_ int64, output *anypb.Any, err error) error {
 				if err != nil {
 					return err
 				}
@@ -61,20 +60,13 @@ func Modification(env *Env, commit *pfs.Commit, spec *ModificationSpec) error {
 	return errors.EnsureStack(eg.Wait())
 }
 
-func serializePutFileTask(task *PutFileTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializePutFileTask(task *PutFileTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializePutFileTaskResult(taskAny *types.Any) (*PutFileTaskResult, error) {
+func deserializePutFileTaskResult(taskAny *anypb.Any) (*PutFileTaskResult, error) {
 	task := &PutFileTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil

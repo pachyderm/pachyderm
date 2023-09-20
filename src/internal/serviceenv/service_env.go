@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -61,7 +62,7 @@ type ServiceEnv interface {
 	SetEnterpriseServer(enterprise_server.APIServer)
 	SetKubeClient(kube.Interface)
 
-	Config() *Configuration
+	Config() *pachconfig.Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetTaskService(string) task.Service
@@ -80,7 +81,7 @@ type ServiceEnv interface {
 // NonblockingServiceEnv is an implementation of ServiceEnv that initializes
 // clients in the background, and blocks in the getters until they're ready.
 type NonblockingServiceEnv struct {
-	config *Configuration
+	config *pachconfig.Configuration
 
 	// pachAddress is the domain name or hostport where pachd can be reached
 	pachAddress string
@@ -155,7 +156,7 @@ func goCtx(eg *errgroup.Group, ctx context.Context, f func(context.Context) erro
 //
 // This call returns immediately, but GetPachClient will block
 // until the client is ready.
-func InitPachOnlyEnv(rctx context.Context, config *Configuration) *NonblockingServiceEnv {
+func InitPachOnlyEnv(rctx context.Context, config *pachconfig.Configuration) *NonblockingServiceEnv {
 	sctx, end := log.SpanContext(rctx, "serviceenv")
 	ctx, cancel := pctx.WithCancel(sctx)
 	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: func() { cancel(); end() }}
@@ -170,7 +171,7 @@ func InitPachOnlyEnv(rctx context.Context, config *Configuration) *NonblockingSe
 //
 // This call returns immediately, but GetPachClient and GetEtcdClient block
 // until their respective clients are ready.
-func InitServiceEnv(ctx context.Context, config *Configuration) *NonblockingServiceEnv {
+func InitServiceEnv(ctx context.Context, config *pachconfig.Configuration) *NonblockingServiceEnv {
 	env := InitPachOnlyEnv(ctx, config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.config.EtcdHost, env.config.EtcdPort))
 	goCtx(&env.etcdEg, env.ctx, env.initEtcdClient)
@@ -190,13 +191,22 @@ func InitServiceEnv(ctx context.Context, config *Configuration) *NonblockingServ
 
 // InitWithKube is like InitNonblockingServiceEnv, but also assumes that it's run inside
 // a kubernetes cluster and tries to connect to the kubernetes API server.
-func InitWithKube(ctx context.Context, config *Configuration) *NonblockingServiceEnv {
+func InitWithKube(ctx context.Context, config *pachconfig.Configuration) *NonblockingServiceEnv {
 	env := InitServiceEnv(ctx, config)
 	goCtx(&env.kubeEg, env.ctx, env.initKubeClient)
 	return env // env is not ready yet
 }
 
-func (env *NonblockingServiceEnv) Config() *Configuration {
+// InitDBOnlyEnv is like InitServiceEnv, but only connects to the database.
+func InitDBOnlyEnv(rctx context.Context, config *pachconfig.Configuration) *NonblockingServiceEnv {
+	sctx, end := log.SpanContext(rctx, "serviceenv")
+	ctx, cancel := pctx.WithCancel(sctx)
+	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: func() { cancel(); end() }}
+	goCtx(&env.dbEg, env.ctx, env.initDBClient)
+	return env
+}
+
+func (env *NonblockingServiceEnv) Config() *pachconfig.Configuration {
 	return env.config
 }
 

@@ -14,11 +14,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"go.uber.org/zap"
-
-	"github.com/gogo/protobuf/proto"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // defaultLimit was experimentally determined to be the highest value that could work

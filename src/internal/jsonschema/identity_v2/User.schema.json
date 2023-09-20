@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/User",
+    "definitions": {
+        "User": {
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "lastAuthenticated": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "User",
+            "description": "User represents an IDP user that has authenticated via OIDC"
+        }
+    }
+}

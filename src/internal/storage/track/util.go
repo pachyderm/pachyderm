@@ -11,14 +11,14 @@ import (
 
 // Create creates uses tracker to create the object id.
 func Create(ctx context.Context, tr Tracker, id string, pointsTo []string, ttl time.Duration) error {
-	return dbutil.WithTx(ctx, tr.DB(), func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, tr.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.EnsureStack(tr.CreateTx(tx, id, pointsTo, ttl))
 	})
 }
 
 // Delete deletes id from the tracker
 func Delete(ctx context.Context, tr Tracker, id string) error {
-	return dbutil.WithTx(ctx, tr.DB(), func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, tr.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.EnsureStack(tr.DeleteTx(tx, id))
 	})
 }

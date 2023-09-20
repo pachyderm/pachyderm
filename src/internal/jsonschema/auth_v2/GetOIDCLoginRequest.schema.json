@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetOIDCLoginRequest",
+    "definitions": {
+        "GetOIDCLoginRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "// OIDC API",
+            "description": "// OIDC API"
+        }
+    }
+}

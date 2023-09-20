@@ -100,7 +100,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	require.NoError(t, err)
 
 	cfg := &config.Config{
-		UserID: uuid.NewWithoutDashes(),
+		UserId: uuid.NewWithoutDashes(),
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{

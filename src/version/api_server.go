@@ -7,20 +7,22 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type apiServer struct {
+	pb.UnimplementedAPIServer
+
 	version *pb.Version
 	options APIServerOptions
 }
 
 func newAPIServer(version *pb.Version, options APIServerOptions) *apiServer {
-	return &apiServer{version, options}
+	return &apiServer{version: version, options: options}
 }
 
-func (a *apiServer) GetVersion(ctx context.Context, request *types.Empty) (response *pb.Version, err error) {
+func (a *apiServer) GetVersion(ctx context.Context, request *emptypb.Empty) (response *pb.Version, err error) {
 	return a.version, nil
 }
 
@@ -38,7 +40,7 @@ func NewAPIServer(version *pb.Version, options APIServerOptions) pb.APIServer {
 func GetServerVersion(clientConn *grpc.ClientConn) (*pb.Version, error) {
 	res, err := pb.NewAPIClient(clientConn).GetVersion(
 		context.Background(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	)
 	return res, errors.EnsureStack(err)
 }

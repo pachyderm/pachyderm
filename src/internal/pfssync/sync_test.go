@@ -34,7 +34,7 @@ func BenchmarkDownload(b *testing.B) {
 		}
 		return nil
 	}))
-	require.NoError(b, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.ID))
+	require.NoError(b, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.Id))
 	fis, err := env.PachClient.ListFileAll(commit, "")
 	require.NoError(b, err)
 	require.NoError(b, env.PachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {

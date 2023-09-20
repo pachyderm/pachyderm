@@ -92,6 +92,9 @@ class Permission(betterproto.Enum):
     REPO_REMOVE_PIPELINE_READER = 213
     REPO_ADD_PIPELINE_WRITER = 214
     PIPELINE_LIST_JOB = 301
+    CLUSTER_SET_DEFAULTS = 302
+    """CLUSTER_SET_DEFAULTS is part of PPS."""
+
     PROJECT_CREATE = 400
     PROJECT_DELETE = 401
     PROJECT_LIST_REPO = 402
@@ -314,7 +317,19 @@ class Groups(betterproto.Message):
 class Role(betterproto.Message):
     name: str = betterproto.string_field(1)
     permissions: List["Permission"] = betterproto.enum_field(2)
-    resource_types: List["ResourceType"] = betterproto.enum_field(3)
+    can_be_bound_to: List["ResourceType"] = betterproto.enum_field(3)
+    """
+    Resources this role can be bound to.  For example, you can't apply
+    clusterAdmin to a repo, so REPO would not be listed here.
+    """
+
+    returned_for: List["ResourceType"] = betterproto.enum_field(4)
+    """
+    Resources this role is returned for.  For example, a principal might have
+    clusterAdmin permissions on the cluster, and this is what allows them to
+    write to a repo.  So, clusterAdmin is returned for the repo, even though it
+    cannot be bound to a repo.
+    """
 
 
 @dataclass(eq=False, repr=False)

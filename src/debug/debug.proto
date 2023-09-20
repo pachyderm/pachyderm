@@ -5,8 +5,10 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/debug";
 
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
 
 import "pps/pps.proto";
+import "pfs/pfs.proto";
 
 message ProfileRequest {
   Profile profile = 1;
@@ -63,9 +65,97 @@ message SetLogLevelResponse {
     repeated string errored_pods = 2;
 }
 
+message GetDumpV2TemplateRequest {
+ repeated string filters = 1;
+}
+
+message GetDumpV2TemplateResponse {
+ DumpV2Request request = 1;
+}
+
+message Pipeline {
+  string project = 1;
+  string name = 2;
+}
+
+message Pod {
+  string name = 1;
+  string ip = 2;
+  repeated string containers = 3;
+}
+
+message App {
+  string name = 1;
+  repeated Pod pods = 2;
+  google.protobuf.Duration timeout = 3;
+  Pipeline pipeline = 4;  
+}
+
+message System {
+  bool helm = 1;
+  bool database = 2;
+  bool version = 3;
+  repeated App describes = 4;
+  repeated App logs = 5;  
+  repeated App loki_logs = 6;
+  repeated App binaries = 7;
+  repeated App profiles = 8;
+}
+
+message DumpV2Request {
+  System system = 1;
+  repeated Pipeline pipelines = 2;
+  bool input_repos = 3;
+  google.protobuf.Duration timeout = 4;
+  message Defaults {
+    bool cluster_defaults = 1;
+  }
+  Defaults defaults = 5;
+}
+
+message DumpContent {
+  bytes content = 1;
+}
+
+message DumpProgress {
+  string task = 1;
+  int64 total = 2;
+  int64 progress = 3;
+}
+
+message DumpChunk {
+  oneof chunk {
+    DumpContent content = 1;
+    DumpProgress progress = 2;
+  }
+}
+
+message RunPFSLoadTestRequest {
+  string spec = 1;
+  pfs_v2.Branch branch = 2;
+  int64 seed = 3;
+  string state_id = 4;
+}
+
+message RunPFSLoadTestResponse {
+  string spec = 1;
+  pfs_v2.Branch branch = 2;
+  int64 seed = 3;
+  string error = 4;
+  google.protobuf.Duration duration = 5;
+  string state_id = 6;
+}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
+  rpc GetDumpV2Template(GetDumpV2TemplateRequest) returns (GetDumpV2TemplateResponse) {}
+  rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
+
+  // RunLoadTest runs a load test.
+  rpc RunPFSLoadTest(RunPFSLoadTestRequest) returns (RunPFSLoadTestResponse) {}
+  // RunLoadTestDefault runs the default load tests.
+  rpc RunPFSLoadTestDefault(google.protobuf.Empty) returns (RunPFSLoadTestResponse) {}
 }

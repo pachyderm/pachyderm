@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ConfigV1",
+    "definitions": {
+        "ConfigV1": {
+            "properties": {
+                "pachdAddress": {
+                    "type": "string",
+                    "description": "A host:port pointing pachd at a pachyderm cluster."
+                },
+                "serverCas": {
+                    "type": "string",
+                    "description": "Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM"
+                },
+                "sessionToken": {
+                    "type": "string",
+                    "description": "A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized."
+                },
+                "activeTransaction": {
+                    "type": "string",
+                    "description": "The currently active transaction for batching together pachctl commands. This can be set or cleared via many of the `pachctl * transaction` commands. This is the ID of the transaction object stored in the pachyderm etcd."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Config V 1",
+            "description": "ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)"
+        }
+    }
+}

@@ -7,12 +7,12 @@ import (
 	"io"
 
 	"github.com/docker/go-units"
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

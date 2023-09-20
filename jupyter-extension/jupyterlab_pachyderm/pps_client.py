@@ -9,8 +9,8 @@ from textwrap import dedent
 from typing import Optional, Union
 
 import python_pachyderm
-from python_pachyderm.experimental.proto.v2.pps_v2 import Pipeline
-from python_pachyderm.experimental.proto.v2.pfs_v2 import Project
+from python_pachyderm.proto.v2.pps.pps_pb2 import Pipeline
+from python_pachyderm.proto.v2.pfs.pfs_pb2 import Project
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
@@ -133,6 +133,9 @@ class PpsConfig:
     pipeline: Pipeline
     image: str
     requirements: Optional[str]
+    port: str
+    gpu_mode: str
+    resource_spec: dict
     input_spec: dict  # We may be able to use the pachyderm SDK to parse and validate.
 
     @classmethod
@@ -155,9 +158,12 @@ class PpsConfig:
         pipeline_data = config.get('pipeline')
         if pipeline_data is None:
             raise ValueError("field pipeline not set")
-        pipeline = Pipeline(name=pipeline_data.get('name'))
+
         if 'project' in pipeline_data:
-            pipeline.project = Project(name=pipeline_data['project'].get('name'))
+            project = Project(name=pipeline_data['project'].get('name') or 'default')
+        else:
+            project = Project(name='default')
+        pipeline = Pipeline(name=pipeline_data.get('name'), project=project)
 
         image = config.get('image')
         if image is None:
@@ -169,13 +175,23 @@ class PpsConfig:
         if input_spec_str is None:
             raise ValueError("field input_spec not set")
         input_spec = yaml.safe_load(input_spec_str)
+        
+        port = config.get('port')
+
+        gpu_mode = config.get('gpu_mode')
+        resource_spec_str = config.get('resource_spec')
+
+        resource_spec = dict() if resource_spec_str is None else yaml.safe_load(resource_spec_str)
 
         return cls(
             notebook_path=notebook_path,
             pipeline=pipeline,
             image=image,
             requirements=requirements,
-            input_spec=input_spec
+            input_spec=input_spec,
+            port=port,
+            gpu_mode=gpu_mode,
+            resource_spec=resource_spec,
         )
 
     def to_dict(self):
@@ -202,17 +218,38 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
     pipeline = dict(name=config.pipeline.name)
     if config.pipeline.project and config.pipeline.project.name:
         pipeline['project'] = dict(name=config.pipeline.project.name)
-    return dict(
+    pipelineSpec =  dict(
         pipeline=pipeline,
         description="Auto-generated from notebook",
         transform=dict(
-            cmd=["python3", f"/pfs/{companion_repo}/entrypoint.py"],
+            cmd=["python3", "-u", f"/pfs/{companion_repo}/entrypoint.py"],
             image=config.image
         ),
+
         input=input_spec,
         update=True,
         reprocess=True,
     )
+    if config.port:
+        pipelineSpec['service'] = dict(
+            external_port=config.port,
+            internal_port=config.port,
+            type="LoadBalancer"
+        )
+    
+    if config.gpu_mode == "Simple":
+        pipelineSpec['resource_limits'] = dict(
+            gpu=dict(
+                type="nvidia.com/gpu",
+                number="1",
+            )
+        )
+    elif config.gpu_mode == "Advanced":
+        pipelineSpec['resource_limits'] = config.resource_spec
+        pass
+
+
+    return pipelineSpec
 
 
 def upload_environment(
@@ -243,7 +280,9 @@ def upload_environment(
         reqs = Path(__file__).parent.joinpath("requirements.txt")
         if reqs.exists():
             run(["pip", "--disable-pip-version-check", "install", "-r", reqs.as_posix()])
-
+            print("Finished installing requirements")
+        
+        print("running user code")
         import user_code  # This runs the user's code.
 
     entrypoint_script = (

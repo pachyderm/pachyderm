@@ -21,20 +21,18 @@ import (
 // Reader reads data from chunk storage.
 type Reader struct {
 	ctx           context.Context
+	storage       *Storage
 	client        Client
-	memCache      kv.GetPut
-	deduper       *miscutil.WorkDeduper[pachhash.Output]
 	dataRefs      []*DataRef
 	offsetBytes   int64
 	prefetchLimit int
 }
 
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+func newReader(ctx context.Context, s *Storage, client Client, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	r := &Reader{
 		ctx:      ctx,
 		client:   client,
-		memCache: memCache,
-		deduper:  deduper,
+		storage:  s,
 		dataRefs: dataRefs,
 	}
 	for _, opt := range opts {
@@ -56,7 +54,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 		return nil
 	}
 	if len(r.dataRefs) == 1 {
-		_, err := io.Copy(w, newDataReader(r.ctx, r.client, r.memCache, r.deduper, r.dataRefs[0], r.offsetBytes))
+		_, err := io.Copy(w, newDataReader(r.ctx, r.storage, r.client, r.dataRefs[0], r.offsetBytes))
 		return errors.EnsureStack(err)
 	}
 	ctx, cancel := pctx.WithCancel(r.ctx)
@@ -75,7 +73,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 		if i == 0 {
 			offset = r.offsetBytes
 		}
-		dr := newDataReader(r.ctx, r.client, r.memCache, r.deduper, dataRef, offset)
+		dr := newDataReader(r.ctx, r.storage, r.client, dataRef, offset)
 		if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 			if err := dr.fetchData(); err != nil {
 				return nil, err
@@ -95,19 +93,21 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 type DataReader struct {
 	ctx      context.Context
 	client   Client
-	memCache kv.GetPut
+	memCache *memoryCache
+	pool     *kv.Pool
 	deduper  *miscutil.WorkDeduper[pachhash.Output]
 	dataRef  *DataRef
 	offset   int64
 	r        io.Reader
 }
 
-func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], dataRef *DataRef, offset int64) *DataReader {
+func newDataReader(ctx context.Context, s *Storage, client Client, dataRef *DataRef, offset int64) *DataReader {
 	return &DataReader{
 		ctx:      ctx,
 		client:   client,
-		memCache: memCache,
-		deduper:  deduper,
+		memCache: s.memCache,
+		pool:     s.pool,
+		deduper:  s.deduper,
 		dataRef:  dataRef,
 		offset:   offset,
 	}
@@ -130,32 +130,27 @@ func (dr *DataReader) fetchData() error {
 	b.InitialInterval = 1 * time.Millisecond
 	var data []byte
 	if err := backoff.RetryUntilCancel(dr.ctx, func() error {
-		return getFromCache(dr.ctx, dr.memCache, ref, func(chunk []byte) error {
-			data = chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
-			return nil
-		})
+		chunkData, err := getFromCache(dr.memCache, ref)
+		if err != nil {
+			return err
+		}
+		data = chunkData[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
+		return nil
 	}, b, func(err error, _ time.Duration) error {
 		if !pacherr.IsNotExist(err) {
 			return err
 		}
 		return dr.deduper.Do(dr.ctx, ref.Key(), func() error {
-			return Get(dr.ctx, dr.client, ref, func(rawData []byte) error {
-				return putInCache(dr.ctx, dr.memCache, ref, rawData)
-			})
+			data, err := Get(dr.ctx, dr.client, ref)
+			if err != nil {
+				return err
+			}
+			putInCache(dr.memCache, ref, data)
+			return nil
 		})
 	}); err != nil {
 		return err
 	}
 	dr.r = bytes.NewReader(data)
 	return nil
-}
-
-func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {
-	key := ref.Key()
-	return errors.EnsureStack(cache.Get(ctx, key[:], cb))
-}
-
-func putInCache(ctx context.Context, cache kv.GetPut, ref *Ref, data []byte) error {
-	key := ref.Key()
-	return errors.EnsureStack(cache.Put(ctx, key[:], data))
 }

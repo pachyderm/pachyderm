@@ -156,7 +156,7 @@ func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -193,7 +193,7 @@ func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -262,7 +262,7 @@ func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 	commitInfo, err := c.InspectCommit(projectName, dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
 	require.NoError(t, err)
 
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 	for i := 0; i < numPipelines; i++ {
 		var buf bytes.Buffer
@@ -325,7 +325,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -371,7 +371,7 @@ func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -403,7 +403,7 @@ func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -463,7 +463,7 @@ func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 	commitInfo, err := c.InspectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(projectName, pipeline, commitInfo.Commit.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -495,7 +495,7 @@ func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -636,7 +636,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(projectName, pfsin, "master", ""), iS, strings.NewReader(iS)))
@@ -677,7 +677,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.ID))
+		require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
 
 		//  Put new file in 's3in', which will update every datum at once and
 		//  trigger a job that, correspondingly, updates the 'background' part of
@@ -686,7 +686,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		require.NoError(t, c.FinishCommit(projectName, s3in, s3c.Branch.Name, s3c.ID))
+		require.NoError(t, c.FinishCommit(projectName, s3in, s3c.Branch.Name, s3c.Id))
 
 		_, err = c.WaitCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
@@ -703,7 +703,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 				svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
-					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline, jis[j].Job.ID) {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline, jis[j].Job.Id) {
 						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
@@ -799,7 +799,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
@@ -884,7 +884,7 @@ func TestDontDownloadData(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 }

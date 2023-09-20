@@ -1,6 +1,13 @@
 package gotestresults
 
-import "time"
+import (
+	"os"
+	"time"
+)
+
+var PostgresqlUser = os.Getenv("POSTGRESQL_USER")
+var PostgresqlPassword = os.Getenv("POSTGRESQL_PASSWORD")
+var PostgresqlHost = os.Getenv("POSTGRESQL_HOST")
 
 type JobInfo struct {
 	Id              string    `json:"id,omitempty"`

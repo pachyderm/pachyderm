@@ -86,7 +86,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// make sure we can delete commits
 		commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		require.NoError(t, err)
-		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
+		require.NoError(t, c.DropCommitSet(commitInfo.Commit.Id))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
@@ -147,7 +147,7 @@ func TestSpoutPachctl(t *testing.T) {
 			if err != nil {
 				return fmt.Errorf("inspect commit: %w", err) //nolint:wrapcheck
 			}
-			if err := c.DropCommitSet(commitInfo.Commit.ID); err != nil {
+			if err := c.DropCommitSet(commitInfo.Commit.Id); err != nil {
 				return fmt.Errorf("drop commit set: %w", err) //nolint:wrapcheck
 			}
 			return nil
@@ -248,7 +248,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// make sure we can delete commits
 		commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		require.NoError(t, err)
-		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
+		require.NoError(t, c.DropCommitSet(commitInfo.Commit.Id))
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")

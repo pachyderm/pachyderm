@@ -1,10 +1,11 @@
 describe('mount', () => {
   beforeEach(() => {
-    cy.unmountAllRepos();
     cy.resetApp();
     cy.isAppReady();
+    cy.unmountAllRepos();
     cy.openMountPlugin();
     cy.findAllByText('Mount');
+    cy.wait(3000);
   });
 
   it('should mount and unmount pachyderm repos', () => {

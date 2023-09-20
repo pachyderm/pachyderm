@@ -35,6 +35,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -44,6 +46,8 @@ type ServerOptions struct {
 	// Unmount is a channel that will be closed when the filesystem has been
 	// unmounted. It can be nil in which case it's ignored.
 	Unmount chan struct{}
+	// True if allow-other option is to be specified
+	AllowOther bool
 }
 
 type ConfigRequest struct {
@@ -61,12 +65,6 @@ type UnmountRequest struct {
 
 type CommitRequest struct {
 	Mount string `json:"mount"`
-}
-
-type DatumAliasKey struct {
-	Project string
-	Repo    string
-	Branch  string
 }
 
 type MountDatumResponse struct {
@@ -112,10 +110,10 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 
-	Datums       []*pps.DatumInfo
-	DatumInput   *pps.Input
-	DatumAlias   map[DatumAliasKey]string
-	CurrDatumIdx int
+	Datums              []*pps.DatumInfo
+	DatumInput          *pps.Input
+	DatumInputsToMounts map[string]string
+	CurrDatumIdx        int
 
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
@@ -186,7 +184,13 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			// Check if a mounted repo/branch was deleted to remove it from state.
-			if exists, _ := mm.verifyExistence(msm.Mode, msm.Project, msm.Repo, msm.Branch); !exists {
+			var exists bool
+			if msm.Mode == "ro" {
+				exists, _ = msm.MountInfo.verifyProjectRepoBranchCommitExist(mm.Client)
+			} else {
+				exists, _ = msm.MountInfo.verifyProjectRepoExist(mm.Client)
+			}
+			if !exists {
 				mm.unmountDeletedRepos(name)
 				continue
 			}
@@ -281,7 +285,6 @@ func (mm *MountManager) CommitRepo(name string) (Response, error) {
 func (mm *MountManager) UnmountAll() error {
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
-			//TODO: Add Commit field here once we support mounting specific commits
 			if _, err := mm.UnmountRepo(name); err != nil {
 				return err
 			}
@@ -321,7 +324,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	}, nil
 }
 
-func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
+func CreateMount(c *client.APIClient, mountDir string, allowOther bool) (*MountManager, error) {
 	mountOpts := &Options{
 		Write: true,
 		Fuse: &fs.Options{
@@ -329,7 +332,7 @@ func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
 				Debug:      false,
 				FsName:     "pfs",
 				Name:       "pfs",
-				AllowOther: true,
+				AllowOther: allowOther,
 			},
 		},
 		RepoOptions: make(map[string]*RepoOptions),
@@ -391,7 +394,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	var mm *MountManager = &MountManager{}
 	if existingClient != nil {
 		var err error
-		mm, err = CreateMount(existingClient, sopts.MountDir)
+		mm, err = CreateMount(existingClient, sopts.MountDir, sopts.AllowOther)
 		if err != nil {
 			return err
 		}
@@ -585,7 +588,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.Datums = nil
 			mm.DatumInput = nil
 			mm.CurrDatumIdx = -1
-			mm.DatumAlias = nil
+			mm.DatumInputsToMounts = nil
 		}()
 
 		mountsList, err := mm.ListByMounts()
@@ -608,24 +611,23 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		defer req.Body.Close()
-		pipelineBytes, err := io.ReadAll(req.Body)
+		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+		// TODO(INT-1006): This is a bit of a hack: the body is a tagged
+		// pipeline input spec, not a full pipeline.  In order for
+		// parsing to succeed, the next line disables spec validation.
+		pipelineReader.DisableValidation()
 		pipelineReq, err := pipelineReader.NextCreatePipelineRequest()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		datumAlias, err := sanitizeInputAndGetAlias(pipelineReq.Input)
+		datumInputsToMounts, err := sanitizeInputAndGetAlias(pipelineReq.Input, mm.Client)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		datums, err := mm.Client.ListDatumInputAll(pipelineReq.Input)
@@ -637,13 +639,22 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, "no datums match the given input spec", http.StatusBadRequest)
 			return
 		}
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			mm.CurrDatumIdx = 0
+			mm.Datums = datums
+			mm.DatumInput = pipelineReq.Input
+			mm.DatumInputsToMounts = datumInputsToMounts
+		}()
 
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.ID))
-		mis := mm.datumToMounts(datums[0], datumAlias)
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
+		mis := mm.datumToMounts(datums[0])
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -652,18 +663,8 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		createLocalOutDir(mm)
 
-		func() {
-			mm.mu.Lock()
-			defer mm.mu.Unlock()
-
-			mm.CurrDatumIdx = 0
-			mm.Datums = datums
-			mm.DatumInput = pipelineReq.Input
-			mm.DatumAlias = datumAlias
-		}()
-
 		resp := MountDatumResponse{
-			Id:        datums[0].Datum.ID,
+			Id:        datums[0].Datum.Id,
 			Idx:       0,
 			NumDatums: len(datums),
 		}
@@ -706,7 +707,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if id != "" {
 			foundDatum := false
 			for idx, di = range mm.Datums {
-				if di.Datum.ID == id {
+				if di.Datum.Id == id {
 					foundDatum = true
 					break
 				}
@@ -722,7 +723,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		mis := mm.datumToMounts(di, mm.DatumAlias)
+		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -739,7 +740,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}()
 
 		resp := MountDatumResponse{
-			Id:        di.Datum.ID,
+			Id:        di.Datum.Id,
 			Idx:       idx,
 			NumDatums: len(mm.Datums),
 		}
@@ -825,7 +826,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				mm.Client.Close()
 			}
 			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
-			if mm, err = CreateMount(newClient, sopts.MountDir); err != nil {
+			if mm, err = CreateMount(newClient, sopts.MountDir, sopts.AllowOther); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -864,7 +865,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, "no authentication providers configured", http.StatusInternalServerError)
 			return
 		}
-		authUrl := loginInfo.LoginURL
+		authUrl := loginInfo.LoginUrl
 		state := loginInfo.State
 
 		r := map[string]string{"auth_url": authUrl, "oidc_state": state}
@@ -885,7 +886,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: string(oidcState)})
+		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OidcState: string(oidcState)})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -950,7 +951,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
+		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
 		case <-sopts.Unmount:
@@ -1046,7 +1047,7 @@ func updateConfig(cfgReq ConfigRequest) error {
 	}
 	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	cfg.V2.ActiveContext = "mount-server"
-	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
+	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCas: cfgReq.ServerCas}
 	if err = cfg.Write(); err != nil {
 		return err
 	}
@@ -1073,45 +1074,33 @@ func hasRepoWrite(permissions []auth.Permission) bool {
 	return slices.Contains(permissions, auth.Permission_REPO_WRITE)
 }
 
-func (mm *MountManager) verifyProjectExists(project string) (bool, error) {
-	if _, err := mm.Client.InspectProject(project); err != nil {
+func (mi *MountInfo) verifyProjectExists(client *client.APIClient) (bool, error) {
+	if _, err := client.InspectProject(mi.Project); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (mm *MountManager) verifyProjectRepoExist(project, repo string) (bool, error) {
-	if _, err := mm.verifyProjectExists(project); err != nil {
+func (mi *MountInfo) verifyProjectRepoExist(client *client.APIClient) (bool, error) {
+	if _, err := mi.verifyProjectExists(client); err != nil {
 		return false, err
 	}
-	if _, err := mm.Client.InspectRepo(project, repo); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch string) (bool, error) {
-	if _, err := mm.verifyProjectRepoExist(project, repo); err != nil {
-		return false, err
-	}
-	if _, err := mm.Client.InspectBranch(project, repo, branch); err != nil {
+	if _, err := client.InspectRepo(mi.Project, mi.Repo); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-// In read-only mode, a branch must exist to mount. In read-write mode, it
-// is not necessary for the branch to exist, as a new one
-func (mm *MountManager) verifyExistence(mode, project, repo, branch string) (bool, error) {
-	if mode == "ro" {
-		if exists, err := mm.verifyProjectRepoBranchExist(project, repo, branch); !exists {
-			return false, err
-		}
-	} else {
-		if exists, err := mm.verifyProjectRepoExist(project, repo); !exists {
-			return false, err
-		}
+func (mi *MountInfo) verifyProjectRepoBranchCommitExist(client *client.APIClient) (bool, error) {
+	if _, err := mi.verifyProjectRepoExist(client); err != nil {
+		return false, err
 	}
+	commitInfo, err := client.InspectCommit(mi.Project, mi.Repo, mi.Branch, mi.Commit)
+	if err != nil {
+		return false, err
+	}
+	mi.Branch = commitInfo.Commit.Branch.Name
+	mi.Commit = commitInfo.Commit.Id
 	return true, nil
 }
 
@@ -1126,32 +1115,41 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		if mi.Repo == "" {
 			return errors.Wrapf(errors.New("no repo specified"), "mount request %+v", mi)
 		}
-		if mi.Branch == "" {
-			mi.Branch = "master"
-		}
-		if mi.Commit != "" {
-			// TODO: case of same commit id on diff branches
-			return errors.Wrapf(errors.New("don't support mounting commits yet"), "mount request %+v", mi)
-		}
-		if mi.Mode == "" {
+		// In read-only mode, a commit or branch must exist to mount. In read-write mode, it
+		// is not necessary for the branch to exist, as it will be created.
+		if mi.Mode == "" || mi.Mode == "ro" {
 			mi.Mode = "ro"
-		} else if mi.Mode != "ro" && mi.Mode != "rw" {
+			if mi.Commit != "" && !uuid.IsUUIDWithoutDashes(mi.Commit) {
+				return errors.Wrapf(errors.New("invalid commit ID"), "mount request %+v", mi)
+			}
+			if mi.Branch == "" && mi.Commit == "" {
+				mi.Branch = "master"
+			}
+			if exists, err := mi.verifyProjectRepoBranchCommitExist(mm.Client); !exists {
+				return errors.Wrapf(err, "mount request %+v", mi)
+			}
+		} else if mi.Mode == "rw" {
+			if exists, err := mi.verifyProjectRepoExist(mm.Client); !exists {
+				return errors.Wrapf(err, "mount request %+v", mi)
+			}
+			if mi.Branch == "" {
+				mi.Branch = "master"
+			}
+			mi.Commit = "" // Disallow mounting a non-branch head commit in rw mode to respect commit provenance
+		} else {
 			return errors.Wrapf(errors.New("mount mode can only be 'ro' or 'rw'"), "mount request %+v", mi)
 		}
-		if exists, err := mm.verifyExistence(mi.Mode, mi.Project, mi.Repo, mi.Branch); !exists {
-			return errors.Wrapf(err, "mount request %+v", mi)
-		}
 	}
-
 	return nil
 }
 
-func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, error) {
+// Visit each entry in the Input spec and set default values if unassigned
+func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[string]string, error) {
 	if datumInput == nil {
 		return nil, errors.New("datum input is not specified")
 	}
 
-	datumAlias := map[DatumAliasKey]string{}
+	datumInputsToMounts := map[string]string{} // Maps input to mount name
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			return nil
@@ -1159,6 +1157,9 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, 
 
 		if input.Pfs.Project == "" {
 			input.Pfs.Project = pfs.DefaultProjectName
+		}
+		if input.Pfs.Commit != "" {
+			return errors.New("cannot specify commit in mounting datums Input")
 		}
 		if input.Pfs.Branch == "" {
 			input.Pfs.Branch = "master"
@@ -1169,50 +1170,52 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, 
 				input.Pfs.Name = input.Pfs.Name + "_" + input.Pfs.Branch
 			}
 		}
-		datumAlias[DatumAliasKey{
-			Project: input.Pfs.Project,
-			Repo:    input.Pfs.Repo,
-			Branch:  input.Pfs.Branch,
-		}] = input.Pfs.Name
+		// In the case a branch is created off another branch, listing datums returns files from
+		// the original branch a commit is on. We should index on that original branch instead.
+		bi, err := c.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
+		if err != nil {
+			return err
+		}
+		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
+		datumInputsToMounts[pfsInput] = input.Pfs.Name
 
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 
-	return datumAlias, nil
+	return datumInputsToMounts, nil
 }
 
-func (mm *MountManager) datumToMounts(d *pps.DatumInfo, datumAlias map[DatumAliasKey]string) []*MountInfo {
+func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 	mounts := map[string]*MountInfo{}
 	files := map[string]map[string]bool{}
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
-		// TODO: add commit here
-
-		name := datumAlias[DatumAliasKey{Project: project, Repo: repo, Branch: branch}]
+		commit := fi.File.Commit.Id
+		name := mm.DatumInputsToMounts[client.NewBranch(project, repo, branch).String()]
 
 		if _, ok := files[name]; !ok {
 			files[name] = map[string]bool{}
 		}
-		if mi, ok := mounts[name]; ok {
-			if _, ok := files[name][fi.File.Path]; !ok {
-				mi.Files = append(mi.Files, fi.File.Path)
-				mounts[name] = mi
-			}
-		} else {
-			mi := &MountInfo{
+		var mi *MountInfo
+		var ok bool
+		if mi, ok = mounts[name]; !ok {
+			mi = &MountInfo{
 				Name:    name,
 				Project: project,
 				Repo:    repo,
 				Branch:  branch,
+				Commit:  commit,
 				Files:   []string{fi.File.Path},
 				Mode:    "ro",
 			}
-			mounts[name] = mi
+		} else if _, ok = files[name][fi.File.Path]; !ok {
+			mi.Files = append(mi.Files, fi.File.Path)
 		}
+		mounts[name] = mi
 		files[name][fi.File.Path] = true
 	}
 
@@ -1251,7 +1254,6 @@ type MountState struct {
 	Status     string `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state. written by fsm
 	Mountpoint string `json:"mountpoint"` // where on the filesystem it's mounted. written by fsm. can also be derived from {MountDir}/{Name}
 	// the following are used by the "refresh" button feature in the jupyter plugin
-	ActualMountedCommit  string `json:"actual_mounted_commit"`   // the actual commit that was mounted at mount time. written by fsm
 	LatestCommit         string `json:"latest_commit"`           // the latest available commit on the branch, last time RefreshMountState() was called. written by fsm
 	HowManyCommitsBehind int    `json:"how_many_commits_behind"` // how many commits are behind the latest commit on the branch. written by fsm
 }
@@ -1282,31 +1284,34 @@ func (m *MountStateMachine) RefreshMountState() error {
 		m.Status = "branch does not contain any commits"
 		return nil
 	}
-
-	m.ActualMountedCommit = commit
+	m.Commit = commit
 
 	// Get the latest commit on the branch
 	branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
 	if err != nil {
+		// If we mounted a specific commit but the branch no longer exists,
+		// then how many commits we're behind on the branch is meaningless
+		if errutil.IsNotFoundError(err) {
+			return nil
+		}
 		return err
 	}
+	m.LatestCommit = branchInfo.Head.Id
+
 	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
 	if err != nil {
 		return err
 	}
-	m.LatestCommit = commitInfos[0].Commit.ID
-
 	// reverse slice
 	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
 		commitInfos[i], commitInfos[j] = commitInfos[j], commitInfos[i]
 	}
-
-	// iterate over non-alias commits in branch, calculating how many commits behind LatestCommit ActualMountedCommit is
-	log.Info(pctx.TODO(), "mounting", zap.String("name", m.Name))
+	// iterate over commits in branch, calculating how many commits behind LatestCommit Commit is
+	log.Debug(pctx.TODO(), "calculating commits behind for mount", zap.String("name", m.Name))
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
-		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.ID), zap.String("actualMountedCommitID", m.ActualMountedCommit))
-		if commitInfo.Commit.ID == m.ActualMountedCommit {
+		log.Debug(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.Id), zap.String("mountedCommitID", m.Commit))
+		if commitInfo.Commit.Id == m.Commit {
 			indexOfCurrentCommit = i
 			break
 		}
@@ -1342,7 +1347,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 		m.Status = fmt.Sprintf(
 			"%d commits behind latest; current = %s (%d'th), latest = %s (%d'th)",
 			m.HowManyCommitsBehind,
-			first8chars(m.ActualMountedCommit),
+			first8chars(m.Commit),
 			indexOfCurrentCommit,
 			first8chars(m.LatestCommit),
 			indexOfLatestCommit,
@@ -1491,39 +1496,23 @@ func mountingState(m *MountStateMachine) StateFn {
 	// _in all cases_
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
-	var err error
-	err = func() error {
+	func() {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:     m.Name,
-			File:     client.NewFile(m.Project, m.Repo, m.Branch, "", ""),
+			File:     client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, ""),
 			Subpaths: m.Files,
 			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
-
-		// Get the latest non-alias commit on branch
-		branchInfo, err := m.manager.Client.InspectBranch(m.Project, m.Repo, m.Branch)
-		if errutil.IsNotFoundError(err) {
-			m.manager.root.commits[m.Name] = ""
-			return nil
-		} else if err != nil {
-			return err
+		if m.Commit != "" {
+			m.manager.root.commits[m.Name] = m.Commit
 		}
-
-		commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 1)
-		if err != nil {
-			return err
-		}
-		m.manager.root.commits[m.Name] = commitInfos[0].Commit.ID
-		return nil
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
-	if err == nil {
-		err = m.manager.root.mkdirMountNames()
-	}
+	err := m.manager.root.mkdirMountNames()
 	m.responses <- Response{
 		MountState: m.MountState,
 		Error:      err,
@@ -1550,7 +1539,7 @@ func mountedState(m *MountStateMachine) StateFn {
 			// project, repo, and branch already associated with mount_name.
 			// It's essentially a safety check for when we get to the remounting
 			// case below.
-			if req.Project != m.Project || req.Repo != m.Repo || req.Branch != m.Branch {
+			if req.Project != m.Project || req.Repo != m.Repo || req.Branch != m.Branch || req.Commit != m.Commit {
 				m.responses <- Response{
 					Repo:       req.Repo,
 					Project:    req.Project,

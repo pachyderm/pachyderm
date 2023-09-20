@@ -41,7 +41,7 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 	fetchChunk := func(ref *chunk.DataRef, files []File) error {
 		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 			if ref != nil {
-				if err := p.storage.ChunkStorage().PrefetchData(ctx, ref); err != nil {
+				if err := p.storage.chunks.PrefetchData(ctx, ref); err != nil {
 					return nil, err
 				}
 			}

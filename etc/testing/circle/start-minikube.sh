@@ -8,7 +8,7 @@ minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
   "--cpus=7"
-  "--memory=12Gi"
+  "--memory=12g"
   "--wait=all"
 )
 while getopts ":v" opt; do

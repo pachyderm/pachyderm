@@ -142,7 +142,6 @@ def test_list_mounts(pachyderm_resources, dev_server):
             "state",
             "status",
             "mountpoint",
-            "actual_mounted_commit",
             "latest_commit",
             "how_many_commits_behind",
         }
@@ -424,6 +423,7 @@ def _update_metadata(notebook: Path, project_name: str, repo_name: str, pipeline
     config.pipeline = dict(name=pipeline_name, project=dict(name=project_name))
     # sub in repo_name
     config.input_spec = f"pfs:\n  repo: {repo_name}\n  glob: \"/*\""
+    config.resource_spec = "" # this is currently not being tested so it is set to the empty string
     config.requirements = str(notebook.with_name(config.requirements).relative_to(os.getcwd()))
     notebook_data['metadata'][METADATA_KEY]['config'] = config.to_dict()
     return json.dumps(notebook_data)
@@ -497,3 +497,17 @@ def test_pps_reuse_pipeline_name_different_project(dev_server, simple_pachyderm_
         client.delete_repo(repo_name, project_name="default")
         if new_notebook.exists():
             new_notebook.unlink()
+
+
+@pytest.mark.parametrize("simple_pachyderm_env", [False], indirect=True)
+def test_pps_update_default_project_pipeline(dev_server, simple_pachyderm_env, notebook_path):
+    """This tests creating and then updating a pipeline within the default project,
+    but doing so using an empty string. A bug existed where we would incorrectly try to
+    recreate the existing context repo."""
+    client, project_name, repo_name, pipeline_name = simple_pachyderm_env
+
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, "", repo_name, pipeline_name)
+    notebook_path.write_text(new_notebook_data)
+
+    test_pps(dev_server, simple_pachyderm_env, notebook_path)
+    test_pps(dev_server, simple_pachyderm_env, notebook_path)

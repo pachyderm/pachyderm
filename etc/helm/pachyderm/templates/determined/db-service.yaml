@@ -1,0 +1,20 @@
+{{- if .Values.determined.enabled }}
+{{- if .Values.determined.db.hostAddress }}
+{{ else}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: determined-db-service-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: determined-db-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - port: {{ .Values.determined.db.port }}
+    protocol: TCP
+  type: {{ if (.Values.determined.db.useNodePortForDB | default false) }}NodePort{{ else }}ClusterIP{{ end }}
+  selector:
+    app: determined-db-{{ .Release.Name }}
+{{ end }}
+{{ end }}

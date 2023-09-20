@@ -225,11 +225,11 @@ func TestTransactions(suite *testing.T) {
 
 		commitInfo, err := env.PachClient.InspectCommit(project, repo, branchA, "")
 		require.NoError(t, err)
-		require.Equal(t, commitInfo.Commit.ID, commit.ID)
+		require.Equal(t, commitInfo.Commit.Id, commit.Id)
 
 		commitInfo, err = env.PachClient.InspectCommit(project, repo, branchB, "")
 		require.NoError(t, err)
-		require.Equal(t, commitInfo.Commit.ID, commit.ID)
+		require.Equal(t, commitInfo.Commit.Id, commit.Id)
 	})
 
 	suite.Run("TestDeleteAllTransactions", func(t *testing.T) {
@@ -343,11 +343,11 @@ func TestTransactions(suite *testing.T) {
 		commitA, err := txnClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
 		require.NoError(t, txnClient.FinishCommit(pfs.DefaultProjectName, "A", "master", ""))
-		require.Equal(t, txn.ID, commitA.ID)
+		require.Equal(t, txn.Id, commitA.Id)
 		commitE, err := txnClient.StartCommit(pfs.DefaultProjectName, "E", "master")
 		require.NoError(t, err)
 		require.NoError(t, txnClient.FinishCommit(pfs.DefaultProjectName, "E", "master", ""))
-		require.Equal(t, txn.ID, commitE.ID)
+		require.Equal(t, txn.Id, commitE.Id)
 
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
@@ -413,27 +413,27 @@ func TestTransactions(suite *testing.T) {
 		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
+		require.Equal(t, txn.Id, commitInfos[0].Commit.Id)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "B"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
+		require.Equal(t, txn.Id, commitInfos[0].Commit.Id)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "C"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
+		require.Equal(t, txn.Id, commitInfos[0].Commit.Id)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "D"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
+		require.Equal(t, txn.Id, commitInfos[0].Commit.Id)
 
 		commitInfos, err = env.PachClient.ListCommitByRepo(client.NewRepo(pfs.DefaultProjectName, "E"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
-		require.Equal(t, txn.ID, commitInfos[0].Commit.ID)
+		require.Equal(t, txn.Id, commitInfos[0].Commit.Id)
 	})
 
 	suite.Run("TestBatchTransaction", func(t *testing.T) {

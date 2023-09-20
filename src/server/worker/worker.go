@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"time"
 
@@ -43,6 +42,9 @@ type Worker struct {
 //  2. a worker goroutine that gets tasks from the master and processes them
 //  3. an api server that serves requests for status or cross-worker communication
 //  4. a driver that provides common functionality between the above components
+//
+// The caller should ensure that the workerId field is being logged by the logger in the provided
+// context.
 func NewWorker(
 	ctx context.Context,
 	env serviceenv.ServiceEnv,
@@ -55,7 +57,6 @@ func NewWorker(
 	ctx = pctx.Child(ctx, "", pctx.WithFields(
 		pps.ProjectNameField(pipelineInfo.GetPipeline().GetProject().GetName()),
 		pps.PipelineNameField(pipelineInfo.GetPipeline().GetName()),
-		pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv)),
 	))
 
 	driver, err := driver.NewDriver(

@@ -1,2 +1,2 @@
-https://free-images.com/md/b7da/kitten_bengal_kitten_pet_0.jpg
-https://free-images.com/md/7bb2/video_game_gamescom_star.jpg
+https://docs.pachyderm.com/images/opencv/kitten.jpg
+https://docs.pachyderm.com/images/opencv/robot.jpg

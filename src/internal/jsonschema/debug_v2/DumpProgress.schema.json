@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DumpProgress",
+    "definitions": {
+        "DumpProgress": {
+            "properties": {
+                "task": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "progress": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Dump Progress"
+        }
+    }
+}

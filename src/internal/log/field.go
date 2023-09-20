@@ -2,11 +2,10 @@ package log
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/protoextensions"
@@ -14,6 +13,13 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Proto is a Field containing a protocol buffer message.
@@ -21,32 +27,47 @@ func Proto(name string, msg proto.Message) Field {
 	switch x := msg.(type) {
 	case zapcore.ObjectMarshaler:
 		return zap.Object(name, x)
-	case *types.Empty:
+	case *emptypb.Empty:
 		return zap.Skip()
-	case *types.Timestamp:
-		t, err := types.TimestampFromProto(x)
-		if err != nil {
-			return zap.Any(name, x)
-		}
-		return zap.Time(name, t)
-	case *types.Duration:
-		d, err := types.DurationFromProto(x)
-		if err != nil {
-			return zap.Any(name, x)
-		}
-		return zap.Duration(name, d)
-	case *types.BytesValue:
+	case *timestamppb.Timestamp:
+		return zap.Time(name, x.AsTime())
+	case *durationpb.Duration:
+		return zap.Duration(name, x.AsDuration())
+	case *wrapperspb.BytesValue:
 		return zap.Object(name, protoextensions.ConciseBytes(x.GetValue()))
-	case *types.Int64Value:
+	case *wrapperspb.Int64Value:
 		return zap.Int64(name, x.GetValue())
-	case *types.Any:
-		var any types.DynamicAny
-		if err := types.UnmarshalAny(x, &any); err != nil {
+	case *anypb.Any:
+		msg, err := x.UnmarshalNew()
+		if err != nil {
 			return zap.Any(name, x)
 		}
-		return Proto(name, any.Message)
+		return Proto(name, msg)
+	}
+	if js, err := protoToJSONMap(msg); err == nil {
+		return zap.Any(name, js)
 	}
 	return zap.Any(name, msg)
+}
+
+func protoToJSONMap(msg proto.Message) (map[string]any, error) {
+	// This is a detail of dynamicpb.Message; if you pass in a raw &dynamicpb.Message{}, then
+	// marshalling panics.  This avoids that panic.
+	if x, ok := msg.(interface{ IsValid() bool }); ok {
+		if !x.IsValid() {
+			return nil, errors.New("invalid dynamic message")
+		}
+	}
+
+	js, err := protojson.Marshal(msg)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal arbitrary message")
+	}
+	result := make(map[string]any)
+	if err := json.Unmarshal(js, &result); err != nil {
+		return nil, errors.Wrap(err, "unmarshal into map[string]any")
+	}
+	return result, nil
 }
 
 type attempt struct{ i, max int }

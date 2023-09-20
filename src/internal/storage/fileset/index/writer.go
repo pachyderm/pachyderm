@@ -6,11 +6,11 @@ import (
 	"sync"
 
 	"github.com/docker/go-units"
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

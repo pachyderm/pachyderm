@@ -2,17 +2,19 @@ package datum
 
 import (
 	"archive/tar"
-	"encoding/json"
+	"context"
 	"io"
 	"path"
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -83,12 +85,16 @@ func NewCommitIterator(pachClient *client.APIClient, commit *pfs.Commit, pathRan
 }
 
 func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
-	return iterateMeta(ci.pachClient, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
+	return iterateMeta(ci.pachClient.Ctx(), ci.pachClient.PfsAPIClient, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
 		return cb(meta)
 	})
 }
 
-func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
+type fileTarGetter interface {
+	GetFileTAR(ctx context.Context, in *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error)
+}
+
+func iterateMeta(ctx context.Context, tarGetter fileTarGetter, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
 	// TODO: This code ensures that we only read metadata for the meta files.
 	// There may be a better way to do this.
 	if pathRange == nil {
@@ -104,9 +110,9 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 		File:      commit.NewFile(path.Join("/", common.MetaFilePath("*"))),
 		PathRange: pathRange,
 	}
-	ctx, cancel := pctx.WithCancel(pachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	client, err := pachClient.PfsAPIClient.GetFileTAR(ctx, req)
+	client, err := tarGetter.GetFileTAR(ctx, req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -118,11 +124,16 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			if pfsserver.IsFileNotFoundErr(err) || errors.Is(err, io.EOF) {
 				return nil
 			}
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "next")
 		}
 		meta := &Meta{}
-		if err := jsonpb.Unmarshal(tr, meta); err != nil {
-			return errors.EnsureStack(err)
+		// This intentionally reads only the first Meta message stored in the meta file.
+		//
+		// TODO: should this return the first, or the last?  No-one on
+		// the team is currently certain.
+		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
+		if err := decoder.UnmarshalNext(meta); err != nil {
+			return errors.Wrapf(err, "could not unmarshal protojson meta in %s %v", req.File, req.PathRange)
 		}
 		migrateMetaInputsV2_6_0(meta)
 		if err := cb(hdr.Name, meta); err != nil {
@@ -181,10 +192,10 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 		var meta Meta
 		// kind of an abuse of the field, just stick this to key off of
 		meta.Hash = hdr.Name
-		decoder := json.NewDecoder(tr)
+		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
 		for {
 			input := new(common.Input)
-			if err := jsonpb.UnmarshalNext(decoder, input); err != nil {
+			if err := decoder.UnmarshalNext(input); err != nil {
 				if errors.Is(err, io.EOF) {
 					break
 				}

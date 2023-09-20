@@ -173,10 +173,10 @@ class Trigger(betterproto.Message):
     happens, otherwise any conditions being satisfied will trigger it.
     """
 
-    cron_spec: str = betterproto.string_field(3)
+    rate_limit_spec: str = betterproto.string_field(3)
     """
-    Triggers if the cron spec has been satisfied since the last trigger and
-    there's been a new commit.
+    Triggers if the rate limit spec (cron expression) has been satisfied since
+    the last trigger.
     """
 
     size: str = betterproto.string_field(4)
@@ -188,6 +188,14 @@ class Trigger(betterproto.Message):
     """
     Triggers if there's been `commits` new commits added since the last
     trigger.
+    """
+
+    cron_spec: str = betterproto.string_field(6)
+    """
+    Creates a background process which fires the trigger on the schedule
+    provided by the cron spec. This condition is mutually exclusive with
+    respect to the others, so setting this will result with the trigger only
+    firing based on the cron schedule.
     """
 
 
@@ -320,6 +328,17 @@ class DeleteReposRequest(betterproto.Message):
     If all is set, then all repos in all projects will be deleted if the caller
     has permission.
     """
+
+
+@dataclass(eq=False, repr=False)
+class DeleteRepoResponse(betterproto.Message):
+    """
+    DeleteRepoResponse returns the repos that were deleted by a DeleteRepo
+    call.
+    """
+
+    deleted: bool = betterproto.bool_field(1)
+    """The repos that were deleted, perhaps none."""
 
 
 @dataclass(eq=False, repr=False)
@@ -703,24 +722,6 @@ class ActivateAuthResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class RunLoadTestRequest(betterproto.Message):
-    spec: str = betterproto.string_field(1)
-    branch: "Branch" = betterproto.message_field(2)
-    seed: int = betterproto.int64_field(3)
-    state_id: str = betterproto.string_field(4)
-
-
-@dataclass(eq=False, repr=False)
-class RunLoadTestResponse(betterproto.Message):
-    spec: str = betterproto.string_field(1)
-    branch: "Branch" = betterproto.message_field(2)
-    seed: int = betterproto.int64_field(3)
-    error: str = betterproto.string_field(4)
-    duration: timedelta = betterproto.message_field(5)
-    state_id: str = betterproto.string_field(6)
-
-
-@dataclass(eq=False, repr=False)
 class ObjectStorageEgress(betterproto.Message):
     url: str = betterproto.string_field(1)
 
@@ -793,7 +794,7 @@ class ApiStub:
         self.__rpc_delete_repo = channel.unary_unary(
             "/pfs_v2.API/DeleteRepo",
             request_serializer=DeleteRepoRequest.SerializeToString,
-            response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+            response_deserializer=DeleteRepoResponse.FromString,
         )
         self.__rpc_delete_repos = channel.unary_unary(
             "/pfs_v2.API/DeleteRepos",
@@ -980,16 +981,6 @@ class ApiStub:
             request_serializer=ClearCacheRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
         )
-        self.__rpc_run_load_test = channel.unary_unary(
-            "/pfs_v2.API/RunLoadTest",
-            request_serializer=RunLoadTestRequest.SerializeToString,
-            response_deserializer=RunLoadTestResponse.FromString,
-        )
-        self.__rpc_run_load_test_default = channel.unary_unary(
-            "/pfs_v2.API/RunLoadTestDefault",
-            request_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
-            response_deserializer=RunLoadTestResponse.FromString,
-        )
         self.__rpc_list_task = channel.unary_stream(
             "/pfs_v2.API/ListTask",
             request_serializer=_taskapi__.ListTaskRequest.SerializeToString,
@@ -1054,7 +1045,7 @@ class ApiStub:
 
     def delete_repo(
         self, *, repo: "Repo" = None, force: bool = False
-    ) -> "betterproto_lib_google_protobuf.Empty":
+    ) -> "DeleteRepoResponse":
         request = DeleteRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1532,28 +1523,6 @@ class ApiStub:
 
         return self.__rpc_clear_cache(request)
 
-    def run_load_test(
-        self,
-        *,
-        spec: str = "",
-        branch: "Branch" = None,
-        seed: int = 0,
-        state_id: str = ""
-    ) -> "RunLoadTestResponse":
-        request = RunLoadTestRequest()
-        request.spec = spec
-        if branch is not None:
-            request.branch = branch
-        request.seed = seed
-        request.state_id = state_id
-
-        return self.__rpc_run_load_test(request)
-
-    def run_load_test_default(self) -> "RunLoadTestResponse":
-        request = betterproto_lib_google_protobuf.Empty()
-
-        return self.__rpc_run_load_test_default(request)
-
     def list_task(self, *, group: "Group" = None) -> Iterator["_taskapi__.TaskInfo"]:
         request = _taskapi__.ListTaskRequest()
         if group is not None:
@@ -1643,7 +1612,7 @@ class ApiBase:
 
     def delete_repo(
         self, repo: "Repo", force: bool, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
+    ) -> "DeleteRepoResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -1991,25 +1960,6 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def run_load_test(
-        self,
-        spec: str,
-        branch: "Branch",
-        seed: int,
-        state_id: str,
-        context: "grpc.ServicerContext",
-    ) -> "RunLoadTestResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def run_load_test_default(
-        self, context: "grpc.ServicerContext"
-    ) -> "RunLoadTestResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
     def list_task(
         self, group: "Group", context: "grpc.ServicerContext"
     ) -> Iterator["_taskapi__.TaskInfo"]:
@@ -2267,16 +2217,6 @@ class ApiBase:
                 self.clear_cache,
                 request_deserializer=ClearCacheRequest.FromString,
                 response_serializer=ClearCacheRequest.SerializeToString,
-            ),
-            "RunLoadTest": grpc.unary_unary_rpc_method_handler(
-                self.run_load_test,
-                request_deserializer=RunLoadTestRequest.FromString,
-                response_serializer=RunLoadTestRequest.SerializeToString,
-            ),
-            "RunLoadTestDefault": grpc.unary_unary_rpc_method_handler(
-                self.run_load_test_default,
-                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
-                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
             ),
             "ListTask": grpc.unary_stream_rpc_method_handler(
                 self.list_task,

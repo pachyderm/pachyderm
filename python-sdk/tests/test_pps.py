@@ -1,6 +1,4 @@
 """Tests for PPS-related functionality."""
-import time
-
 import grpc
 
 from tests.fixtures import *
@@ -52,27 +50,23 @@ class TestUnitPipeline:
 class TestUnitJob:
     """Unit tests for the job management API."""
 
-    #@staticmethod
-    # TODO
-    #def test_list_subjob(client: TestClient, default_project: bool):
-    #    pipeline_info, job_info = client.new_pipeline(default_project)
-    #    pipeline = pipeline_info.pipeline
+    @staticmethod
+    def test_list_subjob(client: TestClient, default_project: bool):
+        pipeline_info, job_info = client.new_pipeline(default_project)
+        pipeline = pipeline_info.pipeline
 
-    #    jobs = client.pps.list_job(pipeline=pipeline)
-    #    assert count(jobs) >= 1
+        jobs = client.pps.list_job(pipeline=pipeline)
+        assert count(jobs) >= 1
 
-    #    jobs = client.pps.list_job(
-    #        pipeline=pipeline,
-    #        projects=[pipeline.project]
-    #    )
-    #    assert count(jobs) >= 1
+        jobs = client.pps.list_job(pipeline=pipeline, projects=[pipeline.project])
+        assert count(jobs) >= 1
 
-    #    jobs = client.pps.list_job(
-    #        pipeline=pipeline,
-    #        projects=[pipeline.project],
-    #        input_commit=pipeline_info.spec_commit,
-    #    )
-    #    assert count(jobs) >= 1
+        jobs = client.pps.list_job(
+            pipeline=pipeline,
+            projects=[pipeline.project],
+            input_commit=pipeline_info.spec_commit,
+        )
+        assert count(jobs) >= 1
 
     @staticmethod
     def test_list_job(client: TestClient, default_project: bool):
@@ -114,7 +108,6 @@ class TestUnitDatums:
 
     @staticmethod
     def test_datums(client: TestClient, default_project: bool):
-        # TODO: Why is this test sometimes slow?
         pipeline_info, job_info = client.new_pipeline(default_project)
         pipeline, job = pipeline_info.pipeline, job_info.job
 
@@ -124,7 +117,9 @@ class TestUnitDatums:
         datum = client.pps.inspect_datum(datum=datums[0].datum)
         assert datum.state == pps.DatumState.SUCCESS
 
-        error_match = fr"datum matching filter \[.*\] could not be found for job ID {job_info.job.id}"
+        error_match = (
+            rf"datum matching filter \[.*\] could not be found for job ID {job_info.job.id}"
+        )
         with pytest.raises(grpc.RpcError, match=error_match):
             client.pps.restart_datum(job=job)
 

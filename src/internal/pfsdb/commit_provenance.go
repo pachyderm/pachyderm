@@ -1,8 +1,6 @@
 package pfsdb
 
 import (
-	"context"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -20,7 +18,7 @@ func ResolveCommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (
 			return c, nil
 		}
 	}
-	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
+	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, Id: commitSet}}
 }
 
 // CommitSetProvenance returns all the commit IDs that are in the provenance
@@ -97,7 +95,7 @@ func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 
 func AddCommit(tx *pachsql.Tx, commit *pfs.Commit) error {
 	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`
-	_, err := tx.Exec(stmt, CommitKey(commit), commit.ID)
+	_, err := tx.Exec(stmt, CommitKey(commit), commit.Id)
 	return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 }
 
@@ -138,51 +136,3 @@ func addCommitProvenance(tx *pachsql.Tx, from, to int) error {
 	_, err := tx.Exec(stmt, from, to)
 	return errors.Wrapf(err, "add commit provenance")
 }
-
-func SetupCommitProvenanceV0(ctx context.Context, tx *pachsql.Tx) error {
-	_, err := tx.ExecContext(ctx, schema)
-	return errors.EnsureStack(err)
-}
-func SetupCommitProvenanceV01(ctx context.Context, tx *pachsql.Tx) error {
-	_, err := tx.ExecContext(ctx, schemaUpdate)
-	return errors.EnsureStack(err)
-}
-
-// TODO(acohen4): verify how postgres behaves when does altering a table affect foreign key constraints?
-var schema = `
-	CREATE TABLE pfs.commits (
-		int_id BIGSERIAL PRIMARY KEY,
-		commit_id VARCHAR(4096) UNIQUE,
-                commit_set_id VARCHAR(4096) NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE pfs.commit_provenance (
-		from_id BIGSERIAL NOT NULL,
-		to_id BIGSERIAL NOT NULL,
-		PRIMARY KEY (from_id, to_id),
-                CONSTRAINT fk_from_commit
-                  FOREIGN KEY(from_id)
-	          REFERENCES pfs.commits(int_id)
-	          ON DELETE CASCADE,
-                CONSTRAINT fk_to_commit
-                  FOREIGN KEY(to_id)
-	          REFERENCES pfs.commits(int_id)
-	          ON DELETE CASCADE
-	);
-
-	CREATE INDEX ON pfs.commit_provenance (
-		from_id
-	);
-
-	CREATE INDEX ON pfs.commit_provenance (
-		to_id
-	);
-`
-
-var schemaUpdate = `
-       ALTER TABLE pfs.commits ADD CONSTRAINT fk_col_commit
-                  FOREIGN KEY(commit_id)
-                  REFERENCES collections.commits(key)
-                  ON DELETE CASCADE
-`

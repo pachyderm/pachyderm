@@ -4,8 +4,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -15,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func Create(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (string, error) {
@@ -54,7 +53,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 		if err != nil {
 			return err
 		}
-		var inputs []*types.Any
+		var inputs []*anypb.Any
 		for i, shard := range shards {
 			input, err := serializePFSTask(&PFSTask{
 				Input:     input,
@@ -68,7 +67,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 			inputs = append(inputs, input)
 		}
 		resultFileSetIDs := make([]string, len(inputs))
-		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 			if err != nil {
 				return err
 			}
@@ -176,7 +175,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 				baseFileSetShards = shards
 			}
 		}
-		var inputs []*types.Any
+		var inputs []*anypb.Any
 		for i, shard := range baseFileSetShards {
 			input, err := serializeCrossTask(&CrossTask{
 				FileSetIds:           fileSetIDs,
@@ -191,7 +190,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 			inputs = append(inputs, input)
 		}
 		resultFileSetIDs := make([]string, len(inputs))
-		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 			if err != nil {
 				return err
 			}
@@ -268,7 +267,7 @@ func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 		if err != nil {
 			return err
 		}
-		var inputs []*types.Any
+		var inputs []*anypb.Any
 		for _, shard := range shards {
 			input, err := serializeKeyTask(&KeyTask{
 				FileSetId: fileSetID,
@@ -282,7 +281,7 @@ func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 			inputs = append(inputs, input)
 		}
 		resultFileSetIDs := make([]string, len(inputs))
-		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 			if err != nil {
 				return err
 			}
@@ -314,7 +313,7 @@ func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 		if err != nil {
 			return err
 		}
-		var inputs []*types.Any
+		var inputs []*anypb.Any
 		for _, shard := range shards {
 			input, err := serializeMergeTask(&MergeTask{
 				FileSetIds: fileSetIDs,
@@ -328,7 +327,7 @@ func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 			inputs = append(inputs, input)
 		}
 		resultFileSetIDs := make([]string, len(inputs))
-		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 			if err != nil {
 				return err
 			}
@@ -383,96 +382,61 @@ func createCron(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Cro
 	})
 }
 
-func serializePFSTask(task *PFSTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializePFSTask(task *PFSTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializePFSTaskResult(taskAny *types.Any) (*PFSTaskResult, error) {
+func deserializePFSTaskResult(taskAny *anypb.Any) (*PFSTaskResult, error) {
 	task := &PFSTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeCrossTask(task *CrossTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCrossTask(task *CrossTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCrossTaskResult(taskAny *types.Any) (*CrossTaskResult, error) {
+func deserializeCrossTaskResult(taskAny *anypb.Any) (*CrossTaskResult, error) {
 	task := &CrossTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeKeyTask(task *KeyTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeKeyTask(task *KeyTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeKeyTaskResult(taskAny *types.Any) (*KeyTaskResult, error) {
+func deserializeKeyTaskResult(taskAny *anypb.Any) (*KeyTaskResult, error) {
 	task := &KeyTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeMergeTask(task *MergeTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeMergeTask(task *MergeTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeMergeTaskResult(taskAny *types.Any) (*MergeTaskResult, error) {
+func deserializeMergeTaskResult(taskAny *anypb.Any) (*MergeTaskResult, error) {
 	task := &MergeTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeComposeTask(task *ComposeTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeComposeTask(task *ComposeTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeComposeTaskResult(taskAny *types.Any) (*ComposeTaskResult, error) {
+func deserializeComposeTaskResult(taskAny *anypb.Any) (*ComposeTaskResult, error) {
 	task := &ComposeTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil

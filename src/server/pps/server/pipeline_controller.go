@@ -188,7 +188,7 @@ func PipelineMonitorSideEffect(toggle sideEffectToggle) sideEffect {
 		toggle: toggle,
 		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
 			if toggle == sideEffectToggle_UP {
-				pc.startPipelineMonitor(pi)
+				pc.startPipelineMonitor(ctx, pi)
 			} else {
 				pc.stopPipelineMonitor()
 			}
@@ -405,6 +405,9 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 		if pi.Details.Autoscaling && pi.State == pps.PipelineState_PIPELINE_STARTING {
 			return pps.PipelineState_PIPELINE_STANDBY, sideEffects, "", nil
 		}
+		if pi.State == pps.PipelineState_PIPELINE_RESTARTING { // the conditional isn't necessary but provides clearer semantics
+			sideEffects = append(sideEffects, PipelineMonitorSideEffect(sideEffectToggle_DOWN))
+		}
 		return pps.PipelineState_PIPELINE_RUNNING, sideEffects, "", nil
 	}
 	if rc == nil {
@@ -500,8 +503,8 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):
 		log.Info(ctx, "pipeline version looks stale", zap.String("old", rcPipelineVersion), zap.Uint64("new", pi.Version))
 		return false
-	case rcSpecCommit != pi.SpecCommit.ID:
-		log.Info(ctx, "pipeline spec commit looks stale", zap.String("old", rcSpecCommit), zap.String("new", pi.SpecCommit.ID))
+	case rcSpecCommit != pi.SpecCommit.Id:
+		log.Info(ctx, "pipeline spec commit looks stale", zap.String("old", rcSpecCommit), zap.String("new", pi.SpecCommit.Id))
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Info(ctx, "pipeline is using stale pachd", zap.String("old", rcPachVersion), zap.String("new", version.PrettyVersion()))
@@ -520,9 +523,9 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 // one doesn't exist already), which manages standby and cron inputs, and
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
-func (pc *pipelineController) startPipelineMonitor(pi *pps.PipelineInfo) {
+func (pc *pipelineController) startPipelineMonitor(ctx context.Context, pi *pps.PipelineInfo) {
 	if pc.monitorCancel == nil {
-		pc.monitorCancel = pc.startMonitor(pc.ctx, pi)
+		pc.monitorCancel = pc.startMonitor(ctx, pi)
 	}
 }
 
@@ -572,7 +575,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 	pachClient.SetAuthToken(pi.AuthToken)
 	c := client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, "")
 	if err := pachClient.ListCommitF(c.Repo, c, nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
+		return pachClient.StopJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.Id)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -232,10 +232,10 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader))
-			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+			tester.ExpectEvent(TestEvent{watch.EventPut, row.Id, row})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, row.ID)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, row.ID, nil})
+			tester.Delete(rctx, row.Id)
+			tester.ExpectEvent(TestEvent{watch.EventDelete, row.Id, nil})
 			tester.ExpectNoEvents()
 			cancel()
 			tester.ExpectError(context.Canceled)
@@ -278,10 +278,10 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader))
-			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+			tester.ExpectEvent(TestEvent{watch.EventPut, row.Id, row})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, row.ID)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, row.ID, nil})
+			tester.Delete(rctx, row.Id)
+			tester.ExpectEvent(TestEvent{watch.EventDelete, row.Id, nil})
 			tester.ExpectNoEvents()
 		})
 
@@ -294,13 +294,13 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowB.ID, rowB})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowB.Id, rowB})
 			tester.ExpectNoEvents()
 			tester.DeleteAll(rctx)
 			tester.ExpectEventSet(
-				TestEvent{watch.EventDelete, rowA.ID, nil},
-				TestEvent{watch.EventDelete, rowB.ID, nil},
+				TestEvent{watch.EventDelete, rowA.Id, nil},
+				TestEvent{watch.EventDelete, rowB.Id, nil},
 			)
 			tester.ExpectNoEvents()
 		})
@@ -314,10 +314,10 @@ func watchTests(
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader))
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowA)
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowB)
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowB.ID, rowB})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowB.Id, rowB})
 			tester.ExpectNoEvents()
 		})
 
@@ -328,12 +328,12 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader))
-			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+			tester.ExpectEvent(TestEvent{watch.EventPut, row.Id, row})
 			tester.ExpectNoEvents()
 
 			row.Value = changedValue
 			tester.Write(rctx, row)
-			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+			tester.ExpectEvent(TestEvent{watch.EventPut, row.Id, row})
 			tester.ExpectNoEvents()
 		})
 	}
@@ -394,7 +394,7 @@ func watchTests(
 				return errutil.ErrBreak
 			})
 			require.NoError(t, err)
-			require.Equal(t, []TestEvent{{watch.EventPut, rowA.ID, rowA}}, events)
+			require.Equal(t, []TestEvent{{watch.EventPut, rowA.Id, rowA}}, events)
 		})
 
 		watchAllTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback) watch.Watcher {
@@ -410,18 +410,18 @@ func watchTests(
 			reader, writer := newCollection(rctx, t)
 			row := makeProto(makeID(7))
 
-			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, row.ID))
+			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, row.Id))
 			tester.ExpectNoEvents()
 			// postgres payload limit is 8KB, but it is base64-encoded, so a data
 			// length of 3/4 * 8000 should be sufficient.
 			for i := 5800; i < 6000; i += 5 {
 				row.Data = random.String(i)
 				tester.Write(rctx, row)
-				tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+				tester.ExpectEvent(TestEvent{watch.EventPut, row.Id, row})
 				tester.ExpectNoEvents()
 			}
-			tester.Delete(rctx, row.ID)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, row.ID, nil})
+			tester.Delete(rctx, row.Id)
+			tester.ExpectEvent(TestEvent{watch.EventDelete, row.Id, nil})
 			tester.ExpectNoEvents()
 		})
 
@@ -433,11 +433,11 @@ func watchTests(
 			row := makeProto(makeID(4))
 			require.NoError(t, writer(rctx, putItem(row)))
 
-			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader, row.ID))
-			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader, row.Id))
+			tester.ExpectEvent(TestEvent{watch.EventPut, row.Id, row})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, row.ID)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, row.ID, nil})
+			tester.Delete(rctx, row.Id)
+			tester.ExpectEvent(TestEvent{watch.EventDelete, row.Id, nil})
 			tester.ExpectNoEvents()
 			cancel()
 			tester.ExpectError(context.Canceled)
@@ -452,13 +452,13 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowA)))
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
-			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.ID))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.Id))
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, rowA.ID)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.ID, nil})
+			tester.Delete(rctx, rowA.Id)
+			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.Id, nil})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, rowB.ID)
+			tester.Delete(rctx, rowB.Id)
 			tester.ExpectNoEvents()
 		})
 
@@ -470,11 +470,11 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowA)))
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
-			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.ID))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.Id))
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			tester.DeleteAll(rctx)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.ID, nil})
+			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.Id, nil})
 			tester.ExpectNoEvents()
 		})
 
@@ -484,10 +484,10 @@ func watchTests(
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
 
-			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.ID))
+			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.Id))
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowA)
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowB)
 			tester.ExpectNoEvents()
@@ -501,13 +501,13 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowA)))
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
-			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.ID))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, rowA.Id))
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 
 			rowA.Value = changedValue
 			tester.Write(rctx, rowA)
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 
 			rowB.Value = changedValue
@@ -526,7 +526,7 @@ func watchTests(
 			row := makeProto(makeID(1))
 			require.NoError(t, writer(rctx, putItem(row)))
 			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
-				res, err := watchRead.WatchOne(row.ID)
+				res, err := watchRead.WatchOne(row.Id)
 				return res, errors.EnsureStack(err)
 			})
 		})
@@ -550,7 +550,7 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(row)))
 
 			events := []*watch.Event{}
-			err := watchRead.WatchOneF(row.ID, func(ev *watch.Event) error {
+			err := watchRead.WatchOneF(row.Id, func(ev *watch.Event) error {
 				return errors.New("should have been canceled before receiving event")
 			})
 			require.YesError(t, err)
@@ -568,12 +568,12 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
 			events := []TestEvent{}
-			err := watchRead.WatchOneF(rowA.ID, func(ev *watch.Event) error {
+			err := watchRead.WatchOneF(rowA.Id, func(ev *watch.Event) error {
 				events = append(events, newTestEvent(t, ev))
 				return errutil.ErrBreak
 			})
 			require.NoError(t, err)
-			require.Equal(t, []TestEvent{{watch.EventPut, rowA.ID, rowA}}, events)
+			require.Equal(t, []TestEvent{{watch.EventPut, rowA.Id, rowA}}, events)
 		})
 
 		watchOneTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, key string) watch.Watcher {
@@ -593,10 +593,10 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader, originalValue))
-			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
+			tester.ExpectEvent(TestEvent{watch.EventPut, row.Id, row})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, row.ID)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, row.ID, nil})
+			tester.Delete(rctx, row.Id)
+			tester.ExpectEvent(TestEvent{watch.EventDelete, row.Id, nil})
 			tester.ExpectNoEvents()
 			cancel()
 			tester.ExpectError(context.Canceled)
@@ -612,7 +612,7 @@ func watchTests(
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, originalValue))
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowA)
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowB)
 			tester.ExpectNoEvents()
@@ -627,10 +627,10 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, originalValue))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowA)
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			tester.Write(rctx, rowB)
 			tester.ExpectNoEvents()
@@ -645,12 +645,12 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, originalValue))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, rowA.ID)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.ID, nil})
+			tester.Delete(rctx, rowA.Id)
+			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.Id, nil})
 			tester.ExpectNoEvents()
-			tester.Delete(rctx, rowB.ID)
+			tester.Delete(rctx, rowB.Id)
 			tester.ExpectNoEvents()
 		})
 
@@ -663,10 +663,10 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, originalValue))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			tester.DeleteAll(rctx)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.ID, nil})
+			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.Id, nil})
 			tester.ExpectNoEvents()
 		})
 
@@ -679,11 +679,11 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, originalValue))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			rowB.Value = originalValue
 			tester.Write(rctx, rowB)
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowB.ID, rowB})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowB.Id, rowB})
 			tester.ExpectNoEvents()
 		})
 
@@ -696,11 +696,11 @@ func watchTests(
 			require.NoError(t, writer(rctx, putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(rctx, t, reader, originalValue))
-			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
+			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.Id, rowA})
 			tester.ExpectNoEvents()
 			rowA.Value = changedValue
 			tester.Write(rctx, rowA)
-			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.ID, nil})
+			tester.ExpectEvent(TestEvent{watch.EventDelete, rowA.Id, nil})
 			tester.ExpectNoEvents()
 		})
 	}
@@ -762,7 +762,7 @@ func watchTests(
 				return errutil.ErrBreak
 			})
 			require.NoError(t, err)
-			require.Equal(t, []TestEvent{{watch.EventPut, rowA.ID, rowA}}, events)
+			require.Equal(t, []TestEvent{{watch.EventPut, rowA.Id, rowA}}, events)
 		})
 
 		watchByIndexTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, value string) watch.Watcher {

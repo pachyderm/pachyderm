@@ -13,7 +13,7 @@ func (x *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("user_id", x.UserID)
+	enc.AddString("user_id", x.UserId)
 	enc.AddObject("v1", x.V1)
 	enc.AddObject("v2", x.V2)
 	return nil
@@ -24,7 +24,7 @@ func (x *ConfigV1) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("pachd_address", x.PachdAddress)
-	enc.AddString("server_cas", x.ServerCAs)
+	enc.AddString("server_cas", x.ServerCas)
 	enc.AddString("session_token", x.SessionToken)
 	enc.AddString("active_transaction", x.ActiveTransaction)
 	return nil
@@ -53,7 +53,7 @@ func (x *Context) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("source", x.Source.String())
 	enc.AddString("pachd_address", x.PachdAddress)
-	enc.AddString("server_cas", x.ServerCAs)
+	enc.AddString("server_cas", x.ServerCas)
 	enc.AddString("session_token", x.SessionToken)
 	enc.AddString("active_transaction", x.ActiveTransaction)
 	enc.AddString("cluster_name", x.ClusterName)
@@ -65,7 +65,7 @@ func (x *Context) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
-	enc.AddString("cluster_deployment_id", x.ClusterDeploymentID)
+	enc.AddString("cluster_deployment_id", x.ClusterDeploymentId)
 	enc.AddBool("enterprise_server", x.EnterpriseServer)
 	enc.AddString("project", x.Project)
 	return nil

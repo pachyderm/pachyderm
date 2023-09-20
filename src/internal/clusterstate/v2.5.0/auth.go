@@ -4,12 +4,13 @@ import (
 	"context"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -31,6 +32,7 @@ func authIsActive(c collection.PostgresReadWriteCollection) bool {
 // migrateAuth migrates auth to be fully project-aware with a default project.
 // It uses some internal knowledge about how cols.PostgresCollection works to do so.
 func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
+	log.Info(ctx, "Migrating Repo role binding keys to be aware of default project")
 	if _, err := tx.ExecContext(ctx, `UPDATE collections.role_bindings SET key = regexp_replace(key, '^REPO:([-a-zA-Z0-9_]+)$', 'REPO:default/\1') where key ~ '^REPO:([-a-zA-Z0-9_]+)'`); err != nil {
 		return errors.Wrap(err, "could not update role bindings")
 	}
@@ -57,6 +59,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	}
 
 	// TODO CORE-1048, grant all users the ProjectWriter role for default project
+	log.Info(ctx, "Creating initial empty role binding for default project")
 	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
 	if err := roleBindingsCol.Upsert(projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
 		return nil
@@ -65,11 +68,13 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	}
 
 	// Need to extend the character length limit for the subject column because we are adding project name to it.
+	log.Info(ctx, "Extending character length limit for subject column in auth_tokens table")
 	if _, err := tx.ExecContext(ctx, `ALTER TABLE auth.auth_tokens ALTER COLUMN subject TYPE varchar(128)`); err != nil {
 		return errors.Wrap(err, "could not alter column subject in table auth.auth_tokens from varchar(64) to varchar(128)")
 	}
 
 	// Rename pipeline users from "pipeline:<repo>" to "pipeline:default/<repo>"
+	log.Info(ctx, "Updating pipeline auth tokens to include default project")
 	if _, err := tx.ExecContext(ctx, `UPDATE auth.auth_tokens SET subject = regexp_replace(subject, '^pipeline:([-a-zA-Z0-9_]+)$', 'pipeline:default/\1') WHERE subject ~ '^pipeline:[^/]+$'`); err != nil {
 		return errors.Wrap(err, "could not update auth tokens")
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
@@ -188,6 +189,7 @@ func SetupPostgresCollections(ctx context.Context, sqlTx *pachsql.Tx, collection
 			indexFields = append(indexFields, "'"+name+"'")
 		}
 
+		log.Info(ctx, fmt.Sprintf("Creating collections.%s table", col.table))
 		createTable := fmt.Sprintf("create table collections.%s (%s);", col.table, strings.Join(columns, ", "))
 		if _, err := sqlTx.Exec(createTable); err != nil {
 			return errors.EnsureStack(err)

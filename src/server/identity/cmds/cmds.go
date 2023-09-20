@@ -1,16 +1,14 @@
 package cmds
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -26,7 +24,7 @@ type connectorConfig struct {
 	Name    string
 	Type    string
 	Version int64
-	Config  interface{}
+	Config  map[string]any
 }
 
 func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
@@ -50,22 +48,16 @@ func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
 }
 
 func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
-	// Need to remarshal to JSON in order to convert from map[string]interface{} to types.Struct{}.
-	configBytes, err := json.Marshal(c.Config)
+	cfg, err := structpb.NewStruct(c.Config)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	config := &types.Struct{}
-	err = jsonpb.Unmarshal(bytes.NewReader(configBytes), config)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrapf(err, "structpb.NewStruct on %#v", c.Config)
 	}
 	return &identity.IDPConnector{
 		Id:            c.ID,
 		Name:          c.Name,
 		Type:          c.Type,
 		ConfigVersion: c.Version,
-		Config:        config,
+		Config:        cfg,
 	}, nil
 }
 

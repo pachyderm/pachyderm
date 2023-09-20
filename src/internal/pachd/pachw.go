@@ -9,9 +9,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
@@ -27,11 +27,11 @@ func newPachwBuilder(config any) *pachwBuilder {
 }
 
 func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
-	env, err := pfs_server.EnvFromServiceEnv(pachwb.env, pachwb.txnEnv)
+	env, err := PFSEnv(pachwb.env, pachwb.txnEnv)
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewPachwAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(*env)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
 
 func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 	apiServer, err := authserver.NewAuthServer(
-		authserver.EnvFromServiceEnv(pachwb.env, pachwb.txnEnv),
+		AuthEnv(pachwb.env, pachwb.txnEnv),
 		false, !pachwb.daemon.criticalServersOnly, false,
 	)
 	if err != nil {
@@ -57,14 +57,16 @@ func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 }
 
 func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error {
-	pachwb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+	pachwb.enterpriseEnv = EnterpriseEnv(
 		pachwb.env,
 		path.Join(pachwb.env.Config().EtcdPrefix, pachwb.env.Config().EnterpriseEtcdPrefix),
 		pachwb.txnEnv,
 	)
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		pachwb.enterpriseEnv,
-		false,
+		eprsserver.Config{
+			Heartbeat: false,
+		},
 	)
 	if err != nil {
 		return err
@@ -77,12 +79,7 @@ func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error 
 }
 
 func (pachwb *pachwBuilder) registerDebugServer(ctx context.Context) error {
-	apiServer := debugserver.NewDebugServer(
-		pachwb.env,
-		pachwb.env.Config().PachdPodName,
-		nil,
-		pachwb.env.GetDBClient(),
-	)
+	apiServer := pachwb.newDebugServer()
 	pachwb.forGRPCServer(func(s *grpc.Server) { debug.RegisterDebugServer(s, apiServer) })
 	return nil
 }
@@ -95,11 +92,11 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.printVersion,
 		pachwb.initJaeger,
 		pachwb.initKube,
-		pachwb.setupDB,
+		pachwb.waitForDBState,
 		pachwb.initInternalServer,
 		pachwb.registerEnterpriseServer,
 		pachwb.registerAuthServer,
-		pachwb.registerPFSServer, // PFS seems to need a non-nil auth server.
+		pachwb.registerPFSServer, // PFS needs a non-nil auth server.
 		pachwb.registerTransactionServer,
 		pachwb.registerDebugServer,
 		pachwb.registerHealthServer,
@@ -107,12 +104,14 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initTransaction,
 		pachwb.internallyListen,
 		pachwb.resumeHealth,
+		pachwb.startPFSWorker,
+		pachwb.startDebugWorker,
 		pachwb.daemon.serve,
 	)
 }
 
 // PachwMode runs a pachw-mode pachd.
 // When in pachw mode, the pachd instance processes storage and url tasks.
-func PachwMode(ctx context.Context, config any) error {
+func PachwMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newPachwBuilder(config).buildAndRun(ctx)
 }

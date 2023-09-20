@@ -1,18 +1,14 @@
-import contextlib
+"""The Client used to interact with a Pachyderm instance."""
 import os
-import json
-from base64 import b64decode
-from dataclasses import dataclass
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 from urllib.parse import urlparse
 
 import grpc
 
 from .api.admin.extension import ApiStub as _AdminStub
 from .api.auth import ApiStub as _AuthStub
-from .api.debug import DebugStub as _DebugStub
+from .api.debug.extension import ApiStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub
 from .api.identity import ApiStub as _IdentityStub
 from .api.license import ApiStub as _LicenseStub
@@ -20,44 +16,50 @@ from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
 from .api.transaction.extension import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
+from .api.worker.extension import WorkerStub as _WorkerStub
+from .config import ConfigFile
 from .constants import (
     AUTH_TOKEN_ENV,
+    CONFIG_PATH_LOCAL,
+    CONFIG_PATH_SPOUT,
+    DEFAULT_HOST,
+    DEFAULT_PORT,
     GRPC_CHANNEL_OPTIONS,
     OIDC_TOKEN_ENV,
     PACHD_SERVICE_HOST_ENV,
     PACHD_SERVICE_PORT_ENV,
+    WORKER_PORT_ENV,
 )
-from .errors import AuthServiceNotActivated, BadClusterDeploymentID, ConfigError
 from .interceptor import MetadataClientInterceptor, MetadataType
 
-__all__ = ("Client", )
+__all__ = ("Client",)
 
 
 class Client:
-    """The :class:`.Client` class that users will primarily interact with.
-    Initialize an instance with ``python_pachyderm.Client()``.
+    """The Client used to interact with a Pachyderm instance.
 
-    To see documentation on the methods :class:`.Client` can call, refer to the
-    `mixins` module.
+    Examples
+    --------
+    Connect to a pachyderm instance using your local config file:
+    >>> from pachyderm_sdk import Client
+    >>> client = Client.from_config()
+
+    Connect to a pachyderm instance using a URL/address:
+    >>> from pachyderm_sdk import Client
+    >>> client = Client.from_pachd_address("test.work.com:30080")
     """
-
-    # Class variables for checking config
-    env_config = "PACH_CONFIG"
-    spout_config = Path("/pachctl/config.json")
-    local_config = Path.home().joinpath("pachyderm/config.json")
 
     def __init__(
         self,
-        host: str = 'localhost',
-        port: int = 30650,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
         auth_token: Optional[str] = None,
         root_certs: Optional[bytes] = None,
         transaction_id: str = None,
         tls: bool = False,
     ):
         """
-        Creates a Pachyderm client. If both files don't exist, a client
-        with default settings is created.
+        Creates a Pachyderm client.
 
         Parameters
         ----------
@@ -77,6 +79,8 @@ class Client:
             Whether TLS should be used. If `root_certs` are specified, they are
             used. Otherwise, we use the certs provided by certifi.
         """
+        host = host or DEFAULT_HOST
+        port = port or DEFAULT_PORT
         if auth_token is None:
             auth_token = os.environ.get(AUTH_TOKEN_ENV)
 
@@ -101,6 +105,8 @@ class Client:
 
         # See implementation for api layout.
         self._init_api()
+        # Worker stub is loaded when accessed through the worker property.
+        self._worker = None
 
         if not auth_token and (oidc_token := os.environ.get(OIDC_TOKEN_ENV)):
             self.auth_token = self.auth.authenticate(id_token=oidc_token)
@@ -112,7 +118,10 @@ class Client:
         self.enterprise = _EnterpriseStub(self._channel)
         self.identity = _IdentityStub(self._channel)
         self.license = _LicenseStub(self._channel)
-        self.pfs = _PfsStub(self._channel)
+        self.pfs = _PfsStub(
+            self._channel,
+            get_transaction_id=lambda: self.transaction_id,
+        )
         self.pps = _PpsStub(self._channel)
         self.transaction = _TransactionStub(
             self._channel,
@@ -120,12 +129,11 @@ class Client:
             set_transaction_id=lambda value: setattr(self, "transaction_id", value),
         )
         self._version_api = _VersionStub(self._channel)
+        self._worker: Optional[_WorkerStub]
 
     @classmethod
     def new_in_cluster(
-        cls,
-        auth_token: Optional[str] = None,
-        transaction_id: Optional[str] = None
+        cls, auth_token: Optional[str] = None, transaction_id: Optional[str] = None
     ) -> "Client":
         """Creates a Pachyderm client that operates within a Pachyderm cluster.
 
@@ -142,9 +150,9 @@ class Client:
         Client
             A python_pachyderm client instance.
         """
-        if cls.spout_config.exists():
+        if CONFIG_PATH_SPOUT.exists():
             # TODO: Should we notify the user that we are using spout config?
-            return cls.from_config(cls.spout_config)
+            return cls.from_config(CONFIG_PATH_SPOUT)
 
         host = os.environ.get(PACHD_SERVICE_HOST_ENV)
         if host is None:
@@ -214,22 +222,21 @@ class Client:
         )
 
     @classmethod
-    def from_config(cls, config_file: Union[Path, str]) -> "Client":
+    def from_config(cls, config_file: Union[Path, str] = CONFIG_PATH_LOCAL) -> "Client":
         """Creates a Pachyderm client from a config file.
 
         Parameters
         ----------
         config_file : Union[Path, str]
             The path to a config json file.
+            config_file defaults to the local config.
 
         Returns
         -------
         Client
             A properly configured Client.
         """
-        # TODO: Should config_file be nullable?
-        #  If null should we search for the local config?
-        config = _ConfigFile(config_file)
+        config = ConfigFile(config_file)
         active_context = config.active_context
         client = cls.from_pachd_address(
             active_context.active_pachd_address,
@@ -238,19 +245,11 @@ class Client:
             transaction_id=active_context.active_transaction,
         )
 
-        # Verify the deployment ID of the active context with the cluster.
-        expected_deployment_id = active_context.cluster_deployment_id
-        if expected_deployment_id:
-            cluster_info = client.admin.inspect_cluster()
-            if cluster_info.deployment_id != expected_deployment_id:
-                raise BadClusterDeploymentID(
-                    expected_deployment_id, cluster_info.deployment_id
-                )
-
         return client
 
     @property
     def auth_token(self):
+        """The authentication token. Used if authentication is enabled on the cluster."""
         return self._auth_token
 
     @auth_token.setter
@@ -267,6 +266,7 @@ class Client:
 
     @property
     def transaction_id(self):
+        """The ID of the transaction to run operations on."""
         return self._transaction_id
 
     @transaction_id.setter
@@ -281,6 +281,27 @@ class Client:
         )
         self._init_api()
 
+    @property
+    def worker(self) -> _WorkerStub:
+        """Access the worker API stub.
+
+        This is dynamically loaded in order to provide a helpful error message
+        to the user if they try to interact the worker API from outside a worker.
+        """
+        if self._worker is None:
+            port = os.environ.get(WORKER_PORT_ENV)
+            if port is None:
+                raise ConnectionError(
+                    f"Cannot connect to the worker since {WORKER_PORT_ENV} is not set. "
+                    "Are you running inside a pipeline?"
+                )
+            # Note: This channel does not go through the metadata interceptor.
+            channel = _create_channel(
+                address=f"localhost:{port}", root_certs=None, options=GRPC_CHANNEL_OPTIONS
+            )
+            self._worker = _WorkerStub(channel)
+        return self._worker
+
     def _build_metadata(self):
         metadata = []
         if self._auth_token is not None:
@@ -289,27 +310,8 @@ class Client:
             metadata.append(("pach-transaction", self._transaction_id))
         return metadata
 
-    def delete_all(self) -> None:
-        """Delete all repos, commits, files, pipelines, and jobs.
-        This resets the cluster to its initial state.
-        """
-        # Try removing all identities if auth is activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.identity.delete_all()
-
-        # Try deactivating auth if activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.auth.deactivate()
-
-        # Try removing all licenses if auth is activated.
-        with contextlib.suppress(AuthServiceNotActivated):
-            self.license.delete_all()
-
-        self.pps.delete_all()
-        self.pfs.delete_all()
-        self.transaction.delete_all()
-
     def get_version(self) -> Version:
+        """Requests version information from the pachd cluster."""
         return self._version_api.get_version()
 
 
@@ -329,97 +331,3 @@ def _create_channel(
         ssl = grpc.ssl_channel_credentials(root_certificates=root_certs)
         return grpc.secure_channel(address, ssl, options=options)
     return grpc.insecure_channel(address, options=options)
-
-
-class _ConfigFile:
-
-    def __init__(self, config_file: Union[Path, str]):
-        config_file = Path(os.path.expanduser(config_file)).resolve()
-        self._config_file_data = json.loads(config_file.read_bytes())
-
-    @classmethod
-    def from_bytes(cls, config_file_data: bytes):
-        with NamedTemporaryFile() as temp_config_file:
-            temp_config_file.write(config_file_data)
-            return cls(temp_config_file.name)
-
-    @property
-    def user_id(self) -> str:
-        return self._config_file_data["user_id"]
-
-    @property
-    def active_context(self) -> "_Context":
-        active_context_name = self._config_file_data["v2"]["active_context"]
-        contexts = self._config_file_data["v2"]["contexts"]
-        if active_context_name not in contexts:
-            raise ConfigError(f"active context not found: {active_context_name}")
-        return _Context(**contexts[active_context_name])
-
-    @property
-    def active_enterprise_context(self) -> "_Context":
-        context_name = self._config_file_data["v2"].get("active_enterprise_context")
-        if context_name is None:
-            raise ConfigError("active enterprise context is not specified")
-        contexts = self._config_file_data["v2"]["contexts"]
-        if context_name not in contexts:
-            raise ConfigError(f"active enterprise context not found: {context_name}")
-        return _Context(**contexts[context_name])
-
-
-@dataclass
-class _Context:
-    source: Optional[int] = None
-    """An integer that specifies where the config came from. 
-    This parameter is for internal use only and should not be modified."""
-
-    pachd_address: Optional[str] = None
-    """A host:port specification for connecting to pachd."""
-
-    server_cas: Optional[str] = None
-    """Trusted root certificates for the cluster, formatted as a 
-    base64-encoded PEM. This is only set when TLS is enabled."""
-
-    session_token: Optional[str] = None
-    """A secret token identifying the current user within their pachyderm
-    cluster. This is included in all RPCs and used to determine if a user's
-    actions are authorized. This is only set when auth is enabled."""
-
-    active_transaction: Optional[str] = None
-    """The currently active transaction for batching together commands."""
-
-    cluster_name: Optional[str] = None
-    """The name of the underlying Kubernetes cluster."""
-
-    auth_info: Optional[str] = None
-    """The name of the underlying Kubernetes cluster’s auth credentials"""
-
-    namespace: Optional[str] = None
-    """The underlying Kubernetes cluster’s namespace"""
-
-    cluster_deployment_id: Optional[str] = None
-    """The pachyderm cluster deployment ID that is used to ensure the
-    operations run on the expected cluster."""
-
-    project: Optional[str] = None
-
-    enterprise_server: bool = False
-    """Whether the context represents an enterprise server."""
-
-    port_forwarders: Dict[str, int] = None
-    """A mapping of service name -> local port."""
-
-    @property
-    def active_pachd_address(self) -> str:
-        """This pachd factors in port-forwarding. """
-        if self.pachd_address is None:
-            port = 30650
-            if self.port_forwarders:
-                port = self.port_forwarders.get('pachd', 30650)
-            return f"grpc://localhost:{port}"
-        return self.pachd_address
-
-    @property
-    def server_cas_decoded(self) -> Optional[bytes]:
-        """The base64 decoded root certificates in PEM format, if they exist."""
-        if self.server_cas:
-            return b64decode(bytes(self.server_cas, "utf-8"))

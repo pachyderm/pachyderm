@@ -23,9 +23,9 @@ func newSegmentClient() *analytics.Client {
 func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 	client.Track(&analytics.Track{ //nolint:errcheck // ignoring error because metrics code is non-critical
 		Event:       "cluster.metrics",
-		AnonymousId: metrics.ClusterID,
+		AnonymousId: metrics.ClusterId,
 		Properties: map[string]interface{}{
-			"PodID":               metrics.PodID,
+			"PodID":               metrics.PodId,
 			"nodes":               metrics.Nodes,
 			"version":             metrics.Version,
 			"repos":               metrics.Repos,

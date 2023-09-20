@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -38,7 +38,7 @@ func Status(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 	if err := forEachWorker(ctx, pipelineInfo, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 		defer cancel()
-		status, err := c.Status(ctx, &types.Empty{})
+		status, err := c.Status(ctx, &emptypb.Empty{})
 		if err != nil {
 			log.Info(ctx, "error getting worker status", zap.Error(err))
 			return nil
@@ -58,7 +58,7 @@ func Cancel(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 	success := false
 	if err := forEachWorker(ctx, pipelineInfo, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		resp, err := c.Cancel(ctx, &workerapi.CancelRequest{
-			JobID:       jobID,
+			JobId:       jobID,
 			DataFilters: dataFilter,
 		})
 		if err != nil {

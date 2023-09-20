@@ -6,11 +6,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -118,7 +118,7 @@ func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string, cache Cache) Doer {
 	}
 }
 
-func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb CollectFunc) error {
+func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *anypb.Any, cb CollectFunc) error {
 	return ed.withGroup(ctx, func(ctx context.Context, renewer *col.Renewer) error {
 		var eg errgroup.Group
 		prefix := path.Join(ed.group, uuid.NewWithoutDashes())
@@ -147,28 +147,28 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					err = errors.New(task.Reason)
 				}
 				if ed.cache != nil && err == nil {
-					if err := ed.cache.Put(ctx, task.ID, task.Output); err != nil {
+					if err := ed.cache.Put(ctx, task.Id, task.Output); err != nil {
 						log.Info(ctx, "errored putting task in cache",
 							zap.String("taskType", task.GetInput().GetTypeUrl()),
-							zap.String("taskID", task.GetID()),
+							zap.String("taskID", task.GetId()),
 							zap.Error(err))
 					}
 				}
 
 				log.Debug(ctx, "task callback starting",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()),
+					zap.String("taskID", task.GetId()),
 					zap.Error(err))
 				if err := cb(task.Index, task.Output, err); err != nil {
 					log.Debug(ctx, "task callback errored",
 						zap.String("taskType", task.GetInput().GetTypeUrl()),
-						zap.String("taskID", task.GetID()),
+						zap.String("taskID", task.GetId()),
 						zap.Error(err))
 					return err
 				}
 				log.Debug(ctx, "task callback finished ok",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()))
+					zap.String("taskID", task.GetId()))
 
 				atomic.AddInt64(&count, -1)
 				select {
@@ -227,7 +227,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				taskKey := path.Join(prefix, taskID)
 				task := &Task{
-					ID:    taskID,
+					Id:    taskID,
 					Input: input,
 					State: State_RUNNING,
 					Index: index,
@@ -268,7 +268,7 @@ func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, 
 	return errors.EnsureStack(err)
 }
 
-func computeTaskID(input *types.Any) (string, error) {
+func computeTaskID(input *anypb.Any) (string, error) {
 	val, err := proto.Marshal(input)
 	if err != nil {
 		return "", errors.EnsureStack(err)
@@ -379,11 +379,11 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
 				log.Debug(ctx, "task received",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()))
+					zap.String("taskID", task.GetId()))
 				taskOutput, taskErr := cb(ctx, task.Input)
 				log.Debug(ctx, "task completed",
 					zap.String("taskType", task.GetInput().GetTypeUrl()),
-					zap.String("taskID", task.GetID()),
+					zap.String("taskID", task.GetId()),
 					zap.Error(taskErr))
 
 				// If the task context was canceled or the claim was lost, just return with no error.

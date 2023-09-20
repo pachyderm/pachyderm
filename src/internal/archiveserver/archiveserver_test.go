@@ -14,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -22,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type fakePFS struct {
@@ -34,7 +34,7 @@ type getFileTARClient struct {
 	files map[string]string
 }
 
-func (c *getFileTARClient) Recv() (*types.BytesValue, error) {
+func (c *getFileTARClient) Recv() (*wrapperspb.BytesValue, error) {
 	if !c.recvd {
 		c.recvd = true
 		buf := new(bytes.Buffer)
@@ -56,9 +56,7 @@ func (c *getFileTARClient) Recv() (*types.BytesValue, error) {
 		if err := w.Close(); err != nil {
 			return nil, errors.Wrap(err, "Close")
 		}
-		return &types.BytesValue{
-			Value: buf.Bytes(),
-		}, nil
+		return wrapperspb.Bytes(buf.Bytes()), nil
 	}
 	return nil, io.EOF
 }
@@ -68,7 +66,7 @@ const fakeCommit = "44444444444444444444444444444444"
 func (fakePFS) GetFileTAR(ctx context.Context, req *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error) {
 	log.Debug(ctx, "GetFileTAR", log.Proto("request", req))
 	files := map[string]string{}
-	if req.File.Commit.ID == fakeCommit {
+	if req.File.Commit.Id == fakeCommit {
 		if req.File.Commit.Repo.Name == "images" && req.File.Commit.Repo.Project.Name == "default" && req.File.Path == "/" {
 			files["/hello.txt"] = "hello"
 			files["/a/"] = ""
@@ -94,7 +92,7 @@ func (fakePFS) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest,
 		return &pfs.BranchInfo{
 			Head: &pfs.Commit{
 				Repo: req.Branch.Repo,
-				ID:   fakeCommit,
+				Id:   fakeCommit,
 			},
 		}, nil
 	}
@@ -107,13 +105,18 @@ func doTest(t *testing.T, method, url string) (int, *bytes.Buffer) {
 	fake.PfsAPIClient = &fakePFS{}
 
 	ctx := pctx.TestContext(t)
-	s := NewHTTP(0, func(ctx context.Context) *client.APIClient { return fake.WithCtx(ctx) })
-
 	req := httptest.NewRequest(method, url, nil)
 	req = req.WithContext(ctx)
-
 	rec := httptest.NewRecorder()
-	s.mux.ServeHTTP(rec, req)
+
+	as := &Server{
+		ClientFactory: func(ctx context.Context) *client.APIClient {
+			return fake.WithCtx(ctx)
+		},
+	}
+	mux := new(http.ServeMux)
+	mux.Handle("/archive/", as)
+	mux.ServeHTTP(rec, req)
 	return rec.Code, rec.Body
 }
 
@@ -131,12 +134,6 @@ var testData = []struct {
 		method:   "GET",
 		url:      "http://pachyderm.example.com/what-is-this?",
 		wantCode: http.StatusNotFound,
-	},
-	{
-		name:     "health",
-		method:   "GET",
-		url:      "http://pachyderm.example.com/healthz",
-		wantCode: http.StatusOK,
 	},
 	{
 		name:      "empty download",

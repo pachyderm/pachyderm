@@ -1,18 +1,17 @@
 [tool.poetry]
 name = "pachyderm_sdk"
-version = "0.0.1"
+version = "0.0.0+dev"
 description = "Python Pachyderm Client"
 authors = ["Pachyderm Integrations <integrations@pachyderm.io>"]
 license = "Apache 2.0"
-documentation = "https://python-pachyderm.readthedocs.io/en/stable/"
+documentation = "https://docs.pachyderm.com/latest/sdk/python/"
 readme = 'README.md'
-repository = "https://github.com/pachyderm/python-pachyderm"
+repository = "https://github.com/pachyderm/pachyderm/tree/master/python-sdk"
 keywords = ["pachyderm"]
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -21,16 +20,33 @@ classifiers = [
 
 
 [tool.poetry.dependencies]
-python = ">=3.7,<4.0"
+python = ">=3.8,<4.0"
 betterproto = "2.0.0b5"
 certifi = ">=2022.9"
 grpcio = ">=1.50.0,<1.52.0"
 grpc-interceptor = "^0.14.2"
-importlib-metadata = { version = ">1.5.1", python = "<3.8" }
+python-dotenv = "1.0"
 
 [tool.poetry.dev-dependencies]
+black = "^23.3.0"
+pdoc3 = "0.10.0"
+pandas = "2.0.3"
 pytest = "^7.2.1"
+pytest-black-ng = "^0.4.1"
 
+[tool.poetry.scripts]
+pachyderm-sdk-check-connection = 'pachyderm_sdk.__main__:check_connection'
+
+[tool.black]
+line-length = 92
+target-version = ['py38', 'py39', 'py310']
+exclude = '\.git|\.idea|\.venv|\.\*cache|\*\.egg-info|api\/.*\/__init__.py'
+
+[tool.pytest.ini_options]
+addopts = "-vvv --black"
+filterwarnings = [
+    "ignore::DeprecationWarning:pkg_resources.*",
+]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

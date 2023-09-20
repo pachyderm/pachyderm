@@ -11,7 +11,7 @@ from tornado import locks
 
 from .pachyderm import MountInterface
 from .log import get_logger
-from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR
+from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR, NONPRIV_CONTAINER
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -27,6 +27,9 @@ class MountServerClient(MountInterface):
         self.client = AsyncHTTPClient()
         self.mount_dir = mount_dir
         self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
+        # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
+        # TODO: Would be preferable to auto-detect this, but unclear how
+        self.nopriv = NONPRIV_CONTAINER
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
@@ -71,6 +74,12 @@ class MountServerClient(MountInterface):
                 self._unmount()
 
                 mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
+                if self.nopriv:
+                    # Cannot mount in non-privileged container, so use unshare for a private mount
+                    get_logger().info("Non-privileged container...")
+                    subprocess.run(['mkdir','-p', f'/mnt{self.mount_dir}'])
+                    mount_server_cmd = f"unshare -Ufirm mount-server --mount-dir /mnt{self.mount_dir} --allow-other=false"
+
                 if MOUNT_SERVER_LOG_DIR is not None and MOUNT_SERVER_LOG_DIR:
                   mount_server_cmd += f" >> {MOUNT_SERVER_LOG_DIR} 2>&1"
 
@@ -92,6 +101,31 @@ class MountServerClient(MountInterface):
                     if tries == 10:
                         get_logger().debug("Unable to start mount server...")
                         return False
+                
+                if self.nopriv:
+                    # Using un-shared mount, replace /pfs with a softlink to the mount point
+                    mount_server_proc = subprocess.run(['pgrep','mount-server'], capture_output=True)
+                    mount_server_pid = mount_server_proc.stdout.decode("utf-8")
+                    if not mount_server_pid or not int(mount_server_pid) > 0:
+                        get_logger().debug(f"Unable to find mount-server process: {mount_server_pid}")
+                        return False
+                    mount_server_pid = int(mount_server_pid)
+                    get_logger().info(f"Link non-privileged /pfs to /proc/{mount_server_pid}/root/mnt{self.mount_dir}")
+                    if os.path.exists(self.mount_dir) or os.path.islink(self.mount_dir):
+                        if os.path.isdir(self.mount_dir): 
+                            get_logger().debug(f"Removing dir {self.mount_dir}")
+                            try: 
+                                os.rmdir(self.mount_dir)
+                            except PermissionError as ex:
+                                get_logger().debug(f"Removing dir {self.mount_dir} failed with {str(ex)}", exc_info=1)
+                                # Make / writable so we can remove /pfs and replace with a link
+                                subprocess.run(["sudo", "/usr/bin/chmod", "777","/"])
+                                # Retry the removal
+                                os.rmdir(self.mount_dir)
+                        else:
+                            get_logger().debug(f"Removing file {self.mount_dir}")
+                            os.remove(self.mount_dir) 
+                    os.symlink( f'/proc/{mount_server_pid}/root/mnt{self.mount_dir}', '/pfs', target_is_directory=True)
 
         return True
 

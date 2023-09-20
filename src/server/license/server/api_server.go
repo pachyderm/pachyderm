@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
@@ -25,8 +26,9 @@ const (
 )
 
 type apiServer struct {
-	env *Env
+	lc.UnimplementedAPIServer
 
+	env *Env
 	// license is the database record where we store the active enterprise license
 	license col.PostgresCollection
 }
@@ -108,22 +110,19 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 	// Allow request to override expiration in the activation code, for testing
 	if req.Expires != nil {
-		customExpiration, err := types.TimestampFromProto(req.Expires)
+		customExpiration := req.Expires.AsTime()
 		if err == nil && expiration.After(customExpiration) {
 			expiration = customExpiration
 		}
 	}
-	expirationProto, err := types.TimestampProto(expiration)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not convert expiration time \"%s\" to proto", expiration.String())
-	}
+	expirationProto := timestamppb.New(expiration)
 
 	newRecord := &ec.LicenseRecord{
 		ActivationCode: req.ActivationCode,
 		Expires:        expirationProto,
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
@@ -150,10 +149,7 @@ func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCode
 		return nil, errors.EnsureStack(err)
 	}
 
-	expiration, err := types.TimestampFromProto(record.Expires)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse expiration timestamp")
-	}
+	expiration := record.Expires.AsTime()
 	resp := &lc.GetActivationCodeResponse{
 		Info: &ec.TokenInfo{
 			Expires: record.Expires,
@@ -256,7 +252,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 		return nil, errors.Wrapf(err, "unable to delete clusters in database")
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
@@ -269,15 +265,41 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 	return &lc.DeleteAllResponse{}, nil
 }
 
+type dbClusterStatus struct {
+	Id            string     `db:"id"`
+	Address       string     `db:"address"`
+	Version       string     `db:"version"`
+	AuthEnabled   bool       `db:"auth_enabled"`
+	ClientId      string     `db:"client_id"`
+	LastHeartbeat *time.Time `db:"last_heartbeat"`
+	CreatedAt     *time.Time `db:"created_at"`
+}
+
+func (cs dbClusterStatus) ToProto() *lc.ClusterStatus {
+	return &lc.ClusterStatus{
+		Id:            cs.Id,
+		Address:       cs.Address,
+		Version:       cs.Version,
+		AuthEnabled:   cs.AuthEnabled,
+		ClientId:      cs.ClientId,
+		LastHeartbeat: protoutil.MustTimestampFromPointer(cs.LastHeartbeat),
+		CreatedAt:     protoutil.MustTimestampFromPointer(cs.CreatedAt),
+	}
+}
+
 func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersRequest) (resp *lc.ListClustersResponse, retErr error) {
-	clusters := make([]*lc.ClusterStatus, 0)
-	err := a.env.DB.SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters;")
+	var clusters []dbClusterStatus
+	err := a.env.DB.SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters")
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
+	result := make([]*lc.ClusterStatus, len(clusters))
+	for i, cs := range clusters {
+		result[i] = cs.ToProto()
+	}
 	return &lc.ListClustersResponse{
-		Clusters: clusters,
+		Clusters: result,
 	}, nil
 }
 
@@ -327,7 +349,7 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 
 func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
 	clusters := make([]*lc.UserClusterInfo, 0)
-	if err := a.env.DB.SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
+	if err := a.env.DB.SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id AS ClusterDeploymentId, user_address AS Address, is_enterprise_server AS EnterpriseServer FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return &lc.ListUserClustersResponse{

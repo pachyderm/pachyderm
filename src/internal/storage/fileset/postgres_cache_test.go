@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func newTestCache(t *testing.T, db *pachsql.DB, tr track.Tracker, maxSize int) *Cache {
@@ -37,8 +37,8 @@ func TestPostgresCache(t *testing.T) {
 		valueProto := &TestCacheValue{FileSetId: id.HexString()}
 		data, err := proto.Marshal(valueProto)
 		require.NoError(t, err)
-		value := &types.Any{
-			TypeUrl: "/" + proto.MessageName(valueProto),
+		value := &anypb.Any{
+			TypeUrl: "/" + string(proto.MessageName(valueProto)),
 			Value:   data,
 		}
 		tag := "odd"
@@ -52,7 +52,7 @@ func TestPostgresCache(t *testing.T) {
 		value, err := cache.Get(ctx, strconv.Itoa(i))
 		require.NoError(t, err)
 		valueProto := &TestCacheValue{}
-		require.NoError(t, types.UnmarshalAny(value, valueProto))
+		require.NoError(t, value.UnmarshalTo(valueProto))
 		require.Equal(t, ids[i].HexString(), valueProto.FileSetId)
 		exists, err := storage.exists(ctx, ids[i])
 		require.NoError(t, err)

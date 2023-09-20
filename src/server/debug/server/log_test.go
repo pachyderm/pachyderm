@@ -5,14 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -56,7 +58,7 @@ func TestSetLogLevel(t *testing.T) {
 				Level: &debug.SetLogLevelRequest_Pachyderm{
 					Pachyderm: debug.SetLogLevelRequest_DEBUG,
 				},
-				Duration: types.DurationProto(time.Minute),
+				Duration: durationpb.New(time.Minute),
 			},
 			wantResponse: &debug.SetLogLevelResponse{
 				AffectedPods: []string{
@@ -71,7 +73,7 @@ func TestSetLogLevel(t *testing.T) {
 				Level: &debug.SetLogLevelRequest_Grpc{
 					Grpc: debug.SetLogLevelRequest_DEBUG,
 				},
-				Duration: types.DurationProto(time.Minute),
+				Duration: durationpb.New(time.Minute),
 			},
 			wantResponse: &debug.SetLogLevelResponse{
 				AffectedPods: []string{
@@ -86,7 +88,7 @@ func TestSetLogLevel(t *testing.T) {
 				Level: &debug.SetLogLevelRequest_Pachyderm{
 					Pachyderm: debug.SetLogLevelRequest_DEBUG,
 				},
-				Duration: types.DurationProto(time.Minute),
+				Duration: durationpb.New(time.Minute),
 				Recurse:  true,
 			},
 			wantResponse: &debug.SetLogLevelResponse{
@@ -109,32 +111,34 @@ func TestSetLogLevel(t *testing.T) {
 
 			s := &debugServer{
 				name: "the-tests",
-				env: &serviceenv.TestServiceEnv{
-					KubeClient: fake.NewSimpleClientset(
-						&v1.Pod{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "the-tests",
-								Labels: map[string]string{
-									"suite": "pachyderm",
-									"app":   "pachd",
+				env: Env{
+					GetKubeClient: func() kubernetes.Interface {
+						return fake.NewSimpleClientset(
+							&v1.Pod{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "the-tests",
+									Labels: map[string]string{
+										"suite": "pachyderm",
+										"app":   "pachd",
+									},
 								},
 							},
-						},
-						&v1.Pod{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "pachw",
-								Labels: map[string]string{
-									"suite": "pachyderm",
-									"app":   "pachw",
+							&v1.Pod{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "pachw",
+									Labels: map[string]string{
+										"suite": "pachyderm",
+										"app":   "pachw",
+									},
+								},
+								Status: v1.PodStatus{
+									PodIP: "pod.invalid.",
 								},
 							},
-							Status: v1.PodStatus{
-								PodIP: "pod.invalid.",
-							},
-						},
-					),
-					Configuration: &serviceenv.Configuration{
-						GlobalConfiguration: &serviceenv.GlobalConfiguration{
+						)
+					},
+					Config: pachconfig.Configuration{
+						GlobalConfiguration: &pachconfig.GlobalConfiguration{
 							Port:     1650,
 							PeerPort: 1653,
 						},
@@ -152,7 +156,7 @@ func TestSetLogLevel(t *testing.T) {
 			} else if err != nil && !test.wantErr {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(res, test.wantResponse); diff != "" {
+			if diff := cmp.Diff(res, test.wantResponse, protocmp.Transform()); diff != "" {
 				t.Errorf("response (-got +want):\n%s", diff)
 			}
 

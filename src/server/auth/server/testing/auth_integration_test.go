@@ -88,7 +88,7 @@ func TestListDatum(t *testing.T) {
 	jobs, err := aliceClient.ListJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobs))
-	jobID := jobs[0].Job.ID
+	jobID := jobs[0].Job.Id
 
 	// bob cannot call ListDatum
 	_, err = bobClient.ListDatumAll(pfs.DefaultProjectName, pipeline, jobID)
@@ -135,7 +135,7 @@ func TestListDatum(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(dis), len(disInput))
 	for i, di := range dis {
-		require.Equal(t, di.Datum.ID, disInput[i].Datum.ID)
+		require.Equal(t, di.Datum.Id, disInput[i].Datum.Id)
 	}
 }
 
@@ -228,9 +228,9 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(projectName, repoName, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, aliceClient.FinishCommit(projectName, repoName, commit1.Branch.Name, commit1.Id))
 
-	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
+	jobInfos, err := aliceClient.WaitJobSetAll(commit1.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobInfos))
 
@@ -551,7 +551,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// alice commits to the input repo, and the pipeline runs successfully
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := bobClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := bobClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 
@@ -563,7 +563,7 @@ func TestPipelineRevoke(t *testing.T) {
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 
@@ -574,7 +574,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		require.NoError(t, err)
 	}()
 	select {
@@ -598,7 +598,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh = make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		require.NoError(t, err)
 	}()
 	select {
@@ -611,7 +611,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// pipeline runs successfully
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repo, tu.Pl(pfs.DefaultProjectName, pipeline), []string{auth.RepoReaderRole}))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 }
@@ -809,9 +809,9 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 
@@ -849,9 +849,9 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := rootClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 }
@@ -890,11 +890,11 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 
@@ -952,7 +952,7 @@ func TestListFileNils(t *testing.T) {
 			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
 			Name: "master",
 		},
-		ID: "0123456789ab40123456789abcdef012",
+		Id: "0123456789ab40123456789abcdef012",
 	}
 	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
 		return errors.New("should never get here")

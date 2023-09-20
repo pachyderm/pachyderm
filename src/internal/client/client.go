@@ -20,13 +20,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	// Import registers the grpc GZIP encoder
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
-
-	types "github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -142,6 +141,9 @@ type APIClient struct {
 
 	defaultTransformImage string
 	defaultTransformUser  string
+
+	// inspectClusterResult is the result from the InspectCluster call made at connection time.
+	inspectClusterResult *admin.ClusterInfo
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -418,14 +420,14 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	}
 
 	// 2) Get target address from global config if possible
-	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
+	if context != nil && (context.ServerCas != "" || context.PachdAddress != "") {
 		pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "could not parse the active context's pachd address")
 		}
 
 		// Proactively return an error in this case, instead of falling back to the default address below
-		if context.ServerCAs != "" && !pachdAddress.Secured {
+		if context.ServerCas != "" && !pachdAddress.Secured {
 			return nil, nil, errors.New("must set pachd_address to grpcs://... if server_cas is set")
 		}
 
@@ -433,8 +435,8 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 			options = append(options, WithSystemCAs)
 		}
 		// Also get cert info from config (if set)
-		if context.ServerCAs != "" {
-			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
+		if context.ServerCas != "" {
+			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCas)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "could not decode server CA certs in config")
 			}
@@ -579,26 +581,30 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg.UserID != "" && cfg.V2.Metrics {
-		client.metricsUserID = cfg.UserID
+	if cfg.UserId != "" && cfg.V2.Metrics {
+		client.metricsUserID = cfg.UserId
 	}
 	if context.SessionToken != "" {
 		client.authenticationToken = context.SessionToken
 	}
 
-	// Verify cluster deployment ID
-	clusterInfo, err := client.InspectClusterWithVersion(version.Version)
+	// Verify cluster deployment ID and project.
+	clusterInfo, err := client.InspectClusterWithVersionAndProject(version.Version, &pfs.Project{Name: context.Project})
+	if err != nil && (status.Code(err) == codes.Unauthenticated || status.Code(err) == codes.PermissionDenied) {
+		fmt.Fprintf(os.Stderr, "error checking for project %q: %v; retrying without project check", context.Project, err)
+		clusterInfo, err = client.InspectClusterWithVersionAndProject(version.Version, nil)
+	}
 	if err != nil {
 		scrubbedErr := grpcutil.ScrubGRPC(err)
 		if status.Code(err) == codes.Unimplemented {
 			// This is an older version check designed to detect 1.x vs. 2.x mismatch.
 			pachdVersion, versErr := client.Version()
 			if err != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
+				return nil, errors.Join(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version"))
 			}
 			pachdMajVersion, convErr := strconv.Atoi(strings.Split(pachdVersion, ".")[0])
 			if convErr != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version").Error())
+				return nil, errors.Join(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version"))
 			}
 			if pachdMajVersion != int(version.Version.Major) {
 				return nil, errors.Errorf("this client is for pachyderm %d.x, but the server has a version %d.x - please install the correct client for your server", version.Version.Major, pachdMajVersion)
@@ -606,19 +612,25 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		}
 		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
 	}
+	client.inspectClusterResult = clusterInfo
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
-		if !clusterInfo.GetVersionWarningsOk() {
+		if !clusterInfo.GetWarningsOk() {
 			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
 		} else {
-			for _, w := range clusterInfo.GetVersionWarnings() {
+			for _, w := range clusterInfo.GetWarnings() {
 				log.Error(pctx.TODO(), w)
 			}
 		}
 	}
-	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
-		if context.ClusterDeploymentID == "" {
-			context.ClusterDeploymentID = clusterInfo.DeploymentID
+	if os.Getenv("PACHYDERM_IGNORE_PAUSED_MODE") == "" {
+		if clusterInfo.GetPaused() {
+			log.Info(pctx.TODO(), "NOTE: This pachd instance is currently paused, which prevents many commands from working.")
+		}
+	}
+	if context.ClusterDeploymentId != clusterInfo.DeploymentId {
+		if context.ClusterDeploymentId == "" {
+			context.ClusterDeploymentId = clusterInfo.DeploymentId
 			if err = cfg.Write(); err != nil {
 				return nil, errors.Wrap(err, "could not write config to save cluster deployment ID")
 			}
@@ -719,13 +731,13 @@ func (c APIClient) DeleteAll() error {
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -920,4 +932,18 @@ func (c *APIClient) SetAuthToken(token string) {
 // produced from a configured client context.
 func (c *APIClient) ClientContextName() string {
 	return c.clientContextName
+}
+
+// ClusterInfo returns information about the cluster that is retrieved at connection time, saving a
+// redundant call to InspectCluster.
+func (c *APIClient) ClusterInfo() (info *admin.ClusterInfo, ok bool) {
+	if c == nil || c.inspectClusterResult == nil {
+		return nil, false
+	}
+	return c.inspectClusterResult, true
+}
+
+// ClientConn returns the current grpc client connection.
+func (c *APIClient) ClientConn() *grpc.ClientConn {
+	return c.clientConn
 }

@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -134,7 +135,7 @@ var _ pfs.API_ModifyFileClient = new(noOpModifyFileClient)
 
 func (*noOpModifyFileClient) Send(*pfs.ModifyFileRequest) error { return nil }
 
-func (*noOpModifyFileClient) CloseAndRecv() (*types.Empty, error) { return &types.Empty{}, nil }
+func (*noOpModifyFileClient) CloseAndRecv() (*emptypb.Empty, error) { return &emptypb.Empty{}, nil }
 
 // NewNoOpModifyFileClient returns a ModifyFileClient that does nothing; it accepts any operation and does
 // not error.
@@ -169,7 +170,7 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 				Path:  path,
 				Datum: config.datum,
 				Source: &pfs.AddFile_Raw{
-					Raw: &types.BytesValue{Value: data},
+					Raw: wrapperspb.Bytes(data),
 				},
 			})
 		}); err != nil {
@@ -242,7 +243,7 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 						Path:  p,
 						Datum: config.datum,
 						Source: &pfs.AddFile_Raw{
-							Raw: &types.BytesValue{Value: data},
+							Raw: wrapperspb.Bytes(data),
 						},
 					})
 				}); err != nil {

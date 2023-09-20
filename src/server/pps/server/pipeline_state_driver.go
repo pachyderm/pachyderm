@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -25,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 type PipelineStateDriver interface {
@@ -184,10 +184,10 @@ func newMockStateDriver() *mockStateDriver {
 }
 
 func (d *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error {
-	if pi, ok := d.specCommits[specCommit.ID]; ok {
+	if pi, ok := d.specCommits[specCommit.Id]; ok {
 		pi = proto.Clone(pi).(*pps.PipelineInfo)
 		pi.State = state
-		d.specCommits[specCommit.ID] = pi
+		d.specCommits[specCommit.Id] = pi
 		d.states[toKey(pi.Pipeline)] = append(d.states[toKey(pi.Pipeline)], state)
 		d.pushWatchEvent(pi, watch.EventPut)
 		return nil
@@ -204,7 +204,7 @@ func (d *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.C
 		}
 		return false
 	}
-	if pi, ok := d.specCommits[specCommit.ID]; ok {
+	if pi, ok := d.specCommits[specCommit.Id]; ok {
 		if fromContains(pi.State) {
 			return d.SetState(ctx, specCommit, to, reason)
 		}
@@ -269,8 +269,8 @@ func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pip
 func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
 	mockSpecCommit := client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
-	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.ID
-	d.specCommits[mockSpecCommit.ID] = pi
+	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.Id
+	d.specCommits[mockSpecCommit.Id] = pi
 	if ss, ok := d.states[toKey(pi.Pipeline)]; ok {
 		d.states[toKey(pi.Pipeline)] = append(ss, pi.State)
 	} else {
@@ -282,7 +282,7 @@ func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
 
 func (d *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventType) {
 	d.eChan <- &watch.Event{
-		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline, pi.SpecCommit.ID)),
+		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline, pi.SpecCommit.Id)),
 		Type: et,
 	}
 }

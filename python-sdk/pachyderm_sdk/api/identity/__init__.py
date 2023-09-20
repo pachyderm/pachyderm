@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 @dataclass(eq=False, repr=False)
 class User(betterproto.Message):
-    """User represents an Idp user that has authenticated via Oidc"""
+    """User represents an IDP user that has authenticated via OIDC"""
 
     email: str = betterproto.string_field(1)
     last_authenticated: datetime = betterproto.message_field(2)
@@ -62,7 +62,7 @@ class GetIdentityServerConfigResponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class IdpConnector(betterproto.Message):
-    """IdpConnector represents a connection to an identity provider"""
+    """IDPConnector represents a connection to an identity provider"""
 
     id: str = betterproto.string_field(1)
     """ID is the unique identifier for this connector."""
@@ -74,7 +74,7 @@ class IdpConnector(betterproto.Message):
     """
 
     type: str = betterproto.string_field(3)
-    """Type is the type of the Idp ex. `saml`, `oidc`, `github`."""
+    """Type is the type of the IDP ex. `saml`, `oidc`, `github`."""
 
     config_version: int = betterproto.int64_field(4)
     """
@@ -90,7 +90,7 @@ class IdpConnector(betterproto.Message):
 
     config: "betterproto_lib_google_protobuf.Struct" = betterproto.message_field(6)
     """
-    Config is the configuration for the upstream Idp, which varies based on the
+    Config is the configuration for the upstream IDP, which varies based on the
     type. We make the assumption that this is either yaml or JSON.
     """
 
@@ -227,52 +227,52 @@ class ApiStub:
             response_deserializer=GetIdentityServerConfigResponse.FromString,
         )
         self.__rpc_create_idp_connector = channel.unary_unary(
-            "/identity_v2.API/CreateIdpConnector",
+            "/identity_v2.API/CreateIDPConnector",
             request_serializer=CreateIdpConnectorRequest.SerializeToString,
             response_deserializer=CreateIdpConnectorResponse.FromString,
         )
         self.__rpc_update_idp_connector = channel.unary_unary(
-            "/identity_v2.API/UpdateIdpConnector",
+            "/identity_v2.API/UpdateIDPConnector",
             request_serializer=UpdateIdpConnectorRequest.SerializeToString,
             response_deserializer=UpdateIdpConnectorResponse.FromString,
         )
         self.__rpc_list_idp_connectors = channel.unary_unary(
-            "/identity_v2.API/ListIdpConnectors",
+            "/identity_v2.API/ListIDPConnectors",
             request_serializer=ListIdpConnectorsRequest.SerializeToString,
             response_deserializer=ListIdpConnectorsResponse.FromString,
         )
         self.__rpc_get_idp_connector = channel.unary_unary(
-            "/identity_v2.API/GetIdpConnector",
+            "/identity_v2.API/GetIDPConnector",
             request_serializer=GetIdpConnectorRequest.SerializeToString,
             response_deserializer=GetIdpConnectorResponse.FromString,
         )
         self.__rpc_delete_idp_connector = channel.unary_unary(
-            "/identity_v2.API/DeleteIdpConnector",
+            "/identity_v2.API/DeleteIDPConnector",
             request_serializer=DeleteIdpConnectorRequest.SerializeToString,
             response_deserializer=DeleteIdpConnectorResponse.FromString,
         )
         self.__rpc_create_oidc_client = channel.unary_unary(
-            "/identity_v2.API/CreateOidcClient",
+            "/identity_v2.API/CreateOIDCClient",
             request_serializer=CreateOidcClientRequest.SerializeToString,
             response_deserializer=CreateOidcClientResponse.FromString,
         )
         self.__rpc_update_oidc_client = channel.unary_unary(
-            "/identity_v2.API/UpdateOidcClient",
+            "/identity_v2.API/UpdateOIDCClient",
             request_serializer=UpdateOidcClientRequest.SerializeToString,
             response_deserializer=UpdateOidcClientResponse.FromString,
         )
         self.__rpc_get_oidc_client = channel.unary_unary(
-            "/identity_v2.API/GetOidcClient",
+            "/identity_v2.API/GetOIDCClient",
             request_serializer=GetOidcClientRequest.SerializeToString,
             response_deserializer=GetOidcClientResponse.FromString,
         )
         self.__rpc_list_oidc_clients = channel.unary_unary(
-            "/identity_v2.API/ListOidcClients",
+            "/identity_v2.API/ListOIDCClients",
             request_serializer=ListOidcClientsRequest.SerializeToString,
             response_deserializer=ListOidcClientsResponse.FromString,
         )
         self.__rpc_delete_oidc_client = channel.unary_unary(
-            "/identity_v2.API/DeleteOidcClient",
+            "/identity_v2.API/DeleteOIDCClient",
             request_serializer=DeleteOidcClientRequest.SerializeToString,
             response_deserializer=DeleteOidcClientResponse.FromString,
         )
@@ -477,52 +477,52 @@ class ApiBase:
                 request_deserializer=GetIdentityServerConfigRequest.FromString,
                 response_serializer=GetIdentityServerConfigRequest.SerializeToString,
             ),
-            "CreateIdpConnector": grpc.unary_unary_rpc_method_handler(
+            "CreateIDPConnector": grpc.unary_unary_rpc_method_handler(
                 self.create_idp_connector,
                 request_deserializer=CreateIdpConnectorRequest.FromString,
                 response_serializer=CreateIdpConnectorRequest.SerializeToString,
             ),
-            "UpdateIdpConnector": grpc.unary_unary_rpc_method_handler(
+            "UpdateIDPConnector": grpc.unary_unary_rpc_method_handler(
                 self.update_idp_connector,
                 request_deserializer=UpdateIdpConnectorRequest.FromString,
                 response_serializer=UpdateIdpConnectorRequest.SerializeToString,
             ),
-            "ListIdpConnectors": grpc.unary_unary_rpc_method_handler(
+            "ListIDPConnectors": grpc.unary_unary_rpc_method_handler(
                 self.list_idp_connectors,
                 request_deserializer=ListIdpConnectorsRequest.FromString,
                 response_serializer=ListIdpConnectorsRequest.SerializeToString,
             ),
-            "GetIdpConnector": grpc.unary_unary_rpc_method_handler(
+            "GetIDPConnector": grpc.unary_unary_rpc_method_handler(
                 self.get_idp_connector,
                 request_deserializer=GetIdpConnectorRequest.FromString,
                 response_serializer=GetIdpConnectorRequest.SerializeToString,
             ),
-            "DeleteIdpConnector": grpc.unary_unary_rpc_method_handler(
+            "DeleteIDPConnector": grpc.unary_unary_rpc_method_handler(
                 self.delete_idp_connector,
                 request_deserializer=DeleteIdpConnectorRequest.FromString,
                 response_serializer=DeleteIdpConnectorRequest.SerializeToString,
             ),
-            "CreateOidcClient": grpc.unary_unary_rpc_method_handler(
+            "CreateOIDCClient": grpc.unary_unary_rpc_method_handler(
                 self.create_oidc_client,
                 request_deserializer=CreateOidcClientRequest.FromString,
                 response_serializer=CreateOidcClientRequest.SerializeToString,
             ),
-            "UpdateOidcClient": grpc.unary_unary_rpc_method_handler(
+            "UpdateOIDCClient": grpc.unary_unary_rpc_method_handler(
                 self.update_oidc_client,
                 request_deserializer=UpdateOidcClientRequest.FromString,
                 response_serializer=UpdateOidcClientRequest.SerializeToString,
             ),
-            "GetOidcClient": grpc.unary_unary_rpc_method_handler(
+            "GetOIDCClient": grpc.unary_unary_rpc_method_handler(
                 self.get_oidc_client,
                 request_deserializer=GetOidcClientRequest.FromString,
                 response_serializer=GetOidcClientRequest.SerializeToString,
             ),
-            "ListOidcClients": grpc.unary_unary_rpc_method_handler(
+            "ListOIDCClients": grpc.unary_unary_rpc_method_handler(
                 self.list_oidc_clients,
                 request_deserializer=ListOidcClientsRequest.FromString,
                 response_serializer=ListOidcClientsRequest.SerializeToString,
             ),
-            "DeleteOidcClient": grpc.unary_unary_rpc_method_handler(
+            "DeleteOIDCClient": grpc.unary_unary_rpc_method_handler(
                 self.delete_oidc_client,
                 request_deserializer=DeleteOidcClientRequest.FromString,
                 response_serializer=DeleteOidcClientRequest.SerializeToString,

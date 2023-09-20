@@ -3,6 +3,7 @@ import grpc
 from tests.fixtures import *
 
 from pachyderm_sdk.api import pfs, transaction
+from pachyderm_sdk.errors import InvalidTransactionOperation
 
 
 class TestTransaction:
@@ -14,9 +15,7 @@ class TestTransaction:
 
         def create_repo_request(repo_name):
             return transaction.TransactionRequest(
-                create_repo=pfs.CreateRepoRequest(
-                    repo=pfs.Repo.from_uri(repo_name)
-                )
+                create_repo=pfs.CreateRepoRequest(repo=pfs.Repo.from_uri(repo_name))
             )
 
         try:
@@ -84,3 +83,23 @@ class TestTransaction:
 
         with pytest.raises(grpc.RpcError):
             client.transaction.delete_transaction(transaction=txn)
+
+    @staticmethod
+    def test_file_operations_within_transaction(client: TestClient, default_project: bool):
+        """Ensure that file operations"""
+        repo = client.new_repo(default_project)
+        branch = pfs.Branch(repo=repo, name="master")
+        test_file = pfs.File.from_uri(f"{branch}:/file.dat")
+
+        with client.transaction.transaction() as _txn:
+            repo_txn = client.new_repo(default_project)
+            with client.pfs.commit(branch=branch) as commit:
+                with pytest.raises(InvalidTransactionOperation):
+                    commit.put_file_from_bytes(path=test_file.path, data=b"hello world")
+                with pytest.raises(InvalidTransactionOperation):
+                    commit.copy_file(src=test_file.path, dst="/new_file.dat")
+                with pytest.raises(InvalidTransactionOperation):
+                    commit.delete_file(path=test_file.path)
+
+        assert not client.pfs.path_exists(file=test_file), "file should not exist"
+        assert client.pfs.repo_exists(repo=repo_txn), "txn resources should exist"

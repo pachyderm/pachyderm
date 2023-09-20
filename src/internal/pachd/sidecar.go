@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -27,7 +28,7 @@ func newSidecarBuilder(config any) *sidecarBuilder {
 }
 
 func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
-	apiServer, err := authserver.NewAuthServer(authserver.EnvFromServiceEnv(sb.env, sb.txnEnv), false, false, false)
+	apiServer, err := authserver.NewAuthServer(AuthEnv(sb.env, sb.txnEnv), false, false, false)
 	if err != nil {
 		return err
 	}
@@ -39,11 +40,11 @@ func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
 }
 
 func (sb *sidecarBuilder) registerPFSServer(ctx context.Context) error {
-	env, err := pfs_server.EnvFromServiceEnv(sb.env, sb.txnEnv)
+	env, err := PFSEnv(sb.env, sb.txnEnv)
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewSidecarAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(*env)
 	if err != nil {
 		return err
 	}
@@ -53,7 +54,7 @@ func (sb *sidecarBuilder) registerPFSServer(ctx context.Context) error {
 }
 
 func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
-	apiServer, err := pps_server.NewSidecarAPIServer(pps_server.EnvFromServiceEnv(sb.env, sb.txnEnv, nil),
+	apiServer, err := pps_server.NewSidecarAPIServer(PPSEnv(sb.env, sb.txnEnv, nil),
 		sb.env.Config().Namespace,
 		sb.env.Config().PPSWorkerPort,
 		sb.env.Config().PeerPort)
@@ -73,13 +74,15 @@ func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
 // TODO: refactor the four modes to have a cleaner license/enterprise server
 // abstraction.
 func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
-	sb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+	sb.enterpriseEnv = EnterpriseEnv(
 		sb.env,
 		path.Join(sb.env.Config().EtcdPrefix, sb.env.Config().EnterpriseEtcdPrefix),
 		sb.txnEnv)
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		sb.enterpriseEnv,
-		false,
+		eprsserver.Config{
+			Heartbeat: false,
+		},
 	)
 	if err != nil {
 		return err
@@ -119,6 +122,6 @@ func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 //
 // Sidecar mode is run as a sidecar in a pipeline pod; it provides services to
 // the pipeline worker code running in that pod.
-func SidecarMode(ctx context.Context, config any) error {
+func SidecarMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newSidecarBuilder(config).buildAndRun(ctx)
 }

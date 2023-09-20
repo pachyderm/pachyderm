@@ -52,11 +52,11 @@ func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 		return errors.Wrapf(err, "provided OIDC issuer does not implement OIDC protocol")
 	}
 
-	if _, err := url.Parse(config.RedirectURI); err != nil {
+	if _, err := url.Parse(config.RedirectUri); err != nil {
 		return errors.Wrapf(err, "OIDC redirect_uri must be a valid URL")
 	}
 
-	if config.ClientID == "" {
+	if config.ClientId == "" {
 		return errors.Errorf("OIDC configuration must have a non-empty client_id")
 	}
 
@@ -112,9 +112,9 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 		rewriteClient:     rewriteClient,
 		userAccessAddress: config.UserAccessibleIssuerHost,
 		oauthConfig: oauth2.Config{
-			ClientID:     config.ClientID,
+			ClientID:     config.ClientId,
 			ClientSecret: config.ClientSecret,
-			RedirectURL:  config.RedirectURI,
+			RedirectURL:  config.RedirectUri,
 			Endpoint:     oidcProvider.Endpoint(),
 			Scopes:       config.Scopes,
 		},
@@ -343,7 +343,7 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 		return nil, nil, err
 	}
 
-	var verifier = config.oidcProvider.Verifier(&oidc.Config{ClientID: config.ClientID})
+	var verifier = config.oidcProvider.Verifier(&oidc.Config{ClientID: config.ClientId})
 	idToken, err := verifier.Verify(config.Ctx(ctx), rawIDToken)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "could not verify token")

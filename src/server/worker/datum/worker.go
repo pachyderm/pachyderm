@@ -1,12 +1,10 @@
 package datum
 
 import (
+	"bytes"
 	"encoding/hex"
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -14,43 +12,45 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func IsTaskResult(output *types.Any) bool {
-	return types.Is(output, &PFSTaskResult{}) ||
-		types.Is(output, &CrossTaskResult{}) ||
-		types.Is(output, &KeyTaskResult{}) ||
-		types.Is(output, &MergeTaskResult{}) ||
-		types.Is(output, &ComposeTaskResult{})
+func IsTaskResult(output *anypb.Any) bool {
+	return output.MessageIs(&PFSTaskResult{}) ||
+		output.MessageIs(&CrossTaskResult{}) ||
+		output.MessageIs(&KeyTaskResult{}) ||
+		output.MessageIs(&MergeTaskResult{}) ||
+		output.MessageIs(&ComposeTaskResult{})
 }
 
-func TaskResultFileSets(output *types.Any) ([]string, error) {
+func TaskResultFileSets(output *anypb.Any) ([]string, error) {
 	switch {
-	case types.Is(output, &PFSTaskResult{}):
+	case output.MessageIs(&PFSTaskResult{}):
 		taskResult, err := deserializePFSTaskResult(output)
 		if err != nil {
 			return nil, err
 		}
 		return []string{taskResult.FileSetId}, nil
-	case types.Is(output, &CrossTaskResult{}):
+	case output.MessageIs(&CrossTaskResult{}):
 		taskResult, err := deserializeCrossTaskResult(output)
 		if err != nil {
 			return nil, err
 		}
 		return []string{taskResult.FileSetId}, nil
-	case types.Is(output, &KeyTaskResult{}):
+	case output.MessageIs(&KeyTaskResult{}):
 		taskResult, err := deserializeKeyTaskResult(output)
 		if err != nil {
 			return nil, err
 		}
 		return []string{taskResult.FileSetId}, nil
-	case types.Is(output, &MergeTaskResult{}):
+	case output.MessageIs(&MergeTaskResult{}):
 		taskResult, err := deserializeMergeTaskResult(output)
 		if err != nil {
 			return nil, err
 		}
 		return []string{taskResult.FileSetId}, nil
-	case types.Is(output, &ComposeTaskResult{}):
+	case output.MessageIs(&ComposeTaskResult{}):
 		taskResult, err := deserializeComposeTaskResult(output)
 		if err != nil {
 			return nil, err
@@ -61,45 +61,45 @@ func TaskResultFileSets(output *types.Any) ([]string, error) {
 	}
 }
 
-func IsTask(input *types.Any) bool {
-	return types.Is(input, &PFSTask{}) ||
-		types.Is(input, &CrossTask{}) ||
-		types.Is(input, &KeyTask{}) ||
-		types.Is(input, &MergeTask{}) ||
-		types.Is(input, &ComposeTask{})
+func IsTask(input *anypb.Any) bool {
+	return input.MessageIs(&PFSTask{}) ||
+		input.MessageIs(&CrossTask{}) ||
+		input.MessageIs(&KeyTask{}) ||
+		input.MessageIs(&MergeTask{}) ||
+		input.MessageIs(&ComposeTask{})
 }
 
-func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, error) {
+func ProcessTask(pachClient *client.APIClient, input *anypb.Any) (*anypb.Any, error) {
 	switch {
-	case types.Is(input, &PFSTask{}):
+	case input.MessageIs(&PFSTask{}):
 		task, err := deserializePFSTask(input)
 		if err != nil {
 			return nil, err
 		}
 		pachClient.SetAuthToken(task.AuthToken)
 		return processPFSTask(pachClient, task)
-	case types.Is(input, &CrossTask{}):
+	case input.MessageIs(&CrossTask{}):
 		task, err := deserializeCrossTask(input)
 		if err != nil {
 			return nil, err
 		}
 		pachClient.SetAuthToken(task.AuthToken)
 		return processCrossTask(pachClient, task)
-	case types.Is(input, &KeyTask{}):
+	case input.MessageIs(&KeyTask{}):
 		task, err := deserializeKeyTask(input)
 		if err != nil {
 			return nil, err
 		}
 		pachClient.SetAuthToken(task.AuthToken)
 		return processKeyTask(pachClient, task)
-	case types.Is(input, &MergeTask{}):
+	case input.MessageIs(&MergeTask{}):
 		task, err := deserializeMergeTask(input)
 		if err != nil {
 			return nil, err
 		}
 		pachClient.SetAuthToken(task.AuthToken)
 		return processMergeTask(pachClient, task)
-	case types.Is(input, &ComposeTask{}):
+	case input.MessageIs(&ComposeTask{}):
 		task, err := deserializeComposeTask(input)
 		if err != nil {
 			return nil, err
@@ -111,7 +111,7 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 	}
 }
 
-func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, error) {
+func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*anypb.Any, error) {
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-pfs", func(s *Set) error {
 		commit := client.NewCommit(task.Input.Project, task.Input.Repo, task.Input.Branch, task.Input.Commit)
 		client, err := pachClient.PfsAPIClient.GlobFile(
@@ -158,7 +158,7 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 	return serializePFSTaskResult(&PFSTaskResult{FileSetId: fileSetID})
 }
 
-func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*types.Any, error) {
+func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*anypb.Any, error) {
 	index := task.BaseIndex
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
 		var iterators []Iterator
@@ -192,11 +192,11 @@ func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) e
 	return errors.EnsureStack(err)
 }
 
-func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*types.Any, error) {
+func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*anypb.Any, error) {
 	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		fsi := NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
 		keyHasher := pfs.NewHash()
-		marshaller := new(jsonpb.Marshaler)
+		marshaller := protojson.MarshalOptions{}
 		err := fsi.Iterate(func(meta *Meta) error {
 			for _, input := range meta.Inputs {
 				var rawKey string
@@ -212,11 +212,11 @@ func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*types.Any, er
 				keyHasher.Reset()
 				keyHasher.Write([]byte(rawKey))
 				key := hex.EncodeToString(keyHasher.Sum(nil))
-				out, err := marshaller.MarshalToString(input)
+				out, err := marshaller.Marshal(input)
 				if err != nil {
 					return errors.Wrap(err, "marshalling input for key aggregation")
 				}
-				if err := mf.PutFile(key, strings.NewReader(out), client.WithAppendPutFile()); err != nil {
+				if err := mf.PutFile(key, bytes.NewReader(out), client.WithAppendPutFile()); err != nil {
 					return errors.EnsureStack(err)
 				}
 			}
@@ -230,7 +230,7 @@ func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*types.Any, er
 	return serializeKeyTaskResult(&KeyTaskResult{FileSetId: resp.FileSetId})
 }
 
-func processMergeTask(pachClient *client.APIClient, task *MergeTask) (*types.Any, error) {
+func processMergeTask(pachClient *client.APIClient, task *MergeTask) (*anypb.Any, error) {
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-merge", func(s *Set) error {
 		var fsmis []Iterator
 		for _, fileSetId := range task.FileSetIds {
@@ -283,7 +283,7 @@ func existingMetaHash(meta *Meta) string {
 	return meta.Hash
 }
 
-func processComposeTask(pachClient *client.APIClient, task *ComposeTask) (*types.Any, error) {
+func processComposeTask(pachClient *client.APIClient, task *ComposeTask) (*anypb.Any, error) {
 	resp, err := pachClient.PfsAPIClient.ComposeFileSet(
 		pachClient.Ctx(),
 		&pfs.ComposeFileSetRequest{
@@ -298,97 +298,57 @@ func processComposeTask(pachClient *client.APIClient, task *ComposeTask) (*types
 	return serializeComposeTaskResult(&ComposeTaskResult{FileSetId: resp.FileSetId})
 }
 
-func deserializePFSTask(taskAny *types.Any) (*PFSTask, error) {
+func deserializePFSTask(taskAny *anypb.Any) (*PFSTask, error) {
 	task := &PFSTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializePFSTaskResult(task *PFSTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializePFSTaskResult(task *PFSTaskResult) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeCrossTask(taskAny *types.Any) (*CrossTask, error) {
+func deserializeCrossTask(taskAny *anypb.Any) (*CrossTask, error) {
 	task := &CrossTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCrossTaskResult(task *CrossTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeCrossTaskResult(task *CrossTaskResult) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeKeyTask(taskAny *types.Any) (*KeyTask, error) {
+func deserializeKeyTask(taskAny *anypb.Any) (*KeyTask, error) {
 	task := &KeyTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeKeyTaskResult(task *KeyTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeKeyTaskResult(task *KeyTaskResult) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeMergeTask(taskAny *types.Any) (*MergeTask, error) {
+func deserializeMergeTask(taskAny *anypb.Any) (*MergeTask, error) {
 	task := &MergeTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeMergeTaskResult(task *MergeTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeMergeTaskResult(task *MergeTaskResult) (*anypb.Any, error) { return anypb.New(task) }
 
-func deserializeComposeTask(taskAny *types.Any) (*ComposeTask, error) {
+func deserializeComposeTask(taskAny *anypb.Any) (*ComposeTask, error) {
 	task := &ComposeTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeComposeTaskResult(task *ComposeTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
+func serializeComposeTaskResult(task *ComposeTaskResult) (*anypb.Any, error) { return anypb.New(task) }

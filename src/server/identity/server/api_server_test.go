@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -27,7 +28,7 @@ func TestAuthNotActivated(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	client := env.PachClient
-	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
+	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{Config: &identity.IdentityServerConfig{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -35,7 +36,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.CreateIDPConnector(client.Ctx(), &identity.CreateIDPConnectorRequest{})
+	_, err = client.CreateIDPConnector(client.Ctx(), &identity.CreateIDPConnectorRequest{Connector: &identity.IDPConnector{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -43,7 +44,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.UpdateIDPConnector(client.Ctx(), &identity.UpdateIDPConnectorRequest{})
+	_, err = client.UpdateIDPConnector(client.Ctx(), &identity.UpdateIDPConnectorRequest{Connector: &identity.IDPConnector{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -55,7 +56,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.CreateOIDCClient(client.Ctx(), &identity.CreateOIDCClientRequest{})
+	_, err = client.CreateOIDCClient(client.Ctx(), &identity.CreateOIDCClientRequest{Client: &identity.OIDCClient{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -63,7 +64,7 @@ func TestAuthNotActivated(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.UpdateOIDCClient(client.Ctx(), &identity.UpdateOIDCClientRequest{})
+	_, err = client.UpdateOIDCClient(client.Ctx(), &identity.UpdateOIDCClientRequest{Client: &identity.OIDCClient{}})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -88,7 +89,7 @@ func TestUserNotAdmin(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	aliceClient := tu.AuthenticatedPachClient(t, c, alice, peerPort)
-	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
+	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{Config: &identity.IdentityServerConfig{}})
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
@@ -96,7 +97,7 @@ func TestUserNotAdmin(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
-	_, err = aliceClient.CreateIDPConnector(aliceClient.Ctx(), &identity.CreateIDPConnectorRequest{})
+	_, err = aliceClient.CreateIDPConnector(aliceClient.Ctx(), &identity.CreateIDPConnectorRequest{Connector: &identity.IDPConnector{}})
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
@@ -104,7 +105,7 @@ func TestUserNotAdmin(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
-	_, err = aliceClient.UpdateIDPConnector(aliceClient.Ctx(), &identity.UpdateIDPConnectorRequest{})
+	_, err = aliceClient.UpdateIDPConnector(aliceClient.Ctx(), &identity.UpdateIDPConnectorRequest{Connector: &identity.IDPConnector{}})
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 	require.YesError(t, err)
 
@@ -116,7 +117,7 @@ func TestUserNotAdmin(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
-	_, err = aliceClient.CreateOIDCClient(aliceClient.Ctx(), &identity.CreateOIDCClientRequest{})
+	_, err = aliceClient.CreateOIDCClient(aliceClient.Ctx(), &identity.CreateOIDCClientRequest{Client: &identity.OIDCClient{}})
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
@@ -124,7 +125,7 @@ func TestUserNotAdmin(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
-	_, err = aliceClient.UpdateOIDCClient(aliceClient.Ctx(), &identity.UpdateOIDCClientRequest{})
+	_, err = aliceClient.UpdateOIDCClient(aliceClient.Ctx(), &identity.UpdateOIDCClientRequest{Client: &identity.OIDCClient{}})
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = PermissionDenied desc = %v is not authorized to perform this operation", alice), err.Error())
 
@@ -236,19 +237,21 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	c := env.PachClient
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
-	conn := &identity.IDPConnector{
-		Id:   "id",
-		Name: "name",
-		Type: "mockPassword",
-		Config: &types.Struct{
-			Fields: map[string]*types.Value{
-				"password": {Kind: &types.Value_StringValue{StringValue: "test"}},
-				"username": {Kind: &types.Value_StringValue{StringValue: "test"}},
-			},
+	config, err := structpb.NewStruct(
+		map[string]any{
+			"password": "test",
+			"username": "test",
 		},
+	)
+	require.NoError(t, err)
+	conn := &identity.IDPConnector{
+		Id:     "id",
+		Name:   "name",
+		Type:   "mockPassword",
+		Config: config,
 	}
 
-	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
+	_, err = adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
 		Connector: conn,
 	})
 	require.NoError(t, err)
@@ -310,5 +313,5 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.True(t, time.Until(*whoAmIResp.Expiration) < time.Hour)
+	require.True(t, time.Until(protoutil.MustTime(whoAmIResp.Expiration)) < time.Hour)
 }

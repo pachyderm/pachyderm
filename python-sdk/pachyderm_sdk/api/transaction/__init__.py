@@ -42,8 +42,10 @@ class TransactionRequest(betterproto.Message):
     create_branch: "_pfs__.CreateBranchRequest" = betterproto.message_field(6)
     delete_branch: "_pfs__.DeleteBranchRequest" = betterproto.message_field(7)
     update_job_state: "_pps__.UpdateJobStateRequest" = betterproto.message_field(8)
-    create_pipeline: "_pps__.CreatePipelineRequest" = betterproto.message_field(9)
     stop_job: "_pps__.StopJobRequest" = betterproto.message_field(10)
+    create_pipeline_v2: "_pps__.CreatePipelineTransaction" = betterproto.message_field(
+        11
+    )
 
 
 @dataclass(eq=False, repr=False)

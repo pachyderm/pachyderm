@@ -12,7 +12,18 @@ pachctl version --client-only
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
-echo "{\"pachd_address\": \"grpc://${PACHD_IP}:80\", \"session_token\": \"test\"}" | tr -d \\ | pachctl config set context "test" --overwrite
+if [ "${1}" = "wp" ]; then
+  ENV="qa2"
+elif [ "${1}" = "btl" ]; then
+  ENV="qa3"
+elif [ "${1}" = "krs" ]; then
+  ENV="qa4"
+else
+  echo "no valid customer name provided"
+  exit 1
+fi
+
+echo "{\"pachd_address\": \"grpcs://${ENV}.workspace.pachyderm.com:443\", \"session_token\": \"test\"}" | tr -d \\ | pachctl config set context "test" --overwrite
 pachctl config set active-context "test"
 
 # Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)

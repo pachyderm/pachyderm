@@ -1,8 +1,13 @@
+# All
+/src/*/*.proto           @pachyderm/CORE @pachyderm/INT
 
 # PFS
 /src/pfs/                @pachyderm/PFS
 /src/server/pfs/         @pachyderm/PFS
+/src/internal/pfsdb/     @pachyderm/PFS
+/src/internal/storage/   @pachyderm/PFS
 
 # Integrations
 /src/server/pfs/s3       @pachyderm/INT
 /src/server/pfs/fuse     @pachyderm/INT
+/python-sdk              @pachyderm/INT

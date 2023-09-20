@@ -3,11 +3,11 @@ package task
 import (
 	"context"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
@@ -17,7 +17,7 @@ import (
 )
 
 // DoOrdered processes tasks in parallel, but returns outputs in order via the provided callback cb.
-func DoOrdered(ctx context.Context, doer Doer, inputs chan *types.Any, parallelism int, cb CollectFunc) error {
+func DoOrdered(ctx context.Context, doer Doer, inputs chan *anypb.Any, parallelism int, cb CollectFunc) error {
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(parallelism)))
 	for {
 		select {
@@ -45,9 +45,9 @@ func DoOrdered(ctx context.Context, doer Doer, inputs chan *types.Any, paralleli
 // DoOne executes one task.
 // NOTE: This interface is much less performant than the stream / batch interfaces for many tasks.
 // Only use this interface for development / a small number of tasks.
-func DoOne(ctx context.Context, doer Doer, input *types.Any) (*types.Any, error) {
-	var result *types.Any
-	if err := DoBatch(ctx, doer, []*types.Any{input}, func(_ int64, output *types.Any, err error) error {
+func DoOne(ctx context.Context, doer Doer, input *anypb.Any) (*anypb.Any, error) {
+	var result *anypb.Any
+	if err := DoBatch(ctx, doer, []*anypb.Any{input}, func(_ int64, output *anypb.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -60,9 +60,9 @@ func DoOne(ctx context.Context, doer Doer, input *types.Any) (*types.Any, error)
 }
 
 // DoBatch executes a batch of tasks.
-func DoBatch(ctx context.Context, doer Doer, inputs []*types.Any, cb CollectFunc) error {
+func DoBatch(ctx context.Context, doer Doer, inputs []*anypb.Any, cb CollectFunc) error {
 	var eg errgroup.Group
-	inputChan := make(chan *types.Any)
+	inputChan := make(chan *anypb.Any)
 	eg.Go(func() error {
 		return errors.EnsureStack(doer.Do(ctx, inputChan, cb))
 	})
@@ -94,26 +94,26 @@ func translateTaskState(state State) taskapi.State {
 
 // List implements the functionality for an arbitrary service's ListTask gRPC
 func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send func(info *taskapi.TaskInfo) error) error {
-	var marshaler jsonpb.Marshaler
+	var marshaler protojson.MarshalOptions
 	return errors.EnsureStack(svc.List(ctx, req.Group.Namespace, req.Group.Group, func(namespace, group string, data *Task, claimed bool) error {
 		state := translateTaskState(data.State)
 		if claimed {
 			state = taskapi.State_CLAIMED
 		}
-		var input types.DynamicAny
-		var inputJSON string
-		if err := types.UnmarshalAny(data.Input, &input); err != nil {
+		var inputJSON []byte
+		input, err := data.Input.UnmarshalNew()
+		if err != nil {
 			// unmarshalling might fail due to the input type not being registered,
 			// don't let this interfere with fetching or counting tasks
-			log.Error(ctx, "couldn't unmarshal task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
+			log.Error(ctx, "couldn't unmarshal task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetId()))
 		} else {
-			inputJSON, err = marshaler.MarshalToString(input.Message)
+			inputJSON, err = marshaler.Marshal(input)
 			if err != nil {
-				log.Error(ctx, "couldn't marahsl task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
+				log.Error(ctx, "couldn't marshal task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetId()))
 			}
 		}
 		info := &taskapi.TaskInfo{
-			ID: data.ID,
+			Id: data.Id,
 			Group: &taskapi.Group{
 				Namespace: namespace,
 				Group:     group,
@@ -121,7 +121,7 @@ func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send f
 			State:     state,
 			Reason:    data.Reason,
 			InputType: data.Input.TypeUrl,
-			InputData: inputJSON,
+			InputData: string(inputJSON),
 		}
 		return errors.EnsureStack(send(info))
 	}))

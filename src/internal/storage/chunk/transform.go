@@ -9,8 +9,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"golang.org/x/crypto/chacha20"
+	"google.golang.org/protobuf/proto"
 )
 
 // CreateOptions affect how chunks are created.
@@ -44,12 +44,14 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 }
 
 // Get calls client.Get to retrieve a chunk, then verifies, decrypts, and decompresses the data.
-// cb is called with the uncompressed plaintext
-func Get(ctx context.Context, client Client, ref *Ref, cb kv.ValueCallback) error {
+// the uncompressed plaintext, is returned.
+func Get(ctx context.Context, client Client, ref *Ref) ([]byte, error) {
 	if ref.EncryptionAlgo != EncryptionAlgo_CHACHA20 {
-		return errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
+		return nil, errors.Errorf("unknown encryption algorithm %d", ref.EncryptionAlgo)
 	}
+	var rawData []byte
 	err := client.Get(ctx, ref.Id, func(ctext []byte) error {
+		rawData = nil
 		if err := verifyData(ref.Id, ctext); err != nil {
 			return err
 		}
@@ -61,13 +63,13 @@ func Get(ctx context.Context, client Client, ref *Ref, cb kv.ValueCallback) erro
 		if r, err = decompress(ref.CompressionAlgo, r); err != nil {
 			return err
 		}
-		rawData, err := io.ReadAll(r)
+		rawData, err = io.ReadAll(r)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		return cb(rawData)
+		return nil
 	})
-	return errors.EnsureStack(err)
+	return rawData, errors.EnsureStack(err)
 }
 
 // compress attempts to compress src using algo. If the compressed data is bigger
@@ -190,7 +192,7 @@ func verifyData(id ID, x []byte) error {
 
 // Key returns a unique key for the Ref suitable for use in hash tables
 func (r *Ref) Key() pachhash.Output {
-	data, err := r.Marshal()
+	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(r)
 	if err != nil {
 		panic(err)
 	}

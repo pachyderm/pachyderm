@@ -3,6 +3,7 @@
 package driver
 
 import (
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -15,12 +16,23 @@ func TestLogRunningProcesses(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	l := logs.NewTest(ctx)
 	logRunningProcesses(l, syscall.Getpgrp())
-	if len(l.Logs) < 1 {
-		t.Errorf("expected logs")
-	}
-	for _, ent := range l.Logs {
-		if strings.HasPrefix(ent, "warning: ") {
-			t.Errorf("unexpected warning: %q", ent)
+	var found bool
+	finder := regexp.MustCompile(`^note: about to kill.*driver[.]test`)
+	for _, log := range l.Logs {
+		if finder.MatchString(log) {
+			found = true
+			break
 		}
+	}
+	if !found {
+		logs := new(strings.Builder)
+		for i, log := range l.Logs {
+			if i != 0 {
+				logs.WriteRune('\n')
+			}
+			logs.WriteString("    ")
+			logs.WriteString(log)
+		}
+		t.Errorf("did not get info about self (driver.test); all logs:\n%v", logs.String())
 	}
 }

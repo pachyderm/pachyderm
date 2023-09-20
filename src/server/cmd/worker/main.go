@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
@@ -41,13 +42,13 @@ func main() {
 
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
-	cmdutil.Main(ctx, do, &serviceenv.WorkerFullConfiguration{})
+	cmdutil.Main(ctx, do, &pachconfig.WorkerFullConfiguration{})
 }
 
-func do(ctx context.Context, config interface{}) error {
+func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
-	env := serviceenv.InitWithKube(ctx, serviceenv.NewConfiguration(config))
+	env := serviceenv.InitWithKube(ctx, pachconfig.NewConfiguration(config))
 
 	// Enable cloud profilers if the configuration allows.
 	profileutil.StartCloudProfiler(ctx, "pachyderm-worker", env.Config())
@@ -91,7 +92,17 @@ func do(ctx context.Context, config interface{}) error {
 
 	workerapi.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
+	debugSrv := debugserver.NewDebugServer(debugserver.Env{
+		DB:            env.GetDBClient(),
+		SidecarClient: pachClient,
+		GetLokiClient: env.GetLokiClient,
+		Name:          env.Config().PodName,
+		GetPachClient: pachClient.WithCtx,
+		GetKubeClient: env.GetKubeClient,
+		Config:        *env.Config(),
+		TaskService:   env.GetTaskService("debug"),
+	})
+	debugclient.RegisterDebugServer(server.Server, debugSrv)
 
 	// Put our IP address into etcd, so pachd can discover us
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo)

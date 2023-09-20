@@ -6,7 +6,7 @@ import (
 	"hash"
 	"unicode"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 
@@ -55,6 +55,10 @@ func (p *Project) String() string {
 	return p.GetName()
 }
 
+func (p *Project) Key() string {
+	return p.Name
+}
+
 func (r *Repo) String() string {
 	if r.Type == UserRepoType {
 		if projectName := r.Project.String(); projectName != "" {
@@ -68,6 +72,10 @@ func (r *Repo) String() string {
 	return r.Name + "." + r.Type
 }
 
+func (r *Repo) Key() string {
+	return r.Project.Key() + "/" + r.Name + "." + r.Type
+}
+
 func (r *Repo) NewBranch(name string) *Branch {
 	return &Branch{
 		Repo: proto.Clone(r).(*Repo),
@@ -78,7 +86,7 @@ func (r *Repo) NewBranch(name string) *Branch {
 func (r *Repo) NewCommit(branch, id string) *Commit {
 	return &Commit{
 		Repo:   r,
-		ID:     id,
+		Id:     id,
 		Branch: r.NewBranch(branch),
 	}
 }
@@ -91,7 +99,11 @@ func (c *Commit) NewFile(path string) *File {
 }
 
 func (c *Commit) String() string {
-	return c.Repo.String() + "@" + c.ID
+	return c.Repo.String() + "@" + c.Id
+}
+
+func (c *Commit) Key() string {
+	return c.Repo.Key() + "@" + c.Id
 }
 
 // TODO(provenance): there's a concern client code will unknowningly call GetRepo() when it shouldn't
@@ -105,13 +117,17 @@ func (c *Commit) AccessRepo() *Repo {
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),
-		ID:     id,
+		Id:     id,
 		Repo:   b.Repo,
 	}
 }
 
 func (b *Branch) String() string {
 	return b.Repo.String() + "@" + b.Name
+}
+
+func (b *Branch) Key() string {
+	return b.Repo.Key() + "@" + b.Name
 }
 
 // ValidateName returns an error if the project is nil or its name is an invalid

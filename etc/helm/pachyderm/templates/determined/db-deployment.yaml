@@ -1,0 +1,66 @@
+{{- if .Values.determined.db.hostAddress }}
+{{ else }}
+{{- if .Values.determined.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: determined-db-deployment-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: determined-db-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: determined-db-{{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: determined-db-{{ .Release.Name }}
+        determined-system: db
+    spec:
+      priorityClassName: determined-system-priority
+      containers:
+      - name: determined-db-{{ .Release.Name }}
+        image: postgres:10.14
+        imagePullPolicy: "Always"
+        resources:
+          requests:
+            {{- if .Values.determined.db.cpuRequest }}
+            cpu: {{ .Values.determined.db.cpuRequest | quote }}
+            {{- end }}
+            {{- if .Values.determined.db.memRequest }}
+            memory: {{ .Values.determined.db.memRequest | quote }}
+            {{- end}}
+
+          {{- if or .Values.determined.db.cpuLimit .Values.determined.db.memLimit }}
+          limits:
+            {{- if .Values.determined.db.cpuLimit }}
+            cpu: {{ .Values.determined.db.cpuLimit | quote }}
+            {{- end }}
+            {{- if .Values.determined.db.memLimit }}
+            memory: {{ .Values.determined.db.memLimit | quote }}
+            {{- end}}
+          {{- end}}
+        env:
+          - name: POSTGRES_DB
+            value: {{ .Values.determined.db.name | quote }}
+          - name: POSTGRES_USER
+            value: {{ .Values.determined.db.user | quote }}
+          - name: POSTGRES_PASSWORD
+            value: {{ .Values.determined.db.password | quote }}
+          - name: PGDATA
+            value: /var/lib/postgresql/data/pgdata
+        args: ["--max_connections=96", "--shared_buffers=512MB"]
+      {{- if not .Values.determined.db.disablePVC }}
+        volumeMounts:
+          - mountPath: "/var/lib/postgresql/data"
+            name: determined-db-storage
+      volumes:
+        - name: determined-db-storage
+          persistentVolumeClaim:
+            claimName: determined-db-pvc-{{ .Release.Name }}
+            {{ end }}
+      {{ end }}
+{{ end}}

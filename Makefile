@@ -192,6 +192,14 @@ launch-dev: check-kubectl check-kubectl-connection
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
+launch-dev-determined: check-kubectl check-kubectl-connection
+	$(eval STARTTIME := $(shell date +%s))
+	kubectl apply -f etc/testing/minio.yaml --namespace=default
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values-with-det.yaml --set pachd.image.tag=local --set determined.detVersion=latest --set pachd.enterpriseLicenseKey=$(ENT_ACT_CODE)
+	# wait for the pachyderm to come up
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+
 launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
@@ -229,6 +237,7 @@ test-proto-static:
 
 proto: docker-build-proto
 	./etc/proto/build.sh
+	$(MAKE) -C python-sdk proto
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps
@@ -304,7 +313,7 @@ test-license:
 	go test -v -count=1 -tags=k8s ./src/server/license/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-admin:
-	go test -v -count=1 -tags=k8s ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-enterprise:
 	go test -v -count=1 -tags=k8s ./src/server/enterprise/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)

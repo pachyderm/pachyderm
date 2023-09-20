@@ -3,11 +3,9 @@ syntax = "proto3";
 package metrics;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/metrics";
 
-import "gogoproto/gogo.proto";
-
 message Metrics {
-    string cluster_id              =  1 [(gogoproto.customname) = "ClusterID"];
-    string pod_id                  =  2 [(gogoproto.customname) = "PodID"];
+    string cluster_id              =  1;
+    string pod_id                  =  2;
     int64 nodes                    =  3;
     string version                 =  4;
     int64 repos                    =  5; // Number of repos

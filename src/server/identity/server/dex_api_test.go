@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -13,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
 	dex_memory "github.com/dexidp/dex/storage/memory"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // TestConnectorCreateListGet tests creating, listing, getting and deleting IDP connectors.
@@ -30,8 +29,8 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 		Name:          "name2",
 		Type:          "github",
 		ConfigVersion: 0,
-		Config: &types.Struct{
-			Fields: map[string]*types.Value{},
+		Config: &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
 		},
 	}
 
@@ -71,6 +70,14 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 	require.Equal(t, []*identity.IDPConnector{conn2}, connectors)
 }
 
+func mustStruct(in map[string]any) *structpb.Struct {
+	result, err := structpb.NewStruct(in)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
 // TestCreateConnector tests that connects with valid configs can be created.
 func TestCreateConnector(t *testing.T) {
 	cases := []*identity.IDPConnector{
@@ -86,7 +93,7 @@ func TestCreateConnector(t *testing.T) {
 			Name:          "name",
 			Type:          "github",
 			ConfigVersion: 0,
-			Config:        &types.Struct{}, // equivalent to an empty config, in which case jsonConfig should be used.
+			Config:        &structpb.Struct{}, // equivalent to an empty config, in which case jsonConfig should be used.
 			JsonConfig:    `{"username": "username", "password": "password"}`,
 		},
 		{
@@ -94,24 +101,24 @@ func TestCreateConnector(t *testing.T) {
 			Name:          "name",
 			ConfigVersion: 0,
 			Type:          "github",
-			Config: &types.Struct{
-				Fields: map[string]*types.Value{
-					"password": {Kind: &types.Value_StringValue{StringValue: "password"}},
-					"username": {Kind: &types.Value_StringValue{StringValue: "username"}},
+			Config: mustStruct(
+				map[string]any{
+					"password": "password",
+					"username": "username",
 				},
-			},
+			),
 		},
 		{
 			Id:            "id1",
 			Name:          "name",
 			ConfigVersion: 0,
 			Type:          "github",
-			Config: &types.Struct{
-				Fields: map[string]*types.Value{
-					"password": {Kind: &types.Value_StringValue{StringValue: "password"}},
-					"username": {Kind: &types.Value_StringValue{StringValue: "username"}},
+			Config: mustStruct(
+				map[string]any{
+					"password": "password",
+					"username": "username",
 				},
-			},
+			),
 			JsonConfig: "{ invalid values in jsonConfig should be ignored if a valid json config is defined.",
 		},
 	}
@@ -189,7 +196,7 @@ func TestCreateInvalidConnector(t *testing.T) {
 				Name:          "name",
 				ConfigVersion: 0,
 				Type:          "github",
-				Config:        &types.Struct{},
+				Config:        &structpb.Struct{},
 			},
 			err: identityutil.NoConfigErr,
 		},
@@ -199,7 +206,7 @@ func TestCreateInvalidConnector(t *testing.T) {
 				Name:          "name",
 				ConfigVersion: 0,
 				Type:          "github",
-				Config:        &types.Struct{}, // this 'empty' value should be overridden by jsonConfig.
+				Config:        &structpb.Struct{}, // this 'empty' value should be overridden by jsonConfig.
 				JsonConfig:    "{",
 			},
 			err: `unable to deserialize JSON: unexpected end of JSON input`,
@@ -245,8 +252,8 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "github",
 				ConfigVersion: 1,
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{},
+				Config: &structpb.Struct{
+					Fields: map[string]*structpb.Value{},
 				},
 			},
 		},
@@ -284,11 +291,11 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "github",
 				ConfigVersion: 2,
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"client_id": {Kind: &types.Value_StringValue{StringValue: "1234"}},
+				Config: mustStruct(
+					map[string]any{
+						"client_id": "1234",
 					},
-				},
+				),
 			},
 		},
 		{
@@ -311,24 +318,24 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "mockPassword",
 				ConfigVersion: 3,
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
-						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+				Config: mustStruct(
+					map[string]any{
+						"password": "pass",
+						"username": "user",
 					},
-				},
+				),
 			},
 		},
 		{
 			req: &identity.IDPConnector{
 				Id:   "conn",
 				Type: "mockPassword",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
-						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+				Config: mustStruct(
+					map[string]any{
+						"password": "pass",
+						"username": "user",
 					},
-				},
+				),
 				ConfigVersion: 4,
 			},
 			expected: &identity.IDPConnector{
@@ -336,23 +343,23 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "mockPassword",
 				ConfigVersion: 4,
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
-						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+				Config: mustStruct(
+					map[string]any{
+						"password": "pass",
+						"username": "user",
 					},
-				},
+				),
 			},
 		},
 		{
 			req: &identity.IDPConnector{
 				Id:   "conn",
 				Type: "mockPassword",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"garbageIn": {Kind: &types.Value_StringValue{StringValue: "garbageOut"}},
+				Config: mustStruct(
+					map[string]any{
+						"garbageIn": "garbageOut",
 					},
-				},
+				),
 				ConfigVersion: 5,
 			},
 			err: "unable to open connector: no username supplied",

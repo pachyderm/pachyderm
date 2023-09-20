@@ -43,7 +43,7 @@ func (x *Stats) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt64("total", x.Total)
 	enc.AddInt64("failed", x.Failed)
 	enc.AddInt64("recovered", x.Recovered)
-	enc.AddString("failed_id", x.FailedID)
+	enc.AddString("failed_id", x.FailedId)
 	return nil
 }
 

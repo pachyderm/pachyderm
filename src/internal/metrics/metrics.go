@@ -106,12 +106,12 @@ func reportAndFlushUserAction(action string, value interface{}) func() {
 	go func() {
 		defer close(metricsDone)
 		cfg, _ := config.Read(false, false)
-		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
+		if cfg == nil || cfg.UserId == "" || !cfg.V2.Metrics {
 			return
 		}
 		client := newSegmentClient()
 		defer client.Close()
-		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+		reportUserMetricsToSegment(client, cfg.UserId, "user", action, value, "")
 	}()
 	return func() {
 		select {
@@ -157,8 +157,8 @@ func (r *Reporter) reportClusterMetrics(ctx context.Context) {
 		metrics := &Metrics{}
 		r.internalMetrics(metrics)
 		externalMetrics(r.env.GetKubeClient(), metrics) //nolint:errcheck
-		metrics.ClusterID = r.clusterID
-		metrics.PodID = uuid.NewWithoutDashes()
+		metrics.ClusterId = r.clusterID
+		metrics.PodId = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
 		r.router.reportClusterMetricsToSegment(metrics)
 	}
@@ -261,7 +261,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 
 	resp, err := r.env.AuthServer().GetRobotToken(ctx, &auth_client.GetRobotTokenRequest{
 		Robot: metricsUsername,
-		TTL:   int64(reportingInterval.Seconds() / 2),
+		Ttl:   int64(reportingInterval.Seconds() / 2),
 	})
 	if err != nil && !auth_client.IsErrNotActivated(err) {
 		log.Error(pctx.TODO(), "Error getting metics auth token", zap.Error(err))
@@ -362,7 +362,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 						metrics.CfgErrcmd++
 					}
 				}
-				if details.TFJob != nil {
+				if details.TfJob != nil {
 					metrics.CfgTfjob++
 				}
 			}

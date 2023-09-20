@@ -8,9 +8,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	etcd "go.etcd.io/etcd/client/v3"
+	"google.golang.org/protobuf/proto"
 )
 
 // EventType is the type of event

@@ -8,9 +8,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -37,7 +37,7 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 		GetPachClient: func(ctx context.Context) *client.APIClient {
 			return mockEnv.PachClient.WithCtx(ctx)
 		},
-		Config:      *serviceenv.ConfigFromOptions(),
+		Config:      *pachconfig.ConfigFromOptions(),
 		TaskService: nil,
 		DB:          nil,
 		KubeClient:  nil,
@@ -362,11 +362,11 @@ func TestPause(t *testing.T) {
 		},
 	})
 	// pause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.specCommits[spec.Id].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.specCommits[spec.Id].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
@@ -419,11 +419,11 @@ func TestPauseAutoscaling(t *testing.T) {
 		return nil
 	})
 	// pause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.specCommits[spec.Id].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.specCommits[spec.Id].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
@@ -498,8 +498,8 @@ func TestEvaluate(t *testing.T) {
 		pi.State = startState
 		actualState, actualSideEffects, _, err := evaluate(pi, rc)
 		require.NoError(t, err)
-		require.Equal(t, expectedState, actualState)
-		require.Equal(t, len(expectedSideEffects), len(actualSideEffects))
+		require.Equal(t, expectedState, actualState, "for start state %v, expected state was %v but got %v", startState, expectedState, actualState)
+		require.Equal(t, len(expectedSideEffects), len(actualSideEffects), "for start state %v, expected side effects are %v but got %v", startState, expectedSideEffects, actualSideEffects)
 		for i := 0; i < len(expectedSideEffects); i++ {
 			require.True(t, expectedSideEffects[i].equals(actualSideEffects[i]))
 		}
@@ -534,6 +534,7 @@ func TestEvaluate(t *testing.T) {
 			state: pps.PipelineState_PIPELINE_RUNNING,
 			sideEffects: []sideEffect{
 				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
 			},
 		},
 		pps.PipelineState_PIPELINE_FAILURE: {
@@ -638,6 +639,7 @@ func TestEvaluate(t *testing.T) {
 			sideEffects: []sideEffect{
 				ResourcesSideEffect(sideEffectToggle_UP),
 				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
 			},
 		},
 		pps.PipelineState_PIPELINE_PAUSED: {

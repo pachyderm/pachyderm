@@ -1,6 +1,8 @@
 package pps
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pps_client "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -16,11 +18,12 @@ type APIServer interface {
 	NewJobStopper(*txncontext.TransactionContext) txncontext.PpsJobStopper
 	NewJobFinisher(*txncontext.TransactionContext) txncontext.PpsJobFinisher
 
-	StopJobInTransaction(*txncontext.TransactionContext, *pps_client.StopJobRequest) error
-	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
-	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest) error
+	StopJobInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.StopJobRequest) error
+	UpdateJobStateInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
+	CreatePipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.CreatePipelineTransaction) error
 	// InspectPipelineInTransaction returns the pipeline information for a
 	// pipeline.  Note that the pipeline name may include ancestry syntax.
-	InspectPipelineInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (*pps_client.PipelineInfo, error)
-	ActivateAuthInTransaction(*txncontext.TransactionContext, *pps_client.ActivateAuthRequest) (*pps_client.ActivateAuthResponse, error)
+	InspectPipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps_client.PipelineInfo, error)
+	ActivateAuthInTransaction(context.Context, *txncontext.TransactionContext, *pps_client.ActivateAuthRequest) (*pps_client.ActivateAuthResponse, error)
+	CreateDetPipelineSideEffects(context.Context, *pps.Pipeline, []string) error
 }

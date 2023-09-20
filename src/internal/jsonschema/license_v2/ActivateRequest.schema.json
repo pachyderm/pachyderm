@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ActivateRequest",
+    "definitions": {
+        "ActivateRequest": {
+            "properties": {
+                "activationCode": {
+                    "type": "string",
+                    "description": "activation_code is a Pachyderm enterprise activation code. New users can obtain trial activation codes"
+                },
+                "expires": {
+                    "type": "string",
+                    "description": "expires is a timestamp indicating when this activation code will expire. This should not generally be set (it's primarily used for testing), and is only applied if it's earlier than the signed expiration time in 'activation_code'.",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Activate Request"
+        }
+    }
+}

@@ -22,7 +22,7 @@ func JobLabels(job *pps.Job) prometheus.Labels {
 	return prometheus.Labels{
 		"project":  job.Pipeline.Project.GetName(),
 		"pipeline": job.Pipeline.Name,
-		"job":      job.ID,
+		"job":      job.Id,
 	}
 }
 
@@ -30,7 +30,7 @@ func DatumLabels(job *pps.Job, state string) prometheus.Labels {
 	return prometheus.Labels{
 		"project":  job.Pipeline.Project.GetName(),
 		"pipeline": job.Pipeline.Name,
-		"job":      job.ID,
+		"job":      job.Id,
 		"state":    state,
 	}
 }

@@ -39,8 +39,8 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 	for _, opt := range opts {
 		opt(w)
 	}
-	w.additive = index.NewWriter(ctx, storage.ChunkStorage(), "additive-index-writer")
-	w.uploader = storage.ChunkStorage().NewUploader(ctx, "chunk-uploader", false, func(meta interface{}, dataRefs []*chunk.DataRef) error {
+	w.additive = index.NewWriter(ctx, storage.chunks, "additive-index-writer")
+	w.uploader = storage.chunks.NewUploader(ctx, "chunk-uploader", false, func(meta interface{}, dataRefs []*chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		idx.File.DataRefs = dataRefs
 		idx.NumFiles = 1
@@ -49,8 +49,8 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 		atomic.AddInt64(&w.sizeBytes, size)
 		return w.additive.WriteIndex(idx)
 	})
-	w.additiveBatched = index.NewWriter(ctx, storage.ChunkStorage(), "additive-batched-index-writer")
-	w.batcher = storage.ChunkStorage().NewBatcher(ctx, "chunk-batcher", w.batchThreshold, chunk.WithEntryCallback(func(meta interface{}, dataRef *chunk.DataRef) error {
+	w.additiveBatched = index.NewWriter(ctx, storage.chunks, "additive-batched-index-writer")
+	w.batcher = storage.chunks.NewBatcher(ctx, "chunk-batcher", w.batchThreshold, chunk.WithEntryCallback(func(meta interface{}, dataRef *chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		if dataRef != nil {
 			idx.File.DataRefs = []*chunk.DataRef{dataRef}
@@ -61,7 +61,7 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 		atomic.AddInt64(&w.sizeBytes, size)
 		return w.additiveBatched.WriteIndex(idx)
 	}))
-	w.deletive = index.NewWriter(ctx, storage.ChunkStorage(), "deletive-index-writer")
+	w.deletive = index.NewWriter(ctx, storage.chunks, "deletive-index-writer")
 	return w
 }
 
@@ -147,11 +147,11 @@ func (w *Writer) Copy(file File, datum string) error {
 		return w.Add(idx.Path, datum, &bytes.Buffer{})
 	}
 	if len(idx.File.DataRefs) == 1 {
-		r := w.storage.ChunkStorage().NewDataReader(w.ctx, idx.File.DataRefs[0])
+		r := w.storage.chunks.NewDataReader(w.ctx, idx.File.DataRefs[0])
 		return w.Add(idx.Path, datum, r)
 	}
 	return miscutil.WithPipe(func(w2 io.Writer) error {
-		r := w.storage.ChunkStorage().NewReader(w.ctx, idx.File.DataRefs)
+		r := w.storage.chunks.NewReader(w.ctx, idx.File.DataRefs)
 		return r.Get(w2)
 	}, func(r io.Reader) error {
 		return w.Add(idx.Path, datum, r)
@@ -184,8 +184,8 @@ func (w *Writer) Close() (*ID, error) {
 		additiveMergeIdx = additiveIdx
 	default:
 		// TODO: Rethink / rework merging the two additive indexes?
-		additiveMerge := index.NewWriter(w.ctx, w.storage.ChunkStorage(), "additive-merge-index-writer")
-		if err := index.Merge(w.ctx, w.storage.ChunkStorage(), []*index.Index{additiveIdx, additiveBatchedIdx}, func(idx *index.Index) error {
+		additiveMerge := index.NewWriter(w.ctx, w.storage.chunks, "additive-merge-index-writer")
+		if err := index.Merge(w.ctx, w.storage.chunks, []*index.Index{additiveIdx, additiveBatchedIdx}, func(idx *index.Index) error {
 			return additiveMerge.WriteIndex(idx)
 		}); err != nil {
 			return nil, err

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -18,12 +17,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -326,8 +327,10 @@ func TestQueryLoki(t *testing.T) {
 				sleepAtPage: test.sleepAtPage,
 			})
 			d := &debugServer{
-				env: &serviceenv.TestServiceEnv{
-					LokiClient: &loki.Client{Address: s.URL},
+				env: Env{
+					GetLokiClient: func() (*loki.Client, error) {
+						return &loki.Client{Address: s.URL}, nil
+					},
 				},
 			}
 
@@ -430,72 +433,74 @@ metadata:
 	// Build a debug server connected to fake k8s that contains a few valid and invalid sample
 	// secrets.
 	s := &debugServer{
-		env: &serviceenv.TestServiceEnv{
-			KubeClient: fake.NewSimpleClientset(
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "secret",
-						Namespace: "default",
-					},
-					Data: map[string][]byte{
-						"super-secret": []byte("not helm"),
-					},
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "some-mistagged-secret",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+		env: Env{
+			GetKubeClient: func() kubernetes.Interface {
+				return fake.NewSimpleClientset(
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"super-secret": []byte("not helm"),
 						},
 					},
-					Data: map[string][]byte{
-						"release": []byte("pure junk"),
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v1.pachyderm.v9",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "some-mistagged-secret",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
 						},
-					},
-					Data: map[string][]byte{
-						"release": releaseBytes,
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v1.pachyderm.v10",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+						Data: map[string][]byte{
+							"release": []byte("pure junk"),
 						},
+						Type: "helm.sh/release.v1",
 					},
-					Data: map[string][]byte{
-						"release": releaseBytesCompressed,
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v2.pachyderm.v11",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v1.pachyderm.v9",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
 						},
+						Data: map[string][]byte{
+							"release": releaseBytes,
+						},
+						Type: "helm.sh/release.v1",
 					},
-					Data: map[string][]byte{
-						"release": []byte("some junk we don't understand"),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v1.pachyderm.v10",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
+						},
+						Data: map[string][]byte{
+							"release": releaseBytesCompressed,
+						},
+						Type: "helm.sh/release.v1",
 					},
-					Type: "helm.sh/release.v2",
-				},
-			),
-			Configuration: &serviceenv.Configuration{
-				GlobalConfiguration: &serviceenv.GlobalConfiguration{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v2.pachyderm.v11",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
+						},
+						Data: map[string][]byte{
+							"release": []byte("some junk we don't understand"),
+						},
+						Type: "helm.sh/release.v2",
+					},
+				)
+			},
+			Config: pachconfig.Configuration{
+				GlobalConfiguration: &pachconfig.GlobalConfiguration{
 					Namespace: "default",
 				},
 			},
@@ -504,11 +509,11 @@ metadata:
 
 	// Build the debug dump .tar file with just helm release data.
 	got := new(bytes.Buffer)
-	w := tar.NewWriter(got)
-	if err := s.helmReleases(ctx, w); err != nil {
-		t.Fatalf("helmRealses: %v", err)
+	if err := writeTar(ctx, got, func(ctx context.Context, dfs DumpFS) error {
+		return s.collectHelm(ctx, dfs, nil)
+	}); err != nil {
+		t.Fatalf("helmReleases: %v", err)
 	}
-
 	// Iterate over the debug dump, comparing the content of generated files with the reference.
 	wantFiles := map[string]any{
 		"helm/some-mistagged-secret/metadata.json": map[string]any{
@@ -520,7 +525,6 @@ metadata:
 			},
 		},
 		"helm/some-mistagged-secret/release/error.txt": "decode base64: illegal base64 data at input byte 4\n",
-		"helm/some-mistagged-secret/error.txt":         "some-mistagged-secret: unmarshal release json: unexpected end of JSON input\n",
 		"helm/sh.helm.release.v1.pachyderm.v9/metadata.json": map[string]any{
 			"name":              "sh.helm.release.v1.pachyderm.v9",
 			"namespace":         "default",
@@ -599,5 +603,11 @@ metadata:
 	// Check that we saw all the files we expected.
 	for f := range wantFiles {
 		t.Errorf("did not see expected file %v", f)
+	}
+}
+
+func TestLoadTestEmbed(t *testing.T) {
+	for _, s := range defaultLoadSpecs {
+		require.NotEqual(t, "", s)
 	}
 }

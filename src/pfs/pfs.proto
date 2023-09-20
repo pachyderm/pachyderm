@@ -9,11 +9,11 @@ import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/any.proto";
 
-import "gogoproto/gogo.proto";
-
 import "auth/auth.proto";
 
 import "task/task.proto";
+
+import "protoextensions/validate.proto";
 
 ////  PFS Data structures (stored in etcd)
 
@@ -86,17 +86,24 @@ message Trigger {
   // All indicates that all conditions must be satisfied before the trigger
   // happens, otherwise any conditions being satisfied will trigger it.
   bool all = 2;
-  // Triggers if the cron spec has been satisfied since the last trigger and
-  // there's been a new commit.
-  string cron_spec = 3;
+  // Triggers if the rate limit spec (cron expression) has been satisfied since
+  // the last trigger.
+  string rate_limit_spec = 3;
   // Triggers if there's been `size` new data added since the last trigger.
   string size = 4;
   // Triggers if there's been `commits` new commits added since the last trigger.
   int64 commits = 5;
+  // Creates a background process which fires the trigger on the schedule
+  // provided by the cron spec.
+  // This condition is mutually exclusive with respect to the others, so
+  // setting this will result with the trigger only firing based on the cron
+  // schedule.
+  string cron_spec = 6;
 }
 
 // These are the different places where a commit may be originated from
 enum OriginKind {
+  reserved 4;
   ORIGIN_KIND_UNKNOWN = 0;
   USER = 1;
   AUTO = 2;
@@ -111,7 +118,7 @@ message CommitOrigin {
 // protos)
 message Commit {
   Repo repo = 3;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
   // only used by the client
   Branch branch = 1;
 }
@@ -142,7 +149,7 @@ message CommitInfo {
 }
 
 message CommitSet {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }
 
 message CommitSetInfo {
@@ -211,6 +218,12 @@ message DeleteReposRequest {
   bool all = 3;
 }
 
+// DeleteRepoResponse returns the repos that were deleted by a DeleteRepo call.
+message DeleteRepoResponse {
+  // The repos that were deleted, perhaps none.
+  bool deleted = 1;
+}
+
 message DeleteReposResponse {
   repeated Repo repos = 1;
 }
@@ -274,7 +287,7 @@ message SquashCommitSetRequest {
 }
 
 message DropCommitSetRequest {
-  CommitSet commit_set = 1;
+  CommitSet commit_set = 1 [(validate.rules).message.required = true];
 }
 
 message SubscribeCommitRequest {
@@ -301,7 +314,7 @@ message CreateBranchRequest {
 }
 
 message FindCommitsRequest {
-  Commit start = 1;
+  Commit start = 1 [(validate.rules).message.required = true];
   string file_path = 2;
   uint32 limit = 3; // a limit of 0 means there is no upper bound on the limit.
 }
@@ -335,7 +348,7 @@ message CreateProjectRequest {
 }
 
 message InspectProjectRequest {
-  Project project = 1;
+  Project project = 1 [(validate.rules).message.required = true];
 }
 
 message ListProjectRequest {}
@@ -376,16 +389,16 @@ message DeleteFile {
 message CopyFile {
   string dst = 1;
   string datum = 2;
-  File src = 3;
+  File src = 3 [(validate.rules).message.required = true];
   bool append = 4;
 }
 
 message ModifyFileRequest {
   oneof body {
-    Commit set_commit = 1;
-    AddFile add_file = 2;
-    DeleteFile delete_file = 3;
-    CopyFile copy_file = 4;
+    Commit set_commit = 1 [(validate.rules).message.required = true];
+    AddFile add_file = 2 [(validate.rules).message.required = true];
+    DeleteFile delete_file = 3 [(validate.rules).message.required = true];
+    CopyFile copy_file = 4 [(validate.rules).message.required = true];
   }
 }
 
@@ -548,22 +561,6 @@ message ClearCacheRequest {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
-message RunLoadTestRequest {
-  string spec = 1;
-  Branch branch = 2;
-  int64 seed = 3;
-  string state_id = 4;
-}
-
-message RunLoadTestResponse {
-  string spec = 1;
-  Branch branch = 2;
-  int64 seed = 3;
-  string error = 4;
-  google.protobuf.Duration duration = 5;
-  string state_id = 6;
-}
-
 message ObjectStorageEgress {
   string url = 1;
 }
@@ -616,7 +613,7 @@ service API {
   // ListRepo returns info about all repos.
   rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
-  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteRepo(DeleteRepoRequest) returns (DeleteRepoResponse) {}
   // DeleteRepos deletes more than one repo at once.  It attempts to
   // delete every repo matching the DeleteReposRequest.  When deleting
   // all repos matching a project, any repos not deletable by the
@@ -700,12 +697,7 @@ service API {
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
   rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
   rpc ClearCache(ClearCacheRequest) returns (google.protobuf.Empty) {}
-
-  // RunLoadTest runs a load test.
-  rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
-  // RunLoadTestDefault runs the default load tests.
-  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
-
+ 
   // ListTask lists PFS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 

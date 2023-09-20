@@ -95,3 +95,189 @@ func (x *SetLogLevelResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	enc.AddArray("errored_pods", zapcore.ArrayMarshalerFunc(errored_podsArrMarshaller))
 	return nil
 }
+
+func (x *GetDumpV2TemplateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	filtersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Filters {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("filters", zapcore.ArrayMarshalerFunc(filtersArrMarshaller))
+	return nil
+}
+
+func (x *GetDumpV2TemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("request", x.Request)
+	return nil
+}
+
+func (x *Pipeline) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("project", x.Project)
+	enc.AddString("name", x.Name)
+	return nil
+}
+
+func (x *Pod) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("name", x.Name)
+	enc.AddString("ip", x.Ip)
+	containersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Containers {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("containers", zapcore.ArrayMarshalerFunc(containersArrMarshaller))
+	return nil
+}
+
+func (x *App) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("name", x.Name)
+	podsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Pods {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("pods", zapcore.ArrayMarshalerFunc(podsArrMarshaller))
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
+	enc.AddObject("pipeline", x.Pipeline)
+	return nil
+}
+
+func (x *System) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("helm", x.Helm)
+	enc.AddBool("database", x.Database)
+	enc.AddBool("version", x.Version)
+	describesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Describes {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("describes", zapcore.ArrayMarshalerFunc(describesArrMarshaller))
+	logsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Logs {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("logs", zapcore.ArrayMarshalerFunc(logsArrMarshaller))
+	loki_logsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.LokiLogs {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("loki_logs", zapcore.ArrayMarshalerFunc(loki_logsArrMarshaller))
+	binariesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Binaries {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("binaries", zapcore.ArrayMarshalerFunc(binariesArrMarshaller))
+	profilesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Profiles {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("profiles", zapcore.ArrayMarshalerFunc(profilesArrMarshaller))
+	return nil
+}
+
+func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("system", x.System)
+	pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Pipelines {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("pipelines", zapcore.ArrayMarshalerFunc(pipelinesArrMarshaller))
+	enc.AddBool("input_repos", x.InputRepos)
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
+	enc.AddObject("defaults", x.Defaults)
+	return nil
+}
+
+func (x *DumpV2Request_Defaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("cluster_defaults", x.ClusterDefaults)
+	return nil
+}
+
+func (x *DumpContent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddBytes(enc, "content", x.Content)
+	return nil
+}
+
+func (x *DumpProgress) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("task", x.Task)
+	enc.AddInt64("total", x.Total)
+	enc.AddInt64("progress", x.Progress)
+	return nil
+}
+
+func (x *DumpChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("content", x.GetContent())
+	enc.AddObject("progress", x.GetProgress())
+	return nil
+}
+
+func (x *RunPFSLoadTestRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("spec", x.Spec)
+	enc.AddObject("branch", x.Branch)
+	enc.AddInt64("seed", x.Seed)
+	enc.AddString("state_id", x.StateId)
+	return nil
+}
+
+func (x *RunPFSLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("spec", x.Spec)
+	enc.AddObject("branch", x.Branch)
+	enc.AddInt64("seed", x.Seed)
+	enc.AddString("error", x.Error)
+	protoextensions.AddDuration(enc, "duration", x.Duration)
+	enc.AddString("state_id", x.StateId)
+	return nil
+}

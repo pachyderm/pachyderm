@@ -193,6 +193,11 @@ class Egress(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class Determined(betterproto.Message):
+    workspaces: List[str] = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class Job(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     id: str = betterproto.string_field(2)
@@ -446,6 +451,7 @@ class JobInfo(betterproto.Message):
     started: datetime = betterproto.message_field(14)
     finished: datetime = betterproto.message_field(15)
     details: "JobInfoDetails" = betterproto.message_field(16)
+    auth_token: str = betterproto.string_field(17)
 
 
 @dataclass(eq=False, repr=False)
@@ -548,6 +554,8 @@ class PipelineInfo(betterproto.Message):
     type: "PipelineInfoPipelineType" = betterproto.enum_field(10)
     auth_token: str = betterproto.string_field(11)
     details: "PipelineInfoDetails" = betterproto.message_field(12)
+    user_spec_json: str = betterproto.string_field(13)
+    effective_spec_json: str = betterproto.string_field(14)
 
 
 @dataclass(eq=False, repr=False)
@@ -591,6 +599,7 @@ class PipelineInfoDetails(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(33)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
+    determined: "Determined" = betterproto.message_field(36)
 
 
 @dataclass(eq=False, repr=False)
@@ -627,6 +636,9 @@ class ListJobSetRequest(betterproto.Message):
 
     reverse: bool = betterproto.bool_field(5)
     """if true, return results in reverse order"""
+
+    jq_filter: str = betterproto.string_field(6)
+    """A jq program string for additional result filtering"""
 
 
 @dataclass(eq=False, repr=False)
@@ -920,6 +932,21 @@ class CreatePipelineRequest(betterproto.Message):
     autoscaling: bool = betterproto.bool_field(30)
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
+    dry_run: bool = betterproto.bool_field(37)
+    determined: "Determined" = betterproto.message_field(38)
+
+
+@dataclass(eq=False, repr=False)
+class CreatePipelineV2Request(betterproto.Message):
+    create_pipeline_request_json: str = betterproto.string_field(1)
+    dry_run: bool = betterproto.bool_field(2)
+    update: bool = betterproto.bool_field(3)
+    reprocess: bool = betterproto.bool_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class CreatePipelineV2Response(betterproto.Message):
+    effective_create_pipeline_request_json: str = betterproto.string_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -977,6 +1004,8 @@ class DeletePipelineRequest(betterproto.Message):
     all: bool = betterproto.bool_field(2)
     force: bool = betterproto.bool_field(3)
     keep_repo: bool = betterproto.bool_field(4)
+    must_exist: bool = betterproto.bool_field(5)
+    """If true, an error will be returned if the pipeline doesn't exist."""
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -1015,6 +1044,8 @@ class StartPipelineRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class StopPipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
+    must_exist: bool = betterproto.bool_field(2)
+    """If true, an error will be returned if the pipeline doesn't exist."""
 
 
 @dataclass(eq=False, repr=False)
@@ -1112,6 +1143,53 @@ class LokiLogMessage(betterproto.Message):
     message: str = betterproto.string_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class ClusterDefaults(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(3)
+    """
+    CreatePipelineRequest contains the default JSON CreatePipelineRequest into
+    which pipeline specs are merged to form the effective spec used to create a
+    pipeline.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class GetClusterDefaultsRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class GetClusterDefaultsResponse(betterproto.Message):
+    cluster_defaults_json: str = betterproto.string_field(2)
+    """
+    A JSON-encoded ClusterDefaults message, this is the verbatim input passed
+    to SetClusterDefaults.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class SetClusterDefaultsRequest(betterproto.Message):
+    regenerate: bool = betterproto.bool_field(2)
+    reprocess: bool = betterproto.bool_field(3)
+    dry_run: bool = betterproto.bool_field(4)
+    cluster_defaults_json: str = betterproto.string_field(5)
+    """
+    A JSON-encoded ClusterDefaults message, this will be stored verbatim.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class SetClusterDefaultsResponse(betterproto.Message):
+    affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CreatePipelineTransaction(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+    user_json: str = betterproto.string_field(2)
+    effective_json: str = betterproto.string_field(3)
+
+
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(
@@ -1168,6 +1246,11 @@ class ApiStub:
             "/pps_v2.API/CreatePipeline",
             request_serializer=CreatePipelineRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_create_pipeline_v2 = channel.unary_unary(
+            "/pps_v2.API/CreatePipelineV2",
+            request_serializer=CreatePipelineV2Request.SerializeToString,
+            response_deserializer=CreatePipelineV2Response.FromString,
         )
         self.__rpc_inspect_pipeline = channel.unary_unary(
             "/pps_v2.API/InspectPipeline",
@@ -1279,6 +1362,16 @@ class ApiStub:
             request_serializer=LokiRequest.SerializeToString,
             response_deserializer=LokiLogMessage.FromString,
         )
+        self.__rpc_get_cluster_defaults = channel.unary_unary(
+            "/pps_v2.API/GetClusterDefaults",
+            request_serializer=GetClusterDefaultsRequest.SerializeToString,
+            response_deserializer=GetClusterDefaultsResponse.FromString,
+        )
+        self.__rpc_set_cluster_defaults = channel.unary_unary(
+            "/pps_v2.API/SetClusterDefaults",
+            request_serializer=SetClusterDefaultsRequest.SerializeToString,
+            response_deserializer=SetClusterDefaultsResponse.FromString,
+        )
 
     def inspect_job(
         self, *, job: "Job" = None, wait: bool = False, details: bool = False
@@ -1344,7 +1437,8 @@ class ApiStub:
         projects: Optional[List["_pfs__.Project"]] = None,
         pagination_marker: datetime = None,
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
+        jq_filter: str = ""
     ) -> Iterator["JobSetInfo"]:
         projects = projects or []
 
@@ -1356,6 +1450,7 @@ class ApiStub:
             request.pagination_marker = pagination_marker
         request.number = number
         request.reverse = reverse
+        request.jq_filter = jq_filter
 
         for response in self.__rpc_list_job_set(request):
             yield response
@@ -1465,7 +1560,9 @@ class ApiStub:
         reprocess_spec: str = "",
         autoscaling: bool = False,
         tolerations: Optional[List["Toleration"]] = None,
-        sidecar_resource_requests: "ResourceSpec" = None
+        sidecar_resource_requests: "ResourceSpec" = None,
+        dry_run: bool = False,
+        determined: "Determined" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1519,8 +1616,27 @@ class ApiStub:
             request.tolerations = tolerations
         if sidecar_resource_requests is not None:
             request.sidecar_resource_requests = sidecar_resource_requests
+        request.dry_run = dry_run
+        if determined is not None:
+            request.determined = determined
 
         return self.__rpc_create_pipeline(request)
+
+    def create_pipeline_v2(
+        self,
+        *,
+        create_pipeline_request_json: str = "",
+        dry_run: bool = False,
+        update: bool = False,
+        reprocess: bool = False
+    ) -> "CreatePipelineV2Response":
+        request = CreatePipelineV2Request()
+        request.create_pipeline_request_json = create_pipeline_request_json
+        request.dry_run = dry_run
+        request.update = update
+        request.reprocess = reprocess
+
+        return self.__rpc_create_pipeline_v2(request)
 
     def inspect_pipeline(
         self, *, pipeline: "Pipeline" = None, details: bool = False
@@ -1564,7 +1680,8 @@ class ApiStub:
         pipeline: "Pipeline" = None,
         all: bool = False,
         force: bool = False,
-        keep_repo: bool = False
+        keep_repo: bool = False,
+        must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
         request = DeletePipelineRequest()
         if pipeline is not None:
@@ -1572,6 +1689,7 @@ class ApiStub:
         request.all = all
         request.force = force
         request.keep_repo = keep_repo
+        request.must_exist = must_exist
 
         return self.__rpc_delete_pipeline(request)
 
@@ -1604,11 +1722,12 @@ class ApiStub:
         return self.__rpc_start_pipeline(request)
 
     def stop_pipeline(
-        self, *, pipeline: "Pipeline" = None
+        self, *, pipeline: "Pipeline" = None, must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
         request = StopPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
+        request.must_exist = must_exist
 
         return self.__rpc_stop_pipeline(request)
 
@@ -1805,6 +1924,27 @@ class ApiStub:
         for response in self.__rpc_query_loki(request):
             yield response
 
+    def get_cluster_defaults(self) -> "GetClusterDefaultsResponse":
+        request = GetClusterDefaultsRequest()
+
+        return self.__rpc_get_cluster_defaults(request)
+
+    def set_cluster_defaults(
+        self,
+        *,
+        regenerate: bool = False,
+        reprocess: bool = False,
+        dry_run: bool = False,
+        cluster_defaults_json: str = ""
+    ) -> "SetClusterDefaultsResponse":
+        request = SetClusterDefaultsRequest()
+        request.regenerate = regenerate
+        request.reprocess = reprocess
+        request.dry_run = dry_run
+        request.cluster_defaults_json = cluster_defaults_json
+
+        return self.__rpc_set_cluster_defaults(request)
+
 
 class ApiBase:
     def inspect_job(
@@ -1849,6 +1989,7 @@ class ApiBase:
         pagination_marker: datetime,
         number: int,
         reverse: bool,
+        jq_filter: str,
         context: "grpc.ServicerContext",
     ) -> Iterator["JobSetInfo"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1939,8 +2080,22 @@ class ApiBase:
         autoscaling: bool,
         tolerations: Optional[List["Toleration"]],
         sidecar_resource_requests: "ResourceSpec",
+        dry_run: bool,
+        determined: "Determined",
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def create_pipeline_v2(
+        self,
+        create_pipeline_request_json: str,
+        dry_run: bool,
+        update: bool,
+        reprocess: bool,
+        context: "grpc.ServicerContext",
+    ) -> "CreatePipelineV2Response":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -1972,6 +2127,7 @@ class ApiBase:
         all: bool,
         force: bool,
         keep_repo: bool,
+        must_exist: bool,
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1998,7 +2154,7 @@ class ApiBase:
         raise NotImplementedError("Method not implemented!")
 
     def stop_pipeline(
-        self, pipeline: "Pipeline", context: "grpc.ServicerContext"
+        self, pipeline: "Pipeline", must_exist: bool, context: "grpc.ServicerContext"
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -2144,6 +2300,25 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def get_cluster_defaults(
+        self, context: "grpc.ServicerContext"
+    ) -> "GetClusterDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def set_cluster_defaults(
+        self,
+        regenerate: bool,
+        reprocess: bool,
+        dry_run: bool,
+        cluster_defaults_json: str,
+        context: "grpc.ServicerContext",
+    ) -> "SetClusterDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "pps_v2.API"
 
     @property
@@ -2203,6 +2378,11 @@ class ApiBase:
                 self.create_pipeline,
                 request_deserializer=CreatePipelineRequest.FromString,
                 response_serializer=CreatePipelineRequest.SerializeToString,
+            ),
+            "CreatePipelineV2": grpc.unary_unary_rpc_method_handler(
+                self.create_pipeline_v2,
+                request_deserializer=CreatePipelineV2Request.FromString,
+                response_serializer=CreatePipelineV2Request.SerializeToString,
             ),
             "InspectPipeline": grpc.unary_unary_rpc_method_handler(
                 self.inspect_pipeline,
@@ -2313,5 +2493,15 @@ class ApiBase:
                 self.query_loki,
                 request_deserializer=LokiRequest.FromString,
                 response_serializer=LokiRequest.SerializeToString,
+            ),
+            "GetClusterDefaults": grpc.unary_unary_rpc_method_handler(
+                self.get_cluster_defaults,
+                request_deserializer=GetClusterDefaultsRequest.FromString,
+                response_serializer=GetClusterDefaultsRequest.SerializeToString,
+            ),
+            "SetClusterDefaults": grpc.unary_unary_rpc_method_handler(
+                self.set_cluster_defaults,
+                request_deserializer=SetClusterDefaultsRequest.FromString,
+                response_serializer=SetClusterDefaultsRequest.SerializeToString,
             ),
         }

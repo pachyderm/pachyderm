@@ -64,7 +64,7 @@ type Entry struct {
 // SetupPostgresStoreV0 sets up tables in db
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresStoreV0(tx *pachsql.Tx) error {
+func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.Exec(`
 	CREATE TABLE storage.chunk_objects (
 		chunk_id BYTEA NOT NULL,

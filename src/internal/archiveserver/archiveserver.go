@@ -15,18 +15,18 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth/httpauth"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"go.uber.org/zap"
 )
 
 // Server is an http.Handler that can download archives of PFS files.
 type Server struct {
-	pachClientFactory func(context.Context) *client.APIClient
+	ClientFactory func(context.Context) *client.APIClient
 }
 
 // ServeHTTP implements http.Handler for the /archive/ route.
@@ -35,13 +35,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if got, want := req.Method, http.MethodGet; got != want {
 		log.Debug(ctx, "invalid method", zap.String("method", got))
 		http.Error(w, fmt.Sprintf("method not supported; got %v, want %v", got, want), http.StatusMethodNotAllowed)
-		return
-	}
-
-	pachClient, err := s.pachClientFromRequest(ctx, req)
-	if err != nil {
-		log.Info(ctx, "problem extracting auth token from request", zap.Error(err))
-		http.Error(w, fmt.Sprintf("problem extracting auth token from request: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -58,6 +51,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, fmt.Sprintf("unknown archive format %v requested; only .zip is supported", string(got)), http.StatusBadRequest)
 		return
 	}
+
+	pachClient := s.pachClientFromRequest(ctx, req)
 	if err := s.downloadZip(pachClient.Ctx(), w, pachClient, archive); err != nil {
 		log.Info(ctx, "problem encountered mid-download", zap.Error(err))
 		return
@@ -67,22 +62,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // pachClientFromRequest uses the server's pachClientFactory to create a pach client with the
 // authentication material in the request.
-func (s *Server) pachClientFromRequest(ctx context.Context, req *http.Request) (*client.APIClient, error) {
-	c := s.pachClientFactory(ctx)
-	if token := req.URL.Query().Get(constants.ContextTokenKey); token != "" {
-		log.Debug(ctx, "using authn-token from URL query", zap.Int("len", len(token)))
-		c.SetAuthToken(token)
-		return c, nil
-	}
-	if token := req.Header.Get(constants.ContextTokenKey); token != "" {
-		log.Debug(ctx, "using authn-token from HTTP header", zap.Int("len", len(token)))
-		c.SetAuthToken(token)
-		return c, nil
-	}
-	return c, nil
+func (s *Server) pachClientFromRequest(ctx context.Context, req *http.Request) *client.APIClient {
+	return httpauth.ClientWithToken(ctx, s.ClientFactory(ctx), req)
 }
 
-// writeFlusher is an io.Writer that flushes the http.Fluher after every write.  It's intended to
+// writeFlusher is an io.Writer that flushes the http.Flusher after every write.  It's intended to
 // back a bufio.Writer to implement reasonable-sized response chunking.
 type writeFlusher struct {
 	io.Writer
@@ -161,7 +145,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 		if commit, ok := branchToCommit[branch]; ok {
 			// Yes.
 			file.Commit.Branch = nil
-			file.Commit.ID = commit
+			file.Commit.Id = commit
 			files = append(files, file)
 			return nil
 		}
@@ -173,13 +157,13 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 		if err != nil {
 			return errors.Wrapf(err, "path %v: InspectBranch(%v)", path, file.GetCommit().GetBranch())
 		}
-		commit := info.GetHead().GetID()
+		commit := info.GetHead().GetId()
 		if commit == "" {
 			return errors.Errorf("path %v: InspectBranch resolved HEAD to nothing (%v)", path, info)
 		}
 		branchToCommit[branch] = commit
 		file.Commit.Branch = nil
-		file.Commit.ID = commit
+		file.Commit.Id = commit
 		files = append(files, file)
 		return nil
 	})
@@ -189,7 +173,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 	if resolveErr == nil {
 		for _, file := range files {
 			err := func(file *pfs.File) error {
-				path := file.Commit.Repo.Project.Name + "/" + file.Commit.Repo.Name + "@=" + file.Commit.ID + ":" + file.Path
+				path := file.Commit.Repo.Project.Name + "/" + file.Commit.Repo.Name + "@=" + file.Commit.Id + ":" + file.Path
 				ctx, done := log.SpanContext(ctx, fmt.Sprintf("downloadFile(%v)", path))
 				defer done(log.Errorp(&retErr))
 
@@ -223,7 +207,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 
 					// Create a path in the archive <project>/<repo>/commit/<actual
 					// path, including directories>.
-					zp := filepath.Join(file.Commit.Repo.Project.Name, file.Commit.Repo.Name, file.Commit.ID, h.Name)
+					zp := filepath.Join(file.Commit.Repo.Project.Name, file.Commit.Repo.Name, file.Commit.Id, h.Name)
 					w, err := zw.CreateHeader(&zip.FileHeader{
 						Name:     zp,
 						Method:   zip.Deflate,

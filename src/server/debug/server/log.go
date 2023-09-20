@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -37,10 +36,7 @@ func propagateMetadata(ctx context.Context) context.Context {
 
 func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelRequest) (*debug.SetLogLevelResponse, error) {
 	result := new(debug.SetLogLevelResponse)
-	d, err := types.DurationFromProto(req.GetDuration())
-	if err != nil {
-		return result, status.Errorf(codes.InvalidArgument, "invalid duration: %v", err)
-	}
+	d := req.GetDuration().AsDuration()
 	switch x := req.GetLevel().(type) {
 	case nil:
 		return result, status.Error(codes.InvalidArgument, "no level provided")
@@ -113,15 +109,15 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 	// Recurse to other pachyderm processes.
 	pods := map[string]string{}
 	apps := map[string]string{
-		"pach-enterprise": strconv.Itoa(int(s.env.Config().Port)),
-		"pachw":           strconv.Itoa(int(s.env.Config().PeerPort)),
-		"pachd":           strconv.Itoa(int(s.env.Config().Port)),
+		"pach-enterprise": strconv.Itoa(int(s.env.Config.Port)),
+		"pachw":           strconv.Itoa(int(s.env.Config.PeerPort)),
+		"pachd":           strconv.Itoa(int(s.env.Config.Port)),
 		"pipeline":        os.Getenv(client.PPSWorkerPortEnv),
 	}
 	var enumerateErrs error
 	for app, port := range apps {
 		tctx, c := context.WithTimeout(ctx, 30*time.Second)
-		podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
+		podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config.Namespace).List(
 			tctx,
 			metav1.ListOptions{
 				TypeMeta: metav1.TypeMeta{

@@ -3,8 +3,6 @@ syntax = "proto3";
 package datum;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/datum";
 
-import "gogoproto/gogo.proto";
-
 import "pfs/pfs.proto";
 import "pps/pps.proto";
 import "server/worker/common/common.proto";
@@ -33,11 +31,11 @@ message Stats {
   int64 total = 4;
   int64 failed = 5;
   int64 recovered = 6;
-  string failed_id = 7 [(gogoproto.customname) = "FailedID"];
+  string failed_id = 7;
 }
 
 message PFSTask {
-  pps_v2.PFSInput input = 1; 
+  pps_v2.PFSInput input = 1;
   pfs_v2.PathRange path_range = 2;
   int64 base_index = 3;
   string auth_token = 4;

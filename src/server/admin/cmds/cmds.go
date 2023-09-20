@@ -3,11 +3,10 @@ package cmds
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	"github.com/spf13/cobra"
 )
@@ -25,11 +24,12 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 			defer c.Close()
-			ci, err := c.InspectClusterWithVersion(version.Version)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+			if ci, ok := c.ClusterInfo(); ok {
+				fmt.Println(ci.Id)
+			} else {
+				// This should never happen; NewOnUserMachine will error.
+				fmt.Fprintf(os.Stderr, "no ClusterInfo received after creating client")
 			}
-			fmt.Println(ci.ID)
 			return nil
 		}),
 	}

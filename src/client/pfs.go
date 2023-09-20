@@ -12,7 +12,7 @@ import (
 
 // NewCommitSet creates a pfs.CommitSet
 func NewCommitSet(id string) *pfs.CommitSet {
-	return &pfs.CommitSet{ID: id}
+	return &pfs.CommitSet{Id: id}
 }
 
 // NewProject creates a pfs.Project
@@ -70,7 +70,7 @@ func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
 func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 	return &pfs.Commit{
 		Repo:   NewProjectRepo(projectName, repoName),
-		ID:     commitID,
+		Id:     commitID,
 		Branch: NewProjectBranch(projectName, repoName, branchName),
 	}
 }

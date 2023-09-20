@@ -25,14 +25,13 @@ export type Mount = {
   repo: string;
   project: string;
   branch: string;
-  commit: string | null;
+  commit: string;
   glob: string | null;
   mode: string | null;
   state: mountState;
   status: string;
   mountpoint: string | null;
   how_many_commits_behind: number;
-  actual_mounted_commit: string;
   latest_commit: string;
 };
 
@@ -124,6 +123,12 @@ export type PpsMetadata = {
   config: PpsConfig;
 };
 
+export enum GpuMode {
+  None = 'None',
+  Simple = 'Simple',
+  Advanced = 'Advanced',
+}
+
 // If this is updated, make sure to also update the corresponding `useEffect`
 // call in ./components/Pipeline/hooks/usePipeline.tsx that writes this type to
 // the notebook metadata.
@@ -132,6 +137,9 @@ export type PpsConfig = {
   image: string;
   requirements: string | null;
   input_spec: string;
+  port: string;
+  gpu_mode: GpuMode;
+  resource_spec: string | null;
 };
 
 export type PpsContext = {

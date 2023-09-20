@@ -1,0 +1,18 @@
+{{- if .Values.determined.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: determined-master-service-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: determined-master-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - port: {{ required "A valid Values.masterPort entry required!" .Values.determined.masterPort }}
+    targetPort: {{- include "determined.masterPort" . | indent 1 }}
+    protocol: TCP
+  type: {{ if (.Values.determined.useNodePortForMaster | default false) }}NodePort{{ else }}LoadBalancer{{ end }}
+  selector:
+    app: determined-master-{{ .Release.Name }}
+{{- end }}

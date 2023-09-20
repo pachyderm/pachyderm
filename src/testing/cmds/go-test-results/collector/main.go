@@ -33,6 +33,19 @@ const (
 
 var pachdAddress = findPachdAddress()
 var invalidCharacters = regexp.MustCompile("[^a-zA-Z0-9-_]+")
+var repo = &pfs.Repo{
+	Name: repoName,
+	Type: pfs.UserRepoType,
+	Project: &pfs.Project{
+		Name: projectName,
+	},
+}
+var commit = &pfs.Commit{
+	Branch: &pfs.Branch{
+		Name: "master",
+		Repo: repo,
+	},
+}
 
 func findPachdAddress() string {
 	env := os.Getenv("OPS_PACHD_ADDRESS")
@@ -46,72 +59,60 @@ func findPachdAddress() string {
 func main() {
 	log.InitPachctlLogger()
 	ctx := pctx.Background("")
+	err := run(ctx)
+	if err != nil {
+		log.Error(ctx, "Error during metric collection", zap.Error(err))
+	}
+}
+
+func run(ctx context.Context) error {
 	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
 	if len(robotToken) == 0 {
 		log.Info(ctx, "No pachyderm robot token found. Continuing with unauthenticated pach client.")
 	}
 	resultsFolder := os.Getenv("TEST_RESULTS")
 	if len(resultsFolder) == 0 {
-		log.Exit(ctx, "TEST_RESULTS needs to be populated to find the test results folder.")
+		return errors.WithStack(fmt.Errorf("TEST_RESULTS needs to be populated to find the test results folder."))
 	}
 	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
-		log.Exit(ctx, "The test result folder at %v does not exist. Exiting early.", zap.String("resultsFolder", resultsFolder))
+		return errors.WithStack(fmt.Errorf("The test result folder at %v does not exist. Exiting early.", resultsFolder))
 	}
 	// connect and authenticate to pachyderm
 	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
 	if err != nil {
-		log.Exit(ctx, "Problem provisioning pach client: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem provisioning pach client")
 	}
 	pachClient.SetAuthToken(robotToken)
-	// retry in case the parent commit is still in progress from another pipeline
-	var commit *pfs.Commit
-	for i := 0; i < commitMaxRetries; i++ {
-		commit, err = pachClient.StartProjectCommit(projectName, repoName, "master")
-		if err != nil {
-			log.Info(ctx, "Unable to start commit due to error. Retrying. Error: %v", zap.Error(err))
-			time.Sleep(commitRetryBackoff)
-		} else {
-			break
-		}
-	}
-	if err != nil {
-		log.Exit(ctx, "Problem starting commit: %v", zap.Error(err))
-	}
-	defer func() {
-		if err = pachClient.FinishProjectCommit(projectName, repoName, "master", commit.GetID()); err != nil {
-			log.Exit(ctx, "Problem finishing commit: %v", zap.Error(err))
-		}
-	}()
+
 	// upload general job information
 	jobInfo, err := findJobInfoFromCI()
 	if err != nil {
-		log.Exit(ctx, "Problem collecting job info: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem collecting job info")
 	}
 	basePath := findBasePath(jobInfo)
-	if err = uploadJobInfo(basePath, jobInfo, pachClient, commit); err != nil {
-		log.Exit(ctx, "Problem uploading job info: %v", zap.Error(err))
-	}
 	// upload individual test  results
-	eg, _ := errgroup.WithContext(pachClient.Ctx())
+	eg, _ := errgroup.WithContext(ctx)
+
 	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
 			eg.Go(func() error {
-				return uploadTestResult(path, d, basePath, resultsFolder, pachClient, commit)
+				return uploadTestResult(path, d, basePath, resultsFolder, jobInfo, pachClient, commit)
 			})
 		}
 		return nil
 	})
+
 	if err != nil {
-		log.Exit(ctx, "Problem walking file paths: %v", zap.Error(err))
+		return errors.Wrapf(err, "Problem walking file paths")
 	}
 	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		log.Exit(ctx, "Problem putting files to pachyderm: %v", zap.Error(err))
+		return errors.Wrapf(goRoutineErrs, "Problem putting files to pachyderm")
 	}
-
 	log.Info(ctx, "Successfully uploaded files.")
+	return nil
 }
 
 func sanitizeName(s string) string {
@@ -143,6 +144,7 @@ func findJobInfoFromCI() (gotestresults.JobInfo, error) {
 	allowEmpty["CIRCLE_BRANCH"] = true
 	allowEmpty["CIRCLE_TAG"] = true
 	allowEmpty["CIRCLE_PULL_REQUESTS"] = true
+	allowEmpty["CIRCLE_USERNAME"] = true
 
 	for envVar, statsField := range mapping {
 		*statsField = os.Getenv(envVar)
@@ -151,7 +153,7 @@ func findJobInfoFromCI() (gotestresults.JobInfo, error) {
 		}
 	}
 	// non-string fields
-	jobInfo.JobTimestamp = time.Now()
+	jobInfo.JobTimestamp = time.Now().UTC()
 	var err error
 	jobInfo.JobNumExecutors, err = strconv.Atoi(os.Getenv("CIRCLE_NODE_TOTAL"))
 	if err != nil {
@@ -172,27 +174,29 @@ func findBasePath(jobInfo gotestresults.JobInfo) string {
 	return basePath
 }
 
-// Uploads job info to pachyderm cluster.
-func uploadJobInfo(basePath string, jobInfo gotestresults.JobInfo, pachClient *client.APIClient, commit *pfs.Commit) error {
+func uploadTestResult(path string,
+	d fs.DirEntry,
+	basePath string,
+	resultsFolder string,
+	jobInfo gotestresults.JobInfo,
+	pachClient *client.APIClient,
+	commit *pfs.Commit,
+) error {
 	jobInfoJson, err := json.Marshal(jobInfo)
 	if err != nil {
 		return errors.Wrapf(err, "Could not marshal CI job stats to json: %v ", jobInfo)
 	}
-	if err = pachClient.PutFile(commit, filepath.Join(basePath, "JobInfo.json"), bytes.NewReader(jobInfoJson)); err != nil {
-		return errors.Wrapf(err, "Could not output CI job stats to pachyderm cluster ")
-	}
-	return nil
-}
-
-func uploadTestResult(path string, d fs.DirEntry, basePath string, resultsFolder string, pachClient *client.APIClient, commit *pfs.Commit) error {
-	file, err := os.Open(path)
+	resultsFile, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "opening file %v", d.Name())
 	}
-	defer file.Close()
-	destPath := findDestinationPath(path, basePath, resultsFolder)
-	if err = pachClient.PutFile(commit, destPath, file); err != nil {
-		return errors.Wrapf(err, "putting file: %v to commit %v", destPath, commit.GetID())
-	}
-	return nil
+	defer resultsFile.Close()
+	resultsPath := findDestinationPath(path, basePath, resultsFolder)
+	// upload files together to avoid no-op datums
+	return pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+		if err = mf.PutFile(resultsPath, resultsFile); err != nil {
+			return err
+		}
+		return mf.PutFile(filepath.Join(basePath, "JobInfo.json"), bytes.NewReader(jobInfoJson))
+	})
 }
