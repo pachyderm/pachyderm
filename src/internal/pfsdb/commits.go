@@ -741,7 +741,6 @@ type CommitIterator struct {
 }
 
 type commitIteratorTx struct {
-	commitInfos   map[CommitID]*pfs.CommitInfo
 	tx            *pachsql.Tx
 	reverse       bool
 	revision      bool

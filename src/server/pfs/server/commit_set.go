@@ -32,10 +32,11 @@ func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncon
 			cis = append(cis, ci)
 		}
 	}
-	cis, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitSetIDs: []string{commitSet.Id}}, false, false)
+	commits, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitSetIDs: []string{commitSet.Id}}, false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "inspect commit set immediate")
 	}
+	cis = append(cis, commits...)
 	return TopologicalSort(cis), nil
 }
 

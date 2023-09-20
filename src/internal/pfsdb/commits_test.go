@@ -592,7 +592,7 @@ func TestListCommitsTxFilter(t *testing.T) {
 			}
 			gotInfos, err := pfsdb.ListCommitTxByFilter(ctx, tx, filter, false, false)
 			require.NoError(t, err, "should be able to list repos")
-			for i, _ := range gotInfos {
+			for i := range gotInfos {
 				commitsMatch(t, expectedInfos[i], gotInfos[i])
 			}
 		})
