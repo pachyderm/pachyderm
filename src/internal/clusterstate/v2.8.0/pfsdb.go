@@ -321,7 +321,7 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 		payload := TG_OP || ' ' || row.int_id::text;
 		PERFORM pg_notify('pfs_commits', payload);
 		PERFORM pg_notify('pfs_commits_repo_' || row.repo_id::text, payload);
-		PERFORM pg_notify('pfs_commits_' || row.id::text, payload);
+		PERFORM pg_notify('pfs_commits_' || row.int_id::text, payload);
 		return row;
 	END;
 	$$ LANGUAGE plpgsql;

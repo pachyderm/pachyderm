@@ -23,7 +23,7 @@ const (
 	CommitsRepoChannelName = "pfs_commits_repo_"
 	CommitChannelName      = "pfs_commits_"
 	createCommit           = `
-		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name= :repo.project.name))
+		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name=:repo.project.name))
 		INSERT INTO pfs.commits 
     	(commit_id, 
     	 commit_set_id, 
