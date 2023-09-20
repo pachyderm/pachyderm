@@ -51,6 +51,58 @@ func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
 	return result
 }
 
+type BranchIterator struct {
+	paginator pageIterator[Branch]
+	tx        *pachsql.Tx
+}
+type BranchInfoWithID struct {
+	ID BranchID
+	*pfs.BranchInfo
+}
+
+func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, project, repo, repoType string, sortOrder sortOrder) (*BranchIterator, error) {
+	var conditions []string
+	var values []any
+	if project != "" {
+		conditions = append(conditions, "project.name = $1")
+		values = append(values, project)
+	}
+	if repo != "" {
+		conditions = append(conditions, "repo.name = $2")
+		values = append(values, repo)
+	}
+	if repoType != "" {
+		conditions = append(conditions, "repo.type = $3")
+		values = append(values, repoType)
+	}
+	query := getBranchBaseQuery
+	if len(conditions) > 0 {
+		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
+	}
+	query += "\nORDER BY branch.id " + string(sortOrder)
+	return &BranchIterator{
+		paginator: newPageIterator[Branch](ctx, tx, query, values, startPage, pageSize),
+		tx:        tx,
+	}, nil
+}
+
+func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error {
+	if dst == nil {
+		return errors.Errorf("dst BranchInfo cannot be nil")
+	}
+	branch, err := i.paginator.next(ctx, i.tx)
+	if err != nil {
+		return err
+	}
+	branchInfo, err := fetchBranchInfoByBranch(ctx, i.tx, branch)
+	if err != nil {
+		return err
+	}
+	dst.ID = branch.ID
+	dst.BranchInfo = branchInfo
+	return nil
+}
+
 // GetBranchInfo returns a *pfs.BranchInfo by id.
 func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
 	branch := &Branch{}
@@ -295,6 +347,9 @@ func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 }
 
 func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
+	if branch == nil {
+		return nil, errors.Errorf("branch cannot be nil")
+	}
 	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
 	var err error
 	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, tx, branch.ID)
