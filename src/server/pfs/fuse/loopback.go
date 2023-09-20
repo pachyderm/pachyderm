@@ -630,19 +630,6 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
 			return nil
 		}
-		if skip := func() bool {
-			if len(ro.Subpaths) == 0 {
-				return false
-			}
-			for _, sp := range ro.Subpaths {
-				if strings.HasPrefix(fi.File.Path, sp) || strings.HasPrefix(sp, fi.File.Path) {
-					return false
-				}
-			}
-			return true
-		}(); skip {
-			return nil
-		}
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
@@ -679,12 +666,22 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		}
 		return nil
 	}
-	filePath := pathpkg.Join(parts[1:]...)
 	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
-	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
-		!pfsserver.IsOutputCommitNotFinishedErr(err) {
-		return err
+	// If mounting just a subset of files in a repo, mount just those files
+	if len(ro.Subpaths) != 0 {
+		for _, path := range ro.Subpaths {
+			if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), path, createFile); err != nil && !errutil.IsNotFoundError(err) &&
+				!pfsserver.IsOutputCommitNotFinishedErr(err) {
+				return err
+			}
+		}
+	} else {
+		filePath := pathpkg.Join(parts[1:]...)
+		if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
+			!pfsserver.IsOutputCommitNotFinishedErr(err) {
+			return err
+		}
 	}
 	return nil
 }
