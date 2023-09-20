@@ -309,6 +309,23 @@ func TestDeleteBranch(t *testing.T) {
 			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, id))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, id)
 			require.YesError(t, err)
+			require.NoError(t, err)
+			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, id)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
+			gotBranchByName, err := pfsdb.GetBranchInfoByName(ctx, tx, branchInfo.Branch.Repo.Project.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Repo.Type, branchInfo.Branch.Name)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo, gotBranchByName, compareBranchOpts()...))
+
+			// Update branch to point to second commit
+			commitPair2 := createCommitPair(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitPair1.CommitInfo.Commit))
+			branchInfo.Head = commitPair2.CommitInfo.Commit
+			id2, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			require.Equal(t, id, id2, "UpsertBranch should keep id stable")
+			gotBranchInfo2, err := pfsdb.GetBranchInfo(ctx, tx, id2)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchInfo, gotBranchInfo2, compareBranchOpts()...))
 		})
 	})
 }
