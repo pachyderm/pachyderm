@@ -21,6 +21,8 @@ var global = (function() {
   return Function('return this')();
 }.call(null));
 
+var protoextensions_validate_pb = require('../protoextensions/validate_pb.js');
+goog.object.extend(proto, protoextensions_validate_pb);
 goog.exportSymbol('proto.taskapi.Group', null, global);
 goog.exportSymbol('proto.taskapi.ListTaskRequest', null, global);
 goog.exportSymbol('proto.taskapi.State', null, global);

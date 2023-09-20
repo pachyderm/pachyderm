@@ -80,6 +80,7 @@ import {
   DeleteProjectRequest,
   FindCommitsResponse,
   FindCommitsRequest,
+  DeleteRepoResponse,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -731,17 +732,21 @@ const pfsServiceRpcHandler = ({
       });
     },
     deleteRepo: ({projectId, repo, force = false}: DeleteRepoRequestArgs) => {
-      return new Promise<Empty.AsObject>((resolve, reject) => {
+      return new Promise<DeleteRepoResponse.AsObject>((resolve, reject) => {
         const deleteRepoRequest = new DeleteRepoRequest();
 
         deleteRepoRequest.setRepo(repoFromObject({projectId, ...repo}));
         deleteRepoRequest.setForce(force);
-        client.deleteRepo(deleteRepoRequest, credentialMetadata, (error) => {
-          if (error) {
-            return reject(error);
-          }
-          return resolve({});
-        });
+        client.deleteRepo(
+          deleteRepoRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res.toObject());
+          },
+        );
       });
     },
     deleteRepos: ({

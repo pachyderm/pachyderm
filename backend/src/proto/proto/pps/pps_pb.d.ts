@@ -11,7 +11,8 @@ import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/du
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
 import * as pfs_pfs_pb from "../pfs/pfs_pb";
 import * as task_task_pb from "../task/task_pb";
-import * as protoextensions_log_pb from "../protoextensions/log_pb";
+import * as protoextensions_json_schema_options_pb from "../protoextensions/json-schema-options_pb";
+import * as protoextensions_validate_pb from "../protoextensions/validate_pb";
 
 export class SecretMount extends jspb.Message { 
     getName(): string;
@@ -2316,6 +2317,8 @@ export class DeletePipelineRequest extends jspb.Message {
     setForce(value: boolean): DeletePipelineRequest;
     getKeepRepo(): boolean;
     setKeepRepo(value: boolean): DeletePipelineRequest;
+    getMustExist(): boolean;
+    setMustExist(value: boolean): DeletePipelineRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeletePipelineRequest.AsObject;
@@ -2333,6 +2336,7 @@ export namespace DeletePipelineRequest {
         all: boolean,
         force: boolean,
         keepRepo: boolean,
+        mustExist: boolean,
     }
 }
 
@@ -2418,6 +2422,8 @@ export class StopPipelineRequest extends jspb.Message {
     clearPipeline(): void;
     getPipeline(): Pipeline | undefined;
     setPipeline(value?: Pipeline): StopPipelineRequest;
+    getMustExist(): boolean;
+    setMustExist(value: boolean): StopPipelineRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): StopPipelineRequest.AsObject;
@@ -2432,6 +2438,7 @@ export class StopPipelineRequest extends jspb.Message {
 export namespace StopPipelineRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
+        mustExist: boolean,
     }
 }
 

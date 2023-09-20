@@ -10,6 +10,7 @@ var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/durat
 var google_protobuf_any_pb = require('google-protobuf/google/protobuf/any_pb.js');
 var auth_auth_pb = require('../auth/auth_pb.js');
 var task_task_pb = require('../task/task_pb.js');
+var protoextensions_validate_pb = require('../protoextensions/validate_pb.js');
 
 function serialize_google_protobuf_BytesValue(arg) {
   if (!(arg instanceof google_protobuf_wrappers_pb.BytesValue)) {
@@ -240,6 +241,17 @@ function serialize_pfs_v2_DeleteRepoRequest(arg) {
 
 function deserialize_pfs_v2_DeleteRepoRequest(buffer_arg) {
   return pfs_pfs_pb.DeleteRepoRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_DeleteRepoResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.DeleteRepoResponse)) {
+    throw new Error('Expected argument of type pfs_v2.DeleteRepoResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_DeleteRepoResponse(buffer_arg) {
+  return pfs_pfs_pb.DeleteRepoResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_DeleteReposRequest(arg) {
@@ -627,28 +639,6 @@ function deserialize_pfs_v2_RepoInfo(buffer_arg) {
   return pfs_pfs_pb.RepoInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_RunLoadTestRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.RunLoadTestRequest)) {
-    throw new Error('Expected argument of type pfs_v2.RunLoadTestRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_v2_RunLoadTestRequest(buffer_arg) {
-  return pfs_pfs_pb.RunLoadTestRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pfs_v2_RunLoadTestResponse(arg) {
-  if (!(arg instanceof pfs_pfs_pb.RunLoadTestResponse)) {
-    throw new Error('Expected argument of type pfs_v2.RunLoadTestResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_v2_RunLoadTestResponse(buffer_arg) {
-  return pfs_pfs_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pfs_v2_ShardFileSetRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.ShardFileSetRequest)) {
     throw new Error('Expected argument of type pfs_v2.ShardFileSetRequest');
@@ -781,11 +771,11 @@ deleteRepo: {
     requestStream: false,
     responseStream: false,
     requestType: pfs_pfs_pb.DeleteRepoRequest,
-    responseType: google_protobuf_empty_pb.Empty,
+    responseType: pfs_pfs_pb.DeleteRepoResponse,
     requestSerialize: serialize_pfs_v2_DeleteRepoRequest,
     requestDeserialize: deserialize_pfs_v2_DeleteRepoRequest,
-    responseSerialize: serialize_google_protobuf_Empty,
-    responseDeserialize: deserialize_google_protobuf_Empty,
+    responseSerialize: serialize_pfs_v2_DeleteRepoResponse,
+    responseDeserialize: deserialize_pfs_v2_DeleteRepoResponse,
   },
   // DeleteRepos deletes more than one repo at once.  It attempts to
 // delete every repo matching the DeleteReposRequest.  When deleting
@@ -1232,30 +1222,6 @@ checkStorage: {
     requestDeserialize: deserialize_pfs_v2_ClearCacheRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
-  },
-  // RunLoadTest runs a load test.
-runLoadTest: {
-    path: '/pfs_v2.API/RunLoadTest',
-    requestStream: false,
-    responseStream: false,
-    requestType: pfs_pfs_pb.RunLoadTestRequest,
-    responseType: pfs_pfs_pb.RunLoadTestResponse,
-    requestSerialize: serialize_pfs_v2_RunLoadTestRequest,
-    requestDeserialize: deserialize_pfs_v2_RunLoadTestRequest,
-    responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
-    responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
-  },
-  // RunLoadTestDefault runs the default load tests.
-runLoadTestDefault: {
-    path: '/pfs_v2.API/RunLoadTestDefault',
-    requestStream: false,
-    responseStream: false,
-    requestType: google_protobuf_empty_pb.Empty,
-    responseType: pfs_pfs_pb.RunLoadTestResponse,
-    requestSerialize: serialize_google_protobuf_Empty,
-    requestDeserialize: deserialize_google_protobuf_Empty,
-    responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
-    responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
   },
   // ListTask lists PFS tasks
 listTask: {

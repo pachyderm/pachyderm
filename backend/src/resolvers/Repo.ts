@@ -99,13 +99,13 @@ const repoResolver: RepoResolver = {
       {args: {projectId, repo, force}},
       {pachClient},
     ) => {
-      await pachClient.pfs.deleteRepo({
+      const response = await pachClient.pfs.deleteRepo({
         projectId,
         repo: {name: repo.name},
         force: force || undefined,
       });
 
-      return true;
+      return response.deleted;
     },
   },
 };

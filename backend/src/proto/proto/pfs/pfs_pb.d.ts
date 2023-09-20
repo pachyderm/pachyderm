@@ -12,6 +12,7 @@ import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/du
 import * as google_protobuf_any_pb from "google-protobuf/google/protobuf/any_pb";
 import * as auth_auth_pb from "../auth/auth_pb";
 import * as task_task_pb from "../task/task_pb";
+import * as protoextensions_validate_pb from "../protoextensions/validate_pb";
 
 export class Repo extends jspb.Message { 
     getName(): string;
@@ -721,6 +722,26 @@ export namespace DeleteReposRequest {
         projectsList: Array<Project.AsObject>,
         force: boolean,
         all: boolean,
+    }
+}
+
+export class DeleteRepoResponse extends jspb.Message { 
+    getDeleted(): boolean;
+    setDeleted(value: boolean): DeleteRepoResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteRepoResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteRepoResponse): DeleteRepoResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteRepoResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteRepoResponse;
+    static deserializeBinaryFromReader(message: DeleteRepoResponse, reader: jspb.BinaryReader): DeleteRepoResponse;
+}
+
+export namespace DeleteRepoResponse {
+    export type AsObject = {
+        deleted: boolean,
     }
 }
 
@@ -2158,79 +2179,6 @@ export class ActivateAuthResponse extends jspb.Message {
 
 export namespace ActivateAuthResponse {
     export type AsObject = {
-    }
-}
-
-export class RunLoadTestRequest extends jspb.Message { 
-    getSpec(): string;
-    setSpec(value: string): RunLoadTestRequest;
-
-    hasBranch(): boolean;
-    clearBranch(): void;
-    getBranch(): Branch | undefined;
-    setBranch(value?: Branch): RunLoadTestRequest;
-    getSeed(): number;
-    setSeed(value: number): RunLoadTestRequest;
-    getStateId(): string;
-    setStateId(value: string): RunLoadTestRequest;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): RunLoadTestRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: RunLoadTestRequest): RunLoadTestRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: RunLoadTestRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): RunLoadTestRequest;
-    static deserializeBinaryFromReader(message: RunLoadTestRequest, reader: jspb.BinaryReader): RunLoadTestRequest;
-}
-
-export namespace RunLoadTestRequest {
-    export type AsObject = {
-        spec: string,
-        branch?: Branch.AsObject,
-        seed: number,
-        stateId: string,
-    }
-}
-
-export class RunLoadTestResponse extends jspb.Message { 
-    getSpec(): string;
-    setSpec(value: string): RunLoadTestResponse;
-
-    hasBranch(): boolean;
-    clearBranch(): void;
-    getBranch(): Branch | undefined;
-    setBranch(value?: Branch): RunLoadTestResponse;
-    getSeed(): number;
-    setSeed(value: number): RunLoadTestResponse;
-    getError(): string;
-    setError(value: string): RunLoadTestResponse;
-
-    hasDuration(): boolean;
-    clearDuration(): void;
-    getDuration(): google_protobuf_duration_pb.Duration | undefined;
-    setDuration(value?: google_protobuf_duration_pb.Duration): RunLoadTestResponse;
-    getStateId(): string;
-    setStateId(value: string): RunLoadTestResponse;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): RunLoadTestResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: RunLoadTestResponse): RunLoadTestResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: RunLoadTestResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): RunLoadTestResponse;
-    static deserializeBinaryFromReader(message: RunLoadTestResponse, reader: jspb.BinaryReader): RunLoadTestResponse;
-}
-
-export namespace RunLoadTestResponse {
-    export type AsObject = {
-        spec: string,
-        branch?: Branch.AsObject,
-        seed: number,
-        error: string,
-        duration?: google_protobuf_duration_pb.Duration.AsObject,
-        stateId: string,
     }
 }
 

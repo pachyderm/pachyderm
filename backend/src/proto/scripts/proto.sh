@@ -36,6 +36,8 @@ curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/admin/admin.proto > ${OUT_DIR}/admin/admin.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/version/versionpb/version.proto > ${OUT_DIR}/version/versionpb/version.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/protoextensions/log.proto > ${OUT_DIR}/protoextensions/log.proto
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/protoextensions/validate.proto > ${OUT_DIR}/protoextensions/validate.proto
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/protoextensions/json-schema-options.proto > ${OUT_DIR}/protoextensions/json-schema-options.proto
 curl https://raw.githubusercontent.com/gogo/protobuf/${GOGO_VERSION}/gogoproto/gogo.proto > ${OUT_DIR}/gogoproto/gogo.proto
 
 find $OUT_DIR -name "*.proto" | xargs \

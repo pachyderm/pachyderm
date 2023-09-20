@@ -25,6 +25,8 @@ var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/time
 goog.object.extend(proto, google_protobuf_timestamp_pb);
 var protoextensions_log_pb = require('../protoextensions/log_pb.js');
 goog.object.extend(proto, protoextensions_log_pb);
+var protoextensions_validate_pb = require('../protoextensions/validate_pb.js');
+goog.object.extend(proto, protoextensions_validate_pb);
 goog.exportSymbol('proto.auth_v2.ActivateRequest', null, global);
 goog.exportSymbol('proto.auth_v2.ActivateResponse', null, global);
 goog.exportSymbol('proto.auth_v2.AuthenticateRequest', null, global);

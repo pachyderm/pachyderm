@@ -12,7 +12,8 @@ import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/du
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
 import * as pfs_pfs_pb from "../pfs/pfs_pb";
 import * as task_task_pb from "../task/task_pb";
-import * as protoextensions_log_pb from "../protoextensions/log_pb";
+import * as protoextensions_json_schema_options_pb from "../protoextensions/json-schema-options_pb";
+import * as protoextensions_validate_pb from "../protoextensions/validate_pb";
 
 interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     inspectJob: IAPIService_IInspectJob;

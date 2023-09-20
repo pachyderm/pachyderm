@@ -5,6 +5,7 @@
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
+import * as protoextensions_validate_pb from "../protoextensions/validate_pb";
 
 export class Group extends jspb.Message { 
     getNamespace(): string;

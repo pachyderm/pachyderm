@@ -30,6 +30,7 @@ import {
   fileInfoFromObject,
 } from '@dash-backend/proto/builders/pfs';
 import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
+import {DeleteRepoResponse} from '@dash-backend/proto/proto/pfs/pfs_pb';
 import {createServiceError} from '@dash-backend/testHelpers';
 
 import repoAuthInfos from '../fixtures/authInfos';
@@ -363,7 +364,7 @@ const pfs = () => {
             },
           );
 
-          callback(null, new Empty());
+          callback(null, new DeleteRepoResponse().setDeleted(true));
         },
         deleteRepos: (call, callback) => {
           const projects = call.request.getProjectsList();

@@ -23,6 +23,13 @@ export class ClusterInfo extends jspb.Message {
     setProxyHost(value: string): ClusterInfo;
     getProxyTls(): boolean;
     setProxyTls(value: boolean): ClusterInfo;
+    getPaused(): boolean;
+    setPaused(value: boolean): ClusterInfo;
+
+    hasWebResources(): boolean;
+    clearWebResources(): void;
+    getWebResources(): WebResource | undefined;
+    setWebResources(value?: WebResource): ClusterInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClusterInfo.AsObject;
@@ -42,6 +49,8 @@ export namespace ClusterInfo {
         warningsList: Array<string>,
         proxyHost: string,
         proxyTls: boolean,
+        paused: boolean,
+        webResources?: WebResource.AsObject,
     }
 }
 
@@ -71,5 +80,28 @@ export namespace InspectClusterRequest {
     export type AsObject = {
         clientVersion?: version_versionpb_version_pb.Version.AsObject,
         currentProject?: pfs_pfs_pb.Project.AsObject,
+    }
+}
+
+export class WebResource extends jspb.Message { 
+    getArchiveDownloadBaseUrl(): string;
+    setArchiveDownloadBaseUrl(value: string): WebResource;
+    getCreatePipelineRequestJsonSchemaUrl(): string;
+    setCreatePipelineRequestJsonSchemaUrl(value: string): WebResource;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WebResource.AsObject;
+    static toObject(includeInstance: boolean, msg: WebResource): WebResource.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WebResource, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WebResource;
+    static deserializeBinaryFromReader(message: WebResource, reader: jspb.BinaryReader): WebResource;
+}
+
+export namespace WebResource {
+    export type AsObject = {
+        archiveDownloadBaseUrl: string,
+        createPipelineRequestJsonSchemaUrl: string,
     }
 }

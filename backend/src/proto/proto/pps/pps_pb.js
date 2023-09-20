@@ -33,8 +33,10 @@ var pfs_pfs_pb = require('../pfs/pfs_pb.js');
 goog.object.extend(proto, pfs_pfs_pb);
 var task_task_pb = require('../task/task_pb.js');
 goog.object.extend(proto, task_task_pb);
-var protoextensions_log_pb = require('../protoextensions/log_pb.js');
-goog.object.extend(proto, protoextensions_log_pb);
+var protoextensions_json$schema$options_pb = require('../protoextensions/json-schema-options_pb.js');
+goog.object.extend(proto, protoextensions_json$schema$options_pb);
+var protoextensions_validate_pb = require('../protoextensions/validate_pb.js');
+goog.object.extend(proto, protoextensions_validate_pb);
 goog.exportSymbol('proto.pps_v2.ActivateAuthRequest', null, global);
 goog.exportSymbol('proto.pps_v2.ActivateAuthResponse', null, global);
 goog.exportSymbol('proto.pps_v2.Aggregate', null, global);
@@ -19849,7 +19851,8 @@ proto.pps_v2.DeletePipelineRequest.toObject = function(includeInstance, msg) {
     pipeline: (f = msg.getPipeline()) && proto.pps_v2.Pipeline.toObject(includeInstance, f),
     all: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
     force: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
-    keepRepo: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
+    keepRepo: jspb.Message.getBooleanFieldWithDefault(msg, 4, false),
+    mustExist: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
   };
 
   if (includeInstance) {
@@ -19902,6 +19905,10 @@ proto.pps_v2.DeletePipelineRequest.deserializeBinaryFromReader = function(msg, r
     case 4:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setKeepRepo(value);
+      break;
+    case 5:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setMustExist(value);
       break;
     default:
       reader.skipField();
@@ -19958,6 +19965,13 @@ proto.pps_v2.DeletePipelineRequest.serializeBinaryToWriter = function(message, w
   if (f) {
     writer.writeBool(
       4,
+      f
+    );
+  }
+  f = message.getMustExist();
+  if (f) {
+    writer.writeBool(
+      5,
       f
     );
   }
@@ -20052,6 +20066,24 @@ proto.pps_v2.DeletePipelineRequest.prototype.getKeepRepo = function() {
  */
 proto.pps_v2.DeletePipelineRequest.prototype.setKeepRepo = function(value) {
   return jspb.Message.setProto3BooleanField(this, 4, value);
+};
+
+
+/**
+ * optional bool must_exist = 5;
+ * @return {boolean}
+ */
+proto.pps_v2.DeletePipelineRequest.prototype.getMustExist = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pps_v2.DeletePipelineRequest} returns this
+ */
+proto.pps_v2.DeletePipelineRequest.prototype.setMustExist = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 5, value);
 };
 
 
@@ -20648,7 +20680,8 @@ proto.pps_v2.StopPipelineRequest.prototype.toObject = function(opt_includeInstan
  */
 proto.pps_v2.StopPipelineRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    pipeline: (f = msg.getPipeline()) && proto.pps_v2.Pipeline.toObject(includeInstance, f)
+    pipeline: (f = msg.getPipeline()) && proto.pps_v2.Pipeline.toObject(includeInstance, f),
+    mustExist: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
   };
 
   if (includeInstance) {
@@ -20690,6 +20723,10 @@ proto.pps_v2.StopPipelineRequest.deserializeBinaryFromReader = function(msg, rea
       reader.readMessage(value,proto.pps_v2.Pipeline.deserializeBinaryFromReader);
       msg.setPipeline(value);
       break;
+    case 2:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setMustExist(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -20725,6 +20762,13 @@ proto.pps_v2.StopPipelineRequest.serializeBinaryToWriter = function(message, wri
       1,
       f,
       proto.pps_v2.Pipeline.serializeBinaryToWriter
+    );
+  }
+  f = message.getMustExist();
+  if (f) {
+    writer.writeBool(
+      2,
+      f
     );
   }
 };
@@ -20764,6 +20808,24 @@ proto.pps_v2.StopPipelineRequest.prototype.clearPipeline = function() {
  */
 proto.pps_v2.StopPipelineRequest.prototype.hasPipeline = function() {
   return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional bool must_exist = 2;
+ * @return {boolean}
+ */
+proto.pps_v2.StopPipelineRequest.prototype.getMustExist = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pps_v2.StopPipelineRequest} returns this
+ */
+proto.pps_v2.StopPipelineRequest.prototype.setMustExist = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 2, value);
 };
 
 

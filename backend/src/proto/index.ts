@@ -78,13 +78,11 @@ export {
   IAPIService_IListRepo,
   IAPIService_IModifyFile,
   IAPIService_IRenewFileSet,
-  IAPIService_IRunLoadTest,
   IAPIService_ISquashCommitSet,
   IAPIService_IStartCommit,
   IAPIService_ISubscribeCommit,
   IAPIService_IWalkFile,
   IAPIService_IDropCommitSet,
-  IAPIService_IRunLoadTestDefault as PfsIAPIService_IRunLoadTestDefault,
   IAPIService_ICheckStorage,
 } from './proto/pfs/pfs_grpc_pb';
 export {
@@ -122,8 +120,6 @@ export {
   Repo,
   AuthInfo,
   RepoInfo,
-  RunLoadTestRequest,
-  RunLoadTestResponse,
   Trigger,
   InspectBranchRequest,
   InspectCommitRequest,

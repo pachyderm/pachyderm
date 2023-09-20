@@ -13,6 +13,7 @@ import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/du
 import * as google_protobuf_any_pb from "google-protobuf/google/protobuf/any_pb";
 import * as auth_auth_pb from "../auth/auth_pb";
 import * as task_task_pb from "../task/task_pb";
+import * as protoextensions_validate_pb from "../protoextensions/validate_pb";
 
 interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     createRepo: IAPIService_ICreateRepo;
@@ -56,8 +57,6 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     putCache: IAPIService_IPutCache;
     getCache: IAPIService_IGetCache;
     clearCache: IAPIService_IClearCache;
-    runLoadTest: IAPIService_IRunLoadTest;
-    runLoadTestDefault: IAPIService_IRunLoadTestDefault;
     listTask: IAPIService_IListTask;
     egress: IAPIService_IEgress;
     createProject: IAPIService_ICreateProject;
@@ -93,14 +92,14 @@ interface IAPIService_IListRepo extends grpc.MethodDefinition<pfs_pfs_pb.ListRep
     responseSerialize: grpc.serialize<pfs_pfs_pb.RepoInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.RepoInfo>;
 }
-interface IAPIService_IDeleteRepo extends grpc.MethodDefinition<pfs_pfs_pb.DeleteRepoRequest, google_protobuf_empty_pb.Empty> {
+interface IAPIService_IDeleteRepo extends grpc.MethodDefinition<pfs_pfs_pb.DeleteRepoRequest, pfs_pfs_pb.DeleteRepoResponse> {
     path: "/pfs_v2.API/DeleteRepo";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<pfs_pfs_pb.DeleteRepoRequest>;
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.DeleteRepoRequest>;
-    responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
-    responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.DeleteRepoResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.DeleteRepoResponse>;
 }
 interface IAPIService_IDeleteRepos extends grpc.MethodDefinition<pfs_pfs_pb.DeleteReposRequest, pfs_pfs_pb.DeleteReposResponse> {
     path: "/pfs_v2.API/DeleteRepos";
@@ -435,24 +434,6 @@ interface IAPIService_IClearCache extends grpc.MethodDefinition<pfs_pfs_pb.Clear
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
-interface IAPIService_IRunLoadTest extends grpc.MethodDefinition<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse> {
-    path: "/pfs_v2.API/RunLoadTest";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<pfs_pfs_pb.RunLoadTestRequest>;
-    requestDeserialize: grpc.deserialize<pfs_pfs_pb.RunLoadTestRequest>;
-    responseSerialize: grpc.serialize<pfs_pfs_pb.RunLoadTestResponse>;
-    responseDeserialize: grpc.deserialize<pfs_pfs_pb.RunLoadTestResponse>;
-}
-interface IAPIService_IRunLoadTestDefault extends grpc.MethodDefinition<google_protobuf_empty_pb.Empty, pfs_pfs_pb.RunLoadTestResponse> {
-    path: "/pfs_v2.API/RunLoadTestDefault";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
-    requestDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
-    responseSerialize: grpc.serialize<pfs_pfs_pb.RunLoadTestResponse>;
-    responseDeserialize: grpc.deserialize<pfs_pfs_pb.RunLoadTestResponse>;
-}
 interface IAPIService_IListTask extends grpc.MethodDefinition<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo> {
     path: "/pfs_v2.API/ListTask";
     requestStream: false;
@@ -514,7 +495,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     createRepo: grpc.handleUnaryCall<pfs_pfs_pb.CreateRepoRequest, google_protobuf_empty_pb.Empty>;
     inspectRepo: grpc.handleUnaryCall<pfs_pfs_pb.InspectRepoRequest, pfs_pfs_pb.RepoInfo>;
     listRepo: grpc.handleServerStreamingCall<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.RepoInfo>;
-    deleteRepo: grpc.handleUnaryCall<pfs_pfs_pb.DeleteRepoRequest, google_protobuf_empty_pb.Empty>;
+    deleteRepo: grpc.handleUnaryCall<pfs_pfs_pb.DeleteRepoRequest, pfs_pfs_pb.DeleteRepoResponse>;
     deleteRepos: grpc.handleUnaryCall<pfs_pfs_pb.DeleteReposRequest, pfs_pfs_pb.DeleteReposResponse>;
     startCommit: grpc.handleUnaryCall<pfs_pfs_pb.StartCommitRequest, pfs_pfs_pb.Commit>;
     finishCommit: grpc.handleUnaryCall<pfs_pfs_pb.FinishCommitRequest, google_protobuf_empty_pb.Empty>;
@@ -552,8 +533,6 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     putCache: grpc.handleUnaryCall<pfs_pfs_pb.PutCacheRequest, google_protobuf_empty_pb.Empty>;
     getCache: grpc.handleUnaryCall<pfs_pfs_pb.GetCacheRequest, pfs_pfs_pb.GetCacheResponse>;
     clearCache: grpc.handleUnaryCall<pfs_pfs_pb.ClearCacheRequest, google_protobuf_empty_pb.Empty>;
-    runLoadTest: grpc.handleUnaryCall<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse>;
-    runLoadTestDefault: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, pfs_pfs_pb.RunLoadTestResponse>;
     listTask: grpc.handleServerStreamingCall<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo>;
     egress: grpc.handleUnaryCall<pfs_pfs_pb.EgressRequest, pfs_pfs_pb.EgressResponse>;
     createProject: grpc.handleUnaryCall<pfs_pfs_pb.CreateProjectRequest, google_protobuf_empty_pb.Empty>;
@@ -571,9 +550,9 @@ export interface IAPIClient {
     inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
     listRepo(request: pfs_pfs_pb.ListRepoRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
     listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
-    deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteRepoResponse) => void): grpc.ClientUnaryCall;
+    deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteRepoResponse) => void): grpc.ClientUnaryCall;
+    deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteRepoResponse) => void): grpc.ClientUnaryCall;
     deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
     deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
     deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
@@ -674,12 +653,6 @@ export interface IAPIClient {
     clearCache(request: pfs_pfs_pb.ClearCacheRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    runLoadTestDefault(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     egress(request: pfs_pfs_pb.EgressRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;
@@ -708,9 +681,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public inspectRepo(request: pfs_pfs_pb.InspectRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RepoInfo) => void): grpc.ClientUnaryCall;
     public listRepo(request: pfs_pfs_pb.ListRepoRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
     public listRepo(request: pfs_pfs_pb.ListRepoRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.RepoInfo>;
-    public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteRepoResponse) => void): grpc.ClientUnaryCall;
+    public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteRepoResponse) => void): grpc.ClientUnaryCall;
+    public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteRepoResponse) => void): grpc.ClientUnaryCall;
     public deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
     public deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
     public deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
@@ -811,12 +784,6 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public clearCache(request: pfs_pfs_pb.ClearCacheRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
-    public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
-    public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     public listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     public egress(request: pfs_pfs_pb.EgressRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;

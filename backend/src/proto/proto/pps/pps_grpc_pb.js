@@ -9,7 +9,8 @@ var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/durat
 var google_protobuf_wrappers_pb = require('google-protobuf/google/protobuf/wrappers_pb.js');
 var pfs_pfs_pb = require('../pfs/pfs_pb.js');
 var task_task_pb = require('../task/task_pb.js');
-var protoextensions_log_pb = require('../protoextensions/log_pb.js');
+var protoextensions_json$schema$options_pb = require('../protoextensions/json-schema-options_pb.js');
+var protoextensions_validate_pb = require('../protoextensions/validate_pb.js');
 
 function serialize_google_protobuf_Empty(arg) {
   if (!(arg instanceof google_protobuf_empty_pb.Empty)) {
