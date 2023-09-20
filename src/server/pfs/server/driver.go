@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"math"
 	"os"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -42,7 +44,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
 const (
@@ -462,9 +463,14 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	}
 	// Similarly with commits
 	// todo(fahad): write delete
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
-		return errors.EnsureStack(err)
+	for _, commitInfo := range commitInfos {
+		if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, commitInfo.Commit); err != nil {
+			return errors.Wrap(err, "delete repo info")
+		}
 	}
+	//if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
+	//	return errors.EnsureStack(err)
+	//}
 	if err := pfsdb.DeleteRepo(ctx, txnCtx.SqlTx, ri.Repo.Project.Name, ri.Repo.Name, ri.Repo.Type); err != nil && !pfsdb.IsErrRepoNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
 	}
@@ -895,10 +901,11 @@ func (d *driver) startCommit(
 }
 
 func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit, description, commitError string, force bool) error {
-	commitInfo, err := d.resolveCommit(ctx, txnCtx.SqlTx, commit)
+	commitWithID, err := d.resolveCommitWithID(ctx, txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
 	}
+	commitInfo := commitWithID.CommitInfo
 	if commitInfo.Finishing != nil {
 		return pfsserver.ErrCommitFinished{
 			Commit: commitInfo.Commit,
@@ -918,7 +925,7 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	commitInfo.Finishing = txnCtx.Timestamp
 	commitInfo.Error = commitError
 
-	return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Put(commitInfo.Commit, commitInfo))
+	return pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo)
 }
 
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repoInfo *pfs.RepoInfo) (int64, error) {
@@ -1069,34 +1076,76 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 				}
 			}
 		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
-			if err := d.commits.ReadOnly(ctx).WatchOneF(commitInfo.Commit, func(ev *watch.Event) error {
-				if ev.Type == watch.EventDelete {
-					return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
-				}
-				var key string
-				newCommitInfo := &pfs.CommitInfo{}
-				if err := ev.Unmarshal(&key, newCommitInfo); err != nil {
-					return errors.Wrapf(err, "unmarshal")
-				}
-				switch wait {
-				case pfs.CommitState_FINISHING:
-					if newCommitInfo.Finishing != nil {
-						commitInfo = newCommitInfo
-						return errutil.ErrBreak
-					}
-				case pfs.CommitState_FINISHED:
-					if newCommitInfo.Finished != nil {
-						commitInfo = newCommitInfo
-						return errutil.ErrBreak
-					}
-				}
-				return nil
-			}); err != nil {
-				return nil, errors.EnsureStack(err)
-			}
+			return d.inspectFinishingOrFinishedCommits(ctx, commitInfo, wait)
 		}
 	}
 	return commitInfo, nil
+}
+
+func (d *driver) inspectFinishingOrFinishedCommits(ctx context.Context, commitInfo *pfs.CommitInfo, wait pfs.CommitState) (*pfs.CommitInfo, error) {
+	var commitWithID *pfsdb.CommitWithID
+	var err error
+	// if state == wait has already been established in the database, then return without starting a watch.
+	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		commitWithID, err = pfsdb.GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
+		if err != nil && errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
+			return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
+		}
+		return errors.Wrap(err, "create list commits iterator")
+	}); err != nil {
+		return nil, err
+	}
+	switch wait {
+	case pfs.CommitState_FINISHING:
+		if commitWithID.CommitInfo.Finishing != nil {
+			commitInfo = commitWithID.CommitInfo
+			return commitInfo, nil
+		}
+	case pfs.CommitState_FINISHED:
+		if commitWithID.CommitInfo.Finished != nil {
+			commitInfo = commitWithID.CommitInfo
+			return commitInfo, nil
+		}
+	}
+	// otherwise start a watch and wait for state == wait.
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener,
+		path.Join(d.prefix, pfsdb.CommitKey(commitInfo.Commit)),
+		fmt.Sprintf("%s%d", pfsdb.CommitChannelName, commitWithID.ID)) // this id may have to be different
+	if err != nil {
+		return nil, errors.Wrap(err, "new watcher")
+	}
+	defer watcher.Close()
+	for {
+		event, ok := <-watcher.Watch()
+		if !ok {
+			return nil, errors.Errorf("watcher for inspect commit %v closed channel")
+		}
+		if event.Type == postgres.EventDelete {
+			return nil, pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
+		}
+		if event.Err != nil {
+			return nil, event.Err
+		}
+		var newCommitInfo *pfs.CommitInfo
+		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+			newCommitInfo, err = pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(event.Id))
+			return err
+		}); err != nil {
+			return nil, errors.Wrap(err, "getting commit from event")
+		}
+		switch wait {
+		case pfs.CommitState_FINISHING:
+			if newCommitInfo.Finishing != nil {
+				commitInfo = newCommitInfo
+				return commitInfo, nil
+			}
+		case pfs.CommitState_FINISHED:
+			if newCommitInfo.Finished != nil {
+				commitInfo = newCommitInfo
+				return commitInfo, nil
+			}
+		}
+	}
 }
 
 // resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
@@ -1127,11 +1176,11 @@ func (d *driver) resolveCommitWithAuth(ctx context.Context, commit *pfs.Commit) 
 	return commitInfo, nil
 }
 
-// resolveCommit contains the essential implementation of inspectCommit: it converts 'commit' (which may
+// resolveCommitWithID contains the essential implementation of inspectCommit: it converts 'commit' (which may
 // be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
 // ID. It accepts a postgres transaction so that it can be used in a transaction
 // and avoids an inconsistent call to d.inspectCommit()
-func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
+func (d *driver) resolveCommitWithID(ctx context.Context, sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfsdb.CommitWithID, error) {
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
 	}
@@ -1165,7 +1214,7 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 		}
 		commit.Id = branchInfo.Head.Id
 	}
-	commitInfo, err := pfsdb.GetCommitByCommitKey(ctx, sqlTx, commit)
+	commitWithID, err := pfsdb.GetCommitWithIDByKey(ctx, sqlTx, commit)
 	if err != nil {
 		if errors.Is(pfsdb.ErrCommitNotFound{CommitID: commit.Key()}, errors.Cause(err)) {
 			// try to resolve to alias if not found
@@ -1174,7 +1223,7 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 				return nil, err
 			}
 			commit.Id = resolvedCommit.Id
-			commitInfo, err = pfsdb.GetCommitByCommitKey(ctx, sqlTx, commit)
+			commitWithID, err = pfsdb.GetCommitWithIDByKey(ctx, sqlTx, commit)
 			if err != nil {
 				return nil, errors.EnsureStack(err)
 			}
@@ -1185,11 +1234,11 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 	// Traverse commits' parents until you've reached the right ancestor
 	if ancestryLength >= 0 {
 		for i := 1; i <= ancestryLength; i++ {
-			if commitInfo.ParentCommit == nil {
+			if commitWithID.CommitInfo.ParentCommit == nil {
 				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
-			parentKey := commitInfo.ParentCommit.Key()
-			commitInfo, err = pfsdb.GetCommitByCommitKey(ctx, sqlTx, commitInfo.ParentCommit)
+			parentKey := commitWithID.CommitInfo.ParentCommit.Key()
+			commitWithID, err = pfsdb.GetCommitWithIDByKey(ctx, sqlTx, commitWithID.CommitInfo.ParentCommit)
 			if err != nil {
 				if errors.Is(pfsdb.ErrCommitNotFound{CommitID: parentKey}, errors.Cause(err)) {
 					if i == 0 {
@@ -1201,16 +1250,16 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 			}
 		}
 	} else {
-		cis := make([]*pfs.CommitInfo, ancestryLength*-1)
+		cis := make([]*pfsdb.CommitWithID, ancestryLength*-1)
 		for i := 0; ; i++ {
 			if commit == nil {
 				if i >= len(cis) {
-					commitInfo = cis[i%len(cis)]
+					commitWithID = cis[i%len(cis)]
 					break
 				}
 				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
-			cis[i&len(cis)], err = pfsdb.GetCommitByCommitKey(ctx, sqlTx, commit)
+			cis[i&len(cis)], err = pfsdb.GetCommitWithIDByKey(ctx, sqlTx, commit)
 			if err != nil {
 				if errors.Is(pfsdb.ErrCommitNotFound{CommitID: commit.Key()}, errors.Cause(err)) {
 					if i == 0 {
@@ -1220,10 +1269,22 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommi
 				}
 				return nil, err
 			}
-			commit = cis[i%len(cis)].ParentCommit
+			commit = cis[i%len(cis)].CommitInfo.ParentCommit
 		}
 	}
-	return commitInfo, nil
+	return commitWithID, nil
+}
+
+// resolveCommit contains the essential implementation of inspectCommit: it converts 'commit' (which may
+// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
+// ID. It accepts a postgres transaction so that it can be used in a transaction
+// and avoids an inconsistent call to d.inspectCommit()
+func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
+	commitWithId, err := d.resolveCommitWithID(ctx, sqlTx, userCommit)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolve commit")
+	}
+	return commitWithId.CommitInfo, nil
 }
 
 // getCommit is like inspectCommit, without the blocking.
@@ -1456,45 +1517,82 @@ func (d *driver) subscribeCommit(
 	if from != nil && !proto.Equal(from.Repo, repo) {
 		return errors.Errorf("the `from` commit needs to be from repo %s", repo)
 	}
-
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
-
 	// Note that this watch may leave events unread for a long amount of time
 	// while waiting for the commit state - if the watch channel fills up, it will
 	// error out.
-	err := d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo), func(ev *watch.Event) error {
-		var key string
-		commitInfo := &pfs.CommitInfo{}
-		if err := ev.Unmarshal(&key, commitInfo); err != nil {
-			return errors.Wrapf(err, "unmarshal")
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener,
+		path.Join(d.prefix, "finishRepoCommits", pfsdb.RepoKey(repo)), pfsdb.CommitsRepoChannelName+pfsdb.RepoKey(repo))
+	if err != nil {
+		return errors.Wrap(err, "new watcher")
+	}
+	defer watcher.Close()
+	// Get existing entries.
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB,
+		pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(repo)}}, false, true)
+	if err != nil {
+		return errors.Wrap(err, "create list commits iterator")
+	}
+	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+		return d.subscribeCommitHelper(ctx, branch, from, state, commitWithID.CommitInfo, all, originKind, seen, cb)
+	}); err != nil {
+		return errors.Wrap(err, "list commits")
+	}
+	for {
+		event, ok := <-watcher.Watch()
+		if !ok {
+			return errors.Errorf("watcher for repo %v closed channel", pfsdb.RepoKey(repo))
 		}
+		if event.Type == postgres.EventDelete {
+			continue
+		}
+		if event.Err != nil {
+			return event.Err
+		}
+		var commitInfo *pfs.CommitInfo
+		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+			commitInfo, err = pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(event.Id))
+			return err
+		}); err != nil {
+			return errors.Wrap(err, "getting commit from event")
+		}
+		return d.subscribeCommitHelper(ctx, branch, from, state, commitInfo, all, originKind, seen, cb)
+	}
+}
 
-		// if branch is provided, make sure the commit was created on that branch
-		if branch != "" && commitInfo.Commit.Branch.Name != branch {
-			return nil
-		}
-
-		// If the origin of the commit doesn't match what we're interested in, skip it
-		if !passesCommitOriginFilter(commitInfo, all, originKind) {
-			return nil
-		}
-
-		// We don't want to include the `from` commit itself
-		if !(seen[commitInfo.Commit.Id] || (from != nil && from.Id == commitInfo.Commit.Id)) {
-			// Wait for the commit to enter the right state
-			commitInfo, err := d.inspectCommit(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
-			if err != nil {
-				return err
-			}
-			if err := cb(commitInfo); err != nil {
-				return err
-			}
-			seen[commitInfo.Commit.Id] = true
-		}
+func (d *driver) subscribeCommitHelper(
+	ctx context.Context,
+	branch string,
+	from *pfs.Commit,
+	state pfs.CommitState,
+	commitInfo *pfs.CommitInfo,
+	all bool,
+	originKind pfs.OriginKind,
+	seen map[string]bool,
+	cb func(*pfs.CommitInfo) error,
+) error {
+	// if branch is provided, make sure the commit was created on that branch
+	if branch != "" && commitInfo.Commit.Branch.Name != branch {
 		return nil
-	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete)
-	return errors.EnsureStack(err)
+	}
+	// If the origin of the commit doesn't match what we're interested in, skip it
+	if !passesCommitOriginFilter(commitInfo, all, originKind) {
+		return nil
+	}
+	// We don't want to include the `from` commit itself
+	if !(seen[commitInfo.Commit.Id] || (from != nil && from.Id == commitInfo.Commit.Id)) {
+		// Wait for the commit to enter the right state
+		commitInfo, err := d.inspectCommit(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
+		if err != nil {
+			return err
+		}
+		if err := cb(commitInfo); err != nil {
+			return err
+		}
+		seen[commitInfo.Commit.Id] = true
+	}
+	return nil
 }
 
 func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {

@@ -322,6 +322,7 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 		payload := TG_OP || ' ' || row.int_id::text;
 		PERFORM pg_notify('pfs_commits', payload);
 		PERFORM pg_notify('pfs_commits_repo_' || row.repo_id::text, payload);
+		PERFORM pg_notify('pfs_commits_' || row.id::text, payload);
 		return row;
 	END;
 	$$ LANGUAGE plpgsql;
@@ -344,6 +345,12 @@ func migrateCommits(ctx context.Context, env migrations.Env) error {
 		return err
 	}
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
+		return err
+	}
+	if err := alterCommitsTablePostDataMigration(ctx, env); err != nil {
+		return err
+	}
+	if err := createNotifyCommitsTrigger(ctx, env.Tx); err != nil {
 		return err
 	}
 	return nil

@@ -19,8 +19,10 @@ import (
 
 const (
 	// CommitsChannelName is used to watch events for the commits table.
-	CommitsChannelName = "pfs_commits"
-	createCommit       = `
+	CommitsChannelName     = "pfs_commits"
+	CommitsRepoChannelName = "pfs_commits_repo_"
+	CommitChannelName      = "pfs_commits_"
+	createCommit           = `
 		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name= :repo.project.name))
 		INSERT INTO pfs.commits 
     	(commit_id, 
@@ -410,7 +412,7 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 	return commitInfo, err
 }
 
-func GetCommitPairByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*CommitWithID, error) {
+func GetCommitWithIDByKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*CommitWithID, error) {
 	row, err := getCommitRowByCommitKey(ctx, tx, commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit by commit key")
@@ -427,7 +429,7 @@ func GetCommitPairByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.C
 
 // GetCommitByCommitKey is like GetCommit but derives the int_id on behalf of the caller.
 func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	pair, err := GetCommitPairByCommitKey(ctx, tx, commit)
+	pair, err := GetCommitWithIDByKey(ctx, tx, commit)
 	if err != nil {
 		return nil, err
 	}

@@ -177,7 +177,7 @@ func TestGetCommitPair(t *testing.T) {
 			require.NoError(t, err, "should be able to create commit")
 			createBranch(ctx, t, tx, commitInfo.Commit)
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, commitID, commitInfo)) // add branch fields once they exist
-			getPair, err := pfsdb.GetCommitPairByCommitKey(ctx, tx, commitInfo.Commit)
+			getPair, err := pfsdb.GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to get commit with id=1")
 			commitsMatch(t, commitInfo, getPair.CommitInfo)
 			require.Equal(t, commitID, getPair.ID)

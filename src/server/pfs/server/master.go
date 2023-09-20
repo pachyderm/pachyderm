@@ -11,7 +11,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -335,81 +334,110 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
-	return errors.EnsureStack(d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
-		if ev.Type == watch.EventError {
-			return ev.Err
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(d.prefix, "finishRepoCommits", repoKey), pfsdb.CommitsRepoChannelName+repoKey)
+	if err != nil {
+		return errors.Wrap(err, "new watcher")
+	}
+	defer watcher.Close()
+	// Get existing entries.
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{repoKey}}, false, true)
+	if err != nil {
+		return errors.Wrap(err, "create list commits iterator")
+	}
+	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+		return d.finishRepoCommit(ctx, repoKey, &commitWithID)
+	}); err != nil {
+		return errors.Wrap(err, "list commits")
+	}
+	for {
+		event, ok := <-watcher.Watch()
+		if !ok {
+			return errors.Errorf("watcher for repo %v closed channel", repoKey)
 		}
-		var key string
-		commitInfo := &pfs.CommitInfo{}
-		if err := ev.Unmarshal(&key, commitInfo); err != nil {
+		if event.Type == postgres.EventDelete {
+			continue
+		}
+		if event.Err != nil {
+			return event.Err
+		}
+		var commit *pfs.CommitInfo
+		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+			commit, err = pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(event.Id))
 			return err
+		}); err != nil {
+			return errors.Wrap(err, "getting commit from event")
 		}
-		if commitInfo.Finishing == nil || commitInfo.Finished != nil {
-			return nil
+		return d.finishRepoCommit(ctx, repoKey, &pfsdb.CommitWithID{ID: pfsdb.CommitID(event.Id), CommitInfo: commit})
+	}
+}
+
+func (d *driver) finishRepoCommit(ctx context.Context, repoKey string, commitWithID *pfsdb.CommitWithID) error {
+	commitInfo := commitWithID.CommitInfo
+	if commitInfo.Finishing == nil || commitInfo.Finished != nil {
+		return nil
+	}
+	commit := commitInfo.Commit
+	cache := d.newCache(pfsdb.CommitKey(commit))
+	defer func() {
+		if err := cache.clear(ctx); err != nil {
+			log.Error(ctx, "errored clearing compaction cache", zap.Error(err))
 		}
-		commit := commitInfo.Commit
-		cache := d.newCache(pfsdb.CommitKey(commit))
-		defer func() {
-			if err := cache.clear(ctx); err != nil {
-				log.Error(ctx, "errored clearing compaction cache", zap.Error(err))
+	}()
+	return log.LogStep(ctx, "finishCommit", func(ctx context.Context) error {
+		return backoff.RetryUntilCancel(ctx, func() error {
+			// In the case where a commit is squashed between retries (commit not found), the master can return.
+			if _, err := d.getCommit(ctx, commit); err != nil {
+				if pfsserver.IsCommitNotFoundErr(err) {
+					return nil
+				}
+				return err
 			}
-		}()
-		return log.LogStep(ctx, "finishCommit", func(ctx context.Context) error {
-			return backoff.RetryUntilCancel(ctx, func() error {
-				// In the case where a commit is squashed between retries (commit not found), the master can return.
-				if _, err := d.getCommit(ctx, commit); err != nil {
-					if pfsserver.IsCommitNotFoundErr(err) {
-						return nil
-					}
+			// Skip compaction / validation for errored commits.
+			if commitInfo.Error != "" {
+				return d.finalizeCommit(ctx, commitWithID, "", nil, nil)
+			}
+			compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
+			taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, cache)
+			return errors.EnsureStack(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+				start := time.Now()
+				// Compacting the diff before getting the total allows us to compose the
+				// total file set so that it includes the compacted diff.
+				if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
+					_, err := d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+					return err
+				}); err != nil {
 					return err
 				}
-				// Skip compaction / validation for errored commits.
-				if commitInfo.Error != "" {
-					return d.finalizeCommit(ctx, commit, "", nil, nil)
+				var totalId *fileset.ID
+				var err error
+				if err := log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
+					totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
+					return err
+				}); err != nil {
+					return err
 				}
-				compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, cache)
-				return errors.EnsureStack(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-					start := time.Now()
-					// Compacting the diff before getting the total allows us to compose the
-					// total file set so that it includes the compacted diff.
-					if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-						_, err := d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
-						return err
-					}); err != nil {
-						return err
-					}
-					var totalId *fileset.ID
+				details := &pfs.CommitInfo_Details{
+					CompactingTime: durationpb.New(time.Since(start)),
+				}
+				// Validate the commit.
+				start = time.Now()
+				var validationError string
+				if err := log.LogStep(ctx, "validateCommit", func(ctx context.Context) error {
 					var err error
-					if err := log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-						totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
-						return err
-					}); err != nil {
-						return err
-					}
-					details := &pfs.CommitInfo_Details{
-						CompactingTime: durationpb.New(time.Since(start)),
-					}
-					// Validate the commit.
-					start = time.Now()
-					var validationError string
-					if err := log.LogStep(ctx, "validateCommit", func(ctx context.Context) error {
-						var err error
-						validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, *totalId)
-						return err
-					}); err != nil {
-						return err
-					}
-					details.ValidatingTime = durationpb.New(time.Since(start))
-					// Finish the commit.
-					return d.finalizeCommit(ctx, commit, validationError, details, totalId)
-				}))
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Error(ctx, "error finishing commit", zap.Error(err), zap.Duration("retryAfter", d))
-				return nil
-			})
-		}, zap.Bool("finishing", true), log.Proto("commit", commitInfo.Commit), zap.String("repo", key))
-	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete))
+					validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, *totalId)
+					return err
+				}); err != nil {
+					return err
+				}
+				details.ValidatingTime = durationpb.New(time.Since(start))
+				// Finish the commit.
+				return d.finalizeCommit(ctx, commitWithID, validationError, details, totalId)
+			}))
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			log.Error(ctx, "error finishing commit", zap.Error(err), zap.Duration("retryAfter", d))
+			return nil
+		})
+	}, zap.Bool("finishing", true), log.Proto("commit", commitInfo.Commit), zap.String("repo", repoKey))
 }
 
 func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
@@ -445,22 +473,20 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 	return totalId, nil
 }
 
-func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
+func (d *driver) finalizeCommit(ctx context.Context, commitWithID *pfsdb.CommitWithID, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
 	return log.LogStep(ctx, "finalizeCommit", func(ctx context.Context) error {
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			commitInfo := &pfs.CommitInfo{}
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {
-				commitInfo.Finished = txnCtx.Timestamp
-				if details != nil {
-					commitInfo.SizeBytesUpperBound = details.SizeBytes
-				}
-				if commitInfo.Error == "" {
-					commitInfo.Error = validationError
-				}
-				commitInfo.Details = details
-				return nil
-			}); err != nil {
-				return errors.EnsureStack(err)
+			commitInfo := commitWithID.CommitInfo
+			commitInfo.Finished = txnCtx.Timestamp
+			if details != nil {
+				commitInfo.SizeBytesUpperBound = details.SizeBytes
+			}
+			if commitInfo.Error == "" {
+				commitInfo.Error = validationError
+			}
+			commitInfo.Details = details
+			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo); err != nil {
+				return errors.Wrap(err, "finalize commit")
 			}
 			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
 				txnCtx.FinishJob(commitInfo)
