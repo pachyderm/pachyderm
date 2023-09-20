@@ -114,10 +114,12 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	if n := request.GetCurrentProject().GetName(); n != "" {
 		if a.pfsServer == nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("PFS server not running; cannot check existence of project %s", request.GetCurrentProject()))
-		} else if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil {
-			if !(auth.IsErrNotSignedIn(err) || auth.IsErrBadToken(err) || auth.IsErrExpiredToken(err) || auth.IsErrNoMetadata(err)) {
-				response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
-			}
+		} else if _, err := a.pfsServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: request.GetCurrentProject()}); err != nil && !(auth.IsErrNotSignedIn(err) || auth.IsErrBadToken(err) || auth.IsErrExpiredToken(err) || auth.IsErrNoMetadata(err)) {
+			// ErrNotSignedIn, ErrBadToken, ErrExpiredToken &
+			// ErrNoMetadata are ignored because they indicate that
+			// the project could not be checked for existence at
+			// all.
+			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
 		}
 	}
 	return response, nil
