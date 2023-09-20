@@ -410,7 +410,8 @@ func UpsertBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID, to 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO pfs.branch_triggers(from_branch_id, to_branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (from_branch_id, to_branch_id) DO UPDATE SET
+		ON CONFLICT (from_branch_id) DO UPDATE SET
+			to_branch_id = EXCLUDED.to_branch_id,
 			cron_spec = EXCLUDED.cron_spec,
 			rate_limit_spec = EXCLUDED.rate_limit_spec,
 			size = EXCLUDED.size,

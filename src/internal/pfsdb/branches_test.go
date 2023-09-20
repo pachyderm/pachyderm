@@ -316,11 +316,11 @@ func TestBranchDelete(t *testing.T) {
 func TestBranchTrigger(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
-		repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
 		var masterBranchID, stagingBranchID pfsdb.BranchID
-		// Create two branches
+		// Create two branches, master and staging in the same repo.
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			var err error
+			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
 			commit1 := createCommitPair(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
 			masterBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Head: commit1}
 			masterBranchID, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
@@ -330,12 +330,11 @@ func TestBranchTrigger(t *testing.T) {
 			stagingBranchID, err = pfsdb.UpsertBranch(ctx, tx, stagingBranchInfo)
 			require.NoError(t, err)
 		})
-		// Create the branch trigger that re-points master to staging
+		// Create the branch trigger that re-points master to staging.
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			// Create a second branch staging, and add a trigger to the main branch to re-point to this branch.
 			trigger := &pfs.Trigger{
 				Branch:        "staging",
-				CronSpec:      "* * * * *", // Every minute
+				CronSpec:      "* * * * *",
 				RateLimitSpec: "",
 				Size:          "100M",
 				Commits:       10,
