@@ -2,6 +2,7 @@ package pfsdb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -203,6 +204,16 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	if err := DeleteDirectBranchProvenanceBatch(ctx, tx, branchID, toRemoveIDs); err != nil {
 		return 0, errors.Wrap(err, "could not delete branch provenance")
 	}
+	// Triggers
+	if branchInfo.Trigger != nil {
+		toBranchID, err := GetBranchID(ctx, tx, branchInfo.Branch.Repo.Project.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Repo.Type, branchInfo.Trigger.Branch)
+		if err != nil {
+			return 0, errors.Wrap(err, "could not get to_id")
+		}
+		if err := UpsertBranchTrigger(ctx, tx, branchID, toBranchID, branchInfo.Trigger); err != nil {
+			return 0, errors.Wrap(err, "could not create branch trigger")
+		}
+	}
 	return branchID, nil
 }
 
@@ -210,6 +221,12 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branches WHERE id = $1`, id); err != nil {
 		return errors.Wrapf(err, "could not delete branch %d", id)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1 OR to_id = $1`, id); err != nil {
+		return errors.Wrapf(err, "could not delete branch provenance for branch %d", id)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1 OR to_branch_id = $1`, id); err != nil {
+		return errors.Wrapf(err, "could not delete branch trigger for branch %d", id)
 	}
 	return nil
 }
@@ -354,6 +371,73 @@ func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 	return errors.Wrap(err, "could not delete branch provenance")
 }
 
+func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.Trigger, error) {
+	var (
+		branchName    string
+		cronSpec      string
+		rateLimitSpec string
+		size          string
+		numCommits    int64
+		all           bool
+	)
+	if err := tx.QueryRowxContext(ctx, `
+		SELECT branch.name, cron_spec, rate_limit_spec, size, num_commits, all_conditions
+		FROM pfs.branch_triggers trigger
+			JOIN pfs.branches branch ON trigger.to_branch_id = branch.id
+		WHERE trigger.from_branch_id = $1
+	`, from).Scan(&branchName, &cronSpec, &rateLimitSpec, &size, &numCommits, &all); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "could not get branch trigger")
+	}
+	return &pfs.Trigger{
+		Branch:        branchName,
+		CronSpec:      cronSpec,
+		RateLimitSpec: rateLimitSpec,
+		Size:          size,
+		Commits:       numCommits,
+		All:           all,
+	}, nil
+}
+
+func UpsertBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID, to BranchID, trigger *pfs.Trigger) error {
+	if trigger == nil {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO pfs.branch_triggers(from_branch_id, to_branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (from_branch_id, to_branch_id) DO UPDATE SET
+			cron_spec = EXCLUDED.cron_spec,
+			rate_limit_spec = EXCLUDED.rate_limit_spec,
+			size = EXCLUDED.size,
+			num_commits = EXCLUDED.num_commits,
+			all_conditions = EXCLUDED.all_conditions;
+	`,
+		from,
+		to,
+		trigger.CronSpec,
+		trigger.RateLimitSpec,
+		trigger.Size,
+		trigger.Commits,
+		trigger.All,
+	); err != nil {
+		return errors.Wrap(err, "could not create branch trigger")
+	}
+	return nil
+}
+
+func DeleteBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) error {
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM pfs.branch_triggers
+		WHERE from_branch_id = $1
+	`, from); err != nil {
+		return errors.Wrapf(err, "could not delete branch trigger for branch %d", from)
+	}
+	return nil
+}
+
 func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
 	if branch == nil {
 		return nil, errors.Errorf("branch cannot be nil")
@@ -371,6 +455,11 @@ func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch
 	branchInfo.Subvenance, err = GetBranchSubvenance(ctx, tx, branch.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get full branch subvenance")
+	}
+	// trigger info
+	branchInfo.Trigger, err = GetBranchTrigger(ctx, tx, branch.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get branch trigger")
 	}
 	return branchInfo, nil
 }
