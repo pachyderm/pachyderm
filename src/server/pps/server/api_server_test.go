@@ -401,8 +401,8 @@ func TestSetClusterDefaults(t *testing.T) {
 		err = json.Unmarshal([]byte(getResp.GetClusterDefaultsJson()), &originalDefaults)
 		require.NoError(t, err, "unmarshal retrieved cluster defaults")
 
-		repo := "input"
-		pipeline := "pipeline"
+		repo := tu.UniqueString("input")
+		pipeline := tu.UniqueString("pipeline")
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 		var pipelineTemplate = `{
 		"pipeline": {
@@ -462,8 +462,10 @@ func TestSetClusterDefaults(t *testing.T) {
 	})
 
 	t.Run("ValidDetails", func(t *testing.T) {
-		repo := "input"
-		pipeline := "pipeline"
+		err := env.PachClient.DeleteAll()
+		require.NoError(t, err)
+		repo := tu.UniqueString("input")
+		pipeline := tu.UniqueString("pipeline")
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 		var pipelineTemplate = `{
 		"pipeline": {
