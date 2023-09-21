@@ -344,24 +344,30 @@ func TestBranchTrigger(t *testing.T) {
 			gotTrigger, err := pfsdb.GetBranchTrigger(ctx, tx, masterBranchID)
 			require.NoError(t, err)
 			require.Equal(t, trigger, gotTrigger)
-			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			// Also get the trigger from GetBranchInfo
+			gotMasterBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
 			require.NoError(t, err)
-			require.Equal(t, trigger, gotBranchInfo.Trigger)
-			// Update the trigger
+			require.Equal(t, trigger, gotMasterBranchInfo.Trigger)
+			// Update the trigger through UpsertBranchTrigger
 			trigger.CronSpec = "0 * * * *"
 			trigger.All = false
 			require.NoError(t, pfsdb.UpsertBranchTrigger(ctx, tx, masterBranchID, stagingBranchID, trigger))
-			gotBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			gotMasterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
 			require.NoError(t, err)
-			require.Equal(t, trigger, gotBranchInfo.Trigger)
+			require.Equal(t, trigger, gotMasterBranchInfo.Trigger)
+			// Delete branch trigger, and try to get it back via GetBranchInfo
 			require.NoError(t, pfsdb.DeleteBranchTrigger(ctx, tx, masterBranchID))
-			gotBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			gotMasterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
 			require.NoError(t, err)
-			require.Nil(t, gotBranchInfo.Trigger)
+			require.Nil(t, gotMasterBranchInfo.Trigger)
 			// staging branch shouldn't get a trigger
-			gotBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
+			gotStagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
 			require.NoError(t, err)
-			require.Nil(t, gotBranchInfo.Trigger)
+			require.Nil(t, gotStagingBranchInfo.Trigger)
+			// Attempt to create trigger with nonexistent branch via UpsertBranch
+			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
+			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
+			require.ErrorContains(t, err, "no rows in result set")
 		})
 	})
 }
