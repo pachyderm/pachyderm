@@ -975,10 +975,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	}()
 
 	var socket net.Listener
+	var err1 error
+	var err2 error
 	var err error
 	if len(sopts.SockPath) > 0 {
-		socket, err = net.Listen("unix", sockPath)
-		err = srv.Serve(socket)
+		socket, err1 = net.Listen("unix", sockPath)
+		err2 = srv.Serve(socket)
+		err = errors.Join(err1, err2)
 	} else {
 		err = srv.ListenAndServe()
 	}
