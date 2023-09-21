@@ -978,7 +978,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	var err error
 	if len(sopts.SockPath) > 0 {
 		socket, err = net.Listen("unix", sockPath)
-		srv.Serve(socket)
+		err = srv.Serve(socket)
 	} else {
 		err = srv.ListenAndServe()
 	}
