@@ -127,3 +127,24 @@ func (branch *Branch) Pb() *pfs.Branch {
 		Repo: branch.Repo.Pb(),
 	}
 }
+
+type BranchTrigger struct {
+	FromBranch    Branch `db:"from_branch"`
+	ToBranch      Branch `db:"to_branch"`
+	CronSpec      string `db:"cron_spec"`
+	RateLimitSpec string `db:"rate_limit_spec"`
+	Size          string `db:"size"`
+	NumCommits    int64  `db:"num_commits"`
+	AllConditions bool   `db:"all_conditions"`
+}
+
+func (trigger *BranchTrigger) Pb() *pfs.Trigger {
+	return &pfs.Trigger{
+		Branch:        trigger.ToBranch.Name,
+		CronSpec:      trigger.CronSpec,
+		RateLimitSpec: trigger.RateLimitSpec,
+		Size:          trigger.Size,
+		Commits:       trigger.NumCommits,
+		All:           trigger.AllConditions,
+	}
+}

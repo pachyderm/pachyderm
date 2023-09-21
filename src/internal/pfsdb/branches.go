@@ -377,34 +377,25 @@ func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 }
 
 func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.Trigger, error) {
-	var (
-		branchName    string
-		cronSpec      string
-		rateLimitSpec string
-		size          string
-		numCommits    int64
-		all           bool
-	)
-	if err := tx.QueryRowxContext(ctx, `
-		SELECT branch.name, cron_spec, rate_limit_spec, size, num_commits, all_conditions
+	trigger := BranchTrigger{}
+	if err := tx.GetContext(ctx, &trigger, `
+		SELECT
+			branch.name as "to_branch.name",
+			cron_spec,
+			rate_limit_spec,
+			size, num_commits,
+			all_conditions
 		FROM pfs.branch_triggers trigger
 			JOIN pfs.branches branch ON trigger.to_branch_id = branch.id
 		WHERE trigger.from_branch_id = $1
-	`, from).Scan(&branchName, &cronSpec, &rateLimitSpec, &size, &numCommits, &all); err != nil {
+	`, from); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// Branches don't need to have triggers
 			return nil, nil
 		}
 		return nil, errors.Wrap(err, "could not get branch trigger")
 	}
-	return &pfs.Trigger{
-		Branch:        branchName,
-		CronSpec:      cronSpec,
-		RateLimitSpec: rateLimitSpec,
-		Size:          size,
-		Commits:       numCommits,
-		All:           all,
-	}, nil
+	return trigger.Pb(), nil
 }
 
 func UpsertBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID, to BranchID, trigger *pfs.Trigger) error {
