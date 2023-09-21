@@ -290,6 +290,12 @@ describe('File Preview', () => {
       expect(await screen.findByText('EXPOSE')).toBeInTheDocument();
     });
 
+    it('should render a protobuf file', async () => {
+      renderFilePreview('proto', files.protobuf);
+
+      expect(await screen.findByText('syntax')).toBeInTheDocument();
+    });
+
     it('should render a message when the file type cannot be rendered', async () => {
       const file = buildFile({
         download: '/download/data.unsupported',

@@ -14,7 +14,16 @@ import {LanguageSupport} from '@codemirror/language';
 
 import parsePath from '@dash-frontend/lib/parsePath';
 
-import {docker, go, julia, r, ruby, shell, yaml} from './extensions/legacy';
+import {
+  docker,
+  go,
+  julia,
+  protobuf,
+  r,
+  ruby,
+  shell,
+  yaml,
+} from './extensions/legacy';
 
 export type SupportedRenderer =
   | 'code'
@@ -46,7 +55,8 @@ export type SupportedLanguagePlugins =
   | 'r'
   | 'julia'
   | 'ruby'
-  | 'docker';
+  | 'docker'
+  | 'protobuf';
 
 export type SupportedFileIcons =
   | 'document'
@@ -94,6 +104,7 @@ export const FILE_PLUGIN_MAP = Object.freeze<FilePluginMap>({
   julia,
   ruby,
   docker,
+  protobuf,
 });
 
 export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
@@ -275,6 +286,15 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     supportsPreview: true,
     supportsViewSource: false,
     extensions: ['.css'],
+  },
+
+  protobuf: {
+    renderer: 'code',
+    language: 'protobuf',
+    icon: 'document',
+    supportsPreview: true,
+    supportsViewSource: false,
+    extensions: ['.proto'],
   },
 
   text: {

@@ -87,6 +87,23 @@ println(s1)
 ---
 **labore et dolore magna aliqua**
   `,
+  protobuf: `
+syntax = "proto3";
+
+package pfs_v2;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/pfs";
+
+import "protoextensions/validate.proto";
+
+////  PFS Data structures (stored in etcd)
+
+  message Repo {
+    string name = 1;
+    string type = 2;
+    Project project = 3;
+  }
+
+`,
   php: `
 <!DOCTYPE html>
 <html>
