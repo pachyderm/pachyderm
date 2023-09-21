@@ -62,7 +62,7 @@ const (
 			error=:error 
 		WHERE int_id=:int_id;`
 	getCommit = `
-		SELECT 
+		SELECT DISTINCT ON (commit.int_id)
     		commit.int_id, 
     		commit.commit_id, 
     		commit.branch_id, 
@@ -940,13 +940,11 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	query := getCommit
 	order := "ASC"
 	revisionTimestamp := ""
-	groupByTimestamp := ""
 	if reverse {
 		order = "DESC"
 	}
 	if revision {
 		revisionTimestamp = fmt.Sprintf("commit.created_at %s, ", order)
-		groupByTimestamp = ", commit.created_at"
 	}
 	for key, vals := range filter {
 		if len(vals) == 0 {
@@ -980,8 +978,7 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
-	fullQuery := fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, branch.name, project.name %s "+
-		"ORDER BY %s commit.int_id %s LIMIT $1 OFFSET $2;", query, where, groupByTimestamp, revisionTimestamp, order)
+	fullQuery := fmt.Sprintf("%s %s ORDER BY %s commit.int_id %s LIMIT $1 OFFSET $2;", query, where, revisionTimestamp, order)
 	if err := tx.SelectContext(ctx, &page,
 		fullQuery, limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get commit page")

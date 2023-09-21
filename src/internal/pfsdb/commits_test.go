@@ -569,7 +569,7 @@ func TestListCommitsTxFilter(t *testing.T) {
 	commitSetIds := make([]string, 0)
 	commits := make([]*pfs.CommitInfo, 0)
 	filter := pfsdb.CommitListFilter{
-		pfsdb.CommitRepos:    []string{"b"},
+		pfsdb.CommitRepos:    []string{"default/b.user"},
 		pfsdb.CommitOrigins:  []string{pfs.OriginKind_ORIGIN_KIND_UNKNOWN.String(), pfs.OriginKind_USER.String()},
 		pfsdb.CommitBranches: []string{"master"},
 		pfsdb.CommitProjects: []string{"default"},
