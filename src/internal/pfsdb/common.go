@@ -13,28 +13,27 @@ import (
 type sortOrder string
 
 const (
-	SortNone    = sortOrder("")
-	SortAscend  = sortOrder("ASC")
-	SortDescend = sortOrder("DESC")
+	SortOrderNone = sortOrder("")
+	SortOrderAsc  = sortOrder("ASC")
+	SortOrderDesc = sortOrder("DESC")
 )
 
 type (
-	ModelType interface{ Repo | Commit | Branch }
+	ModelType  interface{ Repo | Commit | Branch }
+	ColumnName interface{ string | branchColumn }
 )
 
-type OrderByColumn struct {
-	Column string
+type OrderByColumn[T ColumnName] struct {
+	Column T
 	Order  sortOrder
 }
 
-type OrderBy []OrderByColumn
-
-func (ob *OrderBy) Query() string {
-	if len(*ob) == 0 {
+func OrderByQuery[T ColumnName](orderBys ...OrderByColumn[T]) string {
+	if len(orderBys) == 0 {
 		return ""
 	}
-	values := make([]string, len(*ob))
-	for i, col := range *ob {
+	values := make([]string, len(orderBys))
+	for i, col := range orderBys {
 		values[i] = fmt.Sprintf("%s %s", col.Column, col.Order)
 	}
 	return "ORDER BY " + strings.Join(values, ", ")

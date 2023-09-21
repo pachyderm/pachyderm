@@ -35,10 +35,12 @@ const (
 	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
 )
 
+type branchColumn string
+
 const (
-	BranchColumnID        = "branch.id"
-	BranchColumnCreatedAt = "branch.created_at"
-	BranchColumnUpdatedAt = "branch.updated_at"
+	BranchColumnID        = branchColumn("branch.id")
+	BranchColumnCreatedAt = branchColumn("branch.created_at")
+	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
 
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
@@ -66,7 +68,9 @@ type BranchInfoWithID struct {
 	*pfs.BranchInfo
 }
 
-func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, filter *pfs.Branch, orderByColumns []string, order sortOrder) (*BranchIterator, error) {
+type OrderByBranchColumn OrderByColumn[branchColumn]
+
+func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, filter *pfs.Branch, orderBys ...OrderByBranchColumn) (*BranchIterator, error) {
 	var conditions []string
 	var values []any
 	// Note that using ? as the bindvar is okay because we rebind it later.
@@ -92,14 +96,16 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 	if len(conditions) > 0 {
 		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
 	}
-	if len(orderByColumns) == 0 {
-		orderByColumns = []string{BranchColumnID}
+	// Compute ORDER BY
+	var orderByGeneric []OrderByColumn[branchColumn]
+	if len(orderBys) == 0 {
+		orderByGeneric = []OrderByColumn[branchColumn]{{Column: BranchColumnID, Order: SortOrderAsc}}
+	} else {
+		for _, orderBy := range orderBys {
+			orderByGeneric = append(orderByGeneric, OrderByColumn[branchColumn](orderBy))
+		}
 	}
-	var orderBy OrderBy
-	for _, column := range orderByColumns {
-		orderBy = append(orderBy, OrderByColumn{Column: column, Order: order})
-	}
-	query = tx.Rebind(query + orderBy.Query())
+	query = tx.Rebind(query + OrderByQuery[branchColumn](orderByGeneric...))
 	return &BranchIterator{
 		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
 		tx:        tx,
