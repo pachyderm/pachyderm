@@ -1417,9 +1417,8 @@ func (d *driver) listCommit(
 			cis = nil
 			return nil
 		}
-		ci := &pfs.CommitInfo{}
 		lastRev := int64(-1)
-		listCallback := func(createRev int64) error {
+		listCallback := func(ci *pfs.CommitInfo, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -1444,21 +1443,21 @@ func (d *driver) listCommit(
 		}
 
 		// if neither from and to is given, we list all commits in
-		// the repo, sorted by revision timestamp (or reversed if so requested.)
-		opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
-		if reverse {
-			opts.Order = col.SortAscend
-		}
+		// the repo, sorted by revision timestamp.
 		var filter pfsdb.CommitListFilter
 		if repo.Name != "" {
-			filter = pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(repo)}}
+			filter = pfsdb.CommitListFilter{
+				pfsdb.CommitRepos: []string{pfsdb.RepoKey(repo)},
+			}
 		}
-		iter, err := pfsdb.ListCommit(ctx, d.env.DB, filter, reverse, true)
+		// driver.listCommit should return more recent commits by default, which is the
+		// opposite behavior of pfsdb.ListCommit.
+		iter, err := pfsdb.ListCommit(ctx, d.env.DB, filter, !reverse, true)
 		if err != nil {
 			return errors.Wrap(err, "list commit")
 		}
 		if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
-			return listCallback(int64(commitWithID.Revision))
+			return listCallback(commitWithID.CommitInfo, int64(commitWithID.Revision))
 		}); err != nil {
 			return errors.Wrap(err, "list commit")
 		}

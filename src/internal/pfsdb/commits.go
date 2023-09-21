@@ -940,11 +940,13 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	query := getCommit
 	order := "ASC"
 	revisionTimestamp := ""
-	if revision {
-		revisionTimestamp = "commit.created_at, "
-	}
+	groupByTimestamp := ""
 	if reverse {
 		order = "DESC"
+	}
+	if revision {
+		revisionTimestamp = fmt.Sprintf("commit.created_at %s, ", order)
+		groupByTimestamp = ", commit.created_at"
 	}
 	for key, vals := range filter {
 		if len(vals) == 0 {
@@ -958,7 +960,17 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 		case CommitBranches:
 			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.branches WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
 		case CommitRepos:
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.repos WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+			var subconditions []string
+			for _, repoStr := range vals {
+				repo := ParseRepo(repoStr)
+				subcondition := fmt.Sprintf(
+					`(name = '%s' AND type = '%s' AND project_id = (SELECT id FROM core.projects WHERE name = '%s'))`,
+					repo.Name, repo.Type, repo.Project.Name,
+				)
+				subconditions = append(subconditions, subcondition)
+			}
+			conditions = append(conditions, fmt.Sprintf("commit.%s IN "+
+				"(SELECT id FROM pfs.repos WHERE %s)", string(key), strings.Join(subconditions, " OR ")))
 		case CommitProjects:
 			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
 		default:
@@ -968,9 +980,10 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
+	fullQuery := fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, branch.name, project.name %s "+
+		"ORDER BY %s commit.int_id %s LIMIT $1 OFFSET $2;", query, where, groupByTimestamp, revisionTimestamp, order)
 	if err := tx.SelectContext(ctx, &page,
-		fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, branch.name, project.name "+
-			"ORDER BY %s commit.int_id %s LIMIT $1 OFFSET $2;", query, where, revisionTimestamp, order), limit, offset); err != nil {
+		fullQuery, limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil
