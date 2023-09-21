@@ -104,13 +104,13 @@ func TestBranchUpsert(t *testing.T) {
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commitPair1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+			commitInfoWithID1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
 			branchInfo := &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
 					Name: "master",
 				},
-				Head: commitPair1.CommitInfo.Commit,
+				Head: commitInfoWithID1.CommitInfo.Commit,
 			}
 			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
@@ -122,8 +122,8 @@ func TestBranchUpsert(t *testing.T) {
 			require.True(t, cmp.Equal(branchInfo, gotBranchByName, compareBranchOpts()...))
 
 			// Update branch to point to second commit
-			commitPair2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitPair1.CommitInfo.Commit))
-			branchInfo.Head = commitPair2.CommitInfo.Commit
+			commitInfoWithID2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
+			branchInfo.Head = commitInfoWithID2.CommitInfo.Commit
 			id2, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
 			require.Equal(t, id, id2, "UpsertBranch should keep id stable")
@@ -245,7 +245,7 @@ func TestBranchIterator(t *testing.T) {
 			for i := 0; i < 8; i++ {
 				var newLevel []*pfs.BranchInfo
 				for _, parent := range currentLevel {
-					// create a commit and branch pair
+					// create a commits and branches
 					createCreateInfoWithID(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
 					id, err := pfsdb.UpsertBranch(ctx, tx, parent)
 					require.NoError(t, err)
@@ -271,10 +271,10 @@ func TestBranchIterator(t *testing.T) {
 			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, "", "", "", pfsdb.SortAscend)
 			require.NoError(t, err)
 			gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
-			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchPair pfsdb.BranchInfoWithID) error {
-				gotAllBranches[branchPair.ID] = branchPair.BranchInfo
-				require.Equal(t, allBranches[branchPair.ID].Branch.Key(), branchPair.BranchInfo.Branch.Key())
-				require.Equal(t, allBranches[branchPair.ID].Head.Key(), branchPair.BranchInfo.Head.Key())
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				gotAllBranches[branchInfoWithID.ID] = branchInfoWithID.BranchInfo
+				require.Equal(t, allBranches[branchInfoWithID.ID].Branch.Key(), branchInfoWithID.BranchInfo.Branch.Key())
+				require.Equal(t, allBranches[branchInfoWithID.ID].Head.Key(), branchInfoWithID.BranchInfo.Head.Key())
 				return nil
 			}))
 			// Filter on a set of repos
@@ -282,8 +282,8 @@ func TestBranchIterator(t *testing.T) {
 			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, allBranches[1].Branch.Repo.Project.Name, allBranches[1].Branch.Repo.Name, allBranches[1].Branch.Repo.Type, pfsdb.SortAscend)
 			require.NoError(t, err)
 			var gotRepoNames []string
-			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchPair pfsdb.BranchInfoWithID) error {
-				gotRepoNames = append(gotRepoNames, branchPair.BranchInfo.Branch.Repo.Name)
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				gotRepoNames = append(gotRepoNames, branchInfoWithID.BranchInfo.Branch.Repo.Name)
 				return nil
 			}))
 			require.Equal(t, len(expectedRepoNames), len(gotRepoNames))
