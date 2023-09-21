@@ -228,10 +228,8 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if exists, err := getRepoExists(tx, commit); err != nil {
+	if err := checkRepo(tx, commit); err != nil {
 		return errors.EnsureStack(err)
-	} else if !exists {
-		return nil // repo has been removed - do not update commit totals
 	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
 	VALUES ($1, $2)
@@ -248,10 +246,8 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if exists, err := getRepoExists(tx, commit); err != nil {
+	if err := checkRepo(tx, commit); err != nil {
 		return errors.EnsureStack(err)
-	} else if !exists {
-		return nil
 	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 	VALUES ($1, $2)
@@ -259,21 +255,16 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID
 	return errors.EnsureStack(err)
 }
 
-func getRepoExists(tx *pachsql.Tx, commit *pfs.Commit) (bool, error) {
+func checkRepo(tx *pachsql.Tx, commit *pfs.Commit) error {
 	var name *string = new(string)
-	if err := tx.QueryRow(`SELECT name FROM pfs.repos AS r
+	err := tx.QueryRow(`SELECT name FROM pfs.repos AS r
 		WHERE r.project_id=(SELECT id FROM core.projects WHERE name=$1) AND r.name=$2 AND r.type =$3
 		FETCH FIRST 1 ROWS ONLY`,
 		commit.GetRepo().GetProject().GetName(),
 		commit.GetRepo().GetName(),
 		commit.GetRepo().GetType(),
-	).Scan(name); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
-		return false, errors.EnsureStack(err)
-	}
-	return true, nil
+	).Scan(name)
+	return errors.EnsureStack(err)
 }
 
 func commitDiffTrackerID(commit *pfs.Commit, fs fileset.ID) string {
