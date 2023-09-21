@@ -1551,7 +1551,10 @@ func (s *debugServer) makeStarlarkScriptTask(st *debug.Starlark, rp incProgressF
 		ctx, c := context.WithTimeout(rctx, timeout)
 		defer c()
 
-		env := debugstar.Env{FS: dfs.WithPrefix(name)}
+		env := debugstar.Env{
+			FS:         dfs.WithPrefix(name),
+			Kubernetes: s.env.GetKubeClient(),
+		}
 		if err := env.RunStarlark(ctx, name, script); err != nil {
 			return errors.Wrapf(err, "starlark script %q", name)
 		}

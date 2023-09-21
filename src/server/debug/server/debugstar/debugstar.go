@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,8 +20,16 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	ourstar "github.com/pachyderm/pachyderm/v2/src/internal/starlark"
+	"github.com/pachyderm/pachyderm/v2/src/internal/starlark/lib/k8s"
 	"go.starlark.net/starlark"
+	"k8s.io/client-go/dynamic"
+	dfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes"
+	kfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 // BuiltinScripts are the scripts loaded from starlark/.
@@ -47,12 +56,28 @@ func init() {
 		panic(fmt.Sprintf("unable to load builtin scripts; %v", err))
 	}
 
-	testEnv := &Env{FS: new(InteractiveDumpFS)}
-	ourstar.RegisterPersonality("debugdump", testEnv.Options())
+	dfs := new(InteractiveDumpFS)
+	if opts, err := (&Env{FS: dfs}).Options(); err == nil {
+		// This registration only matters for "starpach run" etc., so doesn't need to impact
+		// pachd starting up.
+		ourstar.RegisterPersonality("debugdump", opts)
+	}
+	fakeEnv := &Env{
+		FS:                  dfs,
+		Kubernetes:          kfake.NewSimpleClientset(),
+		KubernetesDynamic:   dfake.NewSimpleDynamicClient(scheme.Scheme),
+		KubernetesNamespace: "default",
+	}
+	fakeOpts, _ := fakeEnv.Options() // Can't error.
+	ourstar.RegisterPersonality("fakedebugdump", fakeOpts)
 }
 
 // reader is an io.Reader that can come from Starlark.
-type reader struct{ io.Reader }
+type reader struct {
+	io.Reader
+	skip bool
+	err  error
+}
 
 var _ starlark.Unpacker = (*reader)(nil)
 
@@ -65,8 +90,13 @@ func (r *reader) Unpack(v starlark.Value) error {
 		r.Reader = strings.NewReader(string(x))
 	case io.Reader:
 		r.Reader = x
+	case starlark.NoneType:
+		r.skip = true
+	case error:
+		r.Reader = strings.NewReader(x.Error())
+		r.err = x
 	default:
-		return errors.Errorf("starlark type %v (%#v) is not a string, bytestring, or an io.Reader", v.Type(), v)
+		return errors.Errorf("starlark type %v (%#v) is not a string, bytestring, error, None, dict, or an io.Reader", v.Type(), v)
 	}
 	return nil
 }
@@ -104,6 +134,11 @@ func (s *starlarkDumpFS) CallInternal(t *starlark.Thread, args starlark.Tuple, k
 	if err := starlark.UnpackArgs("dump", args, kwargs, "filename", &filename, "content", &r); err != nil {
 		return nil, errors.Wrap(err, "unpack args")
 	}
+	if r.skip {
+		// Avoid writing out "None", which is the only way we have to continue in the
+		// presence of errors.
+		return starlark.None, nil
+	}
 
 	// Canonicalize the filename before passing to the underlying FS; avoid any directory
 	// traversal by cleaning "/" + filename (path.Clean("../../a") == "../../a", but
@@ -112,6 +147,9 @@ func (s *starlarkDumpFS) CallInternal(t *starlark.Thread, args starlark.Tuple, k
 	// format.  See testdata/test.star for the test cases.
 	if len(filename) > 0 && filename[0] != '/' {
 		filename = "/" + filename
+	}
+	if err := r.err; err != nil {
+		filename += ".error"
 	}
 	filename = strings.TrimPrefix(path.Clean(filename), "/")
 
@@ -243,7 +281,10 @@ func (fs *LocalDumpFS) Close() (retErr error) {
 
 // Env is the parts of the debug dump service available to Starlark scripts.
 type Env struct {
-	FS DumpFS
+	FS                  DumpFS
+	Kubernetes          kubernetes.Interface
+	KubernetesDynamic   dynamic.Interface
+	KubernetesNamespace string
 }
 
 // RunStarlark executes the provided script.
@@ -255,17 +296,59 @@ func (e *Env) RunStarlark(rctx context.Context, name string, script string) (ret
 			errors.JoinInto(&retErr, errors.Errorf("starlark evaluation panicked: %v", err))
 		}
 	}()
-	if _, err := ourstar.RunScript(ctx, name, script, e.Options()); err != nil {
+	opts, err := e.Options()
+	if err != nil {
+		return errors.Wrap(err, "build options")
+	}
+	if _, err := ourstar.RunScript(ctx, name, script, opts); err != nil {
 		return errors.Wrap(err, "RunScript")
 	}
 	return nil
 }
 
 // Options returns the starlark options for this environment.
-func (e *Env) Options() ourstar.Options {
-	return ourstar.Options{
+func (e *Env) Options() (ourstar.Options, error) {
+	opts := ourstar.Options{
 		Predefined: starlark.StringDict{
 			"dump": &starlarkDumpFS{DumpFS: e.FS},
 		},
 	}
+	namespace, st, dy := e.KubernetesNamespace, e.Kubernetes, e.KubernetesDynamic
+	if st == nil || dy == nil {
+		// If no client, read ~/.kube/config and use that one.  In production, one is always
+		// injected and this code is unused.
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+		rawConfig, err := kubeConfig.RawConfig()
+		if err != nil {
+			return opts, errors.Wrap(err, "load k8s config from default files")
+		}
+		if c, ok := rawConfig.Contexts[rawConfig.CurrentContext]; ok {
+			namespace = c.Namespace
+		}
+		config, err := kubeConfig.ClientConfig()
+		if err != nil {
+			return opts, errors.Wrap(err, "load k8s client config from default files")
+		}
+		config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return promutil.InstrumentRoundTripper("kubernetes", rt)
+		}
+		dy, err = dynamic.NewForConfig(config)
+		if err != nil {
+			return opts, errors.Wrap(err, "new dynamic k8s clientset")
+		}
+		st, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			return opts, errors.Wrap(err, "new static k8s clientset")
+		}
+	}
+	if namespace == "" {
+		namespace = "default"
+	}
+	module, err := k8s.NewClientset(namespace, st, dy)
+	if err != nil {
+		return opts, errors.Wrap(err, "build clientset")
+	}
+	opts.Predefined["k8s"] = module
+	return opts, nil
 }

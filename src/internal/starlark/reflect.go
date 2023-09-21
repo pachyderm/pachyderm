@@ -140,6 +140,14 @@ func Value(in any) starlark.Value {
 		return starlark.Float(float64(x))
 	case float64:
 		return starlark.Float(x)
+	case map[string]any:
+		dict := starlark.NewDict(len(x))
+		for k, v := range x {
+			if err := dict.SetKey(starlark.String(k), Value(v)); err != nil {
+				break
+			}
+		}
+		return dict
 	}
 	return value(reflect.ValueOf(in))
 }
