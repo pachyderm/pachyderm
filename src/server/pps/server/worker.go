@@ -29,7 +29,7 @@ func NewWorker(env WorkerEnv) *Worker {
 
 func (w *Worker) Run(ctx context.Context) error {
 	taskSource := w.env.TaskService.NewSource(ppsTaskNamespace)
-	return backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	return backoff.RetryUntilCancel(ctx, func() error {
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (_ *anypb.Any, retErr error) {
 			defer log.Span(ctx, "pps task", log.Proto("input", input))(log.Errorp(&retErr))
 			switch {
