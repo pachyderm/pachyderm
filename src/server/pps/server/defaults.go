@@ -9,9 +9,11 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
@@ -314,6 +316,9 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 	if err := protojson.Unmarshal([]byte(wrappedSpecJSON), &effectiveWrapper); err != nil {
 		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %s", wrappedSpecJSON)
 	}
+	if err := validateSpec(effectiveWrapper.CreatePipelineRequest); err != nil {
+		return "", nil, errors.Wrapf(err, "invalid effective spec %s", string(effectiveSpecJSON))
+	}
 	return string(effectiveSpecJSON), effectiveWrapper.CreatePipelineRequest, nil
 }
 
@@ -321,4 +326,43 @@ func unmarshalJSON(s string, v any) error {
 	d := json.NewDecoder(strings.NewReader(s))
 	d.UseNumber()
 	return errors.Wrapf(d.Decode(v), "could not unmarshal %q as JSON", s)
+}
+
+func validateSpec(req *pps.CreatePipelineRequest) error {
+	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
+	// currently TFJob isn't supported
+	if req.TfJob != nil {
+		return errors.New("embedding TFJobs in pipelines is not supported yet")
+	}
+	if !(req.ReprocessSpec == "" || req.ReprocessSpec == client.ReprocessSpecUntilSuccess && req.ReprocessSpec != client.ReprocessSpecEveryJob) {
+		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of %q or %q", client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
+	}
+	var tolErrs error
+	for i, t := range req.GetTolerations() {
+		if _, err := transformToleration(t); err != nil {
+			errors.JoinInto(&tolErrs, errors.Errorf("toleration %d/%d: %v", i+1, len(req.GetTolerations()), err))
+		}
+	}
+	if tolErrs != nil {
+		return tolErrs
+	}
+
+	if req.PodSpec != "" && !json.Valid([]byte(req.PodSpec)) {
+		return errors.Errorf("malformed PodSpec")
+	}
+	if req.PodPatch != "" && !json.Valid([]byte(req.PodPatch)) {
+		return errors.Errorf("malformed PodPatch")
+	}
+	if req.Service != nil {
+		validServiceTypes := map[v1.ServiceType]bool{
+			v1.ServiceTypeClusterIP:    true,
+			v1.ServiceTypeLoadBalancer: true,
+			v1.ServiceTypeNodePort:     true,
+		}
+
+		if !validServiceTypes[v1.ServiceType(req.Service.Type)] {
+			return errors.Errorf("the following service type %s is not allowed", req.Service.Type)
+		}
+	}
+	return nil
 }
