@@ -23,7 +23,7 @@ const (
 	CommitsRepoChannelName = "pfs_commits_repo_"
 	CommitChannelName      = "pfs_commits_"
 	createCommit           = `
-		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name=:repo.project.name))
+		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=$1 AND type=$2 AND project_id=(SELECT id from core.projects WHERE name=$3))
 		INSERT INTO pfs.commits 
     	(commit_id, 
     	 commit_set_id, 
@@ -39,19 +39,10 @@ const (
     	 size, 
     	 error) 
 		VALUES 
-		(:commit_id, 
-		 :commit_set_id, 
+		($4, $5,
 		 (SELECT id from repo_row_id), 
-		(SELECT id from pfs.branches WHERE name=:branch_name AND repo_id=(SELECT id from repo_row_id)), 
-		:description, 
-		:origin, 
-		:start_time,
-		:finishing_time,
-		:finished_time,
-		:compacting_time_s,
-		:validating_time_s,
-		:size,
-		:error)
+		 (SELECT id from pfs.branches WHERE name=$6 AND repo_id=(SELECT id from repo_row_id)), 
+		 $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING int_id;`
 	updateCommit = `
 		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name= :repo.project.name))
@@ -222,11 +213,11 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 	}
-	namedStmt, err := tx.PrepareNamedContext(ctx, createCommit)
-	if err != nil {
-		return 0, errors.Wrap(err, "prepare create commitInfo")
-	}
-	row := namedStmt.QueryRowxContext(ctx, insert)
+	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
+	// we run into errors when using named statements: (named statement already exists).
+	row := tx.QueryRowxContext(ctx, createCommit, insert.Repo.Name, insert.Repo.Type, insert.Repo.Project.Name,
+		insert.CommitID, insert.CommitSetID, insert.BranchName, insert.Description, insert.Origin, insert.StartTime, insert.FinishingTime,
+		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error)
 	if row.Err() != nil {
 		if IsDuplicateKeyErr(row.Err()) { // a duplicate key implies that an entry for the repo already exists.
 			return 0, ErrCommitAlreadyExists{CommitID: CommitKey(commitInfo.Commit)}
