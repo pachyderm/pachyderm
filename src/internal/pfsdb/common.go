@@ -48,8 +48,7 @@ type pageIterator[T ModelType] struct {
 	pageIdx       int
 }
 
-func newPageIterator[T ModelType](ctx context.Context, query string, values []any, orderBy OrderBy, startPage, pageSize uint64) pageIterator[T] {
-	query += orderBy.Query()
+func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
 	return pageIterator[T]{
 		query:  query,
 		values: values,
@@ -61,7 +60,6 @@ func newPageIterator[T ModelType](ctx context.Context, query string, values []an
 func (i *pageIterator[T]) nextPage(ctx context.Context, tx *pachsql.Tx) (err error) {
 	var page []T
 	query := i.query + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
-	query = tx.Rebind(query)
 	if err := tx.SelectContext(ctx, &page, query, i.values...); err != nil {
 		return errors.Wrap(err, "getting page")
 	}
