@@ -35,6 +35,12 @@ const (
 	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
 )
 
+const (
+	BranchColumnID        = "branch.id"
+	BranchColumnCreatedAt = "branch.created_at"
+	BranchColumnUpdatedAt = "branch.updated_at"
+)
+
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
 // TODO this can be moved to a more generic package.
 func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
@@ -60,28 +66,41 @@ type BranchInfoWithID struct {
 	*pfs.BranchInfo
 }
 
-func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, project, repo, repoType string, sortOrder sortOrder) (*BranchIterator, error) {
+func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, filter *pfs.Branch, orderByColumns []string, order sortOrder) (*BranchIterator, error) {
 	var conditions []string
 	var values []any
-	if project != "" {
-		conditions = append(conditions, "project.name = $1")
-		values = append(values, project)
-	}
-	if repo != "" {
-		conditions = append(conditions, "repo.name = $2")
-		values = append(values, repo)
-	}
-	if repoType != "" {
-		conditions = append(conditions, "repo.type = $3")
-		values = append(values, repoType)
+	// Note that using ? as the bindvar is okay because we rebind it later.
+	if filter != nil {
+		if filter.Repo.Project != nil && filter.Repo.Project.Name != "" {
+			conditions = append(conditions, "project.name = ?")
+			values = append(values, filter.Repo.Project.Name)
+		}
+		if filter.Repo != nil && filter.Repo.Name != "" {
+			conditions = append(conditions, "repo.name = ?")
+			values = append(values, filter.Repo.Name)
+		}
+		if filter.Repo != nil && filter.Repo.Type != "" {
+			conditions = append(conditions, "repo.type = ?")
+			values = append(values, filter.Repo.Type)
+		}
+		if filter.Name != "" {
+			conditions = append(conditions, "branch.name = ?")
+			values = append(values, filter.Name)
+		}
 	}
 	query := getBranchBaseQuery
 	if len(conditions) > 0 {
 		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
 	}
-	query += "\nORDER BY branch.id " + string(sortOrder)
+	if len(orderByColumns) == 0 {
+		orderByColumns = []string{BranchColumnID}
+	}
+	var orderBy OrderBy
+	for _, column := range orderByColumns {
+		orderBy = append(orderBy, OrderByColumn{Column: column, Order: order})
+	}
 	return &BranchIterator{
-		paginator: newPageIterator[Branch](ctx, tx, query, values, startPage, pageSize),
+		paginator: newPageIterator[Branch](ctx, query, values, orderBy, startPage, pageSize),
 		tx:        tx,
 	}, nil
 }
