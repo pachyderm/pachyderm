@@ -1519,11 +1519,19 @@ func (d *driver) subscribeCommit(
 	}
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
+	var ID pfsdb.RepoID
+	var err error
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		ID, err = pfsdb.GetRepoID(ctx, tx, repo.Project.Name, repo.Name, repo.Type)
+		return errors.Wrap(err, "get repo ID")
+	}); err != nil {
+		return err
+	}
 	// Note that this watch may leave events unread for a long amount of time
 	// while waiting for the commit state - if the watch channel fills up, it will
 	// error out.
 	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener,
-		path.Join(d.prefix, "subscribeCommit", pfsdb.RepoKey(repo)), pfsdb.CommitsRepoChannelName+pfsdb.RepoKey(repo))
+		path.Join(d.prefix, "subscribeCommit", pfsdb.RepoKey(repo)), fmt.Sprintf("%s%d", pfsdb.CommitsRepoChannelName, ID))
 	if err != nil {
 		return errors.Wrap(err, "new watcher")
 	}
@@ -1557,7 +1565,9 @@ func (d *driver) subscribeCommit(
 		}); err != nil {
 			return errors.Wrap(err, "getting commit from event")
 		}
-		return d.subscribeCommitHelper(ctx, branch, from, state, commitInfo, all, originKind, seen, cb)
+		if err := d.subscribeCommitHelper(ctx, branch, from, state, commitInfo, all, originKind, seen, cb); err != nil {
+			return errors.Wrap(err, "subscribe commit")
+		}
 	}
 }
 
