@@ -55,6 +55,10 @@ protoc \
     --jsonschema_opt="json_fieldnames" \
     --doc_opt="json,proto-docs.json" \
     --doc2_opt="markdown,proto-docs.md" \
+    --grpc-gateway_out v2/src \
+    --grpc-gateway_opt logtostderr=true \
+    --grpc-gateway_opt paths=source_relative \
+    --grpc-gateway_opt generate_unbound_methods=true \
     "${PROTOS[@]}" > /dev/stderr
 
 pushd v2 > /dev/stderr

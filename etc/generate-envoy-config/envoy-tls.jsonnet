@@ -16,7 +16,7 @@ Envoy.bootstrap(
     Envoy.httpsListener(
       port=8443,
       name='proxy-https',
-      routes=std.flatMap(function(name) Services[name].routes, ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'pachd-http', 'console'])
+      routes=std.flatMap(function(name) Services[name].routes, ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'pachd-http', 'pachd-restgateway', 'console'])
     ),
 
     // Unlike the cleartext configuration, we don't serve direct routes to individual pachd/console

@@ -470,6 +470,56 @@
             },
             "dns_lookup_family": "V4_ONLY",
             "dns_refresh_rate": "1s",
+            "health_checks": [
+               {
+                  "healthy_threshold": 1,
+                  "interval": "30s",
+                  "no_traffic_healthy_interval": "10s",
+                  "no_traffic_interval": "10s",
+                  "tcp_health_check": { },
+                  "timeout": "10s",
+                  "unhealthy_threshold": 2
+               }
+            ],
+            "lb_policy": "random",
+            "load_assignment": {
+               "cluster_name": "pachd-restgateway",
+               "endpoints": [
+                  {
+                     "lb_endpoints": [
+                        {
+                           "endpoint": {
+                              "address": {
+                                 "socket_address": {
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1660
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               ]
+            },
+            "name": "pachd-restgateway",
+            "type": "strict_dns",
+            "upstream_connection_options": {
+               "tcp_keepalive": { }
+            }
+         },
+         {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
+            "connect_timeout": "10s",
+            "dns_failure_refresh_rate": {
+               "base_interval": "0.1s",
+               "max_interval": "1s"
+            },
+            "dns_lookup_family": "V4_ONLY",
+            "dns_refresh_rate": "1s",
             "health_checks": [ ],
             "lb_policy": "random",
             "load_assignment": {
@@ -868,6 +918,16 @@
                                           },
                                           "route": {
                                              "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "prefix": "/pfs_v2"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-restgateway",
                                              "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }

@@ -479,6 +479,9 @@ spec:
         - containerPort: 1659
           name: archive-port
           protocol: TCP
+        - containerPort: 1660
+          name: restgw-port
+          protocol: TCP
         readinessProbe:
           exec:
             command:

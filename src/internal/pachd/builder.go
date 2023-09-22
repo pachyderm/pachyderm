@@ -51,6 +51,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	transactionserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+  "github.com/pachyderm/pachyderm/v2/src/server/restgateway"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -383,6 +384,12 @@ func (b *builder) initS3Server(ctx context.Context) error {
 func (b *builder) initPachHTTPServer(ctx context.Context) error {
 	b.daemon.pachhttp = http.New(b.env.Config().DownloadPort, b.env.GetPachClient)
 	return nil
+}
+
+func (b *builder) initPachRestGatewayServer(ctx context.Context) error {
+       //b.daemon.pachrestgateway = restgateway.New(b.env.Config().RestGatewayPort)
+       restgateway.New(b.env.Config().RestGatewayPort, b.env.GetPachClient)
+       return nil
 }
 
 func (b *builder) initPrometheusServer(ctx context.Context) error {
