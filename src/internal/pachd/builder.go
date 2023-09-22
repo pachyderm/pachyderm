@@ -216,6 +216,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
 			b.loggingInterceptor.UnaryServerInterceptor,
+			validation.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			errorsmw.StreamServerInterceptor,
@@ -223,6 +224,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
 			b.loggingInterceptor.StreamServerInterceptor,
+			validation.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -410,6 +412,56 @@ func (b *builder) initPachwController(ctx context.Context) error {
 		return err
 	}
 	pachw.NewController(ctx, env)
+	return nil
+}
+
+func (b *builder) startPFSWorker(ctx context.Context) error {
+	env, err := PFSWorkerEnv(b.env)
+	if err != nil {
+		return err
+	}
+	config := pfs_server.WorkerConfig{
+		Storage: b.env.Config().StorageConfiguration,
+	}
+	w, err := pfs_server.NewWorker(*env, config)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-worker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startPFSMaster(ctx context.Context) error {
+	env, err := PFSEnv(b.env, b.txnEnv)
+	if err != nil {
+		return err
+	}
+	m, err := pfs_server.NewMaster(*env)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-master")
+		if err := m.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-master", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startDebugWorker(ctx context.Context) error {
+	env := DebugEnv(b.env)
+	w := debugserver.NewWorker(env)
+	go func() {
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from debug worker", zap.Error(err))
+		}
+	}()
 	return nil
 }
 

@@ -151,7 +151,7 @@ func (x *GetFileURLTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("URL", x.URL)
-	enc.AddObject("file", x.File)
+	enc.AddString("Fileset", x.Fileset)
 	enc.AddObject("path_range", x.PathRange)
 	return nil
 }

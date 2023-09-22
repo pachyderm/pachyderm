@@ -6728,6 +6728,17 @@ func (m *CopyFile) validate(all bool) error {
 
 	// no validation rules for Datum
 
+	if m.GetSrc() == nil {
+		err := CopyFileValidationError{
+			field:  "Src",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetSrc()).(type) {
 		case interface{ ValidateAll() error }:
@@ -6871,6 +6882,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+		if m.GetSetCommit() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "SetCommit",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(m.GetSetCommit()).(type) {
 			case interface{ ValidateAll() error }:
@@ -6905,6 +6927,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			err := ModifyFileRequestValidationError{
 				field:  "Body",
 				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if m.GetAddFile() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "AddFile",
+				reason: "value is required",
 			}
 			if !all {
 				return err
@@ -6953,6 +6986,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+		if m.GetDeleteFile() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "DeleteFile",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(m.GetDeleteFile()).(type) {
 			case interface{ ValidateAll() error }:
@@ -6987,6 +7031,17 @@ func (m *ModifyFileRequest) validate(all bool) error {
 			err := ModifyFileRequestValidationError{
 				field:  "Body",
 				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if m.GetCopyFile() == nil {
+			err := ModifyFileRequestValidationError{
+				field:  "CopyFile",
+				reason: "value is required",
 			}
 			if !all {
 				return err
@@ -10270,311 +10325,6 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ActivateAuthResponseValidationError{}
-
-// Validate checks the field values on RunLoadTestRequest with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the first error encountered is returned, or nil if there are no violations.
-func (m *RunLoadTestRequest) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on RunLoadTestRequest with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the result is a list of violation errors wrapped in
-// RunLoadTestRequestMultiError, or nil if none found.
-func (m *RunLoadTestRequest) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *RunLoadTestRequest) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	// no validation rules for Spec
-
-	if all {
-		switch v := interface{}(m.GetBranch()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, RunLoadTestRequestValidationError{
-					field:  "Branch",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, RunLoadTestRequestValidationError{
-					field:  "Branch",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetBranch()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RunLoadTestRequestValidationError{
-				field:  "Branch",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	// no validation rules for Seed
-
-	// no validation rules for StateId
-
-	if len(errors) > 0 {
-		return RunLoadTestRequestMultiError(errors)
-	}
-
-	return nil
-}
-
-// RunLoadTestRequestMultiError is an error wrapping multiple validation errors
-// returned by RunLoadTestRequest.ValidateAll() if the designated constraints
-// aren't met.
-type RunLoadTestRequestMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m RunLoadTestRequestMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m RunLoadTestRequestMultiError) AllErrors() []error { return m }
-
-// RunLoadTestRequestValidationError is the validation error returned by
-// RunLoadTestRequest.Validate if the designated constraints aren't met.
-type RunLoadTestRequestValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e RunLoadTestRequestValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e RunLoadTestRequestValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e RunLoadTestRequestValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e RunLoadTestRequestValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e RunLoadTestRequestValidationError) ErrorName() string {
-	return "RunLoadTestRequestValidationError"
-}
-
-// Error satisfies the builtin error interface
-func (e RunLoadTestRequestValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sRunLoadTestRequest.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = RunLoadTestRequestValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = RunLoadTestRequestValidationError{}
-
-// Validate checks the field values on RunLoadTestResponse with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the first error encountered is returned, or nil if there are no violations.
-func (m *RunLoadTestResponse) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on RunLoadTestResponse with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the result is a list of violation errors wrapped in
-// RunLoadTestResponseMultiError, or nil if none found.
-func (m *RunLoadTestResponse) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *RunLoadTestResponse) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	// no validation rules for Spec
-
-	if all {
-		switch v := interface{}(m.GetBranch()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, RunLoadTestResponseValidationError{
-					field:  "Branch",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, RunLoadTestResponseValidationError{
-					field:  "Branch",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetBranch()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RunLoadTestResponseValidationError{
-				field:  "Branch",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	// no validation rules for Seed
-
-	// no validation rules for Error
-
-	if all {
-		switch v := interface{}(m.GetDuration()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, RunLoadTestResponseValidationError{
-					field:  "Duration",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, RunLoadTestResponseValidationError{
-					field:  "Duration",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetDuration()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RunLoadTestResponseValidationError{
-				field:  "Duration",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	// no validation rules for StateId
-
-	if len(errors) > 0 {
-		return RunLoadTestResponseMultiError(errors)
-	}
-
-	return nil
-}
-
-// RunLoadTestResponseMultiError is an error wrapping multiple validation
-// errors returned by RunLoadTestResponse.ValidateAll() if the designated
-// constraints aren't met.
-type RunLoadTestResponseMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m RunLoadTestResponseMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m RunLoadTestResponseMultiError) AllErrors() []error { return m }
-
-// RunLoadTestResponseValidationError is the validation error returned by
-// RunLoadTestResponse.Validate if the designated constraints aren't met.
-type RunLoadTestResponseValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e RunLoadTestResponseValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e RunLoadTestResponseValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e RunLoadTestResponseValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e RunLoadTestResponseValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e RunLoadTestResponseValidationError) ErrorName() string {
-	return "RunLoadTestResponseValidationError"
-}
-
-// Error satisfies the builtin error interface
-func (e RunLoadTestResponseValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sRunLoadTestResponse.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = RunLoadTestResponseValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = RunLoadTestResponseValidationError{}
 
 // Validate checks the field values on ObjectStorageEgress with the rules
 // defined in the proto definition for this message. If any rules are

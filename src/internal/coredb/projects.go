@@ -78,17 +78,23 @@ func IsErrProjectAlreadyExists(err error) bool {
 type ProjectIterator struct {
 	limit    int
 	offset   int
-	projects []projectRow
+	projects []Project
 	index    int
 	tx       *pachsql.Tx
 }
 
-type projectRow struct {
+type Project struct {
 	ID          ProjectID `db:"id"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
 	CreatedAt   time.Time `db:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at"`
+}
+
+func (project *Project) Pb() *pfs.Project {
+	return &pfs.Project{
+		Name: project.Name,
+	}
 }
 
 // Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
@@ -133,8 +139,8 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) (*ProjectIterator, error) 
 	return iter, nil
 }
 
-func listProject(ctx context.Context, tx *pachsql.Tx, limit, offset int) ([]projectRow, error) {
-	var page []projectRow
+func listProject(ctx context.Context, tx *pachsql.Tx, limit, offset int) ([]Project, error) {
+	var page []Project
 	if err := tx.SelectContext(ctx, &page, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2", limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get project page")
 
