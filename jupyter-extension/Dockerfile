@@ -19,8 +19,6 @@ COPY ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server/ /usr/loc
 #RUN curl -f -o mount-server.tar.gz -L https://storage.googleapis.com/pachyderm-builds/mount-server_${PACHCTL_VERSION}_linux_amd64.tar.gz
 #RUN tar zxfv mount-server.tar.gz && mv mount-server_${PACHCTL_VERSION}_linux_amd64/mount-server /usr/local/bin/
 
-RUN sudo apt-get install -y libcurl4-openssl-dev libssl-dev
-
 USER $NB_UID
 RUN pip install --upgrade pip
 
