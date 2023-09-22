@@ -32,7 +32,7 @@ type PrintableTransactionInfo struct {
 func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", info.Transaction.Id)
 	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", info.Started.String())
+		fmt.Fprintf(w, "%s\t", pretty.Timestamp(info.Started))
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(info.Started))
 	}
@@ -43,8 +43,8 @@ func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTi
 // to stdout.
 func PrintDetailedTransactionInfo(info *PrintableTransactionInfo) error {
 	template, err := template.New("TransactionInfo").Funcs(funcMap).Parse(
-		`ID: {{.Transaction.ID}}{{if .FullTimestamps}}
-Started: {{.Started}}{{else}}
+		`ID: {{.Transaction.Id}}{{if .FullTimestamps}}
+Started: {{prettyTime .Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}
 Requests:
 {{transactionRequests .Requests .Responses}}
@@ -128,12 +128,12 @@ func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 	)
 }
 
-func sprintCreatePipeline(request *pps.CreatePipelineRequest) string {
+func sprintCreatePipeline(request *pps.CreatePipelineTransaction) string {
 	verb := "create"
-	if request.Update {
+	if request.CreatePipelineRequest.GetUpdate() {
 		verb = "update"
 	}
-	return fmt.Sprintf("%s pipeline %s", verb, request.Pipeline)
+	return fmt.Sprintf("%s pipeline %s", verb, request.CreatePipelineRequest.GetPipeline())
 }
 
 func transactionRequests(
@@ -167,8 +167,8 @@ func transactionRequests(
 			line = sprintDeleteBranch(request.DeleteBranch)
 		} else if request.UpdateJobState != nil {
 			line = sprintUpdateJobState(request.UpdateJobState)
-		} else if request.CreatePipeline != nil {
-			line = sprintCreatePipeline(request.CreatePipeline)
+		} else if request.CreatePipelineV2 != nil {
+			line = sprintCreatePipeline(request.CreatePipelineV2)
 		} else {
 			line = "ERROR (unknown request type)"
 		}
@@ -180,6 +180,7 @@ func transactionRequests(
 
 var funcMap = template.FuncMap{
 	"prettyAgo":           pretty.Ago,
+	"prettyTime":          pretty.Timestamp,
 	"prettySize":          pretty.Size,
 	"transactionRequests": transactionRequests,
 }

@@ -9,7 +9,7 @@ Envoy.bootstrap(
       name='proxy-http',
       // Everything except the metrics service is served on the multiplexed route.  The order of
       // services' routes is important!
-      routes=std.flatMap(function(name) Services[name].routes, ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'pachd-archive', 'console'])
+      routes=std.flatMap(function(name) Services[name].routes, ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'pachd-http', 'console'])
     ),
 
     // In case someone port-forwards port 8443 because they were expecting TLS to be working, this

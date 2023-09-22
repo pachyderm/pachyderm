@@ -31,6 +31,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		AuthUser:   auth.RootUser,
 		Enterprise: true,
 		PortOffset: portOffset,
+		Determined: true,
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
@@ -67,7 +68,10 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	resp, err := c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "pachd"})
 	require.NoError(t, err)
 	require.EqualOneOf(t, resp.Client.TrustedPeers, "example-app")
+	require.EqualOneOf(t, resp.Client.TrustedPeers, "determined-local")
 	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
+	require.NoError(t, err)
+	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "determined-local"})
 	require.NoError(t, err)
 }
 
@@ -116,7 +120,6 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 			return errors.EnsureStack(err)
 		}
 		state := loginInfo.State
-
 		// Get the initial URL from the grpc, which should point to the dex login page
 		getResp, err := hc.Get(loginInfo.LoginUrl)
 		if err != nil {

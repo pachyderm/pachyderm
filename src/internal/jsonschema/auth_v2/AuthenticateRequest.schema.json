@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/AuthenticateRequest",
+    "definitions": {
+        "AuthenticateRequest": {
+            "properties": {
+                "oidcState": {
+                    "type": "string",
+                    "description": "This is the session state that Pachyderm creates in order to keep track of information related to the current OIDC session."
+                },
+                "idToken": {
+                    "type": "string",
+                    "description": "This is an ID Token issued by the OIDC provider."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "// Authentication API",
+            "description": "// Authentication API  Exactly one of 'id_token' or 'one_time_password' must be set:"
+        }
+    }
+}

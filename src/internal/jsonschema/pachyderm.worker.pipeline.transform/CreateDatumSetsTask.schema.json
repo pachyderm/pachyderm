@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CreateDatumSetsTask",
+    "definitions": {
+        "CreateDatumSetsTask": {
+            "properties": {
+                "fileSetId": {
+                    "type": "string"
+                },
+                "pathRange": {
+                    "$ref": "#/definitions/pfs_v2.PathRange",
+                    "additionalProperties": false
+                },
+                "setSpec": {
+                    "$ref": "#/definitions/datum.SetSpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Create Datum Sets Task"
+        },
+        "datum.SetSpec": {
+            "properties": {
+                "number": {
+                    "type": "integer"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Set Spec"
+        },
+        "pfs_v2.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range"
+        }
+    }
+}

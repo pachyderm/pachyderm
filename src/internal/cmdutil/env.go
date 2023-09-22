@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -27,7 +28,7 @@ func Populate(object interface{}, decoders ...Decoder) error {
 // Main runs the common functionality needed in a go main function.
 // appEnv will be populated and passed to do, defaultEnv can be nil
 // if there is an error, os.Exit(1) will be called.
-func Main[T any](ctx context.Context, do func(context.Context, T) error, appEnv T, decoders ...Decoder) {
+func Main[T pachconfig.AnyConfig](ctx context.Context, do func(context.Context, T) error, appEnv T, decoders ...Decoder) {
 	if err := Populate(appEnv, decoders...); err != nil {
 		mainError(err)
 	}

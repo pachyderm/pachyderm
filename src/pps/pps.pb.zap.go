@@ -494,7 +494,8 @@ func (x *PipelineInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("type", x.Type.String())
 	enc.AddString("auth_token", x.AuthToken)
 	enc.AddObject("details", x.Details)
-	enc.AddString("details_json", x.DetailsJson)
+	enc.AddString("user_spec_json", x.UserSpecJson)
+	enc.AddString("effective_spec_json", x.EffectiveSpecJson)
 	return nil
 }
 
@@ -841,6 +842,25 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	return nil
 }
 
+func (x *CreatePipelineV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("create_pipeline_request_json", x.CreatePipelineRequestJson)
+	enc.AddBool("dry_run", x.DryRun)
+	enc.AddBool("update", x.Update)
+	enc.AddBool("reprocess", x.Reprocess)
+	return nil
+}
+
+func (x *CreatePipelineV2Response) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("effective_create_pipeline_request_json", x.EffectiveCreatePipelineRequestJson)
+	return nil
+}
+
 func (x *InspectPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -877,6 +897,7 @@ func (x *DeletePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	enc.AddBool("all", x.All)
 	enc.AddBool("force", x.Force)
 	enc.AddBool("keep_repo", x.KeepRepo)
+	enc.AddBool("must_exist", x.MustExist)
 	return nil
 }
 
@@ -924,6 +945,7 @@ func (x *StopPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddBool("must_exist", x.MustExist)
 	return nil
 }
 
@@ -1134,5 +1156,15 @@ func (x *SetClusterDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 		return nil
 	}
 	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
+	return nil
+}
+
+func (x *CreatePipelineTransaction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
+	enc.AddString("user_json", x.UserJson)
+	enc.AddString("effective_json", x.EffectiveJson)
 	return nil
 }

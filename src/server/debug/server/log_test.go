@@ -9,12 +9,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -111,31 +111,33 @@ func TestSetLogLevel(t *testing.T) {
 
 			s := &debugServer{
 				name: "the-tests",
-				env: &serviceenv.TestServiceEnv{
-					KubeClient: fake.NewSimpleClientset(
-						&v1.Pod{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "the-tests",
-								Labels: map[string]string{
-									"suite": "pachyderm",
-									"app":   "pachd",
+				env: Env{
+					GetKubeClient: func() kubernetes.Interface {
+						return fake.NewSimpleClientset(
+							&v1.Pod{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "the-tests",
+									Labels: map[string]string{
+										"suite": "pachyderm",
+										"app":   "pachd",
+									},
 								},
 							},
-						},
-						&v1.Pod{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "pachw",
-								Labels: map[string]string{
-									"suite": "pachyderm",
-									"app":   "pachw",
+							&v1.Pod{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "pachw",
+									Labels: map[string]string{
+										"suite": "pachyderm",
+										"app":   "pachw",
+									},
+								},
+								Status: v1.PodStatus{
+									PodIP: "pod.invalid.",
 								},
 							},
-							Status: v1.PodStatus{
-								PodIP: "pod.invalid.",
-							},
-						},
-					),
-					Configuration: &pachconfig.Configuration{
+						)
+					},
+					Config: pachconfig.Configuration{
 						GlobalConfiguration: &pachconfig.GlobalConfiguration{
 							Port:     1650,
 							PeerPort: 1653,

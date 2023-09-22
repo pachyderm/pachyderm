@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetActivationCodeRequest",
+    "definitions": {
+        "GetActivationCodeRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Activation Code Request"
+        }
+    }
+}

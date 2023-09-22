@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SetGroupsForUserRequest",
+    "definitions": {
+        "SetGroupsForUserRequest": {
+            "properties": {
+                "username": {
+                    "type": "string"
+                },
+                "groups": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Set Groups For User Request"
+        }
+    }
+}

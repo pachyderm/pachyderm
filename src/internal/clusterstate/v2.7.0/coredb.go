@@ -15,23 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// CollectionRecord is a record in a collections table.
-type CollectionRecord struct {
-	Key       string    `db:"key"`
-	Proto     []byte    `db:"proto"`
-	CreatedAt time.Time `db:"createdat"`
-	UpdatedAt time.Time `db:"updatedat"`
-}
-
-// Project is a row in the new relational core.projects table.
-type Project struct {
-	ID          uint64    `db:"id"`
-	Name        string    `db:"name"`
-	Description string    `db:"description"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
-}
-
 // ListProjectsFromCollection iterates over all projects in the collections.projects table
 // and returns a list of Project objects that satisfy the relational model.
 func ListProjectsFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Project, error) {

@@ -150,7 +150,7 @@ func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.Transact
 		if request.CreateRepo != nil {
 			err = directTxn.CreateRepo(request.CreateRepo)
 		} else if request.DeleteRepo != nil {
-			err = directTxn.DeleteRepo(request.DeleteRepo)
+			_, err = directTxn.DeleteRepo(request.DeleteRepo)
 		} else if request.StartCommit != nil {
 			response.Commit, err = directTxn.StartCommit(request.StartCommit)
 		} else if request.FinishCommit != nil {
@@ -165,8 +165,8 @@ func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.Transact
 			err = directTxn.UpdateJobState(request.UpdateJobState)
 		} else if request.StopJob != nil {
 			err = directTxn.StopJob(request.StopJob)
-		} else if request.CreatePipeline != nil {
-			err = directTxn.CreatePipeline(request.CreatePipeline)
+		} else if request.CreatePipelineV2 != nil {
+			err = directTxn.CreatePipeline(request.CreatePipelineV2)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}

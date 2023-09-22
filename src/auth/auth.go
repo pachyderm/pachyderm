@@ -311,7 +311,7 @@ func GetAuthToken(ctx context.Context) (string, error) {
 	if len(md[ContextTokenKey]) > 1 {
 		return "", errors.Errorf("multiple authentication token keys found in context")
 	} else if len(md[ContextTokenKey]) == 0 {
-		return "", errors.EnsureStack(ErrNotSignedIn)
+		return "", ErrNotSignedIn
 	}
 	return md[ContextTokenKey][0], nil
 }

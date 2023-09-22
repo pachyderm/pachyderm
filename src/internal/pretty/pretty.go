@@ -42,6 +42,14 @@ func Ago(timestamp *timestamppb.Timestamp) string {
 	return fmt.Sprintf("%s ago", since)
 }
 
+// Timestamp pretty-prints a timestamp.
+func Timestamp(timestamp *timestamppb.Timestamp) string {
+	if timestamp == nil {
+		return "-"
+	}
+	return timestamp.AsTime().Format(time.RFC3339)
+}
+
 // TimeDifference pretty-prints the duration of time between from
 // and to as a human-reabable string.
 func TimeDifference(from, to *timestamppb.Timestamp) string {

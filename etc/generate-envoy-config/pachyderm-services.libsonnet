@@ -22,7 +22,7 @@
       interval: '10s',
       timeout: '10s',
       unhealthy_threshold: 2,
-      no_traffic_interval: '10s',
+      no_traffic_interval: '1s',
       no_traffic_healthy_interval: '10s',
     },
   },
@@ -123,16 +123,26 @@
       no_traffic_healthy_interval: '10s',
     },
   },
-  'pachd-archive': {
+  'pachd-http': {
     internal_port: 1659,
     service: 'pachd-proxy-backend',
     routes: [
       {
         match: {
-          prefix: '/archive',
+          prefix: '/archive/',
         },
         route: {
-          cluster: 'pachd-archive',
+          cluster: 'pachd-http',
+          idle_timeout: '600s',
+          timeout: '604800s',
+        },
+      },
+      {
+        match: {
+          prefix: '/jsonschema/',
+        },
+        route: {
+          cluster: 'pachd-http',
           idle_timeout: '600s',
           timeout: '604800s',
         },
@@ -177,7 +187,7 @@
       healthy_threshold: 1,
       http_health_check: {
         host: 'localhost',  // This is just the value of the Host: header, not something to connect to.
-        path: '/',
+        path: '/health',
       },
       interval: '30s',
       timeout: '10s',

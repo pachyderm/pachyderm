@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RevokeAuthTokenResponse",
+    "definitions": {
+        "RevokeAuthTokenResponse": {
+            "properties": {
+                "number": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Revoke Auth Token Response"
+        }
+    }
+}

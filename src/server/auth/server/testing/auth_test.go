@@ -2079,7 +2079,7 @@ func TestLoad(t *testing.T) {
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
-	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &emptypb.Empty{})
+	resp, err := aliceClient.DebugClient.RunPFSLoadTestDefault(aliceClient.Ctx(), &emptypb.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))

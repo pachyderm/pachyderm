@@ -1,0 +1,71 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DataRef",
+    "definitions": {
+        "DataRef": {
+            "properties": {
+                "ref": {
+                    "$ref": "#/definitions/chunk.Ref",
+                    "additionalProperties": false,
+                    "description": "The chunk the referenced data is located in."
+                },
+                "hash": {
+                    "type": "string",
+                    "description": "The hash of the data being referenced.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "offsetBytes": {
+                    "type": "integer",
+                    "description": "The offset and size used for accessing the data within the chunk."
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Data Ref",
+            "description": "DataRef is a reference to data within a chunk."
+        },
+        "chunk.Ref": {
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "edge": {
+                    "type": "boolean"
+                },
+                "dek": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "encryptionAlgo": {
+                    "enum": [
+                        "ENCRYPTION_ALGO_UNKNOWN",
+                        "CHACHA20"
+                    ],
+                    "type": "string",
+                    "title": "Encryption Algo"
+                },
+                "compressionAlgo": {
+                    "enum": [
+                        "NONE",
+                        "GZIP_BEST_SPEED"
+                    ],
+                    "type": "string",
+                    "title": "Compression Algo"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Ref"
+        }
+    }
+}
