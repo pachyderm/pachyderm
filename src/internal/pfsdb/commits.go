@@ -62,7 +62,7 @@ const (
 			error=:error 
 		WHERE int_id=:int_id;`
 	getCommit = `
-		SELECT DISTINCT ON (commit.int_id)
+		SELECT DISTINCT
     		commit.int_id, 
     		commit.commit_id, 
     		commit.branch_id, 

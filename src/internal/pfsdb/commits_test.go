@@ -528,42 +528,7 @@ func TestListCommitRev(t *testing.T) {
 }
 
 func TestListCommitsFilter(t *testing.T) {
-	repos := []string{"a", "b", "c"}
-	size := 330
-	expectedInfos := make([]*pfs.CommitInfo, 0)
-	commitSetIds := make([]string, 0)
-	commits := make([]*pfs.CommitInfo, 0)
-	filter := pfsdb.CommitListFilter{
-		pfsdb.CommitRepos:    []string{"b"},
-		pfsdb.CommitOrigins:  []string{pfs.OriginKind_ORIGIN_KIND_UNKNOWN.String(), pfs.OriginKind_USER.String()},
-		pfsdb.CommitBranches: []string{"master"},
-		pfsdb.CommitProjects: []string{"default"},
-	}
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
-		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			for i := 0; i < size; i++ {
-				commitInfo := testCommit(ctx, t, tx, repos[i%len(repos)])
-				if commitInfo.Commit.Repo.Name == "b" && i%10 == 0 {
-					expectedInfos = append(expectedInfos, commitInfo)
-					commitSetIds = append(commitSetIds, commitInfo.Commit.Id)
-				}
-				commits = append(commits, commitInfo)
-			}
-			filter[pfsdb.CommitSetIDs] = commitSetIds
-			for _, commitInfo := range commits {
-				_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
-				require.NoError(t, err, "should be able to create commit")
-				createBranch(ctx, t, tx, commitInfo.Commit)
-			}
-		})
-		iter, err := pfsdb.ListCommit(ctx, db, filter, false, false)
-		require.NoError(t, err, "should be able to list repos")
-		checkOutput(ctx, t, iter, expectedInfos)
-	})
-}
-
-func TestListCommitsTxFilter(t *testing.T) {
-	repos := []string{"a", "b", "c"}
+	repos := []string{"default/a.user", "default/b.user", "default/c.user"}
 	size := 330
 	expectedInfos := make([]*pfs.CommitInfo, 0)
 	commitSetIds := make([]string, 0)
@@ -590,6 +555,12 @@ func TestListCommitsTxFilter(t *testing.T) {
 				require.NoError(t, err, "should be able to create commit")
 				createBranch(ctx, t, tx, commitInfo.Commit)
 			}
+		})
+		iter, err := pfsdb.ListCommit(ctx, db, filter, false, false)
+		require.NoError(t, err, "should be able to list repos")
+		checkOutput(ctx, t, iter, expectedInfos)
+		delete(filter, pfsdb.CommitSetIDs)
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			gotInfos, err := pfsdb.ListCommitTxByFilter(ctx, tx, filter, false, false)
 			require.NoError(t, err, "should be able to list repos")
 			for i := range gotInfos {
