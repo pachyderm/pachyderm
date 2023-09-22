@@ -1,0 +1,56 @@
+{
+  "pipeline": {
+    "name": "checkpoint"
+  },
+  "description": "A pipeline that performs image-to-image translation first in `training` and then in `export` mode.",
+  "transform": {
+    "image": "dwhitena/pix2pix",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+      "python pix2pix.py --mode train --output_dir /pfs/out --max_epochs 1 --input_dir /pfs/training --which_direction BtoA",
+      "sed -i 's/out/checkpoint/g' /pfs/out/checkpoint"
+    ],
+    "env": {
+      "LD_LIBRARY_PATH": "/usr/lib/nvidia:/usr/local/cuda/lib64:/rootfs/usr/lib/x86_64-linux-gnu"
+    }
+  },
+  "resourceLimits": {
+    "memory": "4.0G",
+    "cpu": 2,
+    "gpu": {
+      "number": 1
+    }
+  },
+  "parallelismSpec": {
+    "constant": 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "training",
+      "glob": "/"
+    }
+  }
+}
+---
+{
+  "pipeline": {
+    "name": "model"
+  },
+  "transform": {
+    "image": "dwhitena/pix2pix",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+      "python pix2pix.py --mode export --output_dir /pfs/out --checkpoint /pfs/checkpoint",
+      "sed -i 's/out/model/g' /pfs/out/checkpoint"
+    ]
+  },
+  "parallelismSpec": {
+    "constant": 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "checkpoint",
+      "glob": "/"
+    }
+  }
+}

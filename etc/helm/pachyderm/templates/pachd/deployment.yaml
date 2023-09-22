@@ -118,7 +118,7 @@ spec:
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
         {{- end }}
         - name: WORKER_IMAGE
-          value: "{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+          value: "{{ .Values.global.image.registry }}{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         {{- if and (eq ( include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
         - name: WORKER_USES_ROOT
           value: "True"
@@ -128,7 +128,7 @@ spec:
           value: "{{ join "," .Values.global.imagePullSecrets }}"
         {{- end }}
         - name: WORKER_SIDECAR_IMAGE
-          value: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+          value: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
           value: {{ .Values.pachd.worker.image.pullPolicy | quote }}
         - name: WORKER_SERVICE_ACCOUNT
@@ -309,7 +309,7 @@ spec:
         {{- end }}
         {{- if and .Values.determined.enabled .Values.determined.enterpriseEdition }}
         - name: DETERMINED_OAUTH_ID
-          value: {{ default .Values.determined.oidc.clientId "determined" }}
+          value: {{ default "determined" .Values.determined.oidc.clientId }}
         - name: DETERMINED_OAUTH_SECRET
           valueFrom:
             secretKeyRef:
@@ -454,7 +454,7 @@ spec:
               # is currently used to manage the pause/unpause feature.
               name: pachd-config
               optional: true
-        image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        image: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
         ports:

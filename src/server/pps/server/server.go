@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -13,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -46,29 +44,6 @@ type Env struct {
 	BackgroundContext context.Context
 	Config            pachconfig.Configuration
 	PachwInSidecar    bool
-}
-
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
-	etcdPrefix := path.Join(senv.Config().EtcdPrefix, senv.Config().PPSEtcdPrefix)
-	return Env{
-		DB:            senv.GetDBClient(),
-		TxnEnv:        txnEnv,
-		Listener:      senv.GetPostgresListener(),
-		KubeClient:    senv.GetKubeClient(),
-		EtcdClient:    senv.GetEtcdClient(),
-		EtcdPrefix:    etcdPrefix,
-		TaskService:   senv.GetTaskService(etcdPrefix),
-		GetLokiClient: senv.GetLokiClient,
-
-		PFSServer:     senv.PfsServer(),
-		AuthServer:    senv.AuthServer(),
-		GetPachClient: senv.GetPachClient,
-
-		Reporter:          reporter,
-		BackgroundContext: pctx.Child(senv.Context(), "PPS"),
-		Config:            *senv.Config(),
-		PachwInSidecar:    senv.Config().PachwInSidecars,
-	}
 }
 
 // NewAPIServer creates an APIServer and runs the master loop in the background
@@ -108,6 +83,7 @@ func NewAPIServerNoMaster(env Env) (ppsiface.APIServer, error) {
 		workerUsesRoot:        config.WorkerUsesRoot,
 		pipelines:             ppsdb.Pipelines(env.DB, env.Listener),
 		jobs:                  ppsdb.Jobs(env.DB, env.Listener),
+		clusterDefaults:       ppsdb.ClusterDefaults(env.DB, env.Listener),
 		workerGrpcPort:        config.PPSWorkerPort,
 		port:                  config.Port,
 		peerPort:              config.PeerPort,
@@ -126,16 +102,17 @@ func NewSidecarAPIServer(
 	peerPort uint16,
 ) (*apiServer, error) {
 	apiServer := &apiServer{
-		env:            env,
-		txnEnv:         env.TxnEnv,
-		etcdPrefix:     env.EtcdPrefix,
-		reporter:       env.Reporter,
-		namespace:      namespace,
-		workerUsesRoot: true,
-		pipelines:      ppsdb.Pipelines(env.DB, env.Listener),
-		jobs:           ppsdb.Jobs(env.DB, env.Listener),
-		workerGrpcPort: workerGrpcPort,
-		peerPort:       peerPort,
+		env:             env,
+		txnEnv:          env.TxnEnv,
+		etcdPrefix:      env.EtcdPrefix,
+		reporter:        env.Reporter,
+		namespace:       namespace,
+		workerUsesRoot:  true,
+		pipelines:       ppsdb.Pipelines(env.DB, env.Listener),
+		jobs:            ppsdb.Jobs(env.DB, env.Listener),
+		clusterDefaults: ppsdb.ClusterDefaults(env.DB, env.Listener),
+		workerGrpcPort:  workerGrpcPort,
+		peerPort:        peerPort,
 	}
 	go apiServer.ServeSidecarS3G(pctx.Child(env.BackgroundContext, "s3gateway", pctx.WithServerID()))
 	return apiServer, nil

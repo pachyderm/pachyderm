@@ -38,11 +38,7 @@ func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pp
 		pctx.Child(ctx, fmt.Sprintf("monitorPipeline(%s)", pipelineInfo.Pipeline),
 			pctx.WithFields(zap.Stringer("pipeline", pipelineInfo.Pipeline))),
 		func(ctx context.Context) {
-			// monitorPipeline needs auth privileges to call subscribeCommit and
-			// inspectCommit
-			pachClient := pc.env.GetPachClient(ctx)
-			pachClient.SetAuthToken(pipelineInfo.AuthToken)
-			pc.monitorPipeline(pachClient.Ctx(), pipelineInfo)
+			pc.monitorPipeline(ctx, pipelineInfo)
 		})
 }
 
@@ -112,7 +108,10 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
 				return pachClient.SubscribeCommit(client.NewRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-					ciChan <- ci
+					select {
+					case ciChan <- ci:
+					case <-ctx.Done():
+					}
 					return nil
 				})
 			}, backoff.NewInfiniteBackOff(),
@@ -192,11 +191,9 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						// Stay running while commits are available and there's still job-related compaction to do
 					running:
 						for {
-							pachClient := pc.env.GetPachClient(ctx)
-							if err := pc.blockStandby(pachClient, ci.Commit); err != nil {
+							if err := pc.blockStandby(pc.env.GetPachClient(ctx), ci.Commit); err != nil {
 								return err
 							}
-
 							tracing.FinishAnySpan(childSpan)
 							childSpan = nil
 							select {
@@ -335,7 +332,6 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 	if err != nil {
 		return errors.Wrap(err, "getLatestCronTime")
 	}
-
 	for {
 		// get the time of the next time from the latest time using the cron schedule
 		next := schedule.Next(latestTime)

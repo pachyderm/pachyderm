@@ -20,13 +20,6 @@ mv ${OUTDIR}/version/versionpb/version.proto ${OUTDIR}/version
 
 PROTO_FILES=$(find ${OUTDIR} -name "*.proto")
 
-# Remove protobuf extensions, that are Go specific.
-for i in ${PROTO_FILES}; do
-    # remove the protoextensions/log.proto
-    sed -i 's/import.*protoextensions\/log.proto.*\;//' "${i}"
-    sed -i 's/\[.*log.*\]//' "${i}"
-done
-
 # fix imports to be relative to $OUTDIR
 for i in ${PROTO_FILES}; do
     perl -pi -e "s/import \"((?!google).*)\"/import \"api\/\$1\"/" "${i}"
@@ -54,6 +47,7 @@ sed -i "s/version.API/versionpb_v2.API/" ${OUTDIR}/version/__init__.py
 sed -i "s/worker.Worker/pachyderm.worker.Worker/" ${OUTDIR}/worker/__init__.py
 
 # Clean up
+rm -rf api/log api/protoc api/validate
 find ${OUTDIR} -empty -type d -delete
 
 tar cf - ${OUTDIR}

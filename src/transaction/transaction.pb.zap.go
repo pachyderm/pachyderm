@@ -28,8 +28,8 @@ func (x *TransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("create_branch", x.CreateBranch)
 	enc.AddObject("delete_branch", x.DeleteBranch)
 	enc.AddObject("update_job_state", x.UpdateJobState)
-	enc.AddObject("create_pipeline", x.CreatePipeline)
 	enc.AddObject("stop_job", x.StopJob)
+	enc.AddObject("create_pipeline_v2", x.CreatePipelineV2)
 	return nil
 }
 

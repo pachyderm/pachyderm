@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -20,12 +21,14 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Debug_Profile_FullMethodName           = "/debug_v2.Debug/Profile"
-	Debug_Binary_FullMethodName            = "/debug_v2.Debug/Binary"
-	Debug_Dump_FullMethodName              = "/debug_v2.Debug/Dump"
-	Debug_SetLogLevel_FullMethodName       = "/debug_v2.Debug/SetLogLevel"
-	Debug_GetDumpV2Template_FullMethodName = "/debug_v2.Debug/GetDumpV2Template"
-	Debug_DumpV2_FullMethodName            = "/debug_v2.Debug/DumpV2"
+	Debug_Profile_FullMethodName               = "/debug_v2.Debug/Profile"
+	Debug_Binary_FullMethodName                = "/debug_v2.Debug/Binary"
+	Debug_Dump_FullMethodName                  = "/debug_v2.Debug/Dump"
+	Debug_SetLogLevel_FullMethodName           = "/debug_v2.Debug/SetLogLevel"
+	Debug_GetDumpV2Template_FullMethodName     = "/debug_v2.Debug/GetDumpV2Template"
+	Debug_DumpV2_FullMethodName                = "/debug_v2.Debug/DumpV2"
+	Debug_RunPFSLoadTest_FullMethodName        = "/debug_v2.Debug/RunPFSLoadTest"
+	Debug_RunPFSLoadTestDefault_FullMethodName = "/debug_v2.Debug/RunPFSLoadTestDefault"
 )
 
 // DebugClient is the client API for Debug service.
@@ -38,6 +41,10 @@ type DebugClient interface {
 	SetLogLevel(ctx context.Context, in *SetLogLevelRequest, opts ...grpc.CallOption) (*SetLogLevelResponse, error)
 	GetDumpV2Template(ctx context.Context, in *GetDumpV2TemplateRequest, opts ...grpc.CallOption) (*GetDumpV2TemplateResponse, error)
 	DumpV2(ctx context.Context, in *DumpV2Request, opts ...grpc.CallOption) (Debug_DumpV2Client, error)
+	// RunLoadTest runs a load test.
+	RunPFSLoadTest(ctx context.Context, in *RunPFSLoadTestRequest, opts ...grpc.CallOption) (*RunPFSLoadTestResponse, error)
+	// RunLoadTestDefault runs the default load tests.
+	RunPFSLoadTestDefault(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RunPFSLoadTestResponse, error)
 }
 
 type debugClient struct {
@@ -194,6 +201,24 @@ func (x *debugDumpV2Client) Recv() (*DumpChunk, error) {
 	return m, nil
 }
 
+func (c *debugClient) RunPFSLoadTest(ctx context.Context, in *RunPFSLoadTestRequest, opts ...grpc.CallOption) (*RunPFSLoadTestResponse, error) {
+	out := new(RunPFSLoadTestResponse)
+	err := c.cc.Invoke(ctx, Debug_RunPFSLoadTest_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *debugClient) RunPFSLoadTestDefault(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RunPFSLoadTestResponse, error) {
+	out := new(RunPFSLoadTestResponse)
+	err := c.cc.Invoke(ctx, Debug_RunPFSLoadTestDefault_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DebugServer is the server API for Debug service.
 // All implementations must embed UnimplementedDebugServer
 // for forward compatibility
@@ -204,6 +229,10 @@ type DebugServer interface {
 	SetLogLevel(context.Context, *SetLogLevelRequest) (*SetLogLevelResponse, error)
 	GetDumpV2Template(context.Context, *GetDumpV2TemplateRequest) (*GetDumpV2TemplateResponse, error)
 	DumpV2(*DumpV2Request, Debug_DumpV2Server) error
+	// RunLoadTest runs a load test.
+	RunPFSLoadTest(context.Context, *RunPFSLoadTestRequest) (*RunPFSLoadTestResponse, error)
+	// RunLoadTestDefault runs the default load tests.
+	RunPFSLoadTestDefault(context.Context, *emptypb.Empty) (*RunPFSLoadTestResponse, error)
 	mustEmbedUnimplementedDebugServer()
 }
 
@@ -228,6 +257,12 @@ func (UnimplementedDebugServer) GetDumpV2Template(context.Context, *GetDumpV2Tem
 }
 func (UnimplementedDebugServer) DumpV2(*DumpV2Request, Debug_DumpV2Server) error {
 	return status.Errorf(codes.Unimplemented, "method DumpV2 not implemented")
+}
+func (UnimplementedDebugServer) RunPFSLoadTest(context.Context, *RunPFSLoadTestRequest) (*RunPFSLoadTestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunPFSLoadTest not implemented")
+}
+func (UnimplementedDebugServer) RunPFSLoadTestDefault(context.Context, *emptypb.Empty) (*RunPFSLoadTestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunPFSLoadTestDefault not implemented")
 }
 func (UnimplementedDebugServer) mustEmbedUnimplementedDebugServer() {}
 
@@ -362,6 +397,42 @@ func (x *debugDumpV2Server) Send(m *DumpChunk) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Debug_RunPFSLoadTest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunPFSLoadTestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DebugServer).RunPFSLoadTest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Debug_RunPFSLoadTest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DebugServer).RunPFSLoadTest(ctx, req.(*RunPFSLoadTestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Debug_RunPFSLoadTestDefault_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DebugServer).RunPFSLoadTestDefault(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Debug_RunPFSLoadTestDefault_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DebugServer).RunPFSLoadTestDefault(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Debug_ServiceDesc is the grpc.ServiceDesc for Debug service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -376,6 +447,14 @@ var Debug_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDumpV2Template",
 			Handler:    _Debug_GetDumpV2Template_Handler,
+		},
+		{
+			MethodName: "RunPFSLoadTest",
+			Handler:    _Debug_RunPFSLoadTest_Handler,
+		},
+		{
+			MethodName: "RunPFSLoadTestDefault",
+			Handler:    _Debug_RunPFSLoadTestDefault_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

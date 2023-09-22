@@ -1,0 +1,150 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Primitive",
+    "definitions": {
+        "Primitive": {
+            "properties": {
+                "deletive": {
+                    "$ref": "#/definitions/index.Index",
+                    "additionalProperties": false
+                },
+                "additive": {
+                    "$ref": "#/definitions/index.Index",
+                    "additionalProperties": false
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Primitive"
+        },
+        "chunk.DataRef": {
+            "properties": {
+                "ref": {
+                    "$ref": "#/definitions/chunk.Ref",
+                    "additionalProperties": false,
+                    "description": "The chunk the referenced data is located in."
+                },
+                "hash": {
+                    "type": "string",
+                    "description": "The hash of the data being referenced.",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "offsetBytes": {
+                    "type": "integer",
+                    "description": "The offset and size used for accessing the data within the chunk."
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Data Ref",
+            "description": "DataRef is a reference to data within a chunk."
+        },
+        "chunk.Ref": {
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "edge": {
+                    "type": "boolean"
+                },
+                "dek": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "encryptionAlgo": {
+                    "enum": [
+                        "ENCRYPTION_ALGO_UNKNOWN",
+                        "CHACHA20"
+                    ],
+                    "type": "string",
+                    "title": "Encryption Algo"
+                },
+                "compressionAlgo": {
+                    "enum": [
+                        "NONE",
+                        "GZIP_BEST_SPEED"
+                    ],
+                    "type": "string",
+                    "title": "Compression Algo"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Ref"
+        },
+        "index.File": {
+            "properties": {
+                "datum": {
+                    "type": "string"
+                },
+                "dataRefs": {
+                    "items": {
+                        "$ref": "#/definitions/chunk.DataRef"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File"
+        },
+        "index.Index": {
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "range": {
+                    "$ref": "#/definitions/index.Range",
+                    "additionalProperties": false,
+                    "description": "NOTE: range and file are mutually exclusive."
+                },
+                "file": {
+                    "$ref": "#/definitions/index.File",
+                    "additionalProperties": false
+                },
+                "numFiles": {
+                    "type": "integer",
+                    "description": "NOTE: num_files and size_bytes did not exist in older versions of 2.x, so they will not be set."
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Index",
+            "description": "Index stores an index to and metadata about a range of files or a file."
+        },
+        "index.Range": {
+            "properties": {
+                "offset": {
+                    "type": "integer"
+                },
+                "lastPath": {
+                    "type": "string"
+                },
+                "chunkRef": {
+                    "$ref": "#/definitions/chunk.DataRef",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Range"
+        }
+    }
+}

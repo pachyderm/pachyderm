@@ -5,6 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/auth";
 
 import "google/protobuf/timestamp.proto";
 import "protoextensions/log.proto";
+import "protoextensions/validate.proto";
 
 /* A note on users
  *
@@ -221,6 +222,8 @@ enum Permission {
   REPO_ADD_PIPELINE_WRITER    = 214;
 
   PIPELINE_LIST_JOB     = 301;
+  // CLUSTER_SET_DEFAULTS is part of PPS.
+  CLUSTER_SET_DEFAULTS  = 302;
 
   PROJECT_CREATE = 400;
   PROJECT_DELETE = 401;
@@ -267,7 +270,7 @@ message Role {
 //// Authorization API
 
 message AuthorizeRequest {
-  Resource resource = 1;
+  Resource resource = 1 [(validate.rules).message.required = true];
 
   // permissions are the operations the caller is attempting to perform
   repeated Permission permissions = 2;
@@ -289,13 +292,13 @@ message AuthorizeResponse {
 
 // GetPermissions evaluates the current user's permissions on a resource
 message GetPermissionsRequest {
-  Resource resource = 1;
+  Resource resource = 1 [(validate.rules).message.required = true];
 }
 
 // GetPermissionsForPrincipal evaluates an arbitrary principal's permissions
 // on a resource
 message GetPermissionsForPrincipalRequest {
-  Resource resource = 1;
+  Resource resource = 1 [(validate.rules).message.required = true];
 
   string principal = 2;
 }
@@ -311,7 +314,7 @@ message GetPermissionsResponse {
 
 message ModifyRoleBindingRequest {
   // resource is the resource to modify the role bindings on
-  Resource resource = 1;
+  Resource resource = 1 [(validate.rules).message.required = true];
 
   // principal is the principal to modify the roles binding for
   string principal = 2;
@@ -324,7 +327,7 @@ message ModifyRoleBindingRequest {
 message ModifyRoleBindingResponse {}
 
 message GetRoleBindingRequest {
-  Resource resource = 1;
+  Resource resource = 1 [(validate.rules).message.required = true];
 }
 
 message GetRoleBindingResponse {
@@ -446,7 +449,7 @@ message ExtractAuthTokensResponse {
 
 // RestoreAuthToken inserts a hashed token that has previously been extracted.
 message RestoreAuthTokenRequest {
-  TokenInfo token = 1;
+  TokenInfo token = 1 [(validate.rules).message.required = true];
 }
 
 message RestoreAuthTokenResponse {}

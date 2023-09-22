@@ -32,6 +32,7 @@ const (
 	API_ListDatum_FullMethodName          = "/pps_v2.API/ListDatum"
 	API_RestartDatum_FullMethodName       = "/pps_v2.API/RestartDatum"
 	API_CreatePipeline_FullMethodName     = "/pps_v2.API/CreatePipeline"
+	API_CreatePipelineV2_FullMethodName   = "/pps_v2.API/CreatePipelineV2"
 	API_InspectPipeline_FullMethodName    = "/pps_v2.API/InspectPipeline"
 	API_ListPipeline_FullMethodName       = "/pps_v2.API/ListPipeline"
 	API_DeletePipeline_FullMethodName     = "/pps_v2.API/DeletePipeline"
@@ -54,6 +55,8 @@ const (
 	API_ListTask_FullMethodName           = "/pps_v2.API/ListTask"
 	API_GetKubeEvents_FullMethodName      = "/pps_v2.API/GetKubeEvents"
 	API_QueryLoki_FullMethodName          = "/pps_v2.API/QueryLoki"
+	API_GetClusterDefaults_FullMethodName = "/pps_v2.API/GetClusterDefaults"
+	API_SetClusterDefaults_FullMethodName = "/pps_v2.API/SetClusterDefaults"
 )
 
 // APIClient is the client API for API service.
@@ -73,6 +76,7 @@ type APIClient interface {
 	ListDatum(ctx context.Context, in *ListDatumRequest, opts ...grpc.CallOption) (API_ListDatumClient, error)
 	RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreatePipelineV2(ctx context.Context, in *CreatePipelineV2Request, opts ...grpc.CallOption) (*CreatePipelineV2Response, error)
 	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error)
 	ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (API_ListPipelineClient, error)
 	DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -105,6 +109,10 @@ type APIClient interface {
 	GetKubeEvents(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_GetKubeEventsClient, error)
 	// QueryLoki returns a stream of loki log messages given a query string
 	QueryLoki(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_QueryLokiClient, error)
+	// GetClusterDefaults returns the current cluster defaults.
+	GetClusterDefaults(ctx context.Context, in *GetClusterDefaultsRequest, opts ...grpc.CallOption) (*GetClusterDefaultsResponse, error)
+	// SetClusterDefaults returns the current cluster defaults.
+	SetClusterDefaults(ctx context.Context, in *SetClusterDefaultsRequest, opts ...grpc.CallOption) (*SetClusterDefaultsResponse, error)
 }
 
 type aPIClient struct {
@@ -323,6 +331,15 @@ func (c *aPIClient) RestartDatum(ctx context.Context, in *RestartDatumRequest, o
 func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, API_CreatePipeline_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) CreatePipelineV2(ctx context.Context, in *CreatePipelineV2Request, opts ...grpc.CallOption) (*CreatePipelineV2Response, error) {
+	out := new(CreatePipelineV2Response)
+	err := c.cc.Invoke(ctx, API_CreatePipelineV2_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -642,6 +659,24 @@ func (x *aPIQueryLokiClient) Recv() (*LokiLogMessage, error) {
 	return m, nil
 }
 
+func (c *aPIClient) GetClusterDefaults(ctx context.Context, in *GetClusterDefaultsRequest, opts ...grpc.CallOption) (*GetClusterDefaultsResponse, error) {
+	out := new(GetClusterDefaultsResponse)
+	err := c.cc.Invoke(ctx, API_GetClusterDefaults_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) SetClusterDefaults(ctx context.Context, in *SetClusterDefaultsRequest, opts ...grpc.CallOption) (*SetClusterDefaultsResponse, error) {
+	out := new(SetClusterDefaultsResponse)
+	err := c.cc.Invoke(ctx, API_SetClusterDefaults_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -659,6 +694,7 @@ type APIServer interface {
 	ListDatum(*ListDatumRequest, API_ListDatumServer) error
 	RestartDatum(context.Context, *RestartDatumRequest) (*emptypb.Empty, error)
 	CreatePipeline(context.Context, *CreatePipelineRequest) (*emptypb.Empty, error)
+	CreatePipelineV2(context.Context, *CreatePipelineV2Request) (*CreatePipelineV2Response, error)
 	InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error)
 	ListPipeline(*ListPipelineRequest, API_ListPipelineServer) error
 	DeletePipeline(context.Context, *DeletePipelineRequest) (*emptypb.Empty, error)
@@ -691,6 +727,10 @@ type APIServer interface {
 	GetKubeEvents(*LokiRequest, API_GetKubeEventsServer) error
 	// QueryLoki returns a stream of loki log messages given a query string
 	QueryLoki(*LokiRequest, API_QueryLokiServer) error
+	// GetClusterDefaults returns the current cluster defaults.
+	GetClusterDefaults(context.Context, *GetClusterDefaultsRequest) (*GetClusterDefaultsResponse, error)
+	// SetClusterDefaults returns the current cluster defaults.
+	SetClusterDefaults(context.Context, *SetClusterDefaultsRequest) (*SetClusterDefaultsResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -730,6 +770,9 @@ func (UnimplementedAPIServer) RestartDatum(context.Context, *RestartDatumRequest
 }
 func (UnimplementedAPIServer) CreatePipeline(context.Context, *CreatePipelineRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePipeline not implemented")
+}
+func (UnimplementedAPIServer) CreatePipelineV2(context.Context, *CreatePipelineV2Request) (*CreatePipelineV2Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreatePipelineV2 not implemented")
 }
 func (UnimplementedAPIServer) InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectPipeline not implemented")
@@ -796,6 +839,12 @@ func (UnimplementedAPIServer) GetKubeEvents(*LokiRequest, API_GetKubeEventsServe
 }
 func (UnimplementedAPIServer) QueryLoki(*LokiRequest, API_QueryLokiServer) error {
 	return status.Errorf(codes.Unimplemented, "method QueryLoki not implemented")
+}
+func (UnimplementedAPIServer) GetClusterDefaults(context.Context, *GetClusterDefaultsRequest) (*GetClusterDefaultsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterDefaults not implemented")
+}
+func (UnimplementedAPIServer) SetClusterDefaults(context.Context, *SetClusterDefaultsRequest) (*SetClusterDefaultsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetClusterDefaults not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -1019,6 +1068,24 @@ func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(APIServer).CreatePipeline(ctx, req.(*CreatePipelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_CreatePipelineV2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePipelineV2Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).CreatePipelineV2(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_CreatePipelineV2_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).CreatePipelineV2(ctx, req.(*CreatePipelineV2Request))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1434,6 +1501,42 @@ func (x *aPIQueryLokiServer) Send(m *LokiLogMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _API_GetClusterDefaults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetClusterDefaultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetClusterDefaults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_GetClusterDefaults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetClusterDefaults(ctx, req.(*GetClusterDefaultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_SetClusterDefaults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetClusterDefaultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).SetClusterDefaults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_SetClusterDefaults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).SetClusterDefaults(ctx, req.(*SetClusterDefaultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1464,6 +1567,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreatePipeline",
 			Handler:    _API_CreatePipeline_Handler,
+		},
+		{
+			MethodName: "CreatePipelineV2",
+			Handler:    _API_CreatePipelineV2_Handler,
 		},
 		{
 			MethodName: "InspectPipeline",
@@ -1532,6 +1639,14 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RenderTemplate",
 			Handler:    _API_RenderTemplate_Handler,
+		},
+		{
+			MethodName: "GetClusterDefaults",
+			Handler:    _API_GetClusterDefaults_Handler,
+		},
+		{
+			MethodName: "SetClusterDefaults",
+			Handler:    _API_SetClusterDefaults_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

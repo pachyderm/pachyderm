@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -exuo pipefail
 
 GIT_REPO_DIR=$(cd "$( dirname "${BASH_SOURCE[0]}" )" 2>&1 > /dev/null && git rev-parse --show-toplevel)
 cd "${GIT_REPO_DIR}"
@@ -18,10 +18,13 @@ for file in $(git status --porcelain | grep '^??' | sed 's/^?? //'); do
   skip_paths+=( -o -path "${file%/}" )
 done
 
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.51.2
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.54.2
 GOMEMLIMIT=10000000000 golangci-lint run --max-same-issues=1000 --
 
 # shellcheck disable=SC2046
 find . \
   \( -path ./etc/plugin "${skip_paths[@]}" \) -prune -o -name "*.sh" -print0 \
 | xargs -0 -P 16 shellcheck -e SC1091 -e SC2010 -e SC2181 -e SC2004 -e SC2219
+
+go install github.com/neilpa/yajsv@latest
+find . -name '*.pipeline.json' -exec yajsv -s src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json '{}' '+'

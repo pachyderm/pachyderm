@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"time"
 
 	units "github.com/docker/go-units"
@@ -17,7 +18,7 @@ import (
 
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change
-func (d *driver) triggerCommit(txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
+func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(commitInfo.Commit.Repo), branchInfo, col.DefaultOptions(), func(_ string) error {
@@ -59,7 +60,7 @@ func (d *driver) triggerCommit(txnCtx *txncontext.TransactionContext, commitInfo
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
+		triggered, err := d.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +91,7 @@ func (d *driver) triggerCommit(txnCtx *txncontext.TransactionContext, commitInfo
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {
@@ -134,7 +135,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 			commits++
 			if ci.ParentCommit != nil && oldHead.Commit.Id != ci.ParentCommit.Id {
 				var err error
-				ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
+				ci, err = d.resolveCommit(ctx, txnCtx.SqlTx, ci.ParentCommit)
 				if err != nil {
 					return false, err
 				}
@@ -148,7 +149,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 }
 
 // validateTrigger returns an error if a trigger is invalid
-func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
 	if trigger == nil {
 		return nil
 	}
@@ -172,7 +173,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
-	if err := d.listBranchInTransaction(txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
+	if err := d.listBranchInTransaction(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
 		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {

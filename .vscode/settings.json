@@ -1,4 +1,12 @@
 {
-    "go.inferGopath": false,
-    "go.buildTags": "unit_test,k8s"
+  "go.inferGopath": false,
+  "go.buildTags": "unit_test,k8s",
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "*.pipeline.json"
+      ],
+      "url": "https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json"
+    }
+  ]
 }

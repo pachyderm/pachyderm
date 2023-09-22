@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.20.6"
+    default: "1.21.1"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -50,6 +50,9 @@ parameters:
     type: boolean
     default: false
   run-python-sdk-jobs:
+    type: boolean
+    default: false
+  run-label-studio-jobs:
     type: boolean
     default: false
 
@@ -83,7 +86,7 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
@@ -119,7 +122,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       GOPROXY: https://proxy.golang.org
-    parallelism: 10
+    parallelism: 8
     steps:
       - checkout
       - run:
@@ -215,7 +218,8 @@ jobs:
               --format testname \
               --debug \
               -- \
-              go test "${package}" -json \
+              go test "${package}" -timeout 15m \
+              -json \
               -run ${test_regex} \
               -tags="${test_tags}" \
               -count=1 \
@@ -235,6 +239,67 @@ jobs:
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
       - collect-test-results
+  static-checks:
+    resource_class: xlarge
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      GOPROXY: https://proxy.golang.org
+      TEST_RESULTS: /tmp/test-results
+    steps:
+      - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+      - run: etc/testing/circle/install.sh
+      - save_cache:
+          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+          paths:
+            - cached-deps/
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - run: mkdir ${TEST_RESULTS}
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+      - save_cache:
+          key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/.go_workspace/pkg/mod
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
+      - run:
+          no_output_timeout: 20m
+          command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     parameters:
       bucket:
@@ -480,6 +545,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
+      TEST_ENV: << parameters.env >>
       BUCKET: << parameters.bucket >>
       GOOGLE_PROJECT_ID: build-release-001
       GOOGLE_COMPUTE_ZONE: us-east1-b
@@ -560,14 +626,17 @@ jobs:
           file: /tmp/test-results/coverage.txt
   deploy-tests:
     parameters:
+      num_executors:
+        type: integer
+        default: 2
       resource_class:
         type: string
-        default: 2xlarge
+        default: large
       arch:
         type: string
         default: amd64
     resource_class: << parameters.resource_class >>
-    parallelism: 4
+    parallelism: << parameters.num_executors >>
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -797,7 +866,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.25.5
+      - image: envoyproxy/envoy:v1.27.0
         entrypoint: /bin/sh
     steps:
       - run: apt update
@@ -1194,6 +1263,10 @@ jobs:
                   pulumi config set pachdVersion << parameters.pachdVersion >>
                   [[ ! -z "<< parameters.helmChartVersion >>" ]] && pulumi config set helmChartVersion << parameters.helmChartVersion >>
                   pulumi config set --secret rdsPGDBPassword ${PULUMI_TEST_DB_PW}
+                  if ! [[ "$CIRCLE_TAG" =~ v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+ ]]
+                  then
+                    pulumi config set enableConsole false
+                  fi
             - pulumi/update:
                 stack: pachyderm/core/<< parameters.env >>
                 working_directory: ./etc/testing/circle/workloads/pulumi/aws/
@@ -1475,8 +1548,7 @@ jobs:
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
-            poetry run pytest -vvv tests
-
+            poetry run pytest -vvv pachyderm_sdk tests
   python-sdk-test-publish:
     executor: python
     working_directory: ~/project/python-sdk
@@ -1495,7 +1567,6 @@ jobs:
             poetry config repositories.test-pypi https://test.pypi.org/legacy/
             poetry version << parameters.version >>
             poetry publish --build --repository test-pypi --username "$PYPI_USERNAME" --password "$TEST_PYPI_PASSWORD"
-
   python-sdk-publish:
     executor: python
     working_directory: ~/project/python-sdk
@@ -1513,6 +1584,81 @@ jobs:
           command: |
             poetry version << parameters.version >>
             poetry publish --build --username "$PYPI_USERNAME" --password "$PYPI_PASSWORD_PACHYDERM_SDK"
+  build-label-studio-ci-testing-image:
+    executor: python
+    steps:
+      - setup_remote_docker:
+          version: 20.10.18
+          docker_layer_caching: true
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Clone Label Studio repo
+          command: git clone https://github.com/pachyderm/label-studio.git label-studio
+      - run:
+          name: Build Docker image
+          command: |
+            cd label-studio
+            DOCKER_BUILDKIT=1 docker build -t pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 .
+      - run:
+          name: Docker push
+          command: docker push pachyderm/label-studio-ci-testing:$CIRCLE_SHA1
+  test-label-studio:
+    resource_class: xlarge
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      LABEL_STUDIO_USERNAME: user@domain.com
+      LABEL_STUDIO_PASSWORD: pass
+      LABEL_STUDIO_USER_TOKEN: abcdef
+    working_directory: ~/project/label-studio
+    steps:
+      - checkout:
+          path: ~/project
+      - install-minikube
+      - install-helm
+      - install-kubectl
+      - start-minikube
+      - wait-for-minikube
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+      - run:
+          name: Install pach
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+            pachctl version
+      - run:
+          name: Run Label Studio
+          command: |
+            docker run -d -it --net="host" pachyderm/label-studio-ci-testing:$CIRCLE_SHA1 label-studio -b \
+            --username $LABEL_STUDIO_USERNAME \
+            --password $LABEL_STUDIO_PASSWORD \
+            --user-token $LABEL_STUDIO_USER_TOKEN
+
+            # Wait for Label Studio server to start
+            timeout=300
+            while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/api/projects -H "Authorization: Token $LABEL_STUDIO_USER_TOKEN")" != "200" ]]; do
+              timeout=$((timeout - 5))
+              if [ $timeout -eq 0 ]; then
+                echo "Timed out waiting for Label Studio"
+                exit 1
+              fi
+              sleep 5
+            done
+      - run:
+          name: Run tests
+          command: |
+            pip3 install -r requirements.txt
+            PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
 
 workflows:
   integration-tests:
@@ -1528,6 +1674,7 @@ workflows:
       - jsonnet-lint
       - test-go
       - govulncheck
+      - static-checks
       - test-envoy
       - test-pps
       - integration-tests:
@@ -1683,10 +1830,12 @@ workflows:
           name: amd64 deploy tests
           resource_class: xlarge # amd64
           arch: amd64
+          num_executors: 4
       - deploy-tests:
           name: arm64 deploy tests
           resource_class: arm.xlarge # arm64
           arch: arm64
+          num_executors: 2
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
@@ -1714,10 +1863,9 @@ workflows:
           version: $CIRCLE_SHA1
   python-sdk:
     when:
-      condition:
-        or:
-          - << pipeline.parameters.run-python-sdk-jobs >>
-          - << pipeline.parameters.run-core-jobs >>
+      or:
+        - << pipeline.parameters.run-python-sdk-jobs >>
+        - << pipeline.parameters.run-core-jobs >>
     jobs:
       - test-python-sdk:
           requires:
@@ -1731,12 +1879,29 @@ workflows:
             - python-sdk-build
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
+  label-studio:
+    when:
+      or:
+        - << pipeline.parameters.run-label-studio-jobs >>
+        - << pipeline.parameters.run_load_tests >> # Eventually switch back to run-core-jobs
+    jobs:
+      - test-label-studio:
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - build-label-studio-ci-testing-image
+      - build-docker-images
+      - build-pachctl-bin:
+          version: $CIRCLE_SHA1
+      - build-label-studio-ci-testing-image
 
   release:
     jobs:
       - helm-tests:
           filters: *only-release-tags
       - test-pps:
+          filters: *only-release-tags
+      - static-checks:
           filters: *only-release-tags
       - integration-tests:
           matrix:
@@ -1761,6 +1926,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-tests
+            - static-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -1962,6 +2128,8 @@ workflows:
           filters: *only-nightly-tags
       - test-pps:
           filters: *only-nightly-tags
+      - static-checks:
+          filters: *only-nightly-tags
       - integration-tests:
           matrix:
             parameters:
@@ -1976,6 +2144,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
+            - static-checks
             - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
@@ -1985,6 +2154,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
+            - static-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -2147,7 +2317,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=12g --wait=all
           background: true
   wait-for-minikube:
     steps:
