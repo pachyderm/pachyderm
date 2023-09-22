@@ -157,6 +157,14 @@ func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.P
 	return nil, unsupportedError("Profile")
 }
 
+func (c *unsupportedDebugBuilderClient) RunPFSLoadTest(_ context.Context, _ *debug_v2.RunPFSLoadTestRequest, opts ...grpc.CallOption) (*debug_v2.RunPFSLoadTestResponse, error) {
+	return nil, unsupportedError("RunPFSLoadTest")
+}
+
+func (c *unsupportedDebugBuilderClient) RunPFSLoadTestDefault(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*debug_v2.RunPFSLoadTestResponse, error) {
+	return nil, unsupportedError("RunPFSLoadTestDefault")
+}
+
 func (c *unsupportedDebugBuilderClient) SetLogLevel(_ context.Context, _ *debug_v2.SetLogLevelRequest, opts ...grpc.CallOption) (*debug_v2.SetLogLevelResponse, error) {
 	return nil, unsupportedError("SetLogLevel")
 }
@@ -341,7 +349,7 @@ func (c *unsupportedPfsBuilderClient) DeleteProject(_ context.Context, _ *pfs_v2
 	return nil, unsupportedError("DeleteProject")
 }
 
-func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.DeleteRepoRequest, opts ...grpc.CallOption) (*pfs_v2.DeleteRepoResponse, error) {
 	return nil, unsupportedError("DeleteRepo")
 }
 
@@ -457,14 +465,6 @@ func (c *unsupportedPfsBuilderClient) RenewFileSet(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("RenewFileSet")
 }
 
-func (c *unsupportedPfsBuilderClient) RunLoadTest(_ context.Context, _ *pfs_v2.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs_v2.RunLoadTestResponse, error) {
-	return nil, unsupportedError("RunLoadTest")
-}
-
-func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*pfs_v2.RunLoadTestResponse, error) {
-	return nil, unsupportedError("RunLoadTestDefault")
-}
-
 func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.ShardFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.ShardFileSetResponse, error) {
 	return nil, unsupportedError("ShardFileSet")
 }
@@ -493,6 +493,10 @@ func (c *unsupportedPpsBuilderClient) ActivateAuth(_ context.Context, _ *pps_v2.
 
 func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v2.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreatePipeline")
+}
+
+func (c *unsupportedPpsBuilderClient) CreatePipelineV2(_ context.Context, _ *pps_v2.CreatePipelineV2Request, opts ...grpc.CallOption) (*pps_v2.CreatePipelineV2Response, error) {
+	return nil, unsupportedError("CreatePipelineV2")
 }
 
 func (c *unsupportedPpsBuilderClient) CreateSecret(_ context.Context, _ *pps_v2.CreateSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {

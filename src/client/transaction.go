@@ -296,9 +296,11 @@ func (c *pfsBuilderClient) CreateRepo(ctx context.Context, req *pfs.CreateRepoRe
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreateRepo: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *pfsBuilderClient) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest, opts ...grpc.CallOption) (*pfs.DeleteRepoResponse, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteRepo: req})
-	return nil, nil
+	response := &pfs.DeleteRepoResponse{}
+	response.Deleted = true
+	return response, nil
 }
 func (c *pfsBuilderClient) StartCommit(ctx context.Context, req *pfs.StartCommitRequest, opts ...grpc.CallOption) (*pfs.Commit, error) {
 	// Note that since we are batching requests (no extra round-trips), we do not
@@ -329,9 +331,5 @@ func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest,
 }
 func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{UpdateJobState: req})
-	return nil, nil
-}
-func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{CreatePipeline: req})
 	return nil, nil
 }

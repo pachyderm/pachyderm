@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -27,6 +26,7 @@ import (
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -43,6 +43,7 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
@@ -190,12 +191,14 @@ func (b *builder) initInternalServer(ctx context.Context) error {
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
 			b.loggingInterceptor.UnaryServerInterceptor,
+			validation.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
 			b.loggingInterceptor.StreamServerInterceptor,
+			validation.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -212,6 +215,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
 			b.loggingInterceptor.UnaryServerInterceptor,
+			validation.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			errorsmw.StreamServerInterceptor,
@@ -219,6 +223,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
 			b.loggingInterceptor.StreamServerInterceptor,
+			validation.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -229,7 +234,7 @@ func (b builder) forGRPCServer(f func(*grpc.Server)) {
 }
 
 func (b *builder) registerLicenseServer(ctx context.Context) error {
-	b.licenseEnv = licenseserver.EnvFromServiceEnv(b.env)
+	b.licenseEnv = LicenseEnv(b.env)
 	apiServer, err := licenseserver.New(b.licenseEnv)
 	if err != nil {
 		return err
@@ -253,7 +258,7 @@ func (b *builder) registerIdentityServer(ctx context.Context) error {
 
 func (b *builder) registerAuthServer(ctx context.Context) error {
 	apiServer, err := authserver.NewAuthServer(
-		authserver.EnvFromServiceEnv(b.env, b.txnEnv),
+		AuthEnv(b.env, b.txnEnv),
 		true, !b.daemon.criticalServersOnly, true,
 	)
 	if err != nil {
@@ -269,7 +274,7 @@ func (b *builder) registerAuthServer(ctx context.Context) error {
 }
 
 func (b *builder) registerPFSServer(ctx context.Context) error {
-	env, err := pfs_server.EnvFromServiceEnv(b.env, b.txnEnv)
+	env, err := PFSEnv(b.env, b.txnEnv)
 	if err != nil {
 		return err
 	}
@@ -283,7 +288,7 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 }
 
 func (b *builder) registerPPSServer(ctx context.Context) error {
-	apiServer, err := pps_server.NewAPIServer(pps_server.EnvFromServiceEnv(b.env, b.txnEnv, b.reporter))
+	apiServer, err := pps_server.NewAPIServer(PPSEnv(b.env, b.txnEnv, b.reporter))
 	if err != nil {
 		return err
 	}
@@ -303,7 +308,7 @@ func (b *builder) registerTransactionServer(ctx context.Context) error {
 }
 
 func (b *builder) registerAdminServer(ctx context.Context) error {
-	apiServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(b.env))
+	apiServer := adminserver.NewAPIServer(AdminEnv(b.env, false))
 	b.forGRPCServer(func(s *grpc.Server) { admin.RegisterAPIServer(s, apiServer) })
 	return nil
 }
@@ -323,12 +328,7 @@ func (b *builder) registerVersionServer(ctx context.Context) error {
 }
 
 func (b *builder) registerDebugServer(ctx context.Context) error {
-	apiServer := debugserver.NewDebugServer(
-		b.env,
-		b.env.Config().PachdPodName,
-		nil,
-		b.env.GetDBClient(),
-	)
+	apiServer := b.newDebugServer()
 	b.forGRPCServer(func(s *grpc.Server) { debugclient.RegisterDebugServer(s, apiServer) })
 	return nil
 }
@@ -382,8 +382,8 @@ func (b *builder) initS3Server(ctx context.Context) error {
 	return nil
 }
 
-func (b *builder) initDownloadServer(ctx context.Context) error {
-	b.daemon.download = archiveserver.NewHTTP(b.env.Config().DownloadPort, b.env.GetPachClient)
+func (b *builder) initPachHTTPServer(ctx context.Context) error {
+	b.daemon.pachhttp = http.New(b.env.Config().DownloadPort, b.env.GetPachClient)
 	return nil
 }
 
@@ -400,11 +400,61 @@ func (b *builder) maybeInitDexDB(ctx context.Context) error {
 }
 
 func (b *builder) initPachwController(ctx context.Context) error {
-	env, err := pachw.EnvFromServiceEnv(b.env)
+	env, err := PachwEnv(b.env)
 	if err != nil {
 		return err
 	}
 	pachw.NewController(ctx, env)
+	return nil
+}
+
+func (b *builder) startPFSWorker(ctx context.Context) error {
+	env, err := PFSWorkerEnv(b.env)
+	if err != nil {
+		return err
+	}
+	config := pfs_server.WorkerConfig{
+		Storage: b.env.Config().StorageConfiguration,
+	}
+	w, err := pfs_server.NewWorker(*env, config)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-worker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startPFSMaster(ctx context.Context) error {
+	env, err := PFSEnv(b.env, b.txnEnv)
+	if err != nil {
+		return err
+	}
+	m, err := pfs_server.NewMaster(*env)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-master")
+		if err := m.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-master", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startDebugWorker(ctx context.Context) error {
+	env := DebugEnv(b.env)
+	w := debugserver.NewWorker(env)
+	go func() {
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from debug worker", zap.Error(err))
+		}
+	}()
 	return nil
 }
 
@@ -443,4 +493,8 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 
 	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(target))), zap.String("setFrom", source))
 	debug.SetMemoryLimit(target)
+}
+
+func (b *builder) newDebugServer() debugclient.DebugServer {
+	return debugserver.NewDebugServer(DebugEnv(b.env))
 }

@@ -35,6 +35,7 @@ data:
       name: {{ default "determined" .Values.determined.oidc.clientId }}
       redirect_uris:
       - {{ required "A valid recipient url is required!" (printf "%s/oidc/callback" .Values.determined.oidc.idpRecipientUrl) }}
+      - {{ required "A valid recipient url is required!" (printf "%s/oidc/callback?relayState=cli" .Values.determined.oidc.idpRecipientUrl) | quote }}
     {{- end }}
   trusted-peers: |
 {{ toYaml .Values.pachd.additionalTrustedPeers | indent 4 }}

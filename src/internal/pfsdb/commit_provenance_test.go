@@ -1,17 +1,18 @@
-//go:build unit_test
-
-package pfsdb
+package pfsdb_test
 
 import (
+	"context"
 	"sort"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	v2_6_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.6.0"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -22,15 +23,14 @@ func TestCommitSetProvenance(suite *testing.T) {
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, suite)
 	defer db.Close()
 	// setup schema
-	withTx(suite, db, func(tx *pachsql.Tx) {
+	withTx(suite, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		_, err := tx.ExecContext(ctx, `CREATE SCHEMA collections`)
 		require.NoError(suite, err)
 		require.NoError(suite, col.SetupPostgresV0(ctx, tx))
-		require.NoError(suite, col.SetupPostgresCollections(ctx, tx,
-			col.NewPostgresCollection("commits", db, nil, &pfs.CommitInfo{}, nil)))
+		require.NoError(suite, col.SetupPostgresCollections(ctx, tx, col.NewPostgresCollection("commits", db, nil, &pfs.CommitInfo{}, nil)))
 		_, err = tx.ExecContext(ctx, `CREATE SCHEMA pfs`)
 		require.NoError(suite, err)
-		require.NoError(suite, SetupCommitProvenanceV0(ctx, tx))
+		require.NoError(suite, v2_6_0.SetupCommitProvenanceV0(ctx, tx))
 	})
 	suite.Cleanup(func() {
 		db.Close()
@@ -47,7 +47,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 		// E <--------
 		td, cf := NewTestDAG(proj)
 		defer require.NoError(t, cf(db))
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			require.NoError(t, td.addRepo(tx, "A"))
 			require.NoError(t, td.addRepo(tx, "B", "A"))
 			require.NoError(t, td.addRepo(tx, "C", "B"))
@@ -63,7 +63,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 		//               /
 		// E@w <---------
 		var a, b, c, d, e *pfs.Commit
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			var err error
 			a, err = td.addCommitSet(tx, "v", "A")
 			require.NoError(t, err)
@@ -78,26 +78,26 @@ func TestCommitSetProvenance(suite *testing.T) {
 		})
 		// assert commit set provenance
 		// check y's commit set provenance
-		withTx(t, db, func(tx *pachsql.Tx) {
-			yProv, err := CommitSetProvenance(tx, "y")
+		withTx(t, ctx, db, func(__ context.Context, tx *pachsql.Tx) {
+			yProv, err := pfsdb.CommitSetProvenance(tx, "y")
 			require.NoError(t, err)
 			checkCommitsEqual(t, []*pfs.Commit{a, b}, yProv)
 		})
 		// check y's commit set subvenance
-		withTx(t, db, func(tx *pachsql.Tx) {
-			ySubv, err := CommitSetSubvenance(tx, "y")
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
+			ySubv, err := pfsdb.CommitSetSubvenance(tx, "y")
 			require.NoError(t, err)
 			checkCommitsEqual(t, []*pfs.Commit{}, ySubv)
 		})
 		// check z's commit set provenance
-		withTx(t, db, func(tx *pachsql.Tx) {
-			zProv, err := CommitSetProvenance(tx, "z")
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
+			zProv, err := pfsdb.CommitSetProvenance(tx, "z")
 			require.NoError(t, err)
 			checkCommitsEqual(t, []*pfs.Commit{a, b, e}, zProv)
 		})
 		// check x's commit set subvenance
-		withTx(t, db, func(tx *pachsql.Tx) {
-			xSubv, err := CommitSetSubvenance(tx, "x")
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
+			xSubv, err := pfsdb.CommitSetSubvenance(tx, "x")
 			require.NoError(t, err)
 			dAtW := client.NewCommit(proj, "D", "", "w")
 			checkCommitsEqual(t, []*pfs.Commit{c, dAtW, d}, xSubv)
@@ -112,22 +112,22 @@ func TestCommitSetProvenance(suite *testing.T) {
 		//           -----------  montage
 		td, cf := NewTestDAG(proj)
 		defer require.NoError(t, cf(db))
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			require.NoError(t, td.addRepo(tx, "images"))
 			require.NoError(t, td.addRepo(tx, "edges", "images"))
 			require.NoError(t, td.addRepo(tx, "montage", "images", "edges"))
 		})
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			var err error
 			_, err = td.addCommitSet(tx, "x", "images")
 			require.NoError(t, err)
 		})
-		withTx(t, db, func(tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(_ context.Context, tx *pachsql.Tx) {
 			var err error
-			xSubv, err := CommitSetSubvenance(tx, "x")
+			xSubv, err := pfsdb.CommitSetSubvenance(tx, "x")
 			require.NoError(t, err)
 			require.Len(t, xSubv, 0)
-			xProv, err := CommitSetProvenance(tx, "x")
+			xProv, err := pfsdb.CommitSetProvenance(tx, "x")
 			require.NoError(t, err)
 			require.Len(t, xProv, 0)
 		})
@@ -174,7 +174,7 @@ func (td *testDAG) addRepo(tx *pachsql.Tx, repo string, provRepos ...string) err
 		} else {
 			return errors.Errorf("prov repo %q must exist", r)
 		}
-		if err := AddCommitProvenance(tx, c, td.heads[r]); err != nil {
+		if err := pfsdb.AddCommitProvenance(tx, c, td.heads[r]); err != nil {
 			return err
 		}
 	}
@@ -198,15 +198,15 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 		var r string
 		r, bfsQueue = bfsQueue[0], bfsQueue[1:]
 		c := client.NewCommit(td.project, r, "", commitID)
-		if _, ok := seen[CommitKey(c)]; !ok {
+		if _, ok := seen[pfsdb.CommitKey(c)]; !ok {
 			if err := addCommitWrapper(tx, c); err != nil {
 				return nil, err
 			}
-			seen[CommitKey(c)] = struct{}{}
+			seen[pfsdb.CommitKey(c)] = struct{}{}
 		}
 		td.heads[r] = c
 		for _, prov := range td.provDag[r] {
-			if err := AddCommitProvenance(tx, c, td.heads[prov]); err != nil {
+			if err := pfsdb.AddCommitProvenance(tx, c, td.heads[prov]); err != nil {
 				return nil, err
 			}
 		}
@@ -216,25 +216,32 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 }
 
 func addCommitWrapper(tx *pachsql.Tx, c *pfs.Commit) error {
-	if _, err := tx.Exec(`INSERT INTO collections.commits(key) VALUES ($1);`, CommitKey(c)); err != nil {
-		return errors.Wrapf(err, "insert %q to collections.commits", CommitKey(c))
+	if _, err := tx.Exec(`INSERT INTO collections.commits(key) VALUES ($1);`, pfsdb.CommitKey(c)); err != nil {
+		return errors.Wrapf(err, "insert %q to collections.commits", pfsdb.CommitKey(c))
 	}
-	return AddCommit(tx, c)
+	return pfsdb.AddCommit(tx, c)
 }
 
-func withTx(t *testing.T, db *pachsql.DB, f func(*pachsql.Tx)) {
-	tx, err := db.Beginx()
+func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {
+	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
-	f(tx)
+	f(ctx, tx)
 	require.NoError(t, tx.Commit())
+}
+
+func withFailedTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {
+	tx, err := db.BeginTxx(ctx, nil)
+	require.NoError(t, err)
+	f(ctx, tx)
+	require.YesError(t, tx.Commit())
 }
 
 func checkCommitsEqual(t *testing.T, expecteds, unsortedActuals []*pfs.Commit) {
 	require.Equal(t, len(expecteds), len(unsortedActuals))
 	sort.Slice(unsortedActuals, func(i, j int) bool {
-		return CommitKey(unsortedActuals[i]) < CommitKey(unsortedActuals[j])
+		return pfsdb.CommitKey(unsortedActuals[i]) < pfsdb.CommitKey(unsortedActuals[j])
 	})
 	for i := range expecteds {
-		require.Equal(t, CommitKey(expecteds[i]), CommitKey(unsortedActuals[i]))
+		require.Equal(t, pfsdb.CommitKey(expecteds[i]), pfsdb.CommitKey(unsortedActuals[i]))
 	}
 }

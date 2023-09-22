@@ -5,8 +5,10 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/debug";
 
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
 
 import "pps/pps.proto";
+import "pfs/pfs.proto";
 
 message ProfileRequest {
   Profile profile = 1;
@@ -105,6 +107,10 @@ message DumpV2Request {
   repeated Pipeline pipelines = 2;
   bool input_repos = 3;
   google.protobuf.Duration timeout = 4;
+  message Defaults {
+    bool cluster_defaults = 1;
+  }
+  Defaults defaults = 5;
 }
 
 message DumpContent {
@@ -124,6 +130,22 @@ message DumpChunk {
   }
 }
 
+message RunPFSLoadTestRequest {
+  string spec = 1;
+  pfs_v2.Branch branch = 2;
+  int64 seed = 3;
+  string state_id = 4;
+}
+
+message RunPFSLoadTestResponse {
+  string spec = 1;
+  pfs_v2.Branch branch = 2;
+  int64 seed = 3;
+  string error = 4;
+  google.protobuf.Duration duration = 5;
+  string state_id = 6;
+}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
@@ -131,4 +153,9 @@ service Debug {
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
   rpc GetDumpV2Template(GetDumpV2TemplateRequest) returns (GetDumpV2TemplateResponse) {}
   rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
+
+  // RunLoadTest runs a load test.
+  rpc RunPFSLoadTest(RunPFSLoadTestRequest) returns (RunPFSLoadTestResponse) {}
+  // RunLoadTestDefault runs the default load tests.
+  rpc RunPFSLoadTestDefault(google.protobuf.Empty) returns (RunPFSLoadTestResponse) {}
 }

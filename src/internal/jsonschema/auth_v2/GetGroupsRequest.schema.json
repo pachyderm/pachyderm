@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetGroupsRequest",
+    "definitions": {
+        "GetGroupsRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Groups Request"
+        }
+    }
+}

@@ -44,6 +44,8 @@ def _Repo_as_uri(self: "Repo") -> str:
 def _Repo___post_init__(self: "Repo") -> None:
     if not self.project or not self.project.name:
         self.project = Project(name="default")
+    if not self.type:
+        self.type = "user"
     super(self.__class__, self).__post_init__()
 
 

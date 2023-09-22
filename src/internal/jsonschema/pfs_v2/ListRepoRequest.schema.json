@@ -1,0 +1,35 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListRepoRequest",
+    "definitions": {
+        "ListRepoRequest": {
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "type is the type of (system) repos that should be returned an empty string requests all repos"
+                },
+                "projects": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Project"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "projects filters out repos that do not belong in the list, while no projects means list all repos."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List Repo Request"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

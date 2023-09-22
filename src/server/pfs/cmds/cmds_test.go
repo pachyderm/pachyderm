@@ -51,9 +51,9 @@ const (
 func mockInspectCluster(env *realenv.RealEnv) {
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		clusterInfo := admin.ClusterInfo{
-			Id:                "dev",
-			DeploymentId:      "dev",
-			VersionWarningsOk: true,
+			Id:           "dev",
+			DeploymentId: "dev",
+			WarningsOk:   true,
 		}
 		return &clusterInfo, nil
 	})
@@ -424,6 +424,41 @@ func TestDeleteAllRepos(t *testing.T) {
 		pachctl delete repo --all
 		pachctl list repo --all-projects | match {{.repo}}a
 		`,
+		"project", tu.UniqueString("project"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
+
+func TestDeleteNonExistRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl delete repo {{.repo}},
+		`,
+		"project", tu.UniqueString("project"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
+
+func TestDeleteRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+			pachctl create project {{.project}}
+			pachctl create repo {{.repo}} --project {{.project}}
+			pachctl delete repo {{.repo}} --project {{.project}} 2>&1 | match 'Repo deleted.'
+			`,
 		"project", tu.UniqueString("project"),
 		"repo", tu.UniqueString("repo"),
 	).Run())

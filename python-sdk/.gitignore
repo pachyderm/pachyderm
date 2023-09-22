@@ -7,3 +7,4 @@ __pycache__
 dist
 docs/*.zip
 docs/pachyderm_sdk
+.python-version

@@ -34,16 +34,18 @@ func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 // TODO: refactor the four modes to have a cleaner license/enterprise server
 // abstraction.
 func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
-	fb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+	fb.enterpriseEnv = EnterpriseEnv(
 		fb.env,
 		path.Join(fb.env.Config().EtcdPrefix, fb.env.Config().EnterpriseEtcdPrefix),
 		fb.txnEnv,
-		eprsserver.WithMode(eprsserver.FullMode),
-		eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")),
 	)
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		fb.enterpriseEnv,
-		true,
+		eprsserver.Config{
+			Heartbeat:    true,
+			Mode:         eprsserver.FullMode,
+			UnpausedMode: os.Getenv("UNPAUSED_MODE"),
+		},
 	)
 	if err != nil {
 		return err
@@ -88,7 +90,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.registerDebugServer,
 		fb.registerProxyServer,
 		fb.initS3Server,
-		fb.initDownloadServer,
+		fb.initPachHTTPServer,
 		fb.initPrometheusServer,
 		fb.initPachwController,
 
@@ -97,6 +99,9 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.bootstrap,
 		fb.externallyListen,
 		fb.resumeHealth,
+		fb.startPFSWorker,
+		fb.startPFSMaster,
+		fb.startDebugWorker,
 		fb.daemon.serve,
 	)
 }

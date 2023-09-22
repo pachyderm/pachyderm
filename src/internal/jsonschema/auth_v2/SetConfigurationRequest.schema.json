@@ -1,0 +1,54 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SetConfigurationRequest",
+    "definitions": {
+        "SetConfigurationRequest": {
+            "properties": {
+                "configuration": {
+                    "$ref": "#/definitions/auth_v2.OIDCConfig",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Set Configuration Request"
+        },
+        "auth_v2.OIDCConfig": {
+            "properties": {
+                "issuer": {
+                    "type": "string"
+                },
+                "clientId": {
+                    "type": "string"
+                },
+                "clientSecret": {
+                    "type": "string"
+                },
+                "redirectUri": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "requireEmailVerified": {
+                    "type": "boolean"
+                },
+                "localhostIssuer": {
+                    "type": "boolean",
+                    "description": "localhost_issuer ignores the contents of the issuer claim and makes all OIDC requests to the embedded OIDC provider. This is necessary to support some network configurations like Minikube."
+                },
+                "userAccessibleIssuerHost": {
+                    "type": "string",
+                    "description": "user_accessible_issuer_host can be set to override the host used in the OAuth2 authorization URL in case the OIDC issuer isn't accessible outside the cluster. This requires a fully formed URL with scheme of either http or https. This is necessary to support some configurations like Minikube."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "OIDC Config",
+            "description": "Configure Pachyderm's auth system with an OIDC provider"
+        }
+    }
+}

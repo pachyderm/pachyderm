@@ -1,13 +1,20 @@
->![pach_logo](../img/pach_logo.svg) INFO Each new minor version of Pachyderm introduces profound architectual changes to the product. For this reason, our examples are kept in separate branches:
-> - Branch Master: Examples using Pachyderm 2.1.x versions - https://github.com/pachyderm/pachyderm/tree/master/examples
-> - Branch 2.0.x: Examples using Pachyderm 2.0.x versions - https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
-> - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+> ![pach_logo](../img/pach_logo.svg) INFO Each new minor version of Pachyderm introduces profound
+> architectual changes to the product. For this reason, our examples are kept in separate branches:
+>
+> - Branch Master: Examples using Pachyderm 2.1.x versions -
+  > https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 2.0.x: Examples using Pachyderm 2.0.x versions -
+  > https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13.x versions -
+  > https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 
 # Creating a shuffle pipeline
 
-This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files without downloading/uploading can be created.
+This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files
+without downloading/uploading can be created.
 
 ## Create fruits input repo
+
 ```shell
 pachctl create repo fruits
 pachctl put file fruits@master -f mango.jpeg
@@ -15,16 +22,17 @@ pachctl put file fruits@master -f apple.jpeg
 ```
 
 ## Create pricing input repo
+
 ```shell
 pachctl create repo pricing
 pachctl put file pricing@master -f mango.json
 pachctl put file pricing@master -f apple.json
 ```
 
-
 ## Create shuffle pipeline
+
 ```shell
-pachctl create pipeline -f shuffle.json
+pachctl create pipeline -f shuffle.pipeline.json
 ```
 
 Let's take a closer look at that pipeline:
@@ -67,31 +75,30 @@ Let's take a closer look at that pipeline:
 }
 ```
 
-Notice that both of our inputs have the `"empty_files"` field set to `true`,
-this means that we'll get files with the correct name but no content. If your
-shuffle can be done looking only at the names of the files, without considering
-content, specifying `"empty_files"` will massively improve its performance.
+Notice that both of our inputs have the `"empty_files"` field set to `true`, this means that we'll
+get files with the correct name but no content. If your shuffle can be done looking only at the
+names of the files, without considering content, specifying `"empty_files"` will massively improve
+its performance.
 
 ## Results
 
 ### List job
+
 `pachctl list job` indicates no data download or upload was performed
 
 | ID                               | OUTPUT COMMIT                            | STARTED        | DURATION  | RESTART | PROGRESS  | DL | UL | STATE   |
-|----------------------------------|------------------------------------------|----------------|-----------|---------|-----------|----|----|---------|
+| -------------------------------- | ---------------------------------------- | -------------- | --------- | ------- | --------- | -- | -- | ------- |
 | 60617fd06155451d8358cc714bf9b670 | shuffle/f56e97fa9e234eb6ad902640d4fba2ac | 10 seconds ago | 4 seconds | 0       | 4 + 0 / 4 | 0B | 0B | success |
 
-
-
 ### Output files:
+
 `pachctl glob file shuffle@master:/**` will show shuffled file:
 
-|NAME              | TYPE | SIZE    |
-|------------------|------|---------|
-| /apple/          | dir  | 5KiB    |
-| /apple/cost.json | file | 23B     |
-| /apple/img.jpeg  | file | 4.978KiB|
-| /mango/          | dir  | 7.051KiB|
-| /mango/cost.json | file | 22B     |
-| /mango/img.jpeg  | file | 7.029KiB|
-
+| NAME             | TYPE | SIZE     |
+| ---------------- | ---- | -------- |
+| /apple/          | dir  | 5KiB     |
+| /apple/cost.json | file | 23B      |
+| /apple/img.jpeg  | file | 4.978KiB |
+| /mango/          | dir  | 7.051KiB |
+| /mango/cost.json | file | 22B      |
+| /mango/img.jpeg  | file | 7.029KiB |

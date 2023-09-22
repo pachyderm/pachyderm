@@ -26,6 +26,9 @@ function(version, pghost, pguser)
             "env_var": "POSTGRESQL_PASSWORD",
             "key": "postgresql-password"
         }]
-    }
+    },
+    "parallelism_spec": {
+        "constant": 2
+    },
 }
 

@@ -1,0 +1,56 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/EgressResponse",
+    "definitions": {
+        "EgressResponse": {
+            "properties": {
+                "objectStorage": {
+                    "$ref": "#/definitions/pfs_v2.EgressResponse.ObjectStorageResult",
+                    "additionalProperties": false
+                },
+                "sqlDatabase": {
+                    "$ref": "#/definitions/pfs_v2.EgressResponse.SQLDatabaseResult",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "object_storage"
+                    ]
+                },
+                {
+                    "required": [
+                        "sql_database"
+                    ]
+                }
+            ],
+            "title": "Egress Response"
+        },
+        "pfs_v2.EgressResponse.ObjectStorageResult": {
+            "properties": {
+                "bytesWritten": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Object Storage Result"
+        },
+        "pfs_v2.EgressResponse.SQLDatabaseResult": {
+            "properties": {
+                "rowsWritten": {
+                    "additionalProperties": {
+                        "type": "integer"
+                    },
+                    "type": "object"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "SQL Database Result"
+        }
+    }
+}

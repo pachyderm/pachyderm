@@ -9,5 +9,5 @@ docker-image:
 	@docker push $(CONTAINER_TAG)
 
 deploy:
-	pachctl create pipeline -f ./pipelines/spout.json
-	pachctl create pipeline -f ./pipelines/processor.json	
+	pachctl create pipeline -f ./pipelines/spout.pipeline.json
+	pachctl create pipeline -f ./pipelines/processor.pipeline.json

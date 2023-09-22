@@ -1,4 +1,5 @@
 """Handwritten classes/methods that augment the existing Debug API."""
+from datetime import timedelta
 from typing import Iterator, List, Optional, TYPE_CHECKING
 
 from . import DebugStub
@@ -16,7 +17,7 @@ class ApiStub(DebugStub):
         system: "System" = None,
         pipelines: Optional[List["Pipeline"]] = None,
         input_repos: bool = False,
-        timeout: int = 0,
+        timeout: timedelta = 0,
     ) -> Iterator["DumpChunk"]:
         """Collect a standard set of debugging information using the DumpV2 API
           rather than the now deprecated Dump API.
