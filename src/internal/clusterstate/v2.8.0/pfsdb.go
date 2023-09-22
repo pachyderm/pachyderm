@@ -418,6 +418,9 @@ func migratePage(ctx context.Context, tx *pachsql.Tx, page []commitCollection) e
 		if err != nil {
 			return err
 		}
+		if !commit.StartTime.Valid {
+			return errors.Errorf("commit %s has a nil start time", commit.IntID)
+		}
 		_, err = tx.NamedExecContext(ctx, migrateQuery, commit)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("migrating commit %d", commit.IntID))

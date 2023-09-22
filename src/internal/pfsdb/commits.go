@@ -341,7 +341,7 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 		childrenIDs := make([]CommitID, 0)
 		commitsNotFinished := make([]string, 0)
 		for _, child := range children {
-			if child.FinishedTime.IsZero() {
+			if child.FinishedTime.Valid == false {
 				commitsNotFinished = append(commitsNotFinished, child.CommitID)
 			}
 			childrenIDs = append(childrenIDs, child.ID)

@@ -86,18 +86,18 @@ func parseBranches(branchInfos string) ([]*pfs.Branch, error) {
 }
 
 type Commit struct {
-	ID             CommitID  `db:"int_id"`
-	CommitSetID    string    `db:"commit_set_id"`
-	CommitID       string    `db:"commit_id"`
-	Origin         string    `db:"origin"`
-	Description    string    `db:"description"`
-	StartTime      time.Time `db:"start_time"`
-	FinishingTime  time.Time `db:"finishing_time"`
-	FinishedTime   time.Time `db:"finished_time"`
-	CompactingTime int64     `db:"compacting_time_s"`
-	ValidatingTime int64     `db:"validating_time_s"`
-	Error          string    `db:"error"`
-	Size           int64     `db:"size"`
+	ID             CommitID      `db:"int_id"`
+	CommitSetID    string        `db:"commit_set_id"`
+	CommitID       string        `db:"commit_id"`
+	Origin         string        `db:"origin"`
+	Description    string        `db:"description"`
+	StartTime      sql.NullTime  `db:"start_time"`
+	FinishingTime  sql.NullTime  `db:"finishing_time"'`
+	FinishedTime   sql.NullTime  `db:"finished_time"`
+	CompactingTime sql.NullInt64 `db:"compacting_time_s"`
+	ValidatingTime sql.NullInt64 `db:"validating_time_s"`
+	Error          string        `db:"error"`
+	Size           int64         `db:"size"`
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
