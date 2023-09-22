@@ -1231,6 +1231,7 @@ func (d *driver) resolveCommitWithID(ctx context.Context, sqlTx *pachsql.Tx, use
 			return nil, errors.Wrap(err, "resolve commit")
 		}
 	}
+	commitWithID.CommitInfo.Commit = commit // we're doing this because the call sites to pfs.branches haven't been updated yet.
 	// Traverse commits' parents until you've reached the right ancestor
 	if ancestryLength >= 0 {
 		for i := 1; i <= ancestryLength; i++ {
