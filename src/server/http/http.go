@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/jsonschema"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/server/restgateway"
 	"go.uber.org/zap"
 )
 
@@ -45,6 +46,10 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 	// JSON schemas.
 	mux.Handle("/jsonschema/", http.StripPrefix("/jsonschema/", http.FileServer(http.FS(jsonschema.FS))))
 
+	// GRPC gateway.
+	gwmux := NewGatewayMux(pachClientFactory)
+	mux.Handle("/api/", http.StripPrefix("/api", gwmux))
+
 	return &Server{
 		mux: mux,
 		server: &http.Server{
@@ -52,6 +57,11 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 			Handler: mux,
 		},
 	}
+}
+
+func NewGatewayMux(pachClientFactory func(context.Context) *client.APIClient) http.Handler {
+	return restgateway.New(1234, pachClientFactory)
+
 }
 
 // CSRFWrapper is an http.Handler that provides CSRF protection to the underlying handler.

@@ -50,8 +50,8 @@ import (
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/restgateway"
 	transactionserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
-  "github.com/pachyderm/pachyderm/v2/src/server/restgateway"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -389,9 +389,10 @@ func (b *builder) initPachHTTPServer(ctx context.Context) error {
 }
 
 func (b *builder) initPachRestGatewayServer(ctx context.Context) error {
-       //b.daemon.pachrestgateway = restgateway.New(b.env.Config().RestGatewayPort)
-       restgateway.New(b.env.Config().RestGatewayPort, b.env.GetPachClient)
-       return nil
+	//b.daemon.pachrestgateway = restgateway.New(b.env.Config().RestGatewayPort)
+	s := restgateway.New(b.env.Config().RestGatewayPort, b.env.GetPachClient)
+	go s.ListenAndServe(ctx)
+	return nil
 }
 
 func (b *builder) initPrometheusServer(ctx context.Context) error {

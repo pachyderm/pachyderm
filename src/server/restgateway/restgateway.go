@@ -2,39 +2,37 @@ package restgateway
 
 import (
 	"context"
-	"fmt"
+	"flag"
 	"net/http"
 	"net/url"
-  "flag"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
 
-  "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-  "google.golang.org/grpc"
-  "google.golang.org/grpc/credentials/insecure"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
-	ppsgw "github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsgw "github.com/pachyderm/pachyderm/v2/src/pfs"
+	ppsgw "github.com/pachyderm/pachyderm/v2/src/pps"
 
-	workergw "github.com/pachyderm/pachyderm/v2/src/worker"
-	proxygw "github.com/pachyderm/pachyderm/v2/src/proxy"
 	admingw "github.com/pachyderm/pachyderm/v2/src/admin"
 	authgw "github.com/pachyderm/pachyderm/v2/src/auth"
-	licensegw "github.com/pachyderm/pachyderm/v2/src/license"
-	identitygw "github.com/pachyderm/pachyderm/v2/src/identity"
 	debuggw "github.com/pachyderm/pachyderm/v2/src/debug"
 	enterprisegw "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	identitygw "github.com/pachyderm/pachyderm/v2/src/identity"
+	licensegw "github.com/pachyderm/pachyderm/v2/src/license"
+	proxygw "github.com/pachyderm/pachyderm/v2/src/proxy"
 	transactiongw "github.com/pachyderm/pachyderm/v2/src/transaction"
 	versiongw "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
+	workergw "github.com/pachyderm/pachyderm/v2/src/worker"
 )
 
 var (
-  // pachd-grpc server port 1650
-  grpcServerEndpoint = flag.String("grpc-server-endpoint",  "localhost:1650", "gRPC server endpoint")
+	// pachd-grpc server port 1650
+	grpcServerEndpoint = flag.String("grpc-server-endpoint", "localhost:1650", "gRPC server endpoint")
 )
 
 // Server is an http.Server that serves public requests.
@@ -44,12 +42,19 @@ type Server struct {
 }
 
 // New creates a new API server, with an http.Server to actually serve traffic.
-func New(port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *Server {
-  ctx := context.Background()
-  ctx, cancel := context.WithCancel(ctx)
-  defer cancel()
+func New(port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *runtime.ServeMux {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-  mux := runtime.NewServeMux()
+	client := pachClientFactory(ctx)
+
+	mux := runtime.NewServeMux(runtime.WithIncomingHeaderMatcher(func(s string) (string, bool) {
+		if s != "Content-Length" {
+			return s, true
+		}
+		return s, false
+	}))
 
 	// Health check.
 	//mux.HandlePath("POST", "/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,75 +63,68 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 		w.Write([]byte("healthy\n")) //nolint:errcheck
 	})
 
-  opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 
-  err := ppsgw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = pfsgw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = workergw.RegisterWorkerHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = proxygw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = admingw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = authgw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = licensegw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = identitygw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = debuggw.RegisterDebugHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = enterprisegw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = transactiongw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-  err = versiongw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
-  if err != nil {
-    return nil
-  }
-
-	return &Server{
-		mux: *mux,
-		server: &http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
-			Handler: mux,
-		},
+	err := ppsgw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
 	}
+
+	err = pfsgw.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	if err != nil {
+		return nil
+	}
+
+	err = workergw.RegisterWorkerHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = proxygw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = admingw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = authgw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = licensegw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = identitygw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = debuggw.RegisterDebugHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = enterprisegw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = transactiongw.RegisterAPIHandlerFromEndpoint(ctx, mux, *grpcServerEndpoint, opts)
+	if err != nil {
+		return nil
+	}
+
+	err = versiongw.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	if err != nil {
+		return nil
+	}
+	return mux
 }
 
 // CSRFWrapper is an http.Handler that provides CSRF protection to the underlying handler.

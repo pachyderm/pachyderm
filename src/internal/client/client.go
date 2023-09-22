@@ -894,7 +894,7 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 			finalMD[k] = v
 		}
 	}
-	return metadata.NewOutgoingContext(ctx, finalMD)
+	return context.WithValue(metadata.NewOutgoingContext(ctx, finalMD), "auth is set", c.authenticationToken)
 }
 
 // Ctx is a convenience function that returns adds Pachyderm authn metadata
