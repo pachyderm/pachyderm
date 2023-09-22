@@ -139,7 +139,7 @@ func (m *Master) watchRepos(ctx context.Context) error {
 					// goroutines spawned by manageRepo need to live until the main master routine is cancelled.
 					ctx, cancel := pctx.WithCancel(ctx)
 					repos[repoPair.ID] = cancel
-					go m.driver.manageRepo(ctx, ring, repoPair.RepoInfo, lockPrefix)
+					go m.driver.manageRepo(ctx, ring, repoPair, lockPrefix)
 					return nil
 				}), "for each repo")
 			}, dbutil.WithReadOnly()); err != nil {
@@ -186,15 +186,15 @@ func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.R
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "get repo")
 			}
-			go d.manageRepo(ctx, ring, repo, lockPrefix)
+			go d.manageRepo(ctx, ring, pfsdb.RepoPair{ID: repoID, RepoInfo: repo}, lockPrefix)
 		case <-ctx.Done():
 			return nil
 		}
 	}
 }
 
-func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repo *pfs.RepoInfo, lockPrefix string) {
-	key := pfsdb.RepoKey(repo.Repo)
+func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repoPair pfsdb.RepoPair, lockPrefix string) {
+	key := pfsdb.RepoKey(repoPair.RepoInfo.Repo)
 	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 		ctx, cancel := pctx.WithCancel(ctx)
 		defer cancel()
