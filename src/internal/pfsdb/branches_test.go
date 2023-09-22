@@ -83,7 +83,7 @@ func createProject(t *testing.T, ctx context.Context, tx *pachsql.Tx, projectInf
 	require.NoError(t, coredb.UpsertProject(ctx, tx, projectInfo))
 }
 
-func createRepoPair(t *testing.T, ctx context.Context, tx *pachsql.Tx, repoInfo *pfs.RepoInfo) *pfsdb.RepoPair {
+func createRepoInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, repoInfo *pfs.RepoInfo) *pfsdb.RepoPair {
 	t.Helper()
 	createProject(t, ctx, tx, newProjectInfo(repoInfo.Repo.Project.Name))
 	id, err := pfsdb.UpsertRepo(ctx, tx, repoInfo)
@@ -91,26 +91,26 @@ func createRepoPair(t *testing.T, ctx context.Context, tx *pachsql.Tx, repoInfo 
 	return &pfsdb.RepoPair{ID: id, RepoInfo: repoInfo}
 }
 
-func createCommitPair(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitPair {
+func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitPair {
 	t.Helper()
-	createRepoPair(t, ctx, tx, newRepoInfo(commitInfo.Commit.Repo.Project, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type))
+	createRepoInfoWithID(t, ctx, tx, newRepoInfo(commitInfo.Commit.Repo.Project, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type))
 	commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 	require.NoError(t, err)
 	return &pfsdb.CommitPair{ID: commitID, CommitInfo: commitInfo}
 }
 
-func TestCreateAndGetBranch(t *testing.T) {
+func TestBranchUpsert(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commitPair1 := createCommitPair(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+			commitInfoWithID1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
 			branchInfo := &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
 					Name: "master",
 				},
-				Head: commitPair1.CommitInfo.Commit,
+				Head: commitInfoWithID1.CommitInfo.Commit,
 			}
 			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
@@ -122,8 +122,8 @@ func TestCreateAndGetBranch(t *testing.T) {
 			require.True(t, cmp.Equal(branchInfo, gotBranchByName, compareBranchOpts()...))
 
 			// Update branch to point to second commit
-			commitPair2 := createCommitPair(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitPair1.CommitInfo.Commit))
-			branchInfo.Head = commitPair2.CommitInfo.Commit
+			commitInfoWithID2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
+			branchInfo.Head = commitInfoWithID2.CommitInfo.Commit
 			id2, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
 			require.Equal(t, id, id2, "UpsertBranch should keep id stable")
@@ -134,7 +134,7 @@ func TestCreateAndGetBranch(t *testing.T) {
 	})
 }
 
-func TestCreateAndGetBranchProvenance(t *testing.T) {
+func TestBranchProvenance(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
@@ -146,7 +146,7 @@ func TestCreateAndGetBranchProvenance(t *testing.T) {
 			commitBInfo := newCommitInfo(repoBInfo.Repo, random.String(32), nil)
 			commitCInfo := newCommitInfo(repoCInfo.Repo, random.String(32), nil)
 			for _, commitInfo := range []*pfs.CommitInfo{commitAInfo, commitBInfo, commitCInfo} {
-				createCommitPair(t, ctx, tx, commitInfo)
+				createCreateInfoWithID(t, ctx, tx, commitInfo)
 			}
 			// Create 3 branches, one for each repo, pointing to the corresponding commit
 			branchAInfo := &pfs.BranchInfo{
@@ -245,8 +245,8 @@ func TestBranchIterator(t *testing.T) {
 			for i := 0; i < 8; i++ {
 				var newLevel []*pfs.BranchInfo
 				for _, parent := range currentLevel {
-					// create a commit and branch pair
-					createCommitPair(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
+					// create a commits and branches
+					createCreateInfoWithID(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
 					id, err := pfsdb.UpsertBranch(ctx, tx, parent)
 					require.NoError(t, err)
 					allBranches[id] = parent
@@ -268,22 +268,22 @@ func TestBranchIterator(t *testing.T) {
 		})
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// List all branches
-			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, "", "", "", pfsdb.SortAscend)
+			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, nil /* filter */)
 			require.NoError(t, err)
 			gotAllBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
-			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchPair pfsdb.BranchInfoWithID) error {
-				gotAllBranches[branchPair.ID] = branchPair.BranchInfo
-				require.Equal(t, allBranches[branchPair.ID].Branch.Key(), branchPair.BranchInfo.Branch.Key())
-				require.Equal(t, allBranches[branchPair.ID].Head.Key(), branchPair.BranchInfo.Head.Key())
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				gotAllBranches[branchInfoWithID.ID] = branchInfoWithID.BranchInfo
+				require.Equal(t, allBranches[branchInfoWithID.ID].Branch.Key(), branchInfoWithID.BranchInfo.Branch.Key())
+				require.Equal(t, allBranches[branchInfoWithID.ID].Head.Key(), branchInfoWithID.BranchInfo.Head.Key())
 				return nil
 			}))
 			// Filter on a set of repos
 			expectedRepoNames := []string{allBranches[1].Branch.Repo.Name}
-			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, allBranches[1].Branch.Repo.Project.Name, allBranches[1].Branch.Repo.Name, allBranches[1].Branch.Repo.Type, pfsdb.SortAscend)
+			branchIterator, err = pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, allBranches[1].Branch, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnCreatedAt, Order: pfsdb.SortOrderAsc})
 			require.NoError(t, err)
 			var gotRepoNames []string
-			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchPair pfsdb.BranchInfoWithID) error {
-				gotRepoNames = append(gotRepoNames, branchPair.BranchInfo.Branch.Repo.Name)
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				gotRepoNames = append(gotRepoNames, branchInfoWithID.BranchInfo.Branch.Repo.Name)
 				return nil
 			}))
 			require.Equal(t, len(expectedRepoNames), len(gotRepoNames))
@@ -292,23 +292,133 @@ func TestBranchIterator(t *testing.T) {
 	})
 }
 
-func TestDeleteBranch(t *testing.T) {
+func TestBranchDelete(t *testing.T) {
+	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commitInfoWithID := createCommitPair(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
-			branchInfo := &pfs.BranchInfo{
+			// Setup dependencies
+			repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, "A", pfs.UserRepoType)
+			commitAInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
+			commitBInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
+			commitCInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
+			for _, commitInfo := range []*pfs.CommitInfo{commitAInfo, commitBInfo, commitCInfo} {
+				createCreateInfoWithID(t, ctx, tx, commitInfo)
+			}
+			// Create 3 branches, one for each repo, pointing to the corresponding commit
+			branchAInfo := &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
-					Name: "master",
+					Name: "branchA",
 				},
-				Head: commitInfoWithID.CommitInfo.Commit,
+				Head: commitAInfo.Commit,
 			}
-			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			branchBInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "branchB",
+				},
+				Head: commitBInfo.Commit,
+			}
+			branchCInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "branchC",
+				},
+				Head: commitCInfo.Commit,
+			}
+			// Provenance info: A <- B <- C, and A <- C
+			branchAInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch, branchCInfo.Branch}
+			branchBInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
+			branchBInfo.Provenance = []*pfs.Branch{branchAInfo.Branch}
+			branchBInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
+			branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch, branchBInfo.Branch}
+			branchCInfo.Provenance = []*pfs.Branch{branchBInfo.Branch, branchAInfo.Branch}
+			// Add a branch trigger to re-point branch C to B
+			branchCInfo.Trigger = &pfs.Trigger{Branch: "branchB", CronSpec: "* * * * *"}
+			for _, branchInfo := range []*pfs.BranchInfo{branchAInfo, branchBInfo, branchCInfo} {
+				_, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+				require.NoError(t, err)
+			}
+			branchBID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
-			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, id))
-			_, err = pfsdb.GetBranchInfo(ctx, tx, id)
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID))
+			_, err = pfsdb.GetBranchInfo(ctx, tx, branchBID)
 			require.ErrorContains(t, err, "sql: no rows in result set")
+			// Verify that BranchA no longer has BranchB in its subvenance
+			branchAInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
+			branchAID, err := pfsdb.GetBranchID(ctx, tx, branchAInfo.Branch)
+			require.NoError(t, err)
+			gotBranchAInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchAID)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchAInfo, gotBranchAInfo, compareBranchOpts()...))
+			// Verify BranchC no longer has BranchB in its provenance, nor does it have the trigger
+			branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
+			branchCInfo.Provenance = []*pfs.Branch{branchAInfo.Branch}
+			branchCInfo.Trigger = nil
+			branchCID, err := pfsdb.GetBranchID(ctx, tx, branchCInfo.Branch)
+			require.NoError(t, err)
+			gotBranchCInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchCID)
+			require.NoError(t, err)
+			require.True(t, cmp.Equal(branchCInfo, gotBranchCInfo, compareBranchOpts()...))
+		})
+	})
+}
+
+func TestBranchTrigger(t *testing.T) {
+	t.Parallel()
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		var masterBranchID, stagingBranchID pfsdb.BranchID
+		// Create two branches, master and staging in the same repo.
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			var err error
+			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
+			commit1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			masterBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Head: commit1}
+			masterBranchID, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
+			require.NoError(t, err)
+			commit2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			stagingBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "staging"}, Head: commit2}
+			stagingBranchID, err = pfsdb.UpsertBranch(ctx, tx, stagingBranchInfo)
+			require.NoError(t, err)
+		})
+		// Create the branch trigger that re-points master to staging.
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			trigger := &pfs.Trigger{
+				Branch:        "staging",
+				CronSpec:      "* * * * *",
+				RateLimitSpec: "",
+				Size:          "100M",
+				Commits:       10,
+				All:           true,
+			}
+			require.NoError(t, pfsdb.UpsertBranchTrigger(ctx, tx, masterBranchID, stagingBranchID, trigger))
+			gotTrigger, err := pfsdb.GetBranchTrigger(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			require.Equal(t, trigger, gotTrigger)
+			// Also get the trigger from GetBranchInfo
+			gotMasterBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			require.Equal(t, trigger, gotMasterBranchInfo.Trigger)
+			// Update the trigger through UpsertBranchTrigger
+			trigger.CronSpec = "0 * * * *"
+			trigger.All = false
+			require.NoError(t, pfsdb.UpsertBranchTrigger(ctx, tx, masterBranchID, stagingBranchID, trigger))
+			gotMasterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			require.Equal(t, trigger, gotMasterBranchInfo.Trigger)
+			// Delete branch trigger, and try to get it back via GetBranchInfo
+			require.NoError(t, pfsdb.DeleteBranchTrigger(ctx, tx, masterBranchID))
+			gotMasterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			require.Nil(t, gotMasterBranchInfo.Trigger)
+			// staging branch shouldn't get a trigger
+			gotStagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
+			require.NoError(t, err)
+			require.Nil(t, gotStagingBranchInfo.Trigger)
+			// Attempt to create trigger with nonexistent branch via UpsertBranch
+			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
+			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
+			require.ErrorContains(t, err, "no rows in result set")
 		})
 	})
 }
