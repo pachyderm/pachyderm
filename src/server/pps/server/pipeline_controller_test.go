@@ -498,8 +498,8 @@ func TestEvaluate(t *testing.T) {
 		pi.State = startState
 		actualState, actualSideEffects, _, err := evaluate(pi, rc)
 		require.NoError(t, err)
-		require.Equal(t, expectedState, actualState)
-		require.Equal(t, len(expectedSideEffects), len(actualSideEffects))
+		require.Equal(t, expectedState, actualState, "for start state %v, expected state was %v but got %v", startState, expectedState, actualState)
+		require.Equal(t, len(expectedSideEffects), len(actualSideEffects), "for start state %v, expected side effects are %v but got %v", startState, expectedSideEffects, actualSideEffects)
 		for i := 0; i < len(expectedSideEffects); i++ {
 			require.True(t, expectedSideEffects[i].equals(actualSideEffects[i]))
 		}
@@ -534,6 +534,7 @@ func TestEvaluate(t *testing.T) {
 			state: pps.PipelineState_PIPELINE_RUNNING,
 			sideEffects: []sideEffect{
 				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
 			},
 		},
 		pps.PipelineState_PIPELINE_FAILURE: {
@@ -638,6 +639,7 @@ func TestEvaluate(t *testing.T) {
 			sideEffects: []sideEffect{
 				ResourcesSideEffect(sideEffectToggle_UP),
 				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
 			},
 		},
 		pps.PipelineState_PIPELINE_PAUSED: {
