@@ -4,11 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+)
+
+const (
+	BranchesChannelName     = "pfs_branches"
+	BranchesRepoChannelName = "pfs_branches_repo_"
 )
 
 const (
@@ -44,6 +51,20 @@ const (
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
 
+// ErrBranchNotFound is returned by GetCommit() when a commit is not found in postgres.
+type ErrBranchNotFound struct {
+	ID        BranchID
+	BranchKey string
+}
+
+func (err ErrBranchNotFound) Error() string {
+	return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, err.BranchKey)
+}
+
+func (err ErrBranchNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, err.Error())
+}
+
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
 // TODO this can be moved to a more generic package.
 func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
@@ -65,7 +86,8 @@ type BranchIterator struct {
 	tx        *pachsql.Tx
 }
 type BranchInfoWithID struct {
-	ID BranchID
+	ID       BranchID
+	Revision int64
 	*pfs.BranchInfo
 }
 
@@ -117,7 +139,7 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error 
 	if dst == nil {
 		return errors.Errorf("dst BranchInfo cannot be nil")
 	}
-	branch, err := i.paginator.next(ctx, i.tx)
+	branch, rev, err := i.paginator.next(ctx, i.tx)
 	if err != nil {
 		return err
 	}
@@ -127,6 +149,7 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error 
 	}
 	dst.ID = branch.ID
 	dst.BranchInfo = branchInfo
+	dst.Revision = rev
 	return nil
 }
 
@@ -134,6 +157,11 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error 
 func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
 	branch := &Branch{}
 	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrBranchNotFound{
+				ID: id,
+			}
+		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, branch)
@@ -143,6 +171,19 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
 	row := &Branch{}
 	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
+		if err == sql.ErrNoRows {
+			errBranch := pfs.Branch{
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{Name: project},
+					Name:    repo,
+					Type:    repoType,
+				},
+				Name: branch,
+			}
+			return nil, ErrBranchNotFound{
+				BranchKey: errBranch.Key(),
+			}
+		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, row)
@@ -163,6 +204,9 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (Branc
 		branch.Repo.Type,
 		branch.Name,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrBranchNotFound{BranchKey: branch.Key()}
+		}
 		return 0, errors.Wrapf(err, "could not get id for branch %s", branch.Key())
 	}
 	return id, nil

@@ -43,6 +43,10 @@ type Repo struct {
 	Branches string `db:"branches"`
 }
 
+func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return repo.CreatedAtUpdatedAt
+}
+
 func (repo *Repo) Pb() *pfs.Repo {
 	return &pfs.Repo{
 		Name:    repo.Name,
@@ -105,6 +109,10 @@ type Commit struct {
 	CreatedAtUpdatedAt
 }
 
+func (commit Commit) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return commit.CreatedAtUpdatedAt
+}
+
 func (commit *Commit) Pb() *pfs.Commit {
 	return &pfs.Commit{
 		Id:   commit.CommitSetID,
@@ -119,6 +127,10 @@ type Branch struct {
 	Repo Repo     `db:"repo"`
 	Name string   `db:"name"`
 	CreatedAtUpdatedAt
+}
+
+func (branch Branch) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return branch.CreatedAtUpdatedAt
 }
 
 func (branch *Branch) Pb() *pfs.Branch {
