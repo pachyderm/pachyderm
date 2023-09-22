@@ -967,7 +967,13 @@ jobs:
             export PFS_MOUNT_DIR=$(pwd)/pfs
 
             # Run integration tests
-            pytest -v jupyterlab_pachyderm/tests/test_integrations.py
+            mkdir -p test-results
+
+            pytest -v --junitxml=test-results/junit.xml jupyterlab_pachyderm/tests/test_integrations.py
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
 
   jupyter-extension-e2e-test:
     resource_class: xlarge
