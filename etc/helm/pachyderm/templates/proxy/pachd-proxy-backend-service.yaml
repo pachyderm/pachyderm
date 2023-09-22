@@ -33,6 +33,9 @@ spec:
   - name: archive-port
     port: 1659
     targetPort: archive-port
+  - name: restgw-port
+    port: 1660
+    targetPort: restgw-port
   selector:
     {{- if .Values.enterpriseServer.enabled }}
     app: pach-enterprise

@@ -102,6 +102,8 @@ spec:
               containerPort: 1656
             - name: archive-direct
               containerPort: 1659
+            - name: restgw-direct
+              containerPort: 1660
           readinessProbe:
             httpGet:
               path: /ready
