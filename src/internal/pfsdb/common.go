@@ -3,6 +3,7 @@ package pfsdb
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -12,13 +13,31 @@ import (
 type sortOrder string
 
 const (
-	SortAscend  = sortOrder("ASC")
-	SortDescend = sortOrder("DESC")
+	SortOrderNone = sortOrder("")
+	SortOrderAsc  = sortOrder("ASC")
+	SortOrderDesc = sortOrder("DESC")
 )
 
 type (
-	ModelType interface{ Repo | Commit | Branch }
+	ModelType  interface{ Repo | Commit | Branch }
+	ColumnName interface{ string | branchColumn }
 )
+
+type OrderByColumn[T ColumnName] struct {
+	Column T
+	Order  sortOrder
+}
+
+func OrderByQuery[T ColumnName](orderBys ...OrderByColumn[T]) string {
+	if len(orderBys) == 0 {
+		return ""
+	}
+	values := make([]string, len(orderBys))
+	for i, col := range orderBys {
+		values[i] = fmt.Sprintf("%s %s", col.Column, col.Order)
+	}
+	return "ORDER BY " + strings.Join(values, ", ")
+}
 
 type pageIterator[T ModelType] struct {
 	query         string
@@ -28,7 +47,7 @@ type pageIterator[T ModelType] struct {
 	pageIdx       int
 }
 
-func newPageIterator[T ModelType](ctx context.Context, tx *pachsql.Tx, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
+func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
 	return pageIterator[T]{
 		query:  query,
 		values: values,
