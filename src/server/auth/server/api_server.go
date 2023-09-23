@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -24,7 +23,6 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -410,54 +408,6 @@ func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txncontext.Transa
 	return &binding, nil
 }
 
-func (a *apiServer) getEnterpriseTokenState(ctx context.Context) (enterpriseclient.State, error) {
-	if a.env.GetEnterpriseServer() == nil {
-		return 0, errors.New("Enterprise Server not yet initialized")
-	}
-	resp, err := a.env.GetEnterpriseServer().GetState(ctx, &enterpriseclient.GetStateRequest{})
-	if err != nil {
-		return 0, errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
-	}
-	return resp.State, nil
-}
-
-// expiredEnterpriseCheck enforces that if the cluster's enterprise token is
-// expired, users cannot log in. The root token can be used to access the cluster.
-func (a *apiServer) expiredEnterpriseCheck(ctx context.Context, username string) error {
-	state, err := a.getEnterpriseTokenState(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-	}
-
-	if state == enterpriseclient.State_ACTIVE {
-		return nil
-	}
-
-	if err = a.userHasExpiredClusterAccessCheck(ctx, username); err != nil {
-		return errors.Wrapf(err, "Pachyderm Enterprise is not active in this "+
-			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm "+
-			"auth is deactivated, only cluster admins can perform any operations)")
-	}
-	return nil
-}
-
-func (a *apiServer) userHasExpiredClusterAccessCheck(ctx context.Context, username string) error {
-	// Root User, PPS Master, and any Pipeline keep cluster access
-	if username == auth.RootUser || strings.HasPrefix(username, auth.PipelinePrefix) || strings.HasPrefix(username, auth.InternalPrefix) {
-		return nil
-	}
-
-	// Any User with the Cluster Admin Role keeps cluster access
-	isAdmin, err := a.hasClusterRole(ctx, username, auth.ClusterAdminRole)
-	if err != nil {
-		return err
-	}
-	if !isAdmin {
-		return errors.Errorf("user: %v, is not priviledged to operate while Enterprise License is disabled", username)
-	}
-	return nil
-}
-
 func (a *apiServer) hasClusterRole(ctx context.Context, username string, role string) (bool, error) {
 	bindings, err := a.getClusterRoleBinding(ctx)
 	if err != nil {
@@ -498,18 +448,6 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*a
 }
 
 func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext.TransactionContext, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
-	// TODO(acohen4) 2.3: disable RPC if a.env.Config.AuthRootToken != ""
-	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
-	// cannot be activated
-	state, err := a.getEnterpriseTokenState(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-	}
-	if state != enterpriseclient.State_ACTIVE {
-		return nil, errors.Errorf("Pachyderm Enterprise is not active in this " +
-			"cluster, and the Pachyderm auth API is an Enterprise-level feature")
-	}
-
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin.
@@ -631,13 +569,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		if err != nil {
 			return nil, err
 		}
-
 		username := auth.UserPrefix + email
-
-		if err := a.expiredEnterpriseCheck(ctx, username); err != nil {
-			return nil, err
-		}
-
 		// Generate a new Pachyderm token and write it
 		t, err := a.generateAndInsertAuthToken(ctx, username, int64(60*a.env.Config.SessionDurationMinutes))
 		if err != nil {
@@ -653,10 +585,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		username := auth.UserPrefix + claims.Email
-
-		if err := a.expiredEnterpriseCheck(ctx, username); err != nil {
-			return nil, err
-		}
 
 		// Sync the user's group membership from the groups claim
 		if err := a.syncGroupMembership(ctx, claims); err != nil {
@@ -1513,10 +1441,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 			return nil, auth.ErrBadToken
 		}
 		return nil, lookupErr
-	}
-
-	if err := a.expiredEnterpriseCheck(ctx, tokenInfo.Subject); err != nil {
-		return nil, err
 	}
 
 	// verify token hasn't expired

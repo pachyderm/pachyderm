@@ -34,10 +34,9 @@ func AuthEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) auth_ser
 		Listener:   senv.GetPostgresListener(),
 		TxnEnv:     txnEnv,
 
-		GetEnterpriseServer: senv.EnterpriseServer,
-		GetIdentityServer:   senv.IdentityServer,
-		GetPfsServer:        senv.PfsServer,
-		GetPpsServer:        senv.PpsServer,
+		GetIdentityServer: senv.IdentityServer,
+		GetPfsServer:      senv.PfsServer,
+		GetPpsServer:      senv.PpsServer,
 
 		BackgroundContext: pctx.Child(senv.Context(), "auth"),
 		Config:            *senv.Config(),

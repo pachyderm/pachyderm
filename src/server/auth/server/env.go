@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -22,10 +21,9 @@ type Env struct {
 	TxnEnv     *txnenv.TransactionEnv
 
 	// circular dependency
-	GetEnterpriseServer func() enterprise.APIServer
-	GetIdentityServer   func() identity.APIServer
-	GetPfsServer        func() pfs.APIServer
-	GetPpsServer        func() pps.APIServer
+	GetIdentityServer func() identity.APIServer
+	GetPfsServer      func() pfs.APIServer
+	GetPpsServer      func() pps.APIServer
 
 	BackgroundContext context.Context
 	Config            pachconfig.Configuration
