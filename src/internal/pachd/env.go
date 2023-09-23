@@ -114,7 +114,6 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
 		StorageConfig:     env.Config().StorageConfiguration,
-		PachwInSidecar:    env.Config().PachwInSidecars,
 	}, nil
 }
 

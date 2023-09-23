@@ -50,7 +50,6 @@ type Env struct {
 
 	BackgroundContext context.Context
 	StorageConfig     pachconfig.StorageConfiguration
-	PachwInSidecar    bool
 }
 
 // NewAPIServer creates an APIServer.
