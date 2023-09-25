@@ -3747,6 +3747,17 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
+	effectiveDefaultsJSON, effectiveDefaults, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`)
+	if err != nil {
+		return nil, badRequest(ctx, fmt.Sprintf("could not merge cluster defaults %s into built-in defaults %s", req.GetClusterDefaultsJson(), builtInDefaultsJSON), []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults_json", Description: err.Error()},
+		})
+	}
+	if err := validateSpec(effectiveDefaults); err != nil {
+		return nil, badRequest(ctx, fmt.Sprintf("invalid effective cluster defaults %s", effectiveDefaultsJSON), []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults_json", Description: err.Error()},
+		})
+	}
 
 	if req.Regenerate {
 		// Determine if the new defaults imply changes to any pipelines.
