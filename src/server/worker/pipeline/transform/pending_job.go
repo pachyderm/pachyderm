@@ -108,7 +108,18 @@ func (pj *pendingJob) load() error {
 			}
 			// both commits must have succeeded - a validation error will only show up in the output
 			if metaCI.Error == "" && outputCI.Error == "" {
-				break
+				// Load the job info.
+				pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.Id, true)
+				if err != nil {
+					if !errutil.IsNotFoundError(err) {
+						return err
+					}
+					// Jobs are always expected to exist. In case a pachyderm instance contains a meta commit without a job, we gracefully handle it by skipping it for base meta commit selection.
+					pj.logger.Logf("base meta commit %q could not be selected for job %q because it was missing a job was missing an associated job", metaCI.Commit.String(), pj.ji.Job.String())
+				} else {
+					pj.clearJobStats()
+					break
+				}
 			}
 		}
 		pj.baseMetaCommit = metaCI.ParentCommit
@@ -118,12 +129,6 @@ func (pj *pendingJob) load() error {
 	} else {
 		pj.logger.Logf("base meta commit for job %q not selected", pj.ji.Job.String())
 	}
-	// Load the job info.
-	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.Id, true)
-	if err != nil {
-		return err
-	}
-	pj.clearJobStats()
 	return nil
 }
 
